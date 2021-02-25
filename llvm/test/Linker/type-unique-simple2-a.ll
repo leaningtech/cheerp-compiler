@@ -1,5 +1,7 @@
 ; REQUIRES: default_triple
 ;
+target triple = "x86_64-unknown-linux"
+
 ; RUN: llvm-link %s %p/type-unique-simple2-b.ll -S -o - | %llc_dwarf -filetype=obj -O0 | llvm-dwarfdump -v -debug-info - | FileCheck %s
 ;
 ; Tests for a merge error where attributes are inserted twice into the same DIE.

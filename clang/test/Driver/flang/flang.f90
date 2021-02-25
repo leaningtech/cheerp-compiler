@@ -39,11 +39,11 @@
 ! CHECK-EMIT-LLVM-BC-DAG: "-emit-llvm-bc"
 ! CHECK-EMIT-LLVM-BC-DAG: "-o" "{{[^"]*}}.bc"
 
-! RUN: %clang --driver-mode=flang -### -S                  %s 2>&1 | FileCheck --check-prefixes=ALL,CHECK-S %s
+! RUN: %clang -target x86_64-unknown-linux --driver-mode=flang -### -S                  %s 2>&1 | FileCheck --check-prefixes=ALL,CHECK-S %s
 ! CHECK-S-DAG: "-S"
 ! CHECK-S-DAG: "-o" "{{[^"]*}}.s"
 
-! RUN: %clang --driver-mode=flang -### -fintegrated-as     %s 2>&1 | FileCheck --check-prefixes=ALL,CHECK-EMIT-OBJ %s
+! RUN: %clang -target x86_64-unknown-linux --driver-mode=flang -### -fintegrated-as     %s 2>&1 | FileCheck --check-prefixes=ALL,CHECK-EMIT-OBJ %s
 ! CHECK-EMIT-OBJ-DAG: "-emit-obj"
 ! CHECK-EMIT-OBJ-DAG: "-o" "{{[^"]*}}.o"
 

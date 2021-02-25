@@ -1,4 +1,4 @@
-; RUN: llc -I %p/Inputs -filetype asm -o - %s | FileCheck %s
+; RUN: llc -march=x86 -I %p/Inputs -filetype asm -o - %s | FileCheck %s
 ; REQUIRES: default_triple
 
 module asm ".include \22module.x\22"

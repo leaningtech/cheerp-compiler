@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -emit-llvm < %s | grep "\$0,\$1"
+// RUN: %clang_cc1 -triple %itanium_abi_triple -emit-llvm < %s | grep "\$0,\$1"
 
 void f() {
   int d1, d2;

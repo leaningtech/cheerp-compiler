@@ -622,7 +622,7 @@ void test_variable_length_array(int n) {
 }
 
 // CHECK: define linkonce_odr hidden void @__default_constructor_8_AB8s8n4_s8_AE(
-// CHECK: call void @llvm.memset.p0i8.i64(i8* align 8 %{{.*}}, i8 0, i64 32, i1 false)
+// CHECK: call void @llvm.memset.p0i8.i32(i8* align 8 %{{.*}}, i8 0, i32 32, i1 false)
 void test_constructor_destructor_IDArray(void) {
   IDArray t;
 }

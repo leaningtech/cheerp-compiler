@@ -2,16 +2,16 @@
 // Test that only forward declarations are emitted for types defined in modules.
 
 // Modules:
-// RUN: %clang_cc1 -x objective-c -debug-info-kind=limited -dwarf-ext-refs -fmodules \
+// RUN: %clang_cc1 -triple %itanium_abi_triple -x objective-c -debug-info-kind=limited -dwarf-ext-refs -fmodules \
 // RUN:     -fmodule-format=obj -fimplicit-module-maps -DMODULES \
 // RUN:     -fmodules-cache-path=%t %s -I %S/Inputs -I %t -emit-llvm -o %t-mod.ll
 // RUN: cat %t-mod.ll |  FileCheck %s
 // RUN: cat %t-mod.ll |  FileCheck %s --check-prefix=DWOID
 
 // PCH:
-// RUN: %clang_cc1 -x objective-c -fmodule-format=obj -emit-pch -I%S/Inputs \
+// RUN: %clang_cc1 -triple %itanium_abi_triple -x objective-c -fmodule-format=obj -emit-pch -I%S/Inputs \
 // RUN:     -o %t.pch %S/Inputs/DebugObjC.h
-// RUN: %clang_cc1 -x objective-c -debug-info-kind=limited -dwarf-ext-refs \
+// RUN: %clang_cc1 -triple %itanium_abi_triple -x objective-c -debug-info-kind=limited -dwarf-ext-refs \
 // RUN:     -fmodule-format=obj \
 // RUN:     -include-pch %t.pch %s -emit-llvm -o %t-pch.ll %s
 // RUN: cat %t-pch.ll |  FileCheck %s

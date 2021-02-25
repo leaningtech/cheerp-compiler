@@ -2,6 +2,8 @@
 ; RUN: llvm-dwarfdump -debug-names %t | FileCheck %s
 ; RUN: llvm-dwarfdump -debug-names -verify %t | FileCheck --check-prefix=VERIFY %s
 
+target triple = "x86_64-unknown-linux"
+
 ; Check that the entry for the "__ARRAY_SIZE_TYPE__" index type is present in the
 ; accelerator table.
 ; CHECK: String: 0x{{[0-9a-f]*}} "__ARRAY_SIZE_TYPE__"

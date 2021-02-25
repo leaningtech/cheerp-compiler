@@ -9,7 +9,7 @@ $__llvm_profile_raw_version = comdat any
 
 define dso_local void @foo(i32 %n)  {
 entry:
-  call void @llvm.instrprof.increment(i8* getelementptr inbounds ([3 x i8], [3 x i8]* @__profn_foo, i32 0, i32 0), i64 29212902728, i32 2, i32 1)
+  call void @llvm.instrprof.increment(i8* bitcast ([3 x i8]* @__profn_foo to i8*), i64 29212902728, i32 2, i32 1)
   br label %for.cond
 
 for.cond:
@@ -21,7 +21,7 @@ for.cond:
   br i1 %or.cond, label %if.end, label %cleanup
 
 if.end:
-  call void @llvm.instrprof.increment(i8* getelementptr inbounds ([3 x i8], [3 x i8]* @__profn_foo, i32 0, i32 0), i64 29212902728, i32 2, i32 0)
+  call void @llvm.instrprof.increment(i8* bitcast ([3 x i8]* @__profn_foo to i8*), i64 29212902728, i32 2, i32 0)
   call void (...) @bar2()
   %inc = add nuw nsw i32 %i.0, 1
   br label %for.cond

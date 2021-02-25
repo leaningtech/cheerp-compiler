@@ -2,13 +2,13 @@
 @import DependsOnModule;
 
 // RUN: rm -rf %t %t-obj
-// RUN: %clang_cc1 -w -Wunused -fmodules -fmodule-format=raw -fimplicit-module-maps -fdisable-module-hash -fmodules-cache-path=%t -F %S/Inputs -DBLARG -DWIBBLE=WOBBLE -fmodule-feature myfeature %s
-// RUN: %clang_cc1 -module-file-info %t/DependsOnModule.pcm | FileCheck %s
-// RUN: %clang_cc1 -module-file-info %t/DependsOnModule.pcm | FileCheck %s --check-prefix=RAW
+// RUN: %clang_cc1 -triple %itanium_abi_triple -w -Wunused -fmodules -fmodule-format=raw -fimplicit-module-maps -fdisable-module-hash -fmodules-cache-path=%t -F %S/Inputs -DBLARG -DWIBBLE=WOBBLE -fmodule-feature myfeature %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -module-file-info %t/DependsOnModule.pcm | FileCheck %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -module-file-info %t/DependsOnModule.pcm | FileCheck %s --check-prefix=RAW
 
-// RUN: %clang_cc1 -w -Wunused -fmodules -fmodule-format=obj -fimplicit-module-maps -fdisable-module-hash -fmodules-cache-path=%t-obj -F %S/Inputs -DBLARG -DWIBBLE=WOBBLE -fmodule-feature myfeature %s
-// RUN: %clang_cc1 -module-file-info %t-obj/DependsOnModule.pcm | FileCheck %s
-// RUN: %clang_cc1 -module-file-info %t-obj/DependsOnModule.pcm | FileCheck %s --check-prefix=OBJ
+// RUN: %clang_cc1 -triple %itanium_abi_triple -w -Wunused -fmodules -fmodule-format=obj -fimplicit-module-maps -fdisable-module-hash -fmodules-cache-path=%t-obj -F %S/Inputs -DBLARG -DWIBBLE=WOBBLE -fmodule-feature myfeature %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -module-file-info %t-obj/DependsOnModule.pcm | FileCheck %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -module-file-info %t-obj/DependsOnModule.pcm | FileCheck %s --check-prefix=OBJ
 
 // RAW:   Module format: raw
 // OBJ:   Module format: obj

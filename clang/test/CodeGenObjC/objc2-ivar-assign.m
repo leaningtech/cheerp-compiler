@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fobjc-gc -emit-llvm -o %t %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -fobjc-gc -emit-llvm -o %t %s
 // RUN: grep objc_assign_ivar %t | count 6
 
 // PR13820

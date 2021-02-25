@@ -101,19 +101,19 @@ namespace test4 {
   //   Construct array.
   // CHECK-NEXT: [[ARRAY:%.*]] = getelementptr inbounds [[A]], [[A]]* [[THIS]], i32 0, i32 1
   // CHECK-NEXT: [[T0:%.*]] = bitcast [2 x [3 x i8*]]* [[ARRAY]] to i8*
-  // CHECK-NEXT: call void @llvm.memset.p0i8.i64(i8* align 8 [[T0]], i8 0, i64 48, i1 false)
+  // CHECK-NEXT: call void @llvm.memset.p0i8.i32(i8* align 8 [[T0]], i8 0, i32 48, i1 false)
   //   throw 0;
   // CHECK:      invoke void @__cxa_throw(
   //   Landing pad from throw site:
   // CHECK:      landingpad
   //     - First, destroy all of array.
-  // CHECK:      [[ARRAYBEGIN:%.*]] = getelementptr inbounds [3 x i8*], [3 x i8*]* {{.*}}, i32 0, i32 0
-  // CHECK-NEXT: [[ARRAYEND:%.*]] = getelementptr inbounds i8*, i8** [[ARRAYBEGIN]], i64 3
+  // CHECK:      [[ARRAYBEGIN:%.*]] = getelementptr inbounds [2 x [3 x i8*]], [2 x [3 x i8*]]* [[ARRAY]], i32 0, i32 0
+  // CHECK-NEXT: [[ARRAYEND:%.*]] = getelementptr inbounds [3 x i8*], [3 x i8*]* [[ARRAYBEGIN]], i64 2
   // CHECK-NEXT: br label
-  // CHECK:      [[AFTER:%.*]] = phi i8** [ [[ARRAYEND]], {{%.*}} ], [ [[ELT:%.*]], {{%.*}} ]
-  // CHECK-NEXT: [[ELT]] = getelementptr inbounds i8*, i8** [[AFTER]], i64 -1
-  // CHECK-NEXT: call void @llvm.objc.storeStrong(i8** [[ELT]], i8* null) [[NUW]]
-  // CHECK-NEXT: [[DONE:%.*]] = icmp eq i8** [[ELT]], [[ARRAYBEGIN]]
+  // CHECK:      [[AFTER:%.*]] = phi [3 x i8*]* [ [[ARRAYEND]], {{%.*}} ], [ [[ELT:%.*]], {{%.*}} ]
+  // CHECK-NEXT: [[ELT]] = getelementptr inbounds [3 x i8*], [3 x i8*]* [[AFTER]], i64 -1
+  // CHECK: call void @llvm.objc.storeStrong(i8** {{.*}}, i8* null) [[NUW]]
+  // CHECK: [[DONE:%.*]] = icmp eq [3 x i8*]* [[ELT]], [[ARRAYBEGIN]]
   // CHECK-NEXT: br i1 [[DONE]],
   //     - Next, destroy single.
   // CHECK:      call void @llvm.objc.storeStrong(i8** [[SINGLE]], i8* null) [[NUW]]

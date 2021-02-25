@@ -254,16 +254,16 @@ define i8* @test7(i8* %a) {
 ; IS__TUNIT____: Function Attrs: nofree nosync nounwind readnone willreturn
 ; IS__TUNIT____-LABEL: define {{[^@]+}}@test7
 ; IS__TUNIT____-SAME: (i8* nofree readnone returned "no-capture-maybe-returned" [[A:%.*]])
-; IS__TUNIT____-NEXT:    [[B:%.*]] = getelementptr inbounds i8, i8* [[A]], i64 0
+; IS__TUNIT____-NEXT:    [[B:%.*]] = bitcast i8* [[A]] to i8*
 ; IS__TUNIT____-NEXT:    ret i8* [[B]]
 ;
 ; IS__CGSCC____: Function Attrs: nofree norecurse nosync nounwind readnone willreturn
 ; IS__CGSCC____-LABEL: define {{[^@]+}}@test7
 ; IS__CGSCC____-SAME: (i8* nofree readnone returned "no-capture-maybe-returned" [[A:%.*]])
-; IS__CGSCC____-NEXT:    [[B:%.*]] = getelementptr inbounds i8, i8* [[A]], i64 0
+; IS__CGSCC____-NEXT:    [[B:%.*]] = bitcast i8* [[A]] to i8*
 ; IS__CGSCC____-NEXT:    ret i8* [[B]]
 ;
-  %b = getelementptr inbounds i8, i8* %a, i64 0
+  %b = bitcast i8* %a to i8*
   ret i8* %b
 }
 

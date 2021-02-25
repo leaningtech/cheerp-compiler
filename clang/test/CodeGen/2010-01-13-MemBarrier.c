@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 %s -emit-llvm -o - | FileCheck %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple %s -emit-llvm -o - | FileCheck %s
 // rdar://7536390
 
 typedef unsigned __INT32_TYPE__ uint32_t;

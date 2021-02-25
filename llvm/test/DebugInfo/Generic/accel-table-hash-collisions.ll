@@ -1,6 +1,8 @@
 ; RUN: %llc_dwarf -accel-tables=Apple -filetype=obj -o - < %s \
 ; RUN:   | llvm-dwarfdump -apple-names - | FileCheck %s
 
+target triple = "x86_64-unknown-linux"
+
 ; Generated from the following C code using
 ; clang -S -emit-llvm hash-collision.c
 ;

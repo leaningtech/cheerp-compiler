@@ -35,8 +35,8 @@ int main() {
   try {
     Container c1;
     // CHECK-LABEL: main
-    // CHECK: %{{.+}} = getelementptr inbounds %struct._Z9Container, %struct._Z9Container* %{{.+}}, i32 0, i32 1
-    // CHECK-NOT: %{{.+}} = bitcast %struct._Z9Container* %{{.+}} to %struct._Z12ImplicitCopy*
+    // CHECK: %{{.+}} = getelementptr inbounds %struct.Container, %struct.Container* %{{.+}}, i32 0, i32 1
+    // CHECK-NOT: %{{.+}} = bitcast %struct.Container* %{{.+}} to %struct.ImplicitCopy*
     Container c2(c1);
 
     return 2;

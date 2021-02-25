@@ -235,7 +235,8 @@ define i64 addrspace(4)* @forward_memcopy2(i64 addrspace(4)* addrspace(4)* %loc)
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[LOC_BC:%.*]] = bitcast i64 addrspace(4)* addrspace(4)* [[LOC:%.*]] to i8 addrspace(4)*
 ; CHECK-NEXT:    call void @llvm.memcpy.p4i8.p0i8.i64(i8 addrspace(4)* align 4 [[LOC_BC]], i8* bitcast (<4 x i64 addrspace(4)*>* @NonZeroConstant2 to i8*), i64 8, i1 false)
-; CHECK-NEXT:    ret i64 addrspace(4)* getelementptr (i64, i64 addrspace(4)* null, i32 3)
+; CHECK-NEXT:    [[REF:%.*]] = load i64 addrspace(4)*, i64 addrspace(4)* addrspace(4)* %loc
+; CHECK-NEXT:    ret i64 addrspace(4)* [[REF]]
 ;
 entry:
   %loc.bc = bitcast i64 addrspace(4)* addrspace(4)* %loc to i8 addrspace(4)*

@@ -414,15 +414,15 @@ struct ForwardDeclare1 {};
 
 void fn2(FnPtr1 a, SmallWithDtor b) { fn1(a, b); };
 // WIN32-LABEL: define dso_local void @"?fn2@@YAXP6AXUForwardDeclare1@@@ZUSmallWithDtor@@@Z"
-// WIN32:   %[[a:[^ ]*]] = getelementptr inbounds [[argmem_ty:<{ {}\*, %struct.SmallWithDtor }>]], [[argmem_ty:<{ {}\*, %struct.SmallWithDtor }>]]* %{{.*}}, i32 0, i32 0
-// WIN32:   %[[a1:[^ ]*]] = bitcast {}** %[[a]] to void [[dst_ty:\(%struct.ForwardDeclare1\*\)\*]]*
+// WIN32:   %[[a:[^ ]*]] = getelementptr inbounds [[argmem_ty:<{ void \(\)\*, %struct.SmallWithDtor }>]], [[argmem_ty:<{ void \(\)\*, %struct.SmallWithDtor }>]]* %{{.*}}, i32 0, i32 0
+// WIN32:   %[[a1:[^ ]*]] = bitcast void ()** %[[a]] to void [[dst_ty:\(%struct.ForwardDeclare1\*\)\*]]*
 // WIN32:   %[[argmem:[^ ]*]] = alloca inalloca [[argmem_ty]]
 // WIN32:   %[[gep1:[^ ]*]] = getelementptr inbounds [[argmem_ty]], [[argmem_ty]]* %[[argmem]], i32 0, i32 1
 // WIN32:   %[[bc1:[^ ]*]] = bitcast %struct.SmallWithDtor* %[[gep1]] to i8*
 // WIN32:   call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 4 %[[bc1]], i8* align 4 {{.*}}, i32 4, i1 false)
 // WIN32:   %[[a2:[^ ]*]] = load void [[dst_ty]], void [[dst_ty]]* %[[a1]], align 4
 // WIN32:   %[[gep2:[^ ]*]] = getelementptr inbounds [[argmem_ty]], [[argmem_ty]]* %[[argmem]], i32 0, i32 0
-// WIN32:   %[[addr:[^ ]*]] = bitcast %0** %[[gep2]] to void [[dst_ty]]*
+// WIN32:   %[[addr:[^ ]*]] = bitcast void ()** %[[gep2]] to void [[dst_ty]]*
 // WIN32:   store void [[dst_ty]] %[[a2]], void [[dst_ty]]* %[[addr]], align 4
 // WIN32:   call void @"?fn1@@YAXP6AXUForwardDeclare1@@@ZUSmallWithDtor@@@Z"([[argmem_ty]]* inalloca %[[argmem]])
 

@@ -69,7 +69,7 @@ TC
 // CHECK: [[FUNTYPE:![0-9]*]] = !DISubroutineType(types: [[FUNARGS:![0-9]*]])
 // CHECK: [[FUNARGS]] = !{null}
   &foo::e,
-// CHECK: [[TCARG5]] = !DITemplateValueParameter(name: "b", type: [[MEMFUNPTR:![0-9]*]], value: %memberptr { i64 ptrtoint (void (%struct._Z3foo*)* @_ZN3foo1fEv to i64), i64 0 })
+// CHECK: [[TCARG5]] = !DITemplateValueParameter(name: "b", type: [[MEMFUNPTR:![0-9]*]], value: %memberptr { i64 ptrtoint (void (%struct.foo*)* @_ZN3foo1fEv to i64), i64 0 })
 // CHECK: [[MEMFUNPTR]] = !DIDerivedType(tag: DW_TAG_ptr_to_member_type, {{.*}}baseType: [[FTYPE]], {{.*}}extraData: ![[FOO]])
   &foo::f,
 // CHECK: [[TCARG6]] = !DITemplateValueParameter(name: "f", type: [[FUNPTR:![0-9]*]], value: void ()* @_ZN3foo1gEv)

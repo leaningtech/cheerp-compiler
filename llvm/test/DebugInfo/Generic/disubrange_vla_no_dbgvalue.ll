@@ -4,6 +4,8 @@
 ; RUN: llvm-dwarfdump -verbose %t >> %t2
 ; RUN: cat %t2 | FileCheck %s
 
+target triple = "x86_64-unknown-linux"
+
 ; This test runs llvm-dwarfdump twice:
 ; - First to get the debug entry for 'vla', to get the array type node.
 ; - Second to check that the type entry does not contain a DW_AT_count.

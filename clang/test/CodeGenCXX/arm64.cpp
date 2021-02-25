@@ -95,23 +95,23 @@ namespace test3 {
   };
 
   // The offset half of the pointer is still initialized to zero.
-  // CHECK-GLOBALS-DAG: @_ZN5test34mptrE = global { i64, i64 } { i64 0, i64 1 }
+  // CHECK-GLOBALS-DAG: @_ZN5test34mptrE = global %memberptr { i64 0, i64 1 }
   void (A::*mptr)() = &A::foo;
 
   // CHECK-LABEL: define void @_ZN5test34testEv()
   // CHECK:       [[TEMP:%.*]] = alloca [[A:.*]], align 8
-  // CHECK:       [[MEMPTR:%.*]] = load { i64, i64 }, { i64, i64 }* @_ZN5test34mptrE, align 8
-  // CHECK:       [[ADJUST_AND_IS_VIRTUAL:%.*]] = extractvalue { i64, i64 } [[MEMPTR]], 1
+  // CHECK:       [[MEMPTR:%.*]] = load %memberptr, %memberptr* @_ZN5test34mptrE, align 8
+  // CHECK:       [[ADJUST_AND_IS_VIRTUAL:%.*]] = extractvalue %memberptr [[MEMPTR]], 1
   // CHECK:       [[ADJUST:%.*]] = ashr i64 [[ADJUST_AND_IS_VIRTUAL]], 1
   // CHECK:       [[T0:%.*]] = bitcast [[A]]* [[TEMP]] to i8*
   // CHECK:       [[T1:%.*]] = getelementptr inbounds i8, i8* [[T0]], i64 [[ADJUST]]
   // CHECK:       [[ADJUSTED:%.*]] = bitcast i8* [[T1]] to [[A]]*
-  // CHECK:       [[MEMBER:%.*]] = extractvalue { i64, i64 } [[MEMPTR]], 0
+  // CHECK:       [[MEMBER:%.*]] = extractvalue %memberptr [[MEMPTR]], 0
   // CHECK:       [[T0:%.*]] = and i64 [[ADJUST_AND_IS_VIRTUAL]], 1
   // CHECK:       [[IS_VIRTUAL:%.*]] = icmp ne i64 [[T0]], 0
   // CHECK:       br i1 [[IS_VIRTUAL]],
-  // CHECK:       [[T0:%.*]] = bitcast [[A]]* [[ADJUSTED]] to i8**
-  // CHECK:       [[VPTR:%.*]] = load i8*, i8** [[T0]], align 8
+  // CHECK:       [[T0:%.*]] = load
+  // CHECK:       [[VPTR:%.*]] = bitcast
   // CHECK:       [[TRUNC:%.*]] = trunc i64 [[MEMBER]] to i32
   // CHECK:       [[ZEXT:%.*]] = zext i32 [[TRUNC]] to i64
   // CHECK:       [[T0:%.*]] = getelementptr i8, i8* [[VPTR]], i64 [[ZEXT]]

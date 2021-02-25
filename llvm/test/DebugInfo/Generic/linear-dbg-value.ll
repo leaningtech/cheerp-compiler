@@ -2,6 +2,8 @@
 ; RUN: llc -stop-before=finalize-isel -pre-RA-sched=linearize -verify-machineinstrs=0 < %s | FileCheck %s
 source_filename = "linear-dbg-value.ll"
 
+target triple = "x86_64-unknown-linux"
+
 ; Function Attrs: nounwind readonly uwtable
 define i32 @foo(i32* nocapture readonly %a, i32 %N) local_unnamed_addr #0 !dbg !6 {
 entry:

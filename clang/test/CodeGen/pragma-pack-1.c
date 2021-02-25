@@ -58,11 +58,11 @@ struct S4
 // CHECK: [[struct_T]] = type <{ i8, i32 }>
 // CHECK: [[struct_T2]] = type { i8, i32 }
 
-// CHECK: %struct._Z2S3 = type { [3 x i8], i8, %struct._Z2T3, %struct._Z3T32 }
-// CHECK: %struct._Z2T3 = type <{ i8, i8, i32 }>
-// CHECK: %struct._Z3T32 = type { i8, i32 }
-// CHECK: %struct._Z2S4 = type { [3 x i8], %struct._Z2T4, i32 }
-// CHECK: %struct._Z2T4 = type <{ i8, i32 }>
+// CHECK: %struct.S3 = type { [3 x i8], i8, %struct.T3, %struct.T32 }
+// CHECK: %struct.T3 = type <{ i8, i8, i32 }>
+// CHECK: %struct.T32 = type { i8, i32 }
+// CHECK: %struct.S4 = type { [3 x i8], %struct.T4, i32 }
+// CHECK: %struct.T4 = type <{ i8, i32 }>
 
 // CHECK: @refs = global [[struct_ref]]
 // CHECK: @ss = global [[struct_S]]

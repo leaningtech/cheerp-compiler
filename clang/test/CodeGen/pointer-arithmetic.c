@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -S %s -o -
+// RUN: %clang_cc1 -triple %itanium_abi_triple -S %s -o -
 
 typedef int Int;
 

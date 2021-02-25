@@ -26,7 +26,8 @@ void g(A *a) { a->foo(); }
 
 // CHECK1-LABEL: define void @_ZN5test14fooAEv()
 // CHECK1: call void @_ZN5test11AC1Ev(%"struct.test1::A"*
-// CHECK1: %[[VTABLE:.*]] = load i8**, i8*** %{{.*}}
+// CHECK1: %[[VTABLE1:.*]] = load i32 (...)**, i32 (...)*** %{{.*}}
+// CHECK1: %[[VTABLE:.*]] = bitcast i32 (...)** %[[VTABLE1]]
 // CHECK1: %[[CMP:.*]] = icmp eq i8** %[[VTABLE]], getelementptr inbounds ({ [3 x i8*] }, { [3 x i8*] }* @_ZTVN5test11AE, i32 0, inrange i32 0, i32 2)
 // CHECK1: call void @llvm.assume(i1 %[[CMP]])
 // CHECK1-LABEL: {{^}}}

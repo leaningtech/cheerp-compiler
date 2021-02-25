@@ -1,6 +1,8 @@
 ; RUN: %llc_dwarf < %s -filetype=obj | llvm-dwarfdump -debug-line - | FileCheck %s
 ; RUN: %llc_dwarf < %s -filetype=asm | FileCheck --check-prefix=ASM %s
 
+target triple = "x86_64-unknown-linux"
+
 ; If multiple line tables are emitted, one per CU, those line tables can
 ; unambiguously rely on the comp_dir of their owning CU and use directory '0'
 ; to refer to it.

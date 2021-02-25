@@ -1,6 +1,8 @@
 ; RUN: llc -filetype=asm -asm-verbose=0 -O0 -dwarf-extended-loc=Enable < %s | FileCheck %s --check-prefix ENABLED --check-prefix CHECK
 ; RUN: llc -filetype=asm -asm-verbose=0 -O0 -dwarf-extended-loc=Disable < %s | FileCheck %s --check-prefix DISABLED --check-prefix CHECK
 
+target triple = "x86_64-unknown-linux"
+
 ; Check that the assembly output properly handles is_stmt changes. And since
 ; we're testing anyway, check the integrated assembler too.
 

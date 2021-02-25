@@ -1,11 +1,11 @@
 // Test for rdar://10278815
 
 // Without PCH
-// RUN: %clang_cc1 -fsyntax-only -verify -include %s %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -fsyntax-only -verify -include %s %s
 
 // With PCH
-// RUN: %clang_cc1 %s -emit-pch -o %t
-// RUN: %clang_cc1 -emit-llvm-only -verify %s -include-pch %t -debug-info-kind=limited
+// RUN: %clang_cc1 -triple %itanium_abi_triple %s -emit-pch -o %t
+// RUN: %clang_cc1 -triple %itanium_abi_triple -emit-llvm-only -verify %s -include-pch %t -debug-info-kind=limited
 
 // expected-no-diagnostics
 

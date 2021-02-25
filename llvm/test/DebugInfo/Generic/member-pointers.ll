@@ -1,5 +1,8 @@
 ; RUN: %llc_dwarf -filetype=obj -O0 < %s > %t
 ; RUN: llvm-dwarfdump -v -debug-info %t | FileCheck %s
+
+target triple = "x86_64-unknown-linux"
+
 ; CHECK: DW_TAG_ptr_to_member_type
 ; CHECK: DW_TAG_ptr_to_member_type
 ; CHECK-NEXT: DW_AT_type [DW_FORM_ref4]       (cu + {{.*}} => {[[TYPE:0x[0-9a-f]+]]}

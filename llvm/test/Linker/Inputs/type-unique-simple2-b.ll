@@ -1,5 +1,7 @@
 ; ModuleID = 'bar.cpp'
 
+target triple = "x86_64-unknown-linux"
+
 %struct.Base = type { i32, %struct.Base* }
 
 ; Function Attrs: nounwind ssp uwtable

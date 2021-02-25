@@ -50,7 +50,7 @@ struct wantslist1 {
 // X86: @_ZGR15globalInitList1_ = internal constant [3 x i32] [i32 1, i32 2, i32 3]
 // X86: @globalInitList1 = global %{{[^ ]+}} { i32* getelementptr inbounds ([3 x i32], [3 x i32]* @_ZGR15globalInitList1_, i32 0, i32 0), i{{32|64}} 3 }
 // AMDGCN: @_ZGR15globalInitList1_ = internal addrspace(1) constant [3 x i32] [i32 1, i32 2, i32 3]
-// AMDGCN: @globalInitList1 = addrspace(1) global %{{[^ ]+}} { i32* addrspacecast (i32 addrspace(1)* getelementptr inbounds ([3 x i32], [3 x i32] addrspace(1)* @_ZGR15globalInitList1_, i32 0, i32 0) to i32*), i{{32|64}} 3 }
+// AMDGCN: @globalInitList1 = addrspace(1) global %{{[^ ]+}} { i32* getelementptr ([3 x i32], [3 x i32]* addrspacecast ([3 x i32] addrspace(1)* @_ZGR15globalInitList1_ to [3 x i32]*), i32 0, i32 0), i{{32|64}} 3 }
 std::initializer_list<int> globalInitList1 = {1, 2, 3};
 
 #ifndef NO_TLS
@@ -488,13 +488,13 @@ namespace B19773010 {
   void f1() {
     // CHECK-LABEL: @_ZN9B197730102f1Ev
     testcase a{{"", ENUM_CONSTANT}};
-    // X86: store %"struct.B19773010::pair"* getelementptr inbounds ([1 x %"struct.B19773010::pair"], [1 x %"struct.B19773010::pair"]* bitcast ([1 x { i8*, i32 }]* @.ref.tmp{{.*}} to [1 x %"struct.B19773010::pair"]*), i64 0, i64 0), %"struct.B19773010::pair"** %{{.*}}, align 8
-    // AMDGCN: store %"struct.B19773010::pair"* getelementptr inbounds ([1 x %"struct.B19773010::pair"], [1 x %"struct.B19773010::pair"]* addrspacecast{{.*}} bitcast ([1 x { i8*, i32 }] addrspace(4)* @.ref.tmp{{.*}} to [1 x %"struct.B19773010::pair"] addrspace(4)*){{.*}}, i64 0, i64 0), %"struct.B19773010::pair"** %{{.*}}, align 8
+    // X86: store %"struct.B19773010::pair"* getelementptr inbounds ([1 x %"struct.B19773010::pair"], [1 x %"struct.B19773010::pair"]* @.ref.tmp{{.*}}, i64 0, i64 0), %"struct.B19773010::pair"** %{{.*}}, align 8
+    // AMDGCN: store %"struct.B19773010::pair"* getelementptr inbounds ([1 x %"struct.B19773010::pair"], [1 x %"struct.B19773010::pair"]* addrspacecast{{.*}} ([1 x %"struct.B19773010::pair"] addrspace(4)* @.ref.tmp{{.*}} to [1 x %"struct.B19773010::pair"]{{.*}}, i64 0, i64 0), %"struct.B19773010::pair"** %{{.*}}, align 8
   }
   void f2() {
     // CHECK-LABEL: @_ZN9B197730102f2Ev
-    // X86: store %"struct.B19773010::pair"* getelementptr inbounds ([1 x %"struct.B19773010::pair"], [1 x %"struct.B19773010::pair"]* bitcast ([1 x { i8*, i32 }]* @_ZGRZN9B197730102f2EvE1p_ to [1 x %"struct.B19773010::pair"]*), i64 0, i64 0), %"struct.B19773010::pair"** getelementptr inbounds ([2 x %"class.std::initializer_list.10"], [2 x %"class.std::initializer_list.10"]* @_ZZN9B197730102f2EvE1p, i64 0, i64 1, i32 0), align 16
-    // AMDGCN: store %"struct.B19773010::pair"* getelementptr inbounds ([1 x %"struct.B19773010::pair"], [1 x %"struct.B19773010::pair"]* addrspacecast{{.*}} bitcast ([1 x { i8*, i32 }] addrspace(1)* @_ZGRZN9B197730102f2EvE1p_ to [1 x %"struct.B19773010::pair"] addrspace(1)*){{.*}}, i64 0, i64 0), %"struct.B19773010::pair"** getelementptr inbounds ([2 x %"class.std::initializer_list.10"], [2 x %"class.std::initializer_list.10"]* addrspacecast{{.*}}@_ZZN9B197730102f2EvE1p{{.*}}, i64 0, i64 1, i32 0), align 8
+    // X86: store %"struct.B19773010::pair"* getelementptr inbounds ([1 x %"struct.B19773010::pair"], [1 x %"struct.B19773010::pair"]* @_ZGRZN9B197730102f2EvE1p_, i64 0, i64 0), %"struct.B19773010::pair"** getelementptr inbounds ([2 x %"class.std::initializer_list.10"], [2 x %"class.std::initializer_list.10"]* @_ZZN9B197730102f2EvE1p, i64 0, i64 1, i32 0), align 16
+    // AMDGCN: store %"struct.B19773010::pair"* getelementptr inbounds ([1 x %"struct.B19773010::pair"], [1 x %"struct.B19773010::pair"]* addrspacecast{{.*}} ([1 x %"struct.B19773010::pair"] addrspace(1)* @_ZGRZN9B197730102f2EvE1p_ to [1 x %"struct.B19773010::pair"]{{.*}}, i64 0, i64 0), %"struct.B19773010::pair"** getelementptr inbounds ([2 x %"class.std::initializer_list.10"], [2 x %"class.std::initializer_list.10"]* addrspacecast{{.*}}@_ZZN9B197730102f2EvE1p{{.*}}, i64 0, i64 1, i32 0), align 8
     static std::initializer_list<pair<const char *, E>> a, p[2] =
         {a, {{"", ENUM_CONSTANT}}};
   }

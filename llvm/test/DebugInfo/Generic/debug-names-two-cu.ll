@@ -2,6 +2,8 @@
 ; RUN: llvm-dwarfdump -debug-names %t | FileCheck %s
 ; RUN: llvm-dwarfdump -debug-names -verify %t | FileCheck --check-prefix=VERIFY %s
 
+target triple = "x86_64-unknown-linux"
+
 ; Check the header
 ; CHECK: CU count: 2
 ; CHECK: Local TU count: 0

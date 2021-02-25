@@ -113,14 +113,14 @@ void f() {
   // CHECK-NOT: call void @_ZN6PR98014TestC1Ev
   Test empty[3] = {};
 
-  // CHECK: call void @llvm.memset.p0i8.i64
+  // CHECK: call void @llvm.memset.p0i8.i32
   // CHECK-NOT: call void @llvm.memset.p0i8.i64
   // CHECK-CXX98: call void @_ZN6PR98015Test2C1Ev
   // CHECK-CXX17: call void @_ZN6PR98014TestC1Ev
   // CHECK-NOT: call void @_ZN6PR98015Test2C1Ev
   Test2 empty2[3] = {};
 
-  // CHECK: call void @llvm.memset.p0i8.i64
+  // CHECK: call void @llvm.memset.p0i8.i32
   // CHECK-NOT: call void @llvm.memset.p0i8.i64
   // CHECK-CXX98: call void @_ZN6PR98015Test3C1Ev
   // CHECK-CXX17: call void @_ZN6PR98014TestC2Ev
@@ -326,7 +326,7 @@ int explicitly_defaulted() {
   return a.n;
 } // CHECK-LABEL: }
 
-// CHECK-LABEL: define linkonce_odr void @_ZN8zeroinit2X3IiEC2Ev(%struct._ZN8zeroinit2X3IiEE* %this) unnamed_addr
+// CHECK-LABEL: define linkonce_odr void @_ZN8zeroinit2X3IiEC2Ev(%"struct.zeroinit::X3"* %this) unnamed_addr
 // CHECK: call void @llvm.memset.p0i8.i64
 // CHECK-NEXT: call void @_ZN8zeroinit2X2IiEC2Ev
 // CHECK-NEXT: ret void

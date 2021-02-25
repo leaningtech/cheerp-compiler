@@ -10,7 +10,7 @@ struct X {
   }
 };
 
-// RUN: c-index-test -test-load-source all -std=c++14 %s | FileCheck -check-prefix=CHECK-LOAD %s
+// RUN: c-index-test -test-load-source all -std=c++14 %s -target x86_64-unknown-linux | FileCheck -check-prefix=CHECK-LOAD %s
 // CHECK-LOAD: cxx14-lambdas.cpp:7:5: DeclStmt= Extent=[7:5 - 9:7]
 // CHECK-LOAD: cxx14-lambdas.cpp:7:10: VarDecl=lambda:7:10 (Definition) Extent=[7:5 - 9:6]
 // CHECK-LOAD: cxx14-lambdas.cpp:7:19: UnexposedExpr= Extent=[7:19 - 9:6]
@@ -27,7 +27,7 @@ struct X {
 // CHECK-LOAD: cxx14-lambdas.cpp:7:73: CompoundStmt= Extent=[7:73 - 9:6]
 // CHECK-LOAD: cxx14-lambdas.cpp:8:7: ReturnStmt= Extent=[8:7 - 8:29]
 
-// RUN: env CINDEXTEST_INDEXLOCALSYMBOLS=1 c-index-test -index-file -std=c++14 %s | FileCheck -check-prefix=CHECK-INDEX %s
+// RUN: env CINDEXTEST_INDEXLOCALSYMBOLS=1 c-index-test -index-file -std=c++14 %s -target x86_64-unknown-linux | FileCheck -check-prefix=CHECK-INDEX %s
 // CHECK-INDEX: [indexEntityReference]: kind: variable | name: ptr | USR: c:cxx14-lambdas.cpp@139@S@X@F@f#@Sa@F@operator()#I#1@ptr | lang: C | cursor: VariableRef=ptr:7:20 | loc: 7:20
 // CHECK-INDEX: [indexEntityReference]: kind: variable | name: copy | USR: c:cxx14-lambdas.cpp@154@S@X@F@f#@Sa@F@operator()#I#1@copy | lang: C | cursor: VariableRef=copy:7:35 | loc: 7:35
 // CHECK-INDEX: [indexDeclaration]: kind: variable | name: x | USR: c:cxx14-lambdas.cpp@170@S@X@F@f#@Sa@F@operator()#I#1@x | lang: C | cursor: ParmDecl=x:7:59 (Definition) | loc: 7:59

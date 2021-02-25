@@ -1,6 +1,8 @@
 ; Check that stack alignment can be forced. Individual targets should test their
 ; specific implementation details.
 
+target triple = "x86_64-unknown-linux"
+
 ; RUN: llc < %s -stackrealign -stack-alignment=32 | FileCheck %s
 ; CHECK-LABEL: @f
 ; CHECK-LABEL: @g

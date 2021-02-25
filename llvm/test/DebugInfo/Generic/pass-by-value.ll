@@ -1,5 +1,7 @@
 ; RUN: %llc_dwarf -O0 -filetype=obj < %s | llvm-dwarfdump -debug-info - | FileCheck %s
 ;
+target triple = "x86_64-unknown-linux"
+
 ; // S is not trivially copyable.
 ; struct S {
 ;    ~S() {}

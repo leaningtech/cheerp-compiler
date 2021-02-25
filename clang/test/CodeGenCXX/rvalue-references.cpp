@@ -11,8 +11,8 @@ B &getB();
 // CHECK: call nonnull align {{[0-9]+}} dereferenceable({{[0-9]+}}) %struct.B* @_Z4getBv()
 // CHECK-NEXT: bitcast %struct.B*
 // CHECK-NEXT: getelementptr inbounds i8, i8*
-// CHECK-NEXT: bitcast i8* {{.*}} to %struct._Z1A*
-// CHECK-NEXT: ret %struct._Z1A*
+// CHECK-NEXT: bitcast i8* {{.*}} to %struct.A*
+// CHECK-NEXT: ret %struct.A*
 A &&getA() { return static_cast<A&&>(getB()); }
 
 int &getIntLValue();

@@ -8,6 +8,8 @@
 ; RUN: llvm-dwarfdump -debug-names -verify %t.All | FileCheck --check-prefix=VERIFY %s
 ; RUN: llvm-dwarfdump -debug-names -verify %t.Abstract | FileCheck --check-prefix=VERIFY %s
 
+target triple = "x86_64-unknown-linux"
+
 ; We should have all three linkage names in the .debug_info and .debug_names
 ; ALL: .debug_info contents:
 ; ALL: DW_AT_linkage_name	("_ZN1n1vE")

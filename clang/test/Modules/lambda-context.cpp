@@ -1,5 +1,5 @@
-// RUN: %clang_cc1 -fmodules -std=c++11 -emit-pch -o %t %s
-// RUN: %clang_cc1 -fmodules -std=c++11 -include-pch %t %s -verify
+// RUN: %clang_cc1 -triple %itanium_abi_triple -fmodules -std=c++11 -emit-pch -o %t %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -fmodules -std=c++11 -include-pch %t %s -verify
 //
 // This test checks for a bug in the deserialization code that was only
 // reachable with modules enabled, but actually building and using modules is

@@ -183,7 +183,7 @@ int templ_use() {
 // WINDOWS: define linkonce_odr dso_local i32 @"?foo@S@@QEAAHH@Z.sse4.2"(%struct.S* %this, i32 %0)
 // WINDOWS: ret i32 0
 
-// LINUX: declare i32 @_ZN1S3fooEi.arch_sandybridge(%struct._Z1S*, i32)
+// LINUX: declare i32 @_ZN1S3fooEi.arch_sandybridge(%struct.S*, i32)
 
 // WINDOWS: declare dso_local i32 @"?foo@S@@QEAAHH@Z.arch_sandybridge"(%struct.S*, i32)
 

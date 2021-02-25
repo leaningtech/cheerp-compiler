@@ -2,6 +2,7 @@
 # RUN: llc -run-pass=mir-strip-debug,mir-debugify,mir-strip-debug -o - %s | FileCheck %s
 --- |
   ; ModuleID = 'loc-only.ll'
+  target triple = "x86_64-unknown-linux"
   source_filename = "loc-only.ll"
   
   define i32 @test(i32 %a, i32 %b) !dbg !4 {

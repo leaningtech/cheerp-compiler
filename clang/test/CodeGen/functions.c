@@ -55,7 +55,7 @@ void f8_user(void (*callback)(struct Incomplete));
 void f8_test() {
   f8_user(&f8_callback);
 // CHECK-LABEL: define void @f8_test()
-// CHECK: call void @f8_user({{.*}}* bitcast (void ()* @f8_callback to {{.*}}*))
+// CHECK: call void @f8_user(void ()* @f8_callback)
 // CHECK: declare void @f8_user({{.*}}*)
 // CHECK: declare void @f8_callback()
 }

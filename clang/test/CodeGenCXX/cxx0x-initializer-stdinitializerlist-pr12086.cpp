@@ -63,7 +63,7 @@ std::initializer_list<std::initializer_list<int>> nested = {
 // CHECK-STATIC-BL:   {{.*}} { i32* getelementptr inbounds ([2 x i32], [2 x i32]* @_ZGR6nested1_, i32 0, i32 0), i64 2 },
 // CHECK-STATIC-BL:   {{.*}} { i32* getelementptr inbounds ([2 x i32], [2 x i32]* @_ZGR6nested2_, i32 0, i32 0), i64 2 }
 // CHECK-STATIC-BL: ], align 8
-// CHECK-STATIC-BL: @nested = global {{.*}} { {{.*}} bitcast ([3 x {{.*}}]* @_ZGR6nested_ to {{.*}}*), i64 3 }, align 8
+// CHECK-STATIC-BL: @nested = global {{.*}} { {{.*}} getelementptr inbounds ([3 x {{.*}}], [3 x {{.*}}]* @_ZGR6nested_, i32 0, i32 0), i64 3 }, align 8
 
 // CHECK-DYNAMIC-BL: @nested = global
 // CHECK-DYNAMIC-BL: @_ZGR6nested_ = internal global [3 x
@@ -94,14 +94,14 @@ std::initializer_list<std::initializer_list<int>> nested = {
 // CHECK-STATIC-BE: @_ZGR6nested2_ = internal constant [2 x i32] [i32 5, i32 6], align 4
 // CHECK-STATIC-BE: @_ZGR6nested_ = internal constant [3 x {{.*}}] [
 // CHECK-STATIC-BE:   {{.*}} { i32* getelementptr inbounds ([2 x i32], [2 x i32]* @_ZGR6nested0_, i32 0, i32 0),
-// CHECK-STATIC-BE:            i32* bitcast (i8* getelementptr (i8, i8* bitcast ([2 x i32]* @_ZGR6nested0_ to i8*), i64 8) to i32*) }
-// CHECK-STATIC-BE:   {{.*}} { i32* bitcast ([2 x i32]* @_ZGR6nested1_ to i32*),
-// CHECK-STATIC-BE:            i32* bitcast (i8* getelementptr (i8, i8* bitcast ([2 x i32]* @_ZGR6nested1_ to i8*), i64 8) to i32*) }
-// CHECK-STATIC-BE:   {{.*}} { i32* bitcast ([2 x i32]* @_ZGR6nested2_ to i32*),
-// CHECK-STATIC-BE:            i32* bitcast (i8* getelementptr (i8, i8* bitcast ([2 x i32]* @_ZGR6nested2_ to i8*), i64 8) to i32*) }
+// CHECK-STATIC-BE:            i32* getelementptr ([2 x i32], [2 x i32]* @_ZGR6nested0_, i32 0, i32 2) }
+// CHECK-STATIC-BE:   {{.*}} { i32* getelementptr inbounds ([2 x i32], [2 x i32]* @_ZGR6nested1_, i32 0, i32 0),
+// CHECK-STATIC-BE:            i32* getelementptr ([2 x i32], [2 x i32]* @_ZGR6nested1_, i32 0, i32 2) }
+// CHECK-STATIC-BE:   {{.*}} { i32* getelementptr inbounds ([2 x i32], [2 x i32]* @_ZGR6nested2_, i32 0, i32 0),
+// CHECK-STATIC-BE:            i32* getelementptr ([2 x i32], [2 x i32]* @_ZGR6nested2_, i32 0, i32 2) }
 // CHECK-STATIC-BE: ], align 8
-// CHECK-STATIC-BE: @nested = global {{.*}} { {{.*}} bitcast ([3 x {{.*}}]* @_ZGR6nested_ to {{.*}}"*),
-// CHECK-STATIC-BE:                           {{.*}} bitcast ({{.*}}* getelementptr (i8, i8* bitcast ([3 x {{.*}}]* @_ZGR6nested_ to i8*), i64 48) to {{.*}}*) }
+// CHECK-STATIC-BE: @nested = global {{.*}} { {{.*}} getelementptr {{.*}}[3 x {{.*}}]* @_ZGR6nested_, i32 0, i32 0),
+// CHECK-STATIC-BE:                           {{.*}} getelementptr {{.*}}[3 x {{.*}}]* @_ZGR6nested_,
 
 // CHECK-DYNAMIC-BE: @nested = global
 // CHECK-DYNAMIC-BE: @_ZGR6nested_ = internal global [3 x

@@ -20,7 +20,7 @@ namespace test0 {
   // CHECK-NEXT: [[SEL:%.*]] = alloca i32
 
   // Initialize.
-  // CHECK-NEXT: [[E_BEGIN:%.*]] = getelementptr inbounds [10 x [[A]]], [10 x [[A]]], [10 x [[A]]], [10 x [[A]]]* [[AS]], i64 0, i64 0
+  // CHECK-NEXT: [[E_BEGIN:%.*]] = getelementptr inbounds [10 x [[A]]], [10 x [[A]]]* [[AS]], i64 0, i64 0
   // CHECK-NEXT: store [[A]]* [[E_BEGIN]], [[A]]** [[ENDVAR]]
   // CHECK-NEXT: invoke void @_ZN5test01AC1Ei([[A]]* [[E_BEGIN]], i32 5)
   // CHECK:      [[E1:%.*]] = getelementptr inbounds [[A]], [[A]]* [[E_BEGIN]], i64 1
@@ -28,7 +28,7 @@ namespace test0 {
   // CHECK-NEXT: invoke void @_ZN5test01AC1Ei([[A]]* [[E1]], i32 7)
   // CHECK:      [[E2:%.*]] = getelementptr inbounds [[A]], [[A]]* [[E1]], i64 1
   // CHECK-NEXT: store [[A]]* [[E2]], [[A]]** [[ENDVAR]]
-  // CHECK-NEXT: [[E_END:%.*]] = getelementptr inbounds [[A]], [[A]], [[A]], [[A]]* [[E_BEGIN]], i64 10
+  // CHECK-NEXT: [[E_END:%.*]] = getelementptr inbounds [[A]], [[A]]* [[E_BEGIN]], i64 10
   // CHECK-NEXT: br label
   // CHECK:      [[E_CUR:%.*]] = phi [[A]]* [ [[E2]], {{%.*}} ], [ [[E_NEXT:%.*]], {{%.*}} ]
   // CHECK-NEXT: invoke void @_ZN5test01AC1Ev([[A]]* [[E_CUR]])
@@ -41,8 +41,8 @@ namespace test0 {
   // CHECK:      invoke void @_Z6opaquev()
 
   // Normal destroy.
-  // CHECK:      [[ED_BEGIN:%.*]] = getelementptr inbounds [10 x [[A]]], [10 x [[A]]], [10 x [[A]]], [10 x [[A]]]* [[AS]], i32 0, i32 0
-  // CHECK-NEXT: [[ED_END:%.*]] = getelementptr inbounds [[A]], [[A]], [[A]], [[A]]* [[ED_BEGIN]], i64 10
+  // CHECK:      [[ED_BEGIN:%.*]] = getelementptr inbounds [10 x [[A]]], [10 x [[A]]]* [[AS]], i32 0, i32 0
+  // CHECK-NEXT: [[ED_END:%.*]] = getelementptr inbounds [[A]], [[A]]* [[ED_BEGIN]], i64 10
   // CHECK-NEXT: br label
   // CHECK:      [[ED_AFTER:%.*]] = phi [[A]]* [ [[ED_END]], {{%.*}} ], [ [[ED_CUR:%.*]], {{%.*}} ]
   // CHECK-NEXT: [[ED_CUR]] = getelementptr inbounds [[A]], [[A]]* [[ED_AFTER]], i64 -1
@@ -68,8 +68,8 @@ namespace test0 {
   // Primary EH destructor.
   // CHECK:      landingpad { i8*, i32 }
   // CHECK-NEXT:   cleanup
-  // CHECK:      [[E0:%.*]] = getelementptr inbounds [10 x [[A]]], [10 x [[A]]], [10 x [[A]]], [10 x [[A]]]* [[AS]], i32 0, i32 0
-  // CHECK-NEXT: [[E_END:%.*]] = getelementptr inbounds [[A]], [[A]], [[A]], [[A]]* [[E0]], i64 10
+  // CHECK:      [[E0:%.*]] = getelementptr inbounds [10 x [[A]]], [10 x [[A]]]* [[AS]], i32 0, i32 0
+  // CHECK-NEXT: [[E_END:%.*]] = getelementptr inbounds [[A]], [[A]]* [[E0]], i64 10
   // CHECK-NEXT: br label
 
   // Partial destructor for primary normal destructor.
@@ -143,22 +143,22 @@ namespace test2 {
     // CHECK-NEXT: alloca i32
 
     // Main initialization loop.
-    // CHECK: [[BEGIN:%.*]] = getelementptr inbounds [7 x [[A]]], [7 x [[A]]]* {{.*}}, i32 0, i32 0
-    // CHECK-NEXT: [[END:%.*]] = getelementptr inbounds [[A]], [[A]]* [[BEGIN]], i64 7
+    // CHECK-NEXT: [[BEGIN:%.*]] = getelementptr inbounds [4 x [7 x [[A]]]], [4 x [7 x [[A]]]]* [[V]], i32 0, i32 0
+    // CHECK-NEXT: [[END:%.*]] = getelementptr inbounds [7 x [[A]]], [7 x [[A]]]* [[BEGIN]], i64 4
     // CHECK-NEXT: br label
-    // CHECK:      [[CUR:%.*]] = phi [[A]]* [ [[BEGIN]], {{%.*}} ], [ [[NEXT:%.*]], {{%.*}} ]
-    // CHECK-NEXT: invoke void @_ZN5test21AC1Ev([[A]]* [[CUR]])
-    // CHECK:      [[NEXT:%.*]] = getelementptr inbounds [[A]], [[A]]* [[CUR]], i64 1
-    // CHECK-NEXT: [[DONE:%.*]] = icmp eq [[A]]* [[NEXT]], [[END]]
+    // CHECK:      [[CUR:%.*]] = phi [7 x [[A]]]* [ [[BEGIN]], {{%.*}} ], [ [[NEXT:%.*]], {{%.*}} ]
+    // CHECK: invoke void @_ZN5test21AC1Ev([[A]]* {{.*}})
+    // CHECK:      [[NEXT:%.*]] = getelementptr inbounds [7 x [[A]]], [7 x [[A]]]* [[CUR]], i64 1
+    // CHECK-NEXT: [[DONE:%.*]] = icmp eq [7 x [[A]]]* [[NEXT]], [[END]]
     // CHECK-NEXT: br i1 [[DONE]],
 
     // Partial destruction landing pad.
     // CHECK:      landingpad { i8*, i32 }
     // CHECK-NEXT:   cleanup
-    // CHECK:      [[EMPTY:%.*]] = icmp eq [[A]]* [[BEGIN]], [[CUR]]
+    // CHECK:      [[EMPTY:%.*]] = icmp eq [[A]]*
     // CHECK-NEXT: br i1 [[EMPTY]],
-    // CHECK:      [[PAST:%.*]] = phi [[A]]* [ [[CUR]], {{%.*}} ], [ [[DEL:%.*]], {{%.*}} ]
-    // CHECK-NEXT: [[DEL]] = getelementptr inbounds [[A]], [[A]]* [[PAST]], i64 -1
+    // CHECK:      [[PAST:%.*]] = phi [[A]]*
+    // CHECK-NEXT: [[DEL:%.*]] = getelementptr inbounds [[A]], [[A]]* {{.*}}, i64 -1
     // CHECKv03-NEXT: invoke void @_ZN5test21AD1Ev([[A]]* [[DEL]])
     // CHECKv11-NEXT: call   void @_ZN5test21AD1Ev([[A]]* [[DEL]])
     // CHECK:      [[T0:%.*]] = icmp eq [[A]]* [[DEL]], [[BEGIN]]

@@ -1,6 +1,6 @@
-// RUN: %clang_cc1 %s -fsyntax-only -verify
-// RUN: %clang_cc1 %s -fsyntax-only -triple=x86_64-windows-coff -verify
-// RUN: %clang_cc1 %s -fsyntax-only -triple=x86_64-scei-ps4 -verify
+// RUN: %clang_cc1 -triple %itanium_abi_triple %s -fsyntax-only -verify
+// RUN: %clang_cc1 -triple %itanium_abi_triple %s -fsyntax-only -triple=x86_64-windows-coff -verify
+// RUN: %clang_cc1 -triple %itanium_abi_triple %s -fsyntax-only -triple=x86_64-scei-ps4 -verify
 
 // Packed structs.
 struct s {

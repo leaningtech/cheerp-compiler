@@ -41,12 +41,12 @@ void f() {
   // EXCEPTIONS-NEXT: to label %[[CONT:.*]] unwind label %[[LPAD:.*]]
 
   // EXCEPTIONS: [[CONT]]:
-  // EXCEPTIONS-NEXT: call void @_ZN9InheritorD1Ev(%struct._Z9Inheritor* {{.*}})
-  // EXCEPTIONS-NEXT: call void @_ZN2S2D1Ev(%struct._Z2S2* %[[TMP2]])
-  // EXCEPTIONS-NEXT: call void @_ZN2S1D1Ev(%struct._Z2S1* %[[TMP1]])
+  // EXCEPTIONS-NEXT: call void @_ZN9InheritorD1Ev(%struct.Inheritor* {{.*}})
+  // EXCEPTIONS-NEXT: call void @_ZN2S2D1Ev(%struct.S2* %[[TMP2]])
+  // EXCEPTIONS-NEXT: call void @_ZN2S1D1Ev(%struct.S1* %[[TMP1]])
 
   // EXCEPTIONS: [[LPAD]]:
-  // EXCEPTIONS: call void @_ZN14NonTrivialDtorD2Ev(%struct._Z14NonTrivialDtor* {{.*}})
-  // EXCEPTIONS-NEXT: call void @_ZN2S2D1Ev(%struct._Z2S2* %[[TMP2]])
-  // EXCEPTIONS-NEXT: call void @_ZN2S1D1Ev(%struct._Z2S1* %[[TMP1]])
+  // EXCEPTIONS: call void @_ZN14NonTrivialDtorD2Ev(%struct.NonTrivialDtor* {{.*}})
+  // EXCEPTIONS-NEXT: call void @_ZN2S2D1Ev(%struct.S2* %[[TMP2]])
+  // EXCEPTIONS-NEXT: call void @_ZN2S1D1Ev(%struct.S1* %[[TMP1]])
 }

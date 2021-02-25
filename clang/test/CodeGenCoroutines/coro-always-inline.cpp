@@ -42,13 +42,9 @@ struct coroutine_traits {
 // CHECK-LABEL: entry:
 // CHECK-NEXT: %this.addr.i{{[0-9]*}} = alloca %"struct.std::experimental::awaitable"*, align 8
 // CHECK-NEXT: %this.addr.i{{[0-9]*}} = alloca %"struct.std::experimental::awaitable"*, align 8
-// CHECK: [[CAST0:%[0-9]+]] = bitcast %"struct.std::experimental::awaitable"** %this.addr.i{{[0-9]*}} to i8*
-// CHECK-NEXT: call void @llvm.lifetime.start.p0i8(i64 8, i8* [[CAST0]])
-// CHECK: [[CAST1:%[0-9]+]] = bitcast %"struct.std::experimental::awaitable"** %this.addr.i{{[0-9]*}} to i8*
-// CHECK-NEXT: call void @llvm.lifetime.end.p0i8(i64 8, i8* [[CAST1]])
+// CHECK: call void @"llvm.lifetime.start{{.*}}(i64 8, %"struct.std::experimental::awaitable"** %this.addr.i{{[0-9]*}}
+// CHECK: call void @"llvm.lifetime.end.{{.*}}(i64 8, %"struct.std::experimental::awaitable"** %this.addr.i{{[0-9]*}}
 
-// CHECK: [[CAST2:%[0-9]+]] = bitcast %"struct.std::experimental::awaitable"** %this.addr.i{{[0-9]*}} to i8*
-// CHECK-NEXT: call void @llvm.lifetime.start.p0i8(i64 8, i8* [[CAST2]])
-// CHECK: [[CAST3:%[0-9]+]] = bitcast %"struct.std::experimental::awaitable"** %this.addr.i{{[0-9]*}} to i8*
-// CHECK-NEXT: call void @llvm.lifetime.end.p0i8(i64 8, i8* [[CAST3]])
+// CHECK: call void @"llvm.lifetime.start{{.*}}(i64 8, %"struct.std::experimental::awaitable"** %this.addr.i{{[0-9]*}}
+// CHECK: call void @"llvm.lifetime.end{{.*}}(i64 8, %"struct.std::experimental::awaitable"** %this.addr.i{{[0-9]*}}
 void foo() { co_return; }

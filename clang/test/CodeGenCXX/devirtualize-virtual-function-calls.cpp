@@ -15,7 +15,7 @@ A g();
 void f(A a, A *ap, A& ar) {
   // This should not be a virtual function call.
   
-  // CHECK: call void @_ZN1A1fEv(%struct._Z1A* %a)
+  // CHECK: call void @_ZN1A1fEv(%struct.A* %a)
   a.f();
 
   // CHECK: call void %  
@@ -127,7 +127,7 @@ namespace test2 {
 
   void f(bar *b) {
     // CHECK: call void @_ZN5test23foo1fEv
-    // CHECK: call %struct._ZN5test23fooE* @_ZN5test23fooD1Ev
+    // CHECK: call %"struct.test2::foo"* @_ZN5test23fooD1Ev
     b->foo::f();
     b->foo::~foo();
   }

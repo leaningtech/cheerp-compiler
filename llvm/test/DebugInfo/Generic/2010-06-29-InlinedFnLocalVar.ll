@@ -5,6 +5,8 @@
 ; CHECK:	DW_TAG_structure_type
 ; CHECK-NEXT:	DW_AT_name
 
+target triple = "x86_64-unknown-linux"
+
 source_filename = "test/DebugInfo/Generic/2010-06-29-InlinedFnLocalVar.ll"
 
 @i = common global i32 0, !dbg !0

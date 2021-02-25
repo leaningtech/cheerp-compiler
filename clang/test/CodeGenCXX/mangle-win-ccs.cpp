@@ -46,7 +46,7 @@ struct Foo { void bar(int, int); };
 // CHECK: define dso_local void @_Z15memptr_thiscallP3FooMS_FvvE(%struct.Foo* {{.*}})
 void memptr_thiscall(Foo *o, void (Foo::*mp)()) { (o->*mp)(); }
 
-// CHECK: define dso_local void @_Z12memptrCCTypeR3FooMS_U8fastcallFviiE(%struct.Foo* {{.*}}, { i32, i32 }* byval{{.*}})
+// CHECK: define dso_local void @_Z12memptrCCTypeR3FooMS_U8fastcallFviiE(%struct.Foo* {{.*}}, %memberptr* byval{{.*}})
 void memptrCCType(Foo &o, void (__attribute__((fastcall)) Foo::*mp)(int, int)) {
   (o.*mp)(1, 2);
 }

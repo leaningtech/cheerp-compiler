@@ -2,6 +2,8 @@
 ; and DW_OP_lit13 is correctly omitted.
 ; XFAIL: hexagon
 
+target triple = "x86_64-unknown-linux"
+
 ; RUN: %llc_dwarf -O2  -dwarf-version 2 -filetype=obj < %s | llvm-dwarfdump - | FileCheck %s  --check-prefix=DWARF23
 ; RUN: %llc_dwarf -O2  -dwarf-version 3 -filetype=obj < %s | llvm-dwarfdump - | FileCheck %s  --check-prefix=DWARF23
 ; RUN: %llc_dwarf -O2  -dwarf-version 4 -filetype=obj < %s | llvm-dwarfdump - | FileCheck %s  --check-prefix=DWARF4

@@ -62,7 +62,7 @@ namespace HiddenVariableTemplateWithConstRef {
 // CHECK: @_ZGRN24VariableTemplateWithPack1sIJLi1ELi2ELi3ELi4EEEE4_ = linkonce_odr global {{.*}} { i32* @_ZGRN24VariableTemplateWithPack1sIJLi1ELi2ELi3ELi4EEEE5_ }
 // CHECK: @_ZGRN24VariableTemplateWithPack1sIJLi1ELi2ELi3ELi4EEEE7_ = linkonce_odr constant i32 4
 // CHECK: @_ZGRN24VariableTemplateWithPack1sIJLi1ELi2ELi3ELi4EEEE6_ = linkonce_odr global {{.*}} { i32* @_ZGRN24VariableTemplateWithPack1sIJLi1ELi2ELi3ELi4EEEE7_ }
-// CHECK: @_ZGRN24VariableTemplateWithPack1sIJLi1ELi2ELi3ELi4EEEE_ = linkonce_odr global %struct._ZN24VariableTemplateWithPack1SE { {{.*}}* @_ZGRN24VariableTemplateWithPack1sIJLi1ELi2ELi3ELi4EEEE0_, {{.*}}* @_ZGRN24VariableTemplateWithPack1sIJLi1ELi2ELi3ELi4EEEE2_, {{.*}}* @_ZGRN24VariableTemplateWithPack1sIJLi1ELi2ELi3ELi4EEEE4_, {{.*}}* @_ZGRN24VariableTemplateWithPack1sIJLi1ELi2ELi3ELi4EEEE6_ }
+// CHECK: @_ZGRN24VariableTemplateWithPack1sIJLi1ELi2ELi3ELi4EEEE_ = linkonce_odr global %"struct.VariableTemplateWithPack::S" { {{.*}}* @_ZGRN24VariableTemplateWithPack1sIJLi1ELi2ELi3ELi4EEEE0_, {{.*}}* @_ZGRN24VariableTemplateWithPack1sIJLi1ELi2ELi3ELi4EEEE2_, {{.*}}* @_ZGRN24VariableTemplateWithPack1sIJLi1ELi2ELi3ELi4EEEE4_, {{.*}}* @_ZGRN24VariableTemplateWithPack1sIJLi1ELi2ELi3ELi4EEEE6_ }
 // CHECK: @_ZN24VariableTemplateWithPack1pE = global {{.*}} @_ZGRN24VariableTemplateWithPack1sIJLi1ELi2ELi3ELi4EEEE_
 namespace VariableTemplateWithPack {
   struct A {

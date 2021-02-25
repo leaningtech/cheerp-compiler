@@ -12,7 +12,7 @@ define internal void @add({i32, i32}* %this, i32* sret %r) {
 ; IS__TUNIT_OPM: Function Attrs: argmemonly nofree nosync nounwind willreturn
 ; IS__TUNIT_OPM-LABEL: define {{[^@]+}}@add
 ; IS__TUNIT_OPM-SAME: ({ i32, i32 }* nocapture nofree nonnull readonly align 8 dereferenceable(8) [[THIS:%.*]], i32* nocapture nofree nonnull sret writeonly align 4 dereferenceable(4) [[R:%.*]])
-; IS__TUNIT_OPM-NEXT:    [[AP:%.*]] = getelementptr { i32, i32 }, { i32, i32 }* [[THIS]], i32 0, i32 0
+; IS__TUNIT_OPM-NEXT:    [[AP:%.*]] = bitcast { i32, i32 }* [[THIS]] to i32*
 ; IS__TUNIT_OPM-NEXT:    [[BP:%.*]] = getelementptr { i32, i32 }, { i32, i32 }* [[THIS]], i32 0, i32 1
 ; IS__TUNIT_OPM-NEXT:    [[A:%.*]] = load i32, i32* [[AP]], align 8
 ; IS__TUNIT_OPM-NEXT:    [[B:%.*]] = load i32, i32* [[BP]], align 4
@@ -23,7 +23,7 @@ define internal void @add({i32, i32}* %this, i32* sret %r) {
 ; IS__TUNIT_NPM: Function Attrs: argmemonly nofree nosync nounwind willreturn
 ; IS__TUNIT_NPM-LABEL: define {{[^@]+}}@add
 ; IS__TUNIT_NPM-SAME: ({ i32, i32 }* noalias nocapture nofree nonnull readonly align 8 dereferenceable(8) [[THIS:%.*]], i32* noalias nocapture nofree nonnull sret writeonly align 4 dereferenceable(4) [[R:%.*]])
-; IS__TUNIT_NPM-NEXT:    [[AP:%.*]] = getelementptr { i32, i32 }, { i32, i32 }* [[THIS]], i32 0, i32 0
+; IS__TUNIT_NPM-NEXT:    [[AP:%.*]] = bitcast { i32, i32 }* [[THIS]] to i32*
 ; IS__TUNIT_NPM-NEXT:    [[BP:%.*]] = getelementptr { i32, i32 }, { i32, i32 }* [[THIS]], i32 0, i32 1
 ; IS__TUNIT_NPM-NEXT:    [[A:%.*]] = load i32, i32* [[AP]], align 8
 ; IS__TUNIT_NPM-NEXT:    [[B:%.*]] = load i32, i32* [[BP]], align 4
@@ -34,7 +34,7 @@ define internal void @add({i32, i32}* %this, i32* sret %r) {
 ; IS__CGSCC____: Function Attrs: argmemonly nofree norecurse nosync nounwind willreturn
 ; IS__CGSCC____-LABEL: define {{[^@]+}}@add
 ; IS__CGSCC____-SAME: ({ i32, i32 }* nocapture nofree nonnull readonly align 8 dereferenceable(8) [[THIS:%.*]], i32* nocapture nofree nonnull sret writeonly align 4 dereferenceable(4) [[R:%.*]])
-; IS__CGSCC____-NEXT:    [[AP:%.*]] = getelementptr { i32, i32 }, { i32, i32 }* [[THIS]], i32 0, i32 0
+; IS__CGSCC____-NEXT:    [[AP:%.*]] = bitcast { i32, i32 }* [[THIS]] to i32*
 ; IS__CGSCC____-NEXT:    [[BP:%.*]] = getelementptr { i32, i32 }, { i32, i32 }* [[THIS]], i32 0, i32 1
 ; IS__CGSCC____-NEXT:    [[A:%.*]] = load i32, i32* [[AP]], align 8
 ; IS__CGSCC____-NEXT:    [[B:%.*]] = load i32, i32* [[BP]], align 4
@@ -42,7 +42,7 @@ define internal void @add({i32, i32}* %this, i32* sret %r) {
 ; IS__CGSCC____-NEXT:    store i32 [[AB]], i32* [[R]], align 4
 ; IS__CGSCC____-NEXT:    ret void
 ;
-  %ap = getelementptr {i32, i32}, {i32, i32}* %this, i32 0, i32 0
+  %ap = bitcast {i32, i32}* %this to i32*
   %bp = getelementptr {i32, i32}, {i32, i32}* %this, i32 0, i32 1
   %a = load i32, i32* %ap
   %b = load i32, i32* %bp

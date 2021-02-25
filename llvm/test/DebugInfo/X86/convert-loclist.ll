@@ -5,6 +5,8 @@
 ; RUN: llc -mtriple x86_64-pc-linux -split-dwarf-file=foo.dwo -filetype=asm < %s \
 ; RUN:   | FileCheck --check-prefix=ASM %s
 
+target triple = "x86_64-unknown-linux"
+
 ; A bit of a brittle test - this is testing the specific DWO_id. The
 ; alternative would be to test two files with different DW_OP_convert values &
 ; ensuring the DWO IDs differ when the DW_OP_convert parameter differs.

@@ -1,5 +1,7 @@
 ; RUN: %llc_dwarf -O0 -filetype=obj -dwarf-linkage-names=All < %s | llvm-dwarfdump -v -debug-info - | FileCheck %s
 
+target triple = "x86_64-unknown-linux"
+
 ; Generate from clang with the following source. Note that the definition of
 ; the inline function follows its use to workaround another bug that should be
 ; fixed soon.

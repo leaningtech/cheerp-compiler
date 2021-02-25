@@ -1,5 +1,7 @@
 ; REQUIRES: default_triple
 
+target triple = "x86_64-unknown-linux"
+
 ; RUN: llvm-link %s %p/type-unique-simple-b.ll -S -o %t
 ; RUN: cat %t | FileCheck %s -check-prefix=LINK
 ; RUN: %llc_dwarf -filetype=obj -O0 < %t > %t2

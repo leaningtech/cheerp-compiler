@@ -1,6 +1,8 @@
 ; RUN: %llc_dwarf %s -filetype=obj -o - | llvm-objdump -h - | FileCheck %s
 ; REQUIRES: default_triple
 
+target triple = "x86_64-unknown-linux"
+
 ; CHECK-NOT: .debug_
 
 !llvm.dbg.cu = !{!0, !5}

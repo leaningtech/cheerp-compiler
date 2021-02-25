@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fobjc-arc -fblocks -emit-llvm %s -o - | FileCheck %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -fobjc-arc -fblocks -emit-llvm %s -o - | FileCheck %s
 
 typedef void (^block_t)(void);
 void use_block(block_t);

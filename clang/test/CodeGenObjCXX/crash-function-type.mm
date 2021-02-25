@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fblocks -fsanitize=function -emit-llvm %s -o %t
+// RUN: %clang_cc1 -triple %itanium_abi_triple -fblocks -fsanitize=function -emit-llvm %s -o %t
 
 void g(void (^)());
 void f() {

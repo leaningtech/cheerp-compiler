@@ -37,7 +37,7 @@ void testFloat(_Atomic(float) *fp) {
 // CHECK-NEXT: ret void
 }
 
-// CHECK: define void @testComplexFloat([[CF:%complex._ZTSf]]*
+// CHECK: define void @testComplexFloat([[CF:{ float, float }]]*
 void testComplexFloat(_Atomic(_Complex float) *fp) {
 // CHECK:      [[FP:%.*]] = alloca [[CF]]*, align 4
 // CHECK-NEXT: [[X:%.*]] = alloca [[CF]], align 8
@@ -154,7 +154,7 @@ void testPromotedStruct(_Atomic(PS) *fp) {
 
 // CHECK-NEXT: [[P:%.*]] = load [[APS]]*, [[APS]]** [[FP]]
 // CHECK-NEXT: [[T0:%.*]] = bitcast [[APS]]* [[P]] to i8*
-// CHECK-NEXT: call void @llvm.memset.p0i8.i64(i8* align 8 [[T0]], i8 0, i64 8, i1 false)
+// CHECK-NEXT: call void @llvm.memset.p0i8.i32(i8* align 8 [[T0]], i8 0, i32 8, i1 false)
 // CHECK-NEXT: [[T0:%.*]] = getelementptr inbounds [[APS]], [[APS]]* [[P]], i32 0, i32 0
 // CHECK-NEXT: [[T1:%.*]] = getelementptr inbounds [[PS]], [[PS]]* [[T0]], i32 0, i32 0
 // CHECK-NEXT: store i16 1, i16* [[T1]], align 8
@@ -236,7 +236,7 @@ void test_promoted_store(_Atomic(PS) *addr, PS *val) {
   // CHECK:   [[ADDR64:%.*]] = bitcast { %struct.PS, [2 x i8] }* [[ADDR]] to i64*
   // CHECK:   [[ATOMIC_VAL8:%.*]] = bitcast { %struct.PS, [2 x i8] }* [[ATOMIC_VAL]] to i8*
   // CHECK:   [[NONATOMIC_TMP8:%.*]] = bitcast %struct.PS* [[NONATOMIC_TMP]] to i8*
-  // CHECK:   call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 8 [[ATOMIC_VAL8]], i8* align 2 [[NONATOMIC_TMP8]], i64 6, i1 false)
+  // CHECK:   call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 8 [[ATOMIC_VAL8]], i8* align 2 [[NONATOMIC_TMP8]], i32 6, i1 false)
   // CHECK:   [[ATOMIC_VAL64:%.*]] = bitcast { %struct.PS, [2 x i8] }* [[ATOMIC_VAL]] to i64*
   // CHECK:   [[VAL64:%.*]] = load i64, i64* [[ATOMIC_VAL64]], align 8
   // CHECK:   store atomic i64 [[VAL64]], i64* [[ADDR64]] seq_cst, align 8
@@ -261,7 +261,7 @@ PS test_promoted_exchange(_Atomic(PS) *addr, PS *val) {
   // CHECK:   [[ADDR64:%.*]] = bitcast { %struct.PS, [2 x i8] }* [[ADDR]] to i64*
   // CHECK:   [[ATOMIC_VAL8:%.*]] = bitcast { %struct.PS, [2 x i8] }* [[ATOMIC_VAL]] to i8*
   // CHECK:   [[NONATOMIC_TMP8:%.*]] = bitcast %struct.PS* [[NONATOMIC_TMP]] to i8*
-  // CHECK:   call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 8 [[ATOMIC_VAL8]], i8* align 2 [[NONATOMIC_TMP8]], i64 6, i1 false)
+  // CHECK:   call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 8 [[ATOMIC_VAL8]], i8* align 2 [[NONATOMIC_TMP8]], i32 6, i1 false)
   // CHECK:   [[ATOMIC_VAL64:%.*]] = bitcast { %struct.PS, [2 x i8] }* [[ATOMIC_VAL]] to i64*
   // CHECK:   [[ATOMIC_RES64:%.*]] = bitcast { %struct.PS, [2 x i8] }* [[ATOMIC_RES]] to i64*
   // CHECK:   [[VAL64:%.*]] = load i64, i64* [[ATOMIC_VAL64]], align 8
@@ -295,11 +295,11 @@ _Bool test_promoted_cmpxchg(_Atomic(PS) *addr, PS *desired, PS *new) {
   // CHECK:   [[ADDR64:%.*]] = bitcast { %struct.PS, [2 x i8] }* [[ADDR]] to i64*
   // CHECK:   [[ATOMIC_DESIRED8:%.*]] = bitcast { %struct.PS, [2 x i8] }* [[ATOMIC_DESIRED:%.*]] to i8*
   // CHECK:   [[DESIRED8:%.*]] = bitcast %struct.PS* [[DESIRED]] to i8*
-  // CHECK:   call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 8 [[ATOMIC_DESIRED8]], i8* align 2 [[DESIRED8]], i64 6, i1 false)
+  // CHECK:   call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 8 [[ATOMIC_DESIRED8]], i8* align 2 [[DESIRED8]], i32 6, i1 false)
   // CHECK:   [[ATOMIC_DESIRED64:%.*]] = bitcast { %struct.PS, [2 x i8] }* [[ATOMIC_DESIRED:%.*]] to i64*
   // CHECK:   [[ATOMIC_NEW8:%.*]] = bitcast { %struct.PS, [2 x i8] }* [[ATOMIC_NEW]] to i8*
   // CHECK:   [[NONATOMIC_TMP8:%.*]] = bitcast %struct.PS* [[NONATOMIC_TMP]] to i8*
-  // CHECK:   call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 8 [[ATOMIC_NEW8]], i8* align 2 [[NONATOMIC_TMP8]], i64 6, i1 false)
+  // CHECK:   call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 8 [[ATOMIC_NEW8]], i8* align 2 [[NONATOMIC_TMP8]], i32 6, i1 false)
   // CHECK:   [[ATOMIC_NEW64:%.*]] = bitcast { %struct.PS, [2 x i8] }* [[ATOMIC_NEW]] to i64*
   // CHECK:   [[ATOMIC_DESIRED_VAL64:%.*]] = load i64, i64* [[ATOMIC_DESIRED64]], align 8
   // CHECK:   [[ATOMIC_NEW_VAL64:%.*]] = load i64, i64* [[ATOMIC_NEW64]], align 8

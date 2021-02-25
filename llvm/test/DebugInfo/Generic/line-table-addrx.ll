@@ -4,6 +4,8 @@
 ; CHECK: DW_AT_low_pc [DW_FORM_addrx]
 ; CHECK: DW_AT_addr_base
 
+target triple = "x86_64-unknown-linux"
+
 define i64 @foo() !dbg !7 {
 entry:
   ret i64 0

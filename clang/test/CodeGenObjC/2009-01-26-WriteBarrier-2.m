@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fblocks -emit-llvm %s -fobjc-gc -o - | FileCheck %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -fblocks -emit-llvm %s -fobjc-gc -o - | FileCheck %s
 
 // CHECK: objc_assign_strongCast
 // rdar://5541393

@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++11 -fsyntax-only %s -verify
+// RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++11 -fsyntax-only %s -verify
 
 [[gsl::suppress("globally")]];
 

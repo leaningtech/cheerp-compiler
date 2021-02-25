@@ -1,5 +1,7 @@
 ; RUN: %llc_dwarf -O0 -filetype=obj < %s | llvm-dwarfdump -v -debug-info - | FileCheck %s
 
+target triple = "x86_64-unknown-linux"
+
 ; Built from the following source with clang -O1
 ; struct S { int i; };
 ; int function(struct S s, int i) { return s.i + i; }

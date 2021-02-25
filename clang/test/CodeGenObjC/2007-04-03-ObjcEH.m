@@ -1,4 +1,4 @@
-// RUN: %clang -fexceptions -S -emit-llvm %s -o -
+// RUN: %clang -target %itanium_abi_triple -fexceptions -S -emit-llvm %s -o -
 
 @interface B 
 -(int)bar;

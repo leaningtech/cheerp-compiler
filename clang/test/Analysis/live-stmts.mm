@@ -1,4 +1,4 @@
-// RUN: %clang_analyze_cc1 -w -fblocks %s \
+// RUN: %clang_analyze_cc1 -triple %itanium_abi_triple -w -fblocks %s \
 // RUN:   -analyzer-checker=debug.DumpLiveStmts \
 // RUN:   2>&1 | FileCheck %s
 

@@ -4,9 +4,9 @@
 // RUN: %clang_cc1 -triple x86_64-unknown-unknown -fsanitize=address -fsanitize-address-field-padding=1 -fsanitize-blacklist=%t.type.blacklist -Rsanitize-address -emit-llvm -o - %s 2>&1 | FileCheck %s
 // RUN: %clang_cc1 -triple x86_64-unknown-unknown -fsanitize=address -fsanitize-address-field-padding=1 -fsanitize-blacklist=%t.type.blacklist -Rsanitize-address -emit-llvm -o - %s -O1 -fno-experimental-new-pass-manager -mconstructor-aliases 2>&1 | FileCheck %s --check-prefix=WITH_CTOR_ALIASES
 // RUN: %clang_cc1 -triple x86_64-unknown-unknown -fsanitize=address -fsanitize-address-field-padding=1 -fsanitize-blacklist=%t.file.blacklist -Rsanitize-address -emit-llvm -o - %s 2>&1 | FileCheck %s --check-prefix=FILE_BLACKLIST
-// RUN: %clang_cc1 -fsanitize=address -emit-llvm -o - %s 2>&1 | FileCheck %s --check-prefix=NO_PADDING
+// RUN: %clang_cc1 -triple %itanium_abi_triple -fsanitize=address -emit-llvm -o - %s 2>&1 | FileCheck %s --check-prefix=NO_PADDING
 // Try to emulate -save-temps option and make sure -disable-llvm-passes will not run sanitize instrumentation.
-// RUN: %clang_cc1 -fsanitize=address -emit-llvm -disable-llvm-passes -o - %s | %clang_cc1 -fsanitize=address -emit-llvm -o - -x ir | FileCheck %s --check-prefix=NO_PADDING
+// RUN: %clang_cc1 -triple %itanium_abi_triple -fsanitize=address -emit-llvm -disable-llvm-passes -o - %s | %clang_cc1 -fsanitize=address -emit-llvm -o - -x ir | FileCheck %s --check-prefix=NO_PADDING
 //
 
 // The reasons to ignore a particular class are not set in stone and will change.
@@ -68,7 +68,7 @@ class WithFlexibleArray1 {
 };
 
 WithFlexibleArray1 with_flexible_array1;
-// CHECK: %class._Z18WithFlexibleArray1 = type { i32, [12 x i8], [33 x i8], [15 x i8], [0 x i32] }
+// CHECK: %class.WithFlexibleArray1 = type { i32, [12 x i8], [33 x i8], [15 x i8], [0 x i32] }
 
 class WithFlexibleArray2 {
  public:
@@ -77,7 +77,7 @@ class WithFlexibleArray2 {
 };
 
 WithFlexibleArray2 with_flexible_array2;
-// CHECK: %class._Z18WithFlexibleArray2 = type { [21 x i8], [11 x i8], %class._Z18WithFlexibleArray1 }
+// CHECK: %class.WithFlexibleArray2 = type { [21 x i8], [11 x i8], %class.WithFlexibleArray1 }
 
 class WithFlexibleArray3 {
  public:

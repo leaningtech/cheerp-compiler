@@ -56,8 +56,8 @@ void no_switch_bypass(int n) {
   }
   case 2:
     n = n;
-    // O2: @llvm.lifetime.start.p0i8(i64 5
-    // O2: @llvm.lifetime.end.p0i8(i64 5
+    // O2: @llvm.lifetime.start.{{.*}}(i64 5
+    // O2: @llvm.lifetime.end.{{.*}}(i64 5
     char y[5];
     bar(y, 5);
     break;
@@ -92,8 +92,7 @@ L:
 
 // O2-LABEL: @jump_backward_over_declaration(
 // O2: %[[p:.*]] = alloca i32*
-// O2: %[[v0:.*]] = bitcast i32** %[[p]] to i8*
-// O2: call void @llvm.lifetime.start.p0i8(i64 {{.*}}, i8* %[[v0]])
+// O2: call void @llvm.lifetime.start.{{.*}}(i64 {{.*}}, i32** %[[p]])
 // O2-NOT: call void @llvm.lifetime.start.p0i8(
 
 extern void foo2(int p);

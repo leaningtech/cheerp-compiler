@@ -12,6 +12,8 @@
 ; RUN: llvm-symbolizer --functions=linkage --inlining --demangle=false --obj %t < %t.posix_relative_func | FileCheck %s --check-prefix=POSIX_R
 ; RUN: llvm-symbolizer --functions=linkage --inlining --demangle=false --obj %t < %t.win_func | FileCheck %s --check-prefix=WIN
 
+target triple = "x86_64-unknown-linux"
+
 ;POSIX_A: posix_absolute_func
 ;POSIX_A: /absolute/posix/path{{[\/]}}posix.c
 

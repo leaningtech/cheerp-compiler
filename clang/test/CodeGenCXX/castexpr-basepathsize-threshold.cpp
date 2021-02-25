@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 %s -emit-llvm-only -o -
+// RUN: %clang_cc1 -triple %itanium_abi_triple %s -emit-llvm-only -o -
 
 // https://bugs.llvm.org/show_bug.cgi?id=38356
 // We only check that we do not crash.

@@ -1126,7 +1126,7 @@ bool MemCpyOptPass::processMemCpy(MemCpyInst *M, BasicBlock::iterator &BBI) {
 
   // If copying from a constant, try to turn the memcpy into a memset.
   const DataLayout &DL = M->getModule()->getDataLayout();
-  if (GlobalVariable *GV = dyn_cast<GlobalVariable>(M->getSource()))
+  if (GlobalVariable *GV = dyn_cast<GlobalVariable>(M->getSource()->stripPointerCasts(DL.isByteAddressable())))
     if (GV->isConstant() && GV->hasDefinitiveInitializer() && DL.isByteAddressable())
       if (Value *ByteVal = isBytewiseValue(GV->getInitializer(),
                                            M->getModule()->getDataLayout())) {

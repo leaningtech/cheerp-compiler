@@ -71,7 +71,7 @@ namespace test0 {
     delete a;
   }
 
-  // CHECK-LABEL: define linkonce_odr void @_ZN5test01AD1Ev(%struct._ZN5test01AE* %this) unnamed_addr
+  // CHECK-LABEL: define linkonce_odr void @_ZN5test01AD1Ev(%"struct.test0::A"* %this) unnamed_addr
   // CHECK-LABEL: define linkonce_odr void @_ZN5test01AdlEPv
 }
 
@@ -132,8 +132,8 @@ namespace test4 {
   void global_delete_virtual(X *xp) {
     //   Load the offset-to-top from the vtable and apply it.
     //   This has to be done first because the dtor can mess it up.
-    // CHECK:      [[T0:%.*]] = getelementptr [[X:%.*]], [[X:%.*]]* [[XP:%.*]], i32 0, i32 0
-    // CHECK-NEXT: [[VTABLETMP1:%.*]] = i32 (...)**, load i32 (...)*** [[T0]]
+    // CHECK:      [[T0:%.*]] = getelementptr inbounds [[X:%.*]], [[X:%.*]]* [[XP:%.*]], i32 0, i32 0
+    // CHECK-NEXT: [[VTABLETMP1:%.*]] = load i32 (...)**, i32 (...)*** [[T0]]
     // CHECK-NEXT: [[VTABLETMP2:%.*]] = bitcast i32 (...)** [[VTABLETMP1]] to i64*
     // CHECK-NEXT: [[T0:%.*]] = getelementptr inbounds i64, i64* [[VTABLETMP2]], i64 -2
     // CHECK-NEXT: [[OFFSET:%.*]] = load i64, i64* [[T0]], align 8
@@ -141,7 +141,7 @@ namespace test4 {
     // CHECK-NEXT: [[ALLOCATED:%.*]] = getelementptr inbounds i8, i8* [[T0]], i64 [[OFFSET]]
     //   Load the complete-object destructor (not the deleting destructor)
     //   and call it.
-    // CHECK-NEXT: [[T0:%.*]] = getelementptr [[X:%.*]], [[X:%.*]]* [[XP:%.*]], i32 0, i32 0
+    // CHECK-NEXT: [[T0:%.*]] = getelementptr inbounds [[X:%.*]], [[X:%.*]]* [[XP:%.*]], i32 0, i32 0
     // CHECK-NEXT: [[VTABLETMP1:%.*]] = load i32 (...)**, i32 (...)*** [[T0]]
     // CHECK-NEXT: [[VTABLE:%.*]] = bitcast i32 (...)** [[VTABLETMP1]] to void ([[X]]*)**
     // CHECK-NEXT: [[T0:%.*]] = getelementptr inbounds void ([[X]]*)*, void ([[X]]*)** [[VTABLE]], i64 0

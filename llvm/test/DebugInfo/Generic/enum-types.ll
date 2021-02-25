@@ -5,6 +5,8 @@
 ; different compile units.
 ; rdar://17628609
 
+target triple = "x86_64-unknown-linux"
+
 ; CHECK: DW_TAG_compile_unit
 ; CHECK: 0x[[ENUM:.*]]: DW_TAG_enumeration_type
 ; CHECK-NEXT:   DW_AT_name {{.*}} "EA"

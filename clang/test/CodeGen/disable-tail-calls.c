@@ -5,12 +5,12 @@ typedef struct List {
   int data;
 } List;
 
-// CHECK-LABEL: define %struct._Z4List* @find
+// CHECK-LABEL: define %struct.List* @find
 List *find(List *head, int data) {
   if (!head)
     return 0;
   if (head->data == data)
     return head;
-  // CHECK: call %struct._Z4List* @find
+  // CHECK: call %struct.List* @find
   return find(head->next, data);
 }

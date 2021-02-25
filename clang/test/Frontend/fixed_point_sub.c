@@ -1,5 +1,5 @@
-// RUN: %clang_cc1 -ffixed-point -S -emit-llvm %s -o - | FileCheck %s --check-prefixes=CHECK,SIGNED
-// RUN: %clang_cc1 -ffixed-point -fpadding-on-unsigned-fixed-point -S -emit-llvm %s -o - | FileCheck %s --check-prefixes=CHECK,UNSIGNED
+// RUN: %clang_cc1 -triple %itanium_abi_triple -ffixed-point -S -emit-llvm %s -o - | FileCheck %s --check-prefixes=CHECK,SIGNED
+// RUN: %clang_cc1 -triple %itanium_abi_triple -ffixed-point -fpadding-on-unsigned-fixed-point -S -emit-llvm %s -o - | FileCheck %s --check-prefixes=CHECK,UNSIGNED
 
 // Subtraction between different fixed point types
 short _Accum sa_const = 1.0hk - 2.0hk;  // CHECK-DAG: @sa_const  = {{.*}}global i16 -128, align 2

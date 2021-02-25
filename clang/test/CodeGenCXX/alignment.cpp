@@ -224,9 +224,9 @@ namespace test1 {
   void b(B &b) {
     // CHECK: [[RESULT:%.*]] = alloca [[ARRAY]], align 64
     // CHECK: [[B_P:%.*]] = load [[B:%.*]]*, [[B]]**
-    // CHECK: [[VPTR_P:%.*]] = bitcast [[B]]* [[B_P]] to i8**
-    // CHECK: [[VPTR:%.*]] = load i8*, i8** [[VPTR_P]], align 8
-    // CHECK: [[T0:%.*]] = getelementptr i8, i8* [[VPTR]], i64 -24
+    // CHECK: [[VPTR:%.*]] = load
+    // CHECK: [[VPTR_P:%.*]] = bitcast
+    // CHECK: [[T0:%.*]] = getelementptr i8, i8* [[VPTR_P]], i64 -24
     // CHECK: [[OFFSET_P:%.*]] = bitcast i8* [[T0]] to i64*
     // CHECK: [[OFFSET:%.*]] = load i64, i64* [[OFFSET_P]], align 8
     // CHECK: [[T0:%.*]] = bitcast [[B]]* [[B_P]] to i8*

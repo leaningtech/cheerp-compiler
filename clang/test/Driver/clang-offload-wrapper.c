@@ -35,7 +35,7 @@
 
 // CHECK-IR: [[BIN:@.+]] = internal unnamed_addr constant [[BINTY:\[[0-9]+ x i8\]]] c"Content of device file{{.+}}"
 
-// CHECK-IR: [[IMAGES:@.+]] = internal unnamed_addr constant [1 x [[IMAGETY]]] [{{.+}} { i8* getelementptr inbounds ([[BINTY]], [[BINTY]]* [[BIN]], i64 0, i64 0), i8* getelementptr inbounds ([[BINTY]], [[BINTY]]* [[BIN]], i64 1, i64 0), [[ENTTY]]* [[ENTBEGIN]], [[ENTTY]]* [[ENTEND]] }]
+// CHECK-IR: [[IMAGES:@.+]] = internal unnamed_addr constant [1 x [[IMAGETY]]] [{{.+}} { i8* getelementptr inbounds ([[BINTY]], [[BINTY]]* [[BIN]], i64 0, i64 0), i8* getelementptr ([[BINTY]], [[BINTY]]* [[BIN]], i64 0, i64 23), [[ENTTY]]* [[ENTBEGIN]], [[ENTTY]]* [[ENTEND]] }]
 
 // CHECK-IR: [[DESC:@.+]] = internal constant [[DESCTY]] { i32 1, [[IMAGETY]]* getelementptr inbounds ([1 x [[IMAGETY]]], [1 x [[IMAGETY]]]* [[IMAGES]], i64 0, i64 0), [[ENTTY]]* [[ENTBEGIN]], [[ENTTY]]* [[ENTEND]] }
 

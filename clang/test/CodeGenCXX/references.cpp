@@ -241,7 +241,7 @@ struct A {
 };
 
 // CHECK-LABEL: define internal void @__cxx_global_var_init
-// CHECK: call void @_ZN2N31AC1Ei(%struct._ZN2N31AE* @_ZGRN2N35sA123E_, i32 123)
+// CHECK: call void @_ZN2N31AC1Ei(%"struct.N3::A"* @_ZGRN2N35sA123E_, i32 123)
 // CHECK: call i32 @__cxa_atexit
 // CHECK: ret void
 const A &sA123 = A(123);
@@ -256,7 +256,7 @@ struct A {
 
 void f() {
   // CHECK-LABEL: define void @_ZN2N41fEv
-  // CHECK: call void @_ZN2N41AC1Ev(%struct._ZN2N41AE* @_ZGRZN2N41fEvE2ar_)
+  // CHECK: call void @_ZN2N41AC1Ev(%"struct.N4::A"* @_ZGRZN2N41fEvE2ar_)
   // CHECK: call i32 @__cxa_atexit
   // CHECK: ret void
   static const A& ar = A();
@@ -307,6 +307,6 @@ namespace N6 {
   extern struct x {char& x;}y;
   int a() { return y.x; }
   // CHECK-LABEL: define i32 @_ZN2N61aEv
-  // CHECK: [[REFLOAD3:%.*]] = load i8*, i8** getelementptr inbounds (%struct._ZN2N61xE, %struct._ZN2N61xE* @_ZN2N61yE, i32 0, i32 0), align 8
+  // CHECK: [[REFLOAD3:%.*]] = load i8*, i8** getelementptr inbounds (%"struct.N6::x", %"struct.N6::x"* @_ZN2N61yE, i32 0, i32 0), align 8
   // CHECK: load i8, i8* [[REFLOAD3]], align 1
 }

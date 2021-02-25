@@ -19,8 +19,8 @@ struct CreatePOD {
   // Deferred initialization of the structure here requires changing
   // the type of the global variable: the initializer list does not include
   // the tail padding.
-  // CXX11X86: @_ZN9CreatePOD3podE = available_externally constant { i32, i8 } { i32 42, i8 43 },
-  // CXX11AMD: @_ZN9CreatePOD3podE = available_externally addrspace(1) constant { i32, i8 } { i32 42, i8 43 },
+  // CXX11X86: @_ZN9CreatePOD3podE = available_externally constant %struct.PODWithInit <{ i32 42, i8 43, [3 x i8] undef }>,
+  // CXX11AMD: @_ZN9CreatePOD3podE = available_externally addrspace(1) constant %struct.PODWithInit <{ i32 42, i8 43, [3 x i8] undef }>,
   static constexpr PODWithInit pod{};
 };
 const int *p_pod = &CreatePOD::pod.g;

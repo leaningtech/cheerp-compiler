@@ -5,7 +5,7 @@
 // CHECK_NEW_DISPATCH-LABEL: define void @f1
 // CHECK_NEW_DISPATCH: load {{.*}}OBJC_SELECTOR_REFERENCES
 //
-// RUN: %clang_cc1 -fobjc-dispatch-method=legacy -emit-llvm -o - %s | FileCheck -check-prefix=CHECK_OLD_DISPATCH %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -fobjc-dispatch-method=legacy -emit-llvm -o - %s | FileCheck -check-prefix=CHECK_OLD_DISPATCH %s
 //
 // CHECK_OLD_DISPATCH-LABEL: define {{.*}}void @f0
 // CHECK_OLD_DISPATCH: load {{.*}}OBJC_SELECTOR_REFERENCES

@@ -2,6 +2,8 @@
 ; RUN: llvm-dwarfdump -debug-info %t | FileCheck %s
 ; REQUIRES: default_triple
 
+target triple = "x86_64-unknown-linux"
+
 ; Reduced test case from PR35212. Two DISubprogram belong to a different CU but
 ; share a scope. Both are declarations and end up in the scope's CU. We want to
 ; check that the CU from the context DIE is used (rather than from the IR).

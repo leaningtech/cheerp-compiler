@@ -30,7 +30,7 @@ define void @b_copy_ctor() personality i32 (...)* @__CxxFrameHandler3 {
 ; CHECK-NEXT:    [[TMP3:%.*]] = catchpad within [[TMP2]] [i8* null, i32 64, i8* null]
 ; CHECK-NEXT:    [[CMP16:%.*]] = icmp eq %struct.L* [[TMP]], null
 ; CHECK-NEXT:    [[TMP4:%.*]] = sub i64 0, [[TMP1]]
-; CHECK-NEXT:    [[UGLYGEP:%.*]] = getelementptr i8, i8* getelementptr inbounds (%struct.L, %struct.L* @GV2, i32 0, i32 0), i64 [[TMP4]]
+; CHECK-NEXT:    [[UGLYGEP:%.*]] = getelementptr i8, i8* bitcast (%struct.L* @GV2 to i8*), i64 [[TMP4]]
 ; CHECK-NEXT:    [[UGLYGEP1:%.*]] = bitcast i8* [[UGLYGEP]] to %struct.L*
 ; CHECK-NEXT:    br i1 [[CMP16]], label [[FOR_END:%.*]], label [[FOR_BODY_PREHEADER:%.*]]
 ; CHECK:       for.body.preheader:

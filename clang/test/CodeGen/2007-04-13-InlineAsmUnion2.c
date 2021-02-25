@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 %s -emit-llvm -o - | FileCheck %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple %s -emit-llvm -o - | FileCheck %s
 
 union U { int x; char* p; };
 void foo() {

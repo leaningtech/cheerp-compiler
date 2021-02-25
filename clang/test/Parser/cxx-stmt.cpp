@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fcxx-exceptions -fexceptions -fsyntax-only -verify %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -fcxx-exceptions -fexceptions -fsyntax-only -verify %s
 
 void f1()
 {

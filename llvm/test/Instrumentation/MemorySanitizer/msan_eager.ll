@@ -66,7 +66,7 @@ define void @NormalArg(i32 noundef %a) nounwind uwtable sanitize_memory {
 define void @PartialArg(i32 %a) nounwind uwtable sanitize_memory {
 ; CHECK-LABEL: @PartialArg(
 ; CHECK-NEXT:    [[TMP1:%.*]] = load i32, i32* bitcast ([100 x i64]* @__msan_param_tls to i32*), align 8
-; CHECK-NEXT:    [[TMP2:%.*]] = load i32, i32* getelementptr inbounds ([200 x i32], [200 x i32]* @__msan_param_origin_tls, i32 0, i32 0), align 4
+; CHECK-NEXT:    [[TMP2:%.*]] = load i32, i32* bitcast ([200 x i32]* @__msan_param_origin_tls to i32*), align 4
 ; CHECK-NEXT:    [[P:%.*]] = inttoptr i64 0 to i32*
 ; CHECK-NEXT:    [[TMP3:%.*]] = ptrtoint i32* [[P]] to i64
 ; CHECK-NEXT:    [[TMP4:%.*]] = xor i64 [[TMP3]], 87960930222080
@@ -132,7 +132,7 @@ define void @CallPartial() nounwind uwtable sanitize_memory {
 ; CHECK-NEXT:    [[_MSRET:%.*]] = load i32, i32* bitcast ([100 x i64]* @__msan_retval_tls to i32*), align 8
 ; CHECK-NEXT:    [[TMP1:%.*]] = load i32, i32* @__msan_retval_origin_tls, align 4
 ; CHECK-NEXT:    store i32 [[_MSRET]], i32* bitcast ([100 x i64]* @__msan_param_tls to i32*), align 8
-; CHECK-NEXT:    store i32 [[TMP1]], i32* getelementptr inbounds ([200 x i32], [200 x i32]* @__msan_param_origin_tls, i32 0, i32 0), align 4
+; CHECK-NEXT:    store i32 [[TMP1]], i32* bitcast ([200 x i32]* @__msan_param_origin_tls to i32*), align 4
 ; CHECK-NEXT:    call void @PartialArg(i32 [[R]]) #0
 ; CHECK-NEXT:    ret void
 ;

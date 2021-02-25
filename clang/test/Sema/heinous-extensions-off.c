@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 %s -verify
+// RUN: %clang_cc1 -triple %itanium_abi_triple %s -verify
 
 int foo() {
         int a;

@@ -1,5 +1,5 @@
-; RUN: llc -print-after=slotindexes < %s 2>&1 | FileCheck %s --check-prefixes=ALL,SI 
-; RUN: llc -print-after=slotindexes -print-slotindexes=false < %s 2>&1 | FileCheck %s --check-prefixes=ALL,NOSI
+; RUN: llc -march=x86 -print-after=slotindexes < %s 2>&1 | FileCheck %s --check-prefixes=ALL,SI 
+; RUN: llc -march=x86 -print-after=slotindexes -print-slotindexes=false < %s 2>&1 | FileCheck %s --check-prefixes=ALL,NOSI
 ; REQUIRES: default_triple
 define void @foo(){
   ret void

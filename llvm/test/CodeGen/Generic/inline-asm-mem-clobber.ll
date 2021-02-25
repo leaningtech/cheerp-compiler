@@ -1,5 +1,7 @@
 ; RUN: llc -O2 -no-integrated-as < %s | FileCheck %s
 
+target triple = "x86_64-unknown-linux"
+
 ; Test uses 32-bit registers which aren't supported on AVR.
 ; XFAIL: avr
 

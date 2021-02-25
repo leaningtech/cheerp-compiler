@@ -7,6 +7,8 @@
 ; generates as this is a particular tickling of optimizations and debug location
 ; propagation I want a realistic example of.
 
+target triple = "x86_64-unknown-linux"
+
 ; Generated with clang-tot -cc1 -g -O2 -w -std=c++11  -fsanitize=address,use-after-return -fcxx-exceptions -fexceptions -x c++ incorrect-variable-debug-loc.cpp -emit-llvm
 
 ; struct A {

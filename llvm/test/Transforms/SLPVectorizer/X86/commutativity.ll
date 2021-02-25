@@ -71,7 +71,7 @@ define void @splat(i8 %a, i8 %b, i8 %c) {
 ; AVX-NEXT:    [[TMP18:%.*]] = insertelement <2 x i8> [[TMP17]], i8 [[B:%.*]], i32 1
 ; AVX-NEXT:    [[SHUFFLE:%.*]] = shufflevector <2 x i8> [[TMP18]], <2 x i8> undef, <16 x i32> <i32 0, i32 0, i32 0, i32 0, i32 0, i32 1, i32 0, i32 1, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0>
 ; AVX-NEXT:    [[TMP19:%.*]] = xor <16 x i8> [[TMP16]], [[SHUFFLE]]
-; AVX-NEXT:    store <16 x i8> [[TMP19]], <16 x i8>* bitcast ([32 x i8]* @cle to <16 x i8>*), align 16
+; AVX-NEXT:    store <16 x i8> [[TMP19]], <16 x i8>* bitcast (i8* getelementptr inbounds ([32 x i8], [32 x i8]* @cle, i64 0, i64 0) to <16 x i8>*), align 16
 ; AVX-NEXT:    ret void
 ;
   %1 = xor i8 %c, %a
@@ -144,7 +144,7 @@ define void @same_opcode_on_one_side(i32 %a, i32 %b, i32 %c) {
 ; AVX-NEXT:    [[TMP11:%.*]] = insertelement <4 x i32> [[TMP10]], i32 [[C]], i32 2
 ; AVX-NEXT:    [[TMP12:%.*]] = insertelement <4 x i32> [[TMP11]], i32 [[A]], i32 3
 ; AVX-NEXT:    [[TMP13:%.*]] = xor <4 x i32> [[TMP9]], [[TMP12]]
-; AVX-NEXT:    store <4 x i32> [[TMP13]], <4 x i32>* bitcast ([32 x i32]* @cle32 to <4 x i32>*), align 16
+; AVX-NEXT:    store <4 x i32> [[TMP13]], <4 x i32>* bitcast (i32* getelementptr inbounds ([32 x i32], [32 x i32]* @cle32, i64 0, i64 0) to <4 x i32>*), align 16
 ; AVX-NEXT:    ret void
 ;
   %add1 = add i32 %c, %a

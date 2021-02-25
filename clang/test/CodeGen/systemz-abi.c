@@ -176,13 +176,13 @@ int va_int(__builtin_va_list l) { return __builtin_va_arg(l, int); }
 // CHECK: br i1 [[FITS_IN_REGS]],
 // CHECK: [[SCALED_REG_COUNT:%[^ ]+]] = mul i64 [[REG_COUNT]], 8
 // CHECK: [[REG_OFFSET:%[^ ]+]] = add i64 [[SCALED_REG_COUNT]], 20
-// CHECK: [[REG_SAVE_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct._Z13__va_list_tag, %struct._Z13__va_list_tag* %{{.*}}, i32 0, i32 3
+// CHECK: [[REG_SAVE_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct.__va_list_tag, %struct.__va_list_tag* %{{.*}}, i32 0, i32 3
 // CHECK: [[REG_SAVE_AREA:%[^ ]+]] = load i8*, i8** [[REG_SAVE_AREA_PTR:[^ ]+]]
 // CHECK: [[RAW_REG_ADDR:%[^ ]+]] = getelementptr i8, i8* [[REG_SAVE_AREA]], i64 [[REG_OFFSET]]
 // CHECK: [[REG_ADDR:%[^ ]+]] = bitcast i8* [[RAW_REG_ADDR]] to i32*
 // CHECK: [[REG_COUNT1:%[^ ]+]] = add i64 [[REG_COUNT]], 1
 // CHECK: store i64 [[REG_COUNT1]], i64* [[REG_COUNT_PTR]]
-// CHECK: [[OVERFLOW_ARG_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct._Z13__va_list_tag, %struct._Z13__va_list_tag* %{{.*}}, i32 0, i32 2
+// CHECK: [[OVERFLOW_ARG_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct.__va_list_tag, %struct.__va_list_tag* %{{.*}}, i32 0, i32 2
 // CHECK: [[OVERFLOW_ARG_AREA:%[^ ]+]] = load i8*, i8** [[OVERFLOW_ARG_AREA_PTR]]
 // CHECK: [[RAW_MEM_ADDR:%[^ ]+]] = getelementptr i8, i8* [[OVERFLOW_ARG_AREA]], i64 4
 // CHECK: [[MEM_ADDR:%[^ ]+]] = bitcast i8* [[RAW_MEM_ADDR]] to i32*
@@ -200,13 +200,13 @@ long va_long(__builtin_va_list l) { return __builtin_va_arg(l, long); }
 // CHECK: br i1 [[FITS_IN_REGS]],
 // CHECK: [[SCALED_REG_COUNT:%[^ ]+]] = mul i64 [[REG_COUNT]], 8
 // CHECK: [[REG_OFFSET:%[^ ]+]] = add i64 [[SCALED_REG_COUNT]], 16
-// CHECK: [[REG_SAVE_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct._Z13__va_list_tag, %struct._Z13__va_list_tag* %{{.*}}, i32 0, i32 3
+// CHECK: [[REG_SAVE_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct.__va_list_tag, %struct.__va_list_tag* %{{.*}}, i32 0, i32 3
 // CHECK: [[REG_SAVE_AREA:%[^ ]+]] = load i8*, i8** [[REG_SAVE_AREA_PTR:[^ ]+]]
 // CHECK: [[RAW_REG_ADDR:%[^ ]+]] = getelementptr i8, i8* [[REG_SAVE_AREA]], i64 [[REG_OFFSET]]
 // CHECK: [[REG_ADDR:%[^ ]+]] = bitcast i8* [[RAW_REG_ADDR]] to i64*
 // CHECK: [[REG_COUNT1:%[^ ]+]] = add i64 [[REG_COUNT]], 1
 // CHECK: store i64 [[REG_COUNT1]], i64* [[REG_COUNT_PTR]]
-// CHECK: [[OVERFLOW_ARG_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct._Z13__va_list_tag, %struct._Z13__va_list_tag* %{{.*}}, i32 0, i32 2
+// CHECK: [[OVERFLOW_ARG_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct.__va_list_tag, %struct.__va_list_tag* %{{.*}}, i32 0, i32 2
 // CHECK: [[OVERFLOW_ARG_AREA:%[^ ]+]] = load i8*, i8** [[OVERFLOW_ARG_AREA_PTR]]
 // CHECK: [[RAW_MEM_ADDR:%[^ ]+]] = getelementptr i8, i8* [[OVERFLOW_ARG_AREA]], i64 0
 // CHECK: [[MEM_ADDR:%[^ ]+]] = bitcast i8* [[RAW_MEM_ADDR]] to i64*
@@ -224,13 +224,13 @@ long long va_longlong(__builtin_va_list l) { return __builtin_va_arg(l, long lon
 // CHECK: br i1 [[FITS_IN_REGS]],
 // CHECK: [[SCALED_REG_COUNT:%[^ ]+]] = mul i64 [[REG_COUNT]], 8
 // CHECK: [[REG_OFFSET:%[^ ]+]] = add i64 [[SCALED_REG_COUNT]], 16
-// CHECK: [[REG_SAVE_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct._Z13__va_list_tag, %struct._Z13__va_list_tag* %{{.*}}, i32 0, i32 3
+// CHECK: [[REG_SAVE_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct.__va_list_tag, %struct.__va_list_tag* %{{.*}}, i32 0, i32 3
 // CHECK: [[REG_SAVE_AREA:%[^ ]+]] = load i8*, i8** [[REG_SAVE_AREA_PTR:[^ ]+]]
 // CHECK: [[RAW_REG_ADDR:%[^ ]+]] = getelementptr i8, i8* [[REG_SAVE_AREA]], i64 [[REG_OFFSET]]
 // CHECK: [[REG_ADDR:%[^ ]+]] = bitcast i8* [[RAW_REG_ADDR]] to i64*
 // CHECK: [[REG_COUNT1:%[^ ]+]] = add i64 [[REG_COUNT]], 1
 // CHECK: store i64 [[REG_COUNT1]], i64* [[REG_COUNT_PTR]]
-// CHECK: [[OVERFLOW_ARG_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct._Z13__va_list_tag, %struct._Z13__va_list_tag* %{{.*}}, i32 0, i32 2
+// CHECK: [[OVERFLOW_ARG_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct.__va_list_tag, %struct.__va_list_tag* %{{.*}}, i32 0, i32 2
 // CHECK: [[OVERFLOW_ARG_AREA:%[^ ]+]] = load i8*, i8** [[OVERFLOW_ARG_AREA_PTR]]
 // CHECK: [[RAW_MEM_ADDR:%[^ ]+]] = getelementptr i8, i8* [[OVERFLOW_ARG_AREA]], i64 0
 // CHECK: [[MEM_ADDR:%[^ ]+]] = bitcast i8* [[RAW_MEM_ADDR]] to i64*
@@ -257,7 +257,7 @@ double va_double(__builtin_va_list l) { return __builtin_va_arg(l, double); }
 // CHECK: [[REG_ADDR:%[^ ]+]] = bitcast i8* [[RAW_REG_ADDR]] to double*
 // CHECK: [[REG_COUNT1:%[^ ]+]] = add i64 [[REG_COUNT]], 1
 // CHECK: store i64 [[REG_COUNT1]], i64* [[REG_COUNT_PTR]]
-// CHECK: [[OVERFLOW_ARG_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct._Z13__va_list_tag, %struct._Z13__va_list_tag* %{{.*}}, i32 0, i32 2
+// CHECK: [[OVERFLOW_ARG_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct.__va_list_tag, %struct.__va_list_tag* %{{.*}}, i32 0, i32 2
 // CHECK: [[OVERFLOW_ARG_AREA:%[^ ]+]] = load i8*, i8** [[OVERFLOW_ARG_AREA_PTR]]
 // CHECK: [[RAW_MEM_ADDR:%[^ ]+]] = getelementptr i8, i8* [[OVERFLOW_ARG_AREA]], i64 0
 // CHECK: [[MEM_ADDR:%[^ ]+]] = bitcast i8* [[RAW_MEM_ADDR]] to double*
@@ -275,13 +275,13 @@ long double va_longdouble(__builtin_va_list l) { return __builtin_va_arg(l, long
 // CHECK: br i1 [[FITS_IN_REGS]],
 // CHECK: [[SCALED_REG_COUNT:%[^ ]+]] = mul i64 [[REG_COUNT]], 8
 // CHECK: [[REG_OFFSET:%[^ ]+]] = add i64 [[SCALED_REG_COUNT]], 16
-// CHECK: [[REG_SAVE_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct._Z13__va_list_tag, %struct._Z13__va_list_tag* %{{.*}}, i32 0, i32 3
+// CHECK: [[REG_SAVE_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct.__va_list_tag, %struct.__va_list_tag* %{{.*}}, i32 0, i32 3
 // CHECK: [[REG_SAVE_AREA:%[^ ]+]] = load i8*, i8** [[REG_SAVE_AREA_PTR:[^ ]+]]
 // CHECK: [[RAW_REG_ADDR:%[^ ]+]] = getelementptr i8, i8* [[REG_SAVE_AREA]], i64 [[REG_OFFSET]]
 // CHECK: [[REG_ADDR:%[^ ]+]] = bitcast i8* [[RAW_REG_ADDR]] to fp128**
 // CHECK: [[REG_COUNT1:%[^ ]+]] = add i64 [[REG_COUNT]], 1
 // CHECK: store i64 [[REG_COUNT1]], i64* [[REG_COUNT_PTR]]
-// CHECK: [[OVERFLOW_ARG_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct._Z13__va_list_tag, %struct._Z13__va_list_tag* %{{.*}}, i32 0, i32 2
+// CHECK: [[OVERFLOW_ARG_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct.__va_list_tag, %struct.__va_list_tag* %{{.*}}, i32 0, i32 2
 // CHECK: [[OVERFLOW_ARG_AREA:%[^ ]+]] = load i8*, i8** [[OVERFLOW_ARG_AREA_PTR]]
 // CHECK: [[RAW_MEM_ADDR:%[^ ]+]] = getelementptr i8, i8* [[OVERFLOW_ARG_AREA]], i64 0
 // CHECK: [[MEM_ADDR:%[^ ]+]] = bitcast i8* [[RAW_MEM_ADDR]] to fp128**
@@ -301,20 +301,20 @@ _Complex char va_complex_char(__builtin_va_list l) { return __builtin_va_arg(l, 
 // CHECK: br i1 [[FITS_IN_REGS]],
 // CHECK: [[SCALED_REG_COUNT:%[^ ]+]] = mul i64 [[REG_COUNT]], 8
 // CHECK: [[REG_OFFSET:%[^ ]+]] = add i64 [[SCALED_REG_COUNT]], 16
-// CHECK: [[REG_SAVE_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct._Z13__va_list_tag, %struct._Z13__va_list_tag* %{{.*}}, i32 0, i32 3
+// CHECK: [[REG_SAVE_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct.__va_list_tag, %struct.__va_list_tag* %{{.*}}, i32 0, i32 3
 // CHECK: [[REG_SAVE_AREA:%[^ ]+]] = load i8*, i8** [[REG_SAVE_AREA_PTR:[^ ]+]]
 // CHECK: [[RAW_REG_ADDR:%[^ ]+]] = getelementptr i8, i8* [[REG_SAVE_AREA]], i64 [[REG_OFFSET]]
-// CHECK: [[REG_ADDR:%[^ ]+]] = bitcast i8* [[RAW_REG_ADDR]] to %complex._ZTSc**
+// CHECK: [[REG_ADDR:%[^ ]+]] = bitcast i8* [[RAW_REG_ADDR]] to { i8, i8 }**
 // CHECK: [[REG_COUNT1:%[^ ]+]] = add i64 [[REG_COUNT]], 1
 // CHECK: store i64 [[REG_COUNT1]], i64* [[REG_COUNT_PTR]]
-// CHECK: [[OVERFLOW_ARG_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct._Z13__va_list_tag, %struct._Z13__va_list_tag* %{{.*}}, i32 0, i32 2
+// CHECK: [[OVERFLOW_ARG_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct.__va_list_tag, %struct.__va_list_tag* %{{.*}}, i32 0, i32 2
 // CHECK: [[OVERFLOW_ARG_AREA:%[^ ]+]] = load i8*, i8** [[OVERFLOW_ARG_AREA_PTR]]
 // CHECK: [[RAW_MEM_ADDR:%[^ ]+]] = getelementptr i8, i8* [[OVERFLOW_ARG_AREA]], i64 0
-// CHECK: [[MEM_ADDR:%[^ ]+]] = bitcast i8* [[RAW_MEM_ADDR]] to %complex._ZTSc**
+// CHECK: [[MEM_ADDR:%[^ ]+]] = bitcast i8* [[RAW_MEM_ADDR]] to { i8, i8 }**
 // CHECK: [[OVERFLOW_ARG_AREA2:%[^ ]+]] = getelementptr i8, i8* [[OVERFLOW_ARG_AREA]], i64 8
 // CHECK: store i8* [[OVERFLOW_ARG_AREA2]], i8** [[OVERFLOW_ARG_AREA_PTR]]
-// CHECK: [[VA_ARG_ADDR:%[^ ]+]] = phi %complex._ZTSc** [ [[REG_ADDR]], %{{.*}} ], [ [[MEM_ADDR]], %{{.*}} ]
-// CHECK: [[INDIRECT_ARG:%[^ ]+]] = load %complex._ZTSc*, %complex._ZTSc** [[VA_ARG_ADDR]]
+// CHECK: [[VA_ARG_ADDR:%[^ ]+]] = phi { i8, i8 }** [ [[REG_ADDR]], %{{.*}} ], [ [[MEM_ADDR]], %{{.*}} ]
+// CHECK: [[INDIRECT_ARG:%[^ ]+]] = load { i8, i8 }*, { i8, i8 }** [[VA_ARG_ADDR]]
 // CHECK: ret void
 
 struct agg_1byte va_agg_1byte(__builtin_va_list l) { return __builtin_va_arg(l, struct agg_1byte); }
@@ -325,19 +325,19 @@ struct agg_1byte va_agg_1byte(__builtin_va_list l) { return __builtin_va_arg(l, 
 // CHECK: br i1 [[FITS_IN_REGS]],
 // CHECK: [[SCALED_REG_COUNT:%[^ ]+]] = mul i64 [[REG_COUNT]], 8
 // CHECK: [[REG_OFFSET:%[^ ]+]] = add i64 [[SCALED_REG_COUNT]], 23
-// CHECK: [[REG_SAVE_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct._Z13__va_list_tag, %struct._Z13__va_list_tag* %{{.*}}, i32 0, i32 3
+// CHECK: [[REG_SAVE_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct.__va_list_tag, %struct.__va_list_tag* %{{.*}}, i32 0, i32 3
 // CHECK: [[REG_SAVE_AREA:%[^ ]+]] = load i8*, i8** [[REG_SAVE_AREA_PTR:[^ ]+]]
 // CHECK: [[RAW_REG_ADDR:%[^ ]+]] = getelementptr i8, i8* [[REG_SAVE_AREA]], i64 [[REG_OFFSET]]
-// CHECK: [[REG_ADDR:%[^ ]+]] = bitcast i8* [[RAW_REG_ADDR]] to %struct._Z9agg_1byte*
+// CHECK: [[REG_ADDR:%[^ ]+]] = bitcast i8* [[RAW_REG_ADDR]] to %struct.agg_1byte*
 // CHECK: [[REG_COUNT1:%[^ ]+]] = add i64 [[REG_COUNT]], 1
 // CHECK: store i64 [[REG_COUNT1]], i64* [[REG_COUNT_PTR]]
-// CHECK: [[OVERFLOW_ARG_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct._Z13__va_list_tag, %struct._Z13__va_list_tag* %{{.*}}, i32 0, i32 2
+// CHECK: [[OVERFLOW_ARG_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct.__va_list_tag, %struct.__va_list_tag* %{{.*}}, i32 0, i32 2
 // CHECK: [[OVERFLOW_ARG_AREA:%[^ ]+]] = load i8*, i8** [[OVERFLOW_ARG_AREA_PTR]]
 // CHECK: [[RAW_MEM_ADDR:%[^ ]+]] = getelementptr i8, i8* [[OVERFLOW_ARG_AREA]], i64 7
-// CHECK: [[MEM_ADDR:%[^ ]+]] = bitcast i8* [[RAW_MEM_ADDR]] to %struct._Z9agg_1byte*
+// CHECK: [[MEM_ADDR:%[^ ]+]] = bitcast i8* [[RAW_MEM_ADDR]] to %struct.agg_1byte*
 // CHECK: [[OVERFLOW_ARG_AREA2:%[^ ]+]] = getelementptr i8, i8* [[OVERFLOW_ARG_AREA]], i64 8
 // CHECK: store i8* [[OVERFLOW_ARG_AREA2]], i8** [[OVERFLOW_ARG_AREA_PTR]]
-// CHECK: [[VA_ARG_ADDR:%[^ ]+]] = phi %struct._Z9agg_1byte* [ [[REG_ADDR]], %{{.*}} ], [ [[MEM_ADDR]], %{{.*}} ]
+// CHECK: [[VA_ARG_ADDR:%[^ ]+]] = phi %struct.agg_1byte* [ [[REG_ADDR]], %{{.*}} ], [ [[MEM_ADDR]], %{{.*}} ]
 // CHECK: ret void
 
 struct agg_2byte va_agg_2byte(__builtin_va_list l) { return __builtin_va_arg(l, struct agg_2byte); }
@@ -348,19 +348,19 @@ struct agg_2byte va_agg_2byte(__builtin_va_list l) { return __builtin_va_arg(l, 
 // CHECK: br i1 [[FITS_IN_REGS]],
 // CHECK: [[SCALED_REG_COUNT:%[^ ]+]] = mul i64 [[REG_COUNT]], 8
 // CHECK: [[REG_OFFSET:%[^ ]+]] = add i64 [[SCALED_REG_COUNT]], 22
-// CHECK: [[REG_SAVE_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct._Z13__va_list_tag, %struct._Z13__va_list_tag* %{{.*}}, i32 0, i32 3
+// CHECK: [[REG_SAVE_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct.__va_list_tag, %struct.__va_list_tag* %{{.*}}, i32 0, i32 3
 // CHECK: [[REG_SAVE_AREA:%[^ ]+]] = load i8*, i8** [[REG_SAVE_AREA_PTR:[^ ]+]]
 // CHECK: [[RAW_REG_ADDR:%[^ ]+]] = getelementptr i8, i8* [[REG_SAVE_AREA]], i64 [[REG_OFFSET]]
-// CHECK: [[REG_ADDR:%[^ ]+]] = bitcast i8* [[RAW_REG_ADDR]] to %struct._Z9agg_2byte*
+// CHECK: [[REG_ADDR:%[^ ]+]] = bitcast i8* [[RAW_REG_ADDR]] to %struct.agg_2byte*
 // CHECK: [[REG_COUNT1:%[^ ]+]] = add i64 [[REG_COUNT]], 1
 // CHECK: store i64 [[REG_COUNT1]], i64* [[REG_COUNT_PTR]]
-// CHECK: [[OVERFLOW_ARG_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct._Z13__va_list_tag, %struct._Z13__va_list_tag* %{{.*}}, i32 0, i32 2
+// CHECK: [[OVERFLOW_ARG_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct.__va_list_tag, %struct.__va_list_tag* %{{.*}}, i32 0, i32 2
 // CHECK: [[OVERFLOW_ARG_AREA:%[^ ]+]] = load i8*, i8** [[OVERFLOW_ARG_AREA_PTR]]
 // CHECK: [[RAW_MEM_ADDR:%[^ ]+]] = getelementptr i8, i8* [[OVERFLOW_ARG_AREA]], i64 6
-// CHECK: [[MEM_ADDR:%[^ ]+]] = bitcast i8* [[RAW_MEM_ADDR]] to %struct._Z9agg_2byte*
+// CHECK: [[MEM_ADDR:%[^ ]+]] = bitcast i8* [[RAW_MEM_ADDR]] to %struct.agg_2byte*
 // CHECK: [[OVERFLOW_ARG_AREA2:%[^ ]+]] = getelementptr i8, i8* [[OVERFLOW_ARG_AREA]], i64 8
 // CHECK: store i8* [[OVERFLOW_ARG_AREA2]], i8** [[OVERFLOW_ARG_AREA_PTR]]
-// CHECK: [[VA_ARG_ADDR:%[^ ]+]] = phi %struct._Z9agg_2byte* [ [[REG_ADDR]], %{{.*}} ], [ [[MEM_ADDR]], %{{.*}} ]
+// CHECK: [[VA_ARG_ADDR:%[^ ]+]] = phi %struct.agg_2byte* [ [[REG_ADDR]], %{{.*}} ], [ [[MEM_ADDR]], %{{.*}} ]
 // CHECK: ret void
 
 struct agg_3byte va_agg_3byte(__builtin_va_list l) { return __builtin_va_arg(l, struct agg_3byte); }
@@ -371,20 +371,20 @@ struct agg_3byte va_agg_3byte(__builtin_va_list l) { return __builtin_va_arg(l, 
 // CHECK: br i1 [[FITS_IN_REGS]],
 // CHECK: [[SCALED_REG_COUNT:%[^ ]+]] = mul i64 [[REG_COUNT]], 8
 // CHECK: [[REG_OFFSET:%[^ ]+]] = add i64 [[SCALED_REG_COUNT]], 16
-// CHECK: [[REG_SAVE_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct._Z13__va_list_tag, %struct._Z13__va_list_tag* %{{.*}}, i32 0, i32 3
+// CHECK: [[REG_SAVE_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct.__va_list_tag, %struct.__va_list_tag* %{{.*}}, i32 0, i32 3
 // CHECK: [[REG_SAVE_AREA:%[^ ]+]] = load i8*, i8** [[REG_SAVE_AREA_PTR:[^ ]+]]
 // CHECK: [[RAW_REG_ADDR:%[^ ]+]] = getelementptr i8, i8* [[REG_SAVE_AREA]], i64 [[REG_OFFSET]]
-// CHECK: [[REG_ADDR:%[^ ]+]] = bitcast i8* [[RAW_REG_ADDR]] to %struct._Z9agg_3byte**
+// CHECK: [[REG_ADDR:%[^ ]+]] = bitcast i8* [[RAW_REG_ADDR]] to %struct.agg_3byte**
 // CHECK: [[REG_COUNT1:%[^ ]+]] = add i64 [[REG_COUNT]], 1
 // CHECK: store i64 [[REG_COUNT1]], i64* [[REG_COUNT_PTR]]
-// CHECK: [[OVERFLOW_ARG_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct._Z13__va_list_tag, %struct._Z13__va_list_tag* %{{.*}}, i32 0, i32 2
+// CHECK: [[OVERFLOW_ARG_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct.__va_list_tag, %struct.__va_list_tag* %{{.*}}, i32 0, i32 2
 // CHECK: [[OVERFLOW_ARG_AREA:%[^ ]+]] = load i8*, i8** [[OVERFLOW_ARG_AREA_PTR]]
 // CHECK: [[RAW_MEM_ADDR:%[^ ]+]] = getelementptr i8, i8* [[OVERFLOW_ARG_AREA]], i64 0
-// CHECK: [[MEM_ADDR:%[^ ]+]] = bitcast i8* [[RAW_MEM_ADDR]] to %struct._Z9agg_3byte**
+// CHECK: [[MEM_ADDR:%[^ ]+]] = bitcast i8* [[RAW_MEM_ADDR]] to %struct.agg_3byte**
 // CHECK: [[OVERFLOW_ARG_AREA2:%[^ ]+]] = getelementptr i8, i8* [[OVERFLOW_ARG_AREA]], i64 8
 // CHECK: store i8* [[OVERFLOW_ARG_AREA2]], i8** [[OVERFLOW_ARG_AREA_PTR]]
-// CHECK: [[VA_ARG_ADDR:%[^ ]+]] = phi %struct._Z9agg_3byte** [ [[REG_ADDR]], %{{.*}} ], [ [[MEM_ADDR]], %{{.*}} ]
-// CHECK: [[INDIRECT_ARG:%[^ ]+]] = load %struct._Z9agg_3byte*, %struct._Z9agg_3byte** [[VA_ARG_ADDR]]
+// CHECK: [[VA_ARG_ADDR:%[^ ]+]] = phi %struct.agg_3byte** [ [[REG_ADDR]], %{{.*}} ], [ [[MEM_ADDR]], %{{.*}} ]
+// CHECK: [[INDIRECT_ARG:%[^ ]+]] = load %struct.agg_3byte*, %struct.agg_3byte** [[VA_ARG_ADDR]]
 // CHECK: ret void
 
 struct agg_4byte va_agg_4byte(__builtin_va_list l) { return __builtin_va_arg(l, struct agg_4byte); }
@@ -395,19 +395,19 @@ struct agg_4byte va_agg_4byte(__builtin_va_list l) { return __builtin_va_arg(l, 
 // CHECK: br i1 [[FITS_IN_REGS]],
 // CHECK: [[SCALED_REG_COUNT:%[^ ]+]] = mul i64 [[REG_COUNT]], 8
 // CHECK: [[REG_OFFSET:%[^ ]+]] = add i64 [[SCALED_REG_COUNT]], 20
-// CHECK: [[REG_SAVE_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct._Z13__va_list_tag, %struct._Z13__va_list_tag* %{{.*}}, i32 0, i32 3
+// CHECK: [[REG_SAVE_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct.__va_list_tag, %struct.__va_list_tag* %{{.*}}, i32 0, i32 3
 // CHECK: [[REG_SAVE_AREA:%[^ ]+]] = load i8*, i8** [[REG_SAVE_AREA_PTR:[^ ]+]]
 // CHECK: [[RAW_REG_ADDR:%[^ ]+]] = getelementptr i8, i8* [[REG_SAVE_AREA]], i64 [[REG_OFFSET]]
-// CHECK: [[REG_ADDR:%[^ ]+]] = bitcast i8* [[RAW_REG_ADDR]] to %struct._Z9agg_4byte*
+// CHECK: [[REG_ADDR:%[^ ]+]] = bitcast i8* [[RAW_REG_ADDR]] to %struct.agg_4byte*
 // CHECK: [[REG_COUNT1:%[^ ]+]] = add i64 [[REG_COUNT]], 1
 // CHECK: store i64 [[REG_COUNT1]], i64* [[REG_COUNT_PTR]]
-// CHECK: [[OVERFLOW_ARG_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct._Z13__va_list_tag, %struct._Z13__va_list_tag* %{{.*}}, i32 0, i32 2
+// CHECK: [[OVERFLOW_ARG_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct.__va_list_tag, %struct.__va_list_tag* %{{.*}}, i32 0, i32 2
 // CHECK: [[OVERFLOW_ARG_AREA:%[^ ]+]] = load i8*, i8** [[OVERFLOW_ARG_AREA_PTR]]
 // CHECK: [[RAW_MEM_ADDR:%[^ ]+]] = getelementptr i8, i8* [[OVERFLOW_ARG_AREA]], i64 4
-// CHECK: [[MEM_ADDR:%[^ ]+]] = bitcast i8* [[RAW_MEM_ADDR]] to %struct._Z9agg_4byte*
+// CHECK: [[MEM_ADDR:%[^ ]+]] = bitcast i8* [[RAW_MEM_ADDR]] to %struct.agg_4byte*
 // CHECK: [[OVERFLOW_ARG_AREA2:%[^ ]+]] = getelementptr i8, i8* [[OVERFLOW_ARG_AREA]], i64 8
 // CHECK: store i8* [[OVERFLOW_ARG_AREA2]], i8** [[OVERFLOW_ARG_AREA_PTR]]
-// CHECK: [[VA_ARG_ADDR:%[^ ]+]] = phi %struct._Z9agg_4byte* [ [[REG_ADDR]], %{{.*}} ], [ [[MEM_ADDR]], %{{.*}} ]
+// CHECK: [[VA_ARG_ADDR:%[^ ]+]] = phi %struct.agg_4byte* [ [[REG_ADDR]], %{{.*}} ], [ [[MEM_ADDR]], %{{.*}} ]
 // CHECK: ret void
 
 struct agg_8byte va_agg_8byte(__builtin_va_list l) { return __builtin_va_arg(l, struct agg_8byte); }
@@ -418,19 +418,19 @@ struct agg_8byte va_agg_8byte(__builtin_va_list l) { return __builtin_va_arg(l, 
 // CHECK: br i1 [[FITS_IN_REGS]],
 // CHECK: [[SCALED_REG_COUNT:%[^ ]+]] = mul i64 [[REG_COUNT]], 8
 // CHECK: [[REG_OFFSET:%[^ ]+]] = add i64 [[SCALED_REG_COUNT]], 16
-// CHECK: [[REG_SAVE_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct._Z13__va_list_tag, %struct._Z13__va_list_tag* %{{.*}}, i32 0, i32 3
+// CHECK: [[REG_SAVE_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct.__va_list_tag, %struct.__va_list_tag* %{{.*}}, i32 0, i32 3
 // CHECK: [[REG_SAVE_AREA:%[^ ]+]] = load i8*, i8** [[REG_SAVE_AREA_PTR:[^ ]+]]
 // CHECK: [[RAW_REG_ADDR:%[^ ]+]] = getelementptr i8, i8* [[REG_SAVE_AREA]], i64 [[REG_OFFSET]]
-// CHECK: [[REG_ADDR:%[^ ]+]] = bitcast i8* [[RAW_REG_ADDR]] to %struct._Z9agg_8byte*
+// CHECK: [[REG_ADDR:%[^ ]+]] = bitcast i8* [[RAW_REG_ADDR]] to %struct.agg_8byte*
 // CHECK: [[REG_COUNT1:%[^ ]+]] = add i64 [[REG_COUNT]], 1
 // CHECK: store i64 [[REG_COUNT1]], i64* [[REG_COUNT_PTR]]
-// CHECK: [[OVERFLOW_ARG_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct._Z13__va_list_tag, %struct._Z13__va_list_tag* %{{.*}}, i32 0, i32 2
+// CHECK: [[OVERFLOW_ARG_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct.__va_list_tag, %struct.__va_list_tag* %{{.*}}, i32 0, i32 2
 // CHECK: [[OVERFLOW_ARG_AREA:%[^ ]+]] = load i8*, i8** [[OVERFLOW_ARG_AREA_PTR]]
 // CHECK: [[RAW_MEM_ADDR:%[^ ]+]] = getelementptr i8, i8* [[OVERFLOW_ARG_AREA]], i64 0
-// CHECK: [[MEM_ADDR:%[^ ]+]] = bitcast i8* [[RAW_MEM_ADDR]] to %struct._Z9agg_8byte*
+// CHECK: [[MEM_ADDR:%[^ ]+]] = bitcast i8* [[RAW_MEM_ADDR]] to %struct.agg_8byte*
 // CHECK: [[OVERFLOW_ARG_AREA2:%[^ ]+]] = getelementptr i8, i8* [[OVERFLOW_ARG_AREA]], i64 8
 // CHECK: store i8* [[OVERFLOW_ARG_AREA2]], i8** [[OVERFLOW_ARG_AREA_PTR]]
-// CHECK: [[VA_ARG_ADDR:%[^ ]+]] = phi %struct._Z9agg_8byte* [ [[REG_ADDR]], %{{.*}} ], [ [[MEM_ADDR]], %{{.*}} ]
+// CHECK: [[VA_ARG_ADDR:%[^ ]+]] = phi %struct.agg_8byte* [ [[REG_ADDR]], %{{.*}} ], [ [[MEM_ADDR]], %{{.*}} ]
 // CHECK: ret void
 
 struct agg_float va_agg_float(__builtin_va_list l) { return __builtin_va_arg(l, struct agg_float); }
@@ -447,16 +447,16 @@ struct agg_float va_agg_float(__builtin_va_list l) { return __builtin_va_arg(l, 
 // CHECK: [[REG_SAVE_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct.__va_list_tag, %struct.__va_list_tag* %{{.*}}, i32 0, i32 3
 // CHECK: [[REG_SAVE_AREA:%[^ ]+]] = load i8*, i8** [[REG_SAVE_AREA_PTR:[^ ]+]]
 // CHECK: [[RAW_REG_ADDR:%[^ ]+]] = getelementptr i8, i8* [[REG_SAVE_AREA]], i64 [[REG_OFFSET]]
-// CHECK: [[REG_ADDR:%[^ ]+]] = bitcast i8* [[RAW_REG_ADDR]] to %struct._Z9agg_float*
+// CHECK: [[REG_ADDR:%[^ ]+]] = bitcast i8* [[RAW_REG_ADDR]] to %struct.agg_float*
 // CHECK: [[REG_COUNT1:%[^ ]+]] = add i64 [[REG_COUNT]], 1
 // CHECK: store i64 [[REG_COUNT1]], i64* [[REG_COUNT_PTR]]
-// CHECK: [[OVERFLOW_ARG_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct._Z13__va_list_tag, %struct._Z13__va_list_tag* %{{.*}}, i32 0, i32 2
+// CHECK: [[OVERFLOW_ARG_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct.__va_list_tag, %struct.__va_list_tag* %{{.*}}, i32 0, i32 2
 // CHECK: [[OVERFLOW_ARG_AREA:%[^ ]+]] = load i8*, i8** [[OVERFLOW_ARG_AREA_PTR]]
 // CHECK: [[RAW_MEM_ADDR:%[^ ]+]] = getelementptr i8, i8* [[OVERFLOW_ARG_AREA]], i64 4
-// CHECK: [[MEM_ADDR:%[^ ]+]] = bitcast i8* [[RAW_MEM_ADDR]] to %struct._Z9agg_float*
+// CHECK: [[MEM_ADDR:%[^ ]+]] = bitcast i8* [[RAW_MEM_ADDR]] to %struct.agg_float*
 // CHECK: [[OVERFLOW_ARG_AREA2:%[^ ]+]] = getelementptr i8, i8* [[OVERFLOW_ARG_AREA]], i64 8
 // CHECK: store i8* [[OVERFLOW_ARG_AREA2]], i8** [[OVERFLOW_ARG_AREA_PTR]]
-// CHECK: [[VA_ARG_ADDR:%[^ ]+]] = phi %struct._Z9agg_float* [ [[REG_ADDR]], %{{.*}} ], [ [[MEM_ADDR]], %{{.*}} ]
+// CHECK: [[VA_ARG_ADDR:%[^ ]+]] = phi %struct.agg_float* [ [[REG_ADDR]], %{{.*}} ], [ [[MEM_ADDR]], %{{.*}} ]
 // CHECK: ret void
 
 struct agg_double va_agg_double(__builtin_va_list l) { return __builtin_va_arg(l, struct agg_double); }
@@ -473,16 +473,16 @@ struct agg_double va_agg_double(__builtin_va_list l) { return __builtin_va_arg(l
 // CHECK: [[REG_SAVE_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct.__va_list_tag, %struct.__va_list_tag* %{{.*}}, i32 0, i32 3
 // CHECK: [[REG_SAVE_AREA:%[^ ]+]] = load i8*, i8** [[REG_SAVE_AREA_PTR:[^ ]+]]
 // CHECK: [[RAW_REG_ADDR:%[^ ]+]] = getelementptr i8, i8* [[REG_SAVE_AREA]], i64 [[REG_OFFSET]]
-// CHECK: [[REG_ADDR:%[^ ]+]] = bitcast i8* [[RAW_REG_ADDR]] to %struct._Z10agg_double*
+// CHECK: [[REG_ADDR:%[^ ]+]] = bitcast i8* [[RAW_REG_ADDR]] to %struct.agg_double*
 // CHECK: [[REG_COUNT1:%[^ ]+]] = add i64 [[REG_COUNT]], 1
 // CHECK: store i64 [[REG_COUNT1]], i64* [[REG_COUNT_PTR]]
-// CHECK: [[OVERFLOW_ARG_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct._Z13__va_list_tag, %struct._Z13__va_list_tag* %{{.*}}, i32 0, i32 2
+// CHECK: [[OVERFLOW_ARG_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct.__va_list_tag, %struct.__va_list_tag* %{{.*}}, i32 0, i32 2
 // CHECK: [[OVERFLOW_ARG_AREA:%[^ ]+]] = load i8*, i8** [[OVERFLOW_ARG_AREA_PTR]]
 // CHECK: [[RAW_MEM_ADDR:%[^ ]+]] = getelementptr i8, i8* [[OVERFLOW_ARG_AREA]], i64 0
-// CHECK: [[MEM_ADDR:%[^ ]+]] = bitcast i8* [[RAW_MEM_ADDR]] to %struct._Z10agg_double*
+// CHECK: [[MEM_ADDR:%[^ ]+]] = bitcast i8* [[RAW_MEM_ADDR]] to %struct.agg_double*
 // CHECK: [[OVERFLOW_ARG_AREA2:%[^ ]+]] = getelementptr i8, i8* [[OVERFLOW_ARG_AREA]], i64 8
 // CHECK: store i8* [[OVERFLOW_ARG_AREA2]], i8** [[OVERFLOW_ARG_AREA_PTR]]
-// CHECK: [[VA_ARG_ADDR:%[^ ]+]] = phi %struct._Z10agg_double* [ [[REG_ADDR]], %{{.*}} ], [ [[MEM_ADDR]], %{{.*}} ]
+// CHECK: [[VA_ARG_ADDR:%[^ ]+]] = phi %struct.agg_double* [ [[REG_ADDR]], %{{.*}} ], [ [[MEM_ADDR]], %{{.*}} ]
 // CHECK: ret void
 
 struct agg_longdouble va_agg_longdouble(__builtin_va_list l) { return __builtin_va_arg(l, struct agg_longdouble); }
@@ -493,20 +493,20 @@ struct agg_longdouble va_agg_longdouble(__builtin_va_list l) { return __builtin_
 // CHECK: br i1 [[FITS_IN_REGS]],
 // CHECK: [[SCALED_REG_COUNT:%[^ ]+]] = mul i64 [[REG_COUNT]], 8
 // CHECK: [[REG_OFFSET:%[^ ]+]] = add i64 [[SCALED_REG_COUNT]], 16
-// CHECK: [[REG_SAVE_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct._Z13__va_list_tag, %struct._Z13__va_list_tag* %{{.*}}, i32 0, i32 3
+// CHECK: [[REG_SAVE_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct.__va_list_tag, %struct.__va_list_tag* %{{.*}}, i32 0, i32 3
 // CHECK: [[REG_SAVE_AREA:%[^ ]+]] = load i8*, i8** [[REG_SAVE_AREA_PTR:[^ ]+]]
 // CHECK: [[RAW_REG_ADDR:%[^ ]+]] = getelementptr i8, i8* [[REG_SAVE_AREA]], i64 [[REG_OFFSET]]
-// CHECK: [[REG_ADDR:%[^ ]+]] = bitcast i8* [[RAW_REG_ADDR]] to %struct._Z14agg_longdouble**
+// CHECK: [[REG_ADDR:%[^ ]+]] = bitcast i8* [[RAW_REG_ADDR]] to %struct.agg_longdouble**
 // CHECK: [[REG_COUNT1:%[^ ]+]] = add i64 [[REG_COUNT]], 1
 // CHECK: store i64 [[REG_COUNT1]], i64* [[REG_COUNT_PTR]]
-// CHECK: [[OVERFLOW_ARG_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct._Z13__va_list_tag, %struct._Z13__va_list_tag* %{{.*}}, i32 0, i32 2
+// CHECK: [[OVERFLOW_ARG_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct.__va_list_tag, %struct.__va_list_tag* %{{.*}}, i32 0, i32 2
 // CHECK: [[OVERFLOW_ARG_AREA:%[^ ]+]] = load i8*, i8** [[OVERFLOW_ARG_AREA_PTR]]
 // CHECK: [[RAW_MEM_ADDR:%[^ ]+]] = getelementptr i8, i8* [[OVERFLOW_ARG_AREA]], i64 0
-// CHECK: [[MEM_ADDR:%[^ ]+]] = bitcast i8* [[RAW_MEM_ADDR]] to %struct._Z14agg_longdouble**
+// CHECK: [[MEM_ADDR:%[^ ]+]] = bitcast i8* [[RAW_MEM_ADDR]] to %struct.agg_longdouble**
 // CHECK: [[OVERFLOW_ARG_AREA2:%[^ ]+]] = getelementptr i8, i8* [[OVERFLOW_ARG_AREA]], i64 8
 // CHECK: store i8* [[OVERFLOW_ARG_AREA2]], i8** [[OVERFLOW_ARG_AREA_PTR]]
-// CHECK: [[VA_ARG_ADDR:%[^ ]+]] = phi %struct._Z14agg_longdouble** [ [[REG_ADDR]], %{{.*}} ], [ [[MEM_ADDR]], %{{.*}} ]
-// CHECK: [[INDIRECT_ARG:%[^ ]+]] = load %struct._Z14agg_longdouble*, %struct._Z14agg_longdouble** [[VA_ARG_ADDR]]
+// CHECK: [[VA_ARG_ADDR:%[^ ]+]] = phi %struct.agg_longdouble** [ [[REG_ADDR]], %{{.*}} ], [ [[MEM_ADDR]], %{{.*}} ]
+// CHECK: [[INDIRECT_ARG:%[^ ]+]] = load %struct.agg_longdouble*, %struct.agg_longdouble** [[VA_ARG_ADDR]]
 // CHECK: ret void
 
 struct agg_float_a8 va_agg_float_a8(__builtin_va_list l) { return __builtin_va_arg(l, struct agg_float_a8); }
@@ -523,16 +523,16 @@ struct agg_float_a8 va_agg_float_a8(__builtin_va_list l) { return __builtin_va_a
 // CHECK: [[REG_SAVE_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct.__va_list_tag, %struct.__va_list_tag* %{{.*}}, i32 0, i32 3
 // CHECK: [[REG_SAVE_AREA:%[^ ]+]] = load i8*, i8** [[REG_SAVE_AREA_PTR:[^ ]+]]
 // CHECK: [[RAW_REG_ADDR:%[^ ]+]] = getelementptr i8, i8* [[REG_SAVE_AREA]], i64 [[REG_OFFSET]]
-// CHECK: [[REG_ADDR:%[^ ]+]] = bitcast i8* [[RAW_REG_ADDR]] to %struct._Z12agg_float_a8*
+// CHECK: [[REG_ADDR:%[^ ]+]] = bitcast i8* [[RAW_REG_ADDR]] to %struct.agg_float_a8*
 // CHECK: [[REG_COUNT1:%[^ ]+]] = add i64 [[REG_COUNT]], 1
 // CHECK: store i64 [[REG_COUNT1]], i64* [[REG_COUNT_PTR]]
-// CHECK: [[OVERFLOW_ARG_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct._Z13__va_list_tag, %struct._Z13__va_list_tag* %{{.*}}, i32 0, i32 2
+// CHECK: [[OVERFLOW_ARG_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct.__va_list_tag, %struct.__va_list_tag* %{{.*}}, i32 0, i32 2
 // CHECK: [[OVERFLOW_ARG_AREA:%[^ ]+]] = load i8*, i8** [[OVERFLOW_ARG_AREA_PTR]]
 // CHECK: [[RAW_MEM_ADDR:%[^ ]+]] = getelementptr i8, i8* [[OVERFLOW_ARG_AREA]], i64 0
-// CHECK: [[MEM_ADDR:%[^ ]+]] = bitcast i8* [[RAW_MEM_ADDR]] to %struct._Z12agg_float_a8*
+// CHECK: [[MEM_ADDR:%[^ ]+]] = bitcast i8* [[RAW_MEM_ADDR]] to %struct.agg_float_a8*
 // CHECK: [[OVERFLOW_ARG_AREA2:%[^ ]+]] = getelementptr i8, i8* [[OVERFLOW_ARG_AREA]], i64 8
 // CHECK: store i8* [[OVERFLOW_ARG_AREA2]], i8** [[OVERFLOW_ARG_AREA_PTR]]
-// CHECK: [[VA_ARG_ADDR:%[^ ]+]] = phi %struct._Z12agg_float_a8* [ [[REG_ADDR]], %{{.*}} ], [ [[MEM_ADDR]], %{{.*}} ]
+// CHECK: [[VA_ARG_ADDR:%[^ ]+]] = phi %struct.agg_float_a8* [ [[REG_ADDR]], %{{.*}} ], [ [[MEM_ADDR]], %{{.*}} ]
 // CHECK: ret void
 
 struct agg_float_a16 va_agg_float_a16(__builtin_va_list l) { return __builtin_va_arg(l, struct agg_float_a16); }
@@ -543,20 +543,20 @@ struct agg_float_a16 va_agg_float_a16(__builtin_va_list l) { return __builtin_va
 // CHECK: br i1 [[FITS_IN_REGS]],
 // CHECK: [[SCALED_REG_COUNT:%[^ ]+]] = mul i64 [[REG_COUNT]], 8
 // CHECK: [[REG_OFFSET:%[^ ]+]] = add i64 [[SCALED_REG_COUNT]], 16
-// CHECK: [[REG_SAVE_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct._Z13__va_list_tag, %struct._Z13__va_list_tag* %{{.*}}, i32 0, i32 3
+// CHECK: [[REG_SAVE_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct.__va_list_tag, %struct.__va_list_tag* %{{.*}}, i32 0, i32 3
 // CHECK: [[REG_SAVE_AREA:%[^ ]+]] = load i8*, i8** [[REG_SAVE_AREA_PTR:[^ ]+]]
 // CHECK: [[RAW_REG_ADDR:%[^ ]+]] = getelementptr i8, i8* [[REG_SAVE_AREA]], i64 [[REG_OFFSET]]
-// CHECK: [[REG_ADDR:%[^ ]+]] = bitcast i8* [[RAW_REG_ADDR]] to %struct._Z13agg_float_a16**
+// CHECK: [[REG_ADDR:%[^ ]+]] = bitcast i8* [[RAW_REG_ADDR]] to %struct.agg_float_a16**
 // CHECK: [[REG_COUNT1:%[^ ]+]] = add i64 [[REG_COUNT]], 1
 // CHECK: store i64 [[REG_COUNT1]], i64* [[REG_COUNT_PTR]]
-// CHECK: [[OVERFLOW_ARG_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct._Z13__va_list_tag, %struct._Z13__va_list_tag* %{{.*}}, i32 0, i32 2
+// CHECK: [[OVERFLOW_ARG_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct.__va_list_tag, %struct.__va_list_tag* %{{.*}}, i32 0, i32 2
 // CHECK: [[OVERFLOW_ARG_AREA:%[^ ]+]] = load i8*, i8** [[OVERFLOW_ARG_AREA_PTR]]
 // CHECK: [[RAW_MEM_ADDR:%[^ ]+]] = getelementptr i8, i8* [[OVERFLOW_ARG_AREA]], i64 0
-// CHECK: [[MEM_ADDR:%[^ ]+]] = bitcast i8* [[RAW_MEM_ADDR]] to %struct._Z13agg_float_a16**
+// CHECK: [[MEM_ADDR:%[^ ]+]] = bitcast i8* [[RAW_MEM_ADDR]] to %struct.agg_float_a16**
 // CHECK: [[OVERFLOW_ARG_AREA2:%[^ ]+]] = getelementptr i8, i8* [[OVERFLOW_ARG_AREA]], i64 8
 // CHECK: store i8* [[OVERFLOW_ARG_AREA2]], i8** [[OVERFLOW_ARG_AREA_PTR]]
-// CHECK: [[VA_ARG_ADDR:%[^ ]+]] = phi %struct._Z13agg_float_a16** [ [[REG_ADDR]], %{{.*}} ], [ [[MEM_ADDR]], %{{.*}} ]
-// CHECK: [[INDIRECT_ARG:%[^ ]+]] = load %struct._Z13agg_float_a16*, %struct._Z13agg_float_a16** [[VA_ARG_ADDR]]
+// CHECK: [[VA_ARG_ADDR:%[^ ]+]] = phi %struct.agg_float_a16** [ [[REG_ADDR]], %{{.*}} ], [ [[MEM_ADDR]], %{{.*}} ]
+// CHECK: [[INDIRECT_ARG:%[^ ]+]] = load %struct.agg_float_a16*, %struct.agg_float_a16** [[VA_ARG_ADDR]]
 // CHECK: ret void
 
 struct agg_nofloat1 va_agg_nofloat1(__builtin_va_list l) { return __builtin_va_arg(l, struct agg_nofloat1); }
@@ -567,19 +567,19 @@ struct agg_nofloat1 va_agg_nofloat1(__builtin_va_list l) { return __builtin_va_a
 // CHECK: br i1 [[FITS_IN_REGS]],
 // CHECK: [[SCALED_REG_COUNT:%[^ ]+]] = mul i64 [[REG_COUNT]], 8
 // CHECK: [[REG_OFFSET:%[^ ]+]] = add i64 [[SCALED_REG_COUNT]], 16
-// CHECK: [[REG_SAVE_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct._Z13__va_list_tag, %struct._Z13__va_list_tag* %{{.*}}, i32 0, i32 3
+// CHECK: [[REG_SAVE_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct.__va_list_tag, %struct.__va_list_tag* %{{.*}}, i32 0, i32 3
 // CHECK: [[REG_SAVE_AREA:%[^ ]+]] = load i8*, i8** [[REG_SAVE_AREA_PTR:[^ ]+]]
 // CHECK: [[RAW_REG_ADDR:%[^ ]+]] = getelementptr i8, i8* [[REG_SAVE_AREA]], i64 [[REG_OFFSET]]
-// CHECK: [[REG_ADDR:%[^ ]+]] = bitcast i8* [[RAW_REG_ADDR]] to %struct._Z12agg_nofloat1*
+// CHECK: [[REG_ADDR:%[^ ]+]] = bitcast i8* [[RAW_REG_ADDR]] to %struct.agg_nofloat1*
 // CHECK: [[REG_COUNT1:%[^ ]+]] = add i64 [[REG_COUNT]], 1
 // CHECK: store i64 [[REG_COUNT1]], i64* [[REG_COUNT_PTR]]
-// CHECK: [[OVERFLOW_ARG_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct._Z13__va_list_tag, %struct._Z13__va_list_tag* %{{.*}}, i32 0, i32 2
+// CHECK: [[OVERFLOW_ARG_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct.__va_list_tag, %struct.__va_list_tag* %{{.*}}, i32 0, i32 2
 // CHECK: [[OVERFLOW_ARG_AREA:%[^ ]+]] = load i8*, i8** [[OVERFLOW_ARG_AREA_PTR]]
 // CHECK: [[RAW_MEM_ADDR:%[^ ]+]] = getelementptr i8, i8* [[OVERFLOW_ARG_AREA]], i64 0
-// CHECK: [[MEM_ADDR:%[^ ]+]] = bitcast i8* [[RAW_MEM_ADDR]] to %struct._Z12agg_nofloat1*
+// CHECK: [[MEM_ADDR:%[^ ]+]] = bitcast i8* [[RAW_MEM_ADDR]] to %struct.agg_nofloat1*
 // CHECK: [[OVERFLOW_ARG_AREA2:%[^ ]+]] = getelementptr i8, i8* [[OVERFLOW_ARG_AREA]], i64 8
 // CHECK: store i8* [[OVERFLOW_ARG_AREA2]], i8** [[OVERFLOW_ARG_AREA_PTR]]
-// CHECK: [[VA_ARG_ADDR:%[^ ]+]] = phi %struct._Z12agg_nofloat1* [ [[REG_ADDR]], %{{.*}} ], [ [[MEM_ADDR]], %{{.*}} ]
+// CHECK: [[VA_ARG_ADDR:%[^ ]+]] = phi %struct.agg_nofloat1* [ [[REG_ADDR]], %{{.*}} ], [ [[MEM_ADDR]], %{{.*}} ]
 // CHECK: ret void
 
 struct agg_nofloat2 va_agg_nofloat2(__builtin_va_list l) { return __builtin_va_arg(l, struct agg_nofloat2); }
@@ -590,19 +590,19 @@ struct agg_nofloat2 va_agg_nofloat2(__builtin_va_list l) { return __builtin_va_a
 // CHECK: br i1 [[FITS_IN_REGS]],
 // CHECK: [[SCALED_REG_COUNT:%[^ ]+]] = mul i64 [[REG_COUNT]], 8
 // CHECK: [[REG_OFFSET:%[^ ]+]] = add i64 [[SCALED_REG_COUNT]], 16
-// CHECK: [[REG_SAVE_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct._Z13__va_list_tag, %struct._Z13__va_list_tag* %{{.*}}, i32 0, i32 3
+// CHECK: [[REG_SAVE_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct.__va_list_tag, %struct.__va_list_tag* %{{.*}}, i32 0, i32 3
 // CHECK: [[REG_SAVE_AREA:%[^ ]+]] = load i8*, i8** [[REG_SAVE_AREA_PTR:[^ ]+]]
 // CHECK: [[RAW_REG_ADDR:%[^ ]+]] = getelementptr i8, i8* [[REG_SAVE_AREA]], i64 [[REG_OFFSET]]
-// CHECK: [[REG_ADDR:%[^ ]+]] = bitcast i8* [[RAW_REG_ADDR]] to %struct._Z12agg_nofloat2*
+// CHECK: [[REG_ADDR:%[^ ]+]] = bitcast i8* [[RAW_REG_ADDR]] to %struct.agg_nofloat2*
 // CHECK: [[REG_COUNT1:%[^ ]+]] = add i64 [[REG_COUNT]], 1
 // CHECK: store i64 [[REG_COUNT1]], i64* [[REG_COUNT_PTR]]
-// CHECK: [[OVERFLOW_ARG_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct._Z13__va_list_tag, %struct._Z13__va_list_tag* %{{.*}}, i32 0, i32 2
+// CHECK: [[OVERFLOW_ARG_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct.__va_list_tag, %struct.__va_list_tag* %{{.*}}, i32 0, i32 2
 // CHECK: [[OVERFLOW_ARG_AREA:%[^ ]+]] = load i8*, i8** [[OVERFLOW_ARG_AREA_PTR]]
 // CHECK: [[RAW_MEM_ADDR:%[^ ]+]] = getelementptr i8, i8* [[OVERFLOW_ARG_AREA]], i64 0
-// CHECK: [[MEM_ADDR:%[^ ]+]] = bitcast i8* [[RAW_MEM_ADDR]] to %struct._Z12agg_nofloat2*
+// CHECK: [[MEM_ADDR:%[^ ]+]] = bitcast i8* [[RAW_MEM_ADDR]] to %struct.agg_nofloat2*
 // CHECK: [[OVERFLOW_ARG_AREA2:%[^ ]+]] = getelementptr i8, i8* [[OVERFLOW_ARG_AREA]], i64 8
 // CHECK: store i8* [[OVERFLOW_ARG_AREA2]], i8** [[OVERFLOW_ARG_AREA_PTR]]
-// CHECK: [[VA_ARG_ADDR:%[^ ]+]] = phi %struct._Z12agg_nofloat2* [ [[REG_ADDR]], %{{.*}} ], [ [[MEM_ADDR]], %{{.*}} ]
+// CHECK: [[VA_ARG_ADDR:%[^ ]+]] = phi %struct.agg_nofloat2* [ [[REG_ADDR]], %{{.*}} ], [ [[MEM_ADDR]], %{{.*}} ]
 // CHECK: ret void
 
 struct agg_nofloat3 va_agg_nofloat3(__builtin_va_list l) { return __builtin_va_arg(l, struct agg_nofloat3); }
@@ -613,18 +613,18 @@ struct agg_nofloat3 va_agg_nofloat3(__builtin_va_list l) { return __builtin_va_a
 // CHECK: br i1 [[FITS_IN_REGS]],
 // CHECK: [[SCALED_REG_COUNT:%[^ ]+]] = mul i64 [[REG_COUNT]], 8
 // CHECK: [[REG_OFFSET:%[^ ]+]] = add i64 [[SCALED_REG_COUNT]], 20
-// CHECK: [[REG_SAVE_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct._Z13__va_list_tag, %struct._Z13__va_list_tag* %{{.*}}, i32 0, i32 3
+// CHECK: [[REG_SAVE_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct.__va_list_tag, %struct.__va_list_tag* %{{.*}}, i32 0, i32 3
 // CHECK: [[REG_SAVE_AREA:%[^ ]+]] = load i8*, i8** [[REG_SAVE_AREA_PTR:[^ ]+]]
 // CHECK: [[RAW_REG_ADDR:%[^ ]+]] = getelementptr i8, i8* [[REG_SAVE_AREA]], i64 [[REG_OFFSET]]
-// CHECK: [[REG_ADDR:%[^ ]+]] = bitcast i8* [[RAW_REG_ADDR]] to %struct._Z12agg_nofloat3*
+// CHECK: [[REG_ADDR:%[^ ]+]] = bitcast i8* [[RAW_REG_ADDR]] to %struct.agg_nofloat3*
 // CHECK: [[REG_COUNT1:%[^ ]+]] = add i64 [[REG_COUNT]], 1
 // CHECK: store i64 [[REG_COUNT1]], i64* [[REG_COUNT_PTR]]
-// CHECK: [[OVERFLOW_ARG_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct._Z13__va_list_tag, %struct._Z13__va_list_tag* %{{.*}}, i32 0, i32 2
+// CHECK: [[OVERFLOW_ARG_AREA_PTR:%[^ ]+]] = getelementptr inbounds %struct.__va_list_tag, %struct.__va_list_tag* %{{.*}}, i32 0, i32 2
 // CHECK: [[OVERFLOW_ARG_AREA:%[^ ]+]] = load i8*, i8** [[OVERFLOW_ARG_AREA_PTR]]
 // CHECK: [[RAW_MEM_ADDR:%[^ ]+]] = getelementptr i8, i8* [[OVERFLOW_ARG_AREA]], i64 4
-// CHECK: [[MEM_ADDR:%[^ ]+]] = bitcast i8* [[RAW_MEM_ADDR]] to %struct._Z12agg_nofloat3*
+// CHECK: [[MEM_ADDR:%[^ ]+]] = bitcast i8* [[RAW_MEM_ADDR]] to %struct.agg_nofloat3*
 // CHECK: [[OVERFLOW_ARG_AREA2:%[^ ]+]] = getelementptr i8, i8* [[OVERFLOW_ARG_AREA]], i64 8
 // CHECK: store i8* [[OVERFLOW_ARG_AREA2]], i8** [[OVERFLOW_ARG_AREA_PTR]]
-// CHECK: [[VA_ARG_ADDR:%[^ ]+]] = phi %struct._Z12agg_nofloat3* [ [[REG_ADDR]], %{{.*}} ], [ [[MEM_ADDR]], %{{.*}} ]
+// CHECK: [[VA_ARG_ADDR:%[^ ]+]] = phi %struct.agg_nofloat3* [ [[REG_ADDR]], %{{.*}} ], [ [[MEM_ADDR]], %{{.*}} ]
 // CHECK: ret void
 

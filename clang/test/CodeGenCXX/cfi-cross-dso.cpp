@@ -28,14 +28,14 @@ void g() {
 
 // MS: @[[B_VTABLE:.*]] = private unnamed_addr constant { [2 x i8*] } {{.*}}@"??_R4B@?A0x{{[^@]*}}@@6B@"{{.*}}@"?f@B@?A0x{{[^@]*}}@@UEAAXXZ"
 
-// CHECK:   %[[VT:.*]] = load void (%struct.A*)**, void (%struct.A*)***
-// CHECK:   %[[VT2:.*]] = bitcast {{.*}}%[[VT]] to i8*, !nosanitize
-// ITANIUM:   %[[TEST:.*]] = call i1 @llvm.type.test(i8* %[[VT2]], metadata !"_ZTS1A"), !nosanitize
-// MS:   %[[TEST:.*]] = call i1 @llvm.type.test(i8* %[[VT2]], metadata !"?AUA@@"), !nosanitize
+// CHECK:   %[[VT:.*]] = bitcast
+// CHECK:   %[[VT2:.*]] = load
+// ITANIUM:   %[[TEST:.*]] = call i1 @llvm.type.test(i8* {{.*}}, metadata !"_ZTS1A"), !nosanitize
+// MS:   %[[TEST:.*]] = call i1 @llvm.type.test(i8* {{.*}}, metadata !"?AUA@@"), !nosanitize
 // CHECK:   br i1 %[[TEST]], label %[[CONT:.*]], label %[[SLOW:.*]], {{.*}} !nosanitize
 // CHECK: [[SLOW]]
-// ITANIUM:   call void @__cfi_slowpath_diag(i64 7004155349499253778, i8* %[[VT2]], {{.*}}) {{.*}} !nosanitize
-// MS:   call void @__cfi_slowpath_diag(i64 -8005289897957287421, i8* %[[VT2]], {{.*}}) {{.*}} !nosanitize
+// ITANIUM:   call void @__cfi_slowpath_diag(i64 7004155349499253778, i8* {{.*}}, {{.*}}) {{.*}} !nosanitize
+// MS:   call void @__cfi_slowpath_diag(i64 -8005289897957287421, i8* {{.*}}, {{.*}}) {{.*}} !nosanitize
 // CHECK:   br label %[[CONT]], !nosanitize
 // CHECK: [[CONT]]
 // CHECK:   call void %{{.*}}(%struct.A* %{{.*}})

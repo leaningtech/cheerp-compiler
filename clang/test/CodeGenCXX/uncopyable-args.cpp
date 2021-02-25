@@ -58,9 +58,9 @@ void bar() {
 // CHECK-LABEL: define void @_ZN9move_ctor3barEv()
 // CHECK: call void @_Z{{.*}}C1Ev(
 // CHECK-NOT: call
-// NEWABI: call void @_ZN9move_ctor3fooENS_1AE(%struct._ZN9move_ctor1AE* %{{.*}})
+// NEWABI: call void @_ZN9move_ctor3fooENS_1AE(%"struct.move_ctor::A"* %{{.*}})
 // OLDABI: call void @_ZN9move_ctor3fooENS_1AE(i8* %{{.*}})
-// NEWABI-LABEL: declare void @_ZN9move_ctor3fooENS_1AE(%struct._ZN9move_ctor1AE*)
+// NEWABI-LABEL: declare void @_ZN9move_ctor3fooENS_1AE(%"struct.move_ctor::A"*)
 // OLDABI-LABEL: declare void @_ZN9move_ctor3fooENS_1AE(i8*)
 
 // WIN64-LABEL: declare dso_local void @"?foo@move_ctor@@YAXUA@1@@Z"(%"struct.move_ctor::A"*)
@@ -80,9 +80,9 @@ void bar() {
 // CHECK-LABEL: define void @_ZN11all_deleted3barEv()
 // CHECK: call void @_Z{{.*}}C1Ev(
 // CHECK-NOT: call
-// NEWABI: call void @_ZN11all_deleted3fooENS_1AE(%struct._ZN11all_deleted1AE* %{{.*}})
+// NEWABI: call void @_ZN11all_deleted3fooENS_1AE(%"struct.all_deleted::A"* %{{.*}})
 // OLDABI: call void @_ZN11all_deleted3fooENS_1AE(i8* %{{.*}})
-// NEWABI-LABEL: declare void @_ZN11all_deleted3fooENS_1AE(%struct._ZN11all_deleted1AE*)
+// NEWABI-LABEL: declare void @_ZN11all_deleted3fooENS_1AE(%"struct.all_deleted::A"*)
 // OLDABI-LABEL: declare void @_ZN11all_deleted3fooENS_1AE(i8*)
 
 // WIN64-LABEL: declare dso_local void @"?foo@all_deleted@@YAXUA@1@@Z"(%"struct.all_deleted::A"*)
@@ -101,9 +101,9 @@ void bar() {
 // CHECK-LABEL: define void @_ZN18implicitly_deleted3barEv()
 // CHECK: call void @_Z{{.*}}C1Ev(
 // CHECK-NOT: call
-// NEWABI: call void @_ZN18implicitly_deleted3fooENS_1AE(%struct._ZN18implicitly_deleted1AE* %{{.*}})
+// NEWABI: call void @_ZN18implicitly_deleted3fooENS_1AE(%"struct.implicitly_deleted::A"* %{{.*}})
 // OLDABI: call void @_ZN18implicitly_deleted3fooENS_1AE(i8* %{{.*}})
-// NEWABI-LABEL: declare void @_ZN18implicitly_deleted3fooENS_1AE(%struct._ZN18implicitly_deleted1AE*)
+// NEWABI-LABEL: declare void @_ZN18implicitly_deleted3fooENS_1AE(%"struct.implicitly_deleted::A"*)
 // OLDABI-LABEL: declare void @_ZN18implicitly_deleted3fooENS_1AE(i8*)
 
 // In MSVC 2013, the copy ctor is not deleted by a move assignment. In MSVC 2015, it is.
@@ -124,9 +124,9 @@ void bar() {
 // CHECK-LABEL: define void @_ZN11one_deleted3barEv()
 // CHECK: call void @_Z{{.*}}C1Ev(
 // CHECK-NOT: call
-// NEWABI: call void @_ZN11one_deleted3fooENS_1AE(%struct._ZN11one_deleted1AE* %{{.*}})
+// NEWABI: call void @_ZN11one_deleted3fooENS_1AE(%"struct.one_deleted::A"* %{{.*}})
 // OLDABI: call void @_ZN11one_deleted3fooENS_1AE(i8* %{{.*}})
-// NEWABI-LABEL: declare void @_ZN11one_deleted3fooENS_1AE(%struct._ZN11one_deleted1AE*)
+// NEWABI-LABEL: declare void @_ZN11one_deleted3fooENS_1AE(%"struct.one_deleted::A"*)
 // OLDABI-LABEL: declare void @_ZN11one_deleted3fooENS_1AE(i8*)
 
 // WIN64-LABEL: declare dso_local void @"?foo@one_deleted@@YAXUA@1@@Z"(%"struct.one_deleted::A"*)
@@ -206,10 +206,10 @@ void bar() {
 }
 // CHECK-LABEL: define void @_ZN14two_copy_ctors3barEv()
 // CHECK: call void @_Z{{.*}}C1Ev(
-// NEWABI: call void @_ZN14two_copy_ctors3fooENS_1BE(%struct._ZN14two_copy_ctors1BE* %{{.*}})
-// OLDABI: call void @_ZN14two_copy_ctors3fooENS_1BE(%struct._ZN14two_copy_ctors1BE* byval
-// NEWABI-LABEL: declare void @_ZN14two_copy_ctors3fooENS_1BE(%struct._ZN14two_copy_ctors1BE*)
-// OLDABI-LABEL: declare void @_ZN14two_copy_ctors3fooENS_1BE(%struct._ZN14two_copy_ctors1BE* byval
+// NEWABI: call void @_ZN14two_copy_ctors3fooENS_1BE(%"struct.two_copy_ctors::B"* %{{.*}})
+// OLDABI: call void @_ZN14two_copy_ctors3fooENS_1BE(%"struct.two_copy_ctors::B"* byval
+// NEWABI-LABEL: declare void @_ZN14two_copy_ctors3fooENS_1BE(%"struct.two_copy_ctors::B"*)
+// OLDABI-LABEL: declare void @_ZN14two_copy_ctors3fooENS_1BE(%"struct.two_copy_ctors::B"* byval
 
 // WIN64-LABEL: declare dso_local void @"?foo@two_copy_ctors@@YAXUB@1@@Z"(%"struct.two_copy_ctors::B"*)
 }
@@ -307,7 +307,7 @@ struct A {
   // Deleted copy ctor due to rvalue ref member.
   int &&ref;
 };
-// NEWABI-LABEL: define {{.*}} @_ZN28implicitly_deleted_copy_ctor3fooENS_1AE(%struct._ZN28implicitly_deleted_copy_ctor1AE*
+// NEWABI-LABEL: define {{.*}} @_ZN28implicitly_deleted_copy_ctor3fooENS_1AE(%"struct.implicitly_deleted_copy_ctor::A"*
 // OLDABI-LABEL: define {{.*}} @_ZN28implicitly_deleted_copy_ctor3fooENS_1AE(i32*
 // WIN64-LABEL: define {{.*}} @"?foo@implicitly_deleted_copy_ctor@@YAAEAHUA@1@@Z"(%"struct.implicitly_deleted_copy_ctor::A"*
 int &foo(A a) { return a.ref; }
@@ -331,7 +331,7 @@ union C {
   int n;
 };
 int foo(C c) { return c.n; }
-// CHECK-LABEL: define {{.*}} @_ZN28implicitly_deleted_copy_ctor3fooENS_1CE(%union._ZN28implicitly_deleted_copy_ctor1CE*
+// CHECK-LABEL: define {{.*}} @_ZN28implicitly_deleted_copy_ctor3fooENS_1CE(%"union.implicitly_deleted_copy_ctor::C"*
 // WIN64-LABEL: define {{.*}} @"?foo@implicitly_deleted_copy_ctor@@YAHTC@1@@Z"(%"union.implicitly_deleted_copy_ctor::C"*
 
 struct D {
@@ -343,7 +343,7 @@ struct D {
   };
 };
 int foo(D d) { return d.n; }
-// CHECK-LABEL: define {{.*}} @_ZN28implicitly_deleted_copy_ctor3fooENS_1DE(%struct._ZN28implicitly_deleted_copy_ctor1DE*
+// CHECK-LABEL: define {{.*}} @_ZN28implicitly_deleted_copy_ctor3fooENS_1DE(%"struct.implicitly_deleted_copy_ctor::D"*
 // WIN64-LABEL: define {{.*}} @"?foo@implicitly_deleted_copy_ctor@@YAHUD@1@@Z"(%"struct.implicitly_deleted_copy_ctor::D"*
 
 union E {

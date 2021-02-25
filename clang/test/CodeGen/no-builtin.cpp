@@ -31,13 +31,13 @@ struct B : public A {
 
 // CHECK-LABEL: define void @call_a_foo(%struct.A* %a) #3
 extern "C" void call_a_foo(A *a) {
-  // CHECK: %call = call i32 %2(%struct.A* %0)
+  // CHECK: %call = call i32 %3(%struct.A* %0)
   a->foo(); // virtual call is not annotated
 }
 
 // CHECK-LABEL: define void @call_b_foo(%struct.B* %b) #3
 extern "C" void call_b_foo(B *b) {
-  // CHECK: %call = call i32 %2(%struct.B* %0)
+  // CHECK: %call = call i32 %3(%struct.B* %0)
   b->foo(); // virtual call is not annotated
 }
 

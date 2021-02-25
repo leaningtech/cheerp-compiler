@@ -1,5 +1,5 @@
-// RUN: %clang_cc1 -std=c++14 -Wno-unused-value -fsyntax-only -verify -verify=expected-cxx14 -fblocks %s
-// RUN: %clang_cc1 -std=c++17 -Wno-unused-value -fsyntax-only -verify -fblocks %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++14 -Wno-unused-value -fsyntax-only -verify -verify=expected-cxx14 -fblocks %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++17 -Wno-unused-value -fsyntax-only -verify -fblocks %s
 
 namespace std { class type_info; };
 

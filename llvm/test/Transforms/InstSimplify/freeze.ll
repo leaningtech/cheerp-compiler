@@ -197,11 +197,11 @@ define i8* @gep_noopt(i32 %arg) {
 define i8* @gep_inbounds() {
 ; CHECK-LABEL: @gep_inbounds(
 ; CHECK-NEXT:    [[P:%.*]] = alloca [4 x i8], align 1
-; CHECK-NEXT:    [[Q:%.*]] = getelementptr inbounds [4 x i8], [4 x i8]* [[P]], i32 0, i32 0
+; CHECK-NEXT:    [[Q:%.*]] = bitcast [4 x i8]* [[P]] to i8*
 ; CHECK-NEXT:    ret i8* [[Q]]
 ;
   %p = alloca [4 x i8]
-  %q = getelementptr inbounds [4 x i8], [4 x i8]* %p, i32 0, i32 0
+  %q = bitcast [4 x i8]* %p to i8*
   %q2 = freeze i8* %q
   ret i8* %q2
 }

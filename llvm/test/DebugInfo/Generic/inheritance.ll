@@ -1,6 +1,8 @@
 ; RUN: llc %s -o /dev/null
 ; PR 2613.
 
+target triple = "x86_64-unknown-linux"
+
 %struct.__class_type_info_pseudo = type { %struct.__type_info_pseudo }
 %struct.__type_info_pseudo = type { i8*, i8* }
 %struct.test1 = type { i32 (...)** }

@@ -25,7 +25,7 @@ void noescapeFunc3(__attribute__((noescape)) union U);
 // CHECK-NOARC: %[[STRUCT_BLOCK_BYREF_B0:.*]] = type { i8*, %[[STRUCT_BLOCK_BYREF_B0]]*, i32, i32, i8*, %[[STRUCT_S0:.*]] }
 // CHECK-ARC: %[[STRUCT_BLOCK_BYREF_B0:.*]] = type { i8*, %[[STRUCT_BLOCK_BYREF_B0]]*, i32, i32, i8*, i8*, i8*, %[[STRUCT_S0:.*]] }
 // CHECK: %[[STRUCT_S0]] = type { i8*, i8* }
-// CHECK: @[[BLOCK_DESCIPTOR_TMP_2:.*ls32l8"]] = linkonce_odr hidden unnamed_addr constant { i64, i64, i8*, i64 } { i64 0, i64 40, i8* getelementptr inbounds ([6 x i8], [6 x i8]* @{{.*}}, i32 0, i32 0), i64 256 }, align 8
+// CHECK: @[[BLOCK_DESCIPTOR_TMP_2:.*ls32l8"]] = linkonce_odr hidden unnamed_addr constant { i64, i64, i8*, i64 } { i64 0, i64 40, i8* bitcast ([6 x i8]* @{{.*}} to i8*), i64 256 }, align 8
 
 // CHECK-LABEL: define void @test0(
 // CHECK: call void @noescapeFunc0({{.*}}, {{.*}} nocapture {{.*}})

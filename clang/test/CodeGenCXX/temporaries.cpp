@@ -17,16 +17,16 @@ namespace PR16263 {
   struct C : A, B {};
   extern const A &&a = (A&&)(A&&)(C&&)(C{});
   // CHECK: @_ZGRN7PR162631aE_ = internal global {{.*}} zeroinitializer,
-  // CHECK: @_ZN7PR162631aE = constant {{.*}} bitcast ({{.*}}* @_ZGRN7PR162631aE_ to
+  // CHECK: @_ZN7PR162631aE = constant {{.*}} bitcast ({{.*}}* @_ZGRN7PR162631aE_
 
   extern const int &&t = ((B&&)C{}).n;
   // CHECK: @_ZGRN7PR162631tE_ = internal global {{.*}} zeroinitializer,
-  // CHECK: @_ZN7PR162631tE = constant i32* {{.*}}* @_ZGRN7PR162631tE_ {{.*}} 4
+  // CHECK: @_ZN7PR162631tE = constant i32* {{.*}}* @_ZGRN7PR162631tE_,
 
   struct D { double d; C c; };
   extern const int &&u = (123, static_cast<B&&>(0, ((D&&)D{}).*&D::c).n);
   // CHECK: @_ZGRN7PR162631uE_ = internal global {{.*}} zeroinitializer
-  // CHECK: @_ZN7PR162631uE = constant i32* {{.*}} @_ZGRN7PR162631uE_ {{.*}} 12
+  // CHECK: @_ZN7PR162631uE = constant i32* {{.*}} @_ZGRN7PR162631uE_,
 }
 
 namespace PR20227 {
@@ -526,7 +526,6 @@ namespace Elision {
     // CHECK-NEXT: call void @_ZNK7Elision1CcvNS_1AEEv([[A]]* sret align 8 [[T0]], [[C]]* [[X]])
     // CHECK-NEXT: call void @_ZNK7Elision1A3fooEv([[A]]* [[T0]])
     // CHECK-NEXT: call void @_ZN7Elision1AD1Ev([[A]]* [[T0]])
-    // CHECK-NEXT: call void @"llvm.lifetime.end
     // CHECK-NEXT: ret void
     A(*x).foo();
   }
@@ -889,11 +888,11 @@ namespace Conditional {
   // CHECK: br i1
   //
   // CHECK: call {{.*}} @_ZN11Conditional1BC1Ev({{.*}} @_ZGRN11Conditional1rE_)
-  // CHECK: call {{.*}} @__cxa_atexit({{.*}} @_ZN11Conditional1BD1Ev {{.*}} @_ZGRN11Conditional1rE_,
+  // CHECK: call {{.*}} @__cxa_atexit({{.*}} @_ZN11Conditional1BD1Ev {{.*}} @_ZGRN11Conditional1rE_ 
   // CHECK: br label
   //
   // CHECK: call {{.*}} @_ZN11Conditional1CC1Ev({{.*}} @_ZGRN11Conditional1rE0_)
-  // CHECK: call {{.*}} @__cxa_atexit({{.*}} @_ZN11Conditional1CD1Ev {{.*}} @_ZGRN11Conditional1rE0_,
+  // CHECK: call {{.*}} @__cxa_atexit({{.*}} @_ZN11Conditional1CD1Ev {{.*}} @_ZGRN11Conditional1rE0_ 
   // CHECK: br label
   A &&r = b ? static_cast<A&&>(B()) : static_cast<A&&>(C());
 }

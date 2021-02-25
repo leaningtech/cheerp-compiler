@@ -39,11 +39,11 @@ struct ds ds0 = { { { .a = 0 } } };
 struct ds ds1 = { { .a = 1 } };
 struct ds ds2 = { { .b = 1 } };
 struct ds ds3 = { .a = 0 };
-// CHECK: @ds4 = global %struct.ds { %struct.anon.3 { %struct.anon zeroinitializer, i16 0, %struct.anon.2 { i16 1 } } }
+// CHECK: @ds4 = global %struct.ds { %struct.anon { %struct.anon.2 zeroinitializer, i16 0, %struct.anon.3 { i16 1 } } }
 struct ds ds4 = { .c = 1 };
 struct ds ds5 = { { { .a = 0 } }, .b = 1 };
 struct ds ds6 = { { .a = 0, .b = 1 } };
-// CHECK: @ds7 = global %struct.ds { %struct.anon.3 { %struct.anon { i16 2 }, i16 3, %struct.anon.2 zeroinitializer } }
+// CHECK: @ds7 = global %struct.ds { %struct.anon { %struct.anon.2 { i16 2 }, i16 3, %struct.anon.3 zeroinitializer } }
 struct ds ds7 = {
   { {
       .a = 1
@@ -156,12 +156,12 @@ struct Derived D = {{}, .B.A = 42};
 
 void test1(int argc, char **argv)
 {
-  // CHECK: internal global %struct._Z3foo { i8* null, i32 1024 }
+  // CHECK: internal global %struct.foo { i8* null, i32 1024 }
   static struct foo foo = {
     .b = 1024,
   };
 
-  // CHECK: bitcast %"union._ZZ5test1E3$_3"* %u2
+  // CHECK: bitcast %union.anon.5* %u2
   // CHECK: call void @llvm.memset
    union { int i; float f; } u2 = { };
 

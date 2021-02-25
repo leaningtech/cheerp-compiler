@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -emit-llvm %s -o /dev/null -fobjc-gc
+// RUN: %clang_cc1 -triple %itanium_abi_triple -emit-llvm %s -o /dev/null -fobjc-gc
 // rdar://5541393
 
 typedef unsigned int NSUInteger;

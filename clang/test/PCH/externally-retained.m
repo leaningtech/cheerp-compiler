@@ -1,11 +1,11 @@
 // Test for assertion failure due to objc_externally_retained on a function.
 
 // Without PCH
-// RUN: %clang_cc1 -fsyntax-only -verify -fobjc-arc -include %s %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -fsyntax-only -verify -fobjc-arc -include %s %s
 
 // With PCH
-// RUN: %clang_cc1 %s -emit-pch -fobjc-arc -o %t
-// RUN: %clang_cc1 -emit-llvm-only -verify %s -fobjc-arc -include-pch %t -debug-info-kind=limited
+// RUN: %clang_cc1 -triple %itanium_abi_triple %s -emit-pch -fobjc-arc -o %t
+// RUN: %clang_cc1 -triple %itanium_abi_triple -emit-llvm-only -verify %s -fobjc-arc -include-pch %t -debug-info-kind=limited
 
 // expected-no-diagnostics
 

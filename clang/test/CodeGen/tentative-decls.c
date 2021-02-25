@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -emit-llvm -w -o - %s | FileCheck %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -emit-llvm -w -o - %s | FileCheck %s
 
 // CHECK-DAG: @r = {{(dso_local )?}}global [1 x {{.*}}] zeroinitializer
 

@@ -11,7 +11,7 @@
 
 define i32 @maxi8(i32) {
 ; CHECK-LABEL: @maxi8(
-; CHECK-NEXT:    [[TMP2:%.*]] = load <8 x i32>, <8 x i32>* bitcast ([32 x i32]* @arr to <8 x i32>*), align 16
+; CHECK-NEXT:    [[TMP2:%.*]] = load <8 x i32>, <8 x i32>* bitcast (i32* getelementptr inbounds ([32 x i32], [32 x i32]* @arr, i64 0, i64 0) to <8 x i32>*), align 16
 ; CHECK-NEXT:    [[TMP3:%.*]] = call i32 @llvm.experimental.vector.reduce.smax.v8i32(<8 x i32> [[TMP2]])
 ; CHECK-NEXT:    ret i32 [[TMP3]]
 ;
@@ -42,7 +42,7 @@ define i32 @maxi8(i32) {
 
 define i32 @maxi16(i32) {
 ; CHECK-LABEL: @maxi16(
-; CHECK-NEXT:    [[TMP2:%.*]] = load <16 x i32>, <16 x i32>* bitcast ([32 x i32]* @arr to <16 x i32>*), align 16
+; CHECK-NEXT:    [[TMP2:%.*]] = load <16 x i32>, <16 x i32>* bitcast (i32* getelementptr inbounds ([32 x i32], [32 x i32]* @arr, i64 0, i64 0) to <16 x i32>*), align 16
 ; CHECK-NEXT:    [[TMP3:%.*]] = call i32 @llvm.experimental.vector.reduce.smax.v16i32(<16 x i32> [[TMP2]])
 ; CHECK-NEXT:    ret i32 [[TMP3]]
 ;
@@ -97,7 +97,7 @@ define i32 @maxi16(i32) {
 
 define i32 @maxi32(i32) {
 ; CHECK-LABEL: @maxi32(
-; CHECK-NEXT:    [[TMP2:%.*]] = load <32 x i32>, <32 x i32>* bitcast ([32 x i32]* @arr to <32 x i32>*), align 16
+; CHECK-NEXT:    [[TMP2:%.*]] = load <32 x i32>, <32 x i32>* bitcast (i32* getelementptr inbounds ([32 x i32], [32 x i32]* @arr, i64 0, i64 0) to <32 x i32>*), align 16
 ; CHECK-NEXT:    [[TMP3:%.*]] = call i32 @llvm.experimental.vector.reduce.smax.v32i32(<32 x i32> [[TMP2]])
 ; CHECK-NEXT:    ret i32 [[TMP3]]
 ;
@@ -200,7 +200,7 @@ define i32 @maxi32(i32) {
 
 define float @maxf8(float) {
 ; CHECK-LABEL: @maxf8(
-; CHECK-NEXT:    [[TMP2:%.*]] = load <8 x float>, <8 x float>* bitcast ([32 x float]* @arr1 to <8 x float>*), align 16
+; CHECK-NEXT:    [[TMP2:%.*]] = load <8 x float>, <8 x float>* bitcast (float* getelementptr inbounds ([32 x float], [32 x float]* @arr1, i64 0, i64 0) to <8 x float>*), align 16
 ; CHECK-NEXT:    [[TMP3:%.*]] = call fast float @llvm.experimental.vector.reduce.fmax.v8f32(<8 x float> [[TMP2]])
 ; CHECK-NEXT:    ret float [[TMP3]]
 ;
@@ -231,7 +231,7 @@ define float @maxf8(float) {
 
 define float @maxf16(float) {
 ; CHECK-LABEL: @maxf16(
-; CHECK-NEXT:    [[TMP2:%.*]] = load <16 x float>, <16 x float>* bitcast ([32 x float]* @arr1 to <16 x float>*), align 16
+; CHECK-NEXT:    [[TMP2:%.*]] = load <16 x float>, <16 x float>* bitcast (float* getelementptr inbounds ([32 x float], [32 x float]* @arr1, i64 0, i64 0) to <16 x float>*), align 16
 ; CHECK-NEXT:    [[TMP3:%.*]] = call fast float @llvm.experimental.vector.reduce.fmax.v16f32(<16 x float> [[TMP2]])
 ; CHECK-NEXT:    ret float [[TMP3]]
 ;
@@ -286,7 +286,7 @@ define float @maxf16(float) {
 
 define float @maxf32(float) {
 ; CHECK-LABEL: @maxf32(
-; CHECK-NEXT:    [[TMP2:%.*]] = load <32 x float>, <32 x float>* bitcast ([32 x float]* @arr1 to <32 x float>*), align 16
+; CHECK-NEXT:    [[TMP2:%.*]] = load <32 x float>, <32 x float>* bitcast (float* getelementptr inbounds ([32 x float], [32 x float]* @arr1, i64 0, i64 0) to <32 x float>*), align 16
 ; CHECK-NEXT:    [[TMP3:%.*]] = call fast float @llvm.experimental.vector.reduce.fmax.v32f32(<32 x float> [[TMP2]])
 ; CHECK-NEXT:    ret float [[TMP3]]
 ;

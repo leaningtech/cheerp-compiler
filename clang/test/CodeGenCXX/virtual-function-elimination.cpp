@@ -64,7 +64,7 @@ void test_5(C *p, void (C::*q)(void)) {
   // function pointer to the intrinsic, this information would be lost. No
   // codegen changes on the non-virtual side.
 // CHECK-LABEL: define void @_Z6test_5P1CMS_FvvE(
-// CHECK: [[FN_PTR_ADDR:%.+]] = getelementptr i8, i8* %vtable, i64 {{%.+}}
+// CHECK: [[FN_PTR_ADDR:%.+]] = getelementptr i8, i8* %{{.*}}, i64 {{%.+}}
 // CHECK: [[LOAD:%.+]] = call { i8*, i1 } @llvm.type.checked.load(i8* [[FN_PTR_ADDR]], i32 0, metadata !"_ZTSM1CFvvE.virtual")
 // CHECK: [[FN_PTR_I8:%.+]] = extractvalue { i8*, i1 } [[LOAD]], 0
 // CHECK: [[FN_PTR:%.+]] = bitcast i8* [[FN_PTR_I8]] to void (%struct.C*)*

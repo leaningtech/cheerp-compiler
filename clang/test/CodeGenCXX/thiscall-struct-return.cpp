@@ -31,7 +31,7 @@ public:
 
 // CHECK-LABEL: define void @_Z4testv()
 void test( void ) {
-// CHECK: call void @_ZN1CC1Ev(%class._Z1C* [[C:%.+]])
+// CHECK: call void @_ZN1CC1Ev(%class.C* [[C:%.+]])
   C c;
 
 // CHECK: call x86_thiscallcc void @_ZNK1C5SmallEv(%struct.S* sret align 4 %{{.+}}, %class.C* [[C]])

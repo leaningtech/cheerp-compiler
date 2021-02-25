@@ -1,5 +1,7 @@
 ; RUN: llc < %s -stop-after=virtregrewriter -o - | FileCheck %s
 ;
+target triple = "x86_64-unknown-linux"
+
 ; Generated with "clang++ -g -O1 -S -emit-llvm"
 ;
 ; inline bool bar(char c) {

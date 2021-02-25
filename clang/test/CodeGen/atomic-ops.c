@@ -211,14 +211,14 @@ struct S fd1(struct S *a) {
 
 void fd2(struct S *a, struct S *b) {
   // CHECK-LABEL: @fd2
-  // CHECK:      [[A_ADDR:%.*]] = alloca %struct._Z1S*, align 4
-  // CHECK-NEXT: [[B_ADDR:%.*]] = alloca %struct._Z1S*, align 4
-  // CHECK-NEXT: store %struct._Z1S* %a, %struct._Z1S** [[A_ADDR]], align 4
-  // CHECK-NEXT: store %struct._Z1S* %b, %struct._Z1S** [[B_ADDR]], align 4
-  // CHECK-NEXT: [[LOAD_A_PTR:%.*]] = load %struct._Z1S*, %struct._Z1S** [[A_ADDR]], align 4
-  // CHECK-NEXT: [[LOAD_B_PTR:%.*]] = load %struct._Z1S*, %struct._Z1S** [[B_ADDR]], align 4
-  // CHECK-NEXT: [[COERCED_A_TMP:%.*]] = bitcast %struct._Z1S* [[LOAD_A_PTR]] to i64*
-  // CHECK-NEXT: [[COERCED_B:%.*]] = bitcast %struct._Z1S* [[LOAD_B_PTR]] to i64*
+  // CHECK:      [[A_ADDR:%.*]] = alloca %struct.S*, align 4
+  // CHECK-NEXT: [[B_ADDR:%.*]] = alloca %struct.S*, align 4
+  // CHECK-NEXT: store %struct.S* %a, %struct.S** [[A_ADDR]], align 4
+  // CHECK-NEXT: store %struct.S* %b, %struct.S** [[B_ADDR]], align 4
+  // CHECK-NEXT: [[LOAD_A_PTR:%.*]] = load %struct.S*, %struct.S** [[A_ADDR]], align 4
+  // CHECK-NEXT: [[LOAD_B_PTR:%.*]] = load %struct.S*, %struct.S** [[B_ADDR]], align 4
+  // CHECK-NEXT: [[COERCED_A_TMP:%.*]] = bitcast %struct.S* [[LOAD_A_PTR]] to i64*
+  // CHECK-NEXT: [[COERCED_B:%.*]] = bitcast %struct.S* [[LOAD_B_PTR]] to i64*
   // CHECK-NEXT: [[COERCED_A:%.*]] = bitcast i64* [[COERCED_A_TMP]] to i8*
   // CHECK-NEXT: [[CAST_B:%.*]] = bitcast i64* [[COERCED_B]] to i8*
   // CHECK-NEXT: call void @__atomic_store(i32 8, i8* [[COERCED_A]], i8* [[CAST_B]],
@@ -228,18 +228,18 @@ void fd2(struct S *a, struct S *b) {
 
 void fd3(struct S *a, struct S *b, struct S *c) {
   // CHECK-LABEL: @fd3
-  // CHECK:      [[A_ADDR:%.*]] = alloca %struct._Z1S*, align 4
-  // CHECK-NEXT: [[B_ADDR:%.*]] = alloca %struct._Z1S*, align 4
-  // CHECK-NEXT: [[C_ADDR:%.*]] = alloca %struct._Z1S*, align 4
-  // CHECK-NEXT: store %struct._Z1S* %a, %struct._Z1S** [[A_ADDR]], align 4
-  // CHECK-NEXT: store %struct._Z1S* %b, %struct._Z1S** [[B_ADDR]], align 4
-  // CHECK-NEXT: store %struct._Z1S* %c, %struct._Z1S** [[C_ADDR]], align 4
-  // CHECK-NEXT: [[LOAD_A_PTR:%.*]] = load %struct._Z1S*, %struct._Z1S** [[A_ADDR]], align 4
-  // CHECK-NEXT: [[LOAD_B_PTR:%.*]] = load %struct._Z1S*, %struct._Z1S** [[B_ADDR]], align 4
-  // CHECK-NEXT: [[LOAD_C_PTR:%.*]] = load %struct._Z1S*, %struct._Z1S** [[C_ADDR]], align 4
-  // CHECK-NEXT: [[COERCED_A_TMP:%.*]] = bitcast %struct._Z1S* [[LOAD_A_PTR]] to i64*
-  // CHECK-NEXT: [[COERCED_B:%.*]] = bitcast %struct._Z1S* [[LOAD_B_PTR]] to i64*
-  // CHECK-NEXT: [[COERCED_C:%.*]] = bitcast %struct._Z1S* [[LOAD_C_PTR]] to i64*
+  // CHECK:      [[A_ADDR:%.*]] = alloca %struct.S*, align 4
+  // CHECK-NEXT: [[B_ADDR:%.*]] = alloca %struct.S*, align 4
+  // CHECK-NEXT: [[C_ADDR:%.*]] = alloca %struct.S*, align 4
+  // CHECK-NEXT: store %struct.S* %a, %struct.S** [[A_ADDR]], align 4
+  // CHECK-NEXT: store %struct.S* %b, %struct.S** [[B_ADDR]], align 4
+  // CHECK-NEXT: store %struct.S* %c, %struct.S** [[C_ADDR]], align 4
+  // CHECK-NEXT: [[LOAD_A_PTR:%.*]] = load %struct.S*, %struct.S** [[A_ADDR]], align 4
+  // CHECK-NEXT: [[LOAD_B_PTR:%.*]] = load %struct.S*, %struct.S** [[B_ADDR]], align 4
+  // CHECK-NEXT: [[LOAD_C_PTR:%.*]] = load %struct.S*, %struct.S** [[C_ADDR]], align 4
+  // CHECK-NEXT: [[COERCED_A_TMP:%.*]] = bitcast %struct.S* [[LOAD_A_PTR]] to i64*
+  // CHECK-NEXT: [[COERCED_B:%.*]] = bitcast %struct.S* [[LOAD_B_PTR]] to i64*
+  // CHECK-NEXT: [[COERCED_C:%.*]] = bitcast %struct.S* [[LOAD_C_PTR]] to i64*
   // CHECK-NEXT: [[COERCED_A:%.*]] = bitcast i64* [[COERCED_A_TMP]] to i8*
   // CHECK-NEXT: [[CAST_B:%.*]] = bitcast i64* [[COERCED_B]] to i8*
   // CHECK-NEXT: [[CAST_C:%.*]] = bitcast i64* [[COERCED_C]] to i8*
@@ -250,18 +250,18 @@ void fd3(struct S *a, struct S *b, struct S *c) {
 
 _Bool fd4(struct S *a, struct S *b, struct S *c) {
   // CHECK-LABEL: @fd4
-  // CHECK:      [[A_ADDR:%.*]] = alloca %struct._Z1S*, align 4
-  // CHECK-NEXT: [[B_ADDR:%.*]] = alloca %struct._Z1S*, align 4
-  // CHECK-NEXT: [[C_ADDR:%.*]] = alloca %struct._Z1S*, align 4
-  // CHECK:      store %struct._Z1S* %a, %struct._Z1S** [[A_ADDR]], align 4
-  // CHECK-NEXT: store %struct._Z1S* %b, %struct._Z1S** [[B_ADDR]], align 4
-  // CHECK-NEXT: store %struct._Z1S* %c, %struct._Z1S** [[C_ADDR]], align 4
-  // CHECK-NEXT: [[LOAD_A_PTR:%.*]] = load %struct._Z1S*, %struct._Z1S** [[A_ADDR]], align 4
-  // CHECK-NEXT: [[LOAD_B_PTR:%.*]] = load %struct._Z1S*, %struct._Z1S** [[B_ADDR]], align 4
-  // CHECK-NEXT: [[LOAD_C_PTR:%.*]] = load %struct._Z1S*, %struct._Z1S** [[C_ADDR]], align 4
-  // CHECK-NEXT: [[COERCED_A_TMP:%.*]] = bitcast %struct._Z1S* [[LOAD_A_PTR]] to i64*
-  // CHECK-NEXT: [[COERCED_B_TMP:%.*]] = bitcast %struct._Z1S* [[LOAD_B_PTR]] to i64*
-  // CHECK-NEXT: [[COERCED_C:%.*]] = bitcast %struct._Z1S* [[LOAD_C_PTR]] to i64*
+  // CHECK:      [[A_ADDR:%.*]] = alloca %struct.S*, align 4
+  // CHECK-NEXT: [[B_ADDR:%.*]] = alloca %struct.S*, align 4
+  // CHECK-NEXT: [[C_ADDR:%.*]] = alloca %struct.S*, align 4
+  // CHECK:      store %struct.S* %a, %struct.S** [[A_ADDR]], align 4
+  // CHECK-NEXT: store %struct.S* %b, %struct.S** [[B_ADDR]], align 4
+  // CHECK-NEXT: store %struct.S* %c, %struct.S** [[C_ADDR]], align 4
+  // CHECK-NEXT: [[LOAD_A_PTR:%.*]] = load %struct.S*, %struct.S** [[A_ADDR]], align 4
+  // CHECK-NEXT: [[LOAD_B_PTR:%.*]] = load %struct.S*, %struct.S** [[B_ADDR]], align 4
+  // CHECK-NEXT: [[LOAD_C_PTR:%.*]] = load %struct.S*, %struct.S** [[C_ADDR]], align 4
+  // CHECK-NEXT: [[COERCED_A_TMP:%.*]] = bitcast %struct.S* [[LOAD_A_PTR]] to i64*
+  // CHECK-NEXT: [[COERCED_B_TMP:%.*]] = bitcast %struct.S* [[LOAD_B_PTR]] to i64*
+  // CHECK-NEXT: [[COERCED_C:%.*]] = bitcast %struct.S* [[LOAD_C_PTR]] to i64*
   // CHECK-NEXT: [[COERCED_A:%.*]] = bitcast i64* [[COERCED_A_TMP]] to i8*
   // CHECK-NEXT: [[COERCED_B:%.*]] = bitcast i64* [[COERCED_B_TMP]] to i8*
   // CHECK-NEXT: [[CAST_C:%.*]] = bitcast i64* [[COERCED_C]] to i8*

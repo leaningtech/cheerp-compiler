@@ -1,11 +1,11 @@
 // Test this without pch.
-// RUN: %clang_cc1 -include %S/objc_container.h -fsyntax-only -verify %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -include %S/objc_container.h -fsyntax-only -verify %s
 
 // Test with pch.
-// RUN: %clang_cc1 -x objective-c -emit-pch -o %t %S/objc_container.h
-// RUN: %clang_cc1 -include-pch %t -fsyntax-only -verify %s 
-// RUN: %clang_cc1 -include-pch %t -ast-print %s | FileCheck -check-prefix=CHECK-PRINT %s
-// RUN: %clang_cc1 -include-pch %t -emit-llvm -o - %s | FileCheck -check-prefix=CHECK-IR %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -x objective-c -emit-pch -o %t %S/objc_container.h
+// RUN: %clang_cc1 -triple %itanium_abi_triple -include-pch %t -fsyntax-only -verify %s 
+// RUN: %clang_cc1 -triple %itanium_abi_triple -include-pch %t -ast-print %s | FileCheck -check-prefix=CHECK-PRINT %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -include-pch %t -emit-llvm -o - %s | FileCheck -check-prefix=CHECK-IR %s
 
 // expected-no-diagnostics
 

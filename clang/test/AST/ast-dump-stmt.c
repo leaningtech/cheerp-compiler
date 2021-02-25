@@ -1,10 +1,10 @@
 // Test without serialization:
-// RUN: %clang_cc1 -std=gnu11 -ast-dump %s \
+// RUN: %clang_cc1 -triple %itanium_abi_triple -std=gnu11 -ast-dump %s \
 // RUN: | FileCheck -strict-whitespace %s
 //
 // Test with serialization:
-// RUN: %clang_cc1 -std=gnu11 -emit-pch -o %t %s
-// RUN: %clang_cc1 -x c -std=gnu11 -include-pch %t -ast-dump-all /dev/null \
+// RUN: %clang_cc1 -triple %itanium_abi_triple -std=gnu11 -emit-pch -o %t %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -x c -std=gnu11 -include-pch %t -ast-dump-all /dev/null \
 // RUN: | sed -e "s/ <undeserialized declarations>//" -e "s/ imported//" \
 // RUN: | FileCheck -strict-whitespace %s
 

@@ -44,11 +44,9 @@ define void @caller2_below_threshold(i8 *%p1, i1 %b) {
 ; CHECK-NEXT:    br i1 [[COND]], label [[EXIT:%.*]], label [[SPLIT:%.*]]
 ; CHECK:       split:
 ; CHECK-NEXT:    [[SAVEDSTACK:%.*]] = call i8* @llvm.stacksave()
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast float* [[VLA_I]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 60000, i8* [[TMP0]])
+; CHECK-NEXT:    call void @llvm.lifetime.start.{{.*}}(i64 60000, {{.*}}* [[VLA_I]])
 ; CHECK-NEXT:    call void @extern_call(float* nonnull [[VLA_I]]) #2
-; CHECK-NEXT:    [[TMP1:%.*]] = bitcast float* [[VLA_I]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 60000, i8* [[TMP1]])
+; CHECK-NEXT:    call void @llvm.lifetime.end.{{.*}}(i64 60000, {{.*}}* [[VLA_I]])
 ; CHECK-NEXT:    call void @llvm.stackrestore(i8* [[SAVEDSTACK]])
 ; CHECK-NEXT:    br label [[EXIT]]
 ; CHECK:       exit:

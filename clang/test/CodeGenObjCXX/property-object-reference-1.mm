@@ -24,8 +24,8 @@ struct TCPPObject
 
 @end
 
-// CHECK: [[cppObjectaddr:%.*]] = alloca %struct._Z10TCPPObject*, align 8
-// CHECK: store %struct._Z10TCPPObject* [[cppObject:%.*]], %struct._Z10TCPPObject** [[cppObjectaddr]], align 8
-// CHECK:  [[THREE:%.*]] = load %struct._Z10TCPPObject*, %struct._Z10TCPPObject** [[cppObjectaddr]], align 8
-// CHECK:  [[FOUR:%.*]] = bitcast %struct._Z10TCPPObject* [[THREE]] to i8*
+// CHECK: [[cppObjectaddr:%.*]] = alloca %struct.TCPPObject*, align 8
+// CHECK: store %struct.TCPPObject* [[cppObject:%.*]], %struct.TCPPObject** [[cppObjectaddr]], align 8
+// CHECK:  [[THREE:%.*]] = load %struct.TCPPObject*, %struct.TCPPObject** [[cppObjectaddr]], align 8
+// CHECK:  [[FOUR:%.*]] = bitcast %struct.TCPPObject* [[THREE]] to i8*
 // CHECK:  call void @objc_copyStruct(i8* [[TWO:%.*]], i8* [[FOUR]], i64 256, i1 zeroext true, i1 zeroext false)

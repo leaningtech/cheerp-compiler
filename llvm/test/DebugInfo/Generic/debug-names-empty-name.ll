@@ -3,6 +3,8 @@
 ; RUN: llvm-dwarfdump -debug-names %t | FileCheck --check-prefix=NAMES %s
 ; RUN: llvm-dwarfdump -debug-names -verify %t | FileCheck --check-prefix=VERIFY %s
 
+target triple = "x86_64-unknown-linux"
+
 ; The debug info entry should not have a DW_AT_name, only a DW_AT_linkage_name.
 ; INFO: DW_TAG_subprogram
 ; INFO-NOT: DW_AT_name

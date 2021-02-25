@@ -29,7 +29,7 @@ struct Test3S {
 };
 void test2a(struct Test3S q);
 // CHECK-LABEL: define void @test2(
-// CHECK: alloca %struct._Z6Test3S, align 8
+// CHECK: alloca %struct.Test3S, align 8
 // CHECK: memcpy
 // CHECK: call void @test2a
 void test2(struct Test3S *q) {
@@ -39,7 +39,7 @@ void test2(struct Test3S *q) {
 // But make sure we don't generate a memcpy when we can guarantee alignment.
 void fooey(void);
 // CHECK-LABEL: define void @test3(
-// CHECK: alloca %struct._Z6Test3S, align 8
+// CHECK: alloca %struct.Test3S, align 8
 // CHECK: call void @fooey
 // CHECK-NOT: memcpy
 // CHECK: call void @test2a

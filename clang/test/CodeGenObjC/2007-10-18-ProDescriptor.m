@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -emit-llvm %s -o /dev/null
+// RUN: %clang_cc1 -triple %itanium_abi_triple -emit-llvm %s -o /dev/null
 @protocol O
 @end
 @interface O < O > {

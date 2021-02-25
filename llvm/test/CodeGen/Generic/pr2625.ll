@@ -1,4 +1,4 @@
-; RUN: llc < %s
+; RUN: llc -march=x86 < %s
 ; PR2625
 
 define i32 @main({ i32, { i32 } }*) {

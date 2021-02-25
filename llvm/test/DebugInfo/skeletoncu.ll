@@ -5,6 +5,8 @@
 ; CHECK: DW_AT_GNU_dwo_name {{.*}}"my.dwo"
 ; REQUIRES: default_triple
  
+target triple = "x86_64-unknown-linux"
+
 !llvm.dbg.cu = !{!0}
 !llvm.module.flags = !{!3, !4}
 

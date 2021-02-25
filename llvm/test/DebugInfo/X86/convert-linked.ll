@@ -1,5 +1,7 @@
 ; RUN: %llc_dwarf -filetype=obj -O0 < %s | llvm-dwarfdump - | FileCheck %s
 
+target triple = "x86_64-unknown-linux"
+
 ; CHECK: DW_TAG_compile_unit
 ; CHECK: [[CU0BT0:0x[0-9a-f]+]]: DW_TAG_base_type
 ; CHECK-NEXT: DW_ATE_signed_8

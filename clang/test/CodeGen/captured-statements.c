@@ -18,18 +18,18 @@ void test1() {
     (void)inner;
     i++;
   }
-  // CHECK-1: %"struct._ZZ5test1E3$_0" = type { i32* }
+  // CHECK-1: %struct.anon = type { i32* }
   // CHECK-1: {{.+}} global float 3.0
   //
   // CHECK-1: @test1(
-  // CHECK-1: alloca %"struct._ZZ5test1E3$_0"
-  // CHECK-1: getelementptr inbounds %"struct._ZZ5test1E3$_0"
+  // CHECK-1: alloca %struct.anon
+  // CHECK-1: getelementptr inbounds %struct.anon
   // CHECK-1: store i32* %i
   // CHECK-1: call void @[[HelperName:__captured_stmt[\.0-9]+]]
 }
 
-// CHECK-1: define internal {{.*}}void @[[HelperName]](%"struct._ZZ5test2E3$_1"
-// CHECK-1:   getelementptr inbounds %"struct._ZZ5test2E3$_1"{{.*}}, i32 0, i32 0
+// CHECK-1: define internal {{.*}}void @[[HelperName]](%struct.anon
+// CHECK-1:   getelementptr inbounds %struct.anon{{.*}}, i32 0, i32 0
 // CHECK-1:   load i32*, i32**
 // CHECK-1:   load i32, i32*
 // CHECK-1:   add nsw i32
@@ -89,7 +89,7 @@ void dont_capture_global() {
     e++;
   }
 
-  // CHECK-GLOBALS: %[[Capture:"struct._ZZ19dont_capture_globalE3\$_4"]] = type {}
+  // CHECK-GLOBALS: %[[Capture:struct\.anon[\.0-9]*]] = type {}
   // CHECK-GLOBALS: call void @__captured_stmt[[HelperName:[\.0-9]+]](%[[Capture]]
 }
 

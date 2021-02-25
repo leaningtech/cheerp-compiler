@@ -1,5 +1,7 @@
 ; RUN: %llc_dwarf -O0 -filetype=obj < %s | llvm-dwarfdump -v -debug-info - | FileCheck %s
 
+target triple = "x86_64-unknown-linux"
+
 ; Testing that two distinct (distinct by writing them in separate files, while
 ; still fulfilling C++'s ODR by having identical token sequences) functions,
 ; linked under LTO, get plausible debug info (and don't crash).

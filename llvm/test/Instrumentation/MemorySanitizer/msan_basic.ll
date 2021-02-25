@@ -933,7 +933,7 @@ entry:
 ; CHECK: store i64 {{.*}}, i64* {{.*}}@__msan_va_arg_tls{{.*}}, i64 32){{.*}}, align 8
 ; third struct through the overflow area byval
 ; CHECK: ptrtoint %struct.StructByVal* {{.*}} to i64
-; CHECK: call void @llvm.memcpy.p0i8.p0i8.i64{{.*}}@__msan_va_arg_tls {{.*}}, i64 176
+; CHECK: call void @llvm.memcpy.p0i8.p0i8.i32{{.*}}@__msan_va_arg_tls {{.*}}, i64 176
 ; CHECK: store i64 16, i64* @__msan_va_arg_overflow_size_tls
 ; CHECK: call void (i32, ...) @VAArgStructFn
 ; CHECK: ret void
@@ -957,7 +957,7 @@ entry:
 
 attributes #0 = { "target-features"="+fxsr,+x87,-sse" }
 
-; CHECK: call void @llvm.memcpy.p0i8.p0i8.i64{{.*}}@__msan_va_arg_tls {{.*}}, i64 48
+; CHECK: call void @llvm.memcpy.p0i8.p0i8.i32{{.*}}@__msan_va_arg_tls {{.*}}, i64 48
 
 declare i32 @InnerTailCall(i32 %a)
 

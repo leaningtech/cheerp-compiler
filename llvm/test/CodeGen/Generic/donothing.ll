@@ -1,5 +1,7 @@
 ; RUN: llc < %s | FileCheck %s
 
+target triple = "x86_64-unknown-linux"
+
 declare i32 @__gxx_personality_v0(...)
 declare void @__cxa_call_unexpected(i8*)
 declare void @llvm.donothing() readnone

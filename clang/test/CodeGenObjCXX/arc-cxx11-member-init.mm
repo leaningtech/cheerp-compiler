@@ -22,7 +22,7 @@ class XClipboardDataSet
 }
 @end
 
-// CHECK: [[mClipData:%.*]] = getelementptr inbounds %class._Z17XClipboardDataSet, %class._Z17XClipboardDataSet*
+// CHECK: [[mClipData:%.*]] = getelementptr inbounds %class.XClipboardDataSet, %class.XClipboardDataSet*
 // CHECK: [[ZERO:%.*]] = load %struct._class_t*, %struct._class_t** @"OBJC_CLASSLIST_REFERENCES_$_"
 // CHECK: [[ONE:%.*]] = load i8*, i8** @OBJC_SELECTOR_REFERENCES_
 // CHECK: [[TWO:%.*]] = bitcast %struct._class_t* [[ZERO]] to i8*

@@ -607,6 +607,6 @@ _Complex double foo(_Complex double a, _Complex double b) {
   // ARMHF: call { double, double } @__muldc3
 
   // ARM7K-LABEL: @foo(
-  // ARM7K: call %complex._ZTSd @__muldc3
+  // ARM7K: call { double, double } @__muldc3
   return a*b;
 }

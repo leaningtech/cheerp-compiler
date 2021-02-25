@@ -4,6 +4,8 @@
 ; RUN: FileCheck %s -check-prefix=WL -check-prefix=CHECK <%t2
 ; REQUIRES: default_triple
 
+target triple = "x86_64-unknown-linux"
+
 ; This testcase tests the following flow:
 ;  - File A defines a linkonce version of @foo which has inlined into @bar.
 ;  - File B defines a weak version of @foo (different definition).

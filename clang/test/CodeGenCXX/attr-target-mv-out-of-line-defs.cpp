@@ -37,8 +37,8 @@ int bar() {
 // WINDOWS: ret i32 1
 
 // LINUX: define i32 @_Z3barv()
-// LINUX: %s = alloca %struct._Z1S, align 1
-// LINUX: %call = call i32 @_ZN1S3fooEi.ifunc(%struct._Z1S* %s, i32 0)
+// LINUX: %s = alloca %struct.S, align 1
+// LINUX: %call = call i32 @_ZN1S3fooEi.ifunc(%struct.S* %s, i32 0)
 
 // WINDOWS: define dso_local i32 @"?bar@@YAHXZ"()
 // WINDOWS: %s = alloca %struct.S, align 1
@@ -56,6 +56,6 @@ int bar() {
 // WINDOWS: call i32 @"?foo@S@@QEAAHH@Z.sse4.2"(%struct.S* %0, i32 %1)
 // WINDOWS: call i32 @"?foo@S@@QEAAHH@Z"(%struct.S* %0, i32 %1)
 
-// LINUX: declare i32 @_ZN1S3fooEi.arch_sandybridge(%struct._Z1S*, i32)
+// LINUX: declare i32 @_ZN1S3fooEi.arch_sandybridge(%struct.S*, i32)
 
 // WINDOWS: declare dso_local i32 @"?foo@S@@QEAAHH@Z.arch_sandybridge"(%struct.S*, i32)

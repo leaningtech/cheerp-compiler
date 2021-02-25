@@ -21,15 +21,15 @@ struct D { ~D(); };
 
 // PR6205: The casts should not require global initializers
 // CHECK: @_ZN6PR59741cE = external global %"struct.PR5974::C"
-// CHECK: @_ZN6PR59741aE = global %"struct.PR5974::A"* getelementptr inbounds (%"struct.PR5974::C", %"struct.PR5974::C"* @_ZN6PR59741cE, i32 0, i32 0), align 8
+// CHECK: @_ZN6PR59741aE = global %"struct.PR5974::A"* bitcast (%"struct.PR5974::C"* @_ZN6PR59741cE to %"struct.PR5974::A"*), align 8
 // CHECK: @_ZN6PR59741bE = global %"struct.PR5974::B"* getelementptr inbounds (%"struct.PR5974::C", %"struct.PR5974::C"* @_ZN6PR59741cE, i32 0, i32 1), align 8
 
 // CHECK: call void @_ZN1AC1Ev(%struct.A* @a)
-// CHECK: call i32 @__cxa_atexit(void (i8*)* bitcast (void (%struct.A*)* @_ZN1AD1Ev to void (i8*)*), i8* getelementptr inbounds (%struct.A, %struct.A* @a, i32 0, i32 0), i8* @__dso_handle)
+// CHECK: call i32 @__cxa_atexit(void (i8*)* bitcast (void (%struct.A*)* @_ZN1AD1Ev to void (i8*)*), i8* bitcast (%struct.A* @a to i8*), i8* @__dso_handle)
 A a;
 
 // CHECK: call void @_ZN1BC1Ev(%struct.B* @b)
-// CHECK: call i32 @__cxa_atexit(void (i8*)* bitcast (void (%struct.B*)* @_ZN1BD1Ev to void (i8*)*), i8* getelementptr inbounds (%struct.B, %struct.B* @b, i32 0, i32 0), i8* @__dso_handle)
+// CHECK: call i32 @__cxa_atexit(void (i8*)* bitcast (void (%struct.B*)* @_ZN1BD1Ev to void (i8*)*), i8* bitcast (%struct.B* @b to i8*), i8* @__dso_handle)
 B b;
 
 // PR6205: this should not require a global initializer

@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 %s -emit-llvm -o -
+// RUN: %clang_cc1 -triple %itanium_abi_triple %s -emit-llvm -o -
 
 union U { int x; float p; };
 void foo() {

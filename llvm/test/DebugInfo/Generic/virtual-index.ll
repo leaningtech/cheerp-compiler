@@ -1,6 +1,8 @@
 ; RUN: %llc_dwarf -O0 -filetype=obj < %s > %t
 ; RUN: llvm-dwarfdump -v %t | FileCheck %s
 
+target triple = "x86_64-unknown-linux"
+
 ; Generated from the following C++ source code:
 ;
 ; struct A {

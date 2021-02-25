@@ -360,7 +360,7 @@ namespace VirtualMembers {
 
     T t;
   };
-  // CHECK: @_ZN14VirtualMembers1tE = global { i8**, i32 } { i8** getelementptr inbounds ({ [3 x i8*] }, { [3 x i8*] }* @_ZTVN14VirtualMembers13TemplateClassIiEE, i32 0, inrange i32 0, i32 2), i32 42 }
+  // CHECK: @_ZN14VirtualMembers1tE = global <{ i8**, i32, [4 x i8] }> <{ i8** getelementptr inbounds ({ [3 x i8*] }, { [3 x i8*] }* @_ZTVN14VirtualMembers13TemplateClassIiEE, i32 0, inrange i32 0, i32 2), i32 42, [4 x i8] undef }>
   TemplateClass<int> t;
 }
 
@@ -548,7 +548,7 @@ namespace InitFromConst {
     // CHECK: call void @_ZN13InitFromConst7consumeIRKNS_1SEEEvT_(%"struct.InitFromConst::S"* nonnull align {{[0-9]+}} dereferenceable({{[0-9]+}}) @_ZN13InitFromConstL1sE)
     consume<const S&>(r);
 
-    // CHECK: call void @_ZN13InitFromConst7consumeIPKNS_1SEEEvT_(%struct._ZN13InitFromConst1SE* @_ZN13InitFromConstL1sE)
+    // CHECK: call void @_ZN13InitFromConst7consumeIPKNS_1SEEEvT_(%"struct.InitFromConst::S"* @_ZN13InitFromConstL1sE)
     consume(p);
 
     // CHECK: call void @_ZN13InitFromConst7consumeIMNS_1SEiEEvT_(i64 0)
@@ -608,4 +608,4 @@ const char *f() { return &X::p; }
 
 // VirtualMembers::TemplateClass::templateMethod() must be defined in this TU,
 // not just declared.
-// CHECK: define linkonce_odr void @_ZN14VirtualMembers13TemplateClassIiE14templateMethodEv(%struct._ZN14VirtualMembers13TemplateClassIiEE* %this)
+// CHECK: define linkonce_odr void @_ZN14VirtualMembers13TemplateClassIiE14templateMethodEv(%"struct.VirtualMembers::TemplateClass"* %this)

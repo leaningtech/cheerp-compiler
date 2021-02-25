@@ -1,5 +1,7 @@
 ; RUN: %llc_dwarf -O0 -filetype=obj < %s | llvm-dwarfdump -v -debug-info - | FileCheck %s
 
+target triple = "x86_64-unknown-linux"
+
 ; Build from the following source with clang -O2.
 
 ; The important details are that 'x's abstract definition is first built during

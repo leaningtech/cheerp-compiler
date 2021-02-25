@@ -1,5 +1,7 @@
 ; RUN: llc -O0 -filetype=obj -o - %s | llvm-dwarfdump -v - | FileCheck %s
 ;
+target triple = "x86_64-unknown-linux"
+
 ; CHECK: .debug_info contents:
 ; CHECK: [[LABEL_ORIGIN:0x[0-9a-zA-Z]+]]:{{ *}}DW_TAG_label
 ; CHECK-NEXT: DW_AT_name [DW_FORM_strp] {{.*}}"top"

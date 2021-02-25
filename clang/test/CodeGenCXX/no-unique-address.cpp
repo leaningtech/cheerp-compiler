@@ -64,7 +64,7 @@ FieldOverlap fo = {{}, {}, {}, {}, 1234};
 
 // CHECK-DAG: @e1 = constant %[[E1:[^ ]*]]* bitcast (%[[FO:[^ ]*]]* @fo to %[[E1]]*)
 Empty1 &e1 = fo.e1;
-// CHECK-DAG: @e2 = constant %[[E1]]* bitcast (i8* getelementptr (i8, i8* bitcast (%[[FO]]* @fo to i8*), i64 1) to %[[E1]]*)
+// CHECK-DAG: @e2 = constant %[[E1]]* bitcast (%[[FO]]* @fo to %[[E1]]*)
 Empty1 &e2 = fo.e2;
 
 // CHECK-LABEL: accessE1

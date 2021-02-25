@@ -64,5 +64,5 @@ std::initializer_list<I *> il = { [I new] };
 
 // CHECK: [[POOL:%.*]] = {{.*}} call i8* @llvm.objc.autoreleasePoolPush()
 // CHECK: [[INSTANCE:%.*]] = {{.*}} call i8* bitcast (i8* (i8*, i8*, ...)* @objc_msgSend to i8* (i8*, i8*)*)(i8* {{.*}}, i8* {{.*}})
-// CHECK-NEXT: store i8* [[INSTANCE]], i8** bitcast ([1 x %0*]* @_ZGR2il_ to i8**)
+// CHECK-NEXT: store i8* [[INSTANCE]], i8** bitcast (%0** getelementptr inbounds ([1 x %0*], [1 x %0*]* @_ZGR2il_, i32 0, i32 0) to i8**)
 // CHECK: {{.*}} call void @llvm.objc.autoreleasePoolPop(i8* [[POOL]])

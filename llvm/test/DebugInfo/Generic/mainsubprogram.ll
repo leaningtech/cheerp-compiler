@@ -1,6 +1,8 @@
 ; RUN: %llc_dwarf -O0 -filetype=obj < %s > %t
 ; RUN: llvm-dwarfdump -v -debug-info %t | FileCheck %s
 
+target triple = "x86_64-unknown-linux"
+
 ; Make sure we're emitting DW_AT_main_subprogram.
 ; CHECK: DW_TAG_subprogram
 ; CHECK-NOT: {{DW_TAG|NULL}}

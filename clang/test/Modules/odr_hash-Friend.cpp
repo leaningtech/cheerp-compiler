@@ -3,7 +3,7 @@
 // PR35939: MicrosoftMangle.cpp triggers an assertion failure on this test.
 // UNSUPPORTED: system-windows
 
-// RUN: %clang_cc1 \
+// RUN: %clang_cc1 -triple %itanium_abi_triple \
 // RUN:  -I %S/Inputs/odr_hash-Friend \
 // RUN:  -emit-obj -o /dev/null \
 // RUN:  -fmodules \
@@ -11,7 +11,7 @@
 // RUN:  -fmodules-cache-path=%t/modules.cache \
 // RUN:  -std=c++11 -x c++ %s -verify -DTEST1
 
-// RUN: %clang_cc1 \
+// RUN: %clang_cc1 -triple %itanium_abi_triple \
 // RUN:  -I %S/Inputs/odr_hash-Friend \
 // RUN:  -emit-obj -o /dev/null \
 // RUN:  -fmodules \
@@ -19,7 +19,7 @@
 // RUN:  -fmodules-cache-path=%t/modules.cache \
 // RUN:  -std=c++11 -x c++ %s -verify -DTEST2
 
-// RUN: %clang_cc1 \
+// RUN: %clang_cc1 -triple %itanium_abi_triple \
 // RUN:  -I %S/Inputs/odr_hash-Friend \
 // RUN:  -emit-obj -o /dev/null \
 // RUN:  -fmodules \
@@ -27,7 +27,7 @@
 // RUN:  -fmodules-cache-path=%t/modules.cache \
 // RUN:  -std=c++11 -x c++ %s -verify -DTEST3
 
-// RUN: %clang_cc1 \
+// RUN: %clang_cc1 -triple %itanium_abi_triple \
 // RUN:  -I %S/Inputs/odr_hash-Friend \
 // RUN:  -emit-obj -o /dev/null \
 // RUN:  -fmodules \
@@ -35,7 +35,7 @@
 // RUN:  -fmodules-cache-path=%t/modules.cache \
 // RUN:  -std=c++11 -x c++ %s -verify -DTEST3
 
-// RUN: %clang_cc1 \
+// RUN: %clang_cc1 -triple %itanium_abi_triple \
 // RUN:  -I %S/Inputs/odr_hash-Friend \
 // RUN:  -emit-obj -o /dev/null \
 // RUN:  -fmodules \

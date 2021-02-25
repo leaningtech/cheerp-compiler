@@ -1,6 +1,8 @@
 ; RUN: %llc_dwarf -O0 -filetype=obj < %s > %t
 ; RUN: llvm-dwarfdump -v %t | FileCheck %s
 
+target triple = "x86_64-unknown-linux"
+
 ; This was pulled from clang's debug-info-template-recursive.cpp test.
 ; class base { };
 

@@ -1,6 +1,8 @@
 ; RUN: %llc_dwarf -O0 -filetype=obj -o %t.o %s
 ; RUN: llvm-dwarfdump -v -debug-info %t.o | FileCheck %s
 ;
+target triple = "x86_64-unknown-linux"
+
 ; Test debug info for variadic function arguments.
 ; Created from tools/clang/tests/CodeGenCXX/debug-info-varargs.cpp
 ;

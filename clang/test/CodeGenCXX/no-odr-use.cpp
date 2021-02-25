@@ -2,8 +2,8 @@
 // RUN: %clang_cc1 -std=c++2a -emit-llvm -o - -triple x86_64-linux-gnu %s | FileCheck %s --check-prefixes=CHECK,CHECK-CXX2A
 
 // CHECK-DAG: @__const._Z1fi.a = private unnamed_addr constant {{.*}} { i32 1, [2 x i32] [i32 2, i32 3], [3 x i32] [i32 4, i32 5, i32 6] }
-// CHECK-CXX11-DAG: @_ZN7PR422765State1mE.const = private unnamed_addr constant [2 x { i64, i64 }] [{ {{.*}} @_ZN7PR422765State2f1Ev {{.*}}, i64 0 }, { {{.*}} @_ZN7PR422765State2f2Ev {{.*}}, i64 0 }]
-// CHECK-CXX2A-DAG: @_ZN7PR422765State1mE = linkonce_odr constant [2 x { i64, i64 }] [{ {{.*}} @_ZN7PR422765State2f1Ev {{.*}}, i64 0 }, { {{.*}} @_ZN7PR422765State2f2Ev {{.*}}, i64 0 }], comdat
+// CHECK-CXX11-DAG: @_ZN7PR422765State1mE.const = private unnamed_addr constant [2 x %memberptr] [%memberptr {{.*}} @_ZN7PR422765State2f1Ev {{.*}}, i64 0 }, %memberptr {{.*}} @_ZN7PR422765State2f2Ev {{.*}}, i64 0 }]
+// CHECK-CXX2A-DAG: @_ZN7PR422765State1mE = linkonce_odr constant [2 x %memberptr] [%memberptr {{.*}} @_ZN7PR422765State2f1Ev {{.*}}, i64 0 }, %memberptr {{.*}} @_ZN7PR422765State2f2Ev {{.*}}, i64 0 }], comdat
 
 struct A { int x, y[2]; int arr[3]; };
 // CHECK-LABEL: define i32 @_Z1fi(
@@ -39,8 +39,8 @@ namespace PR42276 {
   // CHECK-LABEL: define void @_ZN7PR422765State16syncDirtyObjectsEv(
   void State::syncDirtyObjects() {
     for (int i = 0; i < sizeof(m) / sizeof(m[0]); ++i)
-      // CHECK-CXX11: getelementptr inbounds [2 x { i64, i64 }], [2 x { i64, i64 }]* @_ZN7PR422765State1mE.const, i64 0, i64 %
-      // CHECK-CXX2A: getelementptr inbounds [2 x { i64, i64 }], [2 x { i64, i64 }]* @_ZN7PR422765State1mE, i64 0, i64 %
+      // CHECK-CXX11: getelementptr inbounds [2 x %memberptr], [2 x %memberptr]* @_ZN7PR422765State1mE.const, i64 0, i64 %
+      // CHECK-CXX2A: getelementptr inbounds [2 x %memberptr], [2 x %memberptr]* @_ZN7PR422765State1mE, i64 0, i64 %
       (this->*m[i])();
   }
 }

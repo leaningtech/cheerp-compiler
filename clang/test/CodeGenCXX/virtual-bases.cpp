@@ -5,15 +5,15 @@ struct A {
 };
 
 // CHECK: @_ZN1AC1Ev = unnamed_addr alias {{.*}} @_ZN1AC2Ev
-// CHECK-LABEL: define void @_ZN1AC2Ev(%struct._Z1A* %this) unnamed_addr
+// CHECK-LABEL: define void @_ZN1AC2Ev(%struct.A* %this) unnamed_addr
 A::A() { }
 
 struct B : virtual A { 
   B();
 };
 
-// CHECK-LABEL: define void @_ZN1BC2Ev(%struct._Z1B* %this, i8** %vtt) unnamed_addr
-// CHECK-LABEL: define void @_ZN1BC1Ev(%struct._Z1B* %this) unnamed_addr
+// CHECK-LABEL: define void @_ZN1BC2Ev(%struct.B* %this, i8** %vtt) unnamed_addr
+// CHECK-LABEL: define void @_ZN1BC1Ev(%struct.B* %this) unnamed_addr
 B::B() { }
 
 struct C : virtual A {
@@ -39,7 +39,7 @@ struct D : B, C  {
   D();
 };
 
-// CHECK-LABEL: define void @_ZN6PR62511DC1Ev(%struct._ZN6PR62511DE* %this) unnamed_addr
+// CHECK-LABEL: define void @_ZN6PR62511DC1Ev(%"struct.PR6251::D"* %this) unnamed_addr
 // CHECK: call void @_ZN6PR62511AIcEC2Ev
 // CHECK-NOT: call void @_ZN6PR62511AIcEC2Ev
 // CHECK: ret void

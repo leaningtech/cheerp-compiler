@@ -1,6 +1,8 @@
 ; MD5 checksums provided by IR should be passed through to asm.
 ; They'll be emitted to an object file only for DWARF 5 or later.
 
+target triple = "x86_64-unknown-linux"
+
 ; RUN: %llc_dwarf -dwarf-version 4 -filetype=asm -o - %s | FileCheck %s --check-prefix=ASM-4
 ; RUN: %llc_dwarf -dwarf-version 5 -filetype=asm -o - %s | FileCheck %s --check-prefix=ASM-5
 ; RUN: %llc_dwarf -dwarf-version 4 -filetype=obj -o %t4.o %s

@@ -8,6 +8,8 @@
 ; RUN: llc -debugger-tune=gdb -dwarf-version=2 -filetype=obj -o %t.o < %s
 ; RUN: llvm-dwarfdump -debug-info %t.o | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-DW2
 
+target triple = "x86_64-unknown-linux"
+
 @x0 = global i8 0, align 1, !dbg !0
 @x1 = global i8 0, align 1, !dbg !46
 @x2 = global i16 0, align 2, !dbg !48

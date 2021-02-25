@@ -278,10 +278,10 @@ namespace test6 {
     // CHECK-NEXT: [[V:%.*]] = load [[A]]*, [[A]]** [[AVAR]], align 4
     // CHECK-NEXT: [[ISNULL:%.*]] = icmp eq [[A]]* [[V]], null
     // CHECK-NEXT: br i1 [[ISNULL]]
-    // CHECK:      [[T0:%.*]] = getelementptr [[A]], [[A]]* [[V]], i32 0, i32 0
+    // CHECK:      [[T0:%.*]] = getelementptr inbounds [[A]], [[A]]* [[V]], i32 0, i32 0
     // CHECK-NEXT: [[T1:%.*]] = load i32 (...)**, i32 (...)*** [[T0]]
     // CHECK-NEXT: [[T2:%.*]] = bitcast i32 (...)** [[T1]] to void ([[A]]*)**
-    // CHECK-NEXT: [[T3:%.*]] = getelementptr inbounds void ([[A]]*)*, ([[A]]*)** [[T2]], i64 1
+    // CHECK: [[T3:%.*]] = getelementptr inbounds void ([[A]]*)*, void ([[A]]*)** [[T2]], i64 1
     // CHECK-NEXT: [[T4:%.*]] = load void ([[A]]*)*, void ([[A]]*)** [[T3]]
     // CHECK-NEXT: call void [[T4]]([[A]]* [[V]])
     // CHECK-NEXT: br label

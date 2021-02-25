@@ -2,6 +2,8 @@
 ; RUN: %llc_dwarf -debugger-tune=gdb -asm-verbose -O1 -o - < %s | FileCheck %s --check-prefix=DISABLE
 ; RUN: %llc_dwarf -frame-pointer=all -debugger-tune=lldb -asm-verbose -O1 -o - < %s | FileCheck %s --check-prefix=DISABLE
 
+target triple = "x86_64-unknown-linux"
+
 ; CHECK: DW_AT_APPLE_omit_frame_ptr
 ; DISABLE-NOT: DW_AT_APPLE_omit_frame_ptr
 

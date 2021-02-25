@@ -30,9 +30,9 @@ define i32* @func1() {
 
 ; UTC_ARGS: --disable
 ; CHECK-LABEL: define internal nonnull align 4 dereferenceable(4) i32* @func1a()
-; CHECK-NEXT: ret i32* getelementptr inbounds ([1 x i32], [1 x i32]* @var1, i32 0, i32 0)
+; CHECK-NEXT: ret i32* bitcast ([1 x i32]* @var1 to i32*)
 define internal i32* @func1a([1 x i32]* %arg) {
-  %ptr = getelementptr inbounds [1 x i32], [1 x i32]* %arg, i64 0, i64 0
+  %ptr = bitcast [1 x i32]* %arg to i32*
   ret i32* %ptr
 }
 ; UTC_ARGS: --enable

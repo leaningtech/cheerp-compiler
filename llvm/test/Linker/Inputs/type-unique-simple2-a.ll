@@ -1,3 +1,5 @@
+target triple = "x86_64-unknown-linux"
+
 ; Make sure the backend generates a single DIE and uses ref_addr.
 ; CHECK: 0x[[BASE:.*]]: DW_TAG_structure_type
 ; CHECK-NEXT: DW_AT_name {{.*}} = "Base"

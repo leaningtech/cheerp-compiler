@@ -506,7 +506,7 @@ void test19() {
   // CHECK-LABEL: define void @test19()
   // CHECK:      [[X:%.*]] = alloca [5 x i8*], align 16
   // CHECK: call void @llvm.lifetime.start
-  // CHECK-NEXT: [[T0:%.*]] = bitcast [5 x i8*]* [[X]] to i8*
+  // CHECK: [[T0:%.*]] = bitcast
   // CHECK: call void @llvm.memset.p0i8.i64(i8* align 16 [[T0]], i8 0, i64 40, i1 false)
   id x[5];
 
@@ -610,16 +610,15 @@ void test21(unsigned n) {
   // CHECK-NEXT: call void @llvm.memset.p0i8.i64(i8* align 16 [[T0]], i8 0, i64 [[T2]], i1 false)
 
   // Destroy.
-  // CHECK-NEXT: [[T0:%.*]] = mul nuw i64 2, [[DIM]]
-  // CHECK-NEXT: [[END:%.*]] = getelementptr inbounds [3 x i8*], [3 x i8*]* [[VLA]], i64 [[T0]]
+  // CHECK: [[END:%.*]] = getelementptr inbounds [3 x i8*], [3 x i8*]* [[VLA]]
   // CHECK-NEXT: [[EMPTY:%.*]] = icmp eq [3 x i8*]* [[VLA]], [[END]]
   // CHECK-NEXT: br i1 [[EMPTY]]
 
-  // CHECK:      [[AFTER:%.*]] = phi i8** {{.*}}
-  // CHECK-NEXT: [[CUR:%.*]] = getelementptr inbounds i8*, i8** [[AFTER]], i64 -1
-  // CHECK-NEXT: [[T0:%.*]] = load i8*, i8** [[CUR]]
+  // CHECK:      [[AFTER:%.*]] = phi [3 x i8*]* [ [[END]], {{%.*}} ], [ [[CUR:%.*]], {{%.*}} ]
+  // CHECK-NEXT: [[CUR:%.*]] = getelementptr inbounds [3 x i8*], [3 x i8*]* [[AFTER]], i64 -1
+  // CHECK: [[T0:%.*]] = load i8*, i8** [[CUR]]
   // CHECK-NEXT: call void @llvm.objc.release(i8* [[T0]]) [[NUW]], !clang.imprecise_release
-  // CHECK-NEXT: [[EQ:%.*]] = icmp eq i8** [[CUR]], [[BEGIN]]
+  // CHECK: [[EQ:%.*]] = icmp eq [3 x i8*]* [[CUR]], [[VLA]]
   // CHECK-NEXT: br i1 [[EQ]],
 
   // CHECK:      [[T0:%.*]] = load i8*, i8** [[SAVED_STACK]]

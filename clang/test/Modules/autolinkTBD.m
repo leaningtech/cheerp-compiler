@@ -1,6 +1,6 @@
 // RUN: rm -rf %t
-// RUN: %clang_cc1 -emit-llvm -o - -fmodules-cache-path=%t -fmodules -fimplicit-module-maps -F %S/Inputs %s | FileCheck %s
-// RUN: %clang_cc1 -emit-llvm -fno-autolink -o - -fmodules-cache-path=%t -fmodules -fimplicit-module-maps -F %S/Inputs %s | FileCheck --check-prefix=CHECK-AUTOLINK-DISABLED %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -emit-llvm -o - -fmodules-cache-path=%t -fmodules -fimplicit-module-maps -F %S/Inputs %s | FileCheck %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -emit-llvm -fno-autolink -o - -fmodules-cache-path=%t -fmodules -fimplicit-module-maps -F %S/Inputs %s | FileCheck --check-prefix=CHECK-AUTOLINK-DISABLED %s
 
 @import AutolinkTBD;
 

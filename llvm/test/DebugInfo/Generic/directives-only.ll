@@ -1,5 +1,7 @@
 ; RUN: llc -filetype=asm -asm-verbose=0 -O0 < %s | FileCheck %s
 
+target triple = "x86_64-unknown-linux"
+
 ; Generated with clang from multiline.c:
 ; void f1();
 ; void f2() {

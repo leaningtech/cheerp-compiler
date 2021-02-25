@@ -424,8 +424,7 @@ void destroy(C *obj) {
   // CHECK-LABEL: define dso_local void @"?destroy@test4@@YAXPAUC@1@@Z"(%"struct.test4::C"* %obj)
 
   delete obj;
-  // CHECK: %[[VFTABLE:.*]] = load i32 (...)**, i32 (...)*** %{{.*}}
-  // CHECK: %[[VPTR:.*]] = bitcast i32 (...)** %[[VFTABLE:.*]] to i8* (%"struct.test4::C"*, i32)**
+  // CHECK: %[[VPTR:.*]] = load {{.*}})*
   // CHECK: %[[VFTENTRY:.*]] = getelementptr inbounds i8* (%"struct.test4::C"*, i32)*, i8* (%"struct.test4::C"*, i32)** %[[VPTR]], i64 0
   // CHECK: %[[VFUN:.*]] = load i8* (%"struct.test4::C"*, i32)*, i8* (%"struct.test4::C"*, i32)** %[[VFTENTRY]]
   // CHECK: call x86_thiscallcc i8* %[[VFUN]](%"struct.test4::C"* %[[OBJ]], i32 1)
