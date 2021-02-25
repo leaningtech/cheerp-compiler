@@ -14,14 +14,14 @@
 
 // The format of this database matches clang/Basic/Builtins.def.
 
-BUILTIN(__builtin_cheerp_pointer_base, "", "h")
-BUILTIN(__builtin_cheerp_pointer_offset, "", "h")
-BUILTIN(__builtin_cheerp_is_linear_heap, "", "h")
-BUILTIN(__builtin_cheerp_create_closure, "", "h")
-BUILTIN(__builtin_cheerp_make_complete_object, "", "h")
-BUILTIN(__builtin_cheerp_make_regular, "", "h")
-BUILTIN(__builtin_cheerp_pointer_kind, "", "h")
-BUILTIN(__builtin_cheerp_grow_memory, "", "h")
+BUILTIN(__builtin_cheerp_pointer_base, "", "T")
+BUILTIN(__builtin_cheerp_pointer_offset, "", "T")
+BUILTIN(__builtin_cheerp_is_linear_heap, "", "T")
+BUILTIN(__builtin_cheerp_create_closure, "", "T")
+BUILTIN(__builtin_cheerp_make_complete_object, "", "T")
+BUILTIN(__builtin_cheerp_make_regular, "", "T")
+BUILTIN(__builtin_cheerp_pointer_kind, "", "T")
+BUILTIN(__builtin_cheerp_grow_memory, "", "T")
 BUILTIN(__builtin_cheerp_stack_save, "v*", "")
 BUILTIN(__builtin_cheerp_stack_restore, "vv*", "")
 
