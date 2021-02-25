@@ -1,5 +1,7 @@
 ; RUN: llc -no-integrated-as < %s | FileCheck %s
 
+target triple = "x86_64-unknown-linux"
+
 define void @test() {
 entry:
 ; CHECK: /* result: 68719476738 */

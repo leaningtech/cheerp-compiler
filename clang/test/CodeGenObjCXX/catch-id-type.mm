@@ -31,9 +31,9 @@ id FUNC() {
     catch( id error )
     { 
       // CHECK:      landingpad { i8*, i32 }
-      // CHECK-NEXT:   catch i8* bitcast ({ i8**, i8*, i32, i8* }* @_ZTIPU11objcproto1P4INTF to i8*)
-      // CHECK-NEXT:   catch i8* bitcast ({ i8**, i8*, i32, i8* }* @_ZTIP11objc_object to i8*)
-      // CHECK-NEXT:   catch i8* bitcast ({ i8**, i8*, i32, i8* }* @_ZTIP10objc_class to i8*)
+      // CHECK-NEXT:   catch i8* bitcast ({ i8*, i8*, i32, i8* }* @_ZTIPU11objcproto1P4INTF to i8*)
+      // CHECK-NEXT:   catch i8* bitcast ({ i8*, i8*, i32, i8* }* @_ZTIP11objc_object to i8*)
+      // CHECK-NEXT:   catch i8* bitcast ({ i8*, i8*, i32, i8* }* @_ZTIP10objc_class to i8*)
       error = error; 
       groups = [ns_array array]; 
     }

@@ -1,5 +1,7 @@
 ; RUN: llc < %s -O0
 
+target triple = "x86_64-unknown-linux"
+
 define float @test(i32 %tmp12771278) {
         switch i32 %tmp12771278, label %bb1279 [
         ]

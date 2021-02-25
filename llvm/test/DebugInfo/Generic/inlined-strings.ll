@@ -3,6 +3,8 @@
 ; Also test that the null streamer doesn't crash with debug info.
 ; RUN: %llc_dwarf -O0 -filetype=null < %s -dwarf-inlined-strings=Enable
 
+target triple = "x86_64-unknown-linux"
+
 ; generated from the following source compiled to bitcode with clang -g -O1
 ; static int i;
 ; int main() {

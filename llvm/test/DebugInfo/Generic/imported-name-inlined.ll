@@ -1,5 +1,7 @@
 ; RUN: %llc_dwarf -O0 -filetype=obj < %s | llvm-dwarfdump -v -debug-info - | FileCheck --implicit-check-not "{{DW_TAG|NULL}}" %s
 
+target triple = "x86_64-unknown-linux"
+
 ; Generated from the following source:
 ; namespace ns {
 ; void f();

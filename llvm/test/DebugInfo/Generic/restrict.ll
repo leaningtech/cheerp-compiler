@@ -1,6 +1,8 @@
 ; RUN: %llc_dwarf -dwarf-version=2 -O0 -filetype=obj < %s | llvm-dwarfdump -v -debug-info - | FileCheck --check-prefix=CHECK --check-prefix=V2 %s
 ; RUN: %llc_dwarf -dwarf-version=3 -O0 -filetype=obj < %s | llvm-dwarfdump -v -debug-info - | FileCheck --check-prefix=CHECK --check-prefix=V3 %s
 
+target triple = "x86_64-unknown-linux"
+
 ; CHECK: DW_AT_name {{.*}} "dst"
 ; V2: DW_AT_type {{.*}} {[[PTR:0x.*]]}
 ; V3: DW_AT_type {{.*}} {[[RESTRICT:0x.*]]}

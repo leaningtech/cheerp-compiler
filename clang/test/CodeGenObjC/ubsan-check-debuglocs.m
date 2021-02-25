@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -emit-llvm -fblocks -debug-info-kind=limited \
+// RUN: %clang_cc1 -triple %itanium_abi_triple -emit-llvm -fblocks -debug-info-kind=limited \
 // RUN:   -fsanitize=nullability-return %s -o - | FileCheck %s
 
 // Check that santizer check calls have a !dbg location.

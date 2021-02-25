@@ -1,5 +1,7 @@
 ; RUN: %llc_dwarf < %s -filetype=obj | llvm-dwarfdump -debug-info - | FileCheck %s
 
+target triple = "x86_64-unknown-linux"
+
 ; Given the following source, ensure that the decl_line/file is correctly
 ; emitted and omitted on definitions if it mismatches/matches the declaration
 

@@ -25,7 +25,7 @@ int get_v(T* t) {
   // CHECK-NULL-NEXT: br i1 [[UBSAN_CMP_RES]], label %{{.*}}, label %{{.*}}
   // CHECK-NULL: call void @__ubsan_handle_type_mismatch_v1_abort
   // Second, we check that vtable is actually loaded once the type check is done.
-  // CHECK-NULL: load {{.*}} (%struct.T*{{.*}})**, {{.*}} (%struct.T*{{.*}})***
+  // CHECK-NULL: getelementptr {{.*}} (%struct.T*{{.*}})*, {{.*}} (%struct.T*{{.*}})**
   return t->v();
 }
 
@@ -37,7 +37,7 @@ void delete_it(T *t) {
   // CHECK-VPTR: br i1 {{.*}} label %{{.*}}
   // CHECK-VPTR: call void @__ubsan_handle_dynamic_type_cache_miss_abort
   // Second, we check that vtable is actually loaded once the type check is done.
-  // CHECK-VPTR: load {{.*}} (%struct.T*{{.*}})**, {{.*}} (%struct.T*{{.*}})***
+  // CHECK-VPTR: getelementptr {{.*}} (%struct.T*{{.*}})*, {{.*}} (%struct.T*{{.*}})**
   delete t;
 }
 

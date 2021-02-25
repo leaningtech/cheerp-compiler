@@ -1,7 +1,7 @@
-// RUN: %clang_cc1 -std=c++11 -ast-dump -ast-dump-filter Test %s | FileCheck -check-prefix DECLS %s
-// RUN: %clang_cc1 -std=c++11 -ast-dump-lookups -ast-dump-filter Test %s | FileCheck -check-prefix LOOKUPS %s
-// RUN: %clang_cc1 -std=c++11 -ast-dump -ast-dump-lookups -ast-dump-filter Test %s | FileCheck -check-prefix DECLS-LOOKUPS %s
-// RUN: %clang_cc1 -std=c++11 -DPRAGMA -fsyntax-only %s 2>&1 | FileCheck -check-prefix PRAGMA %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++11 -ast-dump -ast-dump-filter Test %s | FileCheck -check-prefix DECLS %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++11 -ast-dump-lookups -ast-dump-filter Test %s | FileCheck -check-prefix LOOKUPS %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++11 -ast-dump -ast-dump-lookups -ast-dump-filter Test %s | FileCheck -check-prefix DECLS-LOOKUPS %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++11 -DPRAGMA -fsyntax-only %s 2>&1 | FileCheck -check-prefix PRAGMA %s
 
 namespace Test {
   typedef int T;

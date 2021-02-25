@@ -299,7 +299,7 @@ define i8* @test7(i8* %a) {
 ; IS__CGSCC____-SAME: (i8* nofree readnone returned "no-capture-maybe-returned" [[A:%.*]]) #[[ATTR1]] {
 ; IS__CGSCC____-NEXT:    ret i8* [[A]]
 ;
-  %b = getelementptr inbounds i8, i8* %a, i64 0
+  %b = bitcast i8* %a to i8*
   ret i8* %b
 }
 

@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -emit-llvm -debug-info-kind=standalone -dwarf-version=5 %s -o - | FileCheck %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -emit-llvm -debug-info-kind=standalone -dwarf-version=5 %s -o - | FileCheck %s
 
 @protocol NSObject
 @end

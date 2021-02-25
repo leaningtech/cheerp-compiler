@@ -5,6 +5,8 @@
 ; RUN: %llc_dwarf -O0 -filetype=obj %s -o - | llvm-dwarfdump -v -debug-info - | FileCheck %s
 ; Use correct signedness when emitting constants of derived (sugared) types.
 
+target triple = "x86_64-unknown-linux"
+
 ; CHECK: DW_AT_const_value [DW_FORM_sdata] (42)
 ; CHECK: DW_AT_const_value [DW_FORM_udata] (117)
 ; CHECK: DW_AT_const_value [DW_FORM_udata] (7)

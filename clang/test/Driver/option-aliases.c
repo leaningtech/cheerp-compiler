@@ -1,4 +1,4 @@
-// RUN: %clang -### -S \
+// RUN: %clang -target x86_64-unknown-linux -### -S \
 // RUN:  --save-temps --undefine-macro=FOO --undefine-macro BAR \
 // RUN: --param=FOO --output=FOO %s 2>&1 | \
 // RUN: FileCheck %s

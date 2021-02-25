@@ -1,5 +1,7 @@
 ; RUN: %llc_dwarf -O0 -filetype=obj < %s | llvm-dwarfdump -v -debug-info - | FileCheck %s
 
+target triple = "x86_64-unknown-linux"
+
 ; CHECK: DW_TAG_subprogram
 ; CHECK:   DW_AT_name {{.*}} "f"
 ; CHECK-NOT: DW_TAG

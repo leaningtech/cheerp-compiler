@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++1z -fcxx-exceptions -verify %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++1z -fcxx-exceptions -verify %s
 
 template <typename T> struct A { // expected-note 38{{declared here}}
   constexpr A() {}

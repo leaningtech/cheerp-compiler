@@ -1,5 +1,7 @@
 ; RUN: %llc_dwarf -O0 -filetype=obj < %S/gmlt_profiling.ll | llvm-dwarfdump -v - | FileCheck %S/gmlt_profiling.ll
 
+target triple = "x86_64-unknown-linux"
+
 ; CHECK: .debug_info
 ; CHECK: DW_TAG_subprogram
 ; CHECK-NOT: DW_TAG

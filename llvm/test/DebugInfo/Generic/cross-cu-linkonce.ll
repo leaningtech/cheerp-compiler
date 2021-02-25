@@ -1,5 +1,7 @@
 ; RUN: %llc_dwarf -O0 -filetype=obj < %s | llvm-dwarfdump -v -debug-info - | FileCheck %s
 
+target triple = "x86_64-unknown-linux"
+
 ; Built from source:
 ; $ clang++ a.cpp b.cpp -g -c -emit-llvm
 ; $ llvm-link a.bc b.bc -o ab.bc

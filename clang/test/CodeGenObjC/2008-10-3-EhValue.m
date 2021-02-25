@@ -1,4 +1,4 @@
-// RUN: %clang -fexceptions -fobjc-exceptions -S -emit-llvm  %s -o /dev/null
+// RUN: %clang -target %itanium_abi_triple -fexceptions -fobjc-exceptions -S -emit-llvm  %s -o /dev/null
 
 @interface Object {
 @public

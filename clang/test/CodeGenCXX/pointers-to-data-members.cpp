@@ -20,7 +20,7 @@ namespace ZeroInit {
   // CHECK-GLOBAL: @_ZN8ZeroInit1bE ={{.*}} global i64 -1,
   int A::* b = 0;
 
-  // CHECK-GLOBAL: @_ZN8ZeroInit2saE = internal global %"struct._ZN8ZeroInit3$_0E" { i64 -1 }
+  // CHECK-GLOBAL: @_ZN8ZeroInit2saE = internal global %struct.anon { i64 -1 }
   struct {
     int A::*a;
   } sa;
@@ -33,7 +33,7 @@ namespace ZeroInit {
   } ssa[2];
   void test_ssa() { (void) ssa; }
   
-  // CHECK-GLOBAL: @_ZN8ZeroInit2ssE = internal global %"struct._ZN8ZeroInit3$_2E" { %"struct._ZN8ZeroInit3$_23$_3E" { i64 -1 } }
+  // CHECK-GLOBAL: @_ZN8ZeroInit2ssE = internal global %struct.anon.1 { %struct.anon.2 { i64 -1 } }
   struct {
     struct {
       int A::*pa;

@@ -26,9 +26,9 @@ define internal x86_thiscallcc void @internalfun(%struct.a* %this, <{ %struct.a 
 ; CHECK-NEXT:    ret void
 ;
 entry:
-  %a = getelementptr inbounds <{ %struct.a }>, <{ %struct.a }>* %0, i32 0, i32 0
+  %a = bitcast <{ %struct.a }>* %0 to %struct.a*
   %argmem = alloca inalloca <{ %struct.a }>, align 4
-  %1 = getelementptr inbounds <{ %struct.a }>, <{ %struct.a }>* %argmem, i32 0, i32 0
+  %1 = bitcast <{ %struct.a }>* %argmem to %struct.a*
   %call = call x86_thiscallcc %struct.a* @copy_ctor(%struct.a* %1, %struct.a* dereferenceable(1) %a)
   call void @ext(<{ %struct.a }>* inalloca(<{ %struct.a }>) %argmem)
   ret void

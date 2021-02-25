@@ -10,6 +10,8 @@
 ; CHECK: DW_AT_GNU_dwo_id {{.*}}abcd
 ; CHECK: DW_AT_GNU_dwo_name {{.*}}"my.dwo"
 
+target triple = "x86_64-unknown-linux"
+
 !llvm.dbg.cu = !{!7, !0}
 !llvm.module.flags = !{!3, !4}
 

@@ -1,11 +1,11 @@
 // RUN: echo "int extra_global;" > %t.extra-source.cpp
 // RUN: echo "global:*blacklisted_global*" > %t.blacklist
-// RUN: %clang_cc1 -include %t.extra-source.cpp -fsanitize=address -fsanitize-blacklist=%t.blacklist -emit-llvm -o - %s | FileCheck %s --check-prefixes=CHECK,ASAN
-// RUN: %clang_cc1 -include %t.extra-source.cpp -fsanitize=kernel-address -fsanitize-blacklist=%t.blacklist -emit-llvm -o - %s | FileCheck %s --check-prefixes=CHECK,KASAN
+// RUN: %clang_cc1 -triple %itanium_abi_triple -include %t.extra-source.cpp -fsanitize=address -fsanitize-blacklist=%t.blacklist -emit-llvm -o - %s | FileCheck %s --check-prefixes=CHECK,ASAN
+// RUN: %clang_cc1 -triple %itanium_abi_triple -include %t.extra-source.cpp -fsanitize=kernel-address -fsanitize-blacklist=%t.blacklist -emit-llvm -o - %s | FileCheck %s --check-prefixes=CHECK,KASAN
 // The blacklist file uses regexps, so Windows path backslashes.
 // RUN: echo "src:%s" | sed -e 's/\\/\\\\/g' > %t.blacklist-src
-// RUN: %clang_cc1 -include %t.extra-source.cpp -fsanitize=address -fsanitize-blacklist=%t.blacklist-src -emit-llvm -o - %s | FileCheck %s --check-prefix=BLACKLIST-SRC
-// RUN: %clang_cc1 -include %t.extra-source.cpp -fsanitize=kernel-address -fsanitize-blacklist=%t.blacklist-src -emit-llvm -o - %s | FileCheck %s --check-prefix=BLACKLIST-SRC
+// RUN: %clang_cc1 -triple %itanium_abi_triple -include %t.extra-source.cpp -fsanitize=address -fsanitize-blacklist=%t.blacklist-src -emit-llvm -o - %s | FileCheck %s --check-prefix=BLACKLIST-SRC
+// RUN: %clang_cc1 -triple %itanium_abi_triple -include %t.extra-source.cpp -fsanitize=kernel-address -fsanitize-blacklist=%t.blacklist-src -emit-llvm -o - %s | FileCheck %s --check-prefix=BLACKLIST-SRC
 
 int global;
 int dyn_init_global = global;

@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple %s
 
 int a, b, c, d, e, f, g, h, i, j, k, l;
 

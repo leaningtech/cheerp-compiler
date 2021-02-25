@@ -1,6 +1,8 @@
 ; RUN: %llc_dwarf < %s -filetype=obj | llvm-dwarfdump -v - | FileCheck %s
 ; RUN: %llc_dwarf -split-dwarf-file=foo.dwo < %s -filetype=obj | llvm-dwarfdump -v - | FileCheck --check-prefix=FISSION %s
 
+target triple = "x86_64-unknown-linux"
+
 ; darwin has a workaround for a linker bug so it always emits one line table entry
 ; XFAIL: darwin
 

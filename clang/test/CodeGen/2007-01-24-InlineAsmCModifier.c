@@ -1,6 +1,6 @@
 // Verify that the %c modifier works and strips off any prefixes from
 // immediates.
-// RUN: %clang_cc1 -emit-llvm %s -o - | FileCheck %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -emit-llvm %s -o - | FileCheck %s
 
 void foo() {
   // CHECK: i32 789514

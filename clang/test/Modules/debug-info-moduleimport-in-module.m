@@ -3,7 +3,7 @@
 // REQUIRES: asserts
 
 // RUN: rm -rf %t
-// RUN: %clang_cc1 -x objective-c -fmodules -fmodule-format=obj \
+// RUN: %clang_cc1 -triple %itanium_abi_triple -x objective-c -fmodules -fmodule-format=obj \
 // RUN:   -fimplicit-module-maps -fmodules-cache-path=%t %s \
 // RUN:   -debugger-tuning=lldb -I %S/Inputs -emit-llvm -o %t.ll \
 // RUN:   -mllvm -debug-only=pchcontainer &>%t-mod.ll

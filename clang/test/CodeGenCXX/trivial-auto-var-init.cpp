@@ -210,7 +210,7 @@ void test_alloca_with_align(int size) {
 // PATTERN:  br i1 %vla.iszerosized, label %vla-init.cont, label %vla-setup.loop
 // PATTERN: vla-setup.loop:
 // PATTERN:  %[[SIZE:[0-9]+]] = mul nuw i64 %{{.*}}, 16
-// PATTERN:  %vla.begin = bitcast %"struct._ZZ15test_struct_vlaE3$_0"* %vla to i8*
+// PATTERN:  %vla.begin = bitcast %struct.anon* %vla to i8*
 // PATTERN:  %vla.end = getelementptr inbounds i8, i8* %vla.begin, i64 %[[SIZE]]
 // PATTERN:  br label %vla-init.loop
 // PATTERN: vla-init.loop:

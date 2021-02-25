@@ -1,5 +1,7 @@
 ; RUN: llc < %s
 
+target triple = "x86_64-unknown-linux"
+
 @.str = internal constant [14 x i8] c"%lld %d %d %d\00"
 
 define i32 @main(i64 %arg) nounwind  {

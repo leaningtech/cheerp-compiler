@@ -1,4 +1,4 @@
-// RUN: %clang_analyze_cc1 -analyzer-checker debug.ExprInspection -fheinous-gnu-extensions -w %s -verify
+// RUN: %clang_analyze_cc1 -triple %itanium_abi_triple -analyzer-checker debug.ExprInspection -fheinous-gnu-extensions -w %s -verify
 
 int clang_analyzer_eval(int);
 

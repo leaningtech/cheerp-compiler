@@ -1,4 +1,4 @@
-// RUN: %clang_cc1  -debug-info-kind=limited -emit-llvm -o - %s | FileCheck %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple  -debug-info-kind=limited -emit-llvm -o - %s | FileCheck %s
 
 // CHECK: @f.xyzzy = internal global i32 0, align 4, !dbg [[XYZZY:![0-9]+]]
 

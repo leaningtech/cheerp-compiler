@@ -70,10 +70,10 @@ protected:
 
 const auto DefaultTestArrayForRunOptions =
     std::array<std::vector<std::string>, 4>{
-        {std::vector<std::string>(),
-         std::vector<std::string>{"-fdelayed-template-parsing"},
-         std::vector<std::string>{"-fms-compatibility"},
-         std::vector<std::string>{"-fdelayed-template-parsing",
+        {std::vector<std::string>{"-target", "x86_64-unknown-gnu"},
+         std::vector<std::string>{"-target", "x86_64-unknown-gnu", "-fdelayed-template-parsing"},
+         std::vector<std::string>{"-target", "x86_64-unknown-gnu", "-fms-compatibility"},
+         std::vector<std::string>{"-target", "x86_64-unknown-gnu", "-fdelayed-template-parsing",
                                   "-fms-compatibility"}}};
 
 const auto DefaultTestValuesForRunOptions =

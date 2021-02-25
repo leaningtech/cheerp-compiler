@@ -3,6 +3,8 @@
 ; RUN: %llc_dwarf -fast-isel=false -O0 -filetype=obj %s -o %t
 ; RUN: llvm-dwarfdump -a %t | FileCheck %s
 
+target triple = "x86_64-unknown-linux"
+
 ; CHECK: {{0x[0-9a-f]+}}      1      0      1   0             0  is_stmt
 ; CHECK: {{0x[0-9a-f]+}}      2      0      1   0             0  is_stmt
 ; CHECK: {{0x[0-9a-f]+}}      4      0      1   0             0  is_stmt

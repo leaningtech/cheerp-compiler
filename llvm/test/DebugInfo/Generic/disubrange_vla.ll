@@ -4,6 +4,8 @@
 ; RUN: llvm-dwarfdump -verbose %t >> %t2
 ; RUN: cat %t2 | FileCheck %s
 
+target triple = "x86_64-unknown-linux"
+
 ; This test runs llvm-dwarfdump twice:
 ; - First to get the debug entry for 'vla_expr'.
 ; - Second to check that this is the entry referenced in DW_AT_count.

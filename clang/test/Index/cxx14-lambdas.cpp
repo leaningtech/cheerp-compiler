@@ -10,7 +10,7 @@ struct X {
   }
 };
 
-// RUN: c-index-test -test-load-source all -std=c++14 %s | FileCheck -check-prefix=CHECK-LOAD %s
+// RUN: c-index-test -test-load-source all -std=c++14 %s -target x86_64-unknown-linux | FileCheck -check-prefix=CHECK-LOAD %s
 // CHECK-LOAD: cxx14-lambdas.cpp:7:5: DeclStmt= Extent=[7:5 - 9:7]
 // CHECK-LOAD: cxx14-lambdas.cpp:7:10: VarDecl=lambda:7:10 (Definition) Extent=[7:5 - 9:6]
 // CHECK-LOAD: cxx14-lambdas.cpp:7:19: UnexposedExpr= Extent=[7:19 - 9:6]

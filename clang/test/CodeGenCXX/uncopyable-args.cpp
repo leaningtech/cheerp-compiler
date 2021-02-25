@@ -307,7 +307,7 @@ struct A {
   // Deleted copy ctor due to rvalue ref member.
   int &&ref;
 };
-// NEWABI-LABEL: define {{.*}} @_ZN28implicitly_deleted_copy_ctor3fooENS_1AE(%struct._ZN28implicitly_deleted_copy_ctor1AE*
+// NEWABI-LABEL: define {{.*}} @_ZN28implicitly_deleted_copy_ctor3fooENS_1AE(%"struct.implicitly_deleted_copy_ctor::A"*
 // OLDABI-LABEL: define {{.*}} @_ZN28implicitly_deleted_copy_ctor3fooENS_1AE(i32*
 // WIN64-LABEL: define {{.*}} @"?foo@implicitly_deleted_copy_ctor@@YAAEAHUA@1@@Z"(%"struct.implicitly_deleted_copy_ctor::A"*
 int &foo(A a) { return a.ref; }
@@ -331,7 +331,7 @@ union C {
   int n;
 };
 int foo(C c) { return c.n; }
-// CHECK-LABEL: define {{.*}} @_ZN28implicitly_deleted_copy_ctor3fooENS_1CE(%union._ZN28implicitly_deleted_copy_ctor1CE*
+// CHECK-LABEL: define {{.*}} @_ZN28implicitly_deleted_copy_ctor3fooENS_1CE(%"union.implicitly_deleted_copy_ctor::C"*
 // WIN64-LABEL: define {{.*}} @"?foo@implicitly_deleted_copy_ctor@@YAHTC@1@@Z"(%"union.implicitly_deleted_copy_ctor::C"*
 
 struct D {
@@ -343,7 +343,7 @@ struct D {
   };
 };
 int foo(D d) { return d.n; }
-// CHECK-LABEL: define {{.*}} @_ZN28implicitly_deleted_copy_ctor3fooENS_1DE(%struct._ZN28implicitly_deleted_copy_ctor1DE*
+// CHECK-LABEL: define {{.*}} @_ZN28implicitly_deleted_copy_ctor3fooENS_1DE(%"struct.implicitly_deleted_copy_ctor::D"*
 // WIN64-LABEL: define {{.*}} @"?foo@implicitly_deleted_copy_ctor@@YAHUD@1@@Z"(%"struct.implicitly_deleted_copy_ctor::D"*
 
 union E {

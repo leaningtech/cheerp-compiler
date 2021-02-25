@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 %s -O0 -ffake-address-space-map -emit-llvm -o - | FileCheck %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple %s -O0 -ffake-address-space-map -emit-llvm -o - | FileCheck %s
 
 typedef struct Foo {
     int x;

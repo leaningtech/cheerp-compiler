@@ -1,7 +1,7 @@
-// RUN: %clang_cc1 -std=c++14 -verify -fsyntax-only -Wshadow -D AVOID %s
-// RUN: %clang_cc1 -std=c++14 -verify -fsyntax-only -Wshadow -Wshadow-uncaptured-local %s
-// RUN: %clang_cc1 -std=c++14 -verify -fsyntax-only -Wshadow-all %s
-// RUN: %clang_cc1 -std=c++17 -verify -fsyntax-only -Wshadow-all %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++14 -verify -fsyntax-only -Wshadow -D AVOID %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++14 -verify -fsyntax-only -Wshadow -Wshadow-uncaptured-local %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++14 -verify -fsyntax-only -Wshadow-all %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++17 -verify -fsyntax-only -Wshadow-all %s
 
 void foo(int param) { // expected-note 1+ {{previous declaration is here}}
   int var = 0; // expected-note 1+ {{previous declaration is here}}

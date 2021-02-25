@@ -11,7 +11,7 @@ struct X {
   }
 };
 
-// RUN: c-index-test -test-load-source all -std=c++11 %s | FileCheck -check-prefix=CHECK-LOAD %s
+// RUN: c-index-test -test-load-source all -std=c++11 %s -target x86_64-unknown-linux | FileCheck -check-prefix=CHECK-LOAD %s
 // CHECK-LOAD: cxx11-lambdas.cpp:7:19: LambdaExpr= Extent=[7:19 - 9:6]
 // CHECK-LOAD: cxx11-lambdas.cpp:7:21: VariableRef=localA:6:9 Extent=[7:21 - 7:27]
 // CHECK-LOAD: cxx11-lambdas.cpp:7:29: VariableRef=localB:6:17 Extent=[7:29 - 7:35]
@@ -24,7 +24,7 @@ struct X {
 // CHECK-LOAD: cxx11-lambdas.cpp:8:23: DeclRefExpr=localB:6:17 Extent=[8:23 - 8:29]
 // CHECK-LOAD: cxx11-lambdas.cpp:8:32: DeclRefExpr=x:7:46 Extent=[8:32 - 8:33]
 
-// RUN: env CINDEXTEST_INDEXLOCALSYMBOLS=1 c-index-test -index-file -std=c++11 %s | FileCheck -check-prefix=CHECK-INDEX %s
+// RUN: env CINDEXTEST_INDEXLOCALSYMBOLS=1 c-index-test -index-file -std=c++11 %s -target x86_64-unknown-linux | FileCheck -check-prefix=CHECK-INDEX %s
 // CHECK-INDEX: [indexEntityReference]: kind: variable | name: localA | USR: c:cxx11-lambdas.cpp@100@S@X@F@f#@localA | lang: C | cursor: VariableRef=localA:6:9 | loc: 7:21
 // CHECK-INDEX: [indexEntityReference]: kind: variable | name: localB | USR: c:cxx11-lambdas.cpp@100@S@X@F@f#@localB | lang: C | cursor: VariableRef=localB:6:17 | loc: 7:29
 // CHECK-INDEX: [indexDeclaration]: kind: variable | name: x | USR: c:cxx11-lambdas.cpp@157@S@X@F@f#@Sa@F@operator()#I#1@x | lang: C | cursor: ParmDecl=x:7:46 (Definition) | loc: 7:46

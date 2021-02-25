@@ -6,6 +6,8 @@
 ; RUN: FileCheck %s -check-prefix=ONENAME < %t
 ; RUN: FileCheck %s -check-prefix=REF < %t 
 
+target triple = "x86_64-unknown-linux"
+
 ; Verify that the only linkage-name present is the abstract origin of the
 ; inlined subprogram.
 

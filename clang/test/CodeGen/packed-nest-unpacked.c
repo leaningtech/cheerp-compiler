@@ -9,40 +9,40 @@ struct X foo(void);
 // <rdar://problem/10463337>
 struct X test1() {
   // CHECK: @test1
-  // CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* {{.*}}, i8* align 1 bitcast (%struct._Z1X* getelementptr inbounds (%struct._Z1Y, %struct._Z1Y* @g, i32 0, i32 1) to i8*), i64 24, i1 false)
+  // CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* {{.*}}, i8* align 1 bitcast (%struct.X* getelementptr inbounds (%struct.Y, %struct.Y* @g, i32 0, i32 1) to i8*), i64 24, i1 false)
   return g.y;
 }
 struct X test2() {
   // CHECK: @test2
-  // CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* {{.*}}, i8* align 1 bitcast (%struct._Z1X* getelementptr inbounds (%struct._Z1Y, %struct._Z1Y* @g, i32 0, i32 1) to i8*), i64 24, i1 false)
+  // CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* {{.*}}, i8* align 1 bitcast (%struct.X* getelementptr inbounds (%struct.Y, %struct.Y* @g, i32 0, i32 1) to i8*), i64 24, i1 false)
   struct X a = g.y;
   return a;
 }
 
 void test3(struct X a) {
   // CHECK: @test3
-  // CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 1 bitcast (%struct._Z1X* getelementptr inbounds (%struct._Z1Y, %struct._Z1Y* @g, i32 0, i32 1) to i8*), i8* {{.*}}, i64 24, i1 false)
+  // CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 1 bitcast (%struct.X* getelementptr inbounds (%struct.Y, %struct.Y* @g, i32 0, i32 1) to i8*), i8* {{.*}}, i64 24, i1 false)
   g.y = a;
 }
 
 // <rdar://problem/10530444>
 void test4() {
   // CHECK: @test4
-  // CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* {{.*}}, i8* align 1 bitcast (%struct._Z1X* getelementptr inbounds (%struct._Z1Y, %struct._Z1Y* @g, i32 0, i32 1) to i8*), i64 24, i1 false)
+  // CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* {{.*}}, i8* align 1 bitcast (%struct.X* getelementptr inbounds (%struct.Y, %struct.Y* @g, i32 0, i32 1) to i8*), i64 24, i1 false)
   f(g.y);
 }
 
 // PR12395
 int test5() {
   // CHECK: @test5
-  // CHECK: load i32, i32* getelementptr inbounds (%struct._Z1Y, %struct._Z1Y* @g, i32 0, i32 1, i32 0, i64 0), align 1
+  // CHECK: load i32, i32* getelementptr inbounds (%struct.Y, %struct.Y* @g, i32 0, i32 1, i32 0, i64 0), align 1
   return g.y.x[0];
 }
 
 // <rdar://problem/11220251>
 void test6() {
   // CHECK: @test6
-  // CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 1 bitcast (%struct._Z1X* getelementptr inbounds (%struct._Z1Y, %struct._Z1Y* @g, i32 0, i32 1) to i8*), i8* align 4 %{{.*}}, i64 24, i1 false)
+  // CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 1 bitcast (%struct.X* getelementptr inbounds (%struct.Y, %struct.Y* @g, i32 0, i32 1) to i8*), i8* align 4 %{{.*}}, i64 24, i1 false)
   g.y = foo();
 }
 
@@ -60,14 +60,14 @@ struct YBitfield gbitfield;
 
 unsigned test7() {
   // CHECK: @test7
-  // CHECK: load i32, i32* bitcast (%struct._Z9XBitfield* getelementptr inbounds (%struct._Z9YBitfield, %struct._Z9YBitfield* @gbitfield, i32 0, i32 1) to i32*), align 1
+  // CHECK: load i32, i32* bitcast (%struct.XBitfield* getelementptr inbounds (%struct.YBitfield, %struct.YBitfield* @gbitfield, i32 0, i32 1) to i32*), align 1
   return gbitfield.y.b2;
 }
 
 void test8(unsigned x) {
   // CHECK: @test8
-  // CHECK: load i32, i32* bitcast (%struct._Z9XBitfield* getelementptr inbounds (%struct._Z9YBitfield, %struct._Z9YBitfield* @gbitfield, i32 0, i32 1) to i32*), align 1
-  // CHECK: store i32 {{.*}}, i32* bitcast (%struct._Z9XBitfield* getelementptr inbounds (%struct._Z9YBitfield, %struct._Z9YBitfield* @gbitfield, i32 0, i32 1) to i32*), align 1
+  // CHECK: load i32, i32* bitcast (%struct.XBitfield* getelementptr inbounds (%struct.YBitfield, %struct.YBitfield* @gbitfield, i32 0, i32 1) to i32*), align 1
+  // CHECK: store i32 {{.*}}, i32* bitcast (%struct.XBitfield* getelementptr inbounds (%struct.YBitfield, %struct.YBitfield* @gbitfield, i32 0, i32 1) to i32*), align 1
   gbitfield.y.b2 = x;
 }
 
@@ -81,14 +81,14 @@ struct TBitfield tbitfield;
 
 unsigned test9() {
   // CHECK: @test9
-  // CHECK: load i16, i16* getelementptr inbounds (%struct._Z9TBitfield, %struct._Z9TBitfield* @tbitfield, i32 0, i32 2), align 1
+  // CHECK: load i16, i16* getelementptr inbounds (%struct.TBitfield, %struct.TBitfield* @tbitfield, i32 0, i32 2), align 1
   return tbitfield.c;
 }
 
 void test10(unsigned x) {
   // CHECK: @test10
-  // CHECK: load i16, i16* getelementptr inbounds (%struct._Z9TBitfield, %struct._Z9TBitfield* @tbitfield, i32 0, i32 2), align 1
-  // CHECK: store i16 {{.*}}, i16* getelementptr inbounds (%struct._Z9TBitfield, %struct._Z9TBitfield* @tbitfield, i32 0, i32 2), align 1
+  // CHECK: load i16, i16* getelementptr inbounds (%struct.TBitfield, %struct.TBitfield* @tbitfield, i32 0, i32 2), align 1
+  // CHECK: store i16 {{.*}}, i16* getelementptr inbounds (%struct.TBitfield, %struct.TBitfield* @tbitfield, i32 0, i32 2), align 1
   tbitfield.c = x;
 }
 

@@ -55,7 +55,7 @@ struct fpabc func_fabc(struct fpabc x) { return x; }
 struct fp2a2b func_f2a2b(struct fp2a2b x) { return x; }
 
 // CHECK-LABEL: @call_fp1
-// CHECK: %[[TMP:[^ ]+]] = load fp128, fp128* getelementptr inbounds (%struct.fp1, %struct.fp1* @global_f1, i32 0, i32 0, i32 0), align 16
+// CHECK: %[[TMP:[^ ]+]] = load fp128, fp128* bitcast ([1 x fp128]* getelementptr inbounds (%struct.fp1, %struct.fp1* @global_f1, i32 0, i32 0) to fp128*), align 16
 // CHECK: call [1 x fp128] @func_f1(fp128 inreg %[[TMP]])
 struct fp1 global_f1;
 void call_fp1(void) { global_f1 = func_f1(global_f1); }

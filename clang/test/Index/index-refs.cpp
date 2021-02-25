@@ -74,7 +74,7 @@ void foo5() {
 
 int ginitlist[] = {EnumVal};
 
-// RUN: c-index-test -index-file %s | FileCheck %s
+// RUN: c-index-test -index-file %s -target x86_64-unknown-linux | FileCheck %s
 // CHECK:      [indexDeclaration]: kind: namespace | name: NS
 // CHECK-NEXT: [indexDeclaration]: kind: variable | name: gx
 // CHECK-NEXT: [indexDeclaration]: kind: typedef | name: MyInt

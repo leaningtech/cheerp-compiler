@@ -11,5 +11,5 @@ int func() {
   return g.b1;
 }
 
-// CHECK: @g = external global %struct._Z1T, align 4
-// CHECK: %{{.*}} = load i64, i64* bitcast (%struct._Z1T* @g to i64*), align 4
+// CHECK: @g = external global %struct.T, align 4
+// CHECK: %{{.*}} = load i64, i64* bitcast (%struct.T* @g to i64*), align 4

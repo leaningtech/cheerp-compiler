@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 %s -fsyntax-only -pedantic -verify
+// RUN: %clang_cc1 -triple %itanium_abi_triple %s -fsyntax-only -pedantic -verify
 
 void foo() { 
   return foo();

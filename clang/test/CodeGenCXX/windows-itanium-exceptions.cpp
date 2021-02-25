@@ -21,7 +21,7 @@ void attempt() {
 // CHECK: }
 
 // CHECK: define {{.*}}void @_Z7attemptv()
-// CHECK-SAME: personality i8* bitcast (void ()* @__gxx_personality_v0 to i8*)
+// CHECK-SAME: personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*)
 // CHECK:   %exn.slot = alloca i8*
 // CHECK:   %ehselector.slot = alloca i32
 // CHECK:   invoke {{.*}}void @_Z6exceptv()

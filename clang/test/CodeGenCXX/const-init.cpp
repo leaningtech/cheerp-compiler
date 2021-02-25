@@ -96,4 +96,4 @@ struct X {
 };
 long k;
 X x = {(long)&k};
-// CHECK: store i8 ptrtoint (i64* @k to i8), i8* bitcast (%struct._Z1X* @x to i8*)
+// CHECK: store i8 ptrtoint (i64* @k to i8), i8* bitcast (%struct.X* @x to i8*)

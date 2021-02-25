@@ -39,7 +39,7 @@ int bar() {
 // Store to Free of ifunc
 // LINUX: store i32 (i32)* @_Z3fooi.ifunc
 // Store to Member of ifunc
-// LINUX: store { i64, i64 } { i64 ptrtoint (i32 (%struct.S*, i32)* @_ZN1S3fooEi.ifunc to i64), i64 0 }, { i64, i64 }* [[MEMBER:%[a-z]+]]
+// LINUX: store %memberptr { i64 ptrtoint (i32 (%struct.S*, i32)* @_ZN1S3fooEi.ifunc to i64), i64 0 }, %memberptr* [[MEMBER:%[a-z]+]]
 
 // Call to 'f' with the ifunc
 // LINUX: call void @_Z1fPFiiEM1SFiiE(i32 (i32)* @_Z3fooi.ifunc

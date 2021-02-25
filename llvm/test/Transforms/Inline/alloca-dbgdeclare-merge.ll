@@ -27,7 +27,6 @@
 ; CHECK-NEXT: entry:
 ; CHECK-NEXT:   %[[AI:.*]] = alloca [100 x i8]
 ; CHECK-NEXT:   call void @llvm.dbg.declare(metadata [100 x i8]* %[[AI]], metadata [[BBB:![0-9]+]]
-; CHECK-NEXT:   bitcast
 ; CHECK-NEXT:   llvm.lifetime.start
 ; CHECK-NEXT:   call void @llvm.dbg.declare(metadata [100 x i8]* %[[AI]], metadata [[AAA:![0-9]+]]
 

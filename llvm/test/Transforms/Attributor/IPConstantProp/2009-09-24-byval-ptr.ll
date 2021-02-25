@@ -67,7 +67,7 @@ define internal void @vfu1(%struct.MYstr* byval(%struct.MYstr) align 4 %u) nounw
 entry:
   %0 = getelementptr %struct.MYstr, %struct.MYstr* %u, i32 0, i32 1 ; <i32*> [#uses=1]
   store i32 99, i32* %0, align 4
-  %1 = getelementptr %struct.MYstr, %struct.MYstr* %u, i32 0, i32 0 ; <i8*> [#uses=1]
+  %1 = bitcast %struct.MYstr* %u to i8*; <i8*> [#uses=1]
   store i8 97, i8* %1, align 4
   %l = load i8, i8* %1
   call void @use(i8 %l)
@@ -139,7 +139,7 @@ define internal i32 @vfu2(%struct.MYstr* byval(%struct.MYstr) align 4 %u) nounwi
 entry:
   %0 = getelementptr %struct.MYstr, %struct.MYstr* %u, i32 0, i32 1 ; <i32*> [#uses=1]
   %1 = load i32, i32* %0
-  %2 = getelementptr %struct.MYstr, %struct.MYstr* %u, i32 0, i32 0 ; <i8*> [#uses=1]
+  %2 = bitcast %struct.MYstr* %u to i8*; <i8*> [#uses=1]
   %3 = load i8, i8* %2
   %4 = zext i8 %3 to i32
   %5 = add i32 %4, %1
@@ -206,7 +206,7 @@ define internal i32 @vfu2_v2(%struct.MYstr* byval(%struct.MYstr) align 4 %u) nou
 ; IS__TUNIT_OPM-NEXT:    store i32 99, i32* [[Z]], align 4
 ; IS__TUNIT_OPM-NEXT:    [[TMP0:%.*]] = getelementptr [[STRUCT_MYSTR]], %struct.MYstr* [[U]], i32 0, i32 1
 ; IS__TUNIT_OPM-NEXT:    [[TMP1:%.*]] = load i32, i32* [[TMP0]], align 4
-; IS__TUNIT_OPM-NEXT:    [[TMP2:%.*]] = getelementptr [[STRUCT_MYSTR]], %struct.MYstr* [[U]], i32 0, i32 0
+; IS__TUNIT_OPM-NEXT:    [[TMP2:%.*]] = bitcast %struct.MYstr* [[U]] to i8*
 ; IS__TUNIT_OPM-NEXT:    [[TMP3:%.*]] = load i8, i8* [[TMP2]], align 8
 ; IS__TUNIT_OPM-NEXT:    [[TMP4:%.*]] = zext i8 [[TMP3]] to i32
 ; IS__TUNIT_OPM-NEXT:    [[TMP5:%.*]] = add i32 [[TMP4]], [[TMP1]]
@@ -225,7 +225,7 @@ define internal i32 @vfu2_v2(%struct.MYstr* byval(%struct.MYstr) align 4 %u) nou
 ; IS__TUNIT_NPM-NEXT:    store i32 99, i32* [[Z]], align 4
 ; IS__TUNIT_NPM-NEXT:    [[TMP2:%.*]] = getelementptr [[STRUCT_MYSTR]], %struct.MYstr* [[U_PRIV]], i32 0, i32 1
 ; IS__TUNIT_NPM-NEXT:    [[TMP3:%.*]] = load i32, i32* [[TMP2]], align 4
-; IS__TUNIT_NPM-NEXT:    [[TMP4:%.*]] = getelementptr [[STRUCT_MYSTR]], %struct.MYstr* [[U_PRIV]], i32 0, i32 0
+; IS__TUNIT_NPM-NEXT:    [[TMP4:%.*]] = bitcast %struct.MYstr* [[U_PRIV]] to i8*
 ; IS__TUNIT_NPM-NEXT:    [[TMP5:%.*]] = load i8, i8* [[TMP4]], align 8
 ; IS__TUNIT_NPM-NEXT:    [[TMP6:%.*]] = zext i8 [[TMP5]] to i32
 ; IS__TUNIT_NPM-NEXT:    [[TMP7:%.*]] = add i32 [[TMP6]], [[TMP3]]
@@ -239,7 +239,7 @@ define internal i32 @vfu2_v2(%struct.MYstr* byval(%struct.MYstr) align 4 %u) nou
 ; IS__CGSCC_OPM-NEXT:    store i32 99, i32* [[Z]], align 4
 ; IS__CGSCC_OPM-NEXT:    [[TMP0:%.*]] = getelementptr [[STRUCT_MYSTR]], %struct.MYstr* [[U]], i32 0, i32 1
 ; IS__CGSCC_OPM-NEXT:    [[TMP1:%.*]] = load i32, i32* [[TMP0]], align 4
-; IS__CGSCC_OPM-NEXT:    [[TMP2:%.*]] = getelementptr [[STRUCT_MYSTR]], %struct.MYstr* [[U]], i32 0, i32 0
+; IS__CGSCC_OPM-NEXT:    [[TMP2:%.*]] = bitcast %struct.MYstr* [[U]] to i8*
 ; IS__CGSCC_OPM-NEXT:    [[TMP3:%.*]] = load i8, i8* [[TMP2]], align 8
 ; IS__CGSCC_OPM-NEXT:    [[TMP4:%.*]] = zext i8 [[TMP3]] to i32
 ; IS__CGSCC_OPM-NEXT:    [[TMP5:%.*]] = add i32 [[TMP4]], [[TMP1]]
@@ -257,7 +257,7 @@ define internal i32 @vfu2_v2(%struct.MYstr* byval(%struct.MYstr) align 4 %u) nou
 ; IS__CGSCC_NPM-NEXT:    store i32 99, i32* [[Z]], align 4
 ; IS__CGSCC_NPM-NEXT:    [[TMP2:%.*]] = getelementptr [[STRUCT_MYSTR]], %struct.MYstr* [[U_PRIV]], i32 0, i32 1
 ; IS__CGSCC_NPM-NEXT:    [[TMP3:%.*]] = load i32, i32* [[TMP2]], align 4
-; IS__CGSCC_NPM-NEXT:    [[TMP4:%.*]] = getelementptr [[STRUCT_MYSTR]], %struct.MYstr* [[U_PRIV]], i32 0, i32 0
+; IS__CGSCC_NPM-NEXT:    [[TMP4:%.*]] = bitcast %struct.MYstr* [[U_PRIV]] to i8*
 ; IS__CGSCC_NPM-NEXT:    [[TMP5:%.*]] = load i8, i8* [[TMP4]], align 8
 ; IS__CGSCC_NPM-NEXT:    [[TMP6:%.*]] = zext i8 0 to i32
 ; IS__CGSCC_NPM-NEXT:    [[TMP7:%.*]] = add i32 0, [[TMP3]]
@@ -268,7 +268,7 @@ entry:
   store i32 99, i32* %z, align 4
   %0 = getelementptr %struct.MYstr, %struct.MYstr* %u, i32 0, i32 1 ; <i32*> [#uses=1]
   %1 = load i32, i32* %0
-  %2 = getelementptr %struct.MYstr, %struct.MYstr* %u, i32 0, i32 0 ; <i8*> [#uses=1]
+  %2 = bitcast %struct.MYstr* %u to i8*; <i8*> [#uses=1]
   %3 = load i8, i8* %2
   %4 = zext i8 %3 to i32
   %5 = add i32 %4, %1

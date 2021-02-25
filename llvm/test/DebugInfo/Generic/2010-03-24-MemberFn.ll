@@ -1,4 +1,6 @@
 ; RUN: %llc_dwarf -O0 < %s | grep AT_decl_file |  grep 2
+target triple = "x86_64-unknown-linux"
+
 ; Here _ZN1S3fooEv is defined in header file identified as AT_decl_file no. 2 in debug info.
 %struct.S = type <{ i8 }>
 

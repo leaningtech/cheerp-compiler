@@ -27,9 +27,9 @@ void CallFoo(A *a, int (A::*fp)() const) {
 }
 
 // CHECK-LABEL: @_Z7CallFoo
-// CHECK: %{{.*}} = load i32 (...)**, {{.*}} !tbaa ![[NUM:[0-9]+]]
+// CHECK: %{{.*}} = load i32 ({{.*}})**, {{.*}} !tbaa ![[NUM:[0-9]+]]
 // CHECK: br i1
-// CHECK: load i32 (...)**, {{.*}}, !tbaa ![[NUM]]
+// CHECK: load {{.*}}*, {{.*}}, !tbaa ![[NUM]]
 //
 // CHECK-LABEL: @_ZN1AC2Ev
 // CHECK: store i32 (...)** {{.*}}, !tbaa ![[NUM]]

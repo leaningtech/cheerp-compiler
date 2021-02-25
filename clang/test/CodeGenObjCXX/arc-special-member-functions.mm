@@ -191,18 +191,18 @@ void test_ObjCBlockMember_copy_assign(ObjCBlockMember m1, ObjCBlockMember m2) {
 
 // Implicitly-generated default constructor for ObjCArrayMember
 // CHECK-LABEL: define linkonce_odr void @_ZN15ObjCArrayMemberC2Ev
-// CHECK: call void @llvm.memset.p0i8.i64
+// CHECK: call void @llvm.memset.p0i8.i32
 // CHECK: ret
 
 // Implicitly-generated destructor for ObjCArrayMember
 // CHECK-LABEL:    define linkonce_odr void @_ZN15ObjCArrayMemberD2Ev
-// CHECK:      [[BEGIN:%.*]] = getelementptr inbounds [3 x i8*], [3 x i8*]* {{.*}}, i32 0, i32 0
-// CHECK-NEXT: [[END:%.*]] = getelementptr inbounds i8*, i8** [[BEGIN]], i64 3
+// CHECK:      [[BEGIN:%.*]] = getelementptr inbounds [2 x [3 x i8*]], [2 x [3 x i8*]]*
+// CHECK-NEXT: [[END:%.*]] = getelementptr inbounds [3 x i8*], [3 x i8*]* [[BEGIN]], i64 2
 // CHECK-NEXT: br label
-// CHECK:      [[PAST:%.*]] = phi i8** [ [[END]], {{%.*}} ], [ [[CUR:%.*]], {{%.*}} ]
-// CHECK-NEXT: [[CUR]] = getelementptr inbounds i8*, i8** [[PAST]], i64 -1
-// CHECK-NEXT: call void @llvm.objc.storeStrong(i8** [[CUR]], i8* null)
-// CHECK-NEXT: [[T1:%.*]] = icmp eq i8** [[CUR]], [[BEGIN]]
+// CHECK:      [[PAST:%.*]] = phi [3 x i8*]* [ [[END]], {{%.*}} ], [ [[CUR:%.*]], {{%.*}} ]
+// CHECK-NEXT: [[CUR]] = getelementptr inbounds [3 x i8*], [3 x i8*]* [[PAST]], i64 -1
+// CHECK: call void @llvm.objc.storeStrong(i8** {{.*}}, i8* null)
+// CHECK: [[T1:%.*]] = icmp eq [3 x i8*]* [[CUR]], [[BEGIN]]
 // CHECK-NEXT: br i1 [[T1]],
 // CHECK:      ret void
 

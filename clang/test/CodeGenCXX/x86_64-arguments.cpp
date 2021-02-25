@@ -112,9 +112,9 @@ namespace test5 {
     takeY(getX().f(), 42);
   }
   // CHECK: void @_ZN5test51gEv()
-  // CHECK: alloca %struct._ZN5test51YE
-  // CHECK: alloca %struct._ZN5test51XE
-  // CHECK: alloca %struct._ZN5test51YE
+  // CHECK: alloca %"struct.test5::Y"
+  // CHECK: alloca %"struct.test5::X"
+  // CHECK: alloca %"struct.test5::Y"
 }
 
 

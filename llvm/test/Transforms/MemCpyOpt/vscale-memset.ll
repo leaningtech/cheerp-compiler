@@ -28,7 +28,7 @@ define void @memset_vscale_index_zero(i8* %p, i8 %z) {
 ; CHECK-LABEL: @memset_vscale_index_zero(
 ; CHECK-NEXT:    [[A:%.*]] = bitcast i8* [[P:%.*]] to <vscale x 16 x i8>*
 ; CHECK-NEXT:    [[TMP0:%.*]] = getelementptr <vscale x 16 x i8>, <vscale x 16 x i8>* [[A]], i32 0, i32 0
-; CHECK-NEXT:    call void @llvm.memset.p0i8.i64(i8* align 1 [[TMP0]], i8 [[Z:%.*]], i64 17, i1 false)
+; CHECK-NEXT:    call void @llvm.memset.p0i8.i32(i8* align 1 [[TMP0]], i8 [[Z:%.*]], i32 17, i1 false)
 ; CHECK-NEXT:    ret void
 ;
   %a = bitcast i8* %p to <vscale x 16 x i8>*
@@ -73,7 +73,7 @@ define void @memset_vscale_index_nonzero(i8* %p, i8 %z) {
 ; CHECK-LABEL: @memset_vscale_index_nonzero(
 ; CHECK-NEXT:    [[A:%.*]] = bitcast i8* [[P:%.*]] to <vscale x 16 x i8>*
 ; CHECK-NEXT:    [[TMP0:%.*]] = getelementptr <vscale x 16 x i8>, <vscale x 16 x i8>* [[A]], i32 1, i32 0
-; CHECK-NEXT:    call void @llvm.memset.p0i8.i64(i8* align 1 [[TMP0]], i8 [[Z:%.*]], i64 17, i1 false)
+; CHECK-NEXT:    call void @llvm.memset.p0i8.i32(i8* align 1 [[TMP0]], i8 [[Z:%.*]], i32 17, i1 false)
 ; CHECK-NEXT:    ret void
 ;
   %a = bitcast i8* %p to <vscale x 16 x i8>*

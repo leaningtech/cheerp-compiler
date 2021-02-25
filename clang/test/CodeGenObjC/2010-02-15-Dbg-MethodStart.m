@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -x objective-c -emit-llvm -debug-info-kind=limited < %s | FileCheck "%s"
+// RUN: %clang_cc1 -triple %itanium_abi_triple -x objective-c -emit-llvm -debug-info-kind=limited < %s | FileCheck "%s"
 // Test to check that subprogram start location.
 
 @interface Foo

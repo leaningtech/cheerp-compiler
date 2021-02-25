@@ -9,7 +9,7 @@ extern struct t *cfun;
 
 int f(void) {
   if (!(cfun + 0))
-    // CHECK: icmp ne %struct._Z1t*
+    // CHECK: icmp ne %struct.t*
     return 0;
   return cfun->x;
 }

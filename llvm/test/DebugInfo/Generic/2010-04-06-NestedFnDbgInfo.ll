@@ -1,4 +1,7 @@
 ; RUN: %llc_dwarf -O0 -filetype=obj -o - < %s | llvm-dwarfdump -v -debug-info - | FileCheck %s
+
+target triple = "x86_64-unknown-linux"
+
 ; Radar 7833483
 ; Do not emit a separate out-of-line definition DIE for the function-local 'foo'
 ; function (member of the function local 'A' type)

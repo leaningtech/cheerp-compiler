@@ -2,8 +2,8 @@
 
 // CHECK: %[[STRUCT_BLOCK_DESCRIPTOR:.*]] = type { i32, i32 }
 
-// CHECK: @{{.*}} = internal constant { i32, i32, i8*, i8*, i8*, i8* } { i32 0, i32 24, i8* bitcast (void (i8*, i8*)* @__copy_helper_block_4_20r to i8*), i8* bitcast (void (i8*)* @__destroy_helper_block_4_20r to i8*), i8* getelementptr inbounds ([6 x i8], [6 x i8]* @{{.*}}, i32 0, i32 0), i8* null }, align 4
-// CHECK: @[[BLOCK_DESCRIPTOR_TMP21:.*]] = internal constant { i32, i32, i8*, i8*, i8*, i8* } { i32 0, i32 24, i8* bitcast (void (i8*, i8*)* @__copy_helper_block_4_20r to i8*), i8* bitcast (void (i8*)* @__destroy_helper_block_4_20r to i8*), i8* getelementptr inbounds ([6 x i8], [6 x i8]* @{{.*}}, i32 0, i32 0), i8* null }, align 4
+// CHECK: @{{.*}} = internal constant { i32, i32, i8*, i8*, i8*, i8* } { i32 0, i32 24, i8* bitcast (void (i8*, i8*)* @__copy_helper_block_4_20r to i8*), i8* bitcast (void (i8*)* @__destroy_helper_block_4_20r to i8*), i8* bitcast ([6 x i8]* @{{.*}} to i8*), i8* null }, align 4
+// CHECK: @[[BLOCK_DESCRIPTOR_TMP21:.*]] = internal constant { i32, i32, i8*, i8*, i8*, i8* } { i32 0, i32 24, i8* bitcast (void (i8*, i8*)* @__copy_helper_block_4_20r to i8*), i8* bitcast (void (i8*)* @__destroy_helper_block_4_20r to i8*), i8* bitcast ([6 x i8]* @{{.*}} to i8*), i8* null }, align 4
 
 void (^f)(void) = ^{};
 

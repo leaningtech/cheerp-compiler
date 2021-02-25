@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fobjc-runtime=gcc -frecovery-ast -verify %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -fobjc-runtime=gcc -frecovery-ast -verify %s
 
 @interface Ivar
 {

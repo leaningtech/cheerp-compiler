@@ -4,6 +4,8 @@
 ; RUN: llc -debug-only=isel %s -o /dev/null 2> %t.debug
 ; RUN: cat %t.debug | FileCheck %s --check-prefix=CHECKMI
 ;
+target triple = "x86_64-unknown-linux"
+
 ; CHECKMI: DBG_LABEL "end_sum", debug-location !17
 ; CHECKMI: DBG_LABEL "end", debug-location !19
 source_filename = "debug-label-opt.c"

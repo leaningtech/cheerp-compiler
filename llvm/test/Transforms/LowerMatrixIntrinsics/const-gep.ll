@@ -67,8 +67,8 @@ define void @test(i32 %r, i32 %c) {
 ; CHECK-NEXT:    [[TMP25:%.*]] = fadd <1 x double> [[TMP22]], [[TMP24]]
 ; CHECK-NEXT:    [[TMP26:%.*]] = shufflevector <1 x double> [[TMP25]], <1 x double> poison, <2 x i32> <i32 0, i32 undef>
 ; CHECK-NEXT:    [[TMP27:%.*]] = shufflevector <2 x double> [[TMP20]], <2 x double> [[TMP26]], <2 x i32> <i32 0, i32 2>
-; CHECK-NEXT:    store <2 x double> [[COL_LOAD]], <2 x double>* bitcast (double* getelementptr inbounds ([5 x <4 x double>], [5 x <4 x double>]* @foo, i64 0, i64 2, i32 0) to <2 x double>*), align 8
-; CHECK-NEXT:    store <2 x double> [[COL_LOAD1]], <2 x double>* bitcast (double* getelementptr ([5 x <4 x double>], [5 x <4 x double>]* @foo, i64 0, i64 2, i64 2) to <2 x double>*), align 8
+; CHECK-NEXT:    store <2 x double> [[COL_LOAD]], <2 x double>* bitcast (<4 x double>* getelementptr inbounds ([5 x <4 x double>], [5 x <4 x double>]* @foo, i64 0, i64 2) to <2 x double>*), align 8
+; CHECK-NEXT:    store <2 x double> [[COL_LOAD1]], <2 x double>* bitcast (double* getelementptr (double, double* bitcast (<4 x double>* getelementptr inbounds ([5 x <4 x double>], [5 x <4 x double>]* @foo, i64 0, i64 2) to double*), i64 2) to <2 x double>*), align 8
 ; CHECK-NEXT:    ret void
 ;
 entry:

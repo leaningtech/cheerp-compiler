@@ -46,7 +46,7 @@ void f(D d) {
 // CHECK: call void @_ZN1AD1Ev
 // CHECK: call void @_ZN1AC2ERS_
 // CHECK: call void @_ZN1BC2ERS_
-// CHECK: {{call void @llvm.memcpy.p0i8.p0i8.i64.*i64 28}}
+// CHECK: {{call void @llvm.memcpy.p0i8.p0i8.i32.*i32 28}}
 // CHECK: call void @_ZN1BC1ERS_
 // CHECK: br label
 // CHECK: call void @_ZN1AC1Ev
@@ -56,7 +56,7 @@ void f(D d) {
 // CHECK: br i1
 // CHECK: {{icmp eq.*, 2}}
 // CHECK: br i1
-// CHECK: {{call void @llvm.memcpy.p0i8.p0i8.i64.*i64 300}}
+// CHECK: {{call void @llvm.memcpy.p0i8.p0i8.i32.*i32 300}}
 // CHECK: ret void
 
 

@@ -115,8 +115,8 @@ struct bigstruct simple_indirect(void) {
 // CHECK: br label %[[VAARG_END]]
 
 // CHECK: [[VAARG_END]]
-// CHECK: [[ADDR:%[a-z._0-9]+]] = phi %struct._Z9bigstruct** [ [[FROMREG_ADDR]], %[[VAARG_IN_REG]] ], [ [[FROMSTACK_ADDR]], %[[VAARG_ON_STACK]] ]
-// CHECK: load %struct._Z9bigstruct*, %struct._Z9bigstruct** [[ADDR]]
+// CHECK: [[ADDR:%[a-z._0-9]+]] = phi %struct.bigstruct** [ [[FROMREG_ADDR]], %[[VAARG_IN_REG]] ], [ [[FROMSTACK_ADDR]], %[[VAARG_ON_STACK]] ]
+// CHECK: load %struct.bigstruct*, %struct.bigstruct** [[ADDR]]
 }
 
 struct aligned_bigstruct {
@@ -151,8 +151,8 @@ struct aligned_bigstruct simple_aligned_indirect(void) {
 // CHECK: br label %[[VAARG_END]]
 
 // CHECK: [[VAARG_END]]
-// CHECK: [[ADDR:%[a-z._0-9]+]] = phi %struct._Z17aligned_bigstruct** [ [[FROMREG_ADDR]], %[[VAARG_IN_REG]] ], [ [[FROMSTACK_ADDR]], %[[VAARG_ON_STACK]] ]
-// CHECK: load %struct._Z17aligned_bigstruct*, %struct._Z17aligned_bigstruct** [[ADDR]]
+// CHECK: [[ADDR:%[a-z._0-9]+]] = phi %struct.aligned_bigstruct** [ [[FROMREG_ADDR]], %[[VAARG_IN_REG]] ], [ [[FROMSTACK_ADDR]], %[[VAARG_ON_STACK]] ]
+// CHECK: load %struct.aligned_bigstruct*, %struct.aligned_bigstruct** [[ADDR]]
 }
 
 double simple_double(void) {
@@ -221,7 +221,7 @@ struct hfa simple_hfa(void) {
 // CHECK: [[EL_TMPADDR:%[a-z_0-9]+]] = getelementptr inbounds [2 x float], [2 x float]* %[[TMP_HFA]], i64 0, i64 1
 // CHECK: [[EL:%[a-z_0-9]+]] = load float, float* [[EL_TYPED]]
 // CHECK: store float [[EL]], float* [[EL_TMPADDR]]
-// CHECK: [[FROMREG_ADDR:%[a-z_0-9]+]] = bitcast [2 x float]* %[[TMP_HFA]] to %struct._Z3hfa*
+// CHECK: [[FROMREG_ADDR:%[a-z_0-9]+]] = bitcast [2 x float]* %[[TMP_HFA]] to %struct.hfa*
 // CHECK: br label %[[VAARG_END:[a-z_.0-9]+]]
 
 // CHECK: [[VAARG_ON_STACK]]
@@ -232,7 +232,7 @@ struct hfa simple_hfa(void) {
 // CHECK: br label %[[VAARG_END]]
 
 // CHECK: [[VAARG_END]]
-// CHECK: [[ADDR:%[a-z._0-9]+]] = phi %struct._Z3hfa* [ [[FROMREG_ADDR]], %[[VAARG_IN_REG]] ], [ [[FROMSTACK_ADDR]], %[[VAARG_ON_STACK]] ]
+// CHECK: [[ADDR:%[a-z._0-9]+]] = phi %struct.hfa* [ [[FROMREG_ADDR]], %[[VAARG_IN_REG]] ], [ [[FROMSTACK_ADDR]], %[[VAARG_ON_STACK]] ]
 }
 
 // Over and under alignment on fundamental types has no effect on parameter

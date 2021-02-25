@@ -3,6 +3,7 @@
 --- |
   ; ModuleID = 'loc-only.ll'
   source_filename = "loc-only.ll"
+  target triple = "x86_64-unknown-linux"
   
   define i32 @test(i32 %a, i32 %b) !dbg !6 {
     %add = add i32 %a, 2, !dbg !12

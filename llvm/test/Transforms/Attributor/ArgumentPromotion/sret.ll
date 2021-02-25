@@ -53,7 +53,7 @@ define internal void @add({i32, i32}* %this, i32* sret(i32) %r) {
 ; IS__CGSCC_NPM-NEXT:    store i32 [[AB]], i32* [[R]], align 4
 ; IS__CGSCC_NPM-NEXT:    ret void
 ;
-  %ap = getelementptr {i32, i32}, {i32, i32}* %this, i32 0, i32 0
+  %ap = bitcast {i32, i32}* %this to i32*
   %bp = getelementptr {i32, i32}, {i32, i32}* %this, i32 0, i32 1
   %a = load i32, i32* %ap
   %b = load i32, i32* %bp

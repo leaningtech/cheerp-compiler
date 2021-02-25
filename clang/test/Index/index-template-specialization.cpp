@@ -17,7 +17,7 @@ struct D : B<T> {};
 
 // FIXME: if c-index-test uses OrigD for symbol info, refererences below should
 // refer to template specialization decls.
-// RUN: env CINDEXTEST_INDEXIMPLICITTEMPLATEINSTANTIATIONS=1 c-index-test -index-file %s | FileCheck %s
+// RUN: env CINDEXTEST_INDEXIMPLICITTEMPLATEINSTANTIATIONS=1 c-index-test -index-file %s -target x86_64-unknown-linux | FileCheck %s
 // CHECK: [indexDeclaration]: kind: c++-class-template | name: Foo
 // CHECK-NEXT: [indexDeclaration]: kind: c++-instance-method | name: f
 // CHECK-NEXT: [indexDeclaration]: kind: function | name: g

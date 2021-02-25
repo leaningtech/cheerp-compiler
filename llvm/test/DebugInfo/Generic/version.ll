@@ -1,6 +1,8 @@
 ; RUN: %llc_dwarf -O0 -filetype=obj < %s > %t
 ; RUN: llvm-dwarfdump %t | FileCheck %s
 
+target triple = "x86_64-unknown-linux"
+
 ; Make sure we are generating DWARF version 3 when module flag says so.
 ; CHECK: Compile Unit: length = {{.*}}, version = 0x0003
 

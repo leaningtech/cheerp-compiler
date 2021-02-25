@@ -1,6 +1,6 @@
-// RUN: %clang_cc1 -w -fdump-record-layouts-simple %s > %t.layouts
-// RUN: %clang_cc1 -w -fdump-record-layouts-simple %s > %t.before
-// RUN: %clang_cc1 -w -DPACKED= -DALIGNED16= -fdump-record-layouts-simple -foverride-record-layout=%t.layouts %s > %t.after
+// RUN: %clang_cc1 -triple %itanium_abi_triple -w -fdump-record-layouts-simple %s > %t.layouts
+// RUN: %clang_cc1 -triple %itanium_abi_triple -w -fdump-record-layouts-simple %s > %t.before
+// RUN: %clang_cc1 -triple %itanium_abi_triple -w -DPACKED= -DALIGNED16= -fdump-record-layouts-simple -foverride-record-layout=%t.layouts %s > %t.after
 // RUN: diff -u %t.before %t.after
 // RUN: FileCheck %s < %t.after
 
