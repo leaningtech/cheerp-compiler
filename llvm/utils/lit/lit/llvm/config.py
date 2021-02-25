@@ -535,7 +535,7 @@ class LLVMConfig(object):
 
         self.config.substitutions.append(
             ('%itanium_abi_triple',
-             self.make_itanium_abi_triple(self.config.target_triple)))
+             self.make_itanium_abi_triple(self.config.host_triple)))
         self.config.substitutions.append(
             ('%ms_abi_triple',
              self.make_msabi_triple(self.config.target_triple)))
