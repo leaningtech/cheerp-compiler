@@ -8,7 +8,7 @@
 ; CHECK-DAG:  MayAlias:     <vscale x 4 x i32>* %gep1, <vscale x 4 x i32>* %gep2
 define void @gep_alloca_const_offset_1() {
   %alloc = alloca <vscale x 4 x i32>
-  %gep1 = getelementptr <vscale x 4 x i32>, <vscale x 4 x i32>* %alloc, i64 0
+  %gep1 = bitcast <vscale x 4 x i32>* %alloc to <vscale x 4 x i32>*
   %gep2 = getelementptr <vscale x 4 x i32>, <vscale x 4 x i32>* %alloc, i64 1
   load <vscale x 4 x i32>, <vscale x 4 x i32>* %alloc
   load <vscale x 4 x i32>, <vscale x 4 x i32>* %gep1
@@ -37,7 +37,7 @@ define void @gep_alloca_const_offset_2() {
 ; CHECK-DAG:  MayAlias:     <vscale x 4 x i32>* %gep1, i32* %gep2
 define void @gep_alloca_const_offset_3() {
   %alloc = alloca <vscale x 4 x i32>
-  %gep1 = getelementptr <vscale x 4 x i32>, <vscale x 4 x i32>* %alloc, i64 0
+  %gep1 = bitcast <vscale x 4 x i32>* %alloc to <vscale x 4 x i32>*
   %gep2 = getelementptr <vscale x 4 x i32>, <vscale x 4 x i32>* %alloc, i64 0, i64 1
   load <vscale x 4 x i32>, <vscale x 4 x i32>* %alloc
   load <vscale x 4 x i32>, <vscale x 4 x i32>* %gep1

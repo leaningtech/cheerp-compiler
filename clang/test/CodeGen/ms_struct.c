@@ -6,18 +6,18 @@ struct s1 {
   long long f64;
 } ATTR s1;
 
-// CHECK: %struct._Z2s1 = type { i32, [4 x i8], i64 }
+// CHECK: %struct.s1 = type { i32, [4 x i8], i64 }
 
 struct s2 {
   int       f32;
   long long f64[4];
 } ATTR s2;
 
-// CHECK: %struct._Z2s2 = type { i32, [4 x i8], [4 x i64] }
+// CHECK: %struct.s2 = type { i32, [4 x i8], [4 x i64] }
 
 struct s3 {
   int       f32;
   struct s1 s;
 } ATTR s3;
 
-// CHECK: %struct._Z2s3 = type { i32, [4 x i8], %struct._Z2s1 }
+// CHECK: %struct.s3 = type { i32, [4 x i8], %struct.s1 }

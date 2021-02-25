@@ -20,6 +20,8 @@
 ; CHECK-SAME: DW_FORM_flag_present
 ; CHECK: DW_TAG_formal_parameter [4]
 
+target triple = "x86_64-unknown-linux"
+
 ; ModuleID = 'direct.bc'
 source_filename = "direct.m"
 

@@ -105,10 +105,10 @@ void fun() {
 
 void gun() {
 #ifdef DEFINE_GUID
-  // CHECK-DEFINE-GUID: %s2_1 = alloca %struct._Z5_GUID, align 4
-  // CHECK-DEFINE-WRONG-GUID: %s2_1 = alloca %struct._Z5_GUID, align 4
-  // CHECK-DEFINE-GUID: %s2_2 = alloca %struct._Z5_GUID, align 4
-  // CHECK-DEFINE-WRONG-GUID: %s2_2 = alloca %struct._Z5_GUID, align 4
+  // CHECK-DEFINE-GUID: %s2_1 = alloca %struct._GUID, align 4
+  // CHECK-DEFINE-WRONG-GUID: %s2_1 = alloca %struct._GUID, align 4
+  // CHECK-DEFINE-GUID: %s2_2 = alloca %struct._GUID, align 4
+  // CHECK-DEFINE-WRONG-GUID: %s2_2 = alloca %struct._GUID, align 4
   GUID s2_1 = __uuidof(S2);
   GUID s2_2 = __uuidof(S2);
 #endif

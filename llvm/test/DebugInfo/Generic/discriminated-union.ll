@@ -1,6 +1,8 @@
 ; RUN: %llc_dwarf -O0 -filetype=obj < %s > %t
 ; RUN: llvm-dwarfdump -v -debug-info %t | FileCheck %s
 
+target triple = "x86_64-unknown-linux"
+
 ; Check for a variant part that has two members, one of which has a
 ; discriminant value.
 

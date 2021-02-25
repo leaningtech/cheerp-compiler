@@ -4,19 +4,19 @@
 // RUN: %clang_cc1 %s -triple=thumbv7_be-none-eabi -emit-llvm -o - -O3 | FileCheck %s
 // RUN: %clang_cc1 %s -triple=x86_64-unknown-unknown -emit-llvm -o - -O3 -std=c++11 | FileCheck -check-prefix=CHECK -check-prefix=CHECK-LP64 %s
 
-// CHECK-LP64: %union._Z5Test1 = type { i32, [4 x i8] }
+// CHECK-LP64: %union.Test1 = type { i32, [4 x i8] }
 union Test1 {
   int a;
   int b: 39;
 };
 Test1 t1;
 
-// CHECK-LP64: %union._Z5Test2 = type { i8 }
+// CHECK-LP64: %union.Test2 = type { i8 }
 union Test2 {
   int : 6;
 } t2;
 
-// CHECK-LP64: %union._Z5Test3 = type { i16 }
+// CHECK-LP64: %union.Test3 = type { i16 }
 union Test3 {
   int : 9;
 } t3;

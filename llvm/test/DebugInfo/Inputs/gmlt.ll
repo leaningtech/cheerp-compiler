@@ -1,4 +1,6 @@
 ; Generated from the following source compiled with clang++ -gmlt:
+target triple = "x86_64-unknown-linux"
+
 ; void f1() {}
 ; void __attribute__((section("__TEXT,__bar"))) f2() {}
 ; void __attribute__((always_inline)) f3() { f1(); }

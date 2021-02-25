@@ -1,8 +1,8 @@
 // RUN: %clang_cc1 -fms-extensions -emit-llvm -o - %s | FileCheck %s
 
-// CHECK: %struct._Z4test = type { i32, %struct._Z7nested2, i32 }
-// CHECK: %struct._Z7nested2 = type { i32, %struct._Z7nested1, i32 }
-// CHECK: %struct._Z7nested1 = type { i32, i32 }
+// CHECK: %struct.test = type { i32, %struct.nested2, i32 }
+// CHECK: %struct.nested2 = type { i32, %struct.nested1, i32 }
+// CHECK: %struct.nested1 = type { i32, i32 }
 typedef struct nested1 {
     int a1;
     int b1;
@@ -23,7 +23,7 @@ struct test {
 
 void foo(void)
 {
-  // CHECK: %var = alloca %struct._Z4test, align 4
+  // CHECK: %var = alloca %struct.test, align 4
   struct test var;
 
   // CHECK: getelementptr inbounds %struct.test, ptr %var, i32 0, i32 1

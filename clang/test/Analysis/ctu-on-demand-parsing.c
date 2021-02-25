@@ -5,13 +5,13 @@
 //
 // Path substitutions on Windows platform could contain backslashes. These are escaped in the json file.
 // compile_commands.json is only needed for extdef_mapping, not for the analysis itself.
-// RUN: echo '[{"directory":"%t","command":"gcc -std=c89 -Wno-visibility ctu-other.c","file":"ctu-other.c"}]' | sed -e 's/\\/\\\\/g' > %t/compile_commands.json
+// RUN: echo '[{"directory":"%t","command":"gcc -target x86_64-unknown-linux -std=c89 -Wno-visibility ctu-other.c","file":"ctu-other.c"}]' | sed -e 's/\\/\\\\/g' > %t/compile_commands.json
 //
-// RUN: echo '"%t/ctu-other.c": ["gcc", "-std=c89", "-Wno-visibility", "ctu-other.c"]' | sed -e 's/\\/\\\\/g' > %t/invocations.yaml
+// RUN: echo '"%t/ctu-other.c": ["gcc", "-target", "x86_64-unknown-linux", "-std=c89", "-Wno-visibility", "ctu-other.c"]' | sed -e 's/\\/\\\\/g' > %t/invocations.yaml
 //
 // RUN: cd "%t" && %clang_extdef_map "%t/ctu-other.c" > externalDefMap.txt
 //
-// RUN: cd "%t" && %clang_cc1 -fsyntax-only -std=c89 -analyze \
+// RUN: cd "%t" && %clang_cc1 -triple %itanium_abi_triple -fsyntax-only -std=c89 -analyze \
 // RUN:   -analyzer-checker=core,debug.ExprInspection \
 // RUN:   -analyzer-config experimental-enable-naive-ctu-analysis=true \
 // RUN:   -analyzer-config ctu-dir=. \

@@ -18,7 +18,7 @@ MyInt gx;
 -(void)meth:(B*)b :(id<P>)p;
 @end
 
-// RUN: env CINDEXTEST_SUPPRESSREFS=1 c-index-test -index-file %s | FileCheck %s
+// RUN: env CINDEXTEST_SUPPRESSREFS=1 c-index-test -index-file %s -target x86_64-unknown-linux | FileCheck %s
 // CHECK:      [indexDeclaration]: kind: objc-class | name: I
 // CHECK-NEXT:      <ObjCContainerInfo>: kind: interface
 // CHECK-NEXT: [indexDeclaration]: kind: objc-class | name: B

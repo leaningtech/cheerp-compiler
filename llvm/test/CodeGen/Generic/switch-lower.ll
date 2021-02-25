@@ -1,4 +1,4 @@
-; RUN: llc < %s
+; RUN: llc -march=x86 < %s
 
 
 ; PR5421

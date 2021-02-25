@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -debug-info-kind=limited -S -o %t %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -debug-info-kind=limited -S -o %t %s
 // PR: 6554
 // More then one anonymous aggregates on one line creates chaos when MDNode uniquness is 
 // combined with RAUW operation.

@@ -4,6 +4,8 @@
 ; function doesn't mean we can't describe the address range of the function.
 ; Check that we do that
 
+target triple = "x86_64-unknown-linux"
+
 ; CHECK: DW_TAG_subprogram
 ; CHECK-NOT: TAG
 ; CHECK:   DW_AT_low_pc

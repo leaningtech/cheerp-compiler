@@ -2,6 +2,8 @@
 ; three DISPFlags are used to attach DW_AT_pure, DW_AT_element, and
 ; DW_AT_recursive attributes to DW_TAG_subprogram DIEs.
 
+target triple = "x86_64-unknown-linux"
+
 ; -- test the resulting DWARF to make sure we're emitting
 ; DW_AT_{pure,elemental,recursive}.
 

@@ -65,7 +65,6 @@ define void @memset_vscale_index_nonzero(ptr %p, i8 %z) {
 ; CHECK-LABEL: @memset_vscale_index_nonzero(
 ; CHECK-NEXT:    [[TMP0:%.*]] = getelementptr <vscale x 16 x i8>, ptr [[P:%.*]], i32 1, i32 0
 ; CHECK-NEXT:    call void @llvm.memset.p0.i64(ptr align 1 [[TMP0]], i8 [[Z:%.*]], i64 17, i1 false)
-; CHECK-NEXT:    ret void
 ;
   %tmp0 = getelementptr <vscale x 16 x i8>, ptr %p, i32 1, i32 0
   store i8 %z, ptr %tmp0

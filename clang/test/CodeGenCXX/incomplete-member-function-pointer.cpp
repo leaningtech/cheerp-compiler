@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 %s -emit-llvm-only
+// RUN: %clang_cc1 -triple %itanium_abi_triple %s -emit-llvm-only
 // PR7040
 struct fake_tuple;
 struct connection {

@@ -1,4 +1,4 @@
-; RUN: opt < %s -O3 | llc -no-integrated-as | FileCheck %s
+; RUN: opt -march=x86 < %s -O3 | llc -march=x86 -no-integrated-as | FileCheck %s
 ; REQUIRES: default_triple
 
 ;; We don't want branch folding to fold asm directives.

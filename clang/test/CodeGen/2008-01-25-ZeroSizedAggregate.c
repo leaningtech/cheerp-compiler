@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 %s -emit-llvm -o -
+// RUN: %clang_cc1 -triple %itanium_abi_triple %s -emit-llvm -o -
 // REQUIRES: LP64
 
 // Aggregates of size zero should be dropped from argument list.

@@ -3,7 +3,7 @@
 
 // Modules:
 // RUN: rm -rf %t
-// RUN: %clang_cc1 -x objective-c -fmodules -fmodule-format=obj \
+// RUN: %clang_cc1 -triple %itanium_abi_triple -x objective-c -fmodules -fmodule-format=obj \
 // RUN:   -fdebug-prefix-map=%S/Inputs=/OVERRIDE \
 // RUN:   -fimplicit-module-maps -DMODULES -fmodules-cache-path=%t %s \
 // RUN:   -I %S/Inputs -I %t -emit-llvm -o %t.ll \
@@ -11,7 +11,7 @@
 // RUN: cat %t-mod.ll | FileCheck %s
 
 // PCH:
-// RUN: %clang_cc1 -x objective-c -emit-pch -fmodule-format=obj -I %S/Inputs \
+// RUN: %clang_cc1 -triple %itanium_abi_triple -x objective-c -emit-pch -fmodule-format=obj -I %S/Inputs \
 // RUN:   -fdebug-prefix-map=%S/Inputs=/OVERRIDE \
 // RUN:   -o %t.pch %S/Inputs/DebugObjC.h \
 // RUN:   -mllvm -debug-only=pchcontainer &>%t-pch.ll

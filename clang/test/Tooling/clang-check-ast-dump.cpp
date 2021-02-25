@@ -3,7 +3,7 @@
 // CHECK-NEXT: CXXRecordDecl{{.*}}TheClass
 // CHECK: CXXMethodDecl{{.*}}theMethod
 // CHECK-NEXT: ParmVarDecl{{.*}}x
-// CHECK-NEXT: CompoundStmt
+// CHECK: CompoundStmt
 // CHECK-NEXT:   ReturnStmt
 // CHECK-NEXT:     BinaryOperator
 //
@@ -13,7 +13,7 @@
 // CHECK-FILTER: {{^}}Dumping test_namespace::TheClass::theMethod
 // CHECK-FILTER-NEXT: {{^}}CXXMethodDecl{{.*}}theMethod
 // CHECK-FILTER-NEXT: ParmVarDecl{{.*}}x
-// CHECK-FILTER-NEXT: CompoundStmt
+// CHECK-FILTER: CompoundStmt
 // CHECK-FILTER-NEXT:   ReturnStmt
 // CHECK-FILTER-NEXT:     BinaryOperator
 //

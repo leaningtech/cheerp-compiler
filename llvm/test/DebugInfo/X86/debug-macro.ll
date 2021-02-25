@@ -1,5 +1,6 @@
 ; RUN: llc -mtriple=x86_64 -O0 -filetype=obj < %s | llvm-dwarfdump -v - | FileCheck %s
 
+target triple = "x86_64-unknown-linux"
 
 ; CHECK-LABEL: .debug_info contents:
 ; CHECK: DW_TAG_compile_unit

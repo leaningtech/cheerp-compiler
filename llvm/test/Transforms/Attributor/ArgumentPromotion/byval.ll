@@ -23,7 +23,7 @@ define internal i32 @f(%struct.ss* byval(%struct.ss)  %b) nounwind  {
 ; CHECK-NEXT:    ret i32 [[TMP1]]
 ;
 entry:
-  %tmp = getelementptr %struct.ss, %struct.ss* %b, i32 0, i32 0
+  %tmp = bitcast %struct.ss* %b to i32*
   %tmp1 = load i32, i32* %tmp, align 4
   %tmp2 = add i32 %tmp1, 1
   store i32 %tmp2, i32* %tmp, align 4
@@ -48,7 +48,7 @@ define internal i32 @g(%struct.ss* byval(%struct.ss) align 32 %b) nounwind {
 ; CHECK-NEXT:    ret i32 [[TMP2]]
 ;
 entry:
-  %tmp = getelementptr %struct.ss, %struct.ss* %b, i32 0, i32 0
+  %tmp = bitcast %struct.ss* %b to i32*
   %tmp1 = load i32, i32* %tmp, align 4
   %tmp2 = add i32 %tmp1, 1
   store i32 %tmp2, i32* %tmp, align 4
@@ -92,7 +92,7 @@ define i32 @main() nounwind  {
 ;
 entry:
   %S = alloca %struct.ss
-  %tmp1 = getelementptr %struct.ss, %struct.ss* %S, i32 0, i32 0
+  %tmp1 = bitcast %struct.ss* %S to i32*
   store i32 1, i32* %tmp1, align 8
   %tmp4 = getelementptr %struct.ss, %struct.ss* %S, i32 0, i32 1
   store i64 2, i64* %tmp4, align 4

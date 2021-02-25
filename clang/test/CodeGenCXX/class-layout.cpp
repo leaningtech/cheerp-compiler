@@ -2,26 +2,26 @@
 
 // An extra byte should be allocated for an empty class.
 namespace Test1 {
-  // CHECK: %struct._ZN5Test11AE = type { i8 }
+  // CHECK: %"struct.Test1::A" = type { i8 }
   struct A { } *a;
 }
 
 namespace Test2 {
   // No need to add tail padding here.
-  // CHECK: %struct._ZN5Test21AE = type { i8*, i32 }
+  // CHECK: %"struct.Test2::A" = type { i8*, i32 }
   struct A { void *a; int b; } *a;
 }
 
 namespace Test3 {
   // C should have a vtable pointer.
-  // CHECK: %struct._ZN5Test31AE = type <{ i32 (...)**, i32, [4 x i8] }>
+  // CHECK: %"struct.Test3::A" = type <{ i32 (...)**, i32, [4 x i8] }>
   struct A { virtual void f(); int a; } *a;
 }
 
 namespace Test4 {
   // Test from PR5589.
-  // CHECK: %struct._ZN5Test41BE = type { %struct._ZN5Test41AE, i16, double }
-  // CHECK: %struct._ZN5Test41AE = type { i32, i8, float }
+  // CHECK: %"struct.Test4::B" = type { %"struct.Test4::A", i16, double }
+  // CHECK: %"struct.Test4::A" = type { i32, i8, float }
   struct A {
     int a;
     char c;
@@ -39,7 +39,7 @@ namespace Test5 {
     char a;
   };
 
-  // CHECK: %struct._ZN5Test51BE = type {  %struct._ZN5Test51AE.base, i8, i8, [5 x i8] }
+  // CHECK: %"struct.Test5::B" = type { %"struct.Test5::A.base", i8, i8, [5 x i8] }
   struct B : A {
     char b : 1;
     char c;
@@ -83,7 +83,7 @@ namespace Test6 {
 namespace Test7 {
   #pragma pack (1)
   class A {};
-  // CHECK: %class._ZN5Test71BE = type <{ i32 (...)**, %class._ZN5Test71AE }>
+  // CHECK: %"class.Test7::B" = type <{ i32 (...)**, %"class.Test7::A" }>
   class B {
      virtual ~B();
      A a;

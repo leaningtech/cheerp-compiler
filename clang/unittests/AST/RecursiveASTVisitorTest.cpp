@@ -136,10 +136,10 @@ private:
 std::vector<VisitEvent> collectEvents(llvm::StringRef Code,
                                       const Twine &FileName = "input.cc") {
   CollectInterestingEvents Visitor;
-  clang::tooling::runToolOnCode(
+  clang::tooling::runToolOnCodeWithArgs(
       std::make_unique<ProcessASTAction>(
           [&](clang::ASTContext &Ctx) { Visitor.TraverseAST(Ctx); }),
-      Code, FileName);
+      Code, FileName, {"-target", "x86_64-unknown-gnu"});
   return std::move(Visitor).takeEvents();
 }
 } // namespace

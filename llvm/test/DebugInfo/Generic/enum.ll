@@ -1,6 +1,8 @@
 ; RUN: %llc_dwarf -O0 -filetype=obj < %s > %t
 ; RUN: llvm-dwarfdump -v %t | FileCheck %s
 
+target triple = "x86_64-unknown-linux"
+
 ; IR generated from the following code compiled with clang -g:
 ; enum e1 { I, J = 0xffffffffU, K = 0xf000000000000000ULL } a;
 ; enum e2 { X };

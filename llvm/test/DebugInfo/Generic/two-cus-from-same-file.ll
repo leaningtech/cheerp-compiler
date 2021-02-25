@@ -6,6 +6,8 @@
 ; RUN: %llc_dwarf %s -o %t -filetype=obj -O0
 ; RUN: llvm-dwarfdump -debug-info %t | FileCheck %s
 
+target triple = "x86_64-unknown-linux"
+
 ; ModuleID = 'test.bc'
 
 @str = private unnamed_addr constant [4 x i8] c"FOO\00"

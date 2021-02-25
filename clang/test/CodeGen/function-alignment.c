@@ -1,6 +1,6 @@
-// RUN: %clang_cc1 -emit-llvm %s -o - | FileCheck %s -check-prefix CHECK-NONE
-// RUN: %clang_cc1 -emit-llvm -function-alignment 4 %s -o - | FileCheck %s -check-prefix CHECK-16
-// RUN: %clang_cc1 -emit-llvm -function-alignment 5 %s -o - | FileCheck %s -check-prefix CHECK-32
+// RUN: %clang_cc1 -triple %itanium_abi_triple -emit-llvm %s -o - | FileCheck %s -check-prefix CHECK-NONE
+// RUN: %clang_cc1 -triple %itanium_abi_triple -emit-llvm -function-alignment 4 %s -o - | FileCheck %s -check-prefix CHECK-16
+// RUN: %clang_cc1 -triple %itanium_abi_triple -emit-llvm -function-alignment 5 %s -o - | FileCheck %s -check-prefix CHECK-32
 
 void f(void) {}
 void __attribute__((__aligned__(64))) g(void) {}

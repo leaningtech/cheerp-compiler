@@ -1,5 +1,7 @@
 ; RUN: llc < %s
 
+target triple = "x86_64-unknown-linux"
+
 ; PR1239
 
 ; Undefined external symbol "__powisf2"

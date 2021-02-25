@@ -192,9 +192,9 @@ define void @cttz_8i32() #0 {
 ; SSE-NEXT:    ret void
 ;
 ; AVX-LABEL: @cttz_8i32(
-; AVX-NEXT:    [[TMP1:%.*]] = load <8 x i32>, <8 x i32>* bitcast ([8 x i32]* @src32 to <8 x i32>*), align 2
+; AVX-NEXT:    [[TMP1:%.*]] = load <8 x i32>, <8 x i32>* bitcast (i32* getelementptr inbounds ([8 x i32], [8 x i32]* @src32, i32 0, i64 0) to <8 x i32>*), align 2
 ; AVX-NEXT:    [[TMP2:%.*]] = call <8 x i32> @llvm.cttz.v8i32(<8 x i32> [[TMP1]], i1 false)
-; AVX-NEXT:    store <8 x i32> [[TMP2]], <8 x i32>* bitcast ([8 x i32]* @dst32 to <8 x i32>*), align 2
+; AVX-NEXT:    store <8 x i32> [[TMP2]], <8 x i32>* bitcast (i32* getelementptr inbounds ([8 x i32], [8 x i32]* @dst32, i32 0, i64 0) to <8 x i32>*), align 2
 ; AVX-NEXT:    ret void
 ;
   %ld0 = load i32, i32* getelementptr inbounds ([8 x i32], [8 x i32]* @src32, i32 0, i64 0), align 2

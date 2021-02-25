@@ -2,6 +2,8 @@
 ; RUN: %llc_dwarf -filetype=obj < %s | llvm-dwarfdump -all -show-form -v - \
 ; RUN:   | FileCheck %s
 ;
+target triple = "x86_64-unknown-linux"
+
 ; Generated from the following source with clang -S -emit-llvm -gdwarf-5.
 ;
 ; enum E {

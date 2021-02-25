@@ -3,7 +3,7 @@
 
 // Check compiling a module interface to a .pcm file.
 //
-// RUN: %clang -std=c++2a -x c++-module --precompile %s -o %t/module.pcm -v 2>&1 | FileCheck %s --check-prefix=CHECK-PRECOMPILE
+// RUN: %clang -target x86_64-unknown-linux -std=c++2a -x c++-module --precompile %s -o %t/module.pcm -v 2>&1 | FileCheck %s --check-prefix=CHECK-PRECOMPILE
 //
 // CHECK-PRECOMPILE: -cc1 {{.*}} -emit-module-interface
 // CHECK-PRECOMPILE-SAME: -o {{.*}}.pcm
@@ -12,7 +12,7 @@
 
 // Check compiling a .pcm file to a .o file.
 //
-// RUN: %clang -std=c++2a %t/module.pcm -S -o %t/module.pcm.o -v 2>&1 | FileCheck %s --check-prefix=CHECK-COMPILE
+// RUN: %clang -target x86_64-unknown-linux -std=c++2a %t/module.pcm -S -o %t/module.pcm.o -v 2>&1 | FileCheck %s --check-prefix=CHECK-COMPILE
 //
 // CHECK-COMPILE: -cc1 {{.*}} {{-emit-obj|-S}}
 // CHECK-COMPILE-SAME: -o {{.*}}module{{2*}}.pcm.o
@@ -32,11 +32,11 @@
 
 // Check combining precompile and compile steps works.
 //
-// RUN: %clang -std=c++2a -x c++-module %s -S -o %t/module2.pcm.o -v 2>&1 | FileCheck %s --check-prefix=CHECK-PRECOMPILE --check-prefix=CHECK-COMPILE
+// RUN: %clang -target x86_64-unknown-linux -std=c++2a -x c++-module %s -S -o %t/module2.pcm.o -v 2>&1 | FileCheck %s --check-prefix=CHECK-PRECOMPILE --check-prefix=CHECK-COMPILE
 
 // Check that .cppm is treated as a module implicitly.
 //
 // RUN: cp %s %t/module.cppm
-// RUN: %clang -std=c++2a --precompile %t/module.cppm -o %t/module.pcm -v 2>&1 | FileCheck %s --check-prefix=CHECK-PRECOMPILE
+// RUN: %clang -target x86_64-unknown-linux -std=c++2a --precompile %t/module.cppm -o %t/module.pcm -v 2>&1 | FileCheck %s --check-prefix=CHECK-PRECOMPILE
 
 export module foo;
