@@ -488,20 +488,20 @@ void CodeGenFunction::generateThunk(llvm::Function *Fn,
   else
     Ty = CGM.getTypes().GetFunctionType(FnInfo);
 
-  CGCallee Callee;
+  llvm::Value *Callee = nullptr;
   if(Thunk.isMemberPointerThunk && OriginalMethod->isVirtual())
-    Callee = CGM.getCXXABI().getVirtualFunctionPointer(*this, OriginalMethod, LoadCXXThisAddress(), Ty, SourceLocation());
+    Callee = CGM.getCXXABI().getVirtualFunctionPointer(*this, OriginalMethod, LoadCXXThisAddress(), Ty, SourceLocation()).getFunctionPointer();
   else
   {
-    const CXXMethodDecl *MD = cast<CXXMethodDecl>(CurGD.getDecl());
-    Callee = CGCallee::forDirect(CGM.GetAddrOfFunction(GD, Ty, /*ForVTable=*/true), GD);
+    llvm::Constant* CalleeConst = CGM.GetAddrOfFunction(GD, Ty, /*ForVTable=*/true);
+    // Fix up the function type for an unprototyped musttail call.
+    if (IsUnprototyped)
+      CalleeConst = llvm::ConstantExpr::getBitCast(CalleeConst, Fn->getType());
+    Callee = CalleeConst;
   }
 
-  // Fix up the function type for an unprototyped musttail call.
-  assert (!IsUnprototyped);
-
   // Make the call and return the result.
-  EmitCallAndReturnForThunk(llvm::FunctionCallee(Fn->getFunctionType(), Callee.getFunctionPointer()),
+  EmitCallAndReturnForThunk(llvm::FunctionCallee(Fn->getFunctionType(), Callee),
                             &Thunk, IsUnprototyped);
 }
 
