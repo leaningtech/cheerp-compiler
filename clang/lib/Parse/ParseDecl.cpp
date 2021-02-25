@@ -1649,7 +1649,7 @@ void Parser::ProhibitCXX11Attributes(ParsedAttributesWithRange &Attrs,
   }
 
   for (const ParsedAttr &AL : Attrs) {
-    if ((!AL.isCXX11Attribute() && !AL.isC2xAttribute()) || AL.getKind() != ParsedAttr::AT_NoInit || AL.getKind() != ParsedAttr::AT_SafeCast)
+    if ((!AL.isCXX11Attribute() && !AL.isC2xAttribute()) || AL.getKind() == ParsedAttr::AT_NoInit || AL.getKind() == ParsedAttr::AT_SafeCast)
       continue;
     if (AL.getKind() == ParsedAttr::UnknownAttribute)
       Diag(AL.getLoc(), diag::warn_unknown_attribute_ignored)
