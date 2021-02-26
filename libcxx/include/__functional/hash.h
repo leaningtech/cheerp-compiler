@@ -417,7 +417,11 @@ _LIBCPP_INLINE_VISIBILITY
 inline size_t __hash_combine(size_t __lhs, size_t __rhs) _NOEXCEPT {
     typedef __scalar_hash<_PairT> _HashT;
     const _PairT __p = {__lhs, __rhs};
+#ifdef __CHEERP__
+    return __scalar_hash<size_t>()(__p.first) ^ __scalar_hash<size_t>()(__p.second);
+#else
     return _HashT()(__p);
+#endif
 }
 
 _LIBCPP_SUPPRESS_DEPRECATED_PUSH
