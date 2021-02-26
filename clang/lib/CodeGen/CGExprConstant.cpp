@@ -1193,9 +1193,6 @@ public:
       return CGM.getCXXABI().EmitMemberPointerConversion(E, C);
     }
 
-    case CK_NullToPointer:
-      return llvm::Constant::getNullValue(ConvertType(destType));
-
     // These will never be supported.
     case CK_ObjCObjectLValueCast:
     case CK_ARCProduceObject:
@@ -1236,6 +1233,7 @@ public:
     case CK_IntegralComplexToFloatingComplex:
     case CK_PointerToIntegral:
     case CK_PointerToBoolean:
+    case CK_NullToPointer:
     case CK_IntegralCast:
     case CK_BooleanToSignedIntegral:
     case CK_IntegralToPointer:
