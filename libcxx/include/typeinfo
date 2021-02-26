@@ -210,6 +210,7 @@ struct __type_info_implementations {
     }
   };
 
+#ifndef __CHEERP__
   struct __non_unique_arm_rtti_bit_impl {
     typedef uintptr_t __type_name_t;
 
@@ -259,6 +260,7 @@ struct __type_info_implementations {
       return !((__lhs & __rhs) & __non_unique_rtti_bit::value);
     }
   };
+#endif
 
   typedef
 #if defined(__APPLE__) && defined(__LP64__) && !defined(__x86_64__)
