@@ -18,7 +18,9 @@
 
 #include <unistd.h>
 #include <sys/stat.h>
+#ifndef __CHEERP__
 #include <sys/statvfs.h>
+#endif
 #include <sys/time.h> // for ::utimes as used in __last_write_time
 #include <fcntl.h>    /* values for fchmodat */
 
@@ -382,6 +384,9 @@ using fs_time = time_util<file_time_type, time_t, TimeSpec>;
 #if defined(__APPLE__)
 TimeSpec extract_mtime(StatT const& st) { return st.st_mtimespec; }
 TimeSpec extract_atime(StatT const& st) { return st.st_atimespec; }
+#elif defined(__CHEERP__)
+TimeSpec extract_mtime(StatT const& st) { return TimeSpec(); }
+TimeSpec extract_atime(StatT const& st) { return TimeSpec(); }
 #else
 TimeSpec extract_mtime(StatT const& st) { return st.st_mtim; }
 TimeSpec extract_atime(StatT const& st) { return st.st_atim; }

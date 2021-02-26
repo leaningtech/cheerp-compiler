@@ -217,8 +217,10 @@ public:
 private:
   error_code close() noexcept {
     error_code m_ec;
+#ifndef __CHEERP__
     if (::closedir(__stream_) == -1)
       m_ec = detail::capture_errno();
+#endif
     __stream_ = nullptr;
     return m_ec;
   }
