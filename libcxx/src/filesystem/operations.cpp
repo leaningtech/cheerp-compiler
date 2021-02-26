@@ -26,7 +26,9 @@
 #else
 # include <unistd.h>
 # include <sys/stat.h>
+#ifndef __CHEERP__
 # include <sys/statvfs.h>
+#endif
 #endif
 #include <time.h>
 #include <fcntl.h> /* values for fchmodat */
@@ -585,7 +587,9 @@ file_status posix_stat(path const& p, error_code* ec) {
 
 file_status posix_lstat(path const& p, StatT& path_stat, error_code* ec) {
   error_code m_ec;
+#ifndef __CHEERP__
   if (detail::lstat(p.c_str(), &path_stat) == -1)
+#endif
     m_ec = detail::capture_errno();
   return create_file_status(m_ec, p, path_stat, ec);
 }
@@ -597,10 +601,12 @@ file_status posix_lstat(path const& p, error_code* ec) {
 
 // http://pubs.opengroup.org/onlinepubs/9699919799/functions/ftruncate.html
 bool posix_ftruncate(const FileDescriptor& fd, off_t to_size, error_code& ec) {
+#ifndef __CHEERP__
   if (detail::ftruncate(fd.fd, to_size) == -1) {
     ec = capture_errno();
     return true;
   }
+#endif
   ec.clear();
   return false;
 }
@@ -718,8 +724,12 @@ path __canonical(path const& orig_p, error_code* ec) {
     path::value_type buff[PATH_MAX + 1];
   #endif
   path::value_type* ret;
+#ifdef __CHEERP__
+  ret = nullptr;
+#else
   if ((ret = detail::realpath(p.c_str(), buff)) == nullptr)
     return err.report(capture_errno());
+#endif
   return {ret};
 #endif
 }
@@ -1385,13 +1395,16 @@ void __rename(const path& from, const path& to, error_code* ec) {
 
 void __resize_file(const path& p, uintmax_t size, error_code* ec) {
   ErrorHandler<void> err("resize_file", ec, &p);
+#ifndef __CHEERP__
   if (detail::truncate(p.c_str(), static_cast< ::off_t>(size)) == -1)
     return err.report(capture_errno());
+#endif
 }
 
 space_info __space(const path& p, error_code* ec) {
   ErrorHandler<void> err("space", ec, &p);
   space_info si;
+#ifndef __CHEERP__
   detail::StatVFS m_svfs = {};
   if (detail::statvfs(p.c_str(), &m_svfs) == -1) {
     err.report(capture_errno());
@@ -1407,6 +1420,7 @@ space_info __space(const path& p, error_code* ec) {
   do_mult(si.capacity, m_svfs.f_blocks);
   do_mult(si.free, m_svfs.f_bfree);
   do_mult(si.available, m_svfs.f_bavail);
+#endif
   return si;
 }
 
