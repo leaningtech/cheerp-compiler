@@ -582,7 +582,7 @@ template <class T>
 #if defined(_LIBCPP_HAS_NO_THREADS) && !defined(__CHEERP__)
 # error <atomic> is not supported on this single threaded system
 #endif
-#ifdef _LIBCPP_HAS_NO_ATOMIC_HEADER
+#if defined(_LIBCPP_HAS_NO_ATOMIC_HEADER) && !defined(__CHEERP__)
 # error <atomic> is not implemented
 #endif
 #ifdef kill_dependency
