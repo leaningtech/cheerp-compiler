@@ -2181,9 +2181,12 @@ template <class _Rp, class... _ArgTypes> class __policy_func<_Rp(_ArgTypes...)>
       if (__function::__not_null(__f)) {
         __invoker_ = __invoker::template __create<_Fun>();
         __policy_ = __policy::__create<_Fun>();
+#if !defined(__CHEERP__) || defined(__ASMJS__)
         if (__use_small_storage<_Fun>()) {
           ::new ((void*)&__buf_.__small) _Fun(_VSTD::move(__f));
-        } else {
+        } else
+#endif
+        {
           __builtin_new_allocator::__holder_t __hold =
               __builtin_new_allocator::__allocate_type<_Fun>(1);
           __buf_.__large = ::new (__hold.get()) _Fun(_VSTD::move(__f));
