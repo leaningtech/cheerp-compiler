@@ -29,7 +29,9 @@
 # include <dirent.h>   // for DIR & friends
 # include <fcntl.h>    /* values for fchmodat */
 # include <sys/stat.h>
+#ifndef __CHEERP__
 # include <sys/statvfs.h>
+#endif
 # include <sys/time.h> // for ::utimes as used in __last_write_time
 # include <unistd.h>
 #endif // defined(_LIBCPP_WIN32API)
@@ -484,6 +486,9 @@ inline TimeSpec extract_atime(StatT const& st) {
   TimeSpec TS = {st.st_atime, st.st_atime_n};
   return TS;
 }
+#elif defined(__CHEERP__)
+TimeSpec extract_mtime(StatT const& st) { return TimeSpec(); }
+TimeSpec extract_atime(StatT const& st) { return TimeSpec(); }
 #else
 inline TimeSpec extract_mtime(StatT const& st) { return st.st_mtim; }
 inline TimeSpec extract_atime(StatT const& st) { return st.st_atim; }
