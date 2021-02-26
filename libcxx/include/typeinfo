@@ -176,7 +176,11 @@ struct __type_info_implementations {
   struct __unique_impl : __string_impl_base {
     _LIBCPP_INLINE_VISIBILITY _LIBCPP_ALWAYS_INLINE
     static size_t __hash(__type_name_t __v) _NOEXCEPT {
+#if !defined(__CHEERP__) || defined(__ASMJS__)
       return reinterpret_cast<size_t>(__v);
+#else
+      return 0;
+#endif
     }
     _LIBCPP_INLINE_VISIBILITY _LIBCPP_ALWAYS_INLINE
     static bool __eq(__type_name_t __lhs, __type_name_t __rhs) _NOEXCEPT {
