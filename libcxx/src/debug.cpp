@@ -198,7 +198,7 @@ __libcpp_db::__insert_c(void* __c, __libcpp_db::_InsertConstruct *__fn)
     }
     size_t hc = hash<void*>()(__c) % static_cast<size_t>(__cend_ - __cbeg_);
     __c_node* p = __cbeg_[hc];
-    void *buf = malloc(sizeof(__c_node));
+    __c_node *buf = (__c_node*)malloc(sizeof(__c_node));
     if (buf == nullptr)
       __throw_bad_alloc();
     __cbeg_[hc] = __fn(buf, __c, p);

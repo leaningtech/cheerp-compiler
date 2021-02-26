@@ -66,6 +66,9 @@ condition_variable::__do_timed_wait(unique_lock<mutex>& lk,
     if (!lk.owns_lock())
         __throw_system_error(EPERM,
                             "condition_variable::timed wait: mutex not locked");
+#ifdef __CHEERP__
+    cheerp::console_log("Cheerp: condition_variable::timed_wait can't block");
+#else
     nanoseconds d = tp.time_since_epoch();
     if (d > nanoseconds(0x59682F000000E941))
         d = nanoseconds(0x59682F000000E941);
@@ -83,9 +86,6 @@ condition_variable::__do_timed_wait(unique_lock<mutex>& lk,
         ts.tv_sec = ts_sec_max;
         ts.tv_nsec = giga::num - 1;
     }
-#ifdef __CHEERP__
-    cheerp::console_log("Cheerp: condition_variable::timed_wait can't block");
-#else
     int ec = __libcpp_condvar_timedwait(&__cv_, lk.mutex()->native_handle(), &ts);
     if (ec != 0 && ec != ETIMEDOUT)
         __throw_system_error(ec, "condition_variable timed_wait failed");
