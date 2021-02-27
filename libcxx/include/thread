@@ -275,7 +275,11 @@ public:
     void swap(thread& __t) _NOEXCEPT {_VSTD::swap(__t_, __t.__t_);}
 
     _LIBCPP_INLINE_VISIBILITY
+#ifdef __CHEERP__
+    bool joinable() const _NOEXCEPT {return __t_ != 0;}
+#else
     bool joinable() const _NOEXCEPT {return !__libcpp_thread_isnull(&__t_);}
+#endif
     void join();
     void detach();
     _LIBCPP_INLINE_VISIBILITY
