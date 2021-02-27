@@ -1516,14 +1516,17 @@ struct __libcpp_atomic_wait_backoff_impl {
                 return true;
             __libcpp_atomic_wait(__a, __monitor);
         }
+#ifndef __CHEERP__
         else if(__elapsed > chrono::microseconds(4))
             __libcpp_thread_yield();
+#endif
         else
             ; // poll
         return false;
     }
 };
 
+#ifndef __CHEERP__
 template <class _Atp, class _Fn>
 _LIBCPP_AVAILABILITY_SYNC
 _LIBCPP_INLINE_VISIBILITY bool __cxx_atomic_wait(_Atp* __a, _Fn && __test_fn)
@@ -1531,6 +1534,7 @@ _LIBCPP_INLINE_VISIBILITY bool __cxx_atomic_wait(_Atp* __a, _Fn && __test_fn)
     __libcpp_atomic_wait_backoff_impl<_Atp, typename decay<_Fn>::type> __backoff_fn = {__a, __test_fn};
     return __libcpp_thread_poll_with_backoff(__test_fn, __backoff_fn);
 }
+#endif
 
 #else // _LIBCPP_HAS_NO_PLATFORM_WAIT
 
@@ -1557,6 +1561,7 @@ struct __cxx_atomic_wait_test_fn_impl {
     }
 };
 
+#ifndef __CHEERP__
 template <class _Atp, class _Tp>
 _LIBCPP_AVAILABILITY_SYNC
 _LIBCPP_INLINE_VISIBILITY bool __cxx_atomic_wait(_Atp* __a, _Tp const __val, memory_order __order)
@@ -1564,6 +1569,7 @@ _LIBCPP_INLINE_VISIBILITY bool __cxx_atomic_wait(_Atp* __a, _Tp const __val, mem
     __cxx_atomic_wait_test_fn_impl<_Atp, _Tp> __test_fn = {__a, __val, __order};
     return __cxx_atomic_wait(__a, __test_fn);
 }
+#endif
 
 #endif //_LIBCPP_STD_VER >= 11
 
@@ -2502,12 +2508,14 @@ typedef struct atomic_flag
     void clear(memory_order __m = memory_order_seq_cst) _NOEXCEPT
         {__cxx_atomic_store(&__a_, _LIBCPP_ATOMIC_FLAG_TYPE(false), __m);}
 
+#ifndef __CHEERP__
     _LIBCPP_AVAILABILITY_SYNC _LIBCPP_INLINE_VISIBILITY
     void wait(bool __v, memory_order __m = memory_order_seq_cst) const volatile _NOEXCEPT
         {__cxx_atomic_wait(&__a_, _LIBCPP_ATOMIC_FLAG_TYPE(__v), __m);}
     _LIBCPP_AVAILABILITY_SYNC _LIBCPP_INLINE_VISIBILITY
     void wait(bool __v, memory_order __m = memory_order_seq_cst) const _NOEXCEPT
         {__cxx_atomic_wait(&__a_, _LIBCPP_ATOMIC_FLAG_TYPE(__v), __m);}
+#endif
     _LIBCPP_AVAILABILITY_SYNC _LIBCPP_INLINE_VISIBILITY
     void notify_one() volatile _NOEXCEPT
         {__cxx_atomic_notify_one(&__a_);}
@@ -2627,6 +2635,7 @@ atomic_flag_clear_explicit(atomic_flag* __o, memory_order __m) _NOEXCEPT
     __o->clear(__m);
 }
 
+#ifndef __CHEERP__
 inline _LIBCPP_INLINE_VISIBILITY _LIBCPP_AVAILABILITY_SYNC
 void
 atomic_flag_wait(const volatile atomic_flag* __o, bool __v) _NOEXCEPT
@@ -2656,6 +2665,7 @@ atomic_flag_wait_explicit(const atomic_flag* __o,
 {
     __o->wait(__v, __m);
 }
+#endif
 
 inline _LIBCPP_INLINE_VISIBILITY _LIBCPP_AVAILABILITY_SYNC
 void
@@ -2781,8 +2791,10 @@ typedef conditional<_LIBCPP_CONTENTION_LOCK_FREE, __cxx_contention_t, unsigned c
     // No signed/unsigned lock-free types
 #endif
 
+#ifndef __CHEERP__
 typedef atomic<__libcpp_signed_lock_free> atomic_signed_lock_free;
 typedef atomic<__libcpp_unsigned_lock_free> atomic_unsigned_lock_free;
+#endif
 
 #define ATOMIC_FLAG_INIT {false}
 #define ATOMIC_VAR_INIT(__v) {__v}

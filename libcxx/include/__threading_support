@@ -58,7 +58,7 @@ _LIBCPP_PUSH_MACROS
 
 _LIBCPP_BEGIN_NAMESPACE_STD
 
-#if !defined(_LIBCPP_HAS_NO_THREADS)
+#if !defined(_LIBCPP_HAS_NO_THREADS) || defined(__CHEERP__)
 
 #if defined(_LIBCPP_HAS_THREAD_API_PTHREAD)
 // Mutex
@@ -131,6 +131,7 @@ typedef void* __libcpp_mutex_t;
 typedef void* __libcpp_recursive_mutex_t[6];
 #elif defined(_M_AMD64) || defined(__x86_64__) || defined(_M_ARM64) || defined(__aarch64__)
 typedef void* __libcpp_recursive_mutex_t[5];
+#elif defined(__CHEERP__)
 #else
 # error Unsupported architecture
 #endif
@@ -160,7 +161,7 @@ typedef long __libcpp_tls_key;
 #define _LIBCPP_TLS_DESTRUCTOR_CC __stdcall
 #endif // !defined(_LIBCPP_HAS_THREAD_API_PTHREAD) && !defined(_LIBCPP_HAS_THREAD_API_EXTERNAL)
 
-#if !defined(_LIBCPP_HAS_THREAD_API_EXTERNAL)
+#if !defined(_LIBCPP_HAS_THREAD_API_EXTERNAL) && !defined(__CHEERP__)
 // Mutex
 _LIBCPP_THREAD_ABI_VISIBILITY
 int __libcpp_recursive_mutex_init(__libcpp_recursive_mutex_t *__m);
