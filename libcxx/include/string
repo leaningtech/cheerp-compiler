@@ -1979,10 +1979,13 @@ template <class _CharT, class _Traits, class _Allocator>
 void basic_string<_CharT, _Traits, _Allocator>::__init_copy_ctor_external(
     const value_type* __s, size_type __sz) {
   pointer __p;
+#ifndef __CHEERP__
   if (__sz < __min_cap) {
     __p = __get_short_pointer();
     __set_short_size(__sz);
-  } else {
+  } else
+#endif
+  {
     if (__sz > max_size())
       this->__throw_length_error();
     size_t __cap = __recommend(__sz);
@@ -2354,7 +2357,7 @@ basic_string<_CharT, _Traits, _Allocator>::__assign_no_alias(
     __invalidate_iterators_past(__n);
   } else {
     size_type __sz = __is_short ? __get_short_size() : __get_long_size();
-    __grow_by_and_replace(__cap - 1, __n - __cap + 1, __sz, 0, __sz, __n, __s);
+    __grow_by_and_replace(__cap, __n - __cap, __sz, 0, __sz, __n, __s);
   }
   return *this;
 }
@@ -2444,11 +2447,13 @@ basic_string<_CharT, _Traits, _Allocator>::operator=(const basic_string& __str)
   if (this != &__str) {
     __copy_assign_alloc(__str);
     if (!__is_long()) {
+#ifndef __CHEERP__
       if (!__str.__is_long()) {
         __r_.first().__r = __str.__r_.first().__r;
       } else {
         return __assign_no_alias<true>(__str.data(), __str.size());
       }
+#endif
     } else {
       return __assign_no_alias<false>(__str.data(), __str.size());
     }
@@ -2486,14 +2491,20 @@ basic_string<_CharT, _Traits, _Allocator>::__move_assign(basic_string& __str, tr
 #if _LIBCPP_STD_VER <= 14
     if (!is_nothrow_move_assignable<allocator_type>::value) {
       __set_short_size(0);
+#ifndef __CHEERP__
       traits_type::assign(__get_short_pointer()[0], value_type());
+#endif
     }
 #endif
   }
   __move_assign_alloc(__str);
   __r_.first() = __str.__r_.first();
   __str.__set_short_size(0);
+#ifdef __CHEERP__
+  __str.__zero();
+#else
   traits_type::assign(__str.__get_short_pointer()[0], value_type());
+#endif
 }
 
 template <class _CharT, class _Traits, class _Allocator>
