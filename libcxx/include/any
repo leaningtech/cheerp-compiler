@@ -299,10 +299,16 @@ private:
     using _HandleFuncPtr =  void* (*)(_Action, any const *, any *, const type_info *,
       const void* __fallback_info);
 
+#ifdef __CHEERP__
+    struct _Storage {
+#else
     union _Storage {
+#endif
         constexpr _Storage() : __ptr(nullptr) {}
         void *  __ptr;
+#ifndef __CHEERP__
         __any_imp::_Buffer __buf;
+#endif
     };
 
     _LIBCPP_INLINE_VISIBILITY
@@ -340,6 +346,7 @@ private:
 
 namespace __any_imp
 {
+#ifndef __CHEERP__
   template <class _Tp>
   struct _LIBCPP_TEMPLATE_VIS _SmallHandler
   {
@@ -414,6 +421,7 @@ namespace __any_imp
 #endif
     }
   };
+#endif
 
   template <class _Tp>
   struct _LIBCPP_TEMPLATE_VIS _LargeHandler
