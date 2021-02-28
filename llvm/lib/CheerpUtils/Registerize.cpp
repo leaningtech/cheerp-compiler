@@ -3126,14 +3126,173 @@ bool Registerize::addRangeToRegisterIfPossible(RegisterRange& regRange, const In
 	return true;
 }
 
+void Registerize::FloodFillState::addSource(const BasicBlock* BB)
+{
+	assert(BB->getParent() == &F);
+	toBeVisited</*isForwardVisit*/true>(BB);
+}
+
+void Registerize::FloodFillState::addSink(const BasicBlock* BB)
+{
+	assert(BB->getParent() == &F);
+	toBeVisited</*isForwardVisit*/false>(BB);
+}
+
+void Registerize::FloodFillState::addLifetimeEnd(const BasicBlock* BB)
+{
+	assert(BB->getParent() == &F);
+	BasicBlockInfo& info = getInfo(BB);
+	info.hasLifetimeEnd = true;
+}
+
+void Registerize::FloodFillState::addLifetimeStart(const BasicBlock* BB)
+{
+	assert(BB->getParent() == &F);
+	BasicBlockInfo& info = getInfo(BB);
+	info.hasLifetimeStart = true;
+}
+
+void Registerize::FloodFillState::processAlloca()
+{
+	{
+		auto& queue = getToProcessQueue</*isForwardVisit*/true>();
+		while (!queue.empty())
+		{
+			const BasicBlock* BB = queue.front();
+			queue.pop();
+			processForward(BB);
+		}
+	}
+	{
+		auto& queue = getToProcessQueue</*isForwardVisit*/false>();
+		while (!queue.empty())
+		{
+			const BasicBlock* BB = queue.front();
+			queue.pop();
+			processBackward</*isComplete*/true>(BB);
+		}
+	}
+}
+
+template <bool isForwardVisit>
+std::queue<const llvm::BasicBlock*>& Registerize::FloodFillState::getToProcessQueue()
+{
+	return isForwardVisit ? toProcessForward : toProcessBackward;
+}
+
+template <bool isForwardVisit>
+void Registerize::FloodFillState::toBeVisited(const BasicBlock* BB)
+{
+	BasicBlockInfo& info = getInfo(BB);
+
+	bool& alreadyQueued = isForwardVisit ? info.visitedForward : info.visitedBackward;
+
+	if (!alreadyQueued)
+	{
+		getToProcessQueue<isForwardVisit>().push(BB);
+		alreadyQueued = true;
+	}
+}
+
+template <bool isForwardVisit>
+void Registerize::FloodFillState::visitSegment(BasicBlockInfo& info, const SegmentKind& segmentKind)
+{
+	SegmentKind& bitMaskVisited = isForwardVisit ? info.segmentsOnVisitForward : info.segmentsOnVisitBackward;
+
+	bitMaskVisited = SegmentKind(bitMaskVisited | segmentKind);
+}
+
+void Registerize::FloodFillState::processForward(const BasicBlock* BB)
+{
+	const bool isForwardVisit = true;
+
+	BasicBlockInfo& info = getInfo(BB);
+
+	visitSegment<isForwardVisit>(info, SegmentKind::Middle);
+
+	if (info.hasLifetimeEnd)
+		return;
+
+	visitSegment<isForwardVisit>(info, SegmentKind::End);
+
+	for (const BasicBlock* N : successors(BB))
+	{
+		BasicBlockInfo& infoN = getInfo(N);
+
+		visitSegment<isForwardVisit>(infoN, SegmentKind::Begin);
+
+		if (infoN.hasLifetimeStart)
+			continue;
+
+		toBeVisited<isForwardVisit>(N);
+	}
+}
+
+template <bool isComplete>
+void Registerize::FloodFillState::processBackward(const BasicBlock* BB)
+{
+	const bool isForwardVisit = false;
+
+	BasicBlockInfo& info = getInfo(BB);
+
+	visitSegment<isForwardVisit>(info, SegmentKind::Middle);
+
+	//We have visited a block both forward and backward, so the Alloca is alive in some segment of the BB
+	if (isComplete)
+		doublyVisitedBlocks.push_back(BB);
+
+	if (info.hasLifetimeStart)
+		return;
+
+	visitSegment<isForwardVisit>(info, SegmentKind::Begin);
+
+	for (const BasicBlock* N : predecessors(BB))
+	{
+		BasicBlockInfo& infoN = getInfo(N);
+
+		visitSegment<isForwardVisit>(infoN, SegmentKind::End);
+
+		if (isComplete && !infoN.visitedForward)
+			continue;	//On a backward visit we should visit only the subset of already forward visited nodes
+
+		if (infoN.hasLifetimeEnd)
+			continue;
+
+		toBeVisited<isForwardVisit>(N);
+	}
+}
+
+Registerize::FloodFillState::BasicBlockInfo& Registerize::FloodFillState::getInfo(const BasicBlock* BB)
+{
+	if (!mapBBtoInfo.count(BB))
+		mapBBtoInfo.emplace(BB, BasicBlockInfo());
+
+	return mapBBtoInfo[BB];
+}
+
+std::vector<std::pair<const llvm::BasicBlock*, const Registerize::FloodFillState::SegmentKind>> Registerize::FloodFillState::aliveSegments()
+{
+	std::vector<std::pair<const llvm::BasicBlock*, const SegmentKind>> segments;
+
+	for (const auto& X : doublyVisitedBlocks)
+	{
+		const SegmentKind visited = getInfo(X).visitedBothWays();
+
+		segments.push_back({X, visited});
+	}
+
+	return segments;
+}
+
 void Registerize::computeAllocaLiveRanges(AllocaSetTy& allocaSet, const InstIdMapTy& instIdMap)
 {
 	for(const AllocaInst* alloca: allocaSet)
 	{
-		AllocaBlocksState blocksState;
+		FloodFillState floodFillState(*alloca->getFunction());
+
 		RangeChunksTy ranges;
 		// For each alloca gather all uses and derived uses
-		InstructionSetOrderedByID allUses=gatherDerivedMemoryAccesses(alloca, instIdMap);
+		InstructionSetOrderedByID allUses=gatherDerivedMemoryAccesses(alloca, instIdMap, floodFillState);
 		if(allUses.empty())
 		{
 			// Initialize an empty live range to signal that no analysis is possible
@@ -3141,124 +3300,91 @@ void Registerize::computeAllocaLiveRanges(AllocaSetTy& allocaSet, const InstIdMa
 			continue;
 		}
 
-		// The instructions are ordered by their ID, so the instruction in the same block are consecutive
-		// Build the range containing the uses directly inside the block.
-		BasicBlock* currentBlock = NULL;
-		LiveRangeChunk localRange(0, 0);
-		for(Instruction* I: allUses)
+		std::unordered_map<const BasicBlock*, uint32_t> minInstructionId;
+		std::unordered_map<const BasicBlock*, uint32_t> maxInstructionId;
+
+		auto getMinInstId = [&minInstructionId](const BasicBlock* bb) -> uint32_t&
 		{
-			assert(instIdMap.count(I));
-			uint32_t instId=instIdMap.find(I)->second;
-			// If the current use is the first of a new block
-			if(I->getParent() != currentBlock)
-			{
-				// Save the range if it is valid when we change block
-				if(!localRange.empty())
-					ranges[localRange.start] = localRange.end;
+			auto it = minInstructionId.find(bb);
+			if (it == minInstructionId.end())
+				it = minInstructionId.insert({bb, -1}).first;
 
-				localRange = LiveRangeChunk(instId, instId+1);
-
-				// Set the initial state for this block
-				currentBlock = I->getParent();
-				AllocaBlockState& blockState=blocksState[currentBlock];
-				blockState.hasUse=true;
-				// If the first instruction in the block is lifetime_start we need to set the notLiveIn flag
-				if(IntrinsicInst* II=dyn_cast<IntrinsicInst>(I))
-				{
-					if(II->getIntrinsicID()==Intrinsic::lifetime_start)
-						blockState.notLiveIn = true;
-				}
-			}
-			else
-			{
-				assert(!localRange.empty());
-				assert(instId+1 > localRange.end);
-				localRange.end=instId+1;
-				// If we find a lifetime_end intrinsic we have to close the range and start again
-				if(IntrinsicInst* II=dyn_cast<IntrinsicInst>(I))
-				{
-					if(II->getIntrinsicID()==Intrinsic::lifetime_end)
-					{
-						ranges[localRange.start] = localRange.end;
-						localRange = LiveRangeChunk(0, 0);
-						currentBlock = NULL;
-					}
-				}
-			}
-		}
-		// Add the last range if necessary
-		if(!localRange.empty())
-			ranges[localRange.start] = localRange.end;
-
-		// Now we have marked all blocks which contains a use of the alloca with:
-		// 1) The hasUse flag
-		// 2) The notLiveIn if predecessors should not be checked
-		// For each block now we have to find out if the range should be extended
-		// till the first and/or the last instruction of the block
-		SmallVector<BasicBlock*, 4> startingBlocksList;
-		for(auto& it: blocksState)
-			startingBlocksList.push_back(it.first);
-
-		for(BasicBlock* BB: startingBlocksList)
+			return it->second;
+		};
+		auto getMaxInstId = [&maxInstructionId](const BasicBlock* bb) -> uint32_t&
 		{
-			// Explore the graph of the predecessors
-			// 1) If a use is found in the predecessors, set the liveIn flag
-			// 2) If no use is found in the predecessors, set the notLiveIn flag
-			// 3) If there is a loop in the predecessors, the return value will be the depth of the block
-			//    which is the lowest one that can make the pending blocks live.
-			// 3.1) If the returned value >= the current upAndMarkId, there is no hope to
-			//      make the pending blocks alive anymore
-			// 3.2) If the returned value is lower than the current upAndMarkId, we have to propagate it
-			assert(blocksState.pendingBlocks.empty());
-			// We keep track of the explored depth starting from USE_UNKNOWN, this is useful since
-			// any value >= USE_UNKNOWN means: "Unknown and depending on this depth of exploration"
-			UpAndMarkAllocaState state = doUpAndMarkForAlloca(blocksState, BB, USE_UNKNOWN);
-			if(state == USE_FOUND)
-				blocksState.markPendingBlocksAsLiveOut(0);
-			else
-				blocksState.markPendingBlocksAsNotLiveOut(0);
+			auto it = maxInstructionId.find(bb);
+			if (it == maxInstructionId.end())
+				it = maxInstructionId.insert({bb, 0}).first;
+
+			return it->second;
+		};
+
+		for (const Instruction* I : allUses)
+		{
+			const BasicBlock* parentBB = I->getParent();
+
+			const uint32_t instId = instIdMap.find(I)->second;
+
+			uint32_t& currMin = getMinInstId(parentBB);
+			currMin = std::min(currMin, instId);
+
+			uint32_t& currMax = getMaxInstId(parentBB);
+			currMax = std::max(currMax, instId);
+
+			floodFillState.addSource(parentBB);
+			floodFillState.addSink(parentBB);
 		}
 
-		// Now we have all blocks correctly flagged, use the information to extend range as required
-		for(auto& it: blocksState)
+		floodFillState.processAlloca();
+
+		const auto& segments = floodFillState.aliveSegments();
+
+		//Find the starting ID on a given BasicBlock (mirror of findEndId)
+		auto findStartId = [&instIdMap, &getMinInstId](const FloodFillState::SegmentKind& livenessBitmask, const BasicBlock* BB)
 		{
-			const AllocaBlockState& blockState = it.second;
-			assert(!(blockState.liveOut && blockState.notLiveOut));
-			assert(!(blockState.liveIn && blockState.notLiveIn));
-			BasicBlock* BB = it.first;
-			// Skip blocks which are not reachable
-			if(pred_begin(BB) == pred_end(BB) && BB!=&BB->getParent()->getEntryBlock())
-				continue;
-			assert(instIdMap.count(&(*BB->begin())));
-			assert(instIdMap.count(&(*BB->rbegin())));
-			uint32_t firstIdInBlock = instIdMap.find(&(*BB->begin()))->second;
-			uint32_t lastIdInBlock = instIdMap.find(&(*BB->rbegin()))->second+1;
-			// If the alloca is used in a predecessor extend the range from the beginning of the block
-			if(blockState.hasUse)
+			//IF it's not marked as alive AND we have another valid starting point, return that
+			if ((livenessBitmask & FloodFillState::SegmentKind::Begin) == false)
 			{
-				if(blockState.liveIn)
-				{
-					auto firstUseIterator = ranges.lower_bound(firstIdInBlock);
-					assert(firstUseIterator != ranges.end() && firstUseIterator->first < lastIdInBlock);
-					// If there already is a range contained in this block, make a new one from the beginning to the first use
-					if(firstUseIterator->first != firstIdInBlock)
-						ranges[firstIdInBlock] = firstUseIterator->first;
-				}
-				if(blockState.liveOut)
-				{
-					auto lastUseIterator = ranges.upper_bound(lastIdInBlock-1);
-					assert(lastUseIterator != ranges.begin());
-					--lastUseIterator;
-					assert(lastUseIterator->first >= instIdMap.find(&(*BB->begin()))->second);
-					// Extend the last range of the block to the last instruction
-					lastUseIterator->second = lastIdInBlock+1;
-				}
+				//This might fail since we might not have a valid instruction in the BB
+				//(eg. the entry point or a lifetime_start not included in allUses)
+				const uint32_t id = getMinInstId(BB);
+				if (id != getMinInstId(nullptr))
+					return id;
 			}
-			else if(blockState.liveIn || blockState.liveOut)
+
+			//Otherwise return the first instruction
+			return instIdMap.find(&*BB->begin())->second;
+		};
+
+		//Finding the ending ID on a given BasicBlock (mirror of findStartId)
+		auto findEndId = [&instIdMap, &getMaxInstId](const FloodFillState::SegmentKind& livenessBitmask, const BasicBlock* BB)
+		{
+			//IF it's not marked as alive AND we have another valid ending point, return that
+			if ((livenessBitmask & FloodFillState::SegmentKind::End) == false)
 			{
-				// Make a new range from the first to the last instruction of the block
-				ranges[firstIdInBlock] = lastIdInBlock;
+				//This might fail since we might not have a valid instruction in the BB
+				//(eg. the functions returns or a lifetime_end not included in allUses)
+				const uint32_t id = getMaxInstId(BB);
+				if (id != getMaxInstId(nullptr))
+					return id;
 			}
+
+			//Otherwise return the last instruction
+			return instIdMap.find(&*BB->rbegin())->second;
+		};
+
+		for (const auto& s : segments)
+		{
+			const BasicBlock* BB = s.first;
+			const FloodFillState::SegmentKind livenessBitmask = s.second;
+
+			assert( livenessBitmask | FloodFillState::SegmentKind::Middle );
+
+			const uint32_t startId = findStartId(livenessBitmask, BB);
+			const uint32_t endId = findEndId(livenessBitmask, BB);
+
+			ranges[startId] = endId + 1;
 		}
 
 		// Construct the vector of use ranges
@@ -3273,7 +3399,7 @@ void Registerize::computeAllocaLiveRanges(AllocaSetTy& allocaSet, const InstIdMa
 /*
 	Returns the set of instruction which access memory derived from the passed Alloca
 */
-Registerize::InstructionSetOrderedByID Registerize::gatherDerivedMemoryAccesses(const AllocaInst* rootI, const InstIdMapTy& instIdMap)
+Registerize::InstructionSetOrderedByID Registerize::gatherDerivedMemoryAccesses(const AllocaInst* rootI, const InstIdMapTy& instIdMap, FloodFillState& floodFillState)
 {
 	SmallVector<const Use*, 10> allUses;
 	for(const Use& U: rootI->uses())
@@ -3320,11 +3446,13 @@ Registerize::InstructionSetOrderedByID Registerize::gatherDerivedMemoryAccesses(
 					// Lifetime intrinsics are ok
 					if(F->getIntrinsicID()==Intrinsic::lifetime_start)
 					{
+						floodFillState.addLifetimeStart(CI->getParent());
 						lifetimeStarts.push_back(cast<IntrinsicInst>(CI));
 						break;
 					}
 					else if(F->getIntrinsicID()==Intrinsic::lifetime_end)
 					{
+						floodFillState.addLifetimeEnd(CI->getParent());
 						lifetimeEnds.push_back(cast<IntrinsicInst>(CI));
 						break;
 					}
@@ -3342,6 +3470,7 @@ Registerize::InstructionSetOrderedByID Registerize::gatherDerivedMemoryAccesses(
 				break;
 		}
 	}
+
 	for (auto E: escapingInsts)
 	{
 		bool dominated = false, postdominated = false;
@@ -3418,129 +3547,6 @@ Registerize::InstructionSetOrderedByID Registerize::gatherDerivedMemoryAccesses(
 		ret.insert(userI);
 	}
 	return ret;
-}
-
-Registerize::UpAndMarkAllocaState Registerize::doUpAndMarkForAlloca(AllocaBlocksState& blocksState, BasicBlock* BB, uint32_t upAndMarkId)
-{
-	AllocaBlockState& blockState=blocksState[BB];
-	if(upAndMarkId > USE_UNKNOWN)
-	{
-		// Use cached information from previous runs if available
-		if (blockState.liveOut)
-			return USE_FOUND;
-		else if (blockState.notLiveOut)
-			return USE_NOT_FOUND;
-	}
-
-	// We have encountered this block before so we are inside a loop.
-	if (blockState.upAndMarkId)
-	{
-		// We are looping over a block which contains a use
-		if(blockState.hasUse)
-		{
-			blockState.liveOut = true;
-			return USE_FOUND;
-		}
-		// We return the upAndMarkId for the block, to signal that the result is unknown
-		// and depends at least from blockState.upAndMarkId depth level in the graph.
-		// When we reach a block with a lower upAndMarkId than this one we are sure that there were
-		// no uses in the predecessors of this block
-		// blockState.upAndMarkId is guaranteed to be >= USE_UNKNOWN
-		return UpAndMarkAllocaState(blockState.upAndMarkId);
-	}
-
-	// Keep track of the current size of the pending blocks list, we don't want to interfere with blocks already on the list
-	uint32_t currentPendingSize = blocksState.pendingBlocks.size();
-
-	UpAndMarkAllocaState finalState(blockState.hasUse ? USE_FOUND : USE_NOT_FOUND);
-	// If the notLiveIn flag the variable is reset at the beginning of the block and we don't have to check predecessors
-	if(!blockState.notLiveIn)
-	{
-		// Check predecessors now
-
-		// Flag this block as being visited using the current upAndMarkId. This is always >= than USE_UNKNOWN
-		blockState.upAndMarkId = upAndMarkId;
-		// By default we want to reset upAndMarkId of the block to 0, which means "not being visited".
-		// Unless we find a USE_UNKNOWN, in which case the block is left in the pending list with
-		// upAndMarkId set to lowest upAndMarkId of the blocks it depends on.
-		// This is used to avoid exploring again a part of the graph which we know will not provide a definite value
-		// until we get back to the block it depends on.
-		uint32_t upAndMarkIdResetValue = 0;
-
-		UpAndMarkAllocaState predecessorsState(USE_NOT_FOUND);
-		for(::pred_iterator it=pred_begin(BB);it!=pred_end(BB);++it)
-		{
-			uint32_t pendingSizeBeforePredecessor = blocksState.pendingBlocks.size();
-			(void)pendingSizeBeforePredecessor;
-			UpAndMarkAllocaState predecessorState = doUpAndMarkForAlloca(blocksState, *it, upAndMarkId+1);
-			if(predecessorState.state < USE_UNKNOWN)
-				assert(blocksState.pendingBlocks.size() == pendingSizeBeforePredecessor);
-			// If the returned predecessorState is higher than upAndMarkId it is also USE_UNKNOWN,
-			// and the lowest block it depends on has been already explored, so there is no hope anymore
-			// of finding a use
-			if(predecessorState.state > upAndMarkId)
-			{
-				blocksState.discardPendingBlocks(currentPendingSize);
-				continue;
-			}
-			predecessorsState |= predecessorState;
-		}
-		// We have a USE_UNKNOWN depending on this or earlier block
-		// We have already ignored USE_UNKNOWNs depending on later blocks
-		if(predecessorsState.state >= USE_UNKNOWN)
-		{
-			if(predecessorsState.state < upAndMarkId)
-			{
-				// If depending on earlier blocks there is still hope that a use will be found somewhere
-				// Add this block to the pending list
-				assert(find(blocksState.pendingBlocks.begin(),blocksState.pendingBlocks.end(),BB)==blocksState.pendingBlocks.end());
-				blocksState.pendingBlocks.push_back(BB);
-				upAndMarkIdResetValue = predecessorsState.state;
-			}
-			else
-			{
-				// If equal to upAndMarkId, this block was the last hope to find any use.
-				// Convert to USE_NOT_FOUND, if this block had uses it would have returned USE_FOUND during the visit.
-				assert(predecessorsState.state == upAndMarkId);
-				predecessorsState = UpAndMarkAllocaState(USE_NOT_FOUND);
-			}
-		}
-		// Please note that USE_NOT_FOUND could have been converted above from a USE_UNKNOWN depending on this block.
-		if(predecessorsState == USE_NOT_FOUND)
-		{
-			// We definitely have no use in the predecessors
-			blocksState.markPendingBlocksAsNotLiveOut(currentPendingSize);
-			blockState.notLiveIn = true;
-		}
-		else if(predecessorsState == USE_FOUND)
-		{
-			// We definitely have a use in the predecessors, so this block is also liveIn.
-			blocksState.markPendingBlocksAsLiveOut(currentPendingSize);
-			blockState.liveIn = true;
-		}
-
-		// Combine the predecessorsState with the local state to obtain the final state
-		finalState |= predecessorsState;
-
-		// Reset the upAndMarkId for the block as required
-		blockState.upAndMarkId = upAndMarkIdResetValue;
-	}
-
-	// Final checks. Discard all pending blocks if we have a definite result
-	if(finalState == USE_FOUND && upAndMarkId > USE_UNKNOWN)
-	{
-		// If upAndMarkId has been increment at least once, this block is a predecessor of a block with uses, so it's liveOut
-		blockState.liveOut = true;
-		blocksState.markPendingBlocksAsLiveOut(currentPendingSize);
-	}
-	else if(finalState == USE_NOT_FOUND)
-	{
-		// Now we know that the alloca is not used in this block or above. Cache this information.
-		blockState.notLiveOut = true;
-		assert(blocksState.pendingBlocks.size() == currentPendingSize);
-	}
-
-	return finalState;
 }
 
 void Registerize::invalidateLiveRangeForAllocas(const llvm::Function& F)
