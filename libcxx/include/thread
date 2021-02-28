@@ -264,8 +264,10 @@ public:
 
     _LIBCPP_INLINE_VISIBILITY
     thread& operator=(thread&& __t) _NOEXCEPT {
+#ifndef __CHEERP__
         if (!__libcpp_thread_isnull(&__t_))
             terminate();
+#endif
         __t_ = __t.__t_;
         __t.__t_ = _LIBCPP_NULL_THREAD;
         return *this;

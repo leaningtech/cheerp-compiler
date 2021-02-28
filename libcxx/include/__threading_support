@@ -276,8 +276,6 @@ void *__libcpp_tls_get(__libcpp_tls_key __key);
 _LIBCPP_THREAD_ABI_VISIBILITY
 int __libcpp_tls_set(__libcpp_tls_key __key, void *__p);
 
-#endif // !defined(_LIBCPP_HAS_THREAD_API_EXTERNAL)
-
 struct __libcpp_timed_backoff_policy {
   _LIBCPP_THREAD_ABI_VISIBILITY
   bool operator()(chrono::nanoseconds __elapsed) const;
@@ -296,6 +294,8 @@ bool __libcpp_timed_backoff_policy::operator()(chrono::nanoseconds __elapsed) co
       ; // poll
     return false;
 }
+
+#endif // !defined(_LIBCPP_HAS_THREAD_API_EXTERNAL)
 
 static _LIBCPP_CONSTEXPR const int __libcpp_polling_count = 64;
 
@@ -321,7 +321,7 @@ bool __libcpp_thread_poll_with_backoff(
 }
 
 #if (!defined(_LIBCPP_HAS_THREAD_LIBRARY_EXTERNAL) || \
-     defined(_LIBCPP_BUILDING_THREAD_LIBRARY_EXTERNAL))
+     defined(_LIBCPP_BUILDING_THREAD_LIBRARY_EXTERNAL)) && !defined(__CHEERP__)
 
 
 namespace __thread_detail {
