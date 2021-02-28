@@ -1949,6 +1949,13 @@ private:
         } else {
           const FieldDecl *FD = cast<FieldDecl>(BaseOrMember);
           CurType = FD->getType();
+	  if (CurClass->isUnionType()) {
+            // Apply a bitcast, on unions it is safe
+            C = llvm::ConstantExpr::getGetElementPtr(C->getType()->getPointerElementType(), C, Indexes);
+	    C = llvm::ConstantExpr::getBitCast(C, CGM.getTypes().ConvertTypeForMem(CurType)->getPointerTo());
+	    Indexes.clear();
+            continue;
+          }
           const CGRecordLayout &cgLayout = CGM.getTypes().getCGRecordLayout(CurClass->getDecl());
           int32_t fieldIndex = cgLayout.getLLVMFieldNo(FD);
           if(fieldIndex == -1) {
