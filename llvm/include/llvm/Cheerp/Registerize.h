@@ -29,6 +29,7 @@
 #include <unordered_map>
 #include <vector>
 #include <deque>
+#include <queue>
 
 //#define REGISTERIZE_STATS
 //#define REGISTERIZE_DEBUG
@@ -1698,52 +1699,56 @@ private:
 	// Temporary data used to registerize allocas
 	typedef std::vector<const llvm::AllocaInst*> AllocaSetTy;
 	typedef std::map<uint32_t, uint32_t> RangeChunksTy;
-	struct AllocaBlockState
+	class FloodFillState
 	{
-		bool liveOut:1;
-		// If notLiveOut is true neither this block or the blocks above do not use the alloca
-		bool notLiveOut:1;
-		bool liveIn:1;
-		// If notLiveIn is true we know that the alloca is reset using lifetime_start in the block
-		bool notLiveIn:1;
-		// Is hasUse is true there is a use for the alloca inside the block
-		bool hasUse:1;
-		// upAndMarkId is used for various purposes:
-		// 1) Is non-zero if the block is currently being explored
-		// 2) Is non-zero if the block is in the pending list, the value is the lowest upAndMarkId on which the block state depend
-		uint32_t upAndMarkId;
-		AllocaBlockState():liveOut(false),notLiveOut(false),liveIn(false),notLiveIn(false),hasUse(false),upAndMarkId(0)
+	public:
+		enum SegmentKind
 		{
-		}
-	};
-	struct AllocaBlocksState: public std::unordered_map<llvm::BasicBlock*, AllocaBlockState>
-	{
-		std::vector<llvm::BasicBlock*> pendingBlocks;
-		void markPendingBlocksAsLiveOut(uint32_t index)
+			Begin = 1, Middle = 2, End = 4
+		};
+	private:
+		struct BasicBlockInfo
 		{
-			for(uint32_t i=index;i<pendingBlocks.size();i++)
+			bool hasLifetimeStart = false;
+			bool hasLifetimeEnd = false;
+			bool visitedForward = false;
+			bool visitedBackward = false;
+			SegmentKind segmentsOnVisitForward = SegmentKind(0);
+			SegmentKind segmentsOnVisitBackward = SegmentKind(0);
+			SegmentKind visitedBothWays()
 			{
-				find(pendingBlocks[i])->second.liveOut = true;
-				find(pendingBlocks[i])->second.upAndMarkId = 0;
+				return SegmentKind(segmentsOnVisitForward & segmentsOnVisitBackward);
 			}
-			pendingBlocks.resize(index);
-		}
-		void markPendingBlocksAsNotLiveOut(uint32_t index)
-		{
-			for(uint32_t i=index;i<pendingBlocks.size();i++)
-			{
-				find(pendingBlocks[i])->second.notLiveOut = true;
-				find(pendingBlocks[i])->second.upAndMarkId = 0;
-			}
-			pendingBlocks.resize(index);
-		}
-		void discardPendingBlocks(uint32_t index)
-		{
-			for(uint32_t i=index;i<pendingBlocks.size();i++)
-				find(pendingBlocks[i])->second.upAndMarkId = 0;
-			pendingBlocks.resize(index);
-		}
+		};
+	public:
+		FloodFillState(const llvm::Function& F) : F(F) {}
+		void addSource(const llvm::BasicBlock* BB);
+		void addSink(const llvm::BasicBlock* BB);
+		void addLifetimeEnd(const llvm::BasicBlock* BB);
+		void addLifetimeStart(const llvm::BasicBlock* BB);
+		void processAlloca();
+		std::vector<std::pair<const llvm::BasicBlock*, const SegmentKind>> aliveSegments();
+	private:
+		void processForward(const llvm::BasicBlock* BB);
+		template <bool isComplete>
+		void processBackward(const llvm::BasicBlock* BB);
+		void cleanupBBInfo(BasicBlockInfo& info);
+		template <bool isForwardVisit>
+		void visitSegment(BasicBlockInfo& info, const SegmentKind& segmentKind);
+		template <bool isForwardVisit>
+		void toBeVisited(const llvm::BasicBlock* BB);
+		template <bool isForwardVisit>
+		std::queue<const llvm::BasicBlock*>& getToProcessQueue();
+
+		std::queue<const llvm::BasicBlock*> toProcessForward;
+		std::queue<const llvm::BasicBlock*> toProcessBackward;
+
+		BasicBlockInfo& getInfo(const llvm::BasicBlock* BB);
+		const llvm::Function& F;
+		std::unordered_map<const llvm::BasicBlock*, BasicBlockInfo> mapBBtoInfo;
+		std::vector<const llvm::BasicBlock*> doublyVisitedBlocks;
 	};
+
 
 	LiveRangesTy computeLiveRanges(llvm::Function& F, const InstIdMapTy& instIdMap, cheerp::PointerAnalyzer& PA);
 	void doUpAndMark(BlocksState& blocksState, llvm::BasicBlock* BB, llvm::Instruction* I);
@@ -1759,54 +1764,8 @@ private:
 	bool addRangeToRegisterIfPossible(RegisterRange& regRange, const InstructionLiveRange& liveRange, REGISTER_KIND kind, bool needsSecondaryName);
 	void computeAllocaLiveRanges(AllocaSetTy& allocaSet, const InstIdMapTy& instIdMap);
 	typedef std::set<llvm::Instruction*, CompareInstructionByID> InstructionSetOrderedByID;
-	InstructionSetOrderedByID gatherDerivedMemoryAccesses(const llvm::AllocaInst* rootI, const InstIdMapTy& instIdMap);
-	enum UP_AND_MARK_ALLOCA_STATE { USE_FOUND = 0, USE_NOT_FOUND, USE_UNKNOWN };
-	struct UpAndMarkAllocaState
-	{
-		uint32_t state;
-		UpAndMarkAllocaState(uint32_t s):state(s)
-		{
-		}
-		UpAndMarkAllocaState& operator|=(const UpAndMarkAllocaState& rhs)
-		{
-			UpAndMarkAllocaState& lhs = *this;
-			// 1) FOUND | Any = FOUND
-			// 2) UNKNOWN | Any = UNKNOWN
-			// 3) NOT_FOUND | NOT_FOUND = NOT_FOUND
-			if (lhs.state == USE_FOUND || rhs.state == USE_FOUND)
-			{
-				lhs.state = USE_FOUND;
-				return lhs;
-			}
-			// Return the smaller one as it is the one closest to the start
-			if (lhs.state >= USE_UNKNOWN && rhs.state >= USE_UNKNOWN)
-			{
-				if (rhs.state < lhs.state)
-					lhs.state = rhs.state;
-				return lhs;
-			}
-			if (rhs.state >= USE_UNKNOWN)
-			{
-				lhs.state = rhs.state;
-				return lhs;
-			}
-			if (lhs.state >= USE_UNKNOWN)
-			{
-				return lhs;
-			}
-			assert(lhs.state == USE_NOT_FOUND && rhs.state == USE_NOT_FOUND);
-			return lhs;
-		}
-		bool operator==(UP_AND_MARK_ALLOCA_STATE r) const
-		{
-			return state == r;
-		}
-		bool operator!=(UP_AND_MARK_ALLOCA_STATE r) const
-		{
-			return state != r;
-		}
-	};
-	UpAndMarkAllocaState doUpAndMarkForAlloca(AllocaBlocksState& blocksState, llvm::BasicBlock* BB, uint32_t upAndMarkId);
+	InstructionSetOrderedByID gatherDerivedMemoryAccesses(const llvm::AllocaInst* rootI, const InstIdMapTy& instIdMap, FloodFillState& floodFillState);
+
 	void assignRegistersToInstructions(llvm::Function& F, cheerp::PointerAnalyzer& PA);
 };
 
