@@ -14,7 +14,7 @@
 #include "__config"
 #include "__threading_support"
 
-#if !defined(_LIBCPP_HAS_NO_THREADS)
+#if !defined(_LIBCPP_HAS_NO_THREADS) || defined(__CHEERP__)
 # if _LIBCPP_ABI_VERSION == 1 || !defined(_LIBCPP_HAS_TRIVIAL_CONDVAR_DESTRUCTION)
 #   define NEEDS_CONDVAR_DESTRUCTOR
 # endif
