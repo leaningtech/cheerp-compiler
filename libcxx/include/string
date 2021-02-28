@@ -1994,7 +1994,8 @@ void basic_string<_CharT, _Traits, _Allocator>::__init_copy_ctor_external(
     __set_long_cap(__cap + 1);
     __set_long_size(__sz);
   }
-  traits_type::copy(_VSTD::__to_address(__p), __s, __sz + 1);
+  traits_type::copy(_VSTD::__to_address(__p), __s, __sz);
+  traits_type::assign(__p[__sz], value_type());
 }
 
 #ifndef _LIBCPP_CXX03_LANG
