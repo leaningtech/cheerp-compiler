@@ -1538,7 +1538,8 @@ void Parser::DiagnoseProhibitedAttributes(
 void Parser::ProhibitCXX11Attributes(ParsedAttributesWithRange &Attrs,
                                      unsigned DiagID) {
   for (const ParsedAttr &AL : Attrs) {
-    if ((!AL.isCXX11Attribute() && !AL.isC2xAttribute()) || AL.getKind() == ParsedAttr::AT_NoInit || AL.getKind() == ParsedAttr::AT_SafeCast)
+    if ((!AL.isCXX11Attribute() && !AL.isC2xAttribute()) || AL.getKind() == ParsedAttr::AT_NoInit || AL.getKind() == ParsedAttr::AT_SafeCast ||
+		AL.getKind() == ParsedAttr::AT_GenericJS || AL.getKind() == ParsedAttr::AT_AsmJS || AL.getKind() == ParsedAttr::AT_JsExport)
       continue;
     if (AL.getKind() == ParsedAttr::UnknownAttribute)
       Diag(AL.getLoc(), diag::warn_unknown_attribute_ignored) << AL;
