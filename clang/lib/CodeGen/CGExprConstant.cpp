@@ -2159,6 +2159,8 @@ ConstantLValueEmitter::VisitCompoundLiteralExpr(const CompoundLiteralExpr *E) {
 ConstantLValue
 ConstantLValueEmitter::VisitStringLiteral(const StringLiteral *E) {
   ConstantAddress V =  CGM.GetAddrOfConstantStringFromLiteral(E);
+  if (CGM.getTarget().isByteAddressable())
+    return V;
   llvm::GlobalVariable* GV = llvm::cast<llvm::GlobalVariable>(V.getPointer());
   // CHEERP: if the current global declaration has the asmjs attribute,
   // all the additional globals produced should be in the asmjs section too
