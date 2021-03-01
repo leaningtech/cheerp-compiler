@@ -2871,7 +2871,8 @@ llvm::Value *CodeGenFunction::GetVTablePtr(Address This,
                                            const CXXRecordDecl *RD) {
   assert(This.getType()->isPointerTy());
   Address VTablePtrSrc = Address::invalid();
-  if(This.getType()->getPointerElementType()->isStructTy())
+  if(This.getType()->getPointerElementType()->isStructTy() &&
+      !cast<llvm::StructType>(This.getType()->getPointerElementType())->isOpaque())
     VTablePtrSrc = Builder.CreateStructGEP(This, 0);
   else
     VTablePtrSrc = This;
