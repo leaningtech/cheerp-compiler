@@ -1389,15 +1389,16 @@ public:
   }
 
   llvm::Constant *VisitCXXConstructExpr(CXXConstructExpr *E, QualType Ty) {
-    // Do not const collapse constructors in O0
-    if (!CGM.getCodeGenOpts().OptimizationLevel)
-      return 0;
+    if (!E->getConstructor()->isTrivial()) {
+      // Do not const collapse constructors in O0
+      if (!CGM.getCodeGenOpts().OptimizationLevel)
+        return nullptr;
 
-    if(Ty->isArrayType())
-      return nullptr;
+      if(Ty->isArrayType())
+        return nullptr;
 
-    if (!E->getConstructor()->isTrivial())
       return GenerateConstantCXXInitializer(E->getConstructor());
+    }
 
     // Only default and copy/move constructors can be trivial.
     if (E->getNumArgs()) {
