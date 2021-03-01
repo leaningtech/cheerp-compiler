@@ -1957,6 +1957,9 @@ private:
             continue;
           }
           const CGRecordLayout &cgLayout = CGM.getTypes().getCGRecordLayout(CurClass->getDecl());
+	  if (!cgLayout.hasLLVMFieldNo(FD)) {
+            break;
+          }
           int32_t fieldIndex = cgLayout.getLLVMFieldNo(FD);
           if(fieldIndex == -1) {
             // Collapsed struct
