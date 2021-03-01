@@ -409,6 +409,8 @@ int analyzeLoadFromClobberingMemInst(Type *LoadTy, Value *LoadPtr,
                                               MemSizeInBits, DL);
   if (Offset == -1)
     return Offset;
+
+  //On NBA targets we only accepts forwarding if the type is the same
   if(!DL.isByteAddressable())
   {
     if(Src->getType()!=LoadPtr->getType())
