@@ -36,7 +36,7 @@ TEST(CheerpTest, PointerAnalyzerTest) {
 	LLVMContext C;
 	SMDiagnostic Err;
 
-	std::unique_ptr<Module> M = parseIRFile( "test1.ll", Err, C );
+	std::unique_ptr<Module> M = parseIRFile( "test/test1.ll", Err, C );
 	ASSERT_TRUE( M.get() );
 	
 	const Function * webMain = M->getFunction("_Z7webMainv");
