@@ -87,7 +87,7 @@ bool CheerpWritePass::runOnModule(Module& M)
   PA.fullResolve();
   PA.computeConstantOffsets(M);
   // Destroy the stores here, we need them to properly compute the pointer kinds, but we want to optimize them away before registerize
-  allocaStoresExtractor.destroyStores();
+  allocaStoresExtractor.unlinkStores();
   registerize.assignRegisters(M, PA);
 #ifdef REGISTERIZE_STATS
   cheerp::reportRegisterizeStatistics();
@@ -148,6 +148,7 @@ bool CheerpWritePass::runOnModule(Module& M)
                                     WasmExportedTable);
     wasmWriter.makeWasm();
   }
+  allocaStoresExtractor.destroyStores();
   if (!SecondaryOutputFile.empty() && ErrorCode)
   {
     // An error occurred opening the asm.js memory file, bail out
