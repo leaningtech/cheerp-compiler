@@ -857,14 +857,16 @@ bool AllocaStoresExtractor::runOnBasicBlock(BasicBlock& BB, const Module& module
 	return false;
 }
 
-void AllocaStoresExtractor::destroyStores()
+void AllocaStoresExtractor::unlinkStores()
 {
 	std::set<BasicBlock*> modifiedBlocks;
 	// Erase all queued instructions
 	for(Instruction* I: instsToRemove)
 	{
 		modifiedBlocks.insert(I->getParent());
-		I->eraseFromParent();
+		// Remove the store but keep a reference to it, which in turn keep the use count of the operand as it is
+		I->setOperand(1, llvm::UndefValue::get(I->getOperand(1)->getType()));
+		I->removeFromParent();
 	}
 	// Go over insts in the blocks backward to remove all insts without uses
 	for(BasicBlock* BB: modifiedBlocks)
@@ -882,6 +884,15 @@ void AllocaStoresExtractor::destroyStores()
 				I->eraseFromParent();
 		}
 		while(it != BB->begin());
+	}
+}
+
+void AllocaStoresExtractor::destroyStores()
+{
+	// Erase all queued instructions
+	for(Instruction* I: instsToRemove)
+	{
+		I->deleteValue();
 	}
 }
 
