@@ -261,7 +261,8 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 		for ( auto& arg: f.args())
 		{
 			thisFunctionLocals[currentArgPos].first = f.getNumUses();
-			thisFunctionLocals[currentArgPos].second = localData{&arg, 0, needsSecondaryName(&arg, PA)};
+			bool needsTwoNames = needsSecondaryName(&arg, PA) || (arg.getType()->isPointerTy() && PA.getPointerKindForArgument(&arg) == SPLIT_REGULAR);
+			thisFunctionLocals[currentArgPos].second = localData{&arg, 0, needsTwoNames};
 			currentArgPos++;
 		}
 
@@ -534,7 +535,7 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 
 		for ( auto& arg: f.args())
 		{
-			bool needsTwoNames = needsSecondaryName(&arg, PA);
+			bool needsTwoNames = needsSecondaryName(&arg, PA) || (arg.getType()->isPointerTy() && PA.getPointerKindForArgument(&arg) == SPLIT_REGULAR);
 			if ( arg.hasName() )
 			{
 				namemap.emplace( &arg, filterLLVMName(arg.getName(), LOCAL) );

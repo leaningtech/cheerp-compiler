@@ -528,7 +528,11 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 		if (visitByteLayoutChain(p))
 			return pointerKindData.valueMap.insert( std::make_pair(p, BYTE_LAYOUT ) ).first->second;
 		else if(getKindForType(p->getType()->getPointerElementType()) == COMPLETE_OBJECT)
+		{
+			if (isa<Argument>(p))
+				pointerKindData.argsMap.insert( std::make_pair(p, COMPLETE_OBJECT ) );
 			return pointerKindData.valueMap.insert( std::make_pair(p, COMPLETE_OBJECT ) ).first->second;
+		}
 	}
 
 	auto existingValueIt = pointerKindData.valueMap.find(p);
@@ -676,7 +680,7 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 			pointerKindData.constraintsMap[IndirectPointerKindConstraint(INDIRECT_ARG_CONSTRAINT, typeAndIndex)] |=
 					pointerKindData.getConstraintPtr(IndirectPointerKindConstraint( DIRECT_ARG_CONSTRAINT_IF_ADDRESS_TAKEN, arg ));
 		}
-		return CacheAndReturn(ret = PointerKindWrapper(pointerKindData.getConstraintPtr(IndirectPointerKindConstraint(DIRECT_ARG_CONSTRAINT, arg))));
+		return CacheAndReturn(k);
 	}
 
 	// TODO this is not really necessary,
@@ -1571,6 +1575,22 @@ POINTER_KIND PointerAnalyzer::getPointerKindForArgumentTypeAndIndex( const TypeA
 		return BYTE_LAYOUT;
 
 	IndirectPointerKindConstraint c(INDIRECT_ARG_CONSTRAINT, argTypeAndIndex);
+	const PointerKindWrapper& k=PointerResolverForKindVisitor(PACache).resolveConstraint(c);
+	assert(k.isKnown());
+	REGULAR_POINTER_PREFERENCE regularPreference = getRegularPreference(c, PACache);
+
+	if (k!=INDIRECT)
+		return k.getPointerKind(regularPreference);
+
+	return PointerResolverForKindVisitor(PACache).resolvePointerKind(k).getPointerKind(regularPreference);
+}
+
+POINTER_KIND PointerAnalyzer::getPointerKindForArgument( const llvm::Argument* A ) const
+{
+	if(TypeSupport::hasByteLayout(A->getType()->getPointerElementType()))
+		return BYTE_LAYOUT;
+
+	IndirectPointerKindConstraint c(DIRECT_ARG_CONSTRAINT, A);
 	const PointerKindWrapper& k=PointerResolverForKindVisitor(PACache).resolveConstraint(c);
 	assert(k.isKnown());
 	REGULAR_POINTER_PREFERENCE regularPreference = getRegularPreference(c, PACache);

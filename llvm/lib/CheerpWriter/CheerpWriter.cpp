@@ -1993,10 +1993,6 @@ void CheerpWriter::compilePointerOffset(const Value* p, PARENT_PRIORITY parentPr
 		// Check if the offset has been constantized for this pointer
 		compileConstant(CI);
 	}
-	else if(isa<Argument>(p))
-	{
-		stream << getSecondaryName(p);
-	}
 	else if((isa<SelectInst> (p) && isInlineable(*cast<Instruction>(p), PA)) || (isa<ConstantExpr>(p) && cast<ConstantExpr>(p)->getOpcode() == Instruction::Select))
 	{
 		const User* u = cast<User>(p);
@@ -2770,7 +2766,7 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 				argKind = PA.getPointerKindForArgumentTypeAndIndex(typeAndIndex);
 			}
 			else if (arg_it != F->arg_end())
-				argKind = PA.getPointerKindAssert(&*arg_it);
+				argKind = PA.getPointerKindForArgument(&*arg_it);
 			else
 			{
 				if(isa<ConstantPointerNull>(*cur) && (cur+1)==itE && cur!=it)
@@ -5448,7 +5444,7 @@ void CheerpWriter::compileMethod(const Function& F)
 	{
 		if(curArg!=A)
 			stream << ',';
-		if(curArg->getType()->isPointerTy() && PA.getPointerKindAssert(&*curArg) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&*curArg))
+		if(curArg->getType()->isPointerTy() && PA.getPointerKindForArgument(&*curArg) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&*curArg))
 			stream << getName(&*curArg) << ',' << getSecondaryName(&*curArg);
 		else
 			stream << getName(&*curArg);
@@ -5461,6 +5457,33 @@ void CheerpWriter::compileMethod(const Function& F)
 	if (asmjs)
 	{
 		compileParamTypeAnnotationsAsmJS(&F);
+	}
+	else
+	{
+		for(Function::const_arg_iterator curArg=A;curArg!=AE;++curArg)
+		{
+			if(curArg->use_empty())
+				continue;
+			if(!curArg->getType()->isPointerTy())
+				continue;
+			POINTER_KIND callKind = PA.getPointerKindForArgument(&*curArg);
+			POINTER_KIND argKind = PA.getPointerKindAssert(&*curArg);
+			if(callKind == argKind)
+				continue;
+			if(callKind != SPLIT_REGULAR)
+				continue;
+			if(argKind == REGULAR && PA.getConstantOffsetForPointer(&*curArg))
+				continue;
+			stream << getName(&*curArg);
+			stream << "=";
+			if(argKind == REGULAR)
+				stream << "{d:" << getName(&*curArg) << ",o:" << getSecondaryName(&*curArg) << "}";
+			else if(argKind == COMPLETE_OBJECT)
+				stream << getName(&*curArg) << "[" << getSecondaryName(&*curArg) << "]";
+			else
+				assert(false);
+			stream << ";" << NewLine;
+		}
 	}
 	lastDepth0Block = nullptr;
 	if(F.size()==1)
