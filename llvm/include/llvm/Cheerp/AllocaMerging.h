@@ -88,6 +88,7 @@ public:
 	void getAnalysisUsage(llvm::AnalysisUsage & AU) const;
 	const OffsetToValueMap* getValuesForAlloca(const llvm::AllocaInst* AI) const;
 	// Removes the extracted stores, and clean up instructions which become dead afterwards
+	void unlinkStores();
 	void destroyStores();
 };
 
