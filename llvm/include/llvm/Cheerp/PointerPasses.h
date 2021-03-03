@@ -52,41 +52,6 @@ public:
 //
 FunctionPass *createAllocaArraysPass();
 
-
-/**
- * Construct a wrapper function for the function which are called indirectly.
- * This is used to allow the PA to pass the function parameters as CO when the function is called
- * directly, while the wrapper function is used only in indirect calls and performs the conversion from REGULAR to CO and
- * then forwards to the actual function.
- * 
- * For each function that:
- *  1) Can be called indirectly
- *  2) Takes non-REGULAR pointer arguments
- * 
- * Replace every instruction which takes the address of the function
- * with a new function, called __duettoindirect##functionname, which calls the original
- * one. This enables pointer kind optimizations for direct calls.
- */
-  
-class IndirectCallOptimizer: public ModulePass
-{
-public:
-	static char ID;
-	explicit IndirectCallOptimizer() : ModulePass(ID) { }
-	bool runOnModule(Module &) override;
-	StringRef getPassName() const override;
-
-	virtual void getAnalysisUsage(AnalysisUsage&) const override;
-};
-
-
-//===----------------------------------------------------------------------===//
-//
-// IndirectCallOptimizer 
-
-//
-ModulePass *createIndirectCallOptimizerPass();
-
 /**
  * This pass will convert PHIs of pointers inside the same array to PHIs of the corresponding indexes
  * It is useful to avoid generating tons of small pointer objects in tight loops.
