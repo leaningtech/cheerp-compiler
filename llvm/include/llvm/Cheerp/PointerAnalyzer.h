@@ -284,6 +284,7 @@ public:
 	POINTER_KIND getPointerKindForMemberPointer( const TypeAndIndex& baseAndIndex ) const;
 	POINTER_KIND getPointerKindForMember( const TypeAndIndex& baseAndIndex ) const;
 	POINTER_KIND getPointerKindForArgumentTypeAndIndex( const TypeAndIndex& argTypeAndIndex ) const;
+	POINTER_KIND getPointerKindForArgument( const llvm::Argument* A ) const;
 	const PointerKindWrapper& getFinalPointerKindWrapper(const llvm::Value* v ) const;
 	static TypeAndIndex getBaseStructAndIndexFromGEP( const llvm::Value* v );
 	const llvm::ConstantInt* getConstantOffsetForPointer( const llvm::Value* ) const;
