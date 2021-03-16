@@ -309,6 +309,52 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 						continue;
 					}
 
+					if(II == Intrinsic::usub_sat)
+					{
+						if (!llcPass)
+							continue;
+
+						Value* A = ci->getOperand(0);
+						Value* B = ci->getOperand(1);
+
+						Instruction* op = BinaryOperator::CreateSub(A, B, "usub_sat_sub", ci);
+						Instruction* cmp = ICmpInst::Create(Instruction::ICmp, ICmpInst::ICMP_ULT, A, B, "usub_sat_cmp", ci);
+						Instruction* res = SelectInst::Create(cmp, ConstantInt::get(A->getType(), 0), op, "usub_sat", ci);
+
+						ci->replaceAllUsesWith(res);
+
+						//Set up loop variable, so the next loop will check and possibly expand newCall
+						--instructionIterator;
+						advance = false;
+						assert(&*instructionIterator == res);
+
+						ci->eraseFromParent();
+						continue;
+					}
+					if(II == Intrinsic::uadd_sat)
+					{
+						if (!llcPass)
+							continue;
+
+						Value* A = ci->getOperand(0);
+						Value* B = ci->getOperand(1);
+
+						Instruction* op = BinaryOperator::CreateAdd(A, B, "uadd_sat_add", ci);
+						Instruction* negA = BinaryOperator::CreateSub(ConstantInt::get(A->getType(), 0), A, "uadd_sat_neg", ci);
+						Instruction* cmp = ICmpInst::Create(Instruction::ICmp, ICmpInst::ICMP_ULT, negA, B, "uadd_sat_cmp", ci);
+						Instruction* res = SelectInst::Create(cmp, ConstantInt::get(A->getType(), -1), op, "uadd_sat", ci);
+
+						ci->replaceAllUsesWith(res);
+
+						//Set up loop variable, so the next loop will check and possibly expand newCall
+						--instructionIterator;
+						advance = false;
+						assert(&*instructionIterator == res);
+
+						ci->eraseFromParent();
+						continue;
+					}
+
 					// Replace math intrinsics with C library calls if necessary
 					if(llcPass)
 					{
