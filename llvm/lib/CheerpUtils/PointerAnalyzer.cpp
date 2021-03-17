@@ -991,7 +991,8 @@ const T& PointerResolverBaseVisitor<T>::resolveConstraint(const IndirectPointerK
 		case DIRECT_ARG_CONSTRAINT:
 		{
 			// If the function has its address taken we need to do the indirect arg check
-			if (addressTakenCache.checkAddressTaken(c.argPtr->getParent()))
+			const Function* parentFunc = c.argPtr->getParent();
+			if (parentFunc->getSection() != "asmjs" && addressTakenCache.checkAddressTaken(parentFunc))
 			{
 				Type* argPointedType = c.argPtr->getType()->getPointerElementType();
 				TypeAndIndex typeAndIndex(argPointedType, c.argPtr->getArgNo(), TypeAndIndex::ARGUMENT);
