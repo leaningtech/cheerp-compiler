@@ -8,7 +8,7 @@ endif()
 #===============================================================================
 # Setup Project
 #===============================================================================
-cmake_minimum_required(VERSION 3.13.4)
+cmake_minimum_required(VERSION 3.11.4)
 
 # Add path for custom modules
 set(CMAKE_MODULE_PATH
