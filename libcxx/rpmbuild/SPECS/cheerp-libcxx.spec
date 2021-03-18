@@ -6,7 +6,6 @@ Summary: A C++ compiler for the Web, C++ library implementation
 License:  GPLv2
 URL: https://leaningtech.com/cheerp
 Source0: %{NAME}_%{VERSION}.orig.tar.gz
-Source1: %{NAME}_%{VERSION}.orig-libcxxabi.tar.gz
 
 BuildRequires: cmake make cheerp-llvm-clang = %{VERSION} cheerp-utils = %{VERSION} cheerp-newlib = %{VERSION}
 Requires: cheerp-llvm-clang = %{VERSION} cheerp-utils = %{VERSION} cheerp-newlib = %{VERSION}
@@ -19,8 +18,9 @@ combination of JavaScript, WebAssembly and Asm.js from a single C++ codebase.
 
 %prep
 %autosetup
-%setup -T -D -a 1
+%setup -T -D
 
+cd libcxx/
 mkdir -p build_genericjs
 cd build_genericjs
 cmake -DCMAKE_INSTALL_PREFIX=/opt/cheerp -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=/opt/cheerp/share/cmake/Modules/CheerpToolchain.cmake -DCHEERP_LINEAR_OUTPUT=asmjs -DLIBCXX_ENABLE_SHARED=OFF -DLIBCXX_ENABLE_ASSERTIONS=OFF -DLIBCXX_CXX_ABI_INCLUDE_PATHS=$PWD/../libcxxabi/include -DLIBCXX_CXX_ABI=libcxxabi -DCMAKE_CXX_FLAGS="-fexceptions" ..
@@ -31,12 +31,12 @@ cd build_asmjs
 cmake -DCMAKE_INSTALL_PREFIX=/opt/cheerp -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=/opt/cheerp/share/cmake/Modules/CheerpWasmToolchain.cmake -DCHEERP_LINEAR_OUTPUT=asmjs -DLIBCXX_ENABLE_SHARED=OFF -DLIBCXX_ENABLE_ASSERTIONS=OFF -DLIBCXX_CXX_ABI_INCLUDE_PATHS=$PWD/../libcxxabi/include -DLIBCXX_CXX_ABI=libcxxabi -DCMAKE_CXX_FLAGS="-fexceptions" ..
 
 %build
-%make_build -C build_genericjs
-%make_build -C build_asmjs
+%make_build -C libcxx/build_genericjs
+%make_build -C libcxx/build_asmjs
 
 %install
-%make_install -C build_genericjs
-%make_install -C build_asmjs
+%make_install -C libcxx/build_genericjs
+%make_install -C libcxx/build_asmjs
 
 %clean
 rm -rf $RPM_BUILD_ROOT
