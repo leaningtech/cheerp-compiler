@@ -4,7 +4,7 @@
 	dh $@ -Scmake --parallel
 
 override_dh_auto_configure:
-	dh_auto_configure -Bbuild_genericjs -- \
+	dh_auto_configure -Bbuild_genericjs -Dlibcxx -- \
 	    -DCMAKE_BUILD_TYPE=Release \
 	    -DCMAKE_INSTALL_PREFIX=/opt/cheerp \
 	    -DCMAKE_TOOLCHAIN_FILE=/opt/cheerp/share/cmake/Modules/CheerpToolchain.cmake \
@@ -13,9 +13,8 @@ override_dh_auto_configure:
 	    -DLIBCXX_ENABLE_ASSERTIONS=OFF \
 	    -DLIBCXX_CXX_ABI_INCLUDE_PATHS=$(CURDIR)/libcxxabi/include \
 	    -DLIBCXX_CXX_ABI=libcxxabi \
-	    -DCMAKE_CXX_FLAGS="-fexceptions" \
-	    libcxx/
-	dh_auto_configure -Bbuild_asmjs -- \
+	    -DCMAKE_CXX_FLAGS="-fexceptions"
+	dh_auto_configure -Bbuild_asmjs -Dlibcxx -- \
 	    -DCMAKE_BUILD_TYPE=Release \
 	    -DCMAKE_INSTALL_PREFIX=/opt/cheerp \
 	    -DCMAKE_TOOLCHAIN_FILE=/opt/cheerp/share/cmake/Modules/CheerpWasmToolchain.cmake \
@@ -24,8 +23,7 @@ override_dh_auto_configure:
 	    -DLIBCXX_ENABLE_ASSERTIONS=OFF \
 	    -DLIBCXX_CXX_ABI_INCLUDE_PATHS=$(CURDIR)/libcxxabi/include \
 	    -DLIBCXX_CXX_ABI=libcxxabi \
-	    -DCMAKE_CXX_FLAGS="-fexceptions" \
-	    libcxx/
+	    -DCMAKE_CXX_FLAGS="-fexceptions"
 
 override_dh_auto_build:
 	dh_auto_build -Bbuild_genericjs
