@@ -4,7 +4,7 @@
 	dh $@ -Scmake --parallel
 
 override_dh_auto_configure:
-	dh_auto_configure -Bbuild_genericjs -- \
+	dh_auto_configure -Bbuild_genericjs -Dlibcxxabi -- \
 	    -DCMAKE_BUILD_TYPE=Release \
 	    -DCMAKE_INSTALL_PREFIX=/opt/cheerp \
 	    -DCMAKE_TOOLCHAIN_FILE=/opt/cheerp/share/cmake/Modules/CheerpToolchain.cmake \
@@ -16,7 +16,7 @@ override_dh_auto_configure:
 	    -DLIBCXXABI_ENABLE_THREADS=0 \
 	    -DLLVM_CONFIG=/opt/cheerp/bin/llvm-config \
 	    libcxxabi
-	dh_auto_configure -Bbuild_asmjs -- \
+	dh_auto_configure -Bbuild_asmjs -Dlibcxxabi -- \
 	    -DCMAKE_BUILD_TYPE=Release \
 	    -DCMAKE_INSTALL_PREFIX=/opt/cheerp \
 	    -DCMAKE_TOOLCHAIN_FILE=/opt/cheerp/share/cmake/Modules/CheerpWasmToolchain.cmake \
