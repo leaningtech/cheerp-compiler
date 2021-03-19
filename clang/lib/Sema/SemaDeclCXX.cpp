@@ -7156,7 +7156,6 @@ void Sema::CheckCompletedCXXClass(Scope *S, CXXRecordDecl *Record) {
           << getAsmJSAttr(f->getType()) << "field" << f
           << Record->getAttr<GenericJSAttr>() << "class" << Record;
       } else if (auto TD = f->getType()->getAsTagDecl()) {
-        const DeclContext* Ctx = TD->getDeclContext();
         if(TD->getDeclContext()->isClientNamespace()) {
           Diag(f->getLocation(), diag::err_cheerp_client_layout_lvalue);
         }
