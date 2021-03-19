@@ -7734,8 +7734,8 @@ NamedDecl *Sema::ActOnVariableDeclarator(
     if (FunctionDecl* FD = dyn_cast<FunctionDecl>(NewVD->getDeclContext())) {
       bool anyref = getLangOpts().CheerpAnyref;
       if (FD->hasAttr<AsmJSAttr>() && !isAsmJSCompatible(NewVD->getType(), anyref)) {
-        Diag(NewVD->getLocation(), diag::err_cheerp_incompatible_attributes)
-          << NewVD->getAttr<AsmJSAttr>() << "local variable" << NewVD
+        Diag(NewVD->getLocation(), diag::err_cheerp_incompatible_attributes_against_type)
+          << NewVD->getType() << "local variable" << NewVD
           << FD->getAttr<AsmJSAttr>() << "function" << FD;
       }
     }
@@ -11349,16 +11349,15 @@ bool Sema::CheckFunctionDeclaration(Scope *S, FunctionDecl *NewFD,
     bool anyref = getLangOpts().CheerpAnyref;
     for (auto p: NewFD->parameters()) {
       if (!isAsmJSCompatible(p->getType(), anyref)) {
-        Diag(NewFD->getLocation(), diag::err_cheerp_incompatible_attributes)
-          << NewFD->getAttr<AsmJSAttr>() << "function" << NewFD
-          << getGenericJSAttr(p->getType()) << "parameter" << p;
+        Diag(NewFD->getLocation(), diag::err_cheerp_incompatible_attributes_against_type)
+          << p->getType() << "parameter" << p
+          << NewFD->getAttr<AsmJSAttr>() << "function" << NewFD;
       }
     }
     if (!isAsmJSCompatible(NewFD->getReturnType(), anyref)) {
-        Diag(NewFD->getLocation(), diag::err_cheerp_incompatible_attributes)
-          << NewFD->getAttr<AsmJSAttr>() << "function" << NewFD
-          << getGenericJSAttr(NewFD->getReturnType())
-          << "return type" << NewFD->getReturnType();
+        Diag(NewFD->getLocation(), diag::err_cheerp_incompatible_attributes_against_type)
+          << NewFD->getReturnType() << "return" << "value"
+          << NewFD->getAttr<AsmJSAttr>() << "function" << NewFD;
     }
   }
 
