@@ -14,7 +14,8 @@ override_dh_auto_configure:
 	    -DLIBCXXABI_LIBCXX_PATH=$(CURDIR)/libcxx/ \
 	    -DLIBCXXABI_LIBCXX_INCLUDES=$(CURDIR)/libcxx/include/ \
 	    -DLIBCXXABI_ENABLE_THREADS=0 \
-	    -DLLVM_CONFIG=/opt/cheerp/bin/llvm-config
+	    -DLLVM_CONFIG=/opt/cheerp/bin/llvm-config \
+	    libcxxabi
 	dh_auto_configure -Bbuild_asmjs -- \
 	    -DCMAKE_BUILD_TYPE=Release \
 	    -DCMAKE_INSTALL_PREFIX=/opt/cheerp \
@@ -25,7 +26,8 @@ override_dh_auto_configure:
 	    -DLIBCXXABI_LIBCXX_PATH=$(CURDIR)/libcxx/ \
 	    -DLIBCXXABI_LIBCXX_INCLUDES=$(CURDIR)/libcxx/include/ \
 	    -DLIBCXXABI_ENABLE_THREADS=0 \
-	    -DLLVM_CONFIG=/opt/cheerp/bin/llvm-config
+	    -DLLVM_CONFIG=/opt/cheerp/bin/llvm-config \
+	    libcxxabi
 
 override_dh_auto_build:
 	dh_auto_build -Bbuild_genericjs
