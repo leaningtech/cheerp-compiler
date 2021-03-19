@@ -20,6 +20,7 @@ combination of JavaScript, WebAssembly and Asm.js from a single C++ codebase.
 %autosetup
 %setup -T -D
 
+cd libcxxabi/
 mkdir -p build_genericjs
 cd build_genericjs
 cmake -DCMAKE_INSTALL_PREFIX=/opt/cheerp -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=/opt/cheerp/share/cmake/Modules/CheerpToolchain.cmake -DCHEERP_LINEAR_OUTPUT=asmjs -DLIBCXXABI_ENABLE_SHARED=OFF -DLIBCXXABI_ENABLE_ASSERTIONS=OFF -DLIBCXXABI_LIBCXX_PATH=$PWD/../../libcxx/ -DLIBCXXABI_LIBCXX_INCLUDES=$PWD/../../libcxx/include -DLIBCXXABI_ENABLE_THREADS=0 -DLLVM_CONFIG=/opt/cheerp/bin/llvm-config ..
@@ -30,12 +31,12 @@ cd build_asmjs
 cmake -DCMAKE_INSTALL_PREFIX=/opt/cheerp -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=/opt/cheerp/share/cmake/Modules/CheerpWasmToolchain.cmake -DCHEERP_LINEAR_OUTPUT=asmjs -DLIBCXXABI_ENABLE_SHARED=OFF -DLIBCXXABI_ENABLE_ASSERTIONS=OFF -DLIBCXXABI_LIBCXX_PATH=$PWD/../../libcxx/ -DLIBCXXABI_LIBCXX_INCLUDES=$PWD/../../libcxx/include -DLIBCXXABI_ENABLE_THREADS=0 -DLLVM_CONFIG=/opt/cheerp/bin/llvm-config ..
 
 %build
-%make_build -C build_genericjs
-%make_build -C build_asmjs
+%make_build -C libcxxabi/build_genericjs
+%make_build -C libcxxabi/build_asmjs
 
 %install
-%make_install -C build_genericjs
-%make_install -C build_asmjs
+%make_install -C libcxxabi/build_genericjs
+%make_install -C libcxxabi/build_asmjs
 
 %clean
 rm -rf $RPM_BUILD_ROOT
