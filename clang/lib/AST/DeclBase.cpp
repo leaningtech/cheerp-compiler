@@ -1170,7 +1170,7 @@ bool DeclContext::isClientNamespace() const {
   if (ND->getParent() && ND->getParent()->isClientNamespace())
     return true;
   return isActualClientNamespace();
-};
+}
 
 bool DeclContext::isDependentContext() const {
   if (isFileContext())
