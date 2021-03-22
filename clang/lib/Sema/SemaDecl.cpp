@@ -7704,7 +7704,8 @@ NamedDecl *Sema::ActOnVariableDeclarator(
 
   // CHEERP: Disallow variables with global storage from having an attribute
   // incompatible with the attribute of their type.
-  // Also forbid globals of value types with client layout.
+  // Also forbid globals of value types with client layout and
+  // client globals of asmjs type
   if (NewVD->hasGlobalStorage()) {
     if (NewVD->hasAttr<AsmJSAttr>() && isGenericJSValue(NewVD->getType())) {
       Diag(NewVD->getLocation(), diag::err_cheerp_incompatible_attributes)
@@ -7717,8 +7718,14 @@ NamedDecl *Sema::ActOnVariableDeclarator(
         << getAsmJSAttr(NewVD->getType()) << "type" << NewVD->getType();
     }
     if (auto* RD = NewVD->getType()->getAsCXXRecordDecl()) {
-      if (RD->getDeclContext()->isClientNamespace() && !NewVD->hasExternalStorage()) {
-        Diag(NewVD->getLocation(), diag::err_cheerp_client_layout_lvalue);
+      if (RD->getDeclContext()->isClientNamespace()) {
+        if (!NewVD->hasExternalStorage()) {
+          Diag(NewVD->getLocation(), diag::err_cheerp_client_layout_lvalue);
+        }
+	if (isAsmJSValue(NewVD->getType())) {
+          Diag(NewVD->getLocation(), diag::err_cheerp_client_asmjs_type)
+            << NewVD->getType() << getAsmJSAttr(NewVD->getType());
+        }
       }
     }
   } else {

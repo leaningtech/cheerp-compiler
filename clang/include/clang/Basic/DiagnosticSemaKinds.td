@@ -11709,6 +11709,8 @@ def err_cheerp_client_layout_ctor : Error<
   "Cheerp: Constructor definitions of classes in the 'client' namespace must delegate initialization to another constructor">;
 def err_cheerp_client_layout_lvalue : Error<
   "Cheerp: Types defined in the client namespace can only be used through pointers and references">;
+def err_cheerp_client_asmjs_type : Error<
+  "Cheerp: Type %0 with attribute %1 cannot exist as global in the client namespace">;
 } // end of cheerp issue category
 
 } // end of sema component.
