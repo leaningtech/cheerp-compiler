@@ -11368,6 +11368,17 @@ void Sema::ActOnFinishNamespaceDef(Decl *Dcl, SourceLocation RBrace) {
   // If this namespace contains an export-declaration, export it now.
   if (DeferredExportedNamespaces.erase(Namespc))
     Dcl->setModuleOwnershipKind(Decl::ModuleOwnershipKind::VisibleWhenImported);
+
+  // CHEERP: Check namespace client is either implicitly or explicitly tagged genericjs
+  if (!Context.getTargetInfo().isByteAddressable() && Namespc->isActualClientNamespace()) {
+    if (Namespc->hasAttr<AsmJSAttr>())
+      Diag(Namespc->getBeginLoc(), diag::err_cheerp_client_with_explicit_asmjs)
+        << Namespc->getAttr<AsmJSAttr>();
+    else if (!Namespc->hasAttr<GenericJSAttr>() &&
+             Context.getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly)
+      Diag(Namespc->getBeginLoc(), diag::err_cheerp_client_with_implicit_asmjs)
+	<< (LangOpts.getCheerpLinearOutput() == LangOptions::CHEERP_LINEAR_OUTPUT_AsmJs ? "'asmjs'" : "'wasm'");
+  }
 }
 
 CXXRecordDecl *Sema::getStdBadAlloc() const {

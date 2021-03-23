@@ -11705,6 +11705,10 @@ def err_cheerp_delete_client : Error<
   "Cheerp: Types declared in the 'client' namespace are managed by the JavaScript GC. Cannot delete.">;
 def err_cheerp_missing_client_layout : Error<
   "Cheerp: classes in the 'client' namespace must have client::Object as their first base, either directly or indirectly">;
+def err_cheerp_client_with_explicit_asmjs : Error<
+  "Cheerp: Namespace client has to be genericjs, so cannot be tagged with attribute %0">;
+def err_cheerp_client_with_implicit_asmjs : Error<
+  "Cheerp: Namespace client has to be genericjs, so cannot be implicitly tagged with attribute %0">;
 def err_cheerp_client_layout_ctor : Error<
   "Cheerp: Constructor definitions of classes in the 'client' namespace must delegate initialization to another constructor">;
 def err_cheerp_client_layout_lvalue : Error<
