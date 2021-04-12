@@ -11709,6 +11709,8 @@ def err_cheerp_client_with_explicit_asmjs : Error<
   "Cheerp: Namespace client has to be genericjs, so cannot be tagged with attribute %0">;
 def err_cheerp_client_with_implicit_asmjs : Error<
   "Cheerp: Namespace client has to be genericjs, so cannot be implicitly tagged with attribute %0">;
+def err_cheerp_client_decl_with_tagged_asmjs : Error<
+  "Cheerp: Declarations in namespace client can not have attribute %0">;
 def err_cheerp_client_layout_ctor : Error<
   "Cheerp: Constructor definitions of classes in the 'client' namespace must delegate initialization to another constructor">;
 def err_cheerp_client_layout_lvalue : Error<

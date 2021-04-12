@@ -8216,6 +8216,8 @@ static void handleAsmJSAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
     if (checkAttrMutualExclusion<ByteLayoutAttr>(S, D, Attr))
       return;
   }
+  if (D->getDeclContext()->isClientNamespace())
+    S.Diag(Attr.getLoc(), diag::err_cheerp_client_decl_with_tagged_asmjs) << Attr.getAttrName();
   handleSimpleAttributeWithExclusions<AsmJSAttr, GenericJSAttr, PackedAttr>(S, D, Attr);
 }
 
