@@ -41,7 +41,7 @@ private:
 
 static int64_t getCaseValue(const ConstantInt* c, uint32_t bitWidth)
 {
-	return bitWidth >= 32 ? c->getSExtValue() : c->getZExtValue();
+	return c->getSExtValue();
 }
 
 bool CheerpLowerSwitch::keepSwitch(const SwitchInst* si)
