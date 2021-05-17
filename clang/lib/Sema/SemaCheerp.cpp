@@ -692,3 +692,15 @@ bool cheerp::shouldBeJsExported(const clang::Decl *D, const bool isMethod)
 	return D->hasAttr<clang::JsExportAttr>() && (clang::isa<clang::CXXMethodDecl>(D) == isMethod);
 }
 
+void cheerp::checksOnAsmJSAttributeInjection(clang::Sema& sema, const clang::Decl* decl)
+{
+	using namespace clang;
+	if (decl->hasAttr<JsExportAttr>() && isa<CXXRecordDecl>(decl))
+		sema.Diag(decl->getBeginLoc(), diag::err_attributes_are_not_compatible)
+			<< (sema.LangOpts.getCheerpLinearOutput() == LangOptions::CheerpLinearOutputTy::CHEERP_LINEAR_OUTPUT_AsmJs ? "'asmjs'" : "'wasm'")
+			<< decl->getAttr<JsExportAttr>();
+	else if (decl->hasAttr<PackedAttr>() && (sema.LangOpts.getCheerpLinearOutput() == LangOptions::CheerpLinearOutputTy::CHEERP_LINEAR_OUTPUT_AsmJs))
+		sema.Diag(decl->getBeginLoc(), diag::err_attributes_are_not_compatible)
+			<< "'asmjs'"
+			<< decl->getAttr<PackedAttr>();
+}
