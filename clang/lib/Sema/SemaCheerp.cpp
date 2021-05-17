@@ -10,9 +10,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Analysis/AnalysisDeclContext.h"
+#include "clang/AST/ASTContext.h"
+#include "clang/Basic/TargetInfo.h"
 #include "clang/AST/Type.h"
 #include "clang/Sema/SemaCheerp.h"
 #include "clang/Basic/PartialDiagnostic.h"
+#include "clang/Sema/SemaCheerp.h"
 #include "clang/Sema/SemaInternal.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclBase.h"
@@ -690,6 +693,29 @@ void cheerp::CheerpSemaClassData::addMethod(clang::CXXMethodDecl* method)
 bool cheerp::shouldBeJsExported(const clang::Decl *D, const bool isMethod)
 {
 	return D->hasAttr<clang::JsExportAttr>() && (clang::isa<clang::CXXMethodDecl>(D) == isMethod);
+}
+
+cheerp::CheerpAttributeToAdd cheerp::getCheerpAttributeToAdd(const clang::Decl* decl, clang::ASTContext& Context)
+{
+	if (const clang::DeclContext* ctx = decl->getDeclContext())
+	{
+		const clang::Decl* d = clang::cast<clang::Decl>(ctx);
+
+		if (d->hasAttr<clang::AsmJSAttr>())
+			return CheerpAttributeToAdd::AsmJSLike;
+		else if (d->hasAttr<clang::GenericJSAttr>())
+			return CheerpAttributeToAdd::GenericJS;
+	}
+
+	// Set default attr based on Triple Environment component
+	if (Context.getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly)
+		return CheerpAttributeToAdd::AsmJSLike;
+	else if (Context.getTargetInfo().getTriple().getEnvironment() == llvm::Triple::GenericJs)
+		return CheerpAttributeToAdd::GenericJS;
+	else
+		return CheerpAttributeToAdd::None;
+
+	assert(false);
 }
 
 void cheerp::checksOnAsmJSAttributeInjection(clang::Sema& sema, const clang::Decl* decl)
