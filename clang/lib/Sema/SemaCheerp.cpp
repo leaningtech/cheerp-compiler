@@ -428,7 +428,7 @@ void cheerp::checkFunctionOnDeclaration(clang::FunctionDecl* FD, clang::Sema& se
 
 			const uint32_t numArgs = FD->getNumParams();
 
-			if (expectedNumOfParameters != -1 && numArgs != expectedNumOfParameters)
+			if (expectedNumOfParameters != -1u && numArgs != expectedNumOfParameters)
 				sema.Diag(FD->getLocation(), clang::diag::err_cheerp_client_special_wrong_num_parameters) << kind << name << getName(classification) << expectedNumOfParameters;
 		}
 	}
