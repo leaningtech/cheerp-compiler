@@ -38,6 +38,7 @@
 #include "clang/Sema/ScopeInfo.h"
 #include "clang/Sema/SemaInternal.h"
 #include "llvm/ADT/Optional.h"
+#include "clang/Sema/SemaCheerp.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/IR/Assumptions.h"
@@ -9236,22 +9237,12 @@ void Sema::MaybeInjectCheerpModeAttr(Decl* D) {
     return;
 
   auto AsmJSSpelling = LangOpts.getCheerpLinearOutput() == LangOptions::CHEERP_LINEAR_OUTPUT_AsmJs ? AsmJSAttr::CXX11_cheerp_asmjs : AsmJSAttr::CXX11_cheerp_wasm;
-  // Inherit from context
-  DeclContext* ctx = D->getDeclContext();
-  if (Decl* d = dyn_cast<Decl>(ctx)) {
-    if (d->hasAttr<AsmJSAttr>()) {
-      D->addAttr(AsmJSAttr::CreateImplicit(Context, D->getBeginLoc(), AttributeCommonInfo::AS_GNU, AsmJSSpelling));
-      return;
-    } else if (d->hasAttr<GenericJSAttr>()) {
-      D->addAttr(GenericJSAttr::CreateImplicit(Context, D->getBeginLoc(), AttributeCommonInfo::AS_CXX11, GenericJSAttr::CXX11_cheerp_genericjs));
-      return;
-    }
-  }
-  // Set default attr based on Triple Environment component
-  if (Context.getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly) {
+  const auto attributeToAdd = cheerp::getCheerpAttributeToAdd(D, Context);
+
+  if (attributeToAdd == cheerp::CheerpAttributeToAdd::AsmJSLike) {
     cheerp::checksOnAsmJSAttributeInjection(*this, D);
     D->addAttr(AsmJSAttr::CreateImplicit(Context, D->getBeginLoc(), AttributeCommonInfo::AS_GNU, AsmJSSpelling));
-  } else if (Context.getTargetInfo().getTriple().getEnvironment() == llvm::Triple::GenericJs) {
+  } else if (attributeToAdd == cheerp::CheerpAttributeToAdd::GenericJS) {
       D->addAttr(GenericJSAttr::CreateImplicit(Context, D->getBeginLoc(), AttributeCommonInfo::AS_GNU, GenericJSAttr::CXX11_cheerp_genericjs));
   }
 }
