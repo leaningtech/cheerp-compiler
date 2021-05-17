@@ -20,6 +20,7 @@
 #include "clang/Sema/ScopeInfo.h"
 #include "clang/Sema/SemaInternal.h"
 #include "clang/Sema/SemaLambda.h"
+#include "clang/Sema/SemaCheerp.h"
 #include "llvm/ADT/STLExtras.h"
 using namespace clang;
 using namespace sema;
@@ -254,10 +255,15 @@ Sema::createLambdaClosureType(SourceRange IntroducerRange, TypeSourceInfo *Info,
   DC->addDecl(Class);
   // CHEERP: Inherit asmjs/genericjs attribute from the parent declaration
   if (Decl* d = dyn_cast<Decl>(DC)) {
-    if (d->hasAttr<AsmJSAttr>())
-      Class->addAttr(AsmJSAttr::CreateImplicit(Context, IntroducerRange.getBegin(), AttributeCommonInfo::AS_GNU, AsmJSAttr::GNU_cheerp_asmjs));
-    else if (d->hasAttr<GenericJSAttr>())
-      Class->addAttr(GenericJSAttr::CreateImplicit(Context, IntroducerRange.getBegin(), AttributeCommonInfo::AS_GNU, GenericJSAttr::GNU_cheerp_genericjs));
+    auto AsmJSSpelling = LangOpts.getCheerpLinearOutput() == LangOptions::CHEERP_LINEAR_OUTPUT_AsmJs ? AsmJSAttr::CXX11_cheerp_asmjs : AsmJSAttr::CXX11_cheerp_wasm;
+    auto attributeToAdd = cheerp::getCheerpAttributeToAdd(d, Context);
+
+    if (attributeToAdd == cheerp::CheerpAttributeToAdd::AsmJSLike) {
+      cheerp::checksOnAsmJSAttributeInjection(*this, Class);
+      Class->addAttr(AsmJSAttr::CreateImplicit(Context, Class->getBeginLoc(), AttributeCommonInfo::AS_GNU, AsmJSSpelling));
+    } else if (attributeToAdd == cheerp::CheerpAttributeToAdd::GenericJS) {
+        Class->addAttr(GenericJSAttr::CreateImplicit(Context, Class->getBeginLoc(), AttributeCommonInfo::AS_GNU, GenericJSAttr::CXX11_cheerp_genericjs));
+    }
   }
 
   return Class;
