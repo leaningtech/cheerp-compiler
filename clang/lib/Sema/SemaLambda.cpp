@@ -254,11 +254,13 @@ Sema::createLambdaClosureType(SourceRange IntroducerRange, TypeSourceInfo *Info,
       IsGenericLambda, CaptureDefault);
   DC->addDecl(Class);
   // CHEERP: Inherit asmjs/genericjs attribute from the parent declaration
-  auto attributeToAdd = cheerp::getCheerpAttributeToAdd(Class, Context);
+  const Decl* referenceDecl = Class;
+  auto attributeToAdd = cheerp::getCheerpAttributeToAdd(referenceDecl, Context);
 
   if (attributeToAdd == cheerp::CheerpAttributeToAdd::AsmJSLike) {
     cheerp::checksOnAsmJSAttributeInjection(*this, Class);
-    auto AsmJSSpelling = LangOpts.getCheerpLinearOutput() == LangOptions::CHEERP_LINEAR_OUTPUT_AsmJs ? AsmJSAttr::CXX11_cheerp_asmjs : AsmJSAttr::CXX11_cheerp_wasm;
+    auto AsmJSSpelling = referenceDecl->hasAttr<AsmJSAttr>() ? referenceDecl->getAttr<AsmJSAttr>()->getSemanticSpelling() :
+	    (LangOpts.getCheerpLinearOutput() == LangOptions::CHEERP_LINEAR_OUTPUT_AsmJs ? AsmJSAttr::CXX11_cheerp_asmjs : AsmJSAttr::CXX11_cheerp_wasm);
     Class->addAttr(AsmJSAttr::CreateImplicit(Context, Class->getBeginLoc(), AttributeCommonInfo::AS_GNU, AsmJSSpelling));
   } else if (attributeToAdd == cheerp::CheerpAttributeToAdd::GenericJS) {
     Class->addAttr(GenericJSAttr::CreateImplicit(Context, Class->getBeginLoc(), AttributeCommonInfo::AS_GNU, GenericJSAttr::CXX11_cheerp_genericjs));

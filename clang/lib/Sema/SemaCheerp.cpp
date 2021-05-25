@@ -695,7 +695,7 @@ bool cheerp::shouldBeJsExported(const clang::Decl *D, const bool isMethod)
 	return D->hasAttr<clang::JsExportAttr>() && (clang::isa<clang::CXXMethodDecl>(D) == isMethod);
 }
 
-cheerp::CheerpAttributeToAdd cheerp::getCheerpAttributeToAdd(const clang::Decl* decl, clang::ASTContext& Context)
+cheerp::CheerpAttributeToAdd cheerp::getCheerpAttributeToAdd(const clang::Decl*& decl, clang::ASTContext& Context)
 {
 	// Inherit from context (possibly walking up in the tree until a DeclContext is tagged or no DeclContext exists)
 	while (const clang::DeclContext* ctx = decl->getDeclContext())
