@@ -3798,9 +3798,19 @@ void CheerpWasmWriter::compileTableSection()
 	encodeULEB128(0x70, section);
 
 	// Encode function tables in the table section.
-	// Use a 'limit' (= 0x00) with only a maximum value.
-	encodeULEB128(0x00, section);
-	encodeULEB128(count, section);
+	if (exportedTable)
+	{
+		// Use a 'open ended limit' (= 0x00) with only a maximum value.
+		encodeULEB128(0x00, section);
+		encodeULEB128(count, section);
+	}
+	else
+	{
+		// Use 'range limit' (= 0x01) with equal minimum and maximum value (the table is static).
+		encodeULEB128(0x01, section);
+		encodeULEB128(count, section);
+		encodeULEB128(count, section);
+	}
 }
 
 CheerpWasmWriter::GLOBAL_CONSTANT_ENCODING CheerpWasmWriter::shouldEncodeConstantAsGlobal(const Constant* C, uint32_t useCount, uint32_t getGlobalCost)
