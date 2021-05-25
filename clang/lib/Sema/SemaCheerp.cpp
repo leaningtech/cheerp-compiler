@@ -697,17 +697,18 @@ bool cheerp::shouldBeJsExported(const clang::Decl *D, const bool isMethod)
 
 cheerp::CheerpAttributeToAdd cheerp::getCheerpAttributeToAdd(const clang::Decl* decl, clang::ASTContext& Context)
 {
-	if (const clang::DeclContext* ctx = decl->getDeclContext())
+	// Inherit from context (possibly walking up in the tree until a DeclContext is tagged or no DeclContext exists)
+	while (const clang::DeclContext* ctx = decl->getDeclContext())
 	{
-		const clang::Decl* d = clang::cast<clang::Decl>(ctx);
+		decl = clang::cast<clang::Decl>(ctx);
 
-		if (d->hasAttr<clang::AsmJSAttr>())
+		if (decl->hasAttr<clang::AsmJSAttr>())
 			return CheerpAttributeToAdd::AsmJSLike;
-		else if (d->hasAttr<clang::GenericJSAttr>())
+		else if (decl->hasAttr<clang::GenericJSAttr>())
 			return CheerpAttributeToAdd::GenericJS;
 	}
 
-	// Set default attr based on Triple Environment component
+	// Or set default attr based on Triple Environment component
 	if (Context.getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly)
 		return CheerpAttributeToAdd::AsmJSLike;
 	else if (Context.getTargetInfo().getTriple().getEnvironment() == llvm::Triple::GenericJs)
