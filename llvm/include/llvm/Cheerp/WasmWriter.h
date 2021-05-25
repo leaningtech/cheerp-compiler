@@ -291,7 +291,7 @@ private:
 	bool noGrowMemory;
 
 	// Whether to export the function table from the module
-	bool exportedTable;
+	const bool exportedTable;
 
 	mutable std::vector<uint32_t> nopLocations;
 
