@@ -9236,11 +9236,11 @@ void Sema::MaybeInjectCheerpModeAttr(Decl* D) {
   if (D->hasAttr<AsmJSAttr>() || D->hasAttr<GenericJSAttr>())
     return;
 
-  auto AsmJSSpelling = LangOpts.getCheerpLinearOutput() == LangOptions::CHEERP_LINEAR_OUTPUT_AsmJs ? AsmJSAttr::CXX11_cheerp_asmjs : AsmJSAttr::CXX11_cheerp_wasm;
   const auto attributeToAdd = cheerp::getCheerpAttributeToAdd(D, Context);
 
   if (attributeToAdd == cheerp::CheerpAttributeToAdd::AsmJSLike) {
     cheerp::checksOnAsmJSAttributeInjection(*this, D);
+    auto AsmJSSpelling = LangOpts.getCheerpLinearOutput() == LangOptions::CHEERP_LINEAR_OUTPUT_AsmJs ? AsmJSAttr::CXX11_cheerp_asmjs : AsmJSAttr::CXX11_cheerp_wasm;
     D->addAttr(AsmJSAttr::CreateImplicit(Context, D->getBeginLoc(), AttributeCommonInfo::AS_GNU, AsmJSSpelling));
   } else if (attributeToAdd == cheerp::CheerpAttributeToAdd::GenericJS) {
       D->addAttr(GenericJSAttr::CreateImplicit(Context, D->getBeginLoc(), AttributeCommonInfo::AS_GNU, GenericJSAttr::CXX11_cheerp_genericjs));
