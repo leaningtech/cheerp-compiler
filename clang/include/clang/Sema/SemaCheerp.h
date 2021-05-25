@@ -119,7 +119,7 @@ enum class CheerpAttributeToAdd
 	None, AsmJSLike, GenericJS
 };
 
-CheerpAttributeToAdd getCheerpAttributeToAdd(const clang::Decl* decl, clang::ASTContext& Context);
+CheerpAttributeToAdd getCheerpAttributeToAdd(const clang::Decl*& decl, clang::ASTContext& Context);
 void checksOnAsmJSAttributeInjection(clang::Sema& sema, const clang::Decl* decl);
 }  //end namespace cheerp
 #endif //_CHEERP_SEMA_CHEERP_H

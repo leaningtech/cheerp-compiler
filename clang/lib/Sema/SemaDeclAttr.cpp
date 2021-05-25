@@ -9238,11 +9238,13 @@ void Sema::MaybeInjectCheerpModeAttr(Decl* D) {
   if (D->hasAttr<AsmJSAttr>() || D->hasAttr<GenericJSAttr>())
     return;
 
-  const auto attributeToAdd = cheerp::getCheerpAttributeToAdd(D, Context);
+  const Decl* referenceDecl = D;
+  const auto attributeToAdd = cheerp::getCheerpAttributeToAdd(referenceDecl, Context);
 
   if (attributeToAdd == cheerp::CheerpAttributeToAdd::AsmJSLike) {
     cheerp::checksOnAsmJSAttributeInjection(*this, D);
-    auto AsmJSSpelling = LangOpts.getCheerpLinearOutput() == LangOptions::CHEERP_LINEAR_OUTPUT_AsmJs ? AsmJSAttr::CXX11_cheerp_asmjs : AsmJSAttr::CXX11_cheerp_wasm;
+    auto AsmJSSpelling = referenceDecl->hasAttr<AsmJSAttr>() ? referenceDecl->getAttr<AsmJSAttr>()->getSemanticSpelling() :
+      (LangOpts.getCheerpLinearOutput() == LangOptions::CHEERP_LINEAR_OUTPUT_AsmJs ? AsmJSAttr::CXX11_cheerp_asmjs : AsmJSAttr::CXX11_cheerp_wasm);
     D->addAttr(AsmJSAttr::CreateImplicit(Context, D->getBeginLoc(), AttributeCommonInfo::AS_GNU, AsmJSSpelling));
   } else if (attributeToAdd == cheerp::CheerpAttributeToAdd::GenericJS) {
       D->addAttr(GenericJSAttr::CreateImplicit(Context, D->getBeginLoc(), AttributeCommonInfo::AS_GNU, GenericJSAttr::CXX11_cheerp_genericjs));
