@@ -3800,7 +3800,7 @@ void CheerpWasmWriter::compileTableSection()
 	// Encode function tables in the table section.
 	if (exportedTable)
 	{
-		// Use a 'open ended limit' (= 0x00) with only a maximum value.
+		// Use a 'open ended limit' (= 0x00) with only a minimum value.
 		encodeULEB128(0x00, section);
 		encodeULEB128(count, section);
 	}
