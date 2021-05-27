@@ -95,13 +95,13 @@ public:
 	CheerpSemaData(clang::Sema& sema) : sema(sema)
 	{
 	}
-	void addFunction(clang::FunctionDecl* FD);
+	void addFunction(clang::FunctionDecl* FD, const bool isClient);
 	void checkRecord(const clang::CXXRecordDecl* record);
 	clang::Sema& get_sema() const
 	{
 		return sema;
 	}
-	void checkFunctionToBeJsExported(const clang::FunctionDecl* FD, bool isMethod);
+	void checkFunctionToBeJsExported(const clang::FunctionDecl* FD, const bool isMethod, const bool isClient);
 	void checkTopLevelSpecialFunctions(const clang::FunctionDecl* FD);
 private:
 	void addMethod(clang::CXXMethodDecl* method, const bool isJsExport);
