@@ -63,6 +63,10 @@ void cheerp::checkCouldBeJsExported(const clang::CXXRecordDecl* Record, clang::S
 	//class or struct
 	using namespace clang;
 
+	const bool isClient = clang::AnalysisDeclContext::isInClientNamespace(Record);
+	if (isClient)
+		sema.Diag(Record->getLocation(), diag::err_cheerp_incompatible_jsexport_client) << "Record" << Record;
+
 	if (isInsideClass(Record))
 		sema.Diag(Record->getLocation(), diag::err_cheerp_jsexport_on_namespace);
 
@@ -433,10 +437,10 @@ void cheerp::checkFunctionOnDeclaration(clang::FunctionDecl* FD, clang::Sema& se
 		}
 	}
 
-	sema.cheerpSemaData.addFunction(FD);
+	sema.cheerpSemaData.addFunction(FD, isClient);
 }
 
-void cheerp::CheerpSemaData::addFunction(clang::FunctionDecl* FD)
+void cheerp::CheerpSemaData::addFunction(clang::FunctionDecl* FD, const bool isClient)
 {
 	using namespace cheerp;
 	using namespace clang;
@@ -448,7 +452,7 @@ void cheerp::CheerpSemaData::addFunction(clang::FunctionDecl* FD)
 	}
 	else if (isJsExport)
 	{
-		checkFunctionToBeJsExported(FD, /*isMethod*/false);
+		checkFunctionToBeJsExported(FD, /*isMethod*/false, isClient);
 	}
 }
 
@@ -457,7 +461,7 @@ bool cheerp::isTemplate(const clang::FunctionDecl* FD)
 	return FD->getTemplatedKind() != clang::FunctionDecl::TemplatedKind::TK_NonTemplate;
 }
 
-void cheerp::CheerpSemaData::checkFunctionToBeJsExported(const clang::FunctionDecl* FD, bool isMethod)
+void cheerp::CheerpSemaData::checkFunctionToBeJsExported(const clang::FunctionDecl* FD, const bool isMethod, const bool isClient)
 {
 	using namespace cheerp;
 	using namespace clang;
@@ -482,6 +486,8 @@ void cheerp::CheerpSemaData::checkFunctionToBeJsExported(const clang::FunctionDe
 			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_namespace);
 	}
 
+	if (isClient)
+		sema.Diag(FD->getLocation(), diag::err_cheerp_incompatible_jsexport_client) << "Function" << FD;
 
 	if (isTemplate(FD))
 		sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_function_template);
@@ -633,7 +639,8 @@ void cheerp::CheerpSemaClassData::checkRecord()
 
 	for (auto method : interface.methods)
 	{
-		cheerpSema->checkFunctionToBeJsExported(method, /*isMethod*/true);
+		cheerpSema->checkFunctionToBeJsExported(method, /*isMethod*/true, /*isClient*/false);
+		//isClient is set to false since membership of namespace client are already checked in checkCouldBeJsExported
 
 		if (const CXXConstructorDecl* constructor = clang::dyn_cast<CXXConstructorDecl>(method))
 		{
