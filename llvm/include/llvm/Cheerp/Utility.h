@@ -347,14 +347,17 @@ public:
 	// Is this type a pointer to a asmjs struct type?
 	static bool isAsmJSPointer(const llvm::Type* t)
 	{
-		while (const llvm::PointerType* pt = llvm::dyn_cast<llvm::PointerType>(t))
+		while (true)
 		{
-			t = pt->getPointerElementType();
-			while ( t->isArrayTy() )
+			if (const llvm::PointerType* pt = llvm::dyn_cast<llvm::PointerType>(t))
+				t = pt->getPointerElementType();
+			else if (t->isArrayTy())
 				t = t->getArrayElementType();
-			if ( const llvm::StructType * st = llvm::dyn_cast<llvm::StructType>(t) )
-				return st->hasAsmJS();
+			else
+				break;
 		}
+		if ( const llvm::StructType * st = llvm::dyn_cast<llvm::StructType>(t) )
+			return st->hasAsmJS();
 		return false;
 	}
 	// Is this type a pointer to a genericjs struct type?
