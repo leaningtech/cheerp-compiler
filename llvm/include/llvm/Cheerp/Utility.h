@@ -347,7 +347,7 @@ public:
 	// Is this type a pointer to a asmjs struct type?
 	static bool isAsmJSPointer(const llvm::Type* t)
 	{
-		if (const llvm::PointerType* pt = llvm::dyn_cast<llvm::PointerType>(t))
+		while (const llvm::PointerType* pt = llvm::dyn_cast<llvm::PointerType>(t))
 		{
 			t = pt->getPointerElementType();
 			while ( t->isArrayTy() )
