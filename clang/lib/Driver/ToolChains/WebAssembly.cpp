@@ -505,6 +505,21 @@ void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
     }
     CmdArgs.push_back(Args.MakeArgString(linearOut));
   }
+  else
+  {
+    std::string linearOut("-cheerp-linear-output=");
+    llvm::Triple::EnvironmentType env = getToolChain().getTriple().getEnvironment();
+    if (env == llvm::Triple::WebAssembly)
+    {
+      linearOut += "wasm";
+    }
+    else
+    {
+      // NOTE: we use "asmjs" also for -target cheerp
+      linearOut += "asmjs";
+    }
+    CmdArgs.push_back(Args.MakeArgString(linearOut));
+  }
   auto features = getWasmFeatures(D, Args);
   if(std::find(features.begin(), features.end(), EXPORTEDTABLE) != features.end())
     CmdArgs.push_back("-cheerp-wasm-exported-table");
@@ -690,6 +705,20 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
     else
     {
       linearOut += "wasm";
+    }
+    CmdArgs.push_back(Args.MakeArgString(linearOut));
+  }
+  else
+  {
+    std::string linearOut("-cheerp-linear-output=");
+    if (env == llvm::Triple::WebAssembly)
+    {
+      linearOut += "wasm";
+    }
+    else
+    {
+      // NOTE: we use "asmjs" also for -target cheerp
+      linearOut += "asmjs";
     }
     CmdArgs.push_back(Args.MakeArgString(linearOut));
   }
