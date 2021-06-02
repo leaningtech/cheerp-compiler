@@ -758,6 +758,9 @@ std::vector<cheerp::CheerpWasmOpt> cheerp::getWasmFeatures(const Driver& D, cons
       }
     }
   }
+  if(Arg* cheerpWasmExternRef = Args.getLastArg(clang::driver::options::OPT_cheerp_wasm_anyref))
+    features.push_back(CheerpWasmOpt(parseWasmOpt("externref")));
+
   // Sort and remove duplicates
   std::sort(features.begin(), features.end());
   auto last = std::unique(features.begin(), features.end());
