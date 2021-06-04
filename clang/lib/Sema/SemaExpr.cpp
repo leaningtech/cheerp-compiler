@@ -19438,10 +19438,10 @@ void Sema::CheckCheerpFFICall(const FunctionDecl* Parent, const FunctionDecl* FD
       return;
     }
     // Since variadic functions are not permitted, we have as many arguments as parameters
-
     bool anyref = getLangOpts().CheerpAnyref;
-    for(auto p: FDecl->parameters()) {
-      const Type* pt = p->getType().getTypePtr();
+
+    auto checkTypeCanCrossAsmJSToGenericJSBoundary = [this, &FDecl, &Parent, &Loc, &anyref](const Type* pt, const NamedDecl* p, StringRef message) -> void
+    {
       if (pt->hasPointerRepresentation() && (pt->getPointeeType()->hasPointerRepresentation() || pt->getPointeeType()->isArrayType())) {
         Diag(Loc,
              diag::err_cheerp_wrong_pointer_pointer_param)
@@ -19457,9 +19457,16 @@ void Sema::CheckCheerpFFICall(const FunctionDecl* Parent, const FunctionDecl* FD
       } else if (!Sema::isAsmJSCompatible(pt->getCanonicalTypeInternal(), anyref)) {
         Diag(Loc,
              diag::err_cheerp_incompatible_attributes)
-          << FDecl->getAttr<GenericJSAttr>() << "function parameter" << p
+          << FDecl->getAttr<GenericJSAttr>() << message << p
           << Parent->getAttr<AsmJSAttr>() << "caller" << Parent;
       }
+    };
+
+    for(auto p: FDecl->parameters()) {
+      const Type* pt = p->getType().getTypePtr();
+      checkTypeCanCrossAsmJSToGenericJSBoundary(pt, p, "function parameter");
     }
+    const Type* retType = FDecl->getReturnType().getTypePtr();
+    checkTypeCanCrossAsmJSToGenericJSBoundary(retType, FDecl, "function return");
   }
 }
