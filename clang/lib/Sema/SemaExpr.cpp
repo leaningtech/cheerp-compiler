@@ -19440,6 +19440,13 @@ void Sema::CheckCheerpFFICall(const FunctionDecl* Parent, const FunctionDecl* FD
     // Since variadic functions are not permitted, we have as many arguments as parameters
     bool anyref = getLangOpts().CheerpAnyref;
 
+    if (const clang::CXXConstructorDecl* constructor = dyn_cast<clang::CXXConstructorDecl>(FDecl))
+      if (!Sema::isAsmJSCompatible(constructor->getParent()->getTypeForDecl()->getCanonicalTypeInternal(), anyref))
+        Diag(Loc,
+             diag::err_cheerp_incompatible_attributes)
+          << FDecl->getAttr<GenericJSAttr>() << "constructor" << FDecl
+          << Parent->getAttr<AsmJSAttr>() << "caller function" << Parent;
+
     auto checkTypeCanCrossAsmJSToGenericJSBoundary = [this, &FDecl, &Parent, &Loc, &anyref](const Type* pt, const NamedDecl* p, StringRef message) -> void
     {
       if (pt->hasPointerRepresentation() && (pt->getPointeeType()->hasPointerRepresentation() || pt->getPointeeType()->isArrayType())) {
