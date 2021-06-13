@@ -4273,7 +4273,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				{
 					stream << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '(';
 				}
-				else if(kind == Registerize::INTEGER && parentPrio > BIT_OR)
+				else if(kind == Registerize::INTEGER && parentPrio >= BIT_OR)
 				{
 					stream << '(';
 				}
@@ -4284,7 +4284,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				if(cf!=COMPILE_UNSUPPORTED)
 				{
 					if (!retTy->isVectorTy() && (
-						(kind == Registerize::INTEGER && parentPrio > BIT_OR) ||
+						(kind == Registerize::INTEGER && parentPrio >= BIT_OR) ||
 						kind == Registerize::FLOAT))
 					{
 						stream << ')';
@@ -4301,7 +4301,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				{
 					case Registerize::INTEGER:
 						stream << "|0";
-						if(parentPrio > BIT_OR)
+						if(parentPrio >= BIT_OR)
 							stream << ')';
 						break;
 					case Registerize::INTEGER64:
@@ -4361,7 +4361,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				{
 					case Registerize::INTEGER:
 						stream << "|0";
-						if(parentPrio > BIT_OR)
+						if(parentPrio >= BIT_OR)
 							stream << ')';
 						break;
 					case Registerize::INTEGER64:
