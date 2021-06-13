@@ -175,6 +175,14 @@ void GlobalDepsAnalyzer::extendLifetime(Function* F)
 	assert( visited.empty() );
 }
 
+static void changeToSingleUnreachable(llvm::Function& F)
+{
+	// Replace the body with a single unreachable instruction
+	F.deleteBody();
+	llvm::BasicBlock* unreachableBlock = llvm::BasicBlock::Create(F.getContext(), "", &F);
+	new llvm::UnreachableInst(unreachableBlock->getContext(), unreachableBlock);
+}
+
 bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 {
 	DL = &module.getDataLayout();
@@ -927,11 +935,8 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 
 	for (auto f : toUnreachable)
 	{
-		// Replace the body with a single unreachable instruction
 		// We need this placeholder to properly satisfy code that wants a non-zero address for this function
-		f->deleteBody();
-		llvm::BasicBlock* unreachableBlock = llvm::BasicBlock::Create(f->getContext(), "", f);
-		new llvm::UnreachableInst(unreachableBlock->getContext(), unreachableBlock);
+		changeToSingleUnreachable(*f);
 	}
 
 	//Clean up unreachable blocks
@@ -1468,6 +1473,7 @@ int GlobalDepsAnalyzer::filterModule( const DenseSet<const Function*>& droppedMa
 			f->getName() != "free")
 		{
 			logUndefinedSymbol(f);
+			changeToSingleUnreachable(*f);
 		}
 	}
 
