@@ -300,6 +300,7 @@ void CheerpWriter::compileInlineAsm(const CallInst& ci)
 		});
 	auto getInputParamIndex = [&](int p) {
 		if (p - numOutputs < 0) {
+			llvm::errs() << str << "\n";
 			llvm::report_fatal_error("Cheerp: Output operands in the asm template are not supported");
 		}
 		return p - numOutputs;

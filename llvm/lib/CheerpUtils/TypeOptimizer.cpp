@@ -1027,6 +1027,7 @@ Function* TypeOptimizer::rewriteIntrinsic(Function* F, FunctionType* FT)
 		case Intrinsic::cheerp_get_array_len:
 		case Intrinsic::cheerp_deallocate:
 		case Intrinsic::cheerp_pointer_kind:
+		case Intrinsic::cheerp_throw:
 		{
 			Type* localTys[] = { FT->getParamType(0) };
 			newTys.insert(newTys.end(),localTys,localTys+1);
@@ -1426,8 +1427,16 @@ void TypeOptimizer::rewriteFunction(Function* F)
 				A->replaceAllUsesWith(New);
 			}
 		}
+
 		F = NF;
 	}
+	// Set the updated personality function
+	if(F->hasPersonalityFn())
+	{
+		auto* Personality = rewriteConstant(F->getPersonalityFn(), false).first;
+		F->setPersonalityFn(Personality);
+	}
+
 
 	SmallVector<BasicBlock*, 4> blocksInDFSOrder;
 	std::unordered_set<BasicBlock*> usedBlocks;
@@ -1544,8 +1553,9 @@ void TypeOptimizer::rewriteFunction(Function* F)
 					break;
 				}
 				case Instruction::Call:
+				case Instruction::Invoke:
 				{
-					CallInst* CI=cast<CallInst>(&I);
+					CallBase* CI=cast<CallBase>(&I);
 					// We need to handle special intrinsics here
 					if(IntrinsicInst* II=dyn_cast<IntrinsicInst>(&I))
 					{
@@ -1702,8 +1712,22 @@ void TypeOptimizer::rewriteFunction(Function* F)
 				
 						Value* Callee = localInstMapping.getMappedOperand(CI->getCalledOperand()).first;
 
-						auto *NewCall = CallInst::Create(rewrittenFuncType, Callee, Args, OpBundles, "", CI);
-						NewCall->setTailCallKind(CI->getTailCallKind());
+						CallBase *NewCall;
+						if (auto* CallI = dyn_cast<CallInst>(CI))
+						{
+							auto* NC = CallInst::Create(rewrittenFuncType, Callee, Args, OpBundles, "", CI);
+							NC->setTailCallKind(CallI->getTailCallKind());
+							NewCall = NC;
+						}
+						else if (auto* InvI = dyn_cast<InvokeInst>(CI))
+						{
+							auto* NI = InvokeInst::Create(rewrittenFuncType, Callee, InvI->getNormalDest(), InvI->getUnwindDest(), Args, OpBundles, "", CI);
+							NewCall = NI;
+						}
+						else
+						{
+							llvm_unreachable("unhandled CallBase derived class");
+						}
 						NewCall->setCallingConv(CI->getCallingConv());
 						NewCall->setAttributes(
 							AttributeList::get(F->getContext(), CallPAL.getFnAttrs(),
@@ -1879,6 +1903,8 @@ void TypeOptimizer::rewriteFunction(Function* F)
 				case Instruction::IntToPtr:
 				case Instruction::PHI:
 				case Instruction::Select:
+				case Instruction::LandingPad:
+				case Instruction::Resume:
 					break;
 			}
 			if(needsDefaultHandling && !I.getType()->isVoidTy() && !isI64ToRewrite(I.getType()))

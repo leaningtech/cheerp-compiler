@@ -1997,6 +1997,16 @@ public:
   Address getExceptionSlot();
   Address getEHSelectorSlot();
 
+
+  /// Get the named landingpad/resume type (Cheerp)
+  llvm::StructType* GetLandingPadTy() {
+    auto* Ret = llvm::StructType::getTypeByName(CGM.getLLVMContext(), "struct._ZN10__cxxabiv119__cheerp_landingpadE");
+    if (Ret)
+      return Ret;
+    llvm::Type* Tys[] { CGM.Int8PtrTy, CGM.Int32Ty };
+    return llvm::StructType::create(Tys, "struct._ZN10__cxxabiv119__cheerp_landingpadE", true, nullptr, false, false);
+  }
+
   /// Returns the contents of the function's exception object and selector
   /// slots.
   llvm::Value *getExceptionFromSlot();

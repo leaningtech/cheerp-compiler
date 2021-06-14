@@ -115,6 +115,8 @@ Constant* ConstantExprLowering::visitConstantExpr(const ConstantExpr *CE, SmallD
 
 bool ConstantExprLowering::runOnInstruction(Instruction* I, bool& hasI64)
 {
+	if(isa<LandingPadInst>(I))
+		return false;
 	bool Changed = false;
 	std::vector<Instruction*> Stack;
 	Stack.push_back(I);

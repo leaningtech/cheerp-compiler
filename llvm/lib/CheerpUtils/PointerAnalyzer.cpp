@@ -427,7 +427,7 @@ bool PointerUsageVisitor::visitRawChain( const Value * p)
 	const GlobalValue* top = nullptr;
 	if (isa<Instruction>(p))
 	{
-		if (const CallInst* ci = dyn_cast<CallInst>(p))
+		if (const CallBase* ci = dyn_cast<CallBase>(p))
 		{
 
 			Function* callee = ci->getCalledFunction();
@@ -859,6 +859,7 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 		case Intrinsic::cheerp_make_regular:
 		case Intrinsic::cheerp_make_complete_object:
 		case Intrinsic::cheerp_downcast_current:
+		case Intrinsic::cheerp_throw:
 			return ret |= COMPLETE_OBJECT;
 		case Intrinsic::cheerp_upcast_collapsed:
 		case Intrinsic::cheerp_cast_user:
@@ -895,6 +896,10 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 			{
 				return ret |= PointerKindWrapper(SPLIT_REGULAR, p);
 			}
+			return ret |= COMPLETE_OBJECT;
+		}
+		case Intrinsic::eh_typeid_for:
+		{
 			return ret |= COMPLETE_OBJECT;
 		}
 		case Intrinsic::flt_rounds:
@@ -1328,8 +1333,8 @@ PointerConstantOffsetWrapper& PointerConstantOffsetVisitor::visitValue(PointerCo
 			const Function* parentFunc = arg->getParent();
 			for(const User* U: parentFunc->users())
 			{
-				assert(isa<CallInst>(U));
-				const CallInst& CI = cast<CallInst>(*U);
+				assert(isa<CallBase>(U));
+				const CallBase& CI = cast<CallBase>(*U);
 				llvm::Value* op = CI.getOperand(arg->getArgNo());
 				PointerConstantOffsetWrapper localRet;
 				PointerConstantOffsetWrapper& callerRet = visitValue(localRet, op, false);
@@ -1339,7 +1344,7 @@ PointerConstantOffsetWrapper& PointerConstantOffsetVisitor::visitValue(PointerCo
 		}
 	}
 
-	if(const CallInst * CI = dyn_cast<CallInst>(v))
+	if(const CallBase * CI = dyn_cast<CallBase>(v))
 	{
 		Function* F = CI->getCalledFunction();
 		if(!F)

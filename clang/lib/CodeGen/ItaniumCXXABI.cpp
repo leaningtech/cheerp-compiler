@@ -1332,8 +1332,14 @@ void ItaniumCXXABI::emitRethrow(CodeGenFunction &CGF, bool isNoReturn) {
     CGF.EmitRuntimeCallOrInvoke(Fn);
 }
 
-static llvm::FunctionCallee getAllocateExceptionFn(CodeGenModule &CGM) {
+static llvm::FunctionCallee getAllocateExceptionFn(CodeGenModule &CGM, QualType QTy) {
   // void *__cxa_allocate_exception(size_t thrown_size);
+
+  if (!CGM.getTarget().isByteAddressable()) {
+    llvm::Type* Tys[1] = { CGM.getTypes().ConvertType(QTy)->getPointerTo() };
+    llvm::Function *F = CGM.getIntrinsic(llvm::Intrinsic::cheerp_allocate, Tys);
+    return llvm::FunctionCallee(F);
+  }
 
   llvm::FunctionType *FTy =
     llvm::FunctionType::get(CGM.Int8PtrTy, CGM.SizeTy, /*isVarArg=*/false);
@@ -1358,7 +1364,7 @@ void ItaniumCXXABI::emitThrow(CodeGenFunction &CGF, const CXXThrowExpr *E) {
   llvm::Type *SizeTy = CGF.ConvertType(getContext().getSizeType());
   uint64_t TypeSize = getContext().getTypeSizeInChars(ThrowType).getQuantity();
 
-  llvm::FunctionCallee AllocExceptionFn = getAllocateExceptionFn(CGM);
+  llvm::FunctionCallee AllocExceptionFn = getAllocateExceptionFn(CGM, ThrowType);
   llvm::CallInst *ExceptionPtr = CGF.EmitNounwindRuntimeCall(
       AllocExceptionFn, llvm::ConstantInt::get(SizeTy, TypeSize), "exception");
 
@@ -1385,7 +1391,8 @@ void ItaniumCXXABI::emitThrow(CodeGenFunction &CGF, const CXXThrowExpr *E) {
 
   TypeInfo = CGF.Builder.CreateBitCast(TypeInfo, CGM.Int8PtrTy);
 
-  llvm::Value *args[] = { ExceptionPtr, TypeInfo, Dtor };
+  llvm::Value* ExPtr = CGF.Builder.CreateBitCast(ExceptionPtr, CGM.Int8PtrTy);
+  llvm::Value *args[] = { ExPtr, TypeInfo, Dtor };
   CGF.EmitNoreturnRuntimeCallOrInvoke(getThrowFn(CGM), args);
 }
 

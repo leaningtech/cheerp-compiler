@@ -21,9 +21,11 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Dominators.h"
+#include "llvm/CodeGen/Analysis.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/IR/Verifier.h"
 
 using namespace llvm;
 using namespace std;
@@ -1003,6 +1005,17 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(const
 		compileOperand(*it, LOWEST);
 		return COMPILE_OK;
 	}
+	else if(intrinsicId==Intrinsic::eh_typeid_for)
+	{
+		stream << getTypeIdFor(*it);
+		return COMPILE_OK;
+	}
+	else if(intrinsicId==Intrinsic::cheerp_throw)
+	{
+		stream << "throw ";
+		compileOperand(*it);
+		return COMPILE_OK;
+	}
 	else if(cheerp::isFreeFunctionName(ident) || intrinsicId==Intrinsic::cheerp_deallocate)
 	{
 		if (asmjs || TypeSupport::isAsmJSPointer((*it)->getType()))
@@ -1678,6 +1691,23 @@ void CheerpWriter::compileRawPointer(const Value* p, PARENT_PRIORITY parentPrio,
 		stream << "|0";
 	if(parentPrio > basePrio)
 		stream << ")";
+}
+
+int CheerpWriter::getTypeIdFor(Value* V)
+{
+	GlobalValue* GV = llvm::ExtractTypeInfo(V);
+	if(GV == nullptr)
+	{
+		return 0;
+	}
+	auto it = typeIdMap.find(GV);
+	if (it != typeIdMap.end())
+	{
+		return it->second;
+	}
+	int id = typeIdMap.size()+1;
+	typeIdMap.insert(std::make_pair(GV, id));
+	return id;
 }
 
 int CheerpWriter::getHeapShiftForType(Type* et)
@@ -2386,13 +2416,16 @@ void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio
 	}
 	else if(isa<ConstantPointerNull>(c))
 	{
-		assert(false);
 		if (asmjs)
 			stream << '0';
-		else if(PA.getPointerKindAssert(c) == COMPLETE_OBJECT)
-			stream << "null";
 		else
-			stream << "nullObj";
+		{
+			POINTER_KIND kind = PA.getPointerKind(c);
+			if(kind == COMPLETE_OBJECT || kind == CONSTANT)
+				stream << "null";
+			else
+				stream << "nullObj";
+		}
 	}
 	else if(isa<GlobalAlias>(c))
 	{
@@ -2909,45 +2942,17 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileTerminatorInstru
 			stream << ';' << NewLine;
 			return COMPILE_OK;
 		}
-		case Instruction::Invoke:
-		{
-			const InvokeInst& ci = cast<InvokeInst>(I);
-
-			//TODO: Support unwind
-			//For now, pretend it's a regular call
-			if(ci.getCalledFunction())
-			{
-				//Direct call
-				COMPILE_INSTRUCTION_FEEDBACK cf=handleBuiltinCall(ci, ci.getCalledFunction());
-				assert(cf!=COMPILE_EMPTY);
-				if(cf==COMPILE_OK)
-				{
-					stream << ';' << NewLine;
-					//Only consider the normal successor for PHIs here
-					//For each successor output the variables for the phi nodes
-					compilePHIOfBlockFromOtherBlock(ci.getNormalDest(), I.getParent());
-					return COMPILE_OK;
-				}
-				else
-					stream << getName(ci.getCalledFunction());
-			}
-			else
-			{
-				//Indirect call
-				compileOperand(ci.getCalledOperand());
-			}
-
-			compileMethodArgs(ci.op_begin(),ci.op_begin()+ci.arg_size(),ci, /*forceBoolean*/ false);
-			stream << ';' << NewLine;
-			//Only consider the normal successor for PHIs here
-			//For each successor output the variables for the phi nodes
-			compilePHIOfBlockFromOtherBlock(ci.getNormalDest(), I.getParent());
-			return COMPILE_OK;
-		}
 		case Instruction::Resume:
 		{
+			stream << "throw ";
+			compileOperand(I.getOperand(0));
+			stream << ";" << NewLine;
 			//TODO: support exceptions
 			return COMPILE_OK;
+		}
+		case Instruction::Invoke:
+		{
+			compileCallInstruction(cast<CallBase>(I), LOWEST);
 		}
 		case Instruction::Br:
 		case Instruction::Switch:
@@ -3002,10 +3007,25 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 		}
 		case Instruction::LandingPad:
 		{
-			//TODO: Support exceptions
-			stream << " alert('Exceptions not supported')";
-			//Do not continue block
-			return COMPILE_UNSUPPORTED;
+			Constant* C = currentFun->getPersonalityFn();
+			assert(C);
+			Value* PersonalityF = C->getOperand(0);
+			compileOperand(PersonalityF);
+			stream <<"(e,[";
+			const LandingPadInst& LP = cast<LandingPadInst>(I);
+			for(unsigned i = 0; i < LP.getNumClauses(); i++)
+			{
+				Constant* Clause = LP.getClause(i);
+				int id = getTypeIdFor(Clause);
+				stream << "{a0:";
+				compileOperand(Clause, LOWEST);
+				stream << ",i1:" << id << "}";
+				if(i != LP.getNumClauses()-1)
+					stream << ',';
+			}
+			stream << "],0," << LP.getNumClauses();
+			stream << ")";
+			return COMPILE_OK;
 		}
 		case Instruction::InsertValue:
 		{
@@ -4240,166 +4260,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		}
 		case Instruction::Call:
 		{
-			const CallInst& ci = cast<CallInst>(I);
-			const Function * calledFunc = ci.getCalledFunction();
-			const Value * calledValue = ci.getCalledOperand();
-			const PointerType* pTy = cast<PointerType>(calledValue->getType());
-			const FunctionType* fTy = cast<FunctionType>(pTy->getElementType());
-			// Skip over bitcasts of function
-			if(isBitCast(calledValue))
-			{
-				calledValue = cast<User>(calledValue)->getOperand(0);
-				calledFunc = dyn_cast<Function>(calledValue);
-			}
-			const Type* retTy = fTy->getReturnType();
-			// NOTE: if the type is void, OBJECT is returned, but we explicitly
-			// check the void case later
-			Registerize::REGISTER_KIND kind = registerize.getRegKindFromType(retTy, asmjs);
-
-			// If the caller is genericjs, the callee is asmjs, and a SPLIT_REGULAR is returned,
-			// the function is returning the offset, not the object. So assign the main name now
-			// to the correct heap type, and the return value to oSlot, correctly shifted,
-			// afterwards
-			bool asmjsCallee = calledFunc && calledFunc->getSection() == StringRef("asmjs");
-			uint32_t addrShift = 0;
-			if (!asmjs && asmjsCallee && kind == Registerize::OBJECT && PA.getPointerKindAssert(&ci) == SPLIT_REGULAR && !ci.use_empty())
-			{
-				addrShift = compileHeapForType(cast<PointerType>(ci.getType())->getPointerElementType());
-				stream << ';' << NewLine;
-				stream << getSecondaryName(&ci) << '=';
-			}
-
-			if(!retTy->isVoidTy())
-			{
-				if(kind == Registerize::DOUBLE)
-				{
-					if(parentPrio > LOWEST)
-						stream << ' ';
-					stream << '+';
-				}
-				else if(kind == Registerize::FLOAT)
-				{
-					stream << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '(';
-				}
-				else if(kind == Registerize::INTEGER && parentPrio >= BIT_OR)
-				{
-					stream << '(';
-				}
-			}
-			if(calledFunc)
-			{
-				COMPILE_INSTRUCTION_FEEDBACK cf=handleBuiltinCall(ci, calledFunc);
-				if(cf!=COMPILE_UNSUPPORTED)
-				{
-					if (!retTy->isVectorTy() && (
-						(kind == Registerize::INTEGER && parentPrio >= BIT_OR) ||
-						kind == Registerize::FLOAT))
-					{
-						stream << ')';
-					}
-					return cf;
-				}
-				stream << getName(calledFunc);
-			}
-			else if (ci.isInlineAsm())
-			{
-				compileInlineAsm(ci);
-				//If we are dealing with inline asm we are done, close coercions
-				switch(kind)
-				{
-					case Registerize::INTEGER:
-						stream << "|0";
-						if(parentPrio >= BIT_OR)
-							stream << ')';
-						break;
-					case Registerize::INTEGER64:
-						break;
-					case Registerize::DOUBLE:
-						break;
-					case Registerize::FLOAT:
-						stream << ')';
-						break;
-					case Registerize::OBJECT:
-						break;
-				}
-				return COMPILE_OK;
-			}
-			else if (asmjs)
-			{
-				//Indirect call, asm.js mode
-				if (!linearHelper.getFunctionTables().count(fTy))
-				{
-					stream << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY);
-				}
-				else
-				{
-					const auto& table = linearHelper.getFunctionTables().at(fTy);
-					stream << table.name << '[';
-					// NOTE: V8 does not like constants here, so we add a useless
-					// ternary operator to make it happy.
-					if (const Constant* c = dyn_cast<Constant>(calledValue))
-					{
-						stream << "(0!=0?0:";
-						compileConstant(c);
-						stream << ')';
-					}
-					else
-					{
-						compileRawPointer(calledValue, PARENT_PRIORITY::BIT_AND);
-					}
-					stream << '&' << linearHelper.getFunctionAddressMask(fTy) << ']';
-				}
-
-			}
-			else
-			{
-				//Indirect call, normal mode
-				compilePointerAs(calledValue, COMPLETE_OBJECT);
-			}
-
-			{
-				// In calling asmjs functions the varargs are passed on the stack
-				bool asmJSCallingConvention = asmjs || (calledFunc && calledFunc->getSection() == StringRef("asmjs"));
-				size_t n = asmJSCallingConvention ? fTy->getNumParams() : ci.arg_size();
-				compileMethodArgs(ci.op_begin(),ci.op_begin()+n, ci, /*forceBoolean*/ false);
-			}
-			if(!retTy->isVoidTy())
-			{
-				switch(kind)
-				{
-					case Registerize::INTEGER:
-						stream << "|0";
-						if(parentPrio >= BIT_OR)
-							stream << ')';
-						break;
-					case Registerize::INTEGER64:
-						break;
-					case Registerize::DOUBLE:
-						break;
-					case Registerize::FLOAT:
-						stream << ')';
-						break;
-					case Registerize::OBJECT:
-						if(PA.getPointerKindAssert(&ci) == SPLIT_REGULAR && !ci.use_empty())
-						{
-							assert(!isInlineable(ci, PA));
-							if (asmjsCallee)
-							{
-								if (addrShift != 0)
-									stream << ">>" << addrShift;
-								else
-									stream << "|0";
-							}
-							else
-							{
-								stream << ';' << NewLine;
-								stream << getSecondaryName(&ci) << "=oSlot";
-							}
-						}
-						break;
-				}
-			}
-			return COMPILE_OK;
+			return compileCallInstruction(cast<CallBase>(I), parentPrio);
 		}
 		case Instruction::Load:
 		{
@@ -4551,6 +4412,170 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			llvm::errs() << "\tImplement inst " << I.getOpcodeName() << '\n';
 			return COMPILE_UNSUPPORTED;
 	}
+}
+
+CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileCallInstruction(const CallBase& ci, PARENT_PRIORITY parentPrio)
+{
+	bool asmjs = currentFun->getSection() == StringRef("asmjs");
+	const Function * calledFunc = ci.getCalledFunction();
+	const Value * calledValue = ci.getCalledOperand();
+	const PointerType* pTy = cast<PointerType>(calledValue->getType());
+	const FunctionType* fTy = cast<FunctionType>(pTy->getElementType());
+	// Skip over bitcasts of function
+	if(isBitCast(calledValue))
+	{
+		calledValue = cast<User>(calledValue)->getOperand(0);
+		calledFunc = dyn_cast<Function>(calledValue);
+	}
+	const Type* retTy = fTy->getReturnType();
+	// NOTE: if the type is void, OBJECT is returned, but we explicitly
+	// check the void case later
+	Registerize::REGISTER_KIND kind = registerize.getRegKindFromType(retTy, asmjs);
+
+	// If the caller is genericjs, the callee is asmjs, and a SPLIT_REGULAR is returned,
+	// the function is returning the offset, not the object. So assign the main name now
+	// to the correct heap type, and the return value to oSlot, correctly shifted,
+	// afterwards
+	bool asmjsCallee = calledFunc && calledFunc->getSection() == StringRef("asmjs");
+	uint32_t addrShift = 0;
+	if (!asmjs && asmjsCallee && kind == Registerize::OBJECT && PA.getPointerKindAssert(&ci) == SPLIT_REGULAR && !ci.use_empty())
+	{
+		addrShift = compileHeapForType(cast<PointerType>(ci.getType())->getPointerElementType());
+		stream << ';' << NewLine;
+		stream << getSecondaryName(&ci) << '=';
+	}
+
+	if(!retTy->isVoidTy())
+	{
+		if(kind == Registerize::DOUBLE)
+		{
+			if(parentPrio > LOWEST)
+				stream << ' ';
+			stream << '+';
+		}
+		else if(kind == Registerize::FLOAT)
+		{
+			stream << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '(';
+		}
+		else if(kind == Registerize::INTEGER && parentPrio > BIT_OR)
+		{
+			stream << '(';
+		}
+	}
+	if(calledFunc)
+	{
+		COMPILE_INSTRUCTION_FEEDBACK cf=handleBuiltinCall(ci, calledFunc);
+		if(cf!=COMPILE_UNSUPPORTED)
+		{
+			if (!retTy->isVectorTy() && (
+				(kind == Registerize::INTEGER && parentPrio > BIT_OR) ||
+				kind == Registerize::FLOAT))
+			{
+				stream << ')';
+			}
+			return cf;
+		}
+		stream << getName(calledFunc);
+	}
+	else if (ci.isInlineAsm())
+	{
+		compileInlineAsm(cast<CallInst>(ci));
+		//If we are dealing with inline asm we are done, close coercions
+		switch(kind)
+		{
+			case Registerize::INTEGER:
+				stream << "|0";
+				if(parentPrio > BIT_OR)
+					stream << ')';
+				break;
+			case Registerize::INTEGER64:
+				break;
+			case Registerize::DOUBLE:
+				break;
+			case Registerize::FLOAT:
+				stream << ')';
+				break;
+			case Registerize::OBJECT:
+				break;
+		}
+		return COMPILE_OK;
+	}
+	else if (asmjs)
+	{
+		//Indirect call, asm.js mode
+		if (!linearHelper.getFunctionTables().count(fTy))
+		{
+			stream << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY);
+		}
+		else
+		{
+			const auto& table = linearHelper.getFunctionTables().at(fTy);
+			stream << table.name << '[';
+			// NOTE: V8 does not like constants here, so we add a useless
+			// ternary operator to make it happy.
+			if (const Constant* c = dyn_cast<Constant>(calledValue))
+			{
+				stream << "(0!=0?0:";
+				compileConstant(c);
+				stream << ')';
+			}
+			else
+			{
+				compileRawPointer(calledValue, PARENT_PRIORITY::BIT_AND);
+			}
+			stream << '&' << linearHelper.getFunctionAddressMask(fTy) << ']';
+		}
+
+	}
+	else
+	{
+		//Indirect call, normal mode
+		compilePointerAs(calledValue, COMPLETE_OBJECT);
+	}
+
+	{
+		// In calling asmjs functions the varargs are passed on the stack
+		bool asmJSCallingConvention = asmjs || (calledFunc && calledFunc->getSection() == StringRef("asmjs"));
+		size_t n = asmJSCallingConvention ? fTy->getNumParams() : ci.arg_size();
+		compileMethodArgs(ci.op_begin(),ci.op_begin()+n, ci, /*forceBoolean*/ false);
+	}
+	if(!retTy->isVoidTy())
+	{
+		switch(kind)
+		{
+			case Registerize::INTEGER:
+				stream << "|0";
+				if(parentPrio > BIT_OR)
+					stream << ')';
+				break;
+			case Registerize::INTEGER64:
+				break;
+			case Registerize::DOUBLE:
+				break;
+			case Registerize::FLOAT:
+				stream << ')';
+				break;
+			case Registerize::OBJECT:
+				if(PA.getPointerKindAssert(&ci) == SPLIT_REGULAR && !ci.use_empty())
+				{
+					assert(!isInlineable(ci, PA));
+					if (asmjsCallee)
+					{
+						if (addrShift != 0)
+							stream << ">>" << addrShift;
+						else
+							stream << "|0";
+					}
+					else
+					{
+						stream << ';' << NewLine;
+						stream << getSecondaryName(&ci) << "=oSlot";
+					}
+				}
+				break;
+		}
+	}
+	return COMPILE_OK;
 }
 
 bool CheerpWriter::compileCompoundStatement(const Instruction* I, uint32_t regId)
@@ -4907,6 +4932,10 @@ bool CheerpWriter::omitBraces(const Token& T, const PointerAnalyzer& PA, const R
 			else
 				return Inner->getMatch()->getNextNode() == End;
 		}
+		case Token::TK_Try:
+		{
+			return Inner->getMatch()->getMatch()->getNextNode() == End;
+		}
 		case Token::TK_Branch:
 		{
 			return Inner->getNextNode() == End;
@@ -5107,6 +5136,17 @@ void CheerpWriter::compileTokens(const TokenList& Tokens)
 				stream << ':' << NewLine;
 				break;
 			}
+			case Token::TK_Try:
+			{
+				stream << "try{" << NewLine;
+				blockDepth++;
+				break;
+			}
+			case Token::TK_Catch:
+			{
+				stream << "}catch(e){"<< NewLine;
+				break;
+			}
 			case Token::TK_BrIf:
 			case Token::TK_BrIfNot:
 			{
@@ -5181,7 +5221,9 @@ void CheerpWriter::compileMethod(const Function& F)
 			else if(argKind == COMPLETE_OBJECT)
 				stream << getName(&*curArg) << "[" << getSecondaryName(&*curArg) << "]";
 			else
+			{
 				assert(false);
+			}
 			stream << ";" << NewLine;
 		}
 	}
@@ -5238,6 +5280,7 @@ void CheerpWriter::compileMethod(const Function& F)
 	}
 	stream << '}' << NewLine;
 	currentFun = NULL;
+	typeIdMap.clear();
 }
 
 CheerpWriter::GlobalSubExprInfo CheerpWriter::compileGlobalSubExpr(const GlobalDepsAnalyzer::SubExprVec& subExpr)

@@ -299,7 +299,7 @@ uint32_t Registerize::dfsLiveRangeInBlock(BlocksState& blocksState, LiveRangesTy
 		if(I.getType()->isPointerTy() && PA.getPointerKind(&I) == SPLIT_REGULAR)
 		{
 			nextIndex++;
-			CallInst* CI = dyn_cast<CallInst>(&I);
+			CallBase* CI = dyn_cast<CallBase>(&I);
 			if(!CI || (CI->getCalledFunction() && CI->getCalledFunction()->getIntrinsicID()==Intrinsic::cheerp_downcast))
 				splitRegularDest = true;
 		}
@@ -3439,7 +3439,7 @@ Registerize::InstructionSetOrderedByID Registerize::gatherDerivedMemoryAccesses(
 			}
 			case Instruction::Call:
 			{
-				const CallInst* CI = cast<CallInst>(I);
+				const CallBase* CI = cast<CallBase>(I);
 				const Function* F = CI->getCalledFunction();
 				if(F)
 				{

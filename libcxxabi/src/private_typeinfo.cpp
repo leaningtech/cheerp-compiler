@@ -180,13 +180,22 @@ __pointer_to_member_type_info::~__pointer_to_member_type_info()
 // Handles bullet 1
 bool
 __fundamental_type_info::can_catch(const __shim_type_info* thrown_type,
-                                   obj_type&) const
+    obj_type&
+#ifdef __CHEERP__
+    , bool&
+#endif
+    ) const
 {
     return is_equal(this, thrown_type, false);
 }
 
 bool
-__array_type_info::can_catch(const __shim_type_info*, obj_type&) const
+__array_type_info::can_catch(const __shim_type_info*,
+    obj_type&
+#ifdef __CHEERP__
+    , bool&
+#endif
+    ) const
 {
     // We can get here if someone tries to catch an array by reference.
     //   However if someone tries to throw an array, it immediately gets
@@ -196,7 +205,12 @@ __array_type_info::can_catch(const __shim_type_info*, obj_type&) const
 }
 
 bool
-__function_type_info::can_catch(const __shim_type_info*, obj_type&) const
+__function_type_info::can_catch(const __shim_type_info*,
+    obj_type&
+#ifdef __CHEERP__
+    , bool&
+#endif
+    ) const
 {
     // We can get here if someone tries to catch a function by reference.
     //   However if someone tries to throw a function, it immediately gets
@@ -208,7 +222,11 @@ __function_type_info::can_catch(const __shim_type_info*, obj_type&) const
 // Handles bullet 1
 bool
 __enum_type_info::can_catch(const __shim_type_info* thrown_type,
-                            obj_type&) const
+    obj_type&
+#ifdef __CHEERP__
+    , bool&
+#endif
+    ) const
 {
     return is_equal(this, thrown_type, false);
 }
@@ -221,7 +239,11 @@ __enum_type_info::can_catch(const __shim_type_info* thrown_type,
 // Handles bullets 1 and 2
 bool
 __class_type_info::can_catch(const __shim_type_info* thrown_type,
-                             obj_type& adjustedPtr) const
+    obj_type& adjustedPtr
+#ifdef __CHEERP__
+    , bool&
+#endif
+    ) const
 {
     // bullet 1
     if (is_equal(this, thrown_type, false))
@@ -374,7 +396,11 @@ __vmi_class_type_info::has_unambiguous_public_base(__dynamic_cast_info* info,
 // Handles bullet 1 for both pointers and member pointers
 bool
 __pbase_type_info::can_catch(const __shim_type_info* thrown_type,
-                             obj_type&) const
+    obj_type& adjustedPtr
+#ifdef __CHEERP__
+    , bool& deref
+#endif
+    ) const
 {
     bool use_strcmp = this->__flags & (__incomplete_class_mask |
                                        __incomplete_mask);
@@ -398,21 +424,30 @@ __pbase_type_info::can_catch(const __shim_type_info* thrown_type,
 // type. Only adjust the pointer after we know it is safe to do so.
 bool
 __pointer_type_info::can_catch(const __shim_type_info* thrown_type,
-                               obj_type& adjustedPtr) const
-{
+    obj_type& adjustedPtr
 #ifdef __CHEERP__
-    return false;
-#else
+    , bool& deref
+#endif
+    ) const
+{
     // bullet 4
     if (is_equal(thrown_type, &typeid(std::nullptr_t), false)) {
+#ifdef __CHEERP__
+      adjustedPtr = -1<<31;
+#else
       adjustedPtr = nullptr;
+#endif
       return true;
     }
 
     // bullet 1
-    if (__pbase_type_info::can_catch(thrown_type, adjustedPtr)) {
+    if (__pbase_type_info::can_catch(thrown_type, adjustedPtr, deref)) {
+#ifdef __CHEERP__
+            deref = true;
+#else
         if (adjustedPtr != NULL)
             adjustedPtr = *static_cast<void**>(adjustedPtr);
+#endif
         return true;
     }
     // bullet 3
@@ -421,8 +456,12 @@ __pointer_type_info::can_catch(const __shim_type_info* thrown_type,
     if (thrown_pointer_type == 0)
         return false;
     // Do the dereference adjustment
+#ifdef __CHEERP__
+    deref = true;
+#else
     if (adjustedPtr != NULL)
         adjustedPtr = *static_cast<void**>(adjustedPtr);
+#endif
     // bullet 3B and 3C
     if (thrown_pointer_type->__flags & ~__flags & __no_remove_flags_mask)
         return false;
@@ -468,12 +507,15 @@ __pointer_type_info::can_catch(const __shim_type_info* thrown_type,
     thrown_class_type->has_unambiguous_public_base(&info, adjustedPtr, public_path);
     if (info.path_dst_ptr_to_static_ptr == public_path)
     {
+#ifdef __CHEERP__
+        adjustedPtr = info.dst_ptr_leading_to_static_ptr;
+#else
         if (adjustedPtr != NULL)
             adjustedPtr = const_cast<void*>(info.dst_ptr_leading_to_static_ptr);
+#endif
         return true;
     }
     return false;
-#endif
 }
 
 bool __pointer_type_info::can_catch_nested(
@@ -512,7 +554,12 @@ bool __pointer_type_info::can_catch_nested(
 }
 
 bool __pointer_to_member_type_info::can_catch(
-    const __shim_type_info* thrown_type, obj_type& adjustedPtr) const {
+    const __shim_type_info* thrown_type,
+	obj_type& adjustedPtr
+#ifdef __CHEERP__
+    , bool& deref
+#endif
+    ) const {
 #ifdef __CHEERP__
     return false;
 #else
@@ -532,7 +579,7 @@ bool __pointer_to_member_type_info::can_catch(
     }
 
     // bullet 1
-    if (__pbase_type_info::can_catch(thrown_type, adjustedPtr))
+    if (__pbase_type_info::can_catch(thrown_type, adjustedPtr, deref))
         return true;
 
     const __pointer_to_member_type_info* thrown_pointer_type =
