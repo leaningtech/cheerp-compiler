@@ -180,6 +180,9 @@ private:
 	llvm::Pass& pass;
 	llvm::DataLayout targetData;
 	const llvm::Function* currentFun;
+	// function-local map of type_info* to typeid, for exception handling
+	llvm::DenseMap<llvm::Value*, int> typeIdMap;
+	int getTypeIdFor(llvm::Value* V);
 	const PointerAnalyzer & PA;
 	Registerize & registerize;
 
@@ -443,6 +446,7 @@ private:
 	bool compileCompoundStatement(const llvm::Instruction* I, uint32_t regId);
 	COMPILE_INSTRUCTION_FEEDBACK compileNotInlineableInstruction(const llvm::Instruction& I, PARENT_PRIORITY parentPrio);
 	COMPILE_INSTRUCTION_FEEDBACK compileInlineableInstruction(const llvm::Instruction& I, PARENT_PRIORITY parentPrio);
+	COMPILE_INSTRUCTION_FEEDBACK compileCallInstruction(const llvm::CallBase& I, PARENT_PRIORITY parentPrio);
 
 	void compileSignedInteger(const llvm::Value* v, bool forComparison, PARENT_PRIORITY parentPrio);
 	void compileUnsignedInteger(const llvm::Value* v, bool forAsmJSComparison, PARENT_PRIORITY parentPrio, bool forceTruncation = false);

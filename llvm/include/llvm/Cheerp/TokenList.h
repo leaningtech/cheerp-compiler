@@ -53,6 +53,8 @@ public:
 		TK_BrIf = 1<<11,
 		TK_BrIfNot = 1<<12,
 		TK_Condition = 1<<13,
+		TK_Try = 1<<14,
+		TK_Catch = 1<<15,
 	};
 
 	enum TokenResultType {
@@ -210,6 +212,22 @@ public:
 	static Token* createCondition(const llvm::BasicBlock* CondBlock) {
 		return new Token(TK_Condition, CondBlock, nullptr);
 	}
+	static Token* createTry(const llvm::BasicBlock* InvokeBlock) {
+		return new Token(TK_Try, InvokeBlock, nullptr);
+	}
+	static Token* createCatch(Token* Try) {
+		assert(!Try || Try->Kind == TK_Try);
+		auto* Catch = new Token(TK_Catch, nullptr, nullptr);
+		Try->Match = Catch;
+		return Catch;
+	}
+	static Token* createTryCatchEnd(Token* Try, Token* Catch) {
+		assert(!Try || Try->Kind == TK_Try);
+		assert(Catch && Catch->Kind == TK_Catch);
+		auto* End = new Token(TK_End, nullptr, Try);
+		Catch->Match = End;
+		return End;
+	}
 #ifdef DEBUG_TOKENLIST
 	void dump() const
 	{
@@ -257,6 +275,12 @@ public:
 				break;
 			case TK_BrIfNot:
 				llvm::errs()<<"BR_IF_NOT " << Match << "\n";
+				break;
+			case TK_Try:
+				llvm::errs()<<"TRY " << Match << "\n";
+				break;
+			case TK_Catch:
+				llvm::errs()<<"CATCH " << Match << "\n";
 				break;
 			case TK_Invalid:
 				llvm::errs()<<"INVALID TOKEN\n";
@@ -399,7 +423,7 @@ public:
 		int indentLevel = Pos != nullptr;
 		for (auto& T: List)
 		{
-			if (T.Kind == Token::TK_End || T.Kind == Token::TK_Else)
+			if (T.Kind == Token::TK_End || T.Kind == Token::TK_Else || T.Kind == Token::TK_Catch)
 				indentLevel--;
 			for (int i = 0; i < indentLevel; ++i)
 				llvm::errs() << (i==0 && Pos == &T ? "->" : "  ");
@@ -410,6 +434,8 @@ public:
 				|| T.Kind == Token::TK_Loop
 				|| T.Kind == Token::TK_Block
 				|| T.Kind == Token::TK_Switch
+				|| T.Kind == Token::TK_Try
+				|| T.Kind == Token::TK_Catch
 			) indentLevel++;
 		}
 	}
