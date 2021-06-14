@@ -80,3 +80,7 @@ def int_cheerp_pointer_kind : Intrinsic<[llvm_i32_ty],
 
 def int_cheerp_grow_memory : Intrinsic<[llvm_i32_ty],
                                 [llvm_i32_ty]>;
+
+def int_cheerp_throw : Intrinsic<[],
+                                [llvm_anyptr_ty],
+                               [Throws, IntrNoReturn]>;

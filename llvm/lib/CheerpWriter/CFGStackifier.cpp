@@ -112,6 +112,7 @@ bool TokenListVerifier::verify() const
 			case Token::TK_If:
 			case Token::TK_IfNot:
 			case Token::TK_Switch:
+			case Token::TK_Try:
 				ScopeStack.push_back(&T);
 				ActiveScopes.insert(&T);
 				break;
@@ -136,6 +137,31 @@ bool TokenListVerifier::verify() const
 				if (Match->getMatch() != &T)
 				{
 					llvm::errs() << "Error: ELSE Token is not the match of the current Token in the stack\n";
+					return false;
+				}
+				break;
+			}
+			case Token::TK_Catch:
+			{
+				if (ScopeStack.empty())
+				{
+					llvm::errs() << "Error: Scope stack empty but CATCH Token found\n";
+					return false;
+				}
+				if (T.getMatch()->getKind() != Token::TK_End)
+				{
+					llvm::errs() << "Error: Match for CATCH Token is not a END Token\n";
+					return false;
+				}
+				if (T.getMatch()->getMatch()->getKind() != Token::TK_Try)
+				{
+					llvm::errs() << "Error: Match for END after CATCH Token is not a TRY Token\n";
+					return false;
+				}
+				const Token* Match = ScopeStack.back();
+				if (Match->getMatch() != &T)
+				{
+					llvm::errs() << "Error: CATCH Token is not the match of the current Token in the stack\n";
 					return false;
 				}
 				break;
@@ -267,7 +293,19 @@ template<typename F>
 static void for_each_succ(const BasicBlock* BB, F f)
 {
 	const Instruction* Term = BB->getTerminator();
-	size_t DefaultIdx = isa<SwitchInst>(Term) ? 0 : Term->getNumSuccessors()-1;
+	size_t DefaultIdx;
+	if(isa<SwitchInst>(Term))
+	{
+		DefaultIdx = 0;
+	}
+	else if (isa<InvokeInst>(Term))
+	{
+		DefaultIdx = 0;
+	}
+	else
+	{
+		DefaultIdx = Term->getNumSuccessors()-1;
+	}
 	DenseMap<const BasicBlock*, SmallVector<int, 2>> Destinations;
 	for (size_t i = 0; i < Term->getNumSuccessors(); ++i)
 	{
@@ -419,19 +457,42 @@ void TokenListBuilder::processBlockTerminator(Token* BBT, const DomTreeNode* Cur
 		Scopes.insert(Scopes.end(), SwitchScopes.rbegin(), SwitchScopes.rend());
 		InsertPt = FirstPt;
 	}
-	else if (isa<ReturnInst>(BBT->getBB()->getTerminator()))
+	else if (isa<ReturnInst>(Term))
 	{
 		// Nothing to do
 	}
-	else if (isa<UnreachableInst>(BBT->getBB()->getTerminator()))
+	else if (isa<UnreachableInst>(Term))
 	{
 		// Nothing to do
+	}
+	else if (isa<ResumeInst>(Term))
+	{
+		// Nothing to do
+	}
+	else if (auto* Inv = dyn_cast<InvokeInst>(Term))
+	{
+		Token* Try = Token::createTry(BBT->getBB());
+		auto TryPt = Tokens.insert(BBT->getIter(), Try);
+		Token* NormalPrologue = Token::createPrologue(BBT->getBB(), 0);
+		TryPt = Tokens.insertAfter(BBT->getIter(), NormalPrologue);
+
+		Token* Catch = Token::createCatch(Try);
+		auto CatchPt = Tokens.insertAfter(TryPt, Catch);
+		Token* CatchPrologue = Token::createPrologue(BBT->getBB(), 1);
+		CatchPt = Tokens.insertAfter(CatchPt, CatchPrologue);
+
+		Token* End = Token::createTryCatchEnd(Try, Catch);
+		auto EndPt = Tokens.insertAfter(CatchPt, End);
+
+		const DomTreeNode* CatchDom = DT.getNode(Inv->getUnwindDest());
+		bool CatchNested = CurNode->getBlock() == getUniqueForwardPredecessor(CatchDom->getBlock(), LI);
+		InsertPt = CatchPt;
+		Scope CatchScope { Scope::If, CatchDom, EndPt, CatchNested };
+		Scopes.emplace_back(CatchScope);
 	}
 	else
 	{
-#ifndef NDEBUG
-		BBT->getBB()->getTerminator()->dump();
-#endif
+		Term->dump();
 		report_fatal_error("Unsupported terminator");
 	}
 }
@@ -530,7 +591,7 @@ void TokenListBuilder::processBlockScopes(const std::vector<Token*>& Branches)
 
 		auto TargetPt = Tokens.insertAfter(EndPt, End);
 		auto BlockPt = findBlockBegin(TargetPt, Branch->getIter());
-		Tokens.insertAfter(BlockPt, Block);
+		Tokens.insert(BlockPt, Block);
 	}
 	InsertPt--;
 }
@@ -569,7 +630,7 @@ void TokenListBuilder::processBlock(const BasicBlock* CurBB, bool Delayed)
 	// (in reverse order so they are popped in the correct order)
 	const Instruction* Term = CurBB->getTerminator();
 	int ie = 0;
-	if (isa<SwitchInst>(Term))
+	if (isa<SwitchInst>(Term) || isa<InvokeInst>(Term))
 	{
 		enqueueSucc(CurBB, Term->getSuccessor(0));
 		ie = 1;
@@ -625,6 +686,7 @@ TokenList::iterator TokenListBuilder::findBlockBegin(TokenList::iterator Target,
 				LastUnmatchedScope = it->getMatch();
 				break;
 			case Token::TK_Else:
+			case Token::TK_Catch:
 				LastUnmatchedScope = it->getMatch()->getMatch();
 				it = it->getMatch()->getIter();
 				break;
@@ -632,6 +694,7 @@ TokenList::iterator TokenListBuilder::findBlockBegin(TokenList::iterator Target,
 			case Token::TK_Loop:
 			case Token::TK_Block:
 			case Token::TK_Switch:
+			case Token::TK_Try:
 				while(it->getKind() != Token::TK_End)
 					it = it->getMatch()->getIter();
 				break;
@@ -642,8 +705,7 @@ TokenList::iterator TokenListBuilder::findBlockBegin(TokenList::iterator Target,
 	// If we have an unopened scope, move the candidate to it
 	if (LastUnmatchedScope)
 		Candidate = LastUnmatchedScope->getIter();
-	// Return the node before the final candidate. We will insert after it
-	return Candidate->getPrevNode()->getIter();
+	return Candidate;
 }
 
 class TokenListOptimizer {
@@ -1047,6 +1109,8 @@ static bool canFallThrough(Token* T)
 		case Token::TK_Case:
 		case Token::TK_Loop:
 		case Token::TK_Block:
+		case Token::TK_Try:
+		case Token::TK_Catch:
 			report_fatal_error("Unexpected token");
 		case Token::TK_Invalid:
 			llvm_unreachable("Invalid token");

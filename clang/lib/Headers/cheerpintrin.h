@@ -54,5 +54,16 @@ int __builtin_cheerp_grow_memory(int bytes);
 void* __buitin_cheerp_stack_save();
 
 void __buitin_cheerp_stack_restore(void*);
+
+template<class R, class P>
+R* __builtin_cheerp_downcast(const P* ptr, int offset);
+
+template<class P>
+int __builtin_cheerp_downcast_current(const P* ptr);
+
+template<class P>
+[[noreturn]]
+void __builtin_cheerp_throw(const P* ptr);
+
 }
 #endif /* __CHEERPINTRIN_H */
