@@ -968,6 +968,12 @@ void TokenListOptimizer::createBrIfsFromIfs()
 		if ((End2->getMatch()->getKind() & (Token::TK_Block | Token::TK_IfNot | Token::TK_If)) == 0)
 			return;
 
+		for_each_kind<Token::TK_Branch|Token::TK_BrIf|Token::TK_BrIfNot>(T->getIter(), End2->getIter(), [&](Token* Branch)
+		{
+			if (Branch->getMatch() == End)
+				Branch->setMatch(End2);
+		});
+
 		bool IsIfNot = T->getKind() == Token::TK_IfNot;
 		Token* BrIf = IsIfNot
 			? Token::createBrIf(T->getBB(), End2)
