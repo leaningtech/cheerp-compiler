@@ -654,8 +654,7 @@ class TokenListOptimizer {
 public:
 	TokenListOptimizer(TokenList& Tokens, const Registerize& R, const PointerAnalyzer& PA,
 		CFGStackifier::Mode Mode)
-		: Tokens(Tokens), R(R), PA(PA), Mode(Mode)
-		, ItPt(Tokens.end()), RemovedItPt(false) {}
+		: Tokens(Tokens), R(R), PA(PA), Mode(Mode) {}
 	void runAll();
 	void removeRedundantBranches(const bool removeAlsoBlockAndEnd = false);
 	void removeEmptyBasicBlocks();
@@ -681,7 +680,12 @@ private:
 	template<uint32_t K, typename F>
 	void for_each_kind(TokenList::iterator begin, TokenList::iterator end, F f)
 	{
-		ItPt = begin;
+		uint32_t depth = ItPts.size();
+		ItPts.push_back(begin);
+		RemovedItPts.push_back(false);
+
+		TokenList::iterator& ItPt = ItPts[depth];
+		int& RemovedItPt = RemovedItPts[depth];
 		while(ItPt != end)
 		{
 			if ((ItPt->getKind() & K) == 0)
@@ -699,19 +703,25 @@ private:
 				ItPt++;
 			}
 		}
+
+		ItPts.pop_back();
+		RemovedItPts.pop_back();
 	}
 	// Global state used to track if the closure removed the current iteration
 	// element
-	TokenList::iterator ItPt;
-	bool RemovedItPt;
+	std::deque<TokenList::iterator> ItPts;
+	std::deque<int> RemovedItPts;
 	// Helper function for removing Tokens from the list without invalidating
 	// the iteration during `for_each_kind`
 	void erase(Token* ToRemove)
 	{
-		if (ToRemove->getIter() == ItPt)
+		for (uint32_t i=0; i<ItPts.size(); i++)
 		{
-			RemovedItPt = true;
-			ItPt++;
+			if (ToRemove->getIter() == ItPts[i])
+			{
+				RemovedItPts[i] = true;
+				ItPts[i]++;
+			}
 		}
 		Tokens.erase(ToRemove);
 	}
