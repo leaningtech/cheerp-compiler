@@ -221,6 +221,17 @@ void TypeOptimizer::gatherAllTypesInfo(const Module& M)
 			}
 		}
 	}
+
+	//Special functions calls can always be forged from genericjs in I64Lowering, so we should assume they can be called from outside
+	if (const llvm::Function* Func = M.getFunction("__modti3"))
+		onlyCalledByWasmFuncs.erase(Func);
+	if (const llvm::Function* Func = M.getFunction("__umodti3"))
+		onlyCalledByWasmFuncs.erase(Func);
+	if (const llvm::Function* Func = M.getFunction("__divti3"))
+		onlyCalledByWasmFuncs.erase(Func);
+	if (const llvm::Function* Func = M.getFunction("__udivti3"))
+		onlyCalledByWasmFuncs.erase(Func);
+
 	// Ugly, we need to iterate over constant GEPs, but they are per-context and not per-module
 	SmallVector<ConstantExpr*, 4> ConstantGEPs;
 	ConstantExpr::getAllFromOpcode(ConstantGEPs, M.getContext(), Instruction::GetElementPtr);
