@@ -390,11 +390,36 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 		std::vector<std::pair<uint32_t, uint32_t>> membersMapping;
 		if (st->hasAsmJS())
 		{
+			const int originalAllocSize = DL->getTypeAllocSize(st);
+
 			for(uint32_t i=0;i<st->getNumElements();i++)
 			{
 				Type* elTy = st->getElementType(i);
 				newTypes.push_back(rewriteType(elTy));
 			}
+
+			StructType* newDirectBase = st->getDirectBase() ? dyn_cast<StructType>(rewriteType(st->getDirectBase()).mappedType) : NULL;
+
+			auto getReworkedAllocSize = [](StructType* newDirectBase, const StructType* st, SmallVector<Type*, 4> newTypes, const DataLayout* DL)
+			{
+				//setBody can only be called once, so we need a temporary structure to check the current size
+				StructType* newStructTemp=StructType::create(st->getContext());
+				newStructTemp->setBody(newTypes, st->isPacked(), newDirectBase, st->hasByteLayout(), st->hasAsmJS());
+				return DL->getTypeAllocSize(newStructTemp);
+			};
+
+			const int reworkedAllocSize = getReworkedAllocSize(newDirectBase, st, newTypes, DL);
+
+			if (originalAllocSize != reworkedAllocSize)
+				newTypes.push_back(ArrayType::get(Type::getInt8Ty(st->getContext()), originalAllocSize - reworkedAllocSize));
+
+			newStruct->setBody(newTypes, st->isPacked(), newDirectBase, st->hasByteLayout(), st->hasAsmJS());
+
+			const int paddedAllocSize = DL->getTypeAllocSize(newStruct);
+
+			assert(paddedAllocSize == originalAllocSize);
+
+			return CacheAndReturn(newStruct, newStructKind);
 		}
 		else if(st->getNumElements() > 1)
 		{
