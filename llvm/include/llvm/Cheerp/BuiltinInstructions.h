@@ -327,7 +327,7 @@ WASM_INTRINSIC_LIST_BUILTIN(WASM_INTRINSIC)
 
 inline bool isAlwaysExactNatively(const TYPED_BUILTIN& b)
 {
-	if (b == CLZ_32)
+	if (b == CLZ_32 || b == CTZ_32)
 		return true;
 
 	//Other builtins that returns the same bit-to-bit result as the libc implementation could return true
