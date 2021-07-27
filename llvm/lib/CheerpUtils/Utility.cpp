@@ -1117,7 +1117,7 @@ bool mayContainSideEffects(const Value* V, const PointerAnalyzer& PA)
 
 bool replaceCallOfBitCastWithBitCastOfCall(CallInst& callInst, bool mayFail, bool performPtrIntConversions)
 {
-	auto addCast = [&performPtrIntConversions](Value* src, Type* oldType, Type* newType, Instruction* insertPoint) -> Instruction*
+	auto addCast = [&performPtrIntConversions](Value* src, Type* oldType, Type* newType, Instruction* insertPoint) -> Value*
 	{
 		if(oldType->isIntegerTy() && newType->isPointerTy()) {
 			assert(performPtrIntConversions);
@@ -1128,7 +1128,10 @@ bool replaceCallOfBitCastWithBitCastOfCall(CallInst& callInst, bool mayFail, boo
 		} else if(oldType->isPointerTy() && newType->isPointerTy()) {
 			return new BitCastInst(src, newType, "", insertPoint);
 		} else if (oldType->isVoidTy()) {
-			return cast<Instruction>(src);
+			// NOTE: This case is only ever encountered for return values, and in that case oldType is the new one
+			//       If we get here it means that we have replaced a bitcast from a void function to non-void,
+			//       generate an undefined values
+			return UndefValue::get(newType);
 		} else {
 			llvm_unreachable("Unexpected cast required");
 		}
@@ -1169,7 +1172,7 @@ bool replaceCallOfBitCastWithBitCastOfCall(CallInst& callInst, bool mayFail, boo
 		Type* nextTy = FTy->getParamType(i);
 		if (originalTy != nextTy)
 		{
-			Instruction* cast = addCast(callInst.getArgOperand(i), originalTy, nextTy, &callInst);
+			Value* cast = addCast(callInst.getArgOperand(i), originalTy, nextTy, &callInst);
 			callInst.setArgOperand(i, cast);
 		}
 	}
@@ -1179,7 +1182,7 @@ bool replaceCallOfBitCastWithBitCastOfCall(CallInst& callInst, bool mayFail, boo
 
 	if (oldReturnType != newReturnType) {
 		callInst.mutateType(newReturnType);
-		Instruction* n = addCast(&callInst, newReturnType, oldReturnType, callInst.getNextNode());
+		Value* n = addCast(&callInst, newReturnType, oldReturnType, callInst.getNextNode());
 		if (n != &callInst)
 		{
 			// Appease 'replaceAllUsesWith'
@@ -1187,7 +1190,8 @@ bool replaceCallOfBitCastWithBitCastOfCall(CallInst& callInst, bool mayFail, boo
 			callInst.replaceAllUsesWith(n);
 			callInst.mutateType(newReturnType);
 			// 'replaceAllUsesWith' also changes the cast, restore it
-			n->setOperand(0, &callInst);
+			if(isa<Instruction>(n))
+				cast<Instruction>(n)->setOperand(0, &callInst);
 		}
 	}
 	// Parameters and returns are fixed, now fix the types and the called functions
