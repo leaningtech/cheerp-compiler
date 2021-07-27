@@ -57,6 +57,9 @@ void LinearMemoryHelper::compileConstantAsBytes(const Constant* c, bool asmjs, B
 			currentOffset = elementOffset + elementSize;
 			compileConstantAsBytes(cast<Constant>(c->getOperand(i)), asmjs, listener);
 		}
+		int64_t structSize = targetData.getTypeAllocSize(ST);
+		for (int64_t p = currentOffset; p < structSize; ++p)
+			listener->addByte(0);
 	}
 	else if(const ConstantFP* f=dyn_cast<ConstantFP>(c))
 	{
