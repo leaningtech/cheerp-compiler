@@ -593,7 +593,7 @@ private:
   bool AppendBitField(const FieldDecl *Field, uint64_t FieldOffset,
                       llvm::ConstantInt *InitExpr, bool AllowOverwrite = false);
 
-  bool Build(InitListExpr *ILE, bool AllowOverwrite);
+  bool Build(InitListExpr *ILE, const RecordDecl *RD, bool AllowOverwrite);
   bool Build(const APValue &Val, const RecordDecl *RD, bool IsPrimaryBase,
              const CXXRecordDecl *VTableClass, CharUnits BaseOffset);
   llvm::Constant *Finalize(const RecordDecl* RD);
@@ -690,8 +690,7 @@ static bool EmitDesignatedInitUpdater(ConstantEmitter &Emitter,
   return true;
 }
 
-bool ConstStructBuilder::Build(InitListExpr *ILE, bool AllowOverwrite) {
-  RecordDecl *RD = ILE->getType()->castAs<RecordType>()->getDecl();
+bool ConstStructBuilder::Build(InitListExpr *ILE, const RecordDecl *RD, bool AllowOverwrite) {
   const ASTRecordLayout &Layout = CGM.getContext().getASTRecordLayout(RD);
   const CGRecordLayout &cgLayout = CGM.getTypes().getCGRecordLayout(RD);
 
@@ -710,7 +709,7 @@ bool ConstStructBuilder::Build(InitListExpr *ILE, bool AllowOverwrite) {
 
     // If this is a union, skip all the fields that aren't being initialized.
     if (RD->isUnion() &&
-        !declaresSameEntity(ILE->getInitializedFieldInUnion(), Field))
+        (ILE == nullptr || !declaresSameEntity(ILE->getInitializedFieldInUnion(), Field)))
       continue;
 
     // Don't emit anonymous bitfields or zero-sized fields.
@@ -718,20 +717,26 @@ bool ConstStructBuilder::Build(InitListExpr *ILE, bool AllowOverwrite) {
       continue;
 
     if (cgLayout.getLLVMFieldNo(Field) == 0xffffffff) {
-      // TODO: Deal with direct base init without ILE
-      if (ElementNo >= ILE->getNumInits())
-        return false;
-      InitListExpr* directBaseInit = dyn_cast<InitListExpr>(ILE->getInit(ElementNo++));
-      if (!directBaseInit)
-        return false;
-      Build(directBaseInit, AllowOverwrite);
+      const RecordDecl* subRD = Field->getType()->castAs<RecordType>()->getDecl();
+      if (ILE != nullptr && ElementNo < ILE->getNumInits()) {
+        Expr* curExpr = ILE->getInit(ElementNo++);
+        if (InitListExpr* subILE = dyn_cast<InitListExpr>(curExpr)) {
+          Build(subILE, subRD, AllowOverwrite);
+          continue;
+        } else {
+          assert(isa<ImplicitValueInitExpr>(curExpr));
+          // Proceed with zero initialization below
+        }
+      }
+      // A null ILE represent zero initialization
+      Build(nullptr, subRD, AllowOverwrite);
       continue;
     }
 
     // Get the initializer.  A struct can include fields without initializers,
     // we just use explicit null values for them.
     Expr *Init = nullptr;
-    if (ElementNo < ILE->getNumInits())
+    if (ILE != nullptr && ElementNo < ILE->getNumInits())
       Init = ILE->getInit(ElementNo++);
     if (Init && isa<NoInitExpr>(Init))
       continue;
@@ -914,10 +919,10 @@ llvm::Constant *ConstStructBuilder::BuildStruct(ConstantEmitter &Emitter,
   ConstantAggregateBuilder Const(Emitter.CGM);
   ConstStructBuilder Builder(Emitter, Const, CharUnits::Zero());
 
-  if (!Builder.Build(ILE, /*AllowOverwrite*/false))
+  const RecordDecl *RD = ILE->getType()->castAs<RecordType>()->getDecl();
+  if (!Builder.Build(ILE, RD, /*AllowOverwrite*/false))
     return nullptr;
 
-  const RecordDecl *RD = ILE->getType()->castAs<RecordType>()->getDecl();
   return Builder.Finalize(RD);
 }
 
@@ -938,7 +943,7 @@ bool ConstStructBuilder::UpdateStruct(ConstantEmitter &Emitter,
                                       ConstantAggregateBuilder &Const,
                                       CharUnits Offset, InitListExpr *Updater) {
   return ConstStructBuilder(Emitter, Const, Offset)
-      .Build(Updater, /*AllowOverwrite*/ true);
+      .Build(Updater, Updater->getType()->castAs<RecordType>()->getDecl(), /*AllowOverwrite*/ true);
 }
 
 //===----------------------------------------------------------------------===//
