@@ -950,6 +950,23 @@ bool ConstStructBuilder::UpdateStruct(ConstantEmitter &Emitter,
 //                             ConstExprEmitter
 //===----------------------------------------------------------------------===//
 
+static void applyAsmJSAttributeFromContext(CodeGenModule &CGM, CodeGenFunction *CGF, const Expr *E, llvm::GlobalVariable* GV)
+{
+  // CHEERP: if the current global declaration has the asmjs attribute,
+  // all the additional globals produced should be in the asmjs section too
+  if (CGF && CGF->CurFn) {
+    if (CGF->CurFn->getSection() == StringRef("asmjs"))
+      GV->setSection("asmjs");
+  } else if (CGM.getInitializedGlobalDecl()->getDecl()) {
+    if (CGM.getInitializedGlobalDecl()->getDecl()->hasAttr<AsmJSAttr>())
+      GV->setSection("asmjs");
+  } else {
+    llvm::errs() << "This string literal does not come from a global nor a function: ";
+    E->dump();
+    llvm::report_fatal_error("please report a bug");
+  }
+}
+
 static ConstantAddress tryEmitGlobalCompoundLiteral(CodeGenModule &CGM,
                                                     CodeGenFunction *CGF,
                                               const CompoundLiteralExpr *E) {
@@ -978,6 +995,7 @@ static ConstantAddress tryEmitGlobalCompoundLiteral(CodeGenModule &CGM,
   emitter.finalize(GV);
   GV->setAlignment(Align.getAsAlign());
   CGM.setAddrOfConstantCompoundLiteral(E, GV);
+  applyAsmJSAttributeFromContext(CGM, CGF, E, GV);
   return ConstantAddress(GV, GV->getValueType(), Align);
 }
 
@@ -2180,19 +2198,7 @@ ConstantLValueEmitter::VisitStringLiteral(const StringLiteral *E) {
   if (CGM.getTarget().isByteAddressable())
     return V;
   llvm::GlobalVariable* GV = llvm::cast<llvm::GlobalVariable>(V.getPointer());
-  // CHEERP: if the current global declaration has the asmjs attribute,
-  // all the additional globals produced should be in the asmjs section too
-  if (Emitter.CGF && Emitter.CGF->CurFn) {
-    if (Emitter.CGF->CurFn->getSection() == StringRef("asmjs"))
-      GV->setSection("asmjs");
-  } else if (CGM.getInitializedGlobalDecl()->getDecl()) {
-    if (CGM.getInitializedGlobalDecl()->getDecl()->hasAttr<AsmJSAttr>())
-      GV->setSection("asmjs");
-  } else {
-    llvm::errs() << "This string literal does not come from a global nor a function: ";
-    E->dump();
-    llvm::report_fatal_error("please report a bug");
-  }
+  applyAsmJSAttributeFromContext(CGM, Emitter.CGF, E, GV);
   return V;
 }
 
