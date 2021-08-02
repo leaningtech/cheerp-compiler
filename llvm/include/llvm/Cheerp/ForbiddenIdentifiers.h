@@ -26,7 +26,7 @@ inline bool isForbiddenJSIdentifier(const llvm::StringRef& identifier)
 		"Infinity",
 		"NaN",
 		"abstract",
-		"arguments"
+		"arguments",
 		"await",
 		"boolean",
 		"break",
