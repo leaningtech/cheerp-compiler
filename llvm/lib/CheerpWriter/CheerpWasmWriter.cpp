@@ -164,6 +164,39 @@ std::string string_to_hex(StringRef input)
 	return output;
 }
 
+enum class BranchHint
+{
+	Likely,
+	Unlikely,
+	Neutral,
+};
+
+static BranchHint shouldBranchBeHinted(const llvm::BranchInst* bi, const bool IfNot)
+{
+	uint64_t weight_false = 0;
+	uint64_t weight_true = 0;
+	if (bi->extractProfMetadata(weight_true, weight_false))
+	{
+		if (IfNot)
+			std::swap(weight_false, weight_true);
+
+		const uint64_t total = weight_true + weight_false;
+		if (total == 0)
+			return BranchHint::Neutral;
+
+		auto isConvenientToHint = [](uint64_t part, uint64_t total) -> bool {
+			return (part*1.0 / total) > 0.8;
+		};
+
+		if (isConvenientToHint(weight_true, total))
+			return BranchHint::Likely;
+
+		if (isConvenientToHint(weight_false, total))
+			return BranchHint::Unlikely;
+	}
+	return BranchHint::Neutral;
+}
+
 Section::Section(uint32_t sectionId, const char* sectionName, CheerpWasmWriter* writer)
 	: hasName(sectionName), name(hasName ? (sectionName) : ""), sectionId(sectionId), writer(writer)
 {

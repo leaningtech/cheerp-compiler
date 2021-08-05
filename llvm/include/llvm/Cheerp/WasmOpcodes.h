@@ -179,4 +179,10 @@ enum class WasmU32U32Opcode {
 	I32_STORE16 = 0x3b,
 };
 
+enum class WasmInvalidOpcode {
+	BRANCH_LIKELY = 0x14,
+	BRANCH_UNLIKELY = 0x15,
+};
+
+
 #endif // _CHEERP_WASM_OPCODES_H
