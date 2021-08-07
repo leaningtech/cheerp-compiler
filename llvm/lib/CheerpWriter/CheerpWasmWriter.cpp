@@ -4255,12 +4255,13 @@ void CheerpWasmWriter::compileElementSection()
 
 void CheerpWasmWriter::compileCodeSection()
 {
-	Section section(0x0a, "Code", this);
+	Section codeSection(0x0a, "Code", this);
+	Section branchHintsSection(0x0, "brachHints", this);
 
 	// Encode the number of methods in the code section.
 	uint32_t count = linearHelper.functions().size();
 	count = std::min(count, COMPILE_METHOD_LIMIT);
-	encodeULEB128(count, section);
+	encodeULEB128(count, codeSection);
 #if WASM_DUMP_METHODS
 	llvm::errs() << "method count: " << count << '\n';
 #endif
@@ -4282,14 +4283,15 @@ void CheerpWasmWriter::compileCodeSection()
 		llvm::errs() << "method length: " << method.tell() << '\n';
 		llvm::errs() << "method: " << string_to_hex(method.str()) << '\n';
 #endif
-		encodeULEB128(method.tell(), section);
-		section << method.str();
+		encodeULEB128(method.tell(), codeSection);
+		codeSection << method.str();
 
 		if (++i == COMPILE_METHOD_LIMIT)
 			break; // TODO
 	}
 
-	section.encode();
+	branchHintsSection.discard();
+	codeSection.encode();
 }
 
 void CheerpWasmWriter::encodeDataSectionChunk(WasmBuffer& data, uint32_t address, StringRef buf)
