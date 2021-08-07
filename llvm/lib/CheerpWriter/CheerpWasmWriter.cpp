@@ -1086,6 +1086,21 @@ void CheerpWasmWriter::encodeInst(WasmU32U32Opcode opcode, uint32_t i1, uint32_t
 	encodeULEB128(i2, code);
 }
 
+void CheerpWasmWriter::encodeInst(WasmInvalidOpcode opcode, WasmBuffer& code)
+{
+	code << static_cast<char>(opcode);
+}
+
+void CheerpWasmWriter::encodeBranchHint(const llvm::BranchInst* BI, const bool IfNot, WasmBuffer& code)
+{
+	auto branchHint = shouldBranchBeHinted(BI, IfNot);
+
+	if (branchHint == BranchHint::Likely)
+		encodeInst(WasmInvalidOpcode::BRANCH_LIKELY, code);
+	else if (branchHint == BranchHint::Unlikely)
+		encodeInst(WasmInvalidOpcode::BRANCH_UNLIKELY, code);
+}
+
 void CheerpWasmWriter::encodePredicate(const llvm::Type* ty, const llvm::CmpInst::Predicate predicate, WasmBuffer& code)
 {
 	assert(ty->isIntegerTy() || ty->isPointerTy());
@@ -3439,6 +3454,7 @@ const BasicBlock* CheerpWasmWriter::compileTokens(WasmBuffer& code,
 				compileCondition(code, bi->getCondition(), IfNot);
 				const int Depth = getDepth(T.getMatch());
 				teeLocals.clearTopmostCandidates(code, Depth+1);
+				encodeBranchHint(bi, IfNot, code);
 				encodeInst(WasmU32Opcode::BR_IF, Depth, code);
 				break;
 			}
@@ -3451,6 +3467,7 @@ const BasicBlock* CheerpWasmWriter::compileTokens(WasmBuffer& code,
 				assert(bi->isConditional());
 				compileCondition(code, bi->getCondition(), IfNot);
 				teeLocals.addIndentation(code);
+				encodeBranchHint(bi, IfNot, code);
 				encodeInst(WasmU32Opcode::IF, getResultKind(T), code);
 				ScopeStack.push_back(&T);
 				break;
