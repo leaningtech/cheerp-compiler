@@ -165,29 +165,41 @@ std::string string_to_hex(StringRef input)
 }
 
 Section::Section(uint32_t sectionId, const char* sectionName, CheerpWasmWriter* writer)
-	: writer(writer)
+	: hasName(sectionName), name(hasName ? (sectionName) : ""), sectionId(sectionId), writer(writer)
 {
-	encodeULEB128(sectionId, writer->stream);
-
 	// Custom sections have a section name.
 	if (!sectionId) {
 		encodeULEB128(strlen(sectionName), *this);
 		(*this) << sectionName;
 	}
 }
-Section::~Section()
+void Section::encode()
 {
 #if WASM_DUMP_SECTIONS
 	uint64_t start = writer->stream.tell();
-	fprintf(stderr, "%10s id=0x%x start=0x%08lx end=0x%08lx size=0x%08lx\n",
-			sectionName, sectionId, start, start + tell(), tell());
+	if (hasName)
+		llvm::errs() << name << " ";
+	else
+		llvm::errs() << "unnamed section ";
+	llvm::errs() << "id=" << sectionId << " ";
+	llvm::errs() << "start=" << start << " ";
+	llvm::errs() << "end=" << start + tell() << " ";
+	llvm::errs() << "size=" << tell() << "\n";
 #if WASM_DUMP_SECTION_DATA
 	llvm::errs() << "section: " << string_to_hex(str()) << '\n';
 #endif
 #endif
+	encodeULEB128(sectionId, writer->stream);
 
 	encodeULEB128(tell(), writer->stream);
 	writer->stream << str();
+
+	hasBeenEncoded = true;
+}
+
+Section::~Section()
+{
+	assert(hasBeenEncoded);
 }
 
 enum ConditionRenderMode {
@@ -3670,6 +3682,8 @@ void CheerpWasmWriter::compileTypeSection()
 		compileMethodParams(section, fTy);
 		compileMethodResult(section, fTy->getReturnType());
 	}
+
+	section.encode();
 }
 
 void CheerpWasmWriter::compileImport(WasmBuffer& code, StringRef funcName, FunctionType* fTy)
@@ -3749,6 +3763,8 @@ void CheerpWasmWriter::compileImportSection()
 		compileImport(section, namegen.getBuiltinName(NameGenerator::TAN), f64_f64_1);
 	if(globalDeps.needsBuiltin(BuiltinInstr::BUILTIN::GROW_MEM))
 		compileImport(section, namegen.getBuiltinName(NameGenerator::GROW_MEM), i32_i32_1);
+
+	section.encode();
 }
 
 void CheerpWasmWriter::compileFunctionSection()
@@ -3776,6 +3792,8 @@ void CheerpWasmWriter::compileFunctionSection()
 		if (++i >= COMPILE_METHOD_LIMIT)
 			break; // TODO
 	}
+
+	section.encode();
 }
 
 
@@ -3811,6 +3829,8 @@ void CheerpWasmWriter::compileTableSection()
 		encodeULEB128(count, section);
 		encodeULEB128(count, section);
 	}
+
+	section.encode();
 }
 
 CheerpWasmWriter::GLOBAL_CONSTANT_ENCODING CheerpWasmWriter::shouldEncodeConstantAsGlobal(const Constant* C, uint32_t useCount, uint32_t getGlobalCost)
@@ -3885,6 +3905,8 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 		// Encode minimum and maximum memory parameters.
 		encodeULEB128(minMemory, section);
 		encodeULEB128(maxMemory, section);
+
+		section.encode();
 	}
 
 	// Temporary map for the globalized constants. We update the global one at the end, to avoid
@@ -4044,6 +4066,8 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 			compileConstant(section, C, /*forGlobalInit*/true);
 			encodeULEB128(0x0b, section);
 		}
+
+		section.encode();
 	}
 	globalizedConstants = std::move(globalizedConstantsTmp);
 }
@@ -4105,6 +4129,8 @@ void CheerpWasmWriter::compileExportSection()
 		encodeULEB128(0x00, section);
 		encodeULEB128(linearHelper.getFunctionIds().find(F)->second, section);
 	}
+
+	section.encode();
 }
 
 void CheerpWasmWriter::compileStartSection()
@@ -4128,6 +4154,8 @@ void CheerpWasmWriter::compileStartSection()
 	Section section(0x08, "Start", this);
 
 	encodeULEB128(functionId, section);
+
+	section.encode();
 }
 
 void CheerpWasmWriter::compileElementSection()
@@ -4163,6 +4191,8 @@ void CheerpWasmWriter::compileElementSection()
 	}
 	encodeULEB128(count, section);
 	section << elem.str();
+
+	section.encode();
 }
 
 void CheerpWasmWriter::compileCodeSection()
@@ -4200,6 +4230,8 @@ void CheerpWasmWriter::compileCodeSection()
 		if (++i == COMPILE_METHOD_LIMIT)
 			break; // TODO
 	}
+
+	section.encode();
 }
 
 void CheerpWasmWriter::encodeDataSectionChunk(WasmBuffer& data, uint32_t address, StringRef buf)
@@ -4317,6 +4349,8 @@ void CheerpWasmWriter::compileDataSection()
 
 	encodeULEB128(count, section);
 	section << data.str();
+
+	section.encode();
 }
 
 void CheerpWasmWriter::compileNameSection()
@@ -4342,6 +4376,8 @@ void CheerpWasmWriter::compileNameSection()
 		encodeULEB128(data.tell(), section);
 		section << data.str();
 	}
+
+	section.encode();
 }
 
 void CheerpWasmWriter::compileModule()
