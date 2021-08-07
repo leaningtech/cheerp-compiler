@@ -53,7 +53,12 @@ public:
 
 class Section : public Chunk<256> {
 private:
-	bool hasBeenEncoded{false};
+	enum class State {
+		GENERATING,
+		ENCODED,
+		DISCARDED,
+	};
+	State state{State::GENERATING};
 	const bool hasName;
 	const std::string name;
 	const uint32_t sectionId;
@@ -61,6 +66,7 @@ private:
 public:
 	Section(uint32_t sectionId, const char* sectionName, CheerpWasmWriter* writer);
 	void encode();
+	void discard();
 	~Section();
 };
 
