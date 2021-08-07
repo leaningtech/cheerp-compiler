@@ -53,10 +53,14 @@ public:
 
 class Section : public Chunk<256> {
 private:
+	bool hasBeenEncoded{false};
+	const bool hasName;
+	const std::string name;
+	const uint32_t sectionId;
 	CheerpWasmWriter* writer;
-
 public:
 	Section(uint32_t sectionId, const char* sectionName, CheerpWasmWriter* writer);
+	void encode();
 	~Section();
 };
 
