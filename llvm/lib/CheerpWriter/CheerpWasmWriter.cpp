@@ -175,6 +175,8 @@ Section::Section(uint32_t sectionId, const char* sectionName, CheerpWasmWriter* 
 }
 void Section::encode()
 {
+	assert(state == State::GENERATING);
+
 #if WASM_DUMP_SECTIONS
 	uint64_t start = writer->stream.tell();
 	if (hasName)
@@ -194,12 +196,18 @@ void Section::encode()
 	encodeULEB128(tell(), writer->stream);
 	writer->stream << str();
 
-	hasBeenEncoded = true;
+	state = State::ENCODED;
+}
+
+void Section::discard()
+{
+	assert(state == State::GENERATING);
+	state = State::DISCARDED;
 }
 
 Section::~Section()
 {
-	assert(hasBeenEncoded);
+	assert(state == State::ENCODED || state == State::DISCARDED);
 }
 
 enum ConditionRenderMode {
