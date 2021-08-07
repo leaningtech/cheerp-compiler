@@ -734,6 +734,7 @@ static cheerp::CheerpWasmOpt parseWasmOpt(StringRef opt)
     .Case("exportedtable", cheerp::EXPORTEDTABLE)
     .Case("externref", cheerp::ANYREF)
     .Case("returncalls", cheerp::RETURNCALLS)
+    .Case("branchhinting", cheerp::BRANCHHINTS)
     .Default(cheerp::INVALID);
 }
 
@@ -942,6 +943,9 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
       case RETURNCALLS:
         CmdArgs.push_back("-cheerp-wasm-return-calls");
         break;
+      case BRANCHHINTS:
+	CmdArgs.push_back("-cheerp-wasm-branch-hinting");
+	break;
       default:
         llvm_unreachable("invalid wasm option");
         break;
