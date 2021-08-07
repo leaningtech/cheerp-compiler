@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2017 Leaning Technologies
+// Copyright 2017-2021 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -49,6 +49,7 @@ extern llvm::cl::opt<std::string> StrictLinking;
 extern llvm::cl::opt<bool> WasmSharedMemory;
 extern llvm::cl::opt<bool> WasmNoGrowMemory;
 extern llvm::cl::opt<bool> WasmExportedTable;
+extern llvm::cl::opt<bool> WasmBranchHints;
 extern llvm::cl::opt<bool> WasmAnyref;
 extern llvm::cl::opt<bool> WasmReturnCalls;
 extern llvm::cl::opt<bool> UseBigInts;

@@ -72,6 +72,8 @@ llvm::cl::opt<bool> WasmNoGrowMemory("cheerp-wasm-no-grow-memory", llvm::cl::des
 
 llvm::cl::opt<bool> WasmExportedTable("cheerp-wasm-exported-table", llvm::cl::desc("Export the function table from the wasm module as 'tbl'"));
 
+llvm::cl::opt<bool> WasmBranchHints("cheerp-wasm-branch-hinting", llvm::cl::desc("Enable generating branch hinting"));
+
 llvm::cl::opt<bool> WasmAnyref("cheerp-wasm-externref", llvm::cl::desc("Enable support for the externref value type in wasm"));
 
 llvm::cl::opt<bool> WasmReturnCalls("cheerp-wasm-return-calls", llvm::cl::desc("Enable return-call and return-call-indirect opcodes"));
