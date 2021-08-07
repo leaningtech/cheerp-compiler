@@ -4322,7 +4322,11 @@ void CheerpWasmWriter::compileCodeSection()
 			break; // TODO
 	}
 
-	branchHintsSection.discard();
+	if (WasmBranchHints)
+		branchHintsSection.encode();
+	else
+		branchHintsSection.discard();
+
 	codeSection.encode();
 }
 
