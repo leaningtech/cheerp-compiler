@@ -102,8 +102,8 @@ void StructMemFuncLowering::recursiveCopy(IRBuilder<>* IRB, Value* baseDst, Valu
 			elementSrc = IRB->CreateGEP(baseSrc, indexes);
 			elementDst = IRB->CreateGEP(baseDst, indexes);
 		}
-		Value* element = IRB->CreateAlignedLoad(elementSrc, baseAlign);
-		IRB->CreateAlignedStore(element, elementDst, baseAlign);
+		Value* element = IRB->CreateAlignedLoad(elementSrc, MaybeAlign(baseAlign));
+		IRB->CreateAlignedStore(element, elementDst, MaybeAlign(baseAlign));
 	}
 }
 
@@ -174,7 +174,7 @@ void StructMemFuncLowering::recursiveReset(IRBuilder<>* IRB, Value* baseDst, Val
 			computedResetVal=IRB->CreateOr(computedResetVal, expandedResetVal);
 		}
 		Value* elementDst = IRB->CreateGEP(baseDst, indexes);
-		IRB->CreateAlignedStore(computedResetVal, elementDst, baseAlign);
+		IRB->CreateAlignedStore(computedResetVal, elementDst, MaybeAlign(baseAlign));
 	}
 	else if(curType->isFloatTy() || curType->isDoubleTy())
 	{
@@ -194,7 +194,7 @@ void StructMemFuncLowering::recursiveReset(IRBuilder<>* IRB, Value* baseDst, Val
 		else
 			floatResetVal = ConstantFP::get(curType->getContext(), APFloat(APFloat::IEEEdouble(), floatConstant));
 		Value* elementDst = IRB->CreateGEP(baseDst, indexes);
-		IRB->CreateAlignedStore(floatResetVal, elementDst, baseAlign);
+		IRB->CreateAlignedStore(floatResetVal, elementDst, MaybeAlign(baseAlign));
 	}
 	else if(PointerType* PT=dyn_cast<PointerType>(curType))
 	{
@@ -202,7 +202,7 @@ void StructMemFuncLowering::recursiveReset(IRBuilder<>* IRB, Value* baseDst, Val
 		// TODO: Stop non constant in the frontend
 		assert(cast<ConstantInt>( resetVal )->getZExtValue() == 0);
 		Value* elementDst = IRB->CreateGEP(baseDst, indexes);
-		IRB->CreateAlignedStore(ConstantPointerNull::get(PT), elementDst, baseAlign);
+		IRB->CreateAlignedStore(ConstantPointerNull::get(PT), elementDst, MaybeAlign(baseAlign));
 	}
 	else
 	{
