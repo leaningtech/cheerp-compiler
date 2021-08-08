@@ -164,6 +164,15 @@ bool isNumStatementsLessThan(const llvm::BasicBlock* BB,
 		}
 		Count++;
 	}
+	else if (auto* I = llvm::dyn_cast<llvm::InvokeInst>(BB->getTerminator()))
+	{
+		if (I->getType()->isPointerTy()
+			&& PA.getPointerKind(I) == SPLIT_REGULAR)
+		{
+			Count++;
+		}
+		Count++;
+	}
 	return Count < N;
 }
 
