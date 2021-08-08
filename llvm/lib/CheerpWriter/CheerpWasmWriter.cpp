@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2017-2020 Leaning Technologies
+// Copyright 2017-2021 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -215,31 +215,31 @@ public:
 		labelLocal(labelLocal),
 		lastDepth0Block(nullptr)
 	{ }
-	void renderBlock(const BasicBlock* BB);
-	void renderLabelForSwitch(int labelId);
-	void renderSwitchOnLabel(IdShapeMap& idShapeMap);
-	void renderCaseOnLabel(int labelId);
-	void renderSwitchBlockBegin(const SwitchInst* switchInst, BlockBranchMap& branchesOut);
-	void renderCaseBlockBegin(const BasicBlock* caseBlock, int branchId);
-	void renderDefaultBlockBegin(bool empty = false);
-	void renderIfBlockBegin(const BasicBlock* condBlock, int branchId, bool first, int labelId = 0);
-	void renderIfBlockBegin(const BasicBlock* condBlock, const vector<int>& branchId, bool first, int labelId = 0);
-	void renderElseBlockBegin();
-	void renderIfBlockEnd(bool labelled = false);
-	void renderBlockEnd(bool empty = false);
-	void renderBlockPrologue(const BasicBlock* blockTo, const BasicBlock* blockFrom);
-	void renderWhileBlockBegin();
-	void renderWhileBlockBegin(int labelId);
-	void renderDoBlockBegin();
-	void renderDoBlockBegin(int labelId);
-	void renderDoBlockEnd();
-	void renderBlockBegin(int labelId);
-	void renderBreak();
-	void renderBreak(int labelId);
-	void renderContinue();
-	void renderContinue(int labelId);
-	void renderLabel(int labelId);
-	void renderIfOnLabel(int labelId, bool first);
+	void renderBlock(const BasicBlock* BB) override;
+	void renderLabelForSwitch(int labelId) override;
+	void renderSwitchOnLabel(IdShapeMap& idShapeMap) override;
+	void renderCaseOnLabel(int labelId) override;
+	void renderSwitchBlockBegin(const SwitchInst* switchInst, BlockBranchMap& branchesOut) override;
+	void renderCaseBlockBegin(const BasicBlock* caseBlock, int branchId) override;
+	void renderDefaultBlockBegin(bool empty = false) override;
+	void renderIfBlockBegin(const BasicBlock* condBlock, int branchId, bool first, int labelId = 0) override;
+	void renderIfBlockBegin(const BasicBlock* condBlock, const vector<int>& branchId, bool first, int labelId = 0) override;
+	void renderElseBlockBegin() override;
+	void renderIfBlockEnd(bool labelled = false) override;
+	void renderBlockEnd(bool empty = false) override;
+	void renderBlockPrologue(const BasicBlock* blockTo, const BasicBlock* blockFrom) override;
+	void renderWhileBlockBegin() override;
+	void renderWhileBlockBegin(int labelId) override;
+	void renderDoBlockBegin() override;
+	void renderDoBlockBegin(int labelId) override;
+	void renderDoBlockEnd() override;
+	void renderBlockBegin(int labelId) override;
+	void renderBreak() override;
+	void renderBreak(int labelId) override;
+	void renderContinue() override;
+	void renderContinue(int labelId) override;
+	void renderLabel(int labelId) override;
+	void renderIfOnLabel(int labelId, bool first) override;
 };
 
 void CheerpWasmRenderInterface::renderBlock(const BasicBlock* bb)
