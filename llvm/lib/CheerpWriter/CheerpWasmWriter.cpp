@@ -1088,6 +1088,7 @@ void CheerpWasmWriter::encodeInst(WasmU32U32Opcode opcode, uint32_t i1, uint32_t
 
 void CheerpWasmWriter::encodeInst(WasmInvalidOpcode opcode, WasmBuffer& code)
 {
+	nopLocations.push_back(code.tell());
 	code << static_cast<char>(opcode);
 }
 
