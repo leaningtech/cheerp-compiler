@@ -1390,6 +1390,10 @@ static llvm::FunctionCallee getAllocateExceptionFn(CodeGenModule &CGM, QualType 
 
   if (!CGM.getTarget().isByteAddressable()) {
     llvm::Type* Tys[1] = { CGM.getTypes().ConvertType(QTy)->getPointerTo() };
+    if(Tys[0]->getPointerElementType()->isPointerTy())
+    {
+	    Tys[0] = CGM.VoidPtrPtrTy;
+    }
     llvm::Function *F = CGM.getIntrinsic(llvm::Intrinsic::cheerp_allocate, Tys);
     return llvm::FunctionCallee(F);
   }
@@ -1422,7 +1426,10 @@ void ItaniumCXXABI::emitThrow(CodeGenFunction &CGF, const CXXThrowExpr *E) {
       AllocExceptionFn, llvm::ConstantInt::get(SizeTy, TypeSize), "exception");
 
   CharUnits ExnAlign = CGF.getContext().getExnObjectAlignment();
-  CGF.EmitAnyExprToExn(E->getSubExpr(), Address(ExceptionPtr, ExnAlign));
+  if(!CGM.getTarget().isByteAddressable() && ThrowType->isPointerType())
+	CGF.EmitTypedPtrExprToExn(E->getSubExpr(), Address(ExceptionPtr, ExnAlign));
+  else
+	CGF.EmitAnyExprToExn(E->getSubExpr(), Address(ExceptionPtr, ExnAlign));
 
   // Now throw the exception.
   llvm::Value *TypeInfo = CGM.GetAddrOfRTTIDescriptor(ThrowType,
