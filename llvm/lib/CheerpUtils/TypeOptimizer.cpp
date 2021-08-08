@@ -802,6 +802,22 @@ std::pair<Constant*, uint8_t> TypeOptimizer::rewriteConstant(Constant* C, bool r
 	}
 	else if(C->getType() == newTypeInfo.mappedType)
 		return std::make_pair(C, 0);
+	else if(ConstantDataArray* CA=dyn_cast<ConstantDataArray>(C))
+	{
+		assert(newTypeInfo.mappedType->isArrayTy());
+		assert(CA->getElementType()->isIntegerTy(64));
+		SmallVector<uint32_t, 4> newElements;
+		newElements.resize(CA->getNumElements() * 2);
+		for(uint32_t i=0;i<CA->getNumElements();i++)
+		{
+			uint64_t el = CA->getElementAsInteger(i);
+			uint32_t elLow = el;
+			uint32_t elHigh = el>>32;
+			newElements[i*2] = elLow;
+			newElements[i*2+1] = elHigh;
+		}
+		return std::make_pair(ConstantDataArray::get(C->getContext(), newElements), 0);
+	}
 	else if(isa<ConstantAggregateZero>(C))
 		return std::make_pair(Constant::getNullValue(newTypeInfo.mappedType), 0);
 	else if(isa<ConstantPointerNull>(C))
