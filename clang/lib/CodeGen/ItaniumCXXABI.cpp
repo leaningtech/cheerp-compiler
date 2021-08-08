@@ -1597,7 +1597,7 @@ llvm::Value *ItaniumCXXABI::EmitDynamicCastCall(
     CGF.Builder.CreateBr(EndBB);
     // If the value is -1 the dynamic cast failed
     llvm::BasicBlock *FailedBB = CGF.createBasicBlock("cheerp_failed_downcast");
-    SI->addCase(llvm::ConstantInt::get(CGF.Int32Ty, -1<<31), FailedBB);
+    SI->addCase(llvm::ConstantInt::get(CGF.Int32Ty, (~0u)<<31), FailedBB);
     CGF.EmitBlock(FailedBB);
     llvm::Value* FailedDowncast = llvm::ConstantPointerNull::get(cast<llvm::PointerType>(DestLTy));
     CGF.Builder.CreateBr(EndBB);
