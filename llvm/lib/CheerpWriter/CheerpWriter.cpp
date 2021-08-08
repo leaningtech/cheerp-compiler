@@ -6116,6 +6116,12 @@ void CheerpWriter::compileHelpers()
 
 void CheerpWriter::compileImports()
 {
+	std::set<std::string> jsexportedSet;
+	for (auto jsex: jsExportedDecls)
+	{
+		jsexportedSet.insert(jsex.name);
+	}
+
 	for (const Function* imported: globalDeps.asmJSImports())
 	{
 		stream << getName(imported) << ':';
@@ -6132,6 +6138,10 @@ void CheerpWriter::compileImports()
 				stream << clientHelper.namespacedName;	//namespacedName is either empty or ends with '.'
 			}
 			stream << clientHelper.funcName;
+
+			//An import that's also jsexported has to have an added .w(=wrapper) to work
+			if (jsexportedSet.count(clientHelper.funcName))
+				stream << ".w";
 		}
 		else
 		{
@@ -6418,6 +6428,32 @@ void CheerpWriter::compileDeclareExports()
 				stream << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) <<";" << NewLine;
 			else
 				stream << "{};" << NewLine;
+		}
+
+		//Lambda to generate the list of paramethers like a0,a1,a2,a3,a4 etc
+		auto generateArgs = [this](const uint32_t numArgs) -> void {
+			for (uint32_t i=0; i<numArgs; i++)
+			{
+				if (i!=0)
+					this->stream << ",";
+				this->stream << "a" << i;
+			}
+		};
+
+		//Each jsexported function has a member .w that redirects to calling the jsexported function itself
+		//This is needed since the imports of a WebAssembly instance are non-assignable, so we need this wrapper
+		//to be able to re-assign (from DUMMY to the proper implementation)
+		//It generats something like name.w=function(a0,a1,a2){return name(a0,a1,a2)}
+		for (auto jsex: jsExportedDecls)
+		{
+			if (!jsex.isFunction())
+				continue;
+
+			stream << jsex.name << ".w=function(";
+			generateArgs(jsex.getNumArgs());
+			stream << "){" << (jsex.returnsSomething() ? "return " : "") << jsex.name << "(";
+			generateArgs(jsex.getNumArgs());
+			stream << ")};" << NewLine;
 		}
 	}
 

@@ -542,6 +542,20 @@ public:
 		{
 			return t;
 		}
+		bool isFunction() const
+		{
+			return F;
+		}
+		bool returnsSomething() const
+		{
+			assert(isFunction());
+			return !(F->getReturnType()->isVoidTy());
+		}
+		uint32_t getNumArgs() const
+		{
+			assert(isFunction());
+			return F->arg_size();
+		}
 	};
 	static std::deque<JSExportedNamedDecl> buildJsExportedNamedDecl(const llvm::Module& M);
 	static void prependRootToNames(std::deque<CheerpWriter::JSExportedNamedDecl> & exportedDecls);
