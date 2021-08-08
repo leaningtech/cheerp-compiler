@@ -305,7 +305,7 @@ private:
 
 	mutable std::vector<uint32_t> nopLocations;
 
-	void filterNop(llvm::SmallVectorImpl<char>& buffer) const;
+	void filterNop(llvm::SmallVectorImpl<char>& buffer, std::function<void(uint32_t, char)> filterCallback) const;
 public:
 	TeeLocals teeLocals;
 	std::vector<const llvm::Instruction*> deferred;
@@ -380,7 +380,7 @@ private:
 		const std::vector<std::pair<int, int>>& cases);
 	void compileCondition(WasmBuffer& code, const llvm::Value* cond, bool booleanInvert);
 	const llvm::BasicBlock* compileTokens(WasmBuffer& code, const TokenList& Tokens);
-	void compileMethod(WasmBuffer& code, const llvm::Function& F);
+	void compileMethod(WasmBuffer& code, const llvm::Function& F, uint32_t& lenLocals);
 	void compileImport(WasmBuffer& code, llvm::StringRef funcName, llvm::FunctionType* FTy);
 	void compileGlobal(const llvm::GlobalVariable& G);
 	// Returns true if it has handled local assignent internally
@@ -452,6 +452,7 @@ private:
 	std::unordered_map<const llvm::Constant*, std::pair<uint32_t, GLOBAL_CONSTANT_ENCODING>> globalizedConstants;
 	LinearMemoryHelper::GlobalUsageMap globalizedGlobalsIDs;
 	mutable InlineableCache inlineableCache;
+	uint32_t numberOfImportedFunctions{0};
 public:
 	llvm::raw_ostream& stream;
 	CheerpWasmWriter(llvm::Module& m, llvm::Pass& p, llvm::raw_ostream& s, const cheerp::PointerAnalyzer & PA,
