@@ -2673,6 +2673,8 @@ public:
 
   void EmitAnyExprToExn(const Expr *E, Address Addr);
 
+  void EmitTypedPtrExprToExn(const Expr *E, Address Addr);
+
   /// EmitExprAsInit - Emits the code necessary to initialize a
   /// location in memory with the given initializer.
   void EmitExprAsInit(const Expr *init, const ValueDecl *D, LValue lvalue,

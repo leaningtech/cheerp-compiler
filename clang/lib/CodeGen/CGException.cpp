@@ -417,6 +417,30 @@ void CodeGenFunction::EmitAnyExprToExn(const Expr *e, Address addr) {
   DeactivateCleanupBlock(cleanup,
                          cast<llvm::Instruction>(typedAddr.getPointer()));
 }
+void CodeGenFunction::EmitTypedPtrExprToExn(const Expr *e, Address addr) {
+  // Make sure the exception object is cleaned up if there's an
+  // exception during initialization.
+  pushFullExprCleanup<FreeException>(EHCleanup, addr.getPointer());
+  EHScopeStack::stable_iterator cleanup = EHStack.stable_begin();
+
+  llvm::Type *ty = ConvertTypeForMem(e->getType())->getPointerTo();
+  llvm::Type *storedTy = ty;
+  llvm::Value* scalar = EmitScalarExpr(e, /*Ignore*/ false);
+  if (storedTy->getPointerElementType()->isPointerTy()) {
+    storedTy = CGM.VoidPtrPtrTy;
+    scalar = Builder.CreateBitCast(scalar, storedTy->getPointerElementType());
+  }
+  Address typedAddr = Builder.CreateBitCast(addr, storedTy);
+
+  RValue RV = RValue::get(scalar);
+  LValue LV = MakeAddrLValue(typedAddr, e->getType());
+  EmitStoreThroughLValue(RV, LV);
+
+  // Deactivate the cleanup block.
+  DeactivateCleanupBlock(cleanup,
+                         cast<llvm::Instruction>(addr.getPointer()));
+}
+
 
 Address CodeGenFunction::getExceptionSlot() {
   if (!ExceptionSlot)
