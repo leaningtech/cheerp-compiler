@@ -903,7 +903,7 @@ uint32_t CheerpWasmWriter::findDepth(const Value* v) const
 	}
 }
 
-void CheerpWasmWriter::filterNop(SmallVectorImpl<char>& buf) const
+void CheerpWasmWriter::filterNop(SmallVectorImpl<char>& buf, std::function<void(uint32_t, char)> filterCallback) const
 {
 	assert(buf.back() == 0x0b);
 	nopLocations.push_back(buf.size());
@@ -915,8 +915,17 @@ void CheerpWasmWriter::filterNop(SmallVectorImpl<char>& buf) const
 	{
 		if (nopLocations[nopIndex] <= old)
 		{
-			while (buf[old] == 0x01)
+			//TODO: improve/justify the logic here
+			if (buf[old] == 0x01)
 			{
+				while (buf[old] == 0x01)
+				{
+					++old;
+				}
+			}
+			else if (buf[old] == (char)WasmInvalidOpcode::BRANCH_LIKELY || buf[old] == (char)WasmInvalidOpcode::BRANCH_UNLIKELY)
+			{
+				filterCallback(curr, buf[old]);
 				++old;
 			}
 			++nopIndex;
@@ -3562,8 +3571,10 @@ std::map<const llvm::BasicBlock*, const llvm::PHINode*> CheerpWasmWriter::select
 	return phiNodesHandledAsResult;
 }
 
-void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F)
+void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F, uint32_t& lenLocals)
 {
+	assert(code.tell() == 0);
+
 	assert(!F.empty());
 	currentFun = &F;
 
@@ -3633,6 +3644,8 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F)
 	}
 
 	compileMethodLocals(code, locals);
+
+	lenLocals = code.tell();
 
 	teeLocals.performInitialization(code);
 
@@ -3780,6 +3793,8 @@ void CheerpWasmWriter::compileImportSection()
 	}
 
 	uint32_t importedTotal = importedBuiltins + globalDeps.asmJSImports().size();
+
+	numberOfImportedFunctions = importedTotal;
 
 	if (importedTotal == 0 || !useWasmLoader)
 		return;
@@ -4257,12 +4272,12 @@ void CheerpWasmWriter::compileElementSection()
 void CheerpWasmWriter::compileCodeSection()
 {
 	Section codeSection(0x0a, "Code", this);
-	Section branchHintsSection(0x0, "brachHints", this);
+	Section branchHintsSection(0x0, "branchHints", this);
 
-	// Encode the number of methods in the code section.
 	uint32_t count = linearHelper.functions().size();
 	count = std::min(count, COMPILE_METHOD_LIMIT);
-	encodeULEB128(count, codeSection);
+	encodeULEB128(count, codeSection);		//Encode the number of Wasm functions
+	encodeULEB128(count, branchHintsSection);	//Encode the number of Wasm functions
 #if WASM_DUMP_METHODS
 	llvm::errs() << "method count: " << count << '\n';
 #endif
@@ -4275,10 +4290,26 @@ void CheerpWasmWriter::compileCodeSection()
 #if WASM_DUMP_METHODS
 		llvm::errs() << i << " method name: " << F->getName() << '\n';
 #endif
-		compileMethod(method, *F);
+		uint32_t lenLocals = 0;
+		compileMethod(method, *F, lenLocals);
 
-		filterNop(method.buf());
+		encodeULEB128(i+numberOfImportedFunctions, branchHintsSection);		//Encode the ID of the current function
+		encodeULEB128(0x0, branchHintsSection);					//Encode single 0 byte
+		std::vector<std::pair<uint32_t, bool>> branchHintsVec;
+
+		filterNop(method.buf(), [&branchHintsVec](uint32_t location, char byte)->void{
+			const bool dir = (byte == (char)WasmInvalidOpcode::BRANCH_LIKELY);
+			branchHintsVec.push_back({location, dir});
+		});
 		nopLocations.clear();
+
+		encodeULEB128(branchHintsVec.size(), branchHintsSection);		//Encode number of hints (possibly 0)
+		for (auto x : branchHintsVec)
+		{
+			encodeULEB128(x.second ? 0x01 : 0x00, branchHintsSection);	//Encode direction
+			encodeULEB128(x.first - lenLocals, branchHintsSection);		//Encode Instruction offset (in bytes)
+											//    from first instruction of the function
+		}
 
 #if WASM_DUMP_METHOD_DATA
 		llvm::errs() << "method length: " << method.tell() << '\n';
