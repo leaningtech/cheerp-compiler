@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2014 Leaning Technologies
+// Copyright 2014-2021 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -25,8 +25,8 @@ private:
 public:
 	static char ID;
 	explicit ExpandStructRegs() : FunctionPass(ID), DL(NULL) { }
-	bool runOnFunction(Function &F);
-	StringRef getPassName() const;
+	bool runOnFunction(Function &F) override;
+	StringRef getPassName() const override;
 };
 
 //===----------------------------------------------------------------------===//

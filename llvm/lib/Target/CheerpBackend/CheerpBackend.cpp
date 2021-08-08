@@ -53,12 +53,12 @@ namespace {
   private:
     raw_ostream &Out;
     static char ID;
-    void getAnalysisUsage(AnalysisUsage& AU) const;
+    void getAnalysisUsage(AnalysisUsage& AU) const override;
   public:
     explicit CheerpWritePass(raw_ostream &o) :
       ModulePass(ID), Out(o) { }
-    bool runOnModule(Module &M);
-    StringRef getPassName() const {
+    bool runOnModule(Module &M) override;
+    StringRef getPassName() const override {
 	return "CheerpWritePass";
     }
   };

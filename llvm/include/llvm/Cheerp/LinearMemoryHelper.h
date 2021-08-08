@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2017-2020 Leaning Technologies
+// Copyright 2017-2021 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -276,7 +276,7 @@ public:
 		LinearGepListener(const PointerAnalyzer& PA):PA(PA)
 		{
 		}
-		bool isInlineable(const llvm::Value* p);
+		bool isInlineable(const llvm::Value* p) override;
 	};
 	static int64_t compileGEPOperand(const llvm::Value* idxVal, uint32_t size, GepListener* listener, bool invert);
 	// Returns the base of the compiled expression

@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2014-2018 Leaning Technologies
+// Copyright 2014-2021 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -44,9 +44,9 @@ public:
 	static char ID;
 	explicit AllocaMerging() : AllocaMergingBase(ID) { }
 	bool runOnFunctionLegacy(llvm::Function &F);
-	bool runOnFunction(llvm::Function &F);
-	llvm::StringRef getPassName() const;
-	void getAnalysisUsage(llvm::AnalysisUsage & AU) const;
+	bool runOnFunction(llvm::Function &F) override;
+	llvm::StringRef getPassName() const override;
+	void getAnalysisUsage(llvm::AnalysisUsage & AU) const override;
 };
 
 class AllocaArraysMerging: public AllocaMergingBase
@@ -57,9 +57,9 @@ private:
 public:
 	static char ID;
 	explicit AllocaArraysMerging() : AllocaMergingBase(ID) { }
-	bool runOnFunction(llvm::Function &F);
-	llvm::StringRef getPassName() const;
-	void getAnalysisUsage(llvm::AnalysisUsage & AU) const;
+	bool runOnFunction(llvm::Function &F) override;
+	llvm::StringRef getPassName() const override;
+	void getAnalysisUsage(llvm::AnalysisUsage & AU) const override;
 };
 
 //===----------------------------------------------------------------------===//
@@ -83,9 +83,9 @@ private:
 public:
 	static char ID;
 	explicit AllocaStoresExtractor() : llvm::ModulePass(ID), DL(nullptr) { }
-	bool runOnModule(llvm::Module& M);
-	llvm::StringRef getPassName() const;
-	void getAnalysisUsage(llvm::AnalysisUsage & AU) const;
+	bool runOnModule(llvm::Module& M) override;
+	llvm::StringRef getPassName() const override;
+	void getAnalysisUsage(llvm::AnalysisUsage & AU) const override;
 	const OffsetToValueMap* getValuesForAlloca(const llvm::AllocaInst* AI) const;
 	// Removes the extracted stores, and clean up instructions which become dead afterwards
 	void unlinkStores();

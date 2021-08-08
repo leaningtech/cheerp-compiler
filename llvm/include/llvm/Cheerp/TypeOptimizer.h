@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2015 Leaning Technologies
+// Copyright 2015-2021 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -158,8 +158,8 @@ private:
 public:
 	static char ID;
 	explicit TypeOptimizer() : ModulePass(ID) { }
-	bool runOnModule(llvm::Module &M);
-	llvm::StringRef getPassName() const;
+	bool runOnModule(llvm::Module &M) override;
+	llvm::StringRef getPassName() const override;
 };
 
 //===----------------------------------------------------------------------===//
