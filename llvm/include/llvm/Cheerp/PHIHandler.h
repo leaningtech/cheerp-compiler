@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2020 Leaning Technologies
+// Copyright 2020-2021 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -148,10 +148,10 @@ public:
 	{
 	}
 	// Callbacks that have to be implemented by derived classes
-	virtual void handleRecursivePHIDependency(const llvm::Instruction* incoming) = 0;
-	virtual void handlePHI(const llvm::PHINode* phi, const llvm::Value* incoming, bool selfReferencing) = 0;
+	void handleRecursivePHIDependency(const llvm::Instruction* incoming) override = 0;
+	void handlePHI(const llvm::PHINode* phi, const llvm::Value* incoming, bool selfReferencing) override = 0;
 	// Callbacks that should NOT be implemented by derived classes
-	virtual void handlePHIStackGroup(const std::vector<const llvm::PHINode*>& phiToHandle) {}
+	void handlePHIStackGroup(const std::vector<const llvm::PHINode*>& phiToHandle) override {}
 };
 
 class PHIHandlerUsingStack : public EndOfBlockPHIHandler
@@ -162,10 +162,10 @@ public:
 	{
 	}
 	// Callbacks that should NOT be implemented by derived classes
-	virtual void handleRecursivePHIDependency(const llvm::Instruction* incoming) {}
-	virtual void handlePHI(const llvm::PHINode* phi, const llvm::Value* incoming, bool selfReferencing) {}
+	void handleRecursivePHIDependency(const llvm::Instruction* incoming) override {}
+	void handlePHI(const llvm::PHINode* phi, const llvm::Value* incoming, bool selfReferencing) override {}
 	// Callbacks that have to be implemented by derived classes
-	virtual void handlePHIStackGroup(const std::vector<const llvm::PHINode*>& phiToHandle) = 0;
+	void handlePHIStackGroup(const std::vector<const llvm::PHINode*>& phiToHandle) override = 0;
 };
 
 }
