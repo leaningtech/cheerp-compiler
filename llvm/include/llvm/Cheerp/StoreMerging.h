@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2020 Leaning Technologies
+// Copyright 2020-2021 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -34,8 +34,8 @@ private:
 public:
 	static char ID;
 	explicit StoreMerging(const bool isWasm = false) : llvm::FunctionPass(ID), isWasm(isWasm), DL(NULL) { }
-	bool runOnFunction(llvm::Function& F);
-	llvm::StringRef getPassName() const;
+	bool runOnFunction(llvm::Function& F) override;
+	llvm::StringRef getPassName() const override;
 };
 
 
