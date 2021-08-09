@@ -92,12 +92,12 @@ private:
 class TokenListVerifier {
 public:
 	TokenListVerifier(const TokenList& Tokens): Tokens(Tokens) {}
-	bool verify();
+	bool verify() const;
 private:
 	const TokenList& Tokens;
 };
 
-bool TokenListVerifier::verify()
+bool TokenListVerifier::verify() const
 {
 	std::vector<const Token*> ScopeStack;
 	DenseSet<const Token*> ActiveScopes;
