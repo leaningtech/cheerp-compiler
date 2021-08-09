@@ -92,7 +92,7 @@ public:
 		: RangeDest(val, val, dest)
 	{
 	}
-	bool couldExtend(int64_t x)
+	bool couldExtend(int64_t x) const
 	{
 		return (high+1 == x);
 	}
@@ -120,7 +120,7 @@ private:
 class OrderedRanges
 {
 public:
-	OrderedRanges(SwitchInst* SI)
+	explicit OrderedRanges(SwitchInst* SI)
 		: SI(SI), bitWidth(SI->getCondition()->getType()->getIntegerBitWidth())
 	{
 		populateOrderedCases();
@@ -186,7 +186,7 @@ private:
 //Class to compute all relevant informations about a SwitchInst and be able to answer queries given a bitset representation
 struct DataOnSwitch
 {
-	DataOnSwitch(SwitchInst* SI)
+	explicit DataOnSwitch(SwitchInst* SI)
 		: SI (SI), orderedRanges(SI)
 	{
 	}
@@ -254,7 +254,7 @@ private:
 class GreedyLowering
 {
 public:
-	GreedyLowering(SwitchInst* SI)
+	explicit GreedyLowering(SwitchInst* SI)
 		: SI(SI), condition(SI->getCondition())
 	{
 		//We sort of assume that we will be here only with >=2 outgoing
@@ -374,7 +374,7 @@ private:
 		return true;
 	}
 	//Enumerate all possible ways of splitting in two subcases from a given situation in the lowering
-	std::vector<Transformation> enumerateTransformations(const DataOnSwitch& data, const int64_t representation) const
+	static std::vector<Transformation> enumerateTransformations(const DataOnSwitch& data, const int64_t representation)
 	{
 		std::vector<Transformation> possibleTransformations;
 
@@ -702,7 +702,7 @@ private:
 	std::unordered_map<int64_t, Transformation> greedyLoweringMap;
 
 	bool greedyLoweringIsValid{false};
-	double costCalculated;
+	double costCalculated{1e9};
 };
 
 void CheerpLowerSwitch::processSwitchInst(SwitchInst *SI, SmallPtrSetImpl<BasicBlock*> &DeleteList, AssumptionCache *AC, LazyValueInfo *LVI)
