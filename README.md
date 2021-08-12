@@ -23,6 +23,11 @@ Cheerp compiler build instructions
 
 We advise doing an out of tree build, but it's not necessary
 
+This is only one of the components of Cheerp. Please see https://github.com/leaningtech/cheerp-meta/wiki/Linux-build-instructions for instructions on how to build the whole suite.
+
+
+### Build LLVM
+
 ```
 mkdir build
 cd build
@@ -72,30 +77,17 @@ This is an example work-flow and configuration to get and build the LLVM source:
           projects can be specified either in ``LLVM_ENABLE_PROJECTS`` or in
           ``LLVM_ENABLE_RUNTIMES``.
 
-          For example, to build LLVM, Clang, libcxx, and libcxxabi, use
-          ``-DLLVM_ENABLE_PROJECTS="clang" -DLLVM_ENABLE_RUNTIMES="libcxx;libcxxabi"``.
+## External components
 
-        * ``-DCMAKE_INSTALL_PREFIX=directory`` --- Specify for *directory* the full
-          path name of where you want the LLVM tools and libraries to be installed
-          (default ``/usr/local``). Be careful if you install runtime libraries: if
-          your system uses those provided by LLVM (like libc++ or libc++abi), you
-          must not overwrite your system's copy of those libraries, since that
-          could render your system unusable. In general, using something like
-          ``/usr`` is not advised, but ``/usr/local`` is fine.
+### Build utils
 
-        * ``-DCMAKE_BUILD_TYPE=type`` --- Valid options for *type* are Debug,
-          Release, RelWithDebInfo, and MinSizeRel. Default is Debug.
+Go check the README.md of https://github.com/leaningtech/cheerp-utils
 
-        * ``-DLLVM_ENABLE_ASSERTIONS=On`` --- Compile with assertion checks enabled
-          (default is Yes for Debug builds, No for all other build types).
+### Build newlib
 
-      * ``cmake --build build [-- [options] <target>]`` or your build system specified above
-        directly.
+Go check the README.md of https://github.com/leaningtech/cheerp-newlib
 
-        * The default target (i.e. ``ninja`` or ``make``) will build all of LLVM.
-
-        * The ``check-all`` target (i.e. ``ninja check-all``) will run the
-          regression tests to ensure everything is in working order.
+### Build libcxx
 
         * CMake will generate targets for each tool and library, and most
           LLVM sub-projects generate their own ``check-<project>`` target.
@@ -108,15 +100,23 @@ This is an example work-flow and configuration to get and build the LLVM source:
 
       * For more information see [CMake](https://llvm.org/docs/CMake.html)
 
-Consult the
-[Getting Started with LLVM](https://llvm.org/docs/GettingStarted.html#getting-started-with-llvm)
-page for detailed information on configuring and compiling LLVM. You can visit
-[Directory Layout](https://llvm.org/docs/GettingStarted.html#directory-layout)
-to learn about the layout of the source code tree.
+### Build libcxxabi
 
-## Getting in touch
+```
+cd libcxxabi
+mkdir build
+cd build
+cmake -DCMAKE_INSTALL_PREFIX=/opt/cheerp   -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCH  AIN_FILE=/opt/cheerp/share/cmake/Modules/  CheerpToolchain.cmake -DLIBCXXABI_ENABLE_  SHARED=OFF -DLIBCXXABI_ENABLE_ASSERTIONS=  OFF -DLIBCXXABI_LIBCXX_PATH=$CHEERP_SRC/c  heerp-compiler/cheerp-libcxx/ -DLIBCXXABI  _LIBCXX_INCLUDES=$CHEERP_SRC/cheerp-compi  ler/libcxx/include -DLIBCXXABI_ENABLE_THR  EADS=0 -DLLVM_CONFIG=/opt/cheerp/bin/llvm  -config ..
+make
+make install
+cd ..
+mkdir build_asmjs
+cd build_asmjs
+cmake -DCMAKE_INSTALL_PREFIX=/opt/cheerp   -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCH  AIN_FILE=/opt/cheerp/share/cmake/Modules/  CheerpToolchain.cmake -DLIBCXXABI_ENABLE_  SHARED=OFF -DLIBCXXABI_ENABLE_ASSERTIONS=  OFF -DLIBCXXABI_LIBCXX_PATH=$CHEERP_SRC/c  heerp-compiler/cheerp-libcxx/ -DLIBCXXABI  _LIBCXX_INCLUDES=$CHEERP_SRC/cheerp-compi  ler/libcxx/include -DLIBCXXABI_ENABLE_THR  EADS=0 -DLLVM_CONFIG=/opt/cheerp/bin/llvm  -config ..
+make
+make install
+```
 
-Join [LLVM Discourse forums](https://discourse.llvm.org/), [discord chat](https://discord.gg/xS7Z362) or #llvm IRC channel on [OFTC](https://oftc.net/).
+### Build libs
 
-The LLVM project has adopted a [code of conduct](https://llvm.org/docs/CodeOfConduct.html) for
-participants to all modes of communication within the project.
+Go check the README.md of https://github.com/leaningtech/cheerp-libs
