@@ -23,6 +23,11 @@ Cheerp compiler build instructions
 
 We advise doing an out of tree build, but it's not necessary
 
+This is only one of the components of Cheerp. Please see https://github.com/leaningtech/cheerp-meta/wiki/Linux-build-instructions for instructions on how to build the whole suite.
+
+
+### Build LLVM
+
 ```
 mkdir build
 cd build
@@ -31,77 +36,55 @@ ninja
 ninja install
 ```
 
-### Getting the Source Code and Building LLVM
+For development, consider to add the following option:
+```
+-DLLVM_ENABLE_ASSERTIONS=True
+```
 
-The LLVM Getting Started documentation may be out of date.  The [Clang
-Getting Started](http://clang.llvm.org/get_started.html) page might have more
-accurate information.
+## External components
 
-This is an example work-flow and configuration to get and build the LLVM source:
+### Build utils
 
-1. Checkout LLVM (including related sub-projects like Clang):
+Go check the README.md of https://github.com/leaningtech/cheerp-utils
 
-     * ``git clone https://github.com/llvm/llvm-project.git``
+### Build newlib
 
-     * Or, on windows, ``git clone --config core.autocrlf=false
-    https://github.com/llvm/llvm-project.git``
+Go check the README.md of https://github.com/leaningtech/cheerp-newlib
 
-2. Configure and build LLVM and Clang:
+### Build libcxx
 
-     * ``cd llvm-project``
+```
+cd libcxx
+mkdir build
+cd build
+cmake -DCMAKE_INSTALL_PREFIX=/opt/cheerp   -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCH  AIN_FILE=/opt/cheerp/share/cmake/Modules/  CheerpToolchain.cmake -DLIBCXX_ENABLE_SHA  RED=OFF -DLIBCXX_ENABLE_ASSERTIONS=OFF -D  LIBCXX_CXX_ABI_INCLUDE_PATHS=$CHEERP_SRC/  cheerp-compiler/libcxxabi/include -DLIBCX  X_CXX_ABI=libcxxabi -DCMAKE_CXX_FLAGS="-f  exceptions" ..
+make
+make install
+cd ..
+mkdir build_asmjs
+cd build_asmjs
+cmake -DCMAKE_INSTALL_PREFIX=/opt/cheerp   -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCH  AIN_FILE=/opt/cheerp/share/cmake/Modules/CheerpWasmToolchain.cmake -DLIBCXX_ENABLE_SHA  RED=OFF -DLIBCXX_ENABLE_ASSERTIONS=OFF -D  LIBCXX_CXX_ABI_INCLUDE_PATHS=$CHEERP_SRC/  cheerp-compiler/libcxxabi/include -DLIBCX  X_CXX_ABI=libcxxabi -DCMAKE_CXX_FLAGS="-f  exceptions" ..
+make
+make install
+```
 
-     * ``cmake -S llvm -B build -G <generator> [options]``
+### Build libcxxabi
 
-        Some common build system generators are:
+```
+cd libcxxabi
+mkdir build
+cd build
+cmake -DCMAKE_INSTALL_PREFIX=/opt/cheerp   -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCH  AIN_FILE=/opt/cheerp/share/cmake/Modules/  CheerpToolchain.cmake -DLIBCXXABI_ENABLE_  SHARED=OFF -DLIBCXXABI_ENABLE_ASSERTIONS=  OFF -DLIBCXXABI_LIBCXX_PATH=$CHEERP_SRC/c  heerp-compiler/cheerp-libcxx/ -DLIBCXXABI  _LIBCXX_INCLUDES=$CHEERP_SRC/cheerp-compi  ler/libcxx/include -DLIBCXXABI_ENABLE_THR  EADS=0 -DLLVM_CONFIG=/opt/cheerp/bin/llvm  -config ..
+make
+make install
+cd ..
+mkdir build_asmjs
+cd build_asmjs
+cmake -DCMAKE_INSTALL_PREFIX=/opt/cheerp   -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCH  AIN_FILE=/opt/cheerp/share/cmake/Modules/  CheerpToolchain.cmake -DLIBCXXABI_ENABLE_  SHARED=OFF -DLIBCXXABI_ENABLE_ASSERTIONS=  OFF -DLIBCXXABI_LIBCXX_PATH=$CHEERP_SRC/c  heerp-compiler/cheerp-libcxx/ -DLIBCXXABI  _LIBCXX_INCLUDES=$CHEERP_SRC/cheerp-compi  ler/libcxx/include -DLIBCXXABI_ENABLE_THR  EADS=0 -DLLVM_CONFIG=/opt/cheerp/bin/llvm  -config ..
+make
+make install
+```
 
-        * ``Ninja`` --- for generating [Ninja](https://ninja-build.org)
-          build files. Most llvm developers use Ninja.
-        * ``Unix Makefiles`` --- for generating make-compatible parallel makefiles.
-        * ``Visual Studio`` --- for generating Visual Studio projects and
-          solutions.
-        * ``Xcode`` --- for generating Xcode projects.
+### Build libs
 
-        Some common options:
-
-        * ``-DLLVM_ENABLE_PROJECTS='...'`` --- semicolon-separated list of the LLVM
-          sub-projects you'd like to additionally build. Can include any of: clang,
-          clang-tools-extra, compiler-rt,cross-project-tests, flang, libc, libclc,
-          libcxx, libcxxabi, libunwind, lld, lldb, mlir, openmp, parallel-libs,
-          polly, or pstl.
-
-          For example, to build LLVM, Clang, libcxx, and libcxxabi, use
-          ``-DLLVM_ENABLE_PROJECTS="clang;libcxx;libcxxabi"``.
-
-        * ``-DCMAKE_INSTALL_PREFIX=directory`` --- Specify for *directory* the full
-          path name of where you want the LLVM tools and libraries to be installed
-          (default ``/usr/local``).
-
-        * ``-DCMAKE_BUILD_TYPE=type`` --- Valid options for *type* are Debug,
-          Release, RelWithDebInfo, and MinSizeRel. Default is Debug.
-
-        * ``-DLLVM_ENABLE_ASSERTIONS=On`` --- Compile with assertion checks enabled
-          (default is Yes for Debug builds, No for all other build types).
-
-      * ``cmake --build build [-- [options] <target>]`` or your build system specified above
-        directly.
-
-        * The default target (i.e. ``ninja`` or ``make``) will build all of LLVM.
-
-        * The ``check-all`` target (i.e. ``ninja check-all``) will run the
-          regression tests to ensure everything is in working order.
-
-        * CMake will generate targets for each tool and library, and most
-          LLVM sub-projects generate their own ``check-<project>`` target.
-
-        * Running a serial build will be **slow**.  To improve speed, try running a
-          parallel build.  That's done by default in Ninja; for ``make``, use the option
-          ``-j NNN``, where ``NNN`` is the number of parallel jobs, e.g. the number of
-          CPUs you have.
-
-      * For more information see [CMake](https://llvm.org/docs/CMake.html)
-
-Consult the
-[Getting Started with LLVM](https://llvm.org/docs/GettingStarted.html#getting-started-with-llvm)
-page for detailed information on configuring and compiling LLVM. You can visit
-[Directory Layout](https://llvm.org/docs/GettingStarted.html#directory-layout)
-to learn about the layout of the source code tree.
+Go check the README.md of https://github.com/leaningtech/cheerp-libs
