@@ -3016,7 +3016,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			assert(ivi.getIndices().size()==1);
 			if(!t)
 			{
-				llvm::errs() << "insertvalue: Expected struct, found " << *t << "\n";
+				llvm::errs() << "insertvalue: Expected struct, found " << *aggr->getType() << "\n";
 				llvm::report_fatal_error("Unsupported code found, please report a bug", false);
 				return COMPILE_UNSUPPORTED;
 			}
