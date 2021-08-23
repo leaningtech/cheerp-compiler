@@ -377,7 +377,7 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 		SmallVector<Type*, 4> newTypes;
 		bool hasMergedArrays=false;
 		std::vector<std::pair<uint32_t, uint32_t>> membersMapping;
-		if (st->hasAsmJS())
+		if (st->hasAsmJS() || (st->hasByteLayout() && st->getNumElements() > 1))
 		{
 			for(uint32_t i=0;i<st->getNumElements();i++)
 			{
@@ -417,13 +417,7 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 				}
 				Type* elementType=st->getElementType(i);
 				Type* rewrittenType=rewriteType(elementType);
-				// NOTE: byte layout structs should never change the position of fields
-				if(st->hasByteLayout())
-				{
-					newTypes.push_back(rewrittenType);
-					continue;
-				}
-				else if(ArrayType* at=dyn_cast<ArrayType>(rewrittenType))
+				if(ArrayType* at=dyn_cast<ArrayType>(rewrittenType))
 				{
 					Type* arrayElementType=rewrittenType->getArrayElementType();
 					auto arraysFoundIt=arraysFound.find(arrayElementType);
@@ -480,7 +474,8 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 				// Add the new type
 				newTypes.push_back(rewrittenType);
 			}
-			assert(membersMapping.size() == st->getNumElements() || st->hasByteLayout());
+			assert(!st->hasByteLayout());
+			assert(membersMapping.size() == st->getNumElements());
 			if(hasMergedArrays)
 			{
 				assert(!newTypes.empty());
@@ -499,7 +494,8 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 				}
 			}
 
-			if(newTypes.size() == 1 && !st->hasAsmJS() && canCollapseStruct(st, newStruct, newTypes[0]))
+			assert(!st->hasAsmJS());
+			if(newTypes.size() == 1 && canCollapseStruct(st, newStruct, newTypes[0]))
 			{
 				Type* collapsed = newTypes[0];
 				if(newStructKind != TypeMappingInfo::MERGED_MEMBER_ARRAYS)
@@ -513,7 +509,8 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 		{
 			// Try to collapse the struct to this element
 			llvm::Type* elementType = st->getElementType(0);
-			if(!st->hasAsmJS() && canCollapseStruct(st, newStruct, elementType))
+			assert(!st->hasAsmJS());
+			if(canCollapseStruct(st, newStruct, elementType))
 			{
 				// To fix the following case A { B { C { A* } } } -> C { C* }
 				// we prime the mapping to the contained element and use the COLLAPSING flag
