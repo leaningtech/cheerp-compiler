@@ -137,6 +137,10 @@ private:
 #endif
 	llvm::Constant* rewriteGlobal(llvm::GlobalVariable* GV);
 	void rewriteGlobalInit(llvm::GlobalVariable* GV);
+
+	//Given a Type, returns the alignment the rewritten type will have
+	llvm::Align getAlignmentAfterRewrite(llvm::Type* t);
+
 	TypeMappingInfo rewriteType(llvm::Type* t);
 	llvm::FunctionType* rewriteFunctionType(llvm::FunctionType* t, bool keepI64);
 	llvm::Function* rewriteFunctionSignature(llvm::Function* F);

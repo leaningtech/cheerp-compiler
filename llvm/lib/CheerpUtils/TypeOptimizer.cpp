@@ -277,6 +277,48 @@ bool TypeOptimizer::canCollapseStruct(llvm::StructType* st, llvm::StructType* ne
 	return false;
 }
 
+llvm::Align TypeOptimizer::getAlignmentAfterRewrite(llvm::Type* t)
+{
+	//TODO: memoize results
+
+	llvm::Align align(1);
+
+	std::set<llvm::Type*> computed;
+	std::vector<llvm::Type*> queue;
+
+	queue.push_back(t);
+
+	while (queue.size())
+	{
+		llvm::Type* curr = queue.back();
+		queue.pop_back();
+
+		if (computed.count(curr))
+			continue;
+		if (StructType* str = dyn_cast<StructType>(curr))
+		{
+			align = std::max(align, Align(4));
+			//Visit all members
+			for(uint32_t i=0;i<str->getNumElements();i++)
+				queue.push_back(str->getElementType(i));
+		}
+		else if (ArrayType* at = dyn_cast<ArrayType>(curr))
+		{
+			queue.push_back(at->getElementType());
+		}
+		else if (isI64ToRewrite(curr))
+		{
+			align = std::max(align, Align(4));
+		}
+		else
+		{
+			align = std::max(align, DL->getPrefTypeAlign(curr));
+		}
+	}
+
+	return align;
+}
+
 TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 {
 	assert(!newStructTypes.count(t));
