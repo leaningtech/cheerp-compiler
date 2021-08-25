@@ -319,6 +319,14 @@ llvm::Align TypeOptimizer::getAlignmentAfterRewrite(llvm::Type* t)
 	return align;
 }
 
+TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteTypeWithAlignmentInfo(llvm::Type* t, TypeOptimizer::AlignmentInfo& info)
+{
+	info.first = DL->getPrefTypeAlign(t);
+	TypeMappingInfo mappingInfo = rewriteType(t);
+	info.second = getAlignmentAfterRewrite(mappingInfo.mappedType);
+	return mappingInfo;
+}
+
 TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 {
 	assert(!newStructTypes.count(t));
@@ -421,11 +429,70 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 		std::vector<std::pair<uint32_t, uint32_t>> membersMapping;
 		if (st->hasAsmJS() || (st->hasByteLayout() && st->getNumElements() > 1))
 		{
+			//Given that a collection of member would have currentSize, and the next member requires a given alignRequired
+			//Basically, solve X = currentSize + something, with X%alignment == 0 and something as small as possible, and then return X
+			auto padStruct = [](uint32_t currentSize, llvm::Align alignRequired) -> uint32_t
+			{
+				const uint32_t log2Align = Log2(alignRequired);         //either 0,1,2,3, depending on the required alignment
+				const uint32_t toBeAlignedTo = 1u << log2Align;                 //either 1,2,4,8
+				uint32_t padSize = currentSize + toBeAlignedTo - 1;     //add either 0, 1, 3, 7
+				padSize >>= log2Align;
+				padSize <<= log2Align;                                  //zeros the least significant 0,1,2,3 bits
+
+				return padSize;
+			};
+
+			uint32_t currentSize = 0;
 			for(uint32_t i=0;i<st->getNumElements();i++)
 			{
+				AlignmentInfo alignmentInfo;
 				Type* elTy = st->getElementType(i);
-				newTypes.push_back(rewriteType(elTy));
+				Type* nextTy = rewriteTypeWithAlignmentInfo(elTy, alignmentInfo);
+				assert(alignmentInfo.first >= alignmentInfo.second);
+
+				assert(alignmentInfo.first >= alignmentInfo.second);
+				const uint32_t originalPaddedSize = padStruct(currentSize, alignmentInfo.first);
+				const uint32_t toAdd = originalPaddedSize - currentSize;
+
+				//Currently padding bytes are always inserted
+				//TODO: optimize placement to avoid when not strictly necessary
+				if (toAdd)
+				{
+					currentSize += toAdd;
+					//An array [toAdd x i8] is added
+					newTypes.push_back(ArrayType::get(IntegerType::get(module->getContext(), 8), toAdd));
+					newStructKind = TypeMappingInfo::PADDING;
+				}
+
+				currentSize = padStruct(currentSize, alignmentInfo.first);      //First grow pad currentSize to the appropriate alignment
+				currentSize += DL->getTypeAllocSize(nextTy);                    //Then add the next type dimension
+
+				membersMapping.push_back({newTypes.size(), 0});                 //Note that the second field is unused
+				newTypes.push_back(nextTy);
 			}
+
+			const uint32_t toAdd = DL->getTypeAllocSize(st) - currentSize;
+			//Pad the struct at the end
+			//The problematic test case is something like {i8, i64, i8} -> {i8, [7 x i8], [2 x i32], i8, ???}
+			//In the original struct, the allocation size is 24 (17 rounded to the next multiple of 8)
+			//while in the rewritten struct it will be 20 (17 rounded to the next multiple of 4), so we need to pad the end correctly
+			//TODO: optimize placement to avoid when not strictly necessary
+			if (toAdd)
+			{
+				currentSize += toAdd;
+				//An array [toAdd x i8] is added
+				newTypes.push_back(ArrayType::get(IntegerType::get(module->getContext(), 8), toAdd));
+				newStructKind = TypeMappingInfo::PADDING;
+			}
+
+			//If we ever padded, memorize the member mappings
+			if (newStructKind == TypeMappingInfo::PADDING)
+			{
+				membersMappingData.insert(std::make_pair(st, std::move(membersMapping)));
+			}
+
+			//TypeOptimizer should not change the dimension of a given structure
+			assert(DL->getTypeAllocSize(st) == currentSize);
 		}
 		else if(st->getNumElements() > 1)
 		{
