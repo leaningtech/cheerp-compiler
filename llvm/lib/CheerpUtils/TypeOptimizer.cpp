@@ -984,6 +984,15 @@ uint8_t TypeOptimizer::rewriteGEPIndexes(SmallVector<Value*, 4>& newIndexes, Typ
 			case TypeMappingInfo::IDENTICAL:
 				AddIndex(idxs[i]);
 				break;
+			case TypeMappingInfo::PADDING:
+			{
+				StructType* oldStruct = cast<StructType>(curType);
+				uint32_t elementIndex = cast<ConstantInt>(idxs[i])->getZExtValue();
+				assert(membersMappingData.count(oldStruct));
+				const uint32_t newIndex = membersMappingData[oldStruct][elementIndex].first;
+				AddIndex(ConstantInt::get(Int32Ty, newIndex));
+				break;
+			}
 			case TypeMappingInfo::COLLAPSED:
 				break;
 			case TypeMappingInfo::BYTE_LAYOUT_TO_ARRAY:
