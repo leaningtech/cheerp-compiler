@@ -29,7 +29,7 @@ StringRef TypeOptimizer::getPassName() const {
 	return "TypeOptimizer";
 }
 
-bool TypeOptimizer::isI64ToRewrite(Type* t)
+bool TypeOptimizer::isI64ToRewrite(const Type* t)
 {
 	return t->isIntegerTy(64) && (!UseBigInts || LinearOutput == AsmJs);
 }
