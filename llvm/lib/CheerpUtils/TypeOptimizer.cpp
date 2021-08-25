@@ -731,6 +731,32 @@ std::pair<Constant*, uint8_t> TypeOptimizer::rewriteConstant(Constant* C, bool r
 					newTypeInfo.elementMappingKind == TypeMappingInfo::MERGED_MEMBER_ARRAYS_AND_COLLAPSED;
 		assert(!hasMergedArrays || membersMappingIt != membersMappingData.end());
 		SmallVector<Constant*, 4> newElements;
+
+		if(newTypeInfo.elementMappingKind == TypeMappingInfo::PADDING)
+		{
+			for(uint32_t i=0;i<CS->getNumOperands();i++)
+			{
+				//Check whether an intermediate paddign has to be added
+				if (membersMappingData[CS->getType()][i].first > newElements.size())
+				{
+					assert(isa<StructType>(newTypeInfo.mappedType));
+					newElements.push_back(UndefValue::get(dyn_cast<StructType>(newTypeInfo.mappedType)->getElementType((int)newElements.size())));
+				}
+				Constant* element = CS->getOperand(i);
+				auto rewrittenOperand = rewriteConstant(element, rewriteI64);
+				assert(rewrittenOperand.second == 0);
+				Constant* newElement = rewrittenOperand.first;
+				newElements.push_back(newElement);
+			}
+			//Check whether there is a last padding to be added
+			if (dyn_cast<StructType>(newTypeInfo.mappedType)->getNumElements() > newElements.size())
+			{
+				assert(isa<StructType>(newTypeInfo.mappedType));
+				newElements.push_back(UndefValue::get(dyn_cast<StructType>(newTypeInfo.mappedType)->getElementType((int)newElements.size())));
+			}
+			return std::make_pair(ConstantStruct::get(cast<StructType>(newTypeInfo.mappedType), newElements), 0);
+		}
+
 		// Check if some of the contained constant arrays needs to be merged
 		for(uint32_t i=0;i<CS->getNumOperands();i++)
 		{
