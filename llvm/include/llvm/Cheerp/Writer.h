@@ -32,8 +32,6 @@
 #include <map>
 #include <array>
 
-struct Relooper;
-
 namespace cheerp
 {
 
@@ -270,8 +268,6 @@ private:
 	uint32_t heapSize;
 	// Flag to signal if we should add bounds-checking code
 	bool checkBounds;
-	// Flag to signal if we should use relooper instead of stackifier
-	bool useCfgLegacy;
 	// The name of the external wasm file, or empty if not present
 	const std::string& wasmFile;
 	// Flag to signal if we should generate typed arrays when element type is
@@ -611,7 +607,6 @@ public:
 			bool measureTimeToMain,
 			unsigned heapSize,
 			bool checkBounds,
-			bool useCfgLegacy,
 			bool compileGlobalsAddrAsmJS,
 			const std::string& wasmFile,
 			bool forceTypedArrays):
@@ -642,7 +637,6 @@ public:
 		measureTimeToMain(measureTimeToMain),
 		heapSize(heapSize),
 		checkBounds(checkBounds),
-		useCfgLegacy(useCfgLegacy),
 		wasmFile(wasmFile),
 		forceTypedArrays(forceTypedArrays),
 		symbolicGlobalsAsmJS(compileGlobalsAddrAsmJS),
@@ -714,11 +708,6 @@ public:
 	 * Compile a JS string while escaping special characters
 	 */
 	static void compileEscapedString(llvm::raw_ostream& stream, llvm::StringRef str, bool forJSON);
-	/**
-	 * Run relooper on a function, this code is here since it is also used by CheerpWastWriter
-	 */
-	static Relooper* runRelooperOnFunction(const llvm::Function& F, const PointerAnalyzer& PA,
-	                                       const Registerize& registerize);
 	/**
 	 * Returns if a switch/br_table is appropriate to render this terminator
 	 */

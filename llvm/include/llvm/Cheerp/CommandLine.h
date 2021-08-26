@@ -41,7 +41,6 @@ extern llvm::cl::opt<unsigned> CheerpHeapSize;
 extern llvm::cl::opt<unsigned> CheerpStackSize;
 extern llvm::cl::opt<bool> CheerpNoICF;
 extern llvm::cl::opt<bool> BoundsCheck;
-extern llvm::cl::opt<bool> CfgLegacy;
 extern llvm::cl::opt<bool> AvoidWasmTraps;
 extern llvm::cl::opt<bool> AggressiveGepOptimizer;
 extern llvm::cl::opt<bool> FixWrongFuncCasts;
