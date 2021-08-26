@@ -3122,6 +3122,14 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 					stream << ".setFloat32(";
 				else if(pointedType->isDoubleTy())
 					stream << ".setFloat64(";
+				else if (pointedType->isIntegerTy(64))
+				{
+					if (!UseBigInts)
+						report_fatal_error("unsupported INTEGER64 register");
+					stream << ".setBigInt64(";
+				}
+				else
+					report_fatal_error("Unsupported byte layout field");
 				compilePointerOffset(ptrOp, LOWEST);
 				stream << ',';
 
@@ -4461,6 +4469,14 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 					stream << ".getFloat32(";
 				else if(pointedType->isDoubleTy())
 					stream << ".getFloat64(";
+				else if (pointedType->isIntegerTy(64))
+				{
+					if (!UseBigInts)
+						report_fatal_error("unsupported INTEGER64 register");
+					stream << ".getBigInt64(";
+				}
+				else
+					report_fatal_error("Unsupported byte layout field");
 				compilePointerOffset(ptrOp, LOWEST);
 				if(!pointedType->isIntegerTy(8))
 					stream << ",true";
