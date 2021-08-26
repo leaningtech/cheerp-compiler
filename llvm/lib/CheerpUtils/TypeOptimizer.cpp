@@ -277,6 +277,7 @@ bool TypeOptimizer::canCollapseStruct(llvm::StructType* st, llvm::StructType* ne
 	return false;
 }
 
+//The results of this function are meaningless for packed Struct, since there is no clear meaning of what alignment means
 llvm::Align TypeOptimizer::getAlignmentAfterRewrite(llvm::Type* t)
 {
 	auto it = cacheAlignmentAfterRewrite.find(t);
@@ -452,8 +453,11 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 			for(uint32_t i=0;i<st->getNumElements();i++)
 			{
 				AlignmentInfo alignmentInfo;
+				alignmentInfo.first = alignmentInfo.second = llvm::Align(1);
 				Type* elTy = st->getElementType(i);
-				Type* nextTy = rewriteTypeWithAlignmentInfo(elTy, alignmentInfo);
+				Type* nextTy = st->isPacked() ?
+						rewriteType(elTy) :						//packed -> rewrite type blindly
+						rewriteTypeWithAlignmentInfo(elTy, alignmentInfo);		//!packed -> perform alignment checks
 				assert(alignmentInfo.first >= alignmentInfo.second);
 
 				assert(alignmentInfo.first >= alignmentInfo.second);
@@ -659,7 +663,10 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 		newStruct->setBody(newTypes, st->isPacked(), newDirectBase, st->hasByteLayout(), st->hasAsmJS());
 
 		if (newStruct->hasAsmJS() || newStruct->hasByteLayout())
-			assert(DL->getPrefTypeAlign(newStruct) == getAlignmentAfterRewrite(st));
+		{
+			if (!newStruct->isPacked())	//This check is meaningless for packed Struct
+				assert(DL->getPrefTypeAlign(newStruct) == getAlignmentAfterRewrite(st));
+		}
 
 		return CacheAndReturn(newStruct, newStructKind);
 	}
