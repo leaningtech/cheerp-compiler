@@ -4716,15 +4716,10 @@ void CheerpWriter::compileMethodLocal(StringRef name, Registerize::REGISTER_KIND
 		stream << "null";
 }
 
-void CheerpWriter::compileMethodLocals(const Function& F, bool needsLabel)
+void CheerpWriter::compileMethodLocals(const Function& F)
 {
 	// Declare are all used locals in the beginning
 	bool firstVar = true;
-	if(needsLabel)
-	{
-		stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::LABEL) << "=0";
-		firstVar = false;
-	}
 	const std::vector<Registerize::RegisterInfo>& regsInfo = registerize.getRegistersForFunction(&F);
 	for(unsigned int regId = 0; regId < regsInfo.size(); regId++)
 	{
@@ -5146,14 +5141,14 @@ void CheerpWriter::compileMethod(const Function& F)
 	lastDepth0Block = nullptr;
 	if(F.size()==1)
 	{
-		compileMethodLocals(F, false);
+		compileMethodLocals(F);
 		lastDepth0Block = &*F.begin();
 		compileBB(*F.begin());
 	}
 	else
 	{
 		{
-			compileMethodLocals(F, false);
+			compileMethodLocals(F);
 
 			DominatorTree &DT = pass.getAnalysis<DominatorTreeWrapperPass>(const_cast<Function&>(F)).getDomTree();
 			LoopInfo &LI = pass.getAnalysis<LoopInfoWrapperPass>(const_cast<Function&>(F)).getLoopInfo();
