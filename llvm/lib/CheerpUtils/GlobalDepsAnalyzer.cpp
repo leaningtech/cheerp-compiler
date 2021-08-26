@@ -1368,6 +1368,11 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 		// A downcast from a type to i8* is conventially used to support pointers to
 		// member functions and does not imply that the type needs the downcast array
 		Type* ty = retType->isIntegerTy(8) ? F->arg_begin()->getType()->getPointerElementType() : retType;
+		// If both the origin and the target types are i8* (void*), give up on collecting info.
+		// This is used in exception handling, and we will collect the info from
+		// another syntetic downcast from the thrown type to itself.
+		if(ty->isIntegerTy(8))
+			return;
 		assert(ty->isStructTy());
 		
 		StructType * st = cast<StructType>(ty);
