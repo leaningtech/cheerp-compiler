@@ -56,8 +56,6 @@ llvm::cl::opt<bool> CheerpNoICF("cheerp-no-icf", llvm::cl::init(0), llvm::cl::de
 
 llvm::cl::opt<bool> BoundsCheck("cheerp-bounds-check", llvm::cl::desc("Generate debug code for bounds-checking arrays") );
 
-llvm::cl::opt<bool> CfgLegacy("cheerp-cfg-legacy", llvm::cl::desc("Use the legacy relooper algorithm to render the cfg") );
-
 llvm::cl::opt<bool> AvoidWasmTraps("cheerp-avoid-wasm-traps", llvm::cl::desc("Avoid traps from WebAssembly by generating more verbose code") );
 
 llvm::cl::opt<bool> AggressiveGepOptimizer("cheerp-aggressive-gep-optimizer", llvm::cl::desc("Speculatively hoist part of GEPs when possible") );

@@ -108,9 +108,6 @@ private:
 	// it will also add names to local variables inside functions.
 	bool prettyCode;
 
-	// If true, use relooper instead of stackifier
-	bool useCfgLegacy;
-
 	// Lookup map that translates register IDs to local indices. The local
 	// index includes the number of arguments that are defined before the first
 	// local variable.
@@ -464,7 +461,6 @@ public:
 			unsigned heapSize,
 			bool useWasmLoader,
 			bool prettyCode,
-			bool useCfgLegacy,
 			bool sharedMemory,
 			bool exportedTable):
 		module(m),
@@ -482,7 +478,6 @@ public:
 		heapSize(heapSize),
 		useWasmLoader(useWasmLoader),
 		prettyCode(prettyCode),
-		useCfgLegacy(useCfgLegacy),
 		sharedMemory(sharedMemory),
 		noGrowMemory(!linearHelper.canGrowMemory()),
 		exportedTable(exportedTable),
