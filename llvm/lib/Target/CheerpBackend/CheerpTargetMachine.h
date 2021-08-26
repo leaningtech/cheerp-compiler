@@ -34,7 +34,7 @@ private:
   CheerpTargetLowering targetLowering;
 public:
   CheerpSubtarget(const TargetMachine &TM, const Target &T, const Triple& TT, StringRef CPU, StringRef FS) :
-        TargetSubtargetInfo(TT, CPU, FS, None, None, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr),
+        TargetSubtargetInfo(TT, CPU, CPU, FS, None, None, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr),
         targetLowering(TM) { }
   virtual const CheerpTargetLowering *getTargetLowering() const override;
 };
