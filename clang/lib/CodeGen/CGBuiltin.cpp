@@ -12180,6 +12180,11 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
     Function *F = CGM.getIntrinsic(Intrinsic::cheerp_make_regular, Tys);
     return Builder.CreateCall(F, Ops);
   }
+  else if (BuiltinID == Cheerp::BI__builtin_cheerp_downcast) {
+    llvm::Type *Tys[] = { ConvertType(E->getType()), Ops[0]->getType() };
+    Function *F = CGM.getIntrinsic(Intrinsic::cheerp_downcast, Tys);
+    return Builder.CreateCall(F, Ops);
+  }
   else if (BuiltinID == Cheerp::BI__builtin_cheerp_pointer_kind) {
     llvm::Type *Tys[] = { Ops[0]->getType() };
     Function *F = CGM.getIntrinsic(Intrinsic::cheerp_pointer_kind, Tys);
