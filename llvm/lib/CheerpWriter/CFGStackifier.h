@@ -12,7 +12,6 @@
 #ifndef _CHEERP_CFG_STACKIFIER_NEW_H
 #define _CHEERP_CFG_STACKIFIER_NEW_H
 
-#include "Relooper.h"
 #include "llvm/Cheerp/TokenList.h"
 
 #include "llvm/IR/Module.h"
