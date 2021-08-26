@@ -136,7 +136,7 @@ bool CheerpWritePass::runOnModule(Module& M)
     cheerp::CheerpWriter writer(M, *this, Out, PA, registerize, GDA, linearHelper, namegen, allocaStoresExtractor, memOut, asmjsMemFile,
             sourceMapGenerator.get(), PrettyCode, MakeModule, !NoNativeJavaScriptMath,
             !NoJavaScriptMathImul, !NoJavaScriptMathFround, !NoCredits, MeasureTimeToMain, CheerpHeapSize,
-            BoundsCheck, CfgLegacy, SymbolicGlobalsAsmJS, wasmFile, ForceTypedArrays);
+            BoundsCheck, SymbolicGlobalsAsmJS, wasmFile, ForceTypedArrays);
     writer.makeJS();
   }
 
@@ -144,7 +144,7 @@ bool CheerpWritePass::runOnModule(Module& M)
   {
     cheerp::CheerpWasmWriter wasmWriter(M, *this, *secondaryOut, PA, registerize, GDA, linearHelper, namegen,
                                     M.getContext(), CheerpHeapSize, !WasmOnly,
-                                    PrettyCode, CfgLegacy, WasmSharedMemory,
+                                    PrettyCode, WasmSharedMemory,
                                     WasmExportedTable);
     wasmWriter.makeWasm();
   }

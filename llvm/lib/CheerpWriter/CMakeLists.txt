@@ -4,7 +4,6 @@ add_llvm_component_library(LLVMCheerpWriter
   CheerpWasmWriter.cpp
   JSInterop.cpp
   NameGenerator.cpp
-  Relooper.cpp
   Types.cpp
   Opcodes.cpp
   PreExecute.cpp
