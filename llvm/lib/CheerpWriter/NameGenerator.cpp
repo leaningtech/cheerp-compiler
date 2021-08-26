@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2014-2020 Leaning Technologies
+// Copyright 2014-2021 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -646,7 +646,6 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 	builtins[MEMORY] = "memory";
 	builtins[HANDLE_VAARG] = "handleVAArg";
 	builtins[FETCHBUFFER] = "fetchBuffer";
-	builtins[LABEL] = "label";
 	builtins[STACKPTR] = "__stackPtr";
 	builtins[HEAP8] = "HEAP8";
 	builtins[HEAP16] = "HEAP16";
