@@ -403,6 +403,13 @@ void CodeGenFunction::EmitAnyExprToExn(const Expr *e, Address addr) {
   llvm::Type *ty = ConvertTypeForMem(e->getType());
   Address typedAddr = Builder.CreateElementBitCast(addr, ty);
 
+  if(!CGM.getTarget().isByteAddressable() && ty->getPointerElementType()->isStructTy()) {
+	  // CHEERP: We insert a dummy downcast to signal that this type needs the downcast array
+    llvm::Type* Tys[] = { ty, ty };
+    llvm::Function* intrinsic = llvm::Intrinsic::getDeclaration(&CGM.getModule(), llvm::Intrinsic::cheerp_downcast, Tys);
+    typedAddr = Address(Builder.CreateCall(intrinsic, {typedAddr.getPointer(), llvm::ConstantInt::get(CGM.Int32Ty, 0)}), typedAddr.getAlignment());
+  }
+
   // FIXME: this isn't quite right!  If there's a final unelided call
   // to a copy constructor, then according to [except.terminate]p1 we
   // must call std::terminate() if that constructor throws, because
