@@ -127,12 +127,23 @@ void TypeOptimizer::gatherAllTypesInfo(const Module& M)
 				{
 					if(II->getIntrinsicID()==Intrinsic::cheerp_downcast)
 					{
-						StructType* sourceType = cast<StructType>(II->getOperand(0)->getType()->getPointerElementType());
+						Type* opType = II->getOperand(0)->getType()->getPointerElementType();
+						Type* retType = II->getType()->getPointerElementType();
+						// In the special case of downcast from i8* to i8* we are dealing with exceptions.
+						// We collect the types info from another syntetic downcast, so just skip here.
+						if(opType->isIntegerTy())
+						{
+							assert(retType->isIntegerTy(8));
+							continue;
+						}
+						StructType* sourceType = cast<StructType>(opType);
 						if(sourceType->hasAsmJS())
 							continue;
 						// In the special case of downcast to i8* we are dealing with member function pointers
-						// Just give up and assume that all the bases may be needed
-						if(II->getFunctionType()->getReturnType()->getPointerElementType()->isIntegerTy(8))
+						// Just give up and assume that all the bases may be needed.
+						// Also give up in the special case of downcast to the same type.
+						// It is used for thrown types.
+						if(retType->isIntegerTy(8) || retType == opType)
 						{
 							do
 							{
@@ -161,7 +172,7 @@ void TypeOptimizer::gatherAllTypesInfo(const Module& M)
 						// If the offset is 0 we need to append the destination type to the mapping
 						// If the source type is in the map, but the vector is empty it means that we were
 						// in the case above, so we don't add the new destType
-						StructType* destType = cast<StructType>(II->getType()->getPointerElementType());
+						StructType* destType = cast<StructType>(retType);
 						auto it=downcastSourceToDestinationsMapping.find(sourceType);
 						if(it != downcastSourceToDestinationsMapping.end() && it->second.empty())
 							continue;
