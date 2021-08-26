@@ -36,36 +36,6 @@ using namespace std;
 
 static uint32_t COMPILE_METHOD_LIMIT = 100000;
 
-enum BLOCK_TYPE { WHILE1 = 0, DO, SWITCH, CASE, LABEL_FOR_SWITCH, IF, LOOP };
-
-class BlockType
-{
-public:
-	BLOCK_TYPE type;
-	uint32_t depth;
-	int32_t label;
-
-	BlockType(BLOCK_TYPE bt, uint32_t depth = 0, int32_t label = 0)
-	 :
-
-		type(bt),
-		depth(depth),
-		label(label)
-	{}
-};
-
-BlockType* findSwitchBlockType(std::vector<BlockType>& blocks)
-{
-	for (size_t i = blocks.size(); i;)
-	{
-		BlockType* block = &blocks[--i];
-		if (block->type == SWITCH)
-			return block;
-	}
-
-	llvm_unreachable("switch render block not found");
-}
-
 static inline void encodeF32(float f, WasmBuffer& stream)
 {
 	stream.write(reinterpret_cast<const char*>(&f), sizeof(float));
@@ -2949,10 +2919,8 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F, uint32
 	uint32_t numArgs = F.arg_size();
 	const llvm::BasicBlock* lastDepth0Block = nullptr;
 
-	bool needsLabel = false;
-
 	const std::vector<Registerize::RegisterInfo>& regsInfo = registerize.getRegistersForFunction(&F);
-	uint32_t localCount = regsInfo.size() + (int)needsLabel;
+	const uint32_t localCount = regsInfo.size();
 
 	vector<int> locals(5, 0);
 	localMap.assign(localCount, 0);
@@ -2967,11 +2935,6 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F, uint32
 		localMap.at(reg) = numArgs + locals.at((int)regInfo.regKind);
 		locals.at((int)regInfo.regKind)++;
 		reg++;
-	}
-
-	if (needsLabel) {
-		localMap.at(reg) = numArgs + locals.at((int)Registerize::INTEGER);
-		locals.at((int)Registerize::INTEGER)++;
 	}
 
 	// Add offset of other local groups to local lookup table.  Since INTEGER
@@ -3018,11 +2981,6 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F, uint32
 	}
 	else
 	{
-		const std::vector<Registerize::RegisterInfo>& regsInfo = registerize.getRegistersForFunction(&F);
-		uint32_t numRegs = regsInfo.size();
-
-		// label is the very last local
-		uint32_t labelLocal = needsLabel ? localMap[numRegs] : 0;
 		{
 			DominatorTree &DT = pass.getAnalysis<DominatorTreeWrapperPass>(const_cast<Function&>(F)).getDomTree();
 			LoopInfo &LI = pass.getAnalysis<LoopInfoWrapperPass>(const_cast<Function&>(F)).getLoopInfo();

@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2011-2020 Leaning Technologies
+// Copyright 2011-2021 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -448,7 +448,7 @@ private:
 	void compileUnsignedInteger(const llvm::Value* v, bool forAsmJSComparison, PARENT_PRIORITY parentPrio, bool forceTruncation = false);
 
 	void compileMethodLocal(llvm::StringRef name, Registerize::REGISTER_KIND kind);
-	void compileMethodLocals(const llvm::Function& F, bool needsLabel);
+	void compileMethodLocals(const llvm::Function& F);
 	void compileCondition(const llvm::BasicBlock* BB, bool booleanInvert);
 	static llvm::DenseSet<const Token*> getLabeledTokens(const TokenList& Tokens);
 	static bool omitBraces(const Token& T, const PointerAnalyzer& PA, const Registerize& registerize);
