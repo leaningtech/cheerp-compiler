@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2011-2019 Leaning Technologies
+// Copyright 2011-2021 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -61,7 +61,6 @@ public:
 		CREATE_CLOSURE,
 		CREATE_CLOSURE_SPLIT,
 		CREATE_POINTER_ARRAY,
-		LABEL,
 		STACKPTR,
 		GROW_MEM,
 		ASSIGN_HEAPS,
