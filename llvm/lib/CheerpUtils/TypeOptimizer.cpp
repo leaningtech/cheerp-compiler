@@ -298,6 +298,8 @@ llvm::Align TypeOptimizer::getAlignmentAfterRewrite(llvm::Type* t)
 		if (StructType* str = dyn_cast<StructType>(curr))
 		{
 			align = std::max(align, Align(4));
+			if(str->isPacked())
+				continue;
 			//Visit all members
 			for(uint32_t i=0;i<str->getNumElements();i++)
 				queue.push_back(str->getElementType(i));
