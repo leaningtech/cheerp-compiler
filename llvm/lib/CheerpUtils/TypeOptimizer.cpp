@@ -279,7 +279,9 @@ bool TypeOptimizer::canCollapseStruct(llvm::StructType* st, llvm::StructType* ne
 
 llvm::Align TypeOptimizer::getAlignmentAfterRewrite(llvm::Type* t)
 {
-	//TODO: memoize results
+	auto it = cacheAlignmentAfterRewrite.find(t);
+	if (it != cacheAlignmentAfterRewrite.end())
+		return it->second;
 
 	llvm::Align align(1);
 
@@ -317,6 +319,8 @@ llvm::Align TypeOptimizer::getAlignmentAfterRewrite(llvm::Type* t)
 			align = std::max(align, DL->getPrefTypeAlign(curr));
 		}
 	}
+
+	cacheAlignmentAfterRewrite[t] = align;
 
 	return align;
 }
