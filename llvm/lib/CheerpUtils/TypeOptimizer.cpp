@@ -451,6 +451,7 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 
 			const auto& SL = DL->getStructLayout(st);
 			uint32_t currentSize = 0;
+			llvm::Align maxAlignment(1);
 			for(uint32_t i=0;i<st->getNumElements();i++)
 			{
 				AlignmentInfo alignmentInfo;
@@ -460,6 +461,7 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 						rewriteType(elTy) :						//packed -> rewrite type blindly
 						rewriteTypeWithAlignmentInfo(elTy, alignmentInfo);		//!packed -> perform alignment checks
 				assert(alignmentInfo.first >= alignmentInfo.second);
+				maxAlignment = std::max(maxAlignment, alignmentInfo.second);
 
 				assert(alignmentInfo.first >= alignmentInfo.second);
 				const uint32_t originalPaddedSize = SL->getElementOffset(i);
@@ -488,20 +490,22 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 				newTypes.push_back(nextTy);
 			}
 
-			const uint32_t toAdd = DL->getTypeAllocSize(st) - currentSize;
+			const uint32_t originalSize = DL->getTypeAllocSize(st);
+			const uint32_t totalPaddedSize = padStruct(currentSize, maxAlignment);
+			const uint32_t toAdd = originalSize - currentSize;
 			assert( toAdd < 8 );
 			//Pad the struct at the end
 			//The problematic test case is something like {i8, i64, i8} -> {i8, [7 x i8], [2 x i32], i8, ???}
 			//In the original struct, the allocation size is 24 (17 rounded to the next multiple of 8)
 			//while in the rewritten struct it will be 20 (17 rounded to the next multiple of 4), so we need to pad the end correctly
-			//TODO: optimize placement to avoid when not strictly necessary
-			if (toAdd)
+			if (originalSize != totalPaddedSize && toAdd)
 			{
 				currentSize += toAdd;
 				//An array [toAdd x i8] is added
 				newTypes.push_back(ArrayType::get(IntegerType::get(module->getContext(), 8), toAdd));
 				newStructKind = TypeMappingInfo::PADDING;
 			}
+			currentSize = padStruct(currentSize, maxAlignment);
 
 			//If we ever padded, memorize the member mappings
 			if (newStructKind == TypeMappingInfo::PADDING)
