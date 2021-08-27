@@ -480,6 +480,7 @@ private:
 	void compileNullPtrs();
 	void compileCreateClosure();
 	void compileHandleVAArg();
+	void compileCheerpException();
 	void compileBuiltins(bool asmjs);
 	/**
 	 * This method compiles an helper function for getting an ArrayBuffer from

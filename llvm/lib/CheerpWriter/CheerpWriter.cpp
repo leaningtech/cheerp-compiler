@@ -2944,15 +2944,13 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileTerminatorInstru
 		}
 		case Instruction::Resume:
 		{
-			stream << "throw ";
-			compileOperand(I.getOperand(0));
-			stream << ";" << NewLine;
-			//TODO: support exceptions
+			stream << "throw e;" << NewLine;
 			return COMPILE_OK;
 		}
 		case Instruction::Invoke:
 		{
 			compileCallInstruction(cast<CallBase>(I), LOWEST);
+			stream << ";" << NewLine;
 		}
 		case Instruction::Br:
 		case Instruction::Switch:
@@ -5570,6 +5568,20 @@ void CheerpWriter::compileHandleVAArg()
 	stream << "function " << namegen.getBuiltinName(NameGenerator::Builtin::HANDLE_VAARG) << "(ptr){var ret=ptr.d[ptr.o];ptr.o++;return ret;}" << NewLine;
 }
 
+void CheerpWriter::compileCheerpException()
+{
+	stream << "function CheerpException(m){" << NewLine;
+	stream << "var instance=new Error('Uncaught C++ exception: '+m);" << NewLine;
+	stream << "instance.name='CheerpException';" << NewLine;
+	stream << "Object.setPrototypeOf(instance,Object.getPrototypeOf(this));" << NewLine;
+	stream << "if(Error.captureStackTrace){" << NewLine;
+	stream << "Error.captureStackTrace(instance, CheerpException);" << NewLine;
+	stream << "}" << NewLine;
+	stream << "return instance;" << NewLine;
+	stream << "}" << NewLine;
+	stream << "CheerpException.prototype=Object.create(Error.prototype);"<<NewLine;
+}
+
 void CheerpWriter::compileBuiltins(bool asmjs)
 {
 	StringRef math = asmjs?"stdlib.Math.":"Math.";
@@ -6096,6 +6108,10 @@ void CheerpWriter::compileGenericJS()
 	//Compile handleVAArg if needed
 	if( globalDeps.needHandleVAArg() )
 		compileHandleVAArg();
+
+	//Compile CheerpException if needed
+	if(true /* TODO globalDeps.needCheerpException()*/ )
+		compileCheerpException();
 
 	//Compile growLinearMemory if needed
 	if (globalDeps.needsBuiltin(BuiltinInstr::BUILTIN::GROW_MEM))
