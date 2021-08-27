@@ -138,6 +138,7 @@ private:
 	llvm::Constant* rewriteGlobal(llvm::GlobalVariable* GV);
 	void rewriteGlobalInit(llvm::GlobalVariable* GV);
 
+	llvm::DenseMap<llvm::Type*, llvm::Align> cacheAlignmentAfterRewrite;
 	//Given a Type, returns the alignment the rewritten type will have
 	llvm::Align getAlignmentAfterRewrite(llvm::Type* t);
 	typedef std::pair<llvm::Align, llvm::Align> AlignmentInfo;
