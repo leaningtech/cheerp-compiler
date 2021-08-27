@@ -280,7 +280,9 @@ bool TypeOptimizer::canCollapseStruct(llvm::StructType* st, llvm::StructType* ne
 //The results of this function are meaningless for packed Struct, since there is no clear meaning of what alignment means
 llvm::Align TypeOptimizer::getAlignmentAfterRewrite(llvm::Type* t)
 {
-	//TODO: memoize results
+	auto it = cacheAlignmentAfterRewrite.find(t);
+	if (it != cacheAlignmentAfterRewrite.end())
+		return it->second;
 
 	llvm::Align align(1);
 
@@ -318,6 +320,8 @@ llvm::Align TypeOptimizer::getAlignmentAfterRewrite(llvm::Type* t)
 			align = std::max(align, DL->getPrefTypeAlign(curr));
 		}
 	}
+
+	cacheAlignmentAfterRewrite[t] = align;
 
 	return align;
 }
