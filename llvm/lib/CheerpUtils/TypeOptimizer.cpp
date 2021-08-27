@@ -458,11 +458,16 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 
 				assert(alignmentInfo.first >= alignmentInfo.second);
 				const uint32_t originalPaddedSize = padStruct(currentSize, alignmentInfo.first);
+				const uint32_t nextPaddedSize = padStruct(currentSize, alignmentInfo.second);
+
 				const uint32_t toAdd = originalPaddedSize - currentSize;
 
-				//Currently padding bytes are always inserted
-				//TODO: optimize placement to avoid when not strictly necessary
-				if (toAdd)
+				//Padding bytes are inserted only if adding them actually change the size
+				//eg. {i8, i32, i64} -> {i8, i32, padding?? ,[2 x i32]}
+				//Here padding is not needed (originalPaddedSize 8 vs nextPaddedSize 8), so the resulting struct will be {i8, i32, [2 x i32]}
+				//eg. {i8, i64} -> {i8, padding??, [2 x i32]}
+				//Here padding is needed (originalPaddedSize 8 vs nextPaddedSize 4), so ther resulting struct will be {i8, [7 x i8], [2 x i32]}
+				if (originalPaddedSize != nextPaddedSize && toAdd)
 				{
 					currentSize += toAdd;
 					//An array [toAdd x i8] is added
