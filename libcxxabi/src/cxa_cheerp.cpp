@@ -6,6 +6,12 @@
 #include <cheerpintrin.h>
 #include <cheerp/client.h>
 
+namespace [[cheerp::genericjs]] client {
+	class CheerpException: public Error {
+	public:
+		CheerpException(const String& msg);
+	};
+}
 namespace __cxxabiv1 {
 
 struct __cheerp_landingpad
@@ -43,14 +49,19 @@ __cxa_throw(void *thrown_object, std::type_info *tinfo, void (*dest)(void *)) {
 	Exception* ex = new Exception(thrown_object, tinfo, dest);
 	ex->next = current_exception;
 	current_exception = ex;
-	__builtin_cheerp_throw( new __cheerp_landingpad{ex, 0});
+
+	//TODO: if I remove this statement clang crashes
+	__cheerp_landingpad* lp = new __cheerp_landingpad { nullptr, 0};
+
+	client::CheerpException* wrapper = new client::CheerpException(tinfo->name());
+	__builtin_cheerp_throw(wrapper);
 }
 
 __attribute((noinline))
 void*
 __cxa_begin_catch(void* unwind_arg) noexcept
 {
-	return static_cast<Exception*>(unwind_arg)->obj;
+	return unwind_arg;
 }
 
 __attribute((noinline))
@@ -68,11 +79,35 @@ struct __cheerp_clause
 __attribute((noinline))
  __cheerp_landingpad*
 __gxx_personality_v0
-                    (__cheerp_landingpad* lp, __cheerp_clause* catches, int n) noexcept
+                    (client::Object* obj, __cheerp_clause* catches, int n) noexcept
 {
-	Exception* ex = static_cast<Exception*>(lp->val);
+	static bool reent = false;
+	if(reent)
+		__builtin_cheerp_throw(obj);
+
+	reent = true;
+
+	bool native;
+	asm("%1 instanceof CheerpException" : "=r"(native) : "r"(obj));
+	
+	Exception* ex = current_exception;
+	__cheerp_landingpad* lp = new __cheerp_landingpad { nullptr, 0};
+	if(native)
+	{
+		lp->val = ex->obj;
+	}
+
 	for(int i = 0; i < n; i++)
 	{
+		if(!native)
+		{
+			if(catches[i].val == nullptr)
+			{
+				lp->sel = catches[i].sel;
+				break;
+			}
+			continue;
+		}
 		std::ptrdiff_t adjustedOffset = 0;
 		__shim_type_info* catcher = static_cast<__shim_type_info*>(catches[i].val);
 		__shim_type_info* thrown = static_cast<__shim_type_info*>(ex->tinfo);
@@ -81,19 +116,17 @@ __gxx_personality_v0
 		{
 			if(deref)
 			{
-				void* ptr = ex->obj;
-				ptr = *static_cast<void**>(ptr);
-				ex->obj = ptr;
-				lp->val = ex;
+				lp->val = *static_cast<void**>(lp->val);
 			}
 			if(adjustedOffset != 0)
 			{
-				ex->obj = __builtin_cheerp_downcast<void,void>(ex->obj, -adjustedOffset);
+				lp->val = __builtin_cheerp_downcast<void,void>(lp->val, -adjustedOffset);
 			}
 			lp->sel = catches[i].sel;
 			break;
 		}
 	}
+	reent = false;
 	return lp;
 }
 
