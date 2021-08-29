@@ -723,10 +723,10 @@ bool ConstStructBuilder::Build(InitListExpr *ILE, const RecordDecl *RD, bool All
         if (InitListExpr* subILE = dyn_cast<InitListExpr>(curExpr)) {
           Build(subILE, subRD, AllowOverwrite);
           continue;
-        } else {
-          assert(isa<ImplicitValueInitExpr>(curExpr));
-          // Proceed with zero initialization below
+        } else if(!isa<ImplicitValueInitExpr>(curExpr)) {
+          return false;
         }
+        // Proceed with zero initialization below
       }
       // A null ILE represent zero initialization
       Build(nullptr, subRD, AllowOverwrite);
