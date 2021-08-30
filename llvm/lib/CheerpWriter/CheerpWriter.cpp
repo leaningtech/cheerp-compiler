@@ -5640,16 +5640,14 @@ void CheerpWriter::compileES6FetchBuffer()
 	assert(makeModule == MODULE_TYPE::ES6);
 
 	stream << "function " << namegen.getBuiltinName(NameGenerator::FETCHBUFFER) <<"(p){" << NewLine;
-	stream << "var b=null,f='function';" << NewLine;
-	stream << "if(typeof fetch===f)b=fetch(p).then(r=>r.arrayBuffer());" << NewLine;
-	stream << "else" << NewLine;
-	stream << "b=new Promise((y,n)=>{" << NewLine;
+	stream << "return (typeof fetch==='function')?" << NewLine;
+	stream << "fetch(p).then(r=>r.arrayBuffer()):" << NewLine;
+	stream << "new Promise((y,n)=>{" << NewLine;
 	stream << "import('fs').then(r=>r.readFile(p,(e,d)=>{" << NewLine;
 	stream << "if(e)n(e);" << NewLine;
 	stream << "else y(d);" << NewLine;
 	stream << "}));" << NewLine;
 	stream << "});" << NewLine;
-	stream << "return b;" << NewLine;
 	stream << "}" << NewLine;
 }
 
