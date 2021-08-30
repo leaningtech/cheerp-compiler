@@ -5627,6 +5627,37 @@ void CheerpWriter::compileMathDeclAsmJS()
 
 void CheerpWriter::compileFetchBuffer()
 {
+	if (makeModule == MODULE_TYPE::ES6)
+		compileES6FetchBuffer();
+	else
+		compileRegularFetchBuffer();
+}
+
+//ES6 modules syntax implies either the presence of fetch or the import() syntax
+//Note that IE is NOT supported by ES6 modules
+void CheerpWriter::compileES6FetchBuffer()
+{
+	assert(makeModule == MODULE_TYPE::ES6);
+
+	stream << "function " << namegen.getBuiltinName(NameGenerator::FETCHBUFFER) <<"(p){" << NewLine;
+	stream << "var b=null,f='function';" << NewLine;
+	stream << "if(typeof fetch===f)b=fetch(p).then(r=>r.arrayBuffer());" << NewLine;
+	stream << "else" << NewLine;
+	stream << "b=new Promise((y,n)=>{" << NewLine;
+	stream << "import('fs').then(r=>r.readFile(p,(e,d)=>{" << NewLine;
+	stream << "if(e)n(e);" << NewLine;
+	stream << "else y(d);" << NewLine;
+	stream << "}));" << NewLine;
+	stream << "});" << NewLine;
+	stream << "return b;" << NewLine;
+	stream << "}" << NewLine;
+}
+
+//read is a fall back for IE / legacy browsers, require is available in node.js, and fetch is supported by modern browsers
+void CheerpWriter::compileRegularFetchBuffer()
+{
+	assert(makeModule != MODULE_TYPE::ES6);
+
 	stream << "function " << namegen.getBuiltinName(NameGenerator::FETCHBUFFER) <<"(p){" << NewLine;
 	stream << "var b=null,f='function';" << NewLine;
 	stream << "if(typeof fetch===f)b=fetch(p).then(r=>r.arrayBuffer());" << NewLine;
