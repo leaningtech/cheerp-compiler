@@ -23,11 +23,12 @@ struct __cheerp_landingpad
 struct Exception
 {
 	void* obj;
+	void* adjustedPtr;
 	std::type_info* tinfo;
 	void (*dest)(void*);
 	Exception* next;
 	Exception(void* obj, std::type_info* tinfo, void(*dest)(void*)) throw()
-		: obj(obj), tinfo(tinfo), dest(dest), next(nullptr)
+		: obj(obj), adjustedPtr(nullptr), tinfo(tinfo), dest(dest), next(nullptr)
 	{
 	}
 	~Exception() noexcept
@@ -61,7 +62,14 @@ __attribute((noinline))
 void*
 __cxa_begin_catch(void* unwind_arg) noexcept
 {
-	return unwind_arg;
+	return static_cast<Exception*>(unwind_arg)->adjustedPtr;
+}
+
+__attribute((noinline))
+void*
+__cxa_get_exception_ptr(void* unwind_arg) noexcept
+{
+	return static_cast<Exception*>(unwind_arg)->adjustedPtr;
 }
 
 __attribute((noinline))
@@ -94,7 +102,7 @@ __gxx_personality_v0
 	__cheerp_landingpad* lp = new __cheerp_landingpad { nullptr, 0};
 	if(native)
 	{
-		lp->val = ex->obj;
+		lp->val = ex;
 	}
 
 	for(int i = 0; i < n; i++)
@@ -114,13 +122,14 @@ __gxx_personality_v0
 		bool deref = false;
 		if(catcher->can_catch(thrown, adjustedOffset, deref))
 		{
+			ex->adjustedPtr = ex->obj;
 			if(deref)
 			{
-				lp->val = *static_cast<void**>(lp->val);
+				ex->adjustedPtr = *static_cast<void**>(ex->adjustedPtr);
 			}
 			if(adjustedOffset != 0)
 			{
-				lp->val = __builtin_cheerp_downcast<void,void>(lp->val, -adjustedOffset);
+				ex->adjustedPtr = __builtin_cheerp_downcast<void,void>(ex->adjustedPtr, -adjustedOffset);
 			}
 			lp->sel = catches[i].sel;
 			break;
