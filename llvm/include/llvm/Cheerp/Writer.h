@@ -482,6 +482,9 @@ private:
 	 * a file, usable from the browser and node
 	 */
 	void compileFetchBuffer();
+	void compileRegularFetchBuffer();
+	void compileES6FetchBuffer();
+
 	// Helper function to call Fetch Buffer with the right argument
 	// Argument will either be the absolute path (iff ES6 and provided) otherwise fileName
 	void compileFetchBufferCall(const std::string& fileName, const std::string& argumentName);
