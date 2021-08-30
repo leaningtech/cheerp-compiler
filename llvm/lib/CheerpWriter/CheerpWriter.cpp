@@ -6210,8 +6210,9 @@ void CheerpWriter::compileAsmJSLoader()
 {
 	compileDeclareExports();
 
-	stream << namegen.getBuiltinName(NameGenerator::FETCHBUFFER) << "('" << asmJSMemFile << "').then(r=>{" << NewLine;
-	stream << getHeapName(HEAP8) << ".set(new Uint8Array(r),";
+	const std::string shortestName = namegen.getShortestLocalName();
+	stream << namegen.getBuiltinName(NameGenerator::FETCHBUFFER) << "('" << asmJSMemFile << "').then(" << shortestName << "=>{" << NewLine;
+	stream << getHeapName(HEAP8) << ".set(new Uint8Array(" << shortestName << "),";
 	stream << linearHelper.getStackStart() << ");" << NewLine;
 }
 
