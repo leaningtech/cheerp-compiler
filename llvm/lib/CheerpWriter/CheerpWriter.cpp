@@ -5645,6 +5645,12 @@ void CheerpWriter::compileFetchBuffer()
 	stream << "}" << NewLine;
 }
 
+void CheerpWriter::compileFetchBufferCall(const std::string& fileName)
+{
+	stream << namegen.getBuiltinName(NameGenerator::FETCHBUFFER) << "(";
+	stream << "'" << fileName << "'";
+	stream << ")";
+}
 
 void CheerpWriter::compileSourceMapsBegin()
 {
@@ -5994,7 +6000,8 @@ void CheerpWriter::compileWasmLoader()
 	compileDeclareExports();
 
 	const std::string shortestName = namegen.getShortestLocalName();
-	stream << namegen.getBuiltinName(NameGenerator::FETCHBUFFER) << "('" << wasmFile << "').then(" << shortestName << "=>" << NewLine;
+	compileFetchBufferCall(wasmFile);
+	stream << ".then(" << shortestName << "=>" << NewLine;
 	stream << "WebAssembly.instantiate(" << shortestName << "," << NewLine;
 	stream << "{i:{" << NewLine;
 	compileImports();
@@ -6211,7 +6218,8 @@ void CheerpWriter::compileAsmJSLoader()
 	compileDeclareExports();
 
 	const std::string shortestName = namegen.getShortestLocalName();
-	stream << namegen.getBuiltinName(NameGenerator::FETCHBUFFER) << "('" << asmJSMemFile << "').then(" << shortestName << "=>{" << NewLine;
+	compileFetchBufferCall(asmJSMemFile);
+	stream << ".then(" << shortestName << "=>{" << NewLine;
 	stream << getHeapName(HEAP8) << ".set(new Uint8Array(" << shortestName << "),";
 	stream << linearHelper.getStackStart() << ");" << NewLine;
 }

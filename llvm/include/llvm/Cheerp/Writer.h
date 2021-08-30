@@ -482,6 +482,8 @@ private:
 	 * a file, usable from the browser and node
 	 */
 	void compileFetchBuffer();
+	// Helper function to call Fetch Buffer with the provided argument
+	void compileFetchBufferCall(const std::string& fileName);
 	/**
 	 * This method supports both ConstantArray and ConstantDataSequential
 	 */
