@@ -5676,6 +5676,11 @@ void CheerpWriter::compileRegularFetchBuffer()
 
 void CheerpWriter::compileFetchBufferCall(const std::string& fileName, const std::string& argumentName)
 {
+	if (makeModule == MODULE_TYPE::ES6)
+	{
+		stream << "(" << argumentName << "&&" << argumentName << ".buffer)?" << NewLine;
+		stream << "Promise.resolve(" << argumentName << ".buffer):" << NewLine;
+	}
 	stream << namegen.getBuiltinName(NameGenerator::FETCHBUFFER) << "(";
 	if (makeModule == MODULE_TYPE::ES6)
 	{
