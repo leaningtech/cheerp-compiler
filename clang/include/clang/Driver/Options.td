@@ -4721,7 +4721,7 @@ def cheerp_asmjs_symbolic_globals : Flag<["-"], "cheerp-asmjs-symbolic-globals">
 def cheerp_make_module : Flag<["-"], "cheerp-make-module">, Flags<[DriverOption]>,
   HelpText<"Create a closure around JS to avoid global namespace pollution">;
 def cheerp_make_module_EQ : Joined<["-"], "cheerp-make-module=">, Flags<[DriverOption]>,
-  HelpText<"Expose the compiled code as a [closure/commonjs] module">;
+  HelpText<"Expose the compiled code as a [closure/commonjs/es6] module">;
 def cheerp_no_lto : Flag<["-"], "cheerp-no-lto">, Flags<[DriverOption]>,
   HelpText<"Disable final optimization step at link time">;
 def cheerp_dump_bc : Flag<["-"], "cheerp-dump-bc">, Flags<[DriverOption]>,

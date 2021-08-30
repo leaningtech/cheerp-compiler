@@ -172,7 +172,7 @@ private:
 		LAST_WASM = HEAP64,
 		LAST_ASMJS = HEAPF64
 	};
-	enum MODULE_TYPE { NONE = 0, CLOSURE, COMMONJS };
+	enum MODULE_TYPE { NONE = 0, CLOSURE, COMMONJS, ES6 };
 	// COMPILE_EMPTY is returned if there is no need to add a ;\n to end the line
 	enum COMPILE_INSTRUCTION_FEEDBACK { COMPILE_OK = 0, COMPILE_UNSUPPORTED, COMPILE_EMPTY };
 
@@ -259,7 +259,7 @@ private:
 	// Flag to signal if we should take advantage of native 32-bit float numbers
 	bool useMathFround;
 	// Enum to signal if we should create a module, and which kind
-	MODULE_TYPE makeModule;
+	const MODULE_TYPE makeModule;
 	// Flag to signal if we should add a credit comment line
 	bool addCredits;
 	// Flag to signal if we should add code that measures time until main is reached
@@ -586,6 +586,16 @@ private:
 		void addValue(const llvm::Value* v, uint32_t size) override;
 		void addConst(int64_t v) override;
 	};
+	static MODULE_TYPE getModuleType(llvm::StringRef makeModule)
+	{
+		if (makeModule==llvm::StringRef("closure"))
+			return MODULE_TYPE::CLOSURE;
+		if (makeModule==llvm::StringRef("commonjs"))
+			return MODULE_TYPE::COMMONJS;
+		if (makeModule==llvm::StringRef("es6"))
+			return MODULE_TYPE::ES6;
+		return MODULE_TYPE::NONE;
+	}
 public:
 	// Data to optimize asm.js rendering of return statements
 	uint32_t blockDepth;
@@ -632,9 +642,7 @@ public:
 		useNativeJavaScriptMath(useNativeJavaScriptMath),
 		useMathImul(useMathImul),
 		useMathFround(useMathFround),
-		makeModule(makeModule==llvm::StringRef("closure")?
-			MODULE_TYPE::CLOSURE : (makeModule==llvm::StringRef("commonjs")?
-			MODULE_TYPE::COMMONJS : MODULE_TYPE::NONE)),
+		makeModule(getModuleType(makeModule)),
 		addCredits(addCredits),
 		measureTimeToMain(measureTimeToMain),
 		heapSize(heapSize),

@@ -905,7 +905,8 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
   }
   if(Arg* cheerpMakeModuleEq = Args.getLastArg(options::OPT_cheerp_make_module_EQ)) {
     if (cheerpMakeModuleEq->getValue() != StringRef("closure") &&
-        cheerpMakeModuleEq->getValue() != StringRef("commonjs")) {
+        cheerpMakeModuleEq->getValue() != StringRef("commonjs") &&
+        cheerpMakeModuleEq->getValue() != StringRef("es6")) {
       D.Diag(diag::err_drv_invalid_value)
       << cheerpMakeModuleEq->getAsString(Args) << cheerpMakeModuleEq->getValue();
     }
