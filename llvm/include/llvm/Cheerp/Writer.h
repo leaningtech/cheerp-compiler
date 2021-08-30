@@ -482,8 +482,10 @@ private:
 	 * a file, usable from the browser and node
 	 */
 	void compileFetchBuffer();
-	// Helper function to call Fetch Buffer with the provided argument
-	void compileFetchBufferCall(const std::string& fileName);
+	// Helper function to call Fetch Buffer with the right argument
+	// Argument will either be the absolute path (iff ES6 and provided) otherwise fileName
+	void compileFetchBufferCall(const std::string& fileName, const std::string& argumentName);
+
 	/**
 	 * This method supports both ConstantArray and ConstantDataSequential
 	 */
