@@ -30,13 +30,21 @@
 using namespace clang;
 using namespace CodeGen;
 
-static llvm::FunctionCallee getFreeExceptionFn(CodeGenModule &CGM) {
+static llvm::FunctionCallee getFreeExceptionFn(CodeGenModule &CGM, llvm::Type* t) {
   // void __cxa_free_exception(void *thrown_exception);
 
-  llvm::FunctionType *FTy =
-    llvm::FunctionType::get(CGM.VoidTy, CGM.Int8PtrTy, /*isVarArg=*/false);
+  if(CGM.getTarget().isByteAddressable()) {
+    llvm::FunctionType *FTy =
+      llvm::FunctionType::get(CGM.VoidTy, CGM.Int8PtrTy, /*isVarArg=*/false);
 
-  return CGM.CreateRuntimeFunction(FTy, "__cxa_free_exception");
+    return CGM.CreateRuntimeFunction(FTy, "__cxa_free_exception");
+  }
+  else {
+    llvm::Type* types[] = { t };
+    llvm::Function* F = llvm::Intrinsic::getDeclaration(&CGM.getModule(),
+                                llvm::Intrinsic::cheerp_deallocate, types);
+    return llvm::FunctionCallee(F->getFunctionType(), F);
+  }
 }
 
 static llvm::FunctionCallee getSehTryBeginFn(CodeGenModule &CGM) {
@@ -383,7 +391,7 @@ namespace {
     llvm::Value *exn;
     FreeException(llvm::Value *exn) : exn(exn) {}
     void Emit(CodeGenFunction &CGF, Flags flags) override {
-      CGF.EmitNounwindRuntimeCall(getFreeExceptionFn(CGF.CGM), exn);
+      CGF.EmitNounwindRuntimeCall(getFreeExceptionFn(CGF.CGM, exn->getType()), exn);
     }
   };
 } // end anonymous namespace
