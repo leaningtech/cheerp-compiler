@@ -6080,6 +6080,12 @@ void CheerpWriter::compileDeclareExports()
 	{
 		stream << "module.exports=" << NewLine;
 	}
+	else if (makeModule == MODULE_TYPE::ES6)
+	{
+		const std::string shortestName = namegen.getShortestLocalName();
+		stream << "export default function(" << shortestName << "){" << NewLine;
+		stream << "return ";
+	}
 	else
 	{
 		assert(areDummiesDeclared);
@@ -6205,7 +6211,7 @@ void CheerpWriter::compileDefineExports()
 	compileDeclExportedToJs(/*alsoDeclare*/ !areJsExportedExportsDeclared);
 	areJsExportedExportsDeclared = true;
 
-	if (makeModule != MODULE_TYPE::COMMONJS)
+	if (makeModule != MODULE_TYPE::COMMONJS && makeModule != MODULE_TYPE::COMMONJS)
 	{
 		//CommonJS modules have already the promise on module.exports
 		bool anyJSEx = false;
@@ -6349,7 +6355,7 @@ void CheerpWriter::makeJS()
 
 		if (globalDeps.needAsmJS() && asmJSMem)
 			compileAsmJSLoader();
-		else if (makeModule == MODULE_TYPE::COMMONJS)
+		else if (makeModule == MODULE_TYPE::COMMONJS || makeModule == MODULE_TYPE::ES6)
 			compileCommonJSModule();
 		else
 			areExtraParenthesisOpen = false;
@@ -6360,11 +6366,14 @@ void CheerpWriter::makeJS()
 
 	compileDefineExports();
 	compileConstructors();
-	if (makeModule == MODULE_TYPE::COMMONJS)
+	if (makeModule == MODULE_TYPE::COMMONJS || makeModule == MODULE_TYPE::ES6)
 		compileCommonJSExports();
 
 	if (areExtraParenthesisOpen)
 		compileLoaderOrModuleEnd();
+
+	if (makeModule == MODULE_TYPE::ES6)
+		stream << "}" << NewLine;
 
 	if (needAssignHeaps)
 		compileAssignHeaps(needWasmLoader);
