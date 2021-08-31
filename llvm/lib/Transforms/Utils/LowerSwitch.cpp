@@ -38,7 +38,6 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
-#include "llvm/Transforms/Utils/LowerSwitch.h"
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
@@ -50,10 +49,14 @@ using namespace llvm;
 
 #define DEBUG_TYPE "lower-switch"
 
-using namespace llvm;
-using IntRange = LowerSwitch::IntRange;
-
 namespace {
+
+  struct IntRange {
+    int64_t Low, High;
+  };
+
+} // end anonymous namespace
+
 // Return true iff R is covered by Ranges.
 bool IsInRanges(const IntRange &R, const std::vector<IntRange> &Ranges) {
   // Note: Ranges must be sorted, non-overlapping and non-adjacent.
@@ -88,8 +91,6 @@ struct CaseCmp {
   }
 };
 
-namespace llvm {
-
 /// Used for debugging purposes.
 LLVM_ATTRIBUTE_USED
 raw_ostream &operator<<(raw_ostream &O, const CaseVector &C) {
@@ -102,7 +103,6 @@ raw_ostream &operator<<(raw_ostream &O, const CaseVector &C) {
   }
 
   return O << "]";
-}
 }
 
 /// Update the first occurrence of the "switch statement" BB in the PHI
@@ -519,7 +519,7 @@ void ProcessSwitchInst(SwitchInst *SI,
     DeleteList.insert(OldDefault);
 }
 
-bool LowerSwitch(Function &F, LazyValueInfo *LVI, AssumptionCache *AC) {
+bool llvm::LowerSwitch(Function &F, LazyValueInfo *LVI, AssumptionCache *AC, const std::function<bool(SwitchInst*)>& processSwitch) {
   bool Changed = false;
   SmallPtrSet<BasicBlock *, 8> DeleteList;
 
@@ -532,6 +532,9 @@ bool LowerSwitch(Function &F, LazyValueInfo *LVI, AssumptionCache *AC) {
 
     if (SwitchInst *SI = dyn_cast<SwitchInst>(Cur.getTerminator())) {
       Changed = true;
+      // Assume the code will change, even if 'processSwitch' may actually decide to not change anything
+      if(processSwitch(SI))
+        continue;
       ProcessSwitchInst(SI, DeleteList, AC, LVI);
     }
   }
@@ -561,8 +564,6 @@ public:
   }
 };
 
-} // end anonymous namespace
-
 char LowerSwitchLegacyPass::ID = 0;
 
 // Publicly exposed interface to pass...
@@ -584,13 +585,13 @@ bool LowerSwitchLegacyPass::runOnFunction(Function &F) {
   LazyValueInfo *LVI = &getAnalysis<LazyValueInfoWrapperPass>().getLVI();
   auto *ACT = getAnalysisIfAvailable<AssumptionCacheTracker>();
   AssumptionCache *AC = ACT ? &ACT->getAssumptionCache(F) : nullptr;
-  return LowerSwitch(F, LVI, AC);
+  return LowerSwitch(F, LVI, AC, [](SwitchInst*) { return false; });
 }
 
 PreservedAnalyses LowerSwitchPass::run(Function &F,
                                        FunctionAnalysisManager &AM) {
   LazyValueInfo *LVI = &AM.getResult<LazyValueAnalysis>(F);
   AssumptionCache *AC = AM.getCachedResult<AssumptionAnalysis>(F);
-  return LowerSwitch(F, LVI, AC) ? PreservedAnalyses::none()
+  return LowerSwitch(F, LVI, AC, [](SwitchInst*) { return false; }) ? PreservedAnalyses::none()
                                  : PreservedAnalyses::all();
 }

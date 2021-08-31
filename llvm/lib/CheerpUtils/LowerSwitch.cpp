@@ -9,6 +9,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Analysis/AssumptionCache.h"
+#include "llvm/Analysis/LazyValueInfo.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Utils/LowerSwitch.h"
 #include "llvm/Cheerp/CFGPasses.h"
@@ -19,9 +21,9 @@ using namespace llvm;
 
 namespace {
 
-class CheerpLowerSwitch: public LowerSwitch {
+class CheerpLowerSwitch: public FunctionPass {
 public:
-	CheerpLowerSwitch(bool onlyLowerI64 = true): onlyLowerI64(onlyLowerI64)
+	CheerpLowerSwitch(bool onlyLowerI64 = true):FunctionPass(ID),onlyLowerI64(onlyLowerI64)
 	{
 	}
 	StringRef getPassName() const override {
@@ -30,10 +32,8 @@ public:
 	static char ID;
 private:
 	bool onlyLowerI64;
-
-        void processSwitchInst(SwitchInst *SI,
-                           SmallPtrSetImpl<BasicBlock *> &DeleteList,
-                           AssumptionCache *AC, LazyValueInfo *LVI) override;
+	bool runOnFunction(Function &F) override;
+        bool processSwitchInst(SwitchInst *SI);
 	bool keepSwitch(const SwitchInst* si);
 };
 
@@ -705,7 +705,15 @@ private:
 	double costCalculated{1e9};
 };
 
-void CheerpLowerSwitch::processSwitchInst(SwitchInst *SI, SmallPtrSetImpl<BasicBlock*> &DeleteList, AssumptionCache *AC, LazyValueInfo *LVI)
+bool CheerpLowerSwitch::runOnFunction(Function& F)
+{
+	LazyValueInfo *LVI = &getAnalysis<LazyValueInfoWrapperPass>().getLVI();
+	auto *ACT = getAnalysisIfAvailable<AssumptionCacheTracker>();
+	AssumptionCache *AC = ACT ? &ACT->getAssumptionCache(F) : nullptr;
+	return LowerSwitch(F, LVI, AC, [this](SwitchInst* SI) { return processSwitchInst(SI); });
+}
+
+bool CheerpLowerSwitch::processSwitchInst(SwitchInst *SI)
 {
 	DataOnSwitch data(SI);
 	GreedyLowering lowering(SI);
@@ -713,12 +721,18 @@ void CheerpLowerSwitch::processSwitchInst(SwitchInst *SI, SmallPtrSetImpl<BasicB
 	const bool isConvenientToLower = (lowering.calculatedCost(data) < 5.0);
 
 	if(!isConvenientToLower && keepSwitch(SI))
-		return;
+	{
+		// Return true to make sure the caller does not further process this switch
+		return true;
+	}
 
 	if (lowering.isValid())
+	{
 		lowering.lowerGreedily(data);
+		return true;
+	}
 	else
-		LowerSwitch::processSwitchInst(SI, DeleteList, AC, LVI);
+		return false;
 }
 
 char CheerpLowerSwitch::ID = 0;
