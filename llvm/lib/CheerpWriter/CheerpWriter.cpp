@@ -5678,6 +5678,8 @@ void CheerpWriter::compileFetchBufferCall(const std::string& fileName, const std
 {
 	if (makeModule == MODULE_TYPE::ES6)
 	{
+		stream << namegen.getBuiltinName(NameGenerator::COUNTER) << "++?" << NewLine;
+		stream << "Promise.resolve(" << namegen.getBuiltinName(NameGenerator::DUMMY) << "()):" << NewLine;
 		stream << "(" << argumentName << "&&" << argumentName << ".buffer)?" << NewLine;
 		stream << "Promise.resolve(" << argumentName << ".buffer):" << NewLine;
 	}
@@ -6016,6 +6018,8 @@ void CheerpWriter::compileGenericJS()
 
 void CheerpWriter::compileDummies()
 {
+	if (makeModule == ES6)
+		stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::COUNTER) << "=0.0;" << NewLine;
 	stream << "function " << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) << "(){throw new Error('this should be unreachable');};" << NewLine;
 
 	areDummiesDeclared = true;
@@ -6387,6 +6391,9 @@ void CheerpWriter::makeJS()
 			compileAsmJSClosure();
 			compileAsmJSTopLevel();
 		}
+
+		if (makeModule == MODULE_TYPE::ES6 && !areDummiesDeclared)
+			compileDummies();
 
 		if (globalDeps.needAsmJS() && asmJSMem)
 			compileAsmJSLoader();

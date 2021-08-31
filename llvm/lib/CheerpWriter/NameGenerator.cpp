@@ -643,6 +643,7 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 	builtins[GROW_MEM] = "growLinearMemory";
 	builtins[ASSIGN_HEAPS] = "assignHeaps";
 	builtins[DUMMY] = "__dummy";
+	builtins[COUNTER] = "__counter";
 	builtins[MEMORY] = "memory";
 	builtins[HANDLE_VAARG] = "handleVAArg";
 	builtins[FETCHBUFFER] = "fetchBuffer";
