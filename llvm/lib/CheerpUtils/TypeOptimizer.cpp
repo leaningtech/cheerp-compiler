@@ -662,12 +662,6 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 		StructType* newDirectBase = st->getDirectBase() ? dyn_cast<StructType>(rewriteType(st->getDirectBase()).mappedType) : NULL;
 		newStruct->setBody(newTypes, st->isPacked(), newDirectBase, st->hasByteLayout(), st->hasAsmJS());
 
-		if (newStruct->hasAsmJS() || newStruct->hasByteLayout())
-		{
-			if (!newStruct->isPacked())	//This check is meaningless for packed Struct
-				assert(DL->getPrefTypeAlign(newStruct) == getAlignmentAfterRewrite(st));
-		}
-
 		return CacheAndReturn(newStruct, newStructKind);
 	}
 	if(FunctionType* ft=dyn_cast<FunctionType>(t))
