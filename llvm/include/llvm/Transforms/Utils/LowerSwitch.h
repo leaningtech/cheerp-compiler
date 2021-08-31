@@ -17,11 +17,14 @@
 
 #include "llvm/IR/PassManager.h"
 
-typedef bool (*KeepSwitch)(const SwitchInst* si);
-
-bool LowerSwitch(Function &F, LazyValueInfo *LVI, AssumptionCache *AC, KeepSwitch* keepSwitch);
-
 namespace llvm {
+
+class SwitchInst;
+class LazyValueInfo;
+class AssumptionCache;
+
+bool LowerSwitch(Function &F, LazyValueInfo *LVI, AssumptionCache *AC, const std::function<bool(SwitchInst* si)>& processSwitch);
+
 struct LowerSwitchPass : public PassInfoMixin<LowerSwitchPass> {
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
 };
