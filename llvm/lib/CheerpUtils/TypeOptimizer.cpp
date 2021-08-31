@@ -480,7 +480,7 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 				}
 
 				currentSize = padStruct(currentSize, alignmentInfo.second);     //First grow pad currentSize to the appropriate alignment
-				currentSize += DL->getTypeAllocSize(nextTy);                    //Then add the next type dimension
+				currentSize += DL->getTypeAllocSize(elTy);                      //Then add the next type dimension
 
 				membersMapping.push_back({newTypes.size(), 0});                 //Note that the second field is unused
 				newTypes.push_back(nextTy);
