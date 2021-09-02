@@ -449,6 +449,7 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 				return padSize;
 			};
 
+			const auto& SL = DL->getStructLayout(st);
 			uint32_t currentSize = 0;
 			for(uint32_t i=0;i<st->getNumElements();i++)
 			{
@@ -461,10 +462,11 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 				assert(alignmentInfo.first >= alignmentInfo.second);
 
 				assert(alignmentInfo.first >= alignmentInfo.second);
-				const uint32_t originalPaddedSize = padStruct(currentSize, alignmentInfo.first);
+				const uint32_t originalPaddedSize = SL->getElementOffset(i);
 				const uint32_t nextPaddedSize = padStruct(currentSize, alignmentInfo.second);
 
 				const uint32_t toAdd = originalPaddedSize - currentSize;
+				assert(toAdd < 8);
 
 				//Padding bytes are inserted only if adding them actually change the size
 				//eg. {i8, i32, i64} -> {i8, i32, padding?? ,[2 x i32]}
@@ -487,6 +489,7 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 			}
 
 			const uint32_t toAdd = DL->getTypeAllocSize(st) - currentSize;
+			assert( toAdd < 8 );
 			//Pad the struct at the end
 			//The problematic test case is something like {i8, i64, i8} -> {i8, [7 x i8], [2 x i32], i8, ???}
 			//In the original struct, the allocation size is 24 (17 rounded to the next multiple of 8)
