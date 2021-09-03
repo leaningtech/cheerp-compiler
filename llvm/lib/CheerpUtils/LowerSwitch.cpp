@@ -707,10 +707,9 @@ private:
 
 bool CheerpLowerSwitch::runOnFunction(Function& F)
 {
-	LazyValueInfo *LVI = &getAnalysis<LazyValueInfoWrapperPass>().getLVI();
 	auto *ACT = getAnalysisIfAvailable<AssumptionCacheTracker>();
 	AssumptionCache *AC = ACT ? &ACT->getAssumptionCache(F) : nullptr;
-	return LowerSwitch(F, LVI, AC, [this](SwitchInst* SI) { return processSwitchInst(SI); });
+	return LowerSwitch(F, nullptr, AC, [this](SwitchInst* SI) { return processSwitchInst(SI); });
 }
 
 bool CheerpLowerSwitch::processSwitchInst(SwitchInst *SI)
