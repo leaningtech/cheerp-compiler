@@ -2401,6 +2401,9 @@ static Instruction *matchFunnelShift(Instruction &Or, InstCombinerImpl &IC) {
   if (!ShAmt)
     return nullptr;
 
+  if (!IC.getDataLayout().isByteAddressable())
+    return nullptr;
+
   Intrinsic::ID IID = IsFshl ? Intrinsic::fshl : Intrinsic::fshr;
   Function *F = Intrinsic::getDeclaration(Or.getModule(), IID, Or.getType());
   return CallInst::Create(F, {ShVal0, ShVal1, ShAmt});
