@@ -2555,6 +2555,7 @@ atomic_flag_wait_explicit(const volatile atomic_flag* __o,
 {
     __o->wait(__v, __m);
 }
+#endif
 
 inline _LIBCPP_INLINE_VISIBILITY _LIBCPP_AVAILABILITY_SYNC
 void
@@ -2563,7 +2564,6 @@ atomic_flag_wait_explicit(const atomic_flag* __o,
 {
     __o->wait(__v, __m);
 }
-#endif
 
 inline _LIBCPP_INLINE_VISIBILITY _LIBCPP_AVAILABILITY_SYNC
 void
