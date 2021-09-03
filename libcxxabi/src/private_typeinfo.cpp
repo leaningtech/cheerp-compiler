@@ -253,7 +253,7 @@ __class_type_info::can_catch(const __shim_type_info* thrown_type,
     if (thrown_class_type == 0)
         return false;
     // bullet 2
-    __dynamic_cast_info info = {thrown_class_type, 0, this, 0, this, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,};
+    __dynamic_cast_info info = {thrown_class_type, 0, this, 0, thrown_class_type, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,};
     info.number_of_dst_type = 1;
     thrown_class_type->has_unambiguous_public_base(&info, adjustedPtr, public_path);
     if (info.path_dst_ptr_to_static_ptr == public_path)
@@ -350,7 +350,7 @@ __base_class_type_info::has_unambiguous_public_base(__dynamic_cast_info* info,
 #ifdef __ASMJS__
             offset_to_base = info->dynamic_ptr + vbase_offset - adjustedPtr;
 #else
-            offset_to_base = vbase_offset - adjustedPtr + 1;
+            offset_to_base = vbase_offset - adjustedPtr;
 #endif
 #else
             const char* vtable = *static_cast<const char*const*>(adjustedPtr);
@@ -502,7 +502,7 @@ __pointer_type_info::can_catch(const __shim_type_info* thrown_type,
         dynamic_cast<const __class_type_info*>(thrown_pointer_type->__pointee);
     if (thrown_class_type == 0)
         return false;
-    __dynamic_cast_info info = {thrown_class_type, 0, catch_class_type, 0, catch_class_type, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,};
+    __dynamic_cast_info info = {thrown_class_type, 0, catch_class_type, 0, thrown_class_type, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,};
     info.number_of_dst_type = 1;
     thrown_class_type->has_unambiguous_public_base(&info, adjustedPtr, public_path);
     if (info.path_dst_ptr_to_static_ptr == public_path)
