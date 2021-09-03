@@ -2137,7 +2137,7 @@ static Value *foldSelectCmpXchg(SelectInst &SI) {
 ///                 --> call llvm.fshl.i32(a, b, c)
 /// fshr32(a, b, c) --> (c == 0 ? b : ((a >> (32 - c)) | (b << c)))
 ///                 --> call llvm.fshr.i32(a, b, c)
-static Instruction *foldSelectFunnelShift(SelectInst &Sel,
+static Instruction *foldSelectFunnelShift(const DataLayout& DL, SelectInst &Sel,
                                           InstCombiner::BuilderTy &Builder) {
   // This must be a power-of-2 type for a bitmasking transform to be valid.
   unsigned Width = Sel.getType()->getScalarSizeInBits();
@@ -2199,6 +2199,9 @@ static Instruction *foldSelectFunnelShift(SelectInst &Sel,
     else if (!IsFshl && !llvm::isGuaranteedNotToBePoison(SV0))
       SV0 = Builder.CreateFreeze(SV0);
   }
+
+  if (!DL.isByteAddressable())
+    return nullptr;
 
   // This is a funnel/rotate that avoids shift-by-bitwidth UB in a suboptimal way.
   // Convert to funnel shift intrinsic.
@@ -3016,7 +3019,7 @@ Instruction *InstCombinerImpl::visitSelectInst(SelectInst &SI) {
   if (Instruction *Select = foldSelectBinOpIdentity(SI, TLI, *this))
     return Select;
 
-  if (Instruction *Funnel = foldSelectFunnelShift(SI, Builder))
+  if (Instruction *Funnel = foldSelectFunnelShift(DL, SI, Builder))
     return Funnel;
 
   if (Instruction *Copysign = foldSelectToCopysign(SI, Builder))
