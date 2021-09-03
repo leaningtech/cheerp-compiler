@@ -399,8 +399,11 @@ void ProcessSwitchInst(SwitchInst *SI,
     // TODO Shouldn't this create a signed range?
     ConstantRange KnownBitsRange =
         ConstantRange::fromKnownBits(Known, /*IsSigned=*/false);
-    const ConstantRange LVIRange = LVI->getConstantRange(Val, SI);
-    ConstantRange ValRange = KnownBitsRange.intersectWith(LVIRange);
+    ConstantRange ValRange = KnownBitsRange;
+    if(LVI) {
+      const ConstantRange LVIRange = LVI->getConstantRange(Val, SI);
+      ValRange = ValRange.intersectWith(LVIRange);
+    }
     // We delegate removal of unreachable non-default cases to other passes. In
     // the unlikely event that some of them survived, we just conservatively
     // maintain the invariant that all the cases lie between the bounds. This
@@ -540,7 +543,9 @@ bool llvm::LowerSwitch(Function &F, LazyValueInfo *LVI, AssumptionCache *AC, con
   }
 
   for (BasicBlock *BB : DeleteList) {
-    LVI->eraseBlock(BB);
+    if(LVI) {
+      LVI->eraseBlock(BB);
+    }
     DeleteDeadBlock(BB);
   }
 
