@@ -10060,6 +10060,9 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
                    Context.getTargetInfo().getCXXABI().isMicrosoft()) {
           // FIXME: We should consider this a builtin only in the std namespace.
           NewFD->addAttr(BuiltinAttr::CreateImplicit(Context, BuiltinID));
+        } else if (Context.BuiltinInfo.isFullyTyped(BuiltinID)) {
+          // Make sure Cheerp fully typed builtins are marked as such
+          NewFD->addAttr(BuiltinAttr::CreateImplicit(Context, BuiltinID));
         }
       }
     }
