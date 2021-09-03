@@ -620,6 +620,9 @@ Instruction *InstCombinerImpl::narrowFunnelShift(TruncInst &Trunc) {
   if (!MaskedValueIsZero(ShVal1, HiBitMask, 0, &Trunc))
     return nullptr;
 
+  if (!DL.isByteAddressable())
+    return nullptr;
+
   // We have an unnecessarily wide rotate!
   // trunc (or (shl ShVal0, ShAmt), (lshr ShVal1, BitWidth - ShAmt))
   // Narrow the inputs and convert to funnel shift intrinsic:

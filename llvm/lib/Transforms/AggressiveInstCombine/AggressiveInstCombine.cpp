@@ -74,7 +74,10 @@ public:
 /// Match a pattern for a bitwise funnel/rotate operation that partially guards
 /// against undefined behavior by branching around the funnel-shift/rotation
 /// when the shift amount is 0.
-static bool foldGuardedFunnelShift(Instruction &I, const DominatorTree &DT) {
+static bool foldGuardedFunnelShift(const DataLayout& DL, Instruction &I, const DominatorTree &DT) {
+  if (!DL.isByteAddressable())
+    return false;
+
   if (I.getOpcode() != Instruction::PHI || I.getNumOperands() != 2)
     return false;
 
@@ -368,6 +371,7 @@ static bool tryToRecognizePopCount(Instruction &I) {
 /// occur frequently and/or have more than a constant-length pattern match.
 static bool foldUnusualPatterns(Function &F, DominatorTree &DT) {
   bool MadeChange = false;
+  const DataLayout &DL = F.getParent()->getDataLayout();
   for (BasicBlock &BB : F) {
     // Ignore unreachable basic blocks.
     if (!DT.isReachableFromEntry(&BB))
@@ -380,7 +384,7 @@ static bool foldUnusualPatterns(Function &F, DominatorTree &DT) {
     // iteratively in this loop rather than waiting until the end.
     for (Instruction &I : make_range(BB.rbegin(), BB.rend())) {
       MadeChange |= foldAnyOrAllBitsSet(I);
-      MadeChange |= foldGuardedFunnelShift(I, DT);
+      MadeChange |= foldGuardedFunnelShift(DL, I, DT);
       MadeChange |= tryToRecognizePopCount(I); 
     }
   }
