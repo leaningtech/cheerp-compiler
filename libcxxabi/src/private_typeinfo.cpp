@@ -434,6 +434,7 @@ __pointer_type_info::can_catch(const __shim_type_info* thrown_type,
     if (is_equal(thrown_type, &typeid(std::nullptr_t), false)) {
 #ifdef __CHEERP__
       adjustedPtr = -1<<31;
+      deref = true;
 #else
       adjustedPtr = nullptr;
 #endif

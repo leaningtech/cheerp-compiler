@@ -127,7 +127,7 @@ __gxx_personality_v0
 			{
 				ex->adjustedPtr = *static_cast<void**>(ex->adjustedPtr);
 			}
-			if(adjustedOffset != 0)
+			if(adjustedOffset != 0 && ex->adjustedPtr != nullptr)
 			{
 				ex->adjustedPtr = __builtin_cheerp_downcast<void,void>(ex->adjustedPtr, -adjustedOffset);
 			}
