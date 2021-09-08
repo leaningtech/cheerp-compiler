@@ -4694,77 +4694,77 @@ def cheerp_mode_EQ : Joined<["-"], "cheerp-mode=">, Flags<[CC1Option]>,
   Group<CompileOnly_Group>, HelpText<"Specify which mode to use by default [genericjs/asmjs]">;
 def cheerp_linear_output_EQ : Joined<["-"], "cheerp-linear-output=">, Flags<[CC1Option]>,
   Group<CompileOnly_Group>, HelpText<"Output format for the linear memory part of the program [wasm/asmjs]">;
-def cheerp_secondary_output_file_EQ : Joined<["-"], "cheerp-secondary-output-file=">, Flags<[DriverOption]>,
+def cheerp_secondary_output_file_EQ : Joined<["-"], "cheerp-secondary-output-file=">, Flags<[NoXarchOption]>,
   HelpText<"Write the secondary output file (wasm module or asm.js memory file) to <file>">, MetaVarName<"<file>">;
-def cheerp_secondary_output_path_EQ : Joined<["-"], "cheerp-secondary-output-path=">, Flags<[DriverOption]>,
+def cheerp_secondary_output_path_EQ : Joined<["-"], "cheerp-secondary-output-path=">, Flags<[NoXarchOption]>,
   HelpText<"Assume the secondary output file (wasm module or asm.js memory file) to be in path <path> at runtime">, MetaVarName<"<path>">;
-def cheerp_linear_heap_size : Joined<["-"], "cheerp-linear-heap-size=">, Flags<[DriverOption]>,
+def cheerp_linear_heap_size : Joined<["-"], "cheerp-linear-heap-size=">, Flags<[NoXarchOption]>,
   HelpText<"Set wasm/asm.js heap size (in MB, default is 8)">;
-def cheerp_linear_stack_size : Joined<["-"], "cheerp-linear-stack-size=">, Flags<[DriverOption]>,
+def cheerp_linear_stack_size : Joined<["-"], "cheerp-linear-stack-size=">, Flags<[NoXarchOption]>,
   HelpText<"Set wasm/asm.js stack size (in MB, default is 1)">;
-def cheerp_wasm_loader_EQ : Joined<["-"], "cheerp-wasm-loader=">, Flags<[DriverOption]>,
+def cheerp_wasm_loader_EQ : Joined<["-"], "cheerp-wasm-loader=">, Flags<[NoXarchOption]>,
   HelpText<"Write wasm loader to <file>">, MetaVarName<"<file>">;
-def cheerp_wasm_file_EQ : Joined<["-"], "cheerp-wasm-file=">, Flags<[DriverOption]>,
+def cheerp_wasm_file_EQ : Joined<["-"], "cheerp-wasm-file=">, Flags<[NoXarchOption]>,
   HelpText<"Assume wasm file is <file>">, MetaVarName<"<file>">;
-def cheerp_asmjs_mem_file_EQ : Joined<["-"], "cheerp-asmjs-mem-file=">, Flags<[DriverOption]>,
+def cheerp_asmjs_mem_file_EQ : Joined<["-"], "cheerp-asmjs-mem-file=">, Flags<[NoXarchOption]>,
   HelpText<"Write asm.js initialized memory to <file>">, MetaVarName<"<file>">;
-def cheerp_sourcemap_EQ : Joined<["-"], "cheerp-sourcemap=">, Flags<[DriverOption]>,
+def cheerp_sourcemap_EQ : Joined<["-"], "cheerp-sourcemap=">, Flags<[NoXarchOption]>,
   HelpText<"Write sourcemap to <file>">, MetaVarName<"<file>">;
-def cheerp_sourcemap_prefix_EQ : Joined<["-"], "cheerp-sourcemap-prefix=">, Flags<[DriverOption]>,
+def cheerp_sourcemap_prefix_EQ : Joined<["-"], "cheerp-sourcemap-prefix=">, Flags<[NoXarchOption]>,
   HelpText<"Remove <prefix> from sourcemap paths">, MetaVarName<"<prefix>">;
-def cheerp_sourcemap_standalone : Flag<["-"], "cheerp-sourcemap-standalone">, Flags<[DriverOption]>,
+def cheerp_sourcemap_standalone : Flag<["-"], "cheerp-sourcemap-standalone">, Flags<[NoXarchOption]>,
   HelpText<"Generate a standalone sourcemap by including _all_ sources in the map file">;
-def cheerp_pretty_code : Flag<["-"], "cheerp-pretty-code">, Flags<[DriverOption]>,
+def cheerp_pretty_code : Flag<["-"], "cheerp-pretty-code">, Flags<[NoXarchOption]>,
   HelpText<"Generate human-readable JS">;
-def cheerp_asmjs_symbolic_globals : Flag<["-"], "cheerp-asmjs-symbolic-globals">, Flags<[DriverOption]>,
+def cheerp_asmjs_symbolic_globals : Flag<["-"], "cheerp-asmjs-symbolic-globals">, Flags<[NoXarchOption]>,
   HelpText<"Compile global variable addresses as js variables in the asm.js module">;
-def cheerp_make_module : Flag<["-"], "cheerp-make-module">, Flags<[DriverOption]>,
+def cheerp_make_module : Flag<["-"], "cheerp-make-module">, Flags<[NoXarchOption]>,
   HelpText<"Create a closure around JS to avoid global namespace pollution">;
-def cheerp_make_module_EQ : Joined<["-"], "cheerp-make-module=">, Flags<[DriverOption]>,
+def cheerp_make_module_EQ : Joined<["-"], "cheerp-make-module=">, Flags<[NoXarchOption]>,
   HelpText<"Expose the compiled code as a [closure/commonjs/es6] module">;
-def cheerp_no_lto : Flag<["-"], "cheerp-no-lto">, Flags<[DriverOption]>,
+def cheerp_no_lto : Flag<["-"], "cheerp-no-lto">, Flags<[NoXarchOption]>,
   HelpText<"Disable final optimization step at link time">;
-def cheerp_dump_bc : Flag<["-"], "cheerp-dump-bc">, Flags<[DriverOption]>,
+def cheerp_dump_bc : Flag<["-"], "cheerp-dump-bc">, Flags<[NoXarchOption]>,
   HelpText<"Output the final BC file">;
-def cheerp_no_native_math : Flag<["-"], "cheerp-no-native-math">, Flags<[DriverOption]>,
+def cheerp_no_native_math : Flag<["-"], "cheerp-no-native-math">, Flags<[NoXarchOption]>,
   HelpText<"Disable native JavaScript math functions">;
-def cheerp_preexecute : Flag<["-"], "cheerp-preexecute">, Flags<[DriverOption]>,
+def cheerp_preexecute : Flag<["-"], "cheerp-preexecute">, Flags<[NoXarchOption]>,
   HelpText<"Enable execution of run-time init at compile time">;
-def cheerp_preexecute_main : Flag<["-"], "cheerp-preexecute-main">, Flags<[DriverOption]>,
+def cheerp_preexecute_main : Flag<["-"], "cheerp-preexecute-main">, Flags<[NoXarchOption]>,
   HelpText<"Run main/webMain in the PreExecuter step. Needs -cheerp-preexecute.">;
-def cheerp_no_pointer_scev : Flag<["-"], "cheerp-no-pointer-scev">, Flags<[DriverOption]>,
+def cheerp_no_pointer_scev : Flag<["-"], "cheerp-no-pointer-scev">, Flags<[NoXarchOption]>,
   HelpText<"Disable scalar evolution for pointers">;
-def cheerp_no_math_imul : Flag<["-"], "cheerp-no-math-imul">, Flags<[DriverOption]>,
+def cheerp_no_math_imul : Flag<["-"], "cheerp-no-math-imul">, Flags<[NoXarchOption]>,
   HelpText<"Disable JavaScript Math.imul">;
-def cheerp_no_math_fround : Flag<["-"], "cheerp-no-math-fround">, Flags<[DriverOption]>,
+def cheerp_no_math_fround : Flag<["-"], "cheerp-no-math-fround">, Flags<[NoXarchOption]>,
   HelpText<"Disable JavaScript Math.fround">;
-def cheerp_no_credits : Flag<["-"], "cheerp-no-credits">, Flags<[DriverOption]>,
+def cheerp_no_credits : Flag<["-"], "cheerp-no-credits">, Flags<[NoXarchOption]>,
   HelpText<"Disable Cheerp credits in JS">;
-def cheerp_force_typed_arrays : Flag<["-"], "cheerp-force-typed-arrays">, Flags<[DriverOption]>,
+def cheerp_force_typed_arrays : Flag<["-"], "cheerp-force-typed-arrays">, Flags<[NoXarchOption]>,
   HelpText<"Use typed arrays instead of normal arrays for list of doubles">;
-def cheerp_no_icf : Flag<["-"], "cheerp-no-icf">, Flags<[DriverOption]>,
+def cheerp_no_icf : Flag<["-"], "cheerp-no-icf">, Flags<[NoXarchOption]>,
   HelpText<"Disable identical code folding on wasm/asmjs">;
-def cheerp_reserved_names_EQ : Joined<["-"], "cheerp-reserved-names=">, Flags<[DriverOption]>,
+def cheerp_reserved_names_EQ : Joined<["-"], "cheerp-reserved-names=">, Flags<[NoXarchOption]>,
   HelpText<"A list of JS identifiers that should not be used by Cheerp">;
-def cheerp_global_prefix_EQ : Joined<["-"], "cheerp-global-prefix=">, Flags<[DriverOption]>,
+def cheerp_global_prefix_EQ : Joined<["-"], "cheerp-global-prefix=">, Flags<[NoXarchOption]>,
   HelpText<"Prefix all global names with the given string">;
-def cheerp_bounds_check : Flag<["-"], "cheerp-bounds-check">, Flags<[DriverOption]>,
+def cheerp_bounds_check : Flag<["-"], "cheerp-bounds-check">, Flags<[NoXarchOption]>,
   HelpText<"Generate debug code for bounds-checking array and object members accesses">;
-def cheerp_registerize_legacy : Flag<["-"], "cheerp-registerize-legacy">, Flags<[DriverOption]>,
+def cheerp_registerize_legacy : Flag<["-"], "cheerp-registerize-legacy">, Flags<[NoXarchOption]>,
   HelpText<"Use the legacy algorithm for assigning registers">;
-def cheerp_avoid_wasm_traps : Flag<["-"], "cheerp-avoid-wasm-traps">, Flags<[DriverOption]>,
+def cheerp_avoid_wasm_traps : Flag<["-"], "cheerp-avoid-wasm-traps">, Flags<[NoXarchOption]>,
   HelpText<"Avoid traps from WebAssembly by generating more verbose code">;
-def cheerp_fix_wrong_func_casts : Flag<["-"], "cheerp-fix-wrong-func-casts">, Flags<[DriverOption]>,
+def cheerp_fix_wrong_func_casts : Flag<["-"], "cheerp-fix-wrong-func-casts">, Flags<[NoXarchOption]>,
   HelpText<"Generate wrappers for functions casted to types with more arguments">;
-def cheerp_strict_linking_EQ : Joined<["-"], "cheerp-strict-linking=">, Flags<[DriverOption]>,
+def cheerp_strict_linking_EQ : Joined<["-"], "cheerp-strict-linking=">, Flags<[NoXarchOption]>,
   HelpText<"Enable link time checks for undefined symbols [warning/error]">;
-def cheerp_wasm_enable_EQ : CommaJoined<["-"], "cheerp-wasm-enable=">, Flags<[DriverOption]>,
+def cheerp_wasm_enable_EQ : CommaJoined<["-"], "cheerp-wasm-enable=">, Flags<[NoXarchOption]>,
   HelpText<"Comma separated list of WebAssembly features to enable [sharedmem/growmem/exportedtable/externref/returncalls/branchhinting]">;
-def cheerp_wasm_disable_EQ : CommaJoined<["-"], "cheerp-wasm-disable=">, Flags<[DriverOption]>,
+def cheerp_wasm_disable_EQ : CommaJoined<["-"], "cheerp-wasm-disable=">, Flags<[NoXarchOption]>,
   HelpText<"Comma separated list of WebAssembly features to disable [sharedmem/growmem/exportedtable/externref/returncalls/branchhinting]">;
 def cheerp_wasm_anyref : Flag<["-"], "cheerp-wasm-externref">, Flags<[CC1Option]>,
   HelpText<"Enable wasm externref and relax some ffi checks">;
-def cheerp_use_bigints : Flag<["-"], "cheerp-use-bigints">, Flags<[DriverOption]>,
+def cheerp_use_bigints : Flag<["-"], "cheerp-use-bigints">, Flags<[NoXarchOption]>,
   HelpText<"Use the BigInt type in JS to represent i64 values">;
 
 //===----------------------------------------------------------------------===//
