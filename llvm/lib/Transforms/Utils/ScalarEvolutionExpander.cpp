@@ -2284,6 +2284,7 @@ template<typename T> static InstructionCost costAndCollectOperands(
     llvm_unreachable("Attempt to use a SCEVCouldNotCompute object!");
   case scUnknown:
   case scConstant:
+  case scNegPointer:
     return 0;
   case scPtrToInt:
     Cost = CastCost(Instruction::PtrToInt);
@@ -2459,6 +2460,7 @@ bool SCEVExpander::isHighCostExpansionHelper(
         costAndCollectOperands<SCEVUDivExpr>(WorkItem, TTI, CostKind, Worklist);
     return false; // Will answer upon next entry into this function.
   }
+  case scGEPPointer:
   case scAddExpr:
   case scMulExpr:
   case scUMaxExpr:
