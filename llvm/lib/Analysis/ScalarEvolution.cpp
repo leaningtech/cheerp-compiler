@@ -7579,6 +7579,9 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
     // Pointer to integer cast is straight-forward, so do model it.
     const SCEV *Op = getSCEV(U->getOperand(0));
     Type *DstIntTy = U->getType();
+    // Cheerp: Do not allow this unsafe reasoning
+    if (!getDataLayout().isByteAddressable())
+      return getUnknown(V);
     // But only if effective SCEV (integer) type is wide enough to represent
     // all possible pointer values.
     const SCEV *IntOp = getPtrToIntExpr(Op, DstIntTy);
