@@ -5687,8 +5687,11 @@ void CheerpWriter::compileFetchBufferCall(const std::string& fileName, const std
 		stream << "(" << argumentName << "&&" << argumentName << ".absPath)";
 		stream << "?";
 		stream << argumentName << ".absPath" << ":";
+		stream << "new URL(";
 	}
 	stream << "'" << fileName << "'";
+	if (makeModule == MODULE_TYPE::ES6)
+		stream << ", import.meta.url)";
 	stream << ")";
 }
 
