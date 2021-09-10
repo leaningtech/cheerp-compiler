@@ -2944,7 +2944,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileTerminatorInstru
 		}
 		case Instruction::Resume:
 		{
-			stream << "throw e;" << NewLine;
+			stream << "throw eSlot;" << NewLine;
 			return COMPILE_OK;
 		}
 		case Instruction::Invoke:
@@ -3009,7 +3009,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			assert(C);
 			Value* PersonalityF = C->getOperand(0);
 			compileOperand(PersonalityF);
-			stream <<"(e,[";
+			stream <<"(eSlot,[";
 			const LandingPadInst& LP = cast<LandingPadInst>(I);
 			for(unsigned i = 0; i < LP.getNumClauses(); i++)
 			{
@@ -5142,7 +5142,8 @@ void CheerpWriter::compileTokens(const TokenList& Tokens)
 			}
 			case Token::TK_Catch:
 			{
-				stream << "}catch(e){"<< NewLine;
+				stream << "}catch(e){" << NewLine;
+				stream << "eSlot=e;" << NewLine;
 				break;
 			}
 			case Token::TK_BrIf:
@@ -5570,6 +5571,7 @@ void CheerpWriter::compileHandleVAArg()
 
 void CheerpWriter::compileCheerpException()
 {
+	stream << "var eSlot=null;" << NewLine;
 	stream << "function CheerpException(m){" << NewLine;
 	stream << "var instance=new Error('Uncaught C++ exception: '+m);" << NewLine;
 	stream << "instance.name='CheerpException';" << NewLine;
