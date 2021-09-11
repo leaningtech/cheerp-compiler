@@ -1315,6 +1315,21 @@ Function* TypeOptimizer::rewriteFunctionSignature(Function* F)
 					PAL = PAL.removeParamAttribute(F->getContext(), i, Attribute::ByVal);
 				}
 			}
+			if(CurAttrs.hasAttribute(Attribute::StructRet))
+			{
+				Type* argType = oldFuncType->getParamType(i);
+				assert(argType->isPointerTy());
+				Type* pointedType = argType->getPointerElementType();
+				assert(pointedType->isStructTy());
+				Type* rewrittenArgType = rewriteType(pointedType);
+				if(!rewrittenArgType->isStructTy())
+				{
+					// Drop sret if the struct collapsed to something else, otherwise alias analysis will get seriously confused
+					// For example, sret float* will assume the total accessible size is 4, the idea that it may be an array is not contemplated
+					ArgAttrVec.push_back(AttributeSet());
+					continue;
+				}
+			}
 			ArgAttrVec.push_back(PAL.getParamAttributes(i));
 		}
 	}
