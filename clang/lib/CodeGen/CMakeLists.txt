@@ -25,7 +25,6 @@ set(LLVM_LINK_COMPONENTS
   Support
   Target
   TransformUtils
-  CheerpUtils
   )
 
 add_clang_library(clangCodeGen

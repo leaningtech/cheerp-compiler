@@ -1,5 +1,16 @@
+add_llvm_component_group(CheerpBackend)
+
 add_llvm_target(CheerpBackendCodeGen
 	CheerpBackend.cpp
+
+	LINK_COMPONENTS
+	CheerpWriter
+	CheerpUtils
+	ExecutionEngine
+	Interpreter
+
+	ADD_TO_COMPONENT
+	CheerpBackend
   )
 
 add_subdirectory(MC)
