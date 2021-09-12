@@ -4,6 +4,9 @@ set(LLVM_LINK_COMPONENTS
   BitReader
   BitstreamReader
   CheerpWriter
+  CheerpUtils
+  ExecutionEngine
+  Interpreter
   Option
   ProfileData
   Support

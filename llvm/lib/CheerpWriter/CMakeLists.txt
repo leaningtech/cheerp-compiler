@@ -10,4 +10,4 @@ add_llvm_component_library(LLVMCheerpWriter
   CFGStackifier.cpp
   )
 
-add_dependencies(LLVMCheerpWriter intrinsics_gen)
+add_dependencies(LLVMCheerpWriter intrinsics_gen LLVMExecutionEngine LLVMInterpreter)
