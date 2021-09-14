@@ -1717,6 +1717,17 @@ void TypeOptimizer::rewriteFunction(Function* F)
 						{
 							GlobalVariable* Sret = cast<GlobalVariable>(module->getOrInsertGlobal("cheerpSretSlot", Int32Ty));
 							IRBuilder<> Builder(CI);
+							if(auto* Inv = dyn_cast<InvokeInst>(NewCall))
+							{
+								BasicBlock* BB = BasicBlock::Create(module->getContext());
+								BB->setName("invokeRetI64");
+								BB->insertInto(F);
+								Inv->getNormalDest()->replacePhiUsesWith(Inv->getParent(), BB);
+								Builder.SetInsertPoint(BB);
+								Instruction* Term = Builder.CreateBr(Inv->getNormalDest());
+								Inv->setNormalDest(BB);
+								Builder.SetInsertPoint(Term);
+							}
 							Value* Low = Ret;
 							Value* High = Builder.CreateLoad(Int32Ty, Sret);
 							Ret = AssembleI64(Low, High, Builder);
