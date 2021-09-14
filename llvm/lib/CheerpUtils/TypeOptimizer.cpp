@@ -1314,6 +1314,11 @@ Function* TypeOptimizer::rewriteFunctionSignature(Function* F)
 				{
 					PAL = PAL.removeParamAttribute(F->getContext(), i, Attribute::ByVal);
 				}
+				else
+				{
+					PAL = PAL.removeParamAttribute(F->getContext(), i, Attribute::ByVal);
+					PAL = PAL.addParamAttribute(F->getContext(), i, Attribute::getWithByValType(F->getContext(), rewrittenArgType));
+				}
 			}
 			if(CurAttrs.hasAttribute(Attribute::StructRet))
 			{
@@ -1596,13 +1601,18 @@ void TypeOptimizer::rewriteFunction(Function* F)
 							Function* calledFunction = CI->getCalledFunction();
 							for(uint32_t i=0;i<CI->getNumArgOperands();i++)
 							{
-								if(!newAttrs.hasAttribute(i+1, Attribute::ByVal))
+								if(!newAttrs.hasParamAttribute(i, Attribute::ByVal))
 									continue;
 								Type* argType = localTypeMapping.getOriginalOperandType(CI->getArgOperand(i));
 								assert(argType->isPointerTy());
 								Type* rewrittenArgType = rewriteType(argType->getPointerElementType());
 								if(!rewrittenArgType->isArrayTy())
+								{
+									newAttrs = newAttrs.removeParamAttribute(module->getContext(), i, Attribute::ByVal);
+									newAttrs = newAttrs.addParamAttribute(module->getContext(), i, Attribute::getWithByValType(F->getContext(), rewrittenArgType));
+									attributesChanged = true;
 									continue;
+								}
 								// The pointer is to an array, we need to make an explicit copy here
 								// and remove the attribute unless the called function is known and the argument is readonly
 								if(!calledFunction || !calledFunction->hasParamAttribute(i, Attribute::NoCapture))
@@ -1624,7 +1634,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 									CI->setOperand(i, byValCopy);
 								}
 								// 4) Remove the byval attribute from the call
-								newAttrs=newAttrs.removeAttribute(module->getContext(), i+1, Attribute::ByVal);
+								newAttrs=newAttrs.removeParamAttribute(module->getContext(), i, Attribute::ByVal);
 								attributesChanged = true;
 							}
 							if(attributesChanged)
