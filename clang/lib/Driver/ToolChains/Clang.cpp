@@ -5730,9 +5730,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back(IsWindowsMSVC ? "-std=c++14" : "-std=c++11");
   }
 
-  // Forward cheerp-mode argument
-  if (Arg *CheerpMode = Args.getLastArg(options::OPT_cheerp_mode_EQ))
-    CheerpMode->render(Args, CmdArgs);
   // Forward cheerp-linear-output argument
   if (Arg *CheerpLinearOutput = Args.getLastArg(options::OPT_cheerp_linear_output_EQ))
     CheerpLinearOutput->render(Args, CmdArgs);

@@ -656,19 +656,8 @@ static llvm::Triple computeTargetTriple(const Driver &D,
     Target.setOS(llvm::Triple::WebBrowser);
     if (Target.getVendor() == llvm::Triple::UnknownVendor)
       Target.setVendor(llvm::Triple::Leaningtech);
-    Arg *CheerpMode = Args.getLastArg(options::OPT_cheerp_mode_EQ);
     if (Target.getEnvironment() == llvm::Triple::UnknownEnvironment)
-    {
-      if (CheerpMode && (CheerpMode->getValue() == StringRef("asmjs") ||
-                         CheerpMode->getValue() == StringRef("wast") ||
-                         CheerpMode->getValue() == StringRef("wasm"))) {
-        Target.setEnvironment(llvm::Triple::WebAssembly);
-      } else {
-        Target.setEnvironment(llvm::Triple::GenericJs);
-      }
-    } else if (CheerpMode) {
-      D.Diag(clang::diag::warn_drv_unused_argument) << CheerpMode->getAsString(Args);
-    }
+      Target.setEnvironment(llvm::Triple::GenericJs);
   }
 
   return Target;

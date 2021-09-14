@@ -3412,30 +3412,8 @@ static void ParseCheerpArgs(LangOptions &Opts, ArgList &Args,
                           DiagnosticsEngine &Diags) {
   // Allow parsing of preexecuter args
   initializePreExecutePass(*llvm::PassRegistry::getPassRegistry());
-  const Arg *CheerpMode = Args.getLastArg(OPT_cheerp_mode_EQ);
   const Arg *CheerpLinearOutput = Args.getLastArg(OPT_cheerp_linear_output_EQ);
-  if (CheerpMode && CheerpLinearOutput)
-  {
-    Diags.Report(diag::err_drv_argument_not_allowed_with)
-      << CheerpMode->getAsString(Args) << CheerpLinearOutput->getAsString(Args);
-  }
-  else if (CheerpMode)
-  {
-    LangOptions::CheerpLinearOutputTy s
-      = llvm::StringSwitch<LangOptions::CheerpLinearOutputTy>(CheerpMode->getValue())
-        .Case("genericjs", LangOptions::CHEERP_LINEAR_OUTPUT_AsmJs)
-        .Case("asmjs", LangOptions::CHEERP_LINEAR_OUTPUT_AsmJs)
-        .Case("wasm", LangOptions::CHEERP_LINEAR_OUTPUT_Wasm)
-        .Default(LangOptions::CHEERP_LINEAR_OUTPUT_Invalid);
-
-    Opts.setCheerpLinearOutput(s);
-    if (s == LangOptions::CHEERP_LINEAR_OUTPUT_Invalid)
-    {
-      Diags.Report(diag::err_drv_invalid_value)
-      << CheerpMode->getAsString(Args) << CheerpMode->getValue();
-    }
-  }
-  else if (CheerpLinearOutput)
+  if (CheerpLinearOutput)
   {
     LangOptions::CheerpLinearOutputTy s =
       llvm::StringSwitch<LangOptions::CheerpLinearOutputTy>(CheerpLinearOutput->getValue())

@@ -569,12 +569,10 @@ void cheerp::Link::ConstructJob(Compilation &C, const JobAction &JA,
     }
 
     // Add wasm helper if needed
-    Arg *CheerpMode = Args.getLastArg(options::OPT_cheerp_mode_EQ);
     Arg *CheerpLinearOutput = Args.getLastArg(options::OPT_cheerp_linear_output_EQ);
     llvm::Triple::EnvironmentType env = getToolChain().getTriple().getEnvironment();
-    if((CheerpMode && CheerpMode->getValue() == StringRef("wasm")) ||
-       (CheerpLinearOutput && CheerpLinearOutput->getValue() == StringRef("wasm")) ||
-       (!CheerpMode && !CheerpLinearOutput && env == llvm::Triple::WebAssembly))
+    if((CheerpLinearOutput && CheerpLinearOutput->getValue() == StringRef("wasm")) ||
+       (!CheerpLinearOutput && env == llvm::Triple::WebAssembly))
     {
       CmdArgs.push_back(Args.MakeArgString(getToolChain().GetFilePath("libwasm.bc")));
     }
@@ -604,39 +602,6 @@ void cheerp::Link::ConstructJob(Compilation &C, const JobAction &JA,
   C.addCommand(std::make_unique<Command>(JA, *this, ResponseFileSupport::None(), Exec, CmdArgs, Inputs));
 }
 
-static bool incompatibleWith(const Driver&, const ArgList&, Arg*)
-{
-  return true;
-}
-template<typename... TS>
-static bool incompatibleWith(const Driver& D, const ArgList& Args, Arg* a, Arg* b, TS... args)
-{
-  bool compatible = !a || !b;
-  if (!compatible)
-      D.Diag(diag::err_drv_argument_not_allowed_with)
-        << a->getAsString(Args) << b->getAsString(Args);
-  return compatible & incompatibleWith(D, Args, a, args...);
-}
-static void checkCheerpArgCompatibility(const Driver& D, const ArgList& Args)
-{
-  Arg* memFile = Args.getLastArg(options::OPT_cheerp_asmjs_mem_file_EQ);
-  Arg* wasmLoader = Args.getLastArg(options::OPT_cheerp_wasm_loader_EQ);
-  Arg* wasmFile = Args.getLastArg(options::OPT_cheerp_wasm_file_EQ);
-  Arg* mode = Args.getLastArg(options::OPT_cheerp_mode_EQ);
-  Arg* linearOut = Args.getLastArg(options::OPT_cheerp_linear_output_EQ);
-  Arg* secondaryFile = Args.getLastArg(options::OPT_cheerp_secondary_output_file_EQ);
-  Arg* secondaryPath = Args.getLastArg(options::OPT_cheerp_secondary_output_path_EQ);
-
-  incompatibleWith(D, Args, memFile,
-      linearOut, secondaryPath, secondaryFile);
-  incompatibleWith(D, Args, wasmLoader,
-      linearOut, secondaryPath, secondaryFile);
-  incompatibleWith(D, Args, wasmFile,
-      linearOut, secondaryPath, secondaryFile);
-  incompatibleWith(D, Args, mode,
-      linearOut, secondaryPath, secondaryFile);
-}
-
 void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
                                           const InputInfo &Output,
                                           const InputInfoList &Inputs,
@@ -644,7 +609,6 @@ void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
                                           const char *LinkingOutput) const {
   ArgStringList CmdArgs;
   const Driver &D = getToolChain().getDriver();
-  checkCheerpArgCompatibility(D, Args);
 
   CmdArgs.push_back("-march=cheerp");
   if(Args.hasArg(options::OPT_cheerp_preexecute))
@@ -658,26 +622,6 @@ void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
 
   if(Arg* cheerpLinearOutput = Args.getLastArg(options::OPT_cheerp_linear_output_EQ))
     cheerpLinearOutput->render(Args, CmdArgs);
-  else if(Arg *CheerpMode = C.getArgs().getLastArg(options::OPT_cheerp_mode_EQ))
-  {
-    // cheerp-mode is mutually exclusive with cheerp-linear-output, but this is
-    // taken care of by checkCheerpArgCompatibility
-    std::string linearOut("-cheerp-linear-output=");
-    if (CheerpMode->getValue() == StringRef("asmjs"))
-    {
-      linearOut += "asmjs";
-    }
-    else if (CheerpMode->getValue() == StringRef("genericjs"))
-    {
-      // NOTE: we use "asmjs" also for -cheerp-mode=genericjs
-      linearOut += "asmjs";
-    }
-    else
-    {
-      linearOut += "wasm";
-    }
-    CmdArgs.push_back(Args.MakeArgString(linearOut));
-  }
   else
   {
     std::string linearOut("-cheerp-linear-output=");
@@ -792,78 +736,20 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
                                           const ArgList &Args,
                                           const char *LinkingOutput) const {
   const Driver &D = getToolChain().getDriver();
-  checkCheerpArgCompatibility(D, Args);
 
   ArgStringList CmdArgs;
 
   CmdArgs.push_back("-march=cheerp");
 
-  if(Arg* cheerpAsmJSMemFile = Args.getLastArg(options::OPT_cheerp_asmjs_mem_file_EQ))
   {
     CmdArgs.push_back("-o");
     CmdArgs.push_back(Output.getFilename());
-
-    std::string secondaryFile("-cheerp-secondary-output-file=");
-    secondaryFile += cheerpAsmJSMemFile->getValue();
-    CmdArgs.push_back(Args.MakeArgString(secondaryFile));
-
-    std::string secondaryPath("-cheerp-secondary-output-path=");
-    secondaryPath += cheerpAsmJSMemFile->getValue();
-    CmdArgs.push_back(Args.MakeArgString(secondaryPath));
-  }
-  else if(Arg* cheerpWasmLoader = Args.getLastArg(options::OPT_cheerp_wasm_loader_EQ))
-  {
-    CmdArgs.push_back("-o");
-    CmdArgs.push_back(Args.MakeArgString(cheerpWasmLoader->getValue()));
-
-    std::string secondaryFile("-cheerp-secondary-output-file=");
-    secondaryFile += Output.getFilename();
-    CmdArgs.push_back(Args.MakeArgString(secondaryFile));
- 
-    std::string secondaryPath("-cheerp-secondary-output-path=");
-     if(Arg* cheerpWasmFile = Args.getLastArg(options::OPT_cheerp_wasm_file_EQ)) {
-      secondaryPath.append(std::string(llvm::sys::path::filename(cheerpWasmFile->getValue())));
-     } else {
-      secondaryPath.append(std::string(llvm::sys::path::filename(Output.getFilename())));
-     }
-    CmdArgs.push_back(Args.MakeArgString(secondaryPath));
-  }
-  else
-  {
-    CmdArgs.push_back("-o");
-    CmdArgs.push_back(Output.getFilename());
-    if (Arg* cheerpMode = Args.getLastArg(options::OPT_cheerp_mode_EQ))
-    {
-      if (cheerpMode->getValue() == StringRef("wasm"))
-      {
-        CmdArgs.push_back("-cheerp-wasm-only");
-      }
-    }
   }
 
   llvm::Triple::EnvironmentType env = getToolChain().getTriple().getEnvironment();
-  Arg* cheerpMode = Args.getLastArg(options::OPT_cheerp_mode_EQ);
   Arg* cheerpLinearOutput = Args.getLastArg(options::OPT_cheerp_linear_output_EQ);
   if (cheerpLinearOutput)
     cheerpLinearOutput->render(Args, CmdArgs);
-  else if(Arg *CheerpMode = C.getArgs().getLastArg(options::OPT_cheerp_mode_EQ))
-  {
-    std::string linearOut("-cheerp-linear-output=");
-    if (CheerpMode->getValue() == StringRef("asmjs"))
-    {
-      linearOut += "asmjs";
-    }
-    else if (CheerpMode->getValue() == StringRef("genericjs"))
-    {
-      // NOTE: we use "asmjs" also for -cheerp-mode=genericjs
-      linearOut += "asmjs";
-    }
-    else
-    {
-      linearOut += "wasm";
-    }
-    CmdArgs.push_back(Args.MakeArgString(linearOut));
-  }
   else
   {
     std::string linearOut("-cheerp-linear-output=");
@@ -882,7 +768,7 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
 
   if(Arg* cheerpSecondaryOutputFile = Args.getLastArg(options::OPT_cheerp_secondary_output_file_EQ))
     cheerpSecondaryOutputFile->render(Args, CmdArgs);
-  else if(!cheerpMode &&
+  else if(
       ((env == llvm::Triple::WebAssembly && !cheerpLinearOutput) ||
         (cheerpLinearOutput && cheerpLinearOutput->getValue() != StringRef("asmjs"))))
   {
