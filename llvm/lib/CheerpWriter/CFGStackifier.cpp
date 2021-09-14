@@ -484,11 +484,15 @@ void TokenListBuilder::processBlockTerminator(Token* BBT, const DomTreeNode* Cur
 		Token* End = Token::createTryCatchEnd(Try, Catch);
 		auto EndPt = Tokens.insertAfter(CatchPt, End);
 
+		const DomTreeNode* TryDom = DT.getNode(Inv->getNormalDest());
+		bool TryNested = CurNode->getBlock() == getUniqueForwardPredecessor(TryDom->getBlock(), LI);
 		const DomTreeNode* CatchDom = DT.getNode(Inv->getUnwindDest());
 		bool CatchNested = CurNode->getBlock() == getUniqueForwardPredecessor(CatchDom->getBlock(), LI);
-		InsertPt = CatchPt;
+		InsertPt = TryPt;
 		Scope CatchScope { Scope::If, CatchDom, EndPt, CatchNested };
+		Scope TryScope { Scope::If, TryDom, CatchPt, TryNested };
 		Scopes.emplace_back(CatchScope);
+		Scopes.emplace_back(TryScope);
 	}
 	else
 	{
