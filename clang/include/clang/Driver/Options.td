@@ -3462,8 +3462,6 @@ def fno_sycl : Flag<["-"], "fno-sycl">, Group<sycl_Group>, Flags<[CoreOption]>,
 def sycl_std_EQ : Joined<["-"], "sycl-std=">, Group<sycl_Group>, Flags<[CC1Option, NoArgumentUnused, CoreOption]>,
   HelpText<"SYCL language standard to compile for.">, Values<"2017, 121, 1.2.1, sycl-1.2.1">;
 
-def cheerp_mode_EQ : Joined<["-"], "cheerp-mode=">, Flags<[CC1Option]>,
-  Group<CompileOnly_Group>, HelpText<"Specify which mode to use by default [genericjs/asmjs]">;
 def cheerp_linear_output_EQ : Joined<["-"], "cheerp-linear-output=">, Flags<[CC1Option]>,
   Group<CompileOnly_Group>, HelpText<"Output format for the linear memory part of the program [wasm/asmjs]">;
 def cheerp_secondary_output_file_EQ : Joined<["-"], "cheerp-secondary-output-file=">, Flags<[DriverOption]>,
@@ -3474,12 +3472,6 @@ def cheerp_linear_heap_size : Joined<["-"], "cheerp-linear-heap-size=">, Flags<[
   HelpText<"Set wasm/asm.js heap size (in MB, default is 8)">;
 def cheerp_linear_stack_size : Joined<["-"], "cheerp-linear-stack-size=">, Flags<[DriverOption]>,
   HelpText<"Set wasm/asm.js stack size (in MB, default is 1)">;
-def cheerp_wasm_loader_EQ : Joined<["-"], "cheerp-wasm-loader=">, Flags<[DriverOption]>,
-  HelpText<"Write wasm loader to <file>">, MetaVarName<"<file>">;
-def cheerp_wasm_file_EQ : Joined<["-"], "cheerp-wasm-file=">, Flags<[DriverOption]>,
-  HelpText<"Assume wasm file is <file>">, MetaVarName<"<file>">;
-def cheerp_asmjs_mem_file_EQ : Joined<["-"], "cheerp-asmjs-mem-file=">, Flags<[DriverOption]>,
-  HelpText<"Write asm.js initialized memory to <file>">, MetaVarName<"<file>">;
 def cheerp_sourcemap_EQ : Joined<["-"], "cheerp-sourcemap=">, Flags<[DriverOption]>,
   HelpText<"Write sourcemap to <file>">, MetaVarName<"<file>">;
 def cheerp_sourcemap_prefix_EQ : Joined<["-"], "cheerp-sourcemap-prefix=">, Flags<[DriverOption]>,
