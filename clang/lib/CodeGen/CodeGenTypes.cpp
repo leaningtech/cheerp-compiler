@@ -889,7 +889,7 @@ llvm::StructType *CodeGenTypes::ConvertRecordDeclType(const RecordDecl *RD) {
     // TODO: This can be partially merged with the code below
     SmallString<256> TypeName;
     getRecordTypeName(RD, "", TypeName);
-    Entry = CGM.getModule().getTypeByName(TypeName);
+    Entry = llvm::StructType::getTypeByName(CGM.getLLVMContext(), TypeName);
   }
 
   // If we don't have a StructType at all yet, create the forward declaration.

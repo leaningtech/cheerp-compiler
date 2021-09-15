@@ -712,7 +712,7 @@ std::pair<StructType*, std::string> TypeSupport::getJSExportedTypeFromMetadata(S
 	jsClassNameS.pop_back();
 
 	assert( mangledName.end() > name.begin() && std::size_t(mangledName.end() - name.begin()) <= name.size() );
-	StructType * t = module.getTypeByName( StringRef(name.begin(), mangledName.end() - name.begin() ) );
+	StructType * t = StructType::getTypeByName( module.getContext(), StringRef(name.begin(), mangledName.end() - name.begin() ) );
 	assert(t);
 	return std::make_pair(t, jsClassNameS);
 }
