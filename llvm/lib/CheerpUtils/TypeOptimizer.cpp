@@ -1309,14 +1309,10 @@ Function* TypeOptimizer::rewriteFunctionSignature(Function* F)
 			{
 				Type* argType = oldFuncType->getParamType(i);
 				assert(argType->isPointerTy());
+				PAL = PAL.removeParamAttribute(F->getContext(), i, Attribute::ByVal);
 				Type* rewrittenArgType = rewriteType(argType->getPointerElementType());
-				if(rewrittenArgType->isArrayTy())
+				if(rewrittenArgType->isStructTy())
 				{
-					PAL = PAL.removeParamAttribute(F->getContext(), i, Attribute::ByVal);
-				}
-				else
-				{
-					PAL = PAL.removeParamAttribute(F->getContext(), i, Attribute::ByVal);
 					PAL = PAL.addParamAttribute(F->getContext(), i, Attribute::getWithByValType(F->getContext(), rewrittenArgType));
 				}
 			}
@@ -1324,15 +1320,11 @@ Function* TypeOptimizer::rewriteFunctionSignature(Function* F)
 			{
 				Type* argType = oldFuncType->getParamType(i);
 				assert(argType->isPointerTy());
-				Type* pointedType = argType->getPointerElementType();
-				assert(pointedType->isStructTy());
-				Type* rewrittenArgType = rewriteType(pointedType);
-				if(!rewrittenArgType->isStructTy())
+				PAL = PAL.removeParamAttribute(F->getContext(), i, Attribute::StructRet);
+				Type* rewrittenArgType = rewriteType(argType->getPointerElementType());
+				if(rewrittenArgType->isStructTy())
 				{
-					// Drop sret if the struct collapsed to something else, otherwise alias analysis will get seriously confused
-					// For example, sret float* will assume the total accessible size is 4, the idea that it may be an array is not contemplated
-					ArgAttrVec.push_back(AttributeSet());
-					continue;
+					PAL = PAL.addParamAttribute(F->getContext(), i, Attribute::getWithStructRetType(F->getContext(), rewrittenArgType));
 				}
 			}
 			ArgAttrVec.push_back(PAL.getParamAttributes(i));
