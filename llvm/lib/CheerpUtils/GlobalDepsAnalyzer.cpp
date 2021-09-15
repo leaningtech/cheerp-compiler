@@ -444,7 +444,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 			MDNode* basesMeta = namedNode.getOperand(0);
 			assert(basesMeta->getNumOperands()>=1);
 			uint32_t firstBase = cast<ConstantInt>(cast<ConstantAsMetadata>(basesMeta->getOperand(0))->getValue())->getZExtValue();
-			StructType * t = module.getTypeByName(name.drop_back(6));
+			StructType * t = StructType::getTypeByName(module.getContext(), name.drop_back(6));
 			if (t)
 				basesInfo.emplace(t, firstBase);
 		}
