@@ -34,7 +34,7 @@ template<class _Tp, class ..._Args, class = decltype(
 _LIBCPP_INLINE_VISIBILITY
 constexpr _Tp* construct_at(_Tp* __location, _Args&& ...__args) {
     _LIBCPP_ASSERT(__location, "null pointer given to construct_at");
-    return ::new ((void*)__location) _Tp(_VSTD::forward<_Args>(__args)...);
+    return ::new (__location) _Tp(_VSTD::forward<_Args>(__args)...);
 }
 
 #endif
