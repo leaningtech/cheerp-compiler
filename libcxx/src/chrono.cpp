@@ -119,7 +119,7 @@ static system_clock::time_point __libcpp_system_clock_now() {
 static system_clock::time_point __libcpp_system_clock_now() {
 #ifdef __CHEERP__
   double val = client::Date::now();
-  return time_point(milliseconds((long long)val));
+  return system_clock::time_point(milliseconds((long long)val));
 #else
   struct timespec tp;
   if (0 != clock_gettime(CLOCK_REALTIME, &tp))
@@ -276,23 +276,14 @@ static steady_clock::time_point __libcpp_steady_clock_now() {
 #elif defined(CLOCK_MONOTONIC)
 
 static steady_clock::time_point __libcpp_steady_clock_now() {
-    struct timespec tp;
-    if (0 != clock_gettime(CLOCK_MONOTONIC, &tp))
-        __throw_system_error(errno, "clock_gettime(CLOCK_MONOTONIC) failed");
-    return steady_clock::time_point(seconds(tp.tv_sec) + nanoseconds(tp.tv_nsec));
-}
-
-steady_clock::time_point
-steady_clock::now() _NOEXCEPT
-{
 #ifdef __CHEERP__
     double val = cheerp::date_now();
-    return time_point(milliseconds((long long)val));
+    return steady_clock::time_point(milliseconds((long long)val));
 #else
     struct timespec tp;
     if (0 != clock_gettime(CLOCK_MONOTONIC, &tp))
         __throw_system_error(errno, "clock_gettime(CLOCK_MONOTONIC) failed");
-    return time_point(seconds(tp.tv_sec) + nanoseconds(tp.tv_nsec));
+    return steady_clock::time_point(seconds(tp.tv_sec) + nanoseconds(tp.tv_nsec));
 #endif
 }
 
