@@ -1464,7 +1464,7 @@ void CodeGenModule::EmitVTableTypeMetadata(const CXXRecordDecl *RD,
 llvm::Type* CodeGenTypes::GetVTableBaseType(bool asmjs)
 {
   StringRef typeName = asmjs ? "struct._ZN10__cxxabiv119__vtable_base_asmjsE" : "struct._ZN10__cxxabiv113__vtable_baseE";
-  llvm::Type* ResultType = CGM.getModule().getTypeByName(typeName);
+  llvm::Type* ResultType = llvm::StructType::getTypeByName(CGM.getLLVMContext(), typeName);
   if(!ResultType)
   {
     llvm::StructType* ty = llvm::StructType::create(CGM.getLLVMContext(), typeName);
@@ -1553,7 +1553,7 @@ llvm::Type* CodeGenTypes::GetBasicVTableType(uint32_t virtualMethodsCount, bool 
 
 llvm::Type* CodeGenTypes::GetClassTypeInfoType()
 {
-  llvm::Type* ResultType = CGM.getModule().getTypeByName("class._ZSt9type_info");
+  llvm::Type* ResultType = llvm::StructType::getTypeByName(CGM.getLLVMContext(), "class._ZSt9type_info");
   if(!ResultType)
     ResultType = llvm::StructType::create(CGM.getLLVMContext(),"class._ZSt9type_info");
   return ResultType;
