@@ -991,6 +991,12 @@ bool Sema::CheckCXXThrowOperand(SourceLocation ThrowLoc,
   if (!RD)
     return false;
 
+  // Cheerp: disallow throwing pointers to client objects
+  if (!Context.getTargetInfo().isByteAddressable() && isPointer && RD->isClientNamespace()) {
+    Diag(ThrowLoc, diag::err_cheerp_throw_client) << Ty;
+  }
+
+
   // If we are throwing a polymorphic class type or pointer thereof,
   // exception handling will make use of the vtable.
   MarkVTableUsed(ThrowLoc, RD);
