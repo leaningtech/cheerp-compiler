@@ -11733,6 +11733,10 @@ def err_cheerp_client_layout_lvalue : Error<
   "Cheerp: Types defined in the client namespace can only be used through pointers and references">;
 def err_cheerp_client_asmjs_type : Error<
   "Cheerp: Type %0 with attribute %1 cannot exist as global in the client namespace">;
+def err_cheerp_throw_client : Error<
+  "Cheerp: Pointer to type %0 declared in the client namespace cannot be thrown">;
+def err_cheerp_catch_client : Error<
+  "Cheerp: Pointer to type %0 declared in the client namespace cannot be caught directly. Use 'cheerp::JSException' to capture foreign exceptions.">;
 } // end of cheerp issue category
 
 } // end of sema component.

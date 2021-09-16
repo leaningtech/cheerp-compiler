@@ -16658,6 +16658,21 @@ Decl *Sema::ActOnExceptionDeclarator(Scope *S, Declarator &D) {
     Invalid = true;
   }
 
+  // Cheerp: disallow catching pointers to client objects
+  if (!Context.getTargetInfo().isByteAddressable()) {
+
+	QualType Ty = TInfo->getType();
+	bool isPointer = false;
+	if (const PointerType* Ptr = Ty->getAs<PointerType>()) {
+	  Ty = Ptr->getPointeeType();
+	  isPointer = true;
+	}
+	if(isPointer && Ty->getAsCXXRecordDecl() && Ty->getAsCXXRecordDecl()->isClientNamespace()) {
+	  Diag(D.getIdentifierLoc(), diag::err_cheerp_catch_client) << Ty;
+	  Invalid = true;
+	}
+  }
+
   VarDecl *ExDecl = BuildExceptionDeclaration(
       S, TInfo, D.getBeginLoc(), D.getIdentifierLoc(), D.getIdentifier());
   if (Invalid)
