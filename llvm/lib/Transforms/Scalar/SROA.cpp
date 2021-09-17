@@ -2449,7 +2449,7 @@ private:
     newGEP->takeName(&GEPI);
     newGEP->insertAfter(&GEPI);
     GEPI.replaceAllUsesWith(newGEP);
-    Pass.DeadInsts.insert(&GEPI);
+    Pass.DeadInsts.push_back(&GEPI);
     return true;
   }
 
