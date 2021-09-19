@@ -1382,8 +1382,10 @@ protected:
     explicit codecvt(const char*, size_t __refs = 0)
         : locale::facet(__refs) {}
 
+public:
     ~codecvt() override;
 
+protected:
     virtual result do_out(state_type& __st,
                           const intern_type* __frm, const intern_type* __frm_end, const intern_type*& __frm_nxt,
                           extern_type* __to, extern_type* __to_end, extern_type*& __to_nxt) const;
@@ -1470,8 +1472,10 @@ protected:
     explicit codecvt(const char*, size_t __refs = 0)
         : locale::facet(__refs) {}
 
+public:
     ~codecvt() override;
 
+protected:
     virtual result do_out(state_type& __st,
                           const intern_type* __frm, const intern_type* __frm_end, const intern_type*& __frm_nxt,
                           extern_type* __to, extern_type* __to_end, extern_type*& __to_nxt) const;
