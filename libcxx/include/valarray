@@ -2809,7 +2809,7 @@ valarray<_Tp>::valarray(size_t __n)
         {
 #endif // _LIBCPP_NO_EXCEPTIONS
             for (size_t __n_left = __n; __n_left; --__n_left, ++__end_)
-                ::new ((void*)__end_) value_type();
+                ::new (__end_) value_type();
 #ifndef _LIBCPP_NO_EXCEPTIONS
         }
         catch (...)
@@ -3768,7 +3768,7 @@ valarray<_Tp>::resize(size_t __n, value_type __x)
         {
 #endif // _LIBCPP_NO_EXCEPTIONS
             for (size_t __n_left = __n; __n_left; --__n_left, ++__end_)
-                ::new ((void*)__end_) value_type(__x);
+                ::new (__end_) value_type(__x);
 #ifndef _LIBCPP_NO_EXCEPTIONS
         }
         catch (...)
