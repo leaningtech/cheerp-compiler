@@ -36,9 +36,6 @@ TypeKind classifyType(const clang::QualType& Qy, const clang::Sema& sema);
 
 void checkCouldBeJsExported(const clang::CXXRecordDecl* Record, clang::Sema& sema, bool& shouldContinue);
 
-void checkCouldReturnBeJsExported(const clang::QualType& Ty, const clang::FunctionDecl* FD, clang::Sema& sema);
-void checkCouldBeParameterOfJsExported(const clang::QualType& Ty, const clang::Decl* Decl, clang::Sema& sema, const clang::Attr* asmJSAttr);
-
 struct TypeChecker
 {
 	enum KindOfValue
