@@ -250,7 +250,7 @@ void cheerp::TypeChecker::checkType(const clang::QualType& Ty, const clang::Decl
 	}
 }
 
-cheerp::TypeKind cheerp::classifyType(const clang::QualType& Qy, const clang::Sema& sema)
+cheerp::TypeKind cheerp::TypeChecker::classifyType(const clang::QualType& Qy, const clang::Sema& sema)
 {
 	const clang::QualType& Desugared = Qy.getDesugaredType(sema.Context);
 	const clang::Type* Ty = Desugared.getTypePtr();
