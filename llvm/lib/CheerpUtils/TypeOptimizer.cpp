@@ -1583,7 +1583,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 					}
 					else
 					{
-						if(CI->hasByValArgument())
+						if(CI->hasByValArgument() || CI->hasStructRetAttr())
 						{
 							// We need to make sure that no byval attribute is applied to pointers to arrays
 							// as they will be rewritten to plain pointers and less memory will be copied
@@ -1593,41 +1593,55 @@ void TypeOptimizer::rewriteFunction(Function* F)
 							Function* calledFunction = CI->getCalledFunction();
 							for(uint32_t i=0;i<CI->getNumArgOperands();i++)
 							{
-								if(!newAttrs.hasParamAttribute(i, Attribute::ByVal))
-									continue;
-								Type* argType = localTypeMapping.getOriginalOperandType(CI->getArgOperand(i));
-								assert(argType->isPointerTy());
-								Type* rewrittenArgType = rewriteType(argType->getPointerElementType());
-								if(!rewrittenArgType->isArrayTy())
+								if(newAttrs.hasParamAttribute(i, Attribute::ByVal))
 								{
-									newAttrs = newAttrs.removeParamAttribute(module->getContext(), i, Attribute::ByVal);
-									newAttrs = newAttrs.addParamAttribute(module->getContext(), i, Attribute::getWithByValType(F->getContext(), rewrittenArgType));
+									Type* argType = localTypeMapping.getOriginalOperandType(CI->getArgOperand(i));
+									assert(argType->isPointerTy());
+									Type* rewrittenArgType = rewriteType(argType->getPointerElementType());
+									if(rewrittenArgType->isStructTy())
+									{
+										newAttrs = newAttrs.removeParamAttribute(module->getContext(), i, Attribute::ByVal);
+										newAttrs = newAttrs.addParamAttribute(module->getContext(), i, Attribute::getWithByValType(F->getContext(), rewrittenArgType));
+										attributesChanged = true;
+										continue;
+									}
+									// The pointer is to an array, we need to make an explicit copy here
+									// and remove the attribute unless the called function is known and the argument is readonly
+									if(!calledFunction || !calledFunction->hasParamAttribute(i, Attribute::NoCapture))
+									{
+										IRBuilder<> Builder(CI);
+										auto rewrittenOperand = localInstMapping.getMappedOperand(CI->getOperand(i));
+										assert(rewrittenOperand.second==0);
+										Value* mappedOp = rewrittenOperand.first;
+										assert(mappedOp->getType()->isPointerTy() &&
+											!mappedOp->getType()->getPointerElementType()->isArrayTy());
+										// 1) Create an alloca of the right type
+										Value* byValCopy=Builder.CreateAlloca(rewrittenArgType, nullptr, "byvalcopy");
+										byValCopy=Builder.CreateConstGEP2_32(rewrittenArgType, byValCopy, 0, 0);
+										// 2) Create a mempcy
+										Builder.CreateMemCpy(byValCopy, MaybeAlign(), mappedOp, MaybeAlign(), DL->getTypeAllocSize(rewrittenArgType),
+													/*volatile*/false, nullptr, nullptr,
+													nullptr, nullptr, /*byteLayout*/ false);
+										// 3) Replace the argument
+										CI->setOperand(i, byValCopy);
+									}
+									// 4) Remove the byval attribute from the call
+									newAttrs=newAttrs.removeParamAttribute(module->getContext(), i, Attribute::ByVal);
 									attributesChanged = true;
-									continue;
 								}
-								// The pointer is to an array, we need to make an explicit copy here
-								// and remove the attribute unless the called function is known and the argument is readonly
-								if(!calledFunction || !calledFunction->hasParamAttribute(i, Attribute::NoCapture))
+								if(newAttrs.hasParamAttribute(i, Attribute::StructRet))
 								{
-									IRBuilder<> Builder(CI);
-									auto rewrittenOperand = localInstMapping.getMappedOperand(CI->getOperand(i));
-									assert(rewrittenOperand.second==0);
-									Value* mappedOp = rewrittenOperand.first;
-									assert(mappedOp->getType()->isPointerTy() &&
-										!mappedOp->getType()->getPointerElementType()->isArrayTy());
-									// 1) Create an alloca of the right type
-									Value* byValCopy=Builder.CreateAlloca(rewrittenArgType, nullptr, "byvalcopy");
-									byValCopy=Builder.CreateConstGEP2_32(rewrittenArgType, byValCopy, 0, 0);
-									// 2) Create a mempcy
-									Builder.CreateMemCpy(byValCopy, MaybeAlign(), mappedOp, MaybeAlign(), DL->getTypeAllocSize(rewrittenArgType),
-												/*volatile*/false, nullptr, nullptr,
-												nullptr, nullptr, /*byteLayout*/ false);
-									// 3) Replace the argument
-									CI->setOperand(i, byValCopy);
+									Type* argType = localTypeMapping.getOriginalOperandType(CI->getArgOperand(i));
+									assert(argType->isPointerTy());
+									Type* rewrittenArgType = rewriteType(argType->getPointerElementType());
+									newAttrs=newAttrs.removeParamAttribute(module->getContext(), i, Attribute::StructRet);
+									attributesChanged = true;
+									if(rewrittenArgType->isStructTy())
+									{
+										newAttrs = newAttrs.addParamAttribute(module->getContext(), i, Attribute::getWithStructRetType(F->getContext(), rewrittenArgType));
+										continue;
+									}
 								}
-								// 4) Remove the byval attribute from the call
-								newAttrs=newAttrs.removeParamAttribute(module->getContext(), i, Attribute::ByVal);
-								attributesChanged = true;
 							}
 							if(attributesChanged)
 								CI->setAttributes(newAttrs);
