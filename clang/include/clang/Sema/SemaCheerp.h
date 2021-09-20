@@ -32,12 +32,14 @@ enum class SpecialFunctionClassify
 	GenericGetter, Getter, GenericSetter, Setter, Other
 };
 
-TypeKind classifyType(const clang::QualType& Qy, const clang::Sema& sema);
-
 void checkCouldBeJsExported(const clang::CXXRecordDecl* Record, clang::Sema& sema, bool& shouldContinue);
 
-struct TypeChecker
+class TypeChecker
 {
+private:
+	static TypeKind classifyType(const clang::QualType& Qy, const clang::Sema& sema);
+
+public:
 	enum KindOfValue
 	{
 		Parameter, Return
