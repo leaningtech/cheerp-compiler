@@ -37,7 +37,23 @@ TypeKind classifyType(const clang::QualType& Qy, const clang::Sema& sema);
 void checkCouldBeJsExported(const clang::CXXRecordDecl* Record, clang::Sema& sema, bool& shouldContinue);
 
 void checkCouldReturnBeJsExported(const clang::QualType& Ty, const clang::FunctionDecl* FD, clang::Sema& sema);
-void checkCouldBeParameterOfJsExported(const clang::QualType& Ty, const clang::Decl* FD, clang::Sema& sema, const clang::Attr* asmJSAttr, const bool isParameter = true);
+void checkCouldBeParameterOfJsExported(const clang::QualType& Ty, const clang::Decl* Decl, clang::Sema& sema, const clang::Attr* asmJSAttr);
+
+struct TypeChecker
+{
+	enum KindOfValue
+	{
+		Parameter, Return
+	};
+
+	enum KindOfFunction
+	{
+		ClientNamespace, JSExported, None
+	};
+
+	template <KindOfValue kindOfValue, KindOfFunction kindOfFunction>
+	static void checkType(const clang::QualType& Ty, const clang::Decl* Decl, clang::Sema& sema, const clang::Attr* asmJSAttr);
+};
 
 void checkParameters(const clang::FunctionDecl* Method, clang::Sema& sema);
 
