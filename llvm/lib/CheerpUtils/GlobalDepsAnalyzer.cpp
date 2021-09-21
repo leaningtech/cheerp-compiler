@@ -1276,9 +1276,9 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 				hasVAArgs = true;
 			// Handle calls from asmjs module to outside and vice-versa
 			// and fill the info for the function tables
-			if (isa<CallInst>(I))
+			if (isa<CallBase>(I))
 			{
-				const CallInst& ci = cast<CallInst>(I);
+				const CallBase& ci = cast<CallBase>(I);
 				const Function * calledFunc = ci.getCalledFunction();
 				// calledFunc can be null, but if the calledValue is a bitcast,
 				// this can still be a direct call
