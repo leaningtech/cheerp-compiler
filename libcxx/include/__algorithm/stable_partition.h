@@ -48,7 +48,7 @@ __stable_partition(_ForwardIterator __first, _ForwardIterator __last, _Predicate
         // Move the falses into the temporary buffer, and the trues to the front of the line
         // Update __first to always point to the end of the trues
         value_type* __t = __p.first;
-        ::new ((void*)__t) value_type(_VSTD::move(*__first));
+        ::new (__t) value_type(_VSTD::move(*__first));
         __d.template __incr<value_type>();
         ++__t;
         _ForwardIterator __i = __first;
@@ -61,7 +61,7 @@ __stable_partition(_ForwardIterator __first, _ForwardIterator __last, _Predicate
             }
             else
             {
-                ::new ((void*)__t) value_type(_VSTD::move(*__i));
+                ::new (__t) value_type(_VSTD::move(*__i));
                 __d.template __incr<value_type>();
                 ++__t;
             }
@@ -170,7 +170,7 @@ __stable_partition(_BidirectionalIterator __first, _BidirectionalIterator __last
         // Move the falses into the temporary buffer, and the trues to the front of the line
         // Update __first to always point to the end of the trues
         value_type* __t = __p.first;
-        ::new ((void*)__t) value_type(_VSTD::move(*__first));
+        ::new (__t) value_type(_VSTD::move(*__first));
         __d.template __incr<value_type>();
         ++__t;
         _BidirectionalIterator __i = __first;
@@ -183,7 +183,7 @@ __stable_partition(_BidirectionalIterator __first, _BidirectionalIterator __last
             }
             else
             {
-                ::new ((void*)__t) value_type(_VSTD::move(*__i));
+                ::new (__t) value_type(_VSTD::move(*__i));
                 __d.template __incr<value_type>();
                 ++__t;
             }
