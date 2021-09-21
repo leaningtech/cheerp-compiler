@@ -26,6 +26,7 @@
 #include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/Bitcode/BitcodeWriterPass.h"
 #include "llvm/Cheerp/NativeRewriter.h"
+#include "llvm/Cheerp/CFGPasses.h"
 #include "llvm/Cheerp/ExpandStructRegs.h"
 #include "llvm/Cheerp/ByValLowering.h"
 #include "llvm/CodeGen/RegAllocRegistry.h"
@@ -688,7 +689,7 @@ getInstrProfOptions(const CodeGenOptions &CodeGenOpts,
 
 static void addCheerpPasses(const PassManagerBuilder &Builder,
                             legacy::PassManagerBase &PM) {
-  //PM.add(createLowerInvokePass());
+  PM.add(createCheerpLowerInvokePass());
   PM.add(createCFGSimplificationPass());
   //Run mem2reg first, to remove load/stores for the this argument
   //We need this to track this in custom constructors for DOM types, such as String::String(const char*)
