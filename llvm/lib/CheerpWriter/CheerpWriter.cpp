@@ -4366,7 +4366,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			const LoadInst& li = cast<LoadInst>(I);
 			const Value* ptrOp=li.getPointerOperand();
 			bool asmjs = currentFun->getSection()==StringRef("asmjs");
-			POINTER_KIND kind = PA.getPointerKindAssert(ptrOp);
+			POINTER_KIND kind = PA.getPointerKind(ptrOp);
 			bool needsOffset = !li.use_empty() && li.getType()->isPointerTy() && PA.getPointerKindAssert(&li) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&li);
 			bool needsCheckBounds = false;
 			if (checkBounds)
@@ -4441,6 +4441,12 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				if(!pointedType->isIntegerTy(8))
 					stream << ",true";
 				stream << ')';
+			}
+			else if (kind == CONSTANT)
+			{
+				// An invalid access to null/undefined which has not been removed by optizations.
+				// Generate code that will trap at runtime.
+				stream << "null[0]";
 			}
 			else
 				compileCompleteObject(ptrOp);
