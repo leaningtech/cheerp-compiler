@@ -92,14 +92,14 @@ __buffered_inplace_merge(_BidirectionalIterator __first, _BidirectionalIterator 
     {
         value_type* __p = __buff;
         for (_BidirectionalIterator __i = __first; __i != __middle; __d.template __incr<value_type>(), (void) ++__i, (void) ++__p)
-            ::new ((void*)__p) value_type(_VSTD::move(*__i));
+            ::new (__p) value_type(_VSTD::move(*__i));
         _VSTD::__half_inplace_merge<_Compare>(__buff, __p, __middle, __last, __first, __comp);
     }
     else
     {
         value_type* __p = __buff;
         for (_BidirectionalIterator __i = __middle; __i != __last; __d.template __incr<value_type>(), (void) ++__i, (void) ++__p)
-            ::new ((void*)__p) value_type(_VSTD::move(*__i));
+            ::new (__p) value_type(_VSTD::move(*__i));
         typedef reverse_iterator<_BidirectionalIterator> _RBi;
         typedef reverse_iterator<value_type*> _Rv;
         typedef __invert<_Compare> _Inverted;

@@ -39,26 +39,26 @@ __merge_move_construct(_InputIterator1 __first1, _InputIterator1 __last1,
         if (__first1 == __last1)
         {
             for (; __first2 != __last2; ++__first2, (void) ++__result, __d.template __incr<value_type>())
-                ::new ((void*)__result) value_type(_VSTD::move(*__first2));
+                ::new (__result) value_type(_VSTD::move(*__first2));
             __h.release();
             return;
         }
         if (__first2 == __last2)
         {
             for (; __first1 != __last1; ++__first1, (void) ++__result, __d.template __incr<value_type>())
-                ::new ((void*)__result) value_type(_VSTD::move(*__first1));
+                ::new (__result) value_type(_VSTD::move(*__first1));
             __h.release();
             return;
         }
         if (__comp(*__first2, *__first1))
         {
-            ::new ((void*)__result) value_type(_VSTD::move(*__first2));
+            ::new (__result) value_type(_VSTD::move(*__first2));
             __d.template __incr<value_type>();
             ++__first2;
         }
         else
         {
-            ::new ((void*)__result) value_type(_VSTD::move(*__first1));
+            ::new (__result) value_type(_VSTD::move(*__first1));
             __d.template __incr<value_type>();
             ++__first1;
         }
@@ -112,24 +112,24 @@ __stable_sort_move(_RandomAccessIterator __first1, _RandomAccessIterator __last1
     case 0:
         return;
     case 1:
-        ::new ((void*)__first2) value_type(_VSTD::move(*__first1));
+        ::new (__first2) value_type(_VSTD::move(*__first1));
         return;
     case 2:
         __destruct_n __d(0);
         unique_ptr<value_type, __destruct_n&> __h2(__first2, __d);
         if (__comp(*--__last1, *__first1))
         {
-            ::new ((void*)__first2) value_type(_VSTD::move(*__last1));
+            ::new (__first2) value_type(_VSTD::move(*__last1));
             __d.template __incr<value_type>();
             ++__first2;
-            ::new ((void*)__first2) value_type(_VSTD::move(*__first1));
+            ::new (__first2) value_type(_VSTD::move(*__first1));
         }
         else
         {
-            ::new ((void*)__first2) value_type(_VSTD::move(*__first1));
+            ::new (__first2) value_type(_VSTD::move(*__first1));
             __d.template __incr<value_type>();
             ++__first2;
-            ::new ((void*)__first2) value_type(_VSTD::move(*__last1));
+            ::new (__first2) value_type(_VSTD::move(*__last1));
         }
         __h2.release();
         return;
