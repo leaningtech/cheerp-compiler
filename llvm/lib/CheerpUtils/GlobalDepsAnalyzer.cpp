@@ -650,6 +650,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 			{
 				// The symbol is still used around, so keep it but make it empty
 				ffree->deleteBody();
+				asmJSExportedFuncions.erase(ffree);
 				Function* jsfree = module.getFunction("__genericjs__free");
 				// For jsfree, keep an empty body (could still be called if we don't run lto)
 				if (jsfree)
