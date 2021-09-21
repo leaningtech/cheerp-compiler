@@ -71,6 +71,11 @@ FunctionPass* createCheerpLowerSwitchPass(bool onlyLowerI64);
 // FixFunctionCasts
 //
 ModulePass* createFixFunctionCastsPass();
+//===----------------------------------------------------------------------===//
+//
+// CheerpLowerInvoke
+//
+FunctionPass* createCheerpLowerInvokePass();
 
 }
 
