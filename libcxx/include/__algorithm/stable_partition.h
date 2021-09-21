@@ -58,7 +58,7 @@ __stable_partition_impl(_ForwardIterator __first, _ForwardIterator __last, _Pred
         // Move the falses into the temporary buffer, and the trues to the front of the line
         // Update __first to always point to the end of the trues
         value_type* __t = __p.first;
-        ::new ((void*)__t) value_type(_Ops::__iter_move(__first));
+        ::new (__t) value_type(_Ops::__iter_move(__first));
         __d.template __incr<value_type>();
         ++__t;
         _ForwardIterator __i = __first;
@@ -71,7 +71,7 @@ __stable_partition_impl(_ForwardIterator __first, _ForwardIterator __last, _Pred
             }
             else
             {
-                ::new ((void*)__t) value_type(_Ops::__iter_move(__i));
+                ::new (__t) value_type(_Ops::__iter_move(__i));
                 __d.template __incr<value_type>();
                 ++__t;
             }
@@ -188,7 +188,7 @@ __stable_partition_impl(_BidirectionalIterator __first, _BidirectionalIterator _
         // Move the falses into the temporary buffer, and the trues to the front of the line
         // Update __first to always point to the end of the trues
         value_type* __t = __p.first;
-        ::new ((void*)__t) value_type(_Ops::__iter_move(__first));
+        ::new (__t) value_type(_Ops::__iter_move(__first));
         __d.template __incr<value_type>();
         ++__t;
         _BidirectionalIterator __i = __first;
@@ -201,7 +201,7 @@ __stable_partition_impl(_BidirectionalIterator __first, _BidirectionalIterator _
             }
             else
             {
-                ::new ((void*)__t) value_type(_Ops::__iter_move(__i));
+                ::new (__t) value_type(_Ops::__iter_move(__i));
                 __d.template __incr<value_type>();
                 ++__t;
             }

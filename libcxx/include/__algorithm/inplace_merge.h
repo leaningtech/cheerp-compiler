@@ -104,14 +104,14 @@ void __buffered_inplace_merge(
     {
         value_type* __p = __buff;
         for (_BidirectionalIterator __i = __first; __i != __middle; __d.template __incr<value_type>(), (void) ++__i, (void) ++__p)
-            ::new ((void*)__p) value_type(_IterOps<_AlgPolicy>::__iter_move(__i));
+            ::new (__p) value_type(_IterOps<_AlgPolicy>::__iter_move(__i));
         std::__half_inplace_merge<_AlgPolicy>(__buff, __p, __middle, __last, __first, __comp);
     }
     else
     {
         value_type* __p = __buff;
         for (_BidirectionalIterator __i = __middle; __i != __last; __d.template __incr<value_type>(), (void) ++__i, (void) ++__p)
-            ::new ((void*)__p) value_type(_IterOps<_AlgPolicy>::__iter_move(__i));
+            ::new (__p) value_type(_IterOps<_AlgPolicy>::__iter_move(__i));
         typedef __unconstrained_reverse_iterator<_BidirectionalIterator> _RBi;
         typedef __unconstrained_reverse_iterator<value_type*> _Rv;
         typedef __invert<_Compare> _Inverted;

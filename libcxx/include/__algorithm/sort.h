@@ -404,19 +404,19 @@ void __insertion_sort_move(_BidirectionalIterator __first1, _BidirectionalIterat
     __destruct_n __d(0);
     unique_ptr<value_type, __destruct_n&> __h(__first2, __d);
     value_type* __last2 = __first2;
-    ::new ((void*)__last2) value_type(_Ops::__iter_move(__first1));
+    ::new (__last2) value_type(_Ops::__iter_move(__first1));
     __d.template __incr<value_type>();
     for (++__last2; ++__first1 != __last1; ++__last2) {
       value_type* __j2 = __last2;
       value_type* __i2 = __j2;
       if (__comp(*__first1, *--__i2)) {
-        ::new ((void*)__j2) value_type(std::move(*__i2));
+        ::new (__j2) value_type(std::move(*__i2));
         __d.template __incr<value_type>();
         for (--__j2; __i2 != __first2 && __comp(*__first1, *--__i2); --__j2)
           *__j2 = std::move(*__i2);
         *__j2 = _Ops::__iter_move(__first1);
       } else {
-        ::new ((void*)__j2) value_type(_Ops::__iter_move(__first1));
+        ::new (__j2) value_type(_Ops::__iter_move(__first1));
         __d.template __incr<value_type>();
       }
     }
