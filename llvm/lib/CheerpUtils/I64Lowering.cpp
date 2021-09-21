@@ -668,7 +668,7 @@ struct I64LoweringVisitor: public InstVisitor<I64LoweringVisitor, HighInt>
 				Value* Call1 = Builder.CreateCall(Intr, Args1);
 				Value* Call2 = Builder.CreateCall(Intr, Args2);
 				Value* Sum = Builder.CreateAdd(ConstantInt::get(Int32Ty, 32), Call2);
-				Res.high = ConstantInt::get(Int64Ty, 0);
+				Res.high = ConstantInt::get(Int32Ty, 0);
 				Res.low = Builder.CreateSelect(Cond, Sum, Call1, "sel.ctlz");
 		};
 		switch (intrinsicId)
