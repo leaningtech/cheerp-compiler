@@ -128,6 +128,10 @@ typedef void* __libcpp_recursive_mutex_t[6];
 #elif defined(_M_AMD64) || defined(__x86_64__) || defined(_M_ARM64) || defined(__aarch64__)
 typedef void* __libcpp_recursive_mutex_t[5];
 #elif defined(__CHEERP__)
+#define _LIBCPP_THREAD_ABI_VISIBILITY inline
+#define _LIBCPP_NO_THREAD_SAFETY_ANALYSIS
+typedef void* __libcpp_recursive_mutex_t[1];
+typedef void* __libcpp_timespec_t;
 #else
 # error Unsupported architecture
 #endif
@@ -154,7 +158,7 @@ typedef long __libcpp_tls_key;
 #define _LIBCPP_TLS_DESTRUCTOR_CC __stdcall
 #endif // !defined(_LIBCPP_HAS_THREAD_API_PTHREAD) && !defined(_LIBCPP_HAS_THREAD_API_EXTERNAL)
 
-#if !defined(_LIBCPP_HAS_THREAD_API_EXTERNAL) && !defined(__CHEERP__)
+#if !defined(_LIBCPP_HAS_THREAD_API_EXTERNAL)
 // Mutex
 _LIBCPP_THREAD_ABI_VISIBILITY
 int __libcpp_recursive_mutex_init(__libcpp_recursive_mutex_t *__m);
