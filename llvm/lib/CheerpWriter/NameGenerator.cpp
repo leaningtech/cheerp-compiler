@@ -645,6 +645,7 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 	builtins[DUMMY] = "__dummy";
 	builtins[MEMORY] = "memory";
 	builtins[HANDLE_VAARG] = "handleVAArg";
+	builtins[EXCEPTION] = "$except";
 	builtins[FETCHBUFFER] = "fetchBuffer";
 	builtins[STACKPTR] = "__stackPtr";
 	builtins[HEAP8] = "HEAP8";
