@@ -5148,7 +5148,7 @@ void CheerpWriter::compileTokens(const TokenList& Tokens)
 			{
 				stream << "}catch(" << namegen.getBuiltinName(NameGenerator::EXCEPTION) << "){" << NewLine;
 				assert(T.getBB()->isLandingPad());
-				stream << namegen.getName(T.getBB()->getLandingPadInst()) << "=e;" << NewLine;
+				stream << namegen.getName(T.getBB()->getLandingPadInst()) << '=' << namegen.getBuiltinName(NameGenerator::EXCEPTION) << ";" << NewLine;
 				break;
 			}
 			case Token::TK_BrIf:
