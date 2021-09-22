@@ -45,7 +45,7 @@ struct Exception
 	Exception* next;
 	Exception* primary; // null if this is the primary exception
 	Exception(void* obj, const std::type_info* tinfo, void(*dest)(void*), Exception* primary = nullptr) noexcept
-		: obj(obj), adjustedPtr(nullptr), tinfo(tinfo), dest(dest), refCount(1), 
+		: jsObj(nullptr), obj(obj), adjustedPtr(nullptr), tinfo(tinfo), dest(dest), refCount(1), 
 		  handlerCount(0), next(nullptr), primary(primary)
 	{
 	}
@@ -54,6 +54,10 @@ struct Exception
 		if(dest)
 			dest(obj);
 		free(obj);
+	}
+	void setJsObject(client::Object* o)
+	{
+		jsObj = o;
 	}
 	int incRef() noexcept
 	{
@@ -271,6 +275,8 @@ __gxx_personality_v0
 		return new __cheerp_landingpad{nullptr, 0};
 
 	Exception* ex = current_exception;
+	// Used for resume
+	ex->setJsObject(obj);
 	__cheerp_landingpad* lp = new __cheerp_landingpad { ex, 0};
 
 	for(int i = 0; i < n; i++)
