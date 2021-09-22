@@ -476,7 +476,7 @@ void TokenListBuilder::processBlockTerminator(Token* BBT, const DomTreeNode* Cur
 		Token* NormalPrologue = Token::createPrologue(BBT->getBB(), 0);
 		TryPt = Tokens.insertAfter(BBT->getIter(), NormalPrologue);
 
-		Token* Catch = Token::createCatch(Try);
+		Token* Catch = Token::createCatch(Try, Inv->getUnwindDest());
 		auto CatchPt = Tokens.insertAfter(TryPt, Catch);
 		Token* CatchPrologue = Token::createPrologue(BBT->getBB(), 1);
 		CatchPt = Tokens.insertAfter(CatchPt, CatchPrologue);

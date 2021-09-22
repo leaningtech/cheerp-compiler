@@ -215,9 +215,9 @@ public:
 	static Token* createTry(const llvm::BasicBlock* InvokeBlock) {
 		return new Token(TK_Try, InvokeBlock, nullptr);
 	}
-	static Token* createCatch(Token* Try) {
+	static Token* createCatch(Token* Try, const llvm::BasicBlock* LandingPadBlock) {
 		assert(!Try || Try->Kind == TK_Try);
-		auto* Catch = new Token(TK_Catch, nullptr, nullptr);
+		auto* Catch = new Token(TK_Catch, LandingPadBlock, nullptr);
 		Try->Match = Catch;
 		return Catch;
 	}
