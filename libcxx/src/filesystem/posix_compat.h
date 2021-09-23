@@ -37,7 +37,9 @@
 #else
 # include <unistd.h>
 # include <sys/stat.h>
+#ifndef __CHEERP__
 # include <sys/statvfs.h>
+#endif
 #endif
 #include <time.h>
 
@@ -492,10 +494,14 @@ using ::fchmod;
 using ::fchmodat;
 #endif
 using ::fstat;
+#ifndef __CHEERP__
 using ::ftruncate;
+#endif
 using ::getcwd;
 using ::link;
+#ifndef __CHEERP__
 using ::lstat;
+#endif
 using ::mkdir;
 using ::open;
 using ::readlink;
@@ -503,8 +509,10 @@ using ::realpath;
 using ::remove;
 using ::rename;
 using ::stat;
+#ifndef __CHEERP__
 using ::statvfs;
 using ::truncate;
+#endif
 
 #define O_BINARY 0
 
