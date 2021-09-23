@@ -763,7 +763,8 @@ bool IdenticalCodeFolding::ignoreInstruction(const llvm::Instruction* I)
 	{
 		// Skip some kind of intrinsics
 		if(II->getIntrinsicID()==Intrinsic::dbg_declare ||
-			II->getIntrinsicID()==Intrinsic::dbg_value)
+			II->getIntrinsicID()==Intrinsic::dbg_value ||
+			II->getIntrinsicID()==Intrinsic::experimental_noalias_scope_decl)
 		{
 			return true;
 		}
