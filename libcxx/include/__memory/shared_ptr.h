@@ -336,7 +336,7 @@ private:
         char __blob_[sizeof(_CompressedPair)];
 
         _LIBCPP_HIDE_FROM_ABI explicit _Storage(_Alloc&& __a) {
-            ::new ((void*)__get_alloc()) _Alloc(_VSTD::move(__a));
+            ::new (__get_alloc()) _Alloc(_VSTD::move(__a));
         }
         _LIBCPP_HIDE_FROM_ABI ~_Storage() {
             __get_alloc()->~_Alloc();
