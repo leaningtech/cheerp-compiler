@@ -293,7 +293,7 @@ struct __shared_ptr_emplace
         _TpAlloc __tmp(*__get_alloc());
         allocator_traits<_TpAlloc>::construct(__tmp, __get_elem(), _VSTD::forward<_Args>(__args)...);
 #else
-        ::new ((void*)__get_elem()) _Tp(_VSTD::forward<_Args>(__args)...);
+        ::new (__get_elem()) _Tp(_VSTD::forward<_Args>(__args)...);
 #endif
     }
 
