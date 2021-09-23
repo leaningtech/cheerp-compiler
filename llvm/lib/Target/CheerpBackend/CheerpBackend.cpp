@@ -216,7 +216,7 @@ bool CheerpTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
   PM.add(cheerp::createStoreMergingPass(LinearOutput == Wasm));
   // Remove obviously dead instruction, this avoids problems caused by inlining of effectfull instructions
   // inside not used instructions which are then not rendered.
-  PM.add(createDeadInstEliminationPass());
+  PM.add(createDeadCodeEliminationPass());
   PM.add(cheerp::createRegisterizePass(!NoJavaScriptMathFround, LinearOutput == Wasm));
   PM.add(createAllocaLoweringPass());
   if (!CheerpNoICF)
