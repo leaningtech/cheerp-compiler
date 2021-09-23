@@ -4636,7 +4636,8 @@ void CheerpWriter::compileBB(const BasicBlock& BB)
 				II->getIntrinsicID()==Intrinsic::dbg_declare ||
 				II->getIntrinsicID()==Intrinsic::dbg_value ||
 				II->getIntrinsicID()==Intrinsic::dbg_label ||
-				II->getIntrinsicID()==Intrinsic::assume)
+				II->getIntrinsicID()==Intrinsic::assume ||
+				II->getIntrinsicID()==Intrinsic::experimental_noalias_scope_decl)
 			{
 				continue;
 			}
