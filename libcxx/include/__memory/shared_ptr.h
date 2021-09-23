@@ -333,7 +333,7 @@ private:
     // the same layout that we had when we used a compressed pair.
     using _CompressedPair = __compressed_pair<_Alloc, _Tp>;
     struct _ALIGNAS_TYPE(_CompressedPair) _Storage {
-        char __blob_[sizeof(_CompressedPair)];
+        _CompressedPair __blob_ [[cheerp::noinit]];
 
         _LIBCPP_HIDE_FROM_ABI explicit _Storage(_Alloc&& __a) {
             ::new (__get_alloc()) _Alloc(_VSTD::move(__a));
@@ -342,13 +342,13 @@ private:
             __get_alloc()->~_Alloc();
         }
         _Alloc* __get_alloc() _NOEXCEPT {
-            _CompressedPair *__as_pair = reinterpret_cast<_CompressedPair*>(__blob_);
+            _CompressedPair *__as_pair = &(__blob_);
             typename _CompressedPair::_Base1* __first = _CompressedPair::__get_first_base(__as_pair);
             _Alloc *__alloc = reinterpret_cast<_Alloc*>(__first);
             return __alloc;
         }
         _LIBCPP_NO_CFI _Tp* __get_elem() _NOEXCEPT {
-            _CompressedPair *__as_pair = reinterpret_cast<_CompressedPair*>(__blob_);
+            _CompressedPair *__as_pair = &(__blob_);
             typename _CompressedPair::_Base2* __second = _CompressedPair::__get_second_base(__as_pair);
             _Tp *__elem = reinterpret_cast<_Tp*>(__second);
             return __elem;
