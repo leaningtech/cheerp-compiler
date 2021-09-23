@@ -171,6 +171,7 @@ struct DCELegacyPass : public FunctionPass {
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.setPreservesCFG();
+    AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
   }
 };
 }
