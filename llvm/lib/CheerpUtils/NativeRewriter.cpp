@@ -352,7 +352,7 @@ void CheerpNativeRewriter::rewriteConstructorImplementation(Module& M, Function&
 		++newArg;
 	}
 	SmallVector<ReturnInst*, 4> returns;
-	CloneFunctionInto(newFunc, &F, valueMap, F.getSubprogram() != nullptr, returns);
+	CloneFunctionInto(newFunc, &F, valueMap, CloneFunctionChangeType::LocalChangesOnly, returns);
 
 	//Find the right place to add the base construtor call
 	if (lowerConstructor->getNumArgOperands()>1)
