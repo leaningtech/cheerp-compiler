@@ -505,7 +505,9 @@ using ::lstat;
 using ::mkdir;
 using ::open;
 using ::readlink;
+#ifndef __CHEERP__
 using ::realpath;
+#endif
 using ::remove;
 using ::rename;
 using ::stat;
