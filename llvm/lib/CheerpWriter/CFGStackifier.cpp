@@ -1051,6 +1051,7 @@ static bool canFallThrough(Token* T)
 		case Token::TK_Invalid:
 			llvm_unreachable("Invalid token");
 	}
+	llvm_unreachable("");
 }
 void TokenListOptimizer::removeUnnededNesting()
 {
