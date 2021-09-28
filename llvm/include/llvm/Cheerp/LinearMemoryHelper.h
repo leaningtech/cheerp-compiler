@@ -118,6 +118,7 @@ public:
 				case TypeKind::Float:
 					return 'f';
 			}
+			llvm_unreachable("");
 		};
 		std::string table_name;
 		llvm::Type* ret = ft->getReturnType();
