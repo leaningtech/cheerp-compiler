@@ -1754,7 +1754,7 @@ ItaniumCXXABI::GetVirtualBaseClassOffset(CodeGenFunction &CGF,
         CGM.getItaniumVTableContext().getVirtualBaseOffsetOffset(ClassDecl,
                                                                  BaseClassDecl);
     llvm::Value *VBaseOffsetPtr = CGF.Builder.CreateStructGEP(VTableType->getPointerElementType(), VTablePtr, VBaseOffsetOffset.getQuantity());
-    return CGF.Builder.CreateAlignedLoad(VBaseOffsetPtr, CGF.getPointerAlign(),
+    return CGF.Builder.CreateAlignedLoad(VBaseOffsetPtr->getType()->getPointerElementType(), VBaseOffsetPtr, CGF.getPointerAlign(),
                                   "vbase.offset");
   }
   llvm::Value *VTablePtr = CGF.GetVTablePtr(This, CGM.Int8PtrTy, ClassDecl);
@@ -2330,7 +2330,7 @@ static llvm::Value *performTypeAdjustment(CodeGenFunction &CGF,
         llvm::Type* VTableTy = CGF.CGM.getTypes().GetSecondaryVTableType(AdjustmentSource)->getPointerTo();
         llvm::Value *VTablePtr = CGF.GetVTablePtr(Ptr, VTableTy, AdjustmentSource);
         llvm::Value* VCallOffsetPtr = CGF.Builder.CreateStructGEP(VTableTy->getPointerElementType(), VTablePtr, VirtualAdjustment);
-        llvm::Value* VCallOffset = CGF.Builder.CreateAlignedLoad(VCallOffsetPtr, CGF.getPointerAlign());
+        llvm::Value* VCallOffset = CGF.Builder.CreateAlignedLoad(VCallOffsetPtr->getType()->getPointerElementType(), VCallOffsetPtr, CGF.getPointerAlign());
         Ptr = CGF.GenerateVirtualcast(Ptr, VirtualBase, VCallOffset);
       }
       Ptr = CGF.GenerateDowncast(Ptr, DowncastTarget, NonVirtualAdjustment);
@@ -2343,7 +2343,7 @@ static llvm::Value *performTypeAdjustment(CodeGenFunction &CGF,
         llvm::Type* VTableTy = CGF.CGM.getTypes().GetSecondaryVTableType(VirtualBase)->getPointerTo();
         llvm::Value *VTablePtr = CGF.GetVTablePtr(Ptr, VTableTy, VirtualBase);
         llvm::Value* VCallOffsetPtr = CGF.Builder.CreateStructGEP(VTableTy->getPointerElementType(), VTablePtr, VirtualAdjustment);
-        llvm::Value* VCallOffset = CGF.Builder.CreateAlignedLoad(VCallOffsetPtr, CGF.getPointerAlign());
+        llvm::Value* VCallOffset = CGF.Builder.CreateAlignedLoad(VCallOffsetPtr->getType()->getPointerElementType(), VCallOffsetPtr, CGF.getPointerAlign());
         Ptr = CGF.GenerateVirtualcast(Ptr, AdjustmentTarget, VCallOffset);
       }
     }
