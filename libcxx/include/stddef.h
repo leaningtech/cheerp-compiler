@@ -8,7 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #if defined(__need_ptrdiff_t) || defined(__need_size_t) || \
-    defined(__need_wchar_t) || defined(__need_NULL) || defined(__need_wint_t)
+    defined(__need_wchar_t) || defined(__need_NULL) || defined(__need_wint_t) || defined(LEAN_CXX_LIB)
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header
