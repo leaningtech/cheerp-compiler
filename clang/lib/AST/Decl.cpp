@@ -4769,7 +4769,7 @@ bool RecordDecl::isByteLayout() const
     return true;
   // Unions and anonymous structures inside unions use bytelayout
   const RecordDecl *CurDecl = this;
-  while (CurDecl && (CurDecl->isUnion() || CurDecl->isAnonymousStructOrUnion()))
+  while (CurDecl)
   {
     if (CurDecl->isUnion())
       return true;
