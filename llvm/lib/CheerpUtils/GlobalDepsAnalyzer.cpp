@@ -354,6 +354,90 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 						ci->eraseFromParent();
 						continue;
 					}
+					if(II == Intrinsic::smin)
+					{
+						if (!llcPass)
+							continue;
+
+						Value* A = ci->getOperand(0);
+						Value* B = ci->getOperand(1);
+
+						Instruction* cmp = ICmpInst::Create(Instruction::ICmp, ICmpInst::ICMP_SLT, A, B, "smin_cmp", ci);
+						Instruction* res = SelectInst::Create(cmp, A, B, "smin_select", ci);
+
+						ci->replaceAllUsesWith(res);
+
+						//Set up loop variable, so the next loop will check and possibly expand newCall
+						--instructionIterator;
+						advance = false;
+						assert(&*instructionIterator == res);
+
+						ci->eraseFromParent();
+						continue;
+					}
+					if(II == Intrinsic::smax)
+					{
+						if (!llcPass)
+							continue;
+
+						Value* A = ci->getOperand(0);
+						Value* B = ci->getOperand(1);
+
+						Instruction* cmp = ICmpInst::Create(Instruction::ICmp, ICmpInst::ICMP_SGT, A, B, "smax_cmp", ci);
+						Instruction* res = SelectInst::Create(cmp, A, B, "smax_select", ci);
+
+						ci->replaceAllUsesWith(res);
+
+						//Set up loop variable, so the next loop will check and possibly expand newCall
+						--instructionIterator;
+						advance = false;
+						assert(&*instructionIterator == res);
+
+						ci->eraseFromParent();
+						continue;
+					}
+					if(II == Intrinsic::umin)
+					{
+						if (!llcPass)
+							continue;
+
+						Value* A = ci->getOperand(0);
+						Value* B = ci->getOperand(1);
+
+						Instruction* cmp = ICmpInst::Create(Instruction::ICmp, ICmpInst::ICMP_ULT, A, B, "smin_cmp", ci);
+						Instruction* res = SelectInst::Create(cmp, A, B, "smin_select", ci);
+
+						ci->replaceAllUsesWith(res);
+
+						//Set up loop variable, so the next loop will check and possibly expand newCall
+						--instructionIterator;
+						advance = false;
+						assert(&*instructionIterator == res);
+
+						ci->eraseFromParent();
+						continue;
+					}
+					if(II == Intrinsic::umax)
+					{
+						if (!llcPass)
+							continue;
+
+						Value* A = ci->getOperand(0);
+						Value* B = ci->getOperand(1);
+
+						Instruction* cmp = ICmpInst::Create(Instruction::ICmp, ICmpInst::ICMP_UGT, A, B, "smax_cmp", ci);
+						Instruction* res = SelectInst::Create(cmp, A, B, "smax_select", ci);
+
+						ci->replaceAllUsesWith(res);
+
+						//Set up loop variable, so the next loop will check and possibly expand newCall
+						--instructionIterator;
+						advance = false;
+						assert(&*instructionIterator == res);
+
+						ci->eraseFromParent();
+						continue;
+					}
 
 					// Replace math intrinsics with C library calls if necessary
 					if(llcPass)
