@@ -269,6 +269,50 @@ static GenericValue pre_execute_memset(FunctionType *FT,
   return GV;
 }
 
+static GenericValue pre_execute_umax(FunctionType *FT,
+                                       ArrayRef<GenericValue> Args) {
+  ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
+  GenericValue GV;
+  if(Args[0].IntVal.ugt(Args[1].IntVal))
+    GV.IntVal = Args[0].IntVal;
+  else
+    GV.IntVal = Args[1].IntVal;
+  return GV;
+}
+
+static GenericValue pre_execute_smax(FunctionType *FT,
+                                       ArrayRef<GenericValue> Args) {
+  ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
+  GenericValue GV;
+  if(Args[0].IntVal.sgt(Args[1].IntVal))
+    GV.IntVal = Args[0].IntVal;
+  else
+    GV.IntVal = Args[1].IntVal;
+  return GV;
+}
+
+static GenericValue pre_execute_umin(FunctionType *FT,
+                                       ArrayRef<GenericValue> Args) {
+  ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
+  GenericValue GV;
+  if(Args[0].IntVal.ult(Args[1].IntVal))
+    GV.IntVal = Args[0].IntVal;
+  else
+    GV.IntVal = Args[1].IntVal;
+  return GV;
+}
+
+static GenericValue pre_execute_smin(FunctionType *FT,
+                                       ArrayRef<GenericValue> Args) {
+  ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
+  GenericValue GV;
+  if(Args[0].IntVal.slt(Args[1].IntVal))
+    GV.IntVal = Args[0].IntVal;
+  else
+    GV.IntVal = Args[1].IntVal;
+  return GV;
+}
+
 static StructType* most_derived_class(char* Addr)
 {
   ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
@@ -514,6 +558,14 @@ static void* LazyFunctionCreator(const std::string& funcName)
         return (void*)(void(*)())pre_execute_memmove;
     if (strncmp(funcName.c_str(), "llvm.memset.", strlen("llvm.memset."))==0)
         return (void*)(void(*)())pre_execute_memset;
+    if (strncmp(funcName.c_str(), "llvm.umin.", strlen("llvm.umin."))==0)
+        return (void*)(void(*)())pre_execute_umin;
+    if (strncmp(funcName.c_str(), "llvm.smin.", strlen("llvm.smin."))==0)
+        return (void*)(void(*)())pre_execute_smin;
+    if (strncmp(funcName.c_str(), "llvm.umax.", strlen("llvm.umax."))==0)
+        return (void*)(void(*)())pre_execute_umax;
+    if (strncmp(funcName.c_str(), "llvm.smax.", strlen("llvm.smax."))==0)
+        return (void*)(void(*)())pre_execute_smax;
     if (strcmp(funcName.c_str(), "assertEqualImpl") == 0)
         return (void*)(void(*)())assertEqualImpl;
     if (strcmp(funcName.c_str(), "llvm.dbg.value") == 0)
