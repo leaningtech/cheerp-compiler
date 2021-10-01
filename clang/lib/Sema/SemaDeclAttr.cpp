@@ -8218,11 +8218,11 @@ static void handleAsmJSAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
   }
   if (D->getDeclContext()->isClientNamespace())
     S.Diag(Attr.getLoc(), diag::err_cheerp_client_decl_with_tagged_asmjs) << Attr.getAttrName();
-  handleSimpleAttributeWithExclusions<AsmJSAttr, GenericJSAttr, PackedAttr>(S, D, Attr);
+  handleSimpleAttribute<AsmJSAttr>(S, D, Attr);
 }
 
 static void handleGenericJSAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
-  handleSimpleAttributeWithExclusions<GenericJSAttr, AsmJSAttr, ByteLayoutAttr>(S, D, Attr);
+  handleSimpleAttribute<GenericJSAttr>(S, D, Attr);
 }
 
 static void handleByteLayoutAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
@@ -8230,7 +8230,7 @@ static void handleByteLayoutAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
     S.Diag(Attr.getLoc(), diag::warn_attribute_ignored) << Attr.getAttrName();
     return;
   }
-  handleSimpleAttributeWithExclusions<ByteLayoutAttr, JsExportAttr>(S, D, Attr);
+  handleSimpleAttribute<ByteLayoutAttr>(S, D, Attr);
 }
 
 static void handleDefaultNewAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
