@@ -81,7 +81,7 @@ bool ReplaceNopCastsAndByteSwaps::processBasicBlock(BasicBlock& BB)
 		{
 			if(II->getIntrinsicID() == Intrinsic::bswap)
 			{
-				IL->LowerIntrinsicCall(II);
+				IL->LowerIntrinsicCall(cast<CallInst>(II));
 				Changed = true;
 			}
 		}
