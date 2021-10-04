@@ -52,10 +52,18 @@ public:
 
 _LIBCPP_BEGIN_NAMESPACE_STD
 
+typedef int count_t;
+struct [[cheerp::bytelayout]] _Rep_base {
+    std::size_t len;
+    std::size_t cap;
+    count_t     count;
+    char data[0];
+};
+
 #ifndef _LIBCPP_ABI_VCRUNTIME
 class _LIBCPP_HIDDEN __libcpp_refstring
 {
-    const char* __imp_;
+    _Rep_base* __imp_;
 
     bool __uses_refcount() const;
 public:
@@ -64,7 +72,7 @@ public:
     __libcpp_refstring& operator=(const __libcpp_refstring& __s) _NOEXCEPT;
     ~__libcpp_refstring();
 
-    const char* c_str() const _NOEXCEPT {return __imp_;}
+    const char* c_str() const _NOEXCEPT {return __imp_->data;}
 };
 #endif // !_LIBCPP_ABI_VCRUNTIME
 
