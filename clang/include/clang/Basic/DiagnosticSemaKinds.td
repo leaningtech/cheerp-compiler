@@ -11603,6 +11603,8 @@ def err_cheerp_jsexport_variable : Error<
   "Cheerp: [[cheerp::jsexport]] attribute is not allowed on variables">;
 def err_cheerp_jsexport_inheritance : Error<
   "Cheerp: Inherited classes can not be tagged with [[cheerp::jsexport]]">;
+def err_cheerp_client_out_of_line: Error<
+  "Cheerp: out-of-line definition are forbidden for namespace 'client' functions">;
 def err_cheerp_incompatible_jsexport_client : Error<
   "Cheerp: %0 %1 tagged [[cheerp::jsexport]] should not be in namespace client">;
 def err_cheerp_jsexport_on_method_of_not_jsexported_class : Error<
