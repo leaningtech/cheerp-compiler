@@ -10069,7 +10069,7 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
   }
 
   //Perform all cheerp specific checks related to functions and methods
-  cheerp::checkFunctionOnDeclaration(NewFD, *this);
+  cheerp::checkFunctionOnDeclaration(NewFD, *this, D.isFunctionDefinition());
 
   ProcessPragmaWeak(S, NewFD);
   checkAttributesAfterMerging(*this, *NewFD);

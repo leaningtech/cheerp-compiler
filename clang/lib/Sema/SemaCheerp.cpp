@@ -105,8 +105,6 @@ void cheerp::TypeChecker::checkType(const clang::QualType& Ty, clang::SourceLoca
 
 	const llvm::StringRef where = (kindOfValue == Parameter) ? "parameter" : "return";
 
-	assert(kindOfFunction == JSExported);
-
 	const auto type = classifyType(Ty, sema);
 
 	if (kindOfValue == Return)
@@ -390,7 +388,7 @@ void cheerp::checkFunctionOnDefinition(clang::FunctionDecl* FD, clang::Sema& sem
 	}
 }
 
-void cheerp::checkFunctionOnDeclaration(clang::FunctionDecl* FD, clang::Sema& sema)
+void cheerp::checkFunctionOnDeclaration(clang::FunctionDecl* FD, clang::Sema& sema, const bool isAlsoDefinition)
 {
 	const bool isClient = clang::AnalysisDeclContext::isInClientNamespace(FD);
 
@@ -431,6 +429,10 @@ void cheerp::checkFunctionOnDeclaration(clang::FunctionDecl* FD, clang::Sema& se
 
 			if (expectedNumOfParameters != -1u && numArgs != expectedNumOfParameters)
 				sema.Diag(FD->getLocation(), clang::diag::err_cheerp_client_special_wrong_num_parameters) << kind << name << getName(classification) << expectedNumOfParameters;
+
+			if (!isAlsoDefinition)
+				//In line definition means it's subject to less strict rules on arguments
+				TypeChecker::checkParameters<cheerp::TypeChecker::KindOfFunction::NamespaceClient>(FD, sema);
 		}
 	}
 
