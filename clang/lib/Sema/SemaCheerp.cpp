@@ -96,6 +96,10 @@ void cheerp::TypeChecker::checkParameters(const clang::FunctionDecl* FD, clang::
 template <cheerp::TypeChecker::KindOfValue kindOfValue, cheerp::TypeChecker::KindOfFunction kindOfFunction>
 void cheerp::TypeChecker::checkType(const clang::QualType& Ty, clang::SourceLocation Loc, clang::Sema& sema, const clang::Attr* asmJSAttr)
 {
+	//Nothing to say if the type dependes on a Template
+	if (Ty->isDependentType())
+		return;
+
 	using namespace cheerp;
 	using namespace clang;
 
