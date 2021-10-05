@@ -370,6 +370,9 @@ void cheerp::checkFunctionOnDefinition(clang::FunctionDecl* FD, clang::Sema& sem
 
 	if (isClient)
 	{
+		if (FD->isOutOfLine())
+			sema.Diag(FD->getLocation(), clang::diag::err_cheerp_client_out_of_line);
+
 		if (FD->getIdentifier())
 		{
 			auto kind = kinfOfFuncionDecl(FD);
