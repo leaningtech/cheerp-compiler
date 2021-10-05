@@ -50,11 +50,18 @@ public:
 		NamespaceClient, NamespaceClientImplemented, JSExported, None
 	};
 
-	template <KindOfValue kindOfValue, KindOfFunction kindOfFunction>
-	static void checkType(const clang::QualType& Ty, clang::SourceLocation Loc, clang::Sema& sema, const clang::Attr* asmJSAttr);
+	enum FailureMode
+	{
+		Diagnostic
+	};
 
-	template <KindOfFunction kindOfFunction>
-	static void checkParameters(const clang::FunctionDecl* Method, clang::Sema& sema);
+	template <KindOfValue kindOfValue, KindOfFunction kindOfFunction, FailureMode failureMode>
+	static bool checkType(const clang::QualType& Ty, clang::SourceLocation Loc, clang::Sema& sema, const clang::Attr* asmJSAttr);
+	template <KindOfValue kindOfValue, KindOfFunction kindOfFunction, FailureMode failureMode>
+	static void checkTypeImpl(const clang::QualType& Ty, clang::SourceLocation Loc, clang::Sema& sema, const clang::Attr* asmJSAttr, bool& doesWork);
+
+	template <KindOfFunction kindOfFunction, FailureMode failureMode>
+	static bool checkParameters(const clang::FunctionDecl* Method, clang::Sema& sema);
 };
 
 SpecialFunctionClassify classifyNamedFunction(const clang::StringRef name);
