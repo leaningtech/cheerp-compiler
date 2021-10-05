@@ -51,7 +51,7 @@ public:
 	};
 
 	template <KindOfValue kindOfValue, KindOfFunction kindOfFunction>
-	static void checkType(const clang::QualType& Ty, const clang::Decl* Decl, clang::Sema& sema, const clang::Attr* asmJSAttr);
+	static void checkType(const clang::QualType& Ty, clang::SourceLocation Loc, clang::Sema& sema, const clang::Attr* asmJSAttr);
 };
 
 void checkParameters(const clang::FunctionDecl* Method, clang::Sema& sema);

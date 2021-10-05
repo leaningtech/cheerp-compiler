@@ -88,12 +88,12 @@ void cheerp::checkParameters(const clang::FunctionDecl* FD, clang::Sema& sema)
 		if (it->hasDefaultArg())
 			sema.Diag(it->getLocation(), clang::diag::err_cheerp_jsexport_with_default_arg) << FD;
 
-		TypeChecker::checkType<TypeChecker::KindOfValue::Parameter, TypeChecker::KindOfFunction::JSExported> (it->getOriginalType(), &*it, sema, FD->getAttr<clang::AsmJSAttr>());
+		TypeChecker::checkType<TypeChecker::KindOfValue::Parameter, TypeChecker::KindOfFunction::JSExported> (it->getOriginalType(), it->getLocation(), sema, FD->getAttr<clang::AsmJSAttr>());
 	}
 }
 
 template <cheerp::TypeChecker::KindOfValue kindOfValue, cheerp::TypeChecker::KindOfFunction kindOfFunction>
-void cheerp::TypeChecker::checkType(const clang::QualType& Ty, const clang::Decl* Decl, clang::Sema& sema, const clang::Attr* asmJSAttr)
+void cheerp::TypeChecker::checkType(const clang::QualType& Ty, clang::SourceLocation Loc, clang::Sema& sema, const clang::Attr* asmJSAttr)
 {
 	using namespace cheerp;
 	using namespace clang;
@@ -117,17 +117,17 @@ void cheerp::TypeChecker::checkType(const clang::QualType& Ty, const clang::Decl
 			//Returning a function pointer could be OK in certain cases, but we have to check whether the function itself could be jsexported
 			//In general the answer is no
 			//TODO: possibly relax this check (or maybe not since it's actually complex, will require checking that every possible return value is jsExported
-			sema.Diag(Decl->getLocation(), diag::err_cheerp_jsexport_on_parameter_or_return) << "function pointers" << "return";
+			sema.Diag(Loc, diag::err_cheerp_jsexport_on_parameter_or_return) << "function pointers" << "return";
 		}
 		if (type == TypeKind::UnsignedInt32Bit)
 		{
 			//Unsigned integer can't be represented in JavaScript
-			sema.Diag(Decl->getLocation(), diag::err_cheerp_jsexport_on_parameter_or_return) << "unsigned interger" << "return";
+			sema.Diag(Loc, diag::err_cheerp_jsexport_on_parameter_or_return) << "unsigned interger" << "return";
 		}
 		if (type == TypeKind::IntLess32Bit)
 		{
 			//Interger shorter than 32 bit would need to carry metatada around to specify whether signed or unsigned
-			sema.Diag(Decl->getLocation(), diag::err_cheerp_jsexport_on_parameter_or_return) << "integer smaller than 32bit" << "return";
+			sema.Diag(Loc, diag::err_cheerp_jsexport_on_parameter_or_return) << "integer smaller than 32bit" << "return";
 		}
 	}
 
@@ -139,7 +139,7 @@ void cheerp::TypeChecker::checkType(const clang::QualType& Ty, const clang::Decl
 			if (asmJSAttr)
 			{
 				//asmjs / wasm functions can't take (yet) functions pointers as parameters
-				sema.Diag(Decl->getLocation(), diag::err_cheerp_jsexport_on_parameter_amsjs_function) << asmJSAttr;
+				sema.Diag(Loc, diag::err_cheerp_jsexport_on_parameter_amsjs_function) << asmJSAttr;
 				return;
 			}
 			else
@@ -164,27 +164,27 @@ void cheerp::TypeChecker::checkType(const clang::QualType& Ty, const clang::Decl
 		}
 		case TypeKind::Void:
 		{
-			sema.Diag(Decl->getLocation(), diag::err_cheerp_jsexport_on_parameter_or_return) << "void" << where;
+			sema.Diag(Loc, diag::err_cheerp_jsexport_on_parameter_or_return) << "void" << where;
 			return;
 		}
 		case TypeKind::JsExportable:
 		{
-			sema.Diag(Decl->getLocation(), diag::err_cheerp_jsexport_on_parameter_or_return) << "naked JsExportable types" << where;
+			sema.Diag(Loc, diag::err_cheerp_jsexport_on_parameter_or_return) << "naked JsExportable types" << where;
 			return;
 		}
 		case TypeKind::NamespaceClient:
 		{
-			sema.Diag(Decl->getLocation(), diag::err_cheerp_jsexport_on_parameter_or_return) << "naked Client types" << where;
+			sema.Diag(Loc, diag::err_cheerp_jsexport_on_parameter_or_return) << "naked Client types" << where;
 			return;
 		}
 		case TypeKind::Other:
 		{
-			sema.Diag(Decl->getLocation(), diag::err_cheerp_jsexport_on_parameter_or_return) << "unknown types" << where;
+			sema.Diag(Loc, diag::err_cheerp_jsexport_on_parameter_or_return) << "unknown types" << where;
 			return;
 		}
 		case TypeKind::IntGreater32Bit:
 		{
-			sema.Diag(Decl->getLocation(), diag::err_cheerp_jsexport_on_parameter_or_return) << "greater than 32bit integers" << where;
+			sema.Diag(Loc, diag::err_cheerp_jsexport_on_parameter_or_return) << "greater than 32bit integers" << where;
 			return;
 		}
 		default:
@@ -200,14 +200,14 @@ void cheerp::TypeChecker::checkType(const clang::QualType& Ty, const clang::Decl
 	if (kindOfValue == Return && PointedTy.isConstQualified())
 	{
 		//TODO: is possible in practice to have const-jsexported elements, but for now keep it at no
-		sema.Diag(Decl->getLocation(), diag::err_cheerp_jsexport_on_parameter_or_return) << "const-qualified pointer or reference" << where;
+		sema.Diag(Loc, diag::err_cheerp_jsexport_on_parameter_or_return) << "const-qualified pointer or reference" << where;
 	}
 
 	switch (classifyType(PointedTy, sema))
 	{
 		case TypeKind::Void:
 		{
-			sema.Diag(Decl->getLocation(), diag::err_cheerp_jsexport_on_parameter_or_return) << "void*" << where;
+			sema.Diag(Loc, diag::err_cheerp_jsexport_on_parameter_or_return) << "void*" << where;
 			return;
 		}
 		case TypeKind::NamespaceClient:
@@ -218,7 +218,7 @@ void cheerp::TypeChecker::checkType(const clang::QualType& Ty, const clang::Decl
 		}
 		case TypeKind::Other:
 		{
-			sema.Diag(Decl->getLocation(), diag::err_cheerp_jsexport_on_parameter_or_return) <<
+			sema.Diag(Loc, diag::err_cheerp_jsexport_on_parameter_or_return) <<
 				"pointers to unknown (neither client namespace nor jsexportable) types" << where;
 			return;
 		}
@@ -229,18 +229,18 @@ void cheerp::TypeChecker::checkType(const clang::QualType& Ty, const clang::Decl
 		case TypeKind::IntGreater32Bit:
 		case TypeKind::FloatingPoint:
 		{
-			sema.Diag(Decl->getLocation(), diag::err_cheerp_jsexport_on_parameter_or_return) << "pointers to base type" << where;
+			sema.Diag(Loc, diag::err_cheerp_jsexport_on_parameter_or_return) << "pointers to base type" << where;
 			return;
 		}
 		case TypeKind::Pointer:
 		case TypeKind::FunctionPointer:
 		{
-			sema.Diag(Decl->getLocation(), diag::err_cheerp_jsexport_on_parameter_or_return) << "pointers to pointer" << where;
+			sema.Diag(Loc, diag::err_cheerp_jsexport_on_parameter_or_return) << "pointers to pointer" << where;
 			return;
 		}
 		case TypeKind::Reference:
 		{
-			sema.Diag(Decl->getLocation(), diag::err_cheerp_jsexport_on_parameter_or_return) << "pointers to references" << where;
+			sema.Diag(Loc, diag::err_cheerp_jsexport_on_parameter_or_return) << "pointers to references" << where;
 			return;
 		}
 		default:
@@ -482,7 +482,7 @@ void cheerp::CheerpSemaData::checkFunctionToBeJsExported(const clang::FunctionDe
 		sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_function_template);
 
 	if (!isa<CXXConstructorDecl>(FD))
-		TypeChecker::checkType<TypeChecker::KindOfValue::Return, TypeChecker::KindOfFunction::JSExported>(FD->getReturnType(), FD, sema, FD->getAttr<AsmJSAttr>());
+		TypeChecker::checkType<TypeChecker::KindOfValue::Return, TypeChecker::KindOfFunction::JSExported>(FD->getReturnType(), FD->getLocation(), sema, FD->getAttr<AsmJSAttr>());
 
 	checkParameters(FD, sema);
 
