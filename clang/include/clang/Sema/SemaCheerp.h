@@ -47,14 +47,15 @@ public:
 
 	enum KindOfFunction
 	{
-		ClientNamespace, JSExported, None
+		NamespaceClient, NamespaceClientImplemented, JSExported, None
 	};
 
 	template <KindOfValue kindOfValue, KindOfFunction kindOfFunction>
 	static void checkType(const clang::QualType& Ty, clang::SourceLocation Loc, clang::Sema& sema, const clang::Attr* asmJSAttr);
-};
 
-void checkParameters(const clang::FunctionDecl* Method, clang::Sema& sema);
+	template <KindOfFunction kindOfFunction>
+	static void checkParameters(const clang::FunctionDecl* Method, clang::Sema& sema);
+};
 
 SpecialFunctionClassify classifyNamedFunction(const clang::StringRef name);
 
