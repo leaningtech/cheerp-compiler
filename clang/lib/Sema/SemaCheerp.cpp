@@ -203,7 +203,7 @@ void cheerp::TypeChecker::checkType(const clang::QualType& Ty, clang::SourceLoca
 	//TODO: have to be checked again, may be possible to be more restrictive on some things while permitting others
 	const clang::QualType& PointedTy = Ty.getTypePtr()->getPointeeType();
 
-	if (kindOfValue == Return && PointedTy.isConstQualified())
+	if (kindOfValue == Return && PointedTy.isConstQualified() && kindOfFunction == JSExported)
 	{
 		//TODO: is possible in practice to have const-jsexported elements, but for now keep it at no
 		sema.Diag(Loc, diag::err_cheerp_jsexport_on_parameter_or_return) << "const-qualified pointer or reference" << where;
