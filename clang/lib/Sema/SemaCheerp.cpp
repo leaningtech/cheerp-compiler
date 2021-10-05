@@ -103,7 +103,12 @@ void cheerp::TypeChecker::checkType(const clang::QualType& Ty, clang::SourceLoca
 	using namespace cheerp;
 	using namespace clang;
 
-	const llvm::StringRef where = (kindOfValue == Parameter) ? "parameter" : "return";
+	auto trackError = [&sema, &Loc](const char* kind)
+	{
+		const llvm::StringRef where = (kindOfValue == Parameter) ? "parameter" : "return";
+
+		sema.Diag(Loc, diag::err_cheerp_at_interface_native_js) << "that needs to be [[cheerp::jsexport]]-ed" << kind << where;
+	};
 
 	const auto type = classifyType(Ty, sema);
 
@@ -123,17 +128,17 @@ void cheerp::TypeChecker::checkType(const clang::QualType& Ty, clang::SourceLoca
 			//Returning a function pointer could be OK in certain cases, but we have to check whether the function itself could be jsexported
 			//In general the answer is no
 			//TODO: possibly relax this check (or maybe not since it's actually complex, will require checking that every possible return value is jsExported
-			sema.Diag(Loc, diag::err_cheerp_jsexport_on_parameter_or_return) << "function pointers" << "return";
+			trackError("function pointers");
 		}
 		if (type == TypeKind::UnsignedInt32Bit)
 		{
 			//Unsigned integer can't be represented in JavaScript
-			sema.Diag(Loc, diag::err_cheerp_jsexport_on_parameter_or_return) << "unsigned interger" << "return";
+			trackError("unsigned interger");
 		}
 		if (type == TypeKind::IntLess32Bit)
 		{
 			//Interger shorter than 32 bit would need to carry metatada around to specify whether signed or unsigned
-			sema.Diag(Loc, diag::err_cheerp_jsexport_on_parameter_or_return) << "integer smaller than 32bit" << "return";
+			trackError("interger smaller than 32bit");
 		}
 	}
 
@@ -170,27 +175,27 @@ void cheerp::TypeChecker::checkType(const clang::QualType& Ty, clang::SourceLoca
 		}
 		case TypeKind::Void:
 		{
-			sema.Diag(Loc, diag::err_cheerp_jsexport_on_parameter_or_return) << "void" << where;
+			trackError("void");
 			return;
 		}
 		case TypeKind::JsExportable:
 		{
-			sema.Diag(Loc, diag::err_cheerp_jsexport_on_parameter_or_return) << "naked JsExportable types" << where;
+			trackError("naked JsExportable types");
 			return;
 		}
 		case TypeKind::NamespaceClient:
 		{
-			sema.Diag(Loc, diag::err_cheerp_jsexport_on_parameter_or_return) << "naked Client types" << where;
+			trackError("naked Client types");
 			return;
 		}
 		case TypeKind::Other:
 		{
-			sema.Diag(Loc, diag::err_cheerp_jsexport_on_parameter_or_return) << "unknown types" << where;
+			trackError("unknown types");
 			return;
 		}
 		case TypeKind::IntGreater32Bit:
 		{
-			sema.Diag(Loc, diag::err_cheerp_jsexport_on_parameter_or_return) << "greater than 32bit integers" << where;
+			trackError("greater than 32bit integers");
 			return;
 		}
 		default:
@@ -206,14 +211,14 @@ void cheerp::TypeChecker::checkType(const clang::QualType& Ty, clang::SourceLoca
 	if (kindOfValue == Return && PointedTy.isConstQualified() && kindOfFunction == JSExported)
 	{
 		//TODO: is possible in practice to have const-jsexported elements, but for now keep it at no
-		sema.Diag(Loc, diag::err_cheerp_jsexport_on_parameter_or_return) << "const-qualified pointer or reference" << where;
+		trackError("const-qualified pointer or reference");
 	}
 
 	switch (classifyType(PointedTy, sema))
 	{
 		case TypeKind::Void:
 		{
-			sema.Diag(Loc, diag::err_cheerp_jsexport_on_parameter_or_return) << "void*" << where;
+			trackError("void*");
 			return;
 		}
 		case TypeKind::NamespaceClient:
@@ -224,8 +229,7 @@ void cheerp::TypeChecker::checkType(const clang::QualType& Ty, clang::SourceLoca
 		}
 		case TypeKind::Other:
 		{
-			sema.Diag(Loc, diag::err_cheerp_jsexport_on_parameter_or_return) <<
-				"pointers to unknown (neither client namespace nor jsexportable) types" << where;
+			trackError("pointers to unknown (neither client namespace nor jsexportable) types");
 			return;
 		}
 		case TypeKind::Boolean:
@@ -235,18 +239,18 @@ void cheerp::TypeChecker::checkType(const clang::QualType& Ty, clang::SourceLoca
 		case TypeKind::IntGreater32Bit:
 		case TypeKind::FloatingPoint:
 		{
-			sema.Diag(Loc, diag::err_cheerp_jsexport_on_parameter_or_return) << "pointers to base type" << where;
+			trackError("pointers to base types");
 			return;
 		}
 		case TypeKind::Pointer:
 		case TypeKind::FunctionPointer:
 		{
-			sema.Diag(Loc, diag::err_cheerp_jsexport_on_parameter_or_return) << "pointers to pointer" << where;
+			trackError("pointers to pointers");
 			return;
 		}
 		case TypeKind::Reference:
 		{
-			sema.Diag(Loc, diag::err_cheerp_jsexport_on_parameter_or_return) << "pointers to references" << where;
+			trackError("pointers to references");
 			return;
 		}
 		default:
@@ -269,15 +273,13 @@ cheerp::TypeKind cheerp::TypeChecker::classifyType(const clang::QualType& Qy, co
 	}
 	if (Ty->isIntegerType())
 	{
-		const clang::BuiltinType* builtin = clang::cast<clang::BuiltinType>(Ty);
-
 		if (sema.Context.getIntWidth(Desugared) > 32)
 			return TypeKind::IntGreater32Bit;
 		else if (sema.Context.getIntWidth(Desugared) == 1)
 			return TypeKind::Boolean;
 		else if (sema.Context.getIntWidth(Desugared) == 32)
 		{
-			if (builtin->isSignedInteger())
+			if (Ty->isSignedIntegerType())
 				return TypeKind::SignedInt32Bit;
 			else
 				return TypeKind::UnsignedInt32Bit;
