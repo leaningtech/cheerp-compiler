@@ -108,12 +108,15 @@ void cheerp::TypeChecker::checkType(const clang::QualType& Ty, clang::SourceLoca
 	const auto type = classifyType(Ty, sema);
 
 	if (kindOfValue == Return)
-	{
 		if (type == TypeKind::Void)
 		{
 			//No return is fine (while no parameter is not)
 			return;
 		}
+
+	if (kindOfFunction == JSExported &&
+		kindOfValue == Return)
+	{
 		if (type == TypeKind::Function ||
 			type == TypeKind::FunctionPointer)
 		{
