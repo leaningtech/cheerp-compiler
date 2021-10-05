@@ -81,14 +81,15 @@ void cheerp::checkCouldBeJsExported(const clang::CXXRecordDecl* Record, clang::S
 	checkDestructor(Record, sema, shouldContinue);
 }
 
-void cheerp::checkParameters(const clang::FunctionDecl* FD, clang::Sema& sema)
+template <cheerp::TypeChecker::KindOfFunction kindOfFunction>
+void cheerp::TypeChecker::checkParameters(const clang::FunctionDecl* FD, clang::Sema& sema)
 {
 	for (auto it : FD->parameters())
 	{
-		if (it->hasDefaultArg())
+		if (kindOfFunction == JSExported && it->hasDefaultArg())
 			sema.Diag(it->getLocation(), clang::diag::err_cheerp_jsexport_with_default_arg) << FD;
 
-		TypeChecker::checkType<TypeChecker::KindOfValue::Parameter, TypeChecker::KindOfFunction::JSExported> (it->getOriginalType(), it->getLocation(), sema, FD->getAttr<clang::AsmJSAttr>());
+		TypeChecker::checkType<TypeChecker::KindOfValue::Parameter, kindOfFunction> (it->getOriginalType(), it->getLocation(), sema, FD->getAttr<clang::AsmJSAttr>());
 	}
 }
 
@@ -487,7 +488,7 @@ void cheerp::CheerpSemaData::checkFunctionToBeJsExported(const clang::FunctionDe
 	if (!isa<CXXConstructorDecl>(FD))
 		TypeChecker::checkType<TypeChecker::KindOfValue::Return, TypeChecker::KindOfFunction::JSExported>(FD->getReturnType(), FD->getLocation(), sema, FD->getAttr<AsmJSAttr>());
 
-	checkParameters(FD, sema);
+	TypeChecker::checkParameters<TypeChecker::JSExported>(FD, sema);
 
 	checkName(FD, FD->getNameInfo().getAsString(), sema);
 }
