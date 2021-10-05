@@ -103,11 +103,15 @@ void cheerp::TypeChecker::checkType(const clang::QualType& Ty, clang::SourceLoca
 	using namespace cheerp;
 	using namespace clang;
 
+	assert(kindOfFunction == JSExported || kindOfFunction == NamespaceClient);
+
 	auto trackError = [&sema, &Loc](const char* kind)
 	{
 		const llvm::StringRef where = (kindOfValue == Parameter) ? "parameter" : "return";
+		const llvm::StringRef message = (kindOfFunction == JSExported) ? "that needs to be [[cheerp::jsexport]]-ed" :
+			(kindOfFunction == NamespaceClient) ? "forward declared in namespace client" : "declared and defined in namespace client";
 
-		sema.Diag(Loc, diag::err_cheerp_at_interface_native_js) << "that needs to be [[cheerp::jsexport]]-ed" << kind << where;
+		sema.Diag(Loc, diag::err_cheerp_at_interface_native_js) << message << kind << where;
 	};
 
 	const auto type = classifyType(Ty, sema);
