@@ -61,7 +61,7 @@ SpecialFunctionClassify classifyNamedFunction(const clang::StringRef name);
 
 void checkDestructor(const clang::CXXRecordDecl* Record, clang::Sema& sema, bool& shouldContinue);
 void checkFunctionOnDefinition(clang::FunctionDecl* FD, clang::Sema& sema);
-void checkFunctionOnDeclaration(clang::FunctionDecl* FD, clang::Sema& sema);
+void checkFunctionOnDeclaration(clang::FunctionDecl* FD, clang::Sema& sema, const bool isAlsoDefinition);
 
 bool isTemplate(const clang::FunctionDecl* FD);
 
