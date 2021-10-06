@@ -52,7 +52,7 @@ public:
 
 	enum FailureMode
 	{
-		Diagnostic
+		Diagnostic, ReturnValue
 	};
 
 	template <KindOfValue kindOfValue, KindOfFunction kindOfFunction, FailureMode failureMode>
@@ -63,6 +63,8 @@ public:
 	template <KindOfFunction kindOfFunction, FailureMode failureMode>
 	static bool checkParameters(const clang::FunctionDecl* Method, clang::Sema& sema);
 };
+
+bool isNamespaceClientDisabledDecl(clang::FunctionDecl* FD, clang::Sema& sema);
 
 SpecialFunctionClassify classifyNamedFunction(const clang::StringRef name);
 
