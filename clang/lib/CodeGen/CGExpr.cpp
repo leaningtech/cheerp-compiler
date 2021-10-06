@@ -225,7 +225,7 @@ RValue CodeGenFunction::EmitAnyExprToTemp(const Expr *E) {
   {
     AggSlot = CreateAggTemp(E->getType(), "agg.tmp");
     if (!getTarget().isByteAddressable()) {
-      if (auto *Size = EmitLifetimeStart(-1, AggSlot.getPointer()))
+      if (auto *Size = EmitLifetimeStart(CGM.getDataLayout().getTypeAllocSize(AggSlot.getAddress().getElementType()), AggSlot.getPointer()))
         EHStack.pushCleanup<CallLifetimeEnd>(NormalCleanup, AggSlot.getAddress(), Size);
     }
   }
