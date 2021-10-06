@@ -10896,6 +10896,8 @@ def err_probability_out_of_range : Error<
    "range [0.0, 1.0]">;
 
 let CategoryName = "Cheerp Issue" in {
+def note_cheerp_forbidden : Note<
+    "candidate unavailable since it breaks Cheerp %0 rules">;
 def warn_cheerp_unsafe_cast : Warning<
   "Cheerp: Using values cast to unrelated types is undefined behaviour unless the destination type is the actual type of the value">;
 def warn_cheerp_inefficient_unions : Warning<

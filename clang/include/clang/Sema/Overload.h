@@ -760,6 +760,9 @@ class Sema;
     /// This candidate was not viable because its OpenCL extension is disabled.
     ovl_fail_ext_disabled,
 
+    /// This candidate was not viable because Cheerp rules would be broken.
+    ovl_fail_cheerp_forbidden,
+
     /// This inherited constructor is not viable because it would slice the
     /// argument.
     ovl_fail_inhctor_slice,
