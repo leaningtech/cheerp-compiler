@@ -61,7 +61,7 @@ public:
 	static void checkTypeImpl(const clang::QualType& Ty, clang::SourceLocation Loc, clang::Sema& sema, const clang::Attr* asmJSAttr, bool& doesWork);
 
 	template <KindOfFunction kindOfFunction, FailureMode failureMode>
-	static bool checkParameters(const clang::FunctionDecl* Method, clang::Sema& sema);
+	static bool checkSignature(const clang::FunctionDecl* Method, clang::Sema& sema);
 };
 
 bool isNamespaceClientDisabledDecl(clang::FunctionDecl* FD, clang::Sema& sema);
