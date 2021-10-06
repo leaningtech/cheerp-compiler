@@ -11734,6 +11734,8 @@ def err_loongarch_builtin_requires_la64 : Error<
   "this builtin requires target: loongarch64">;
 
 let CategoryName = "Cheerp Issue" in {
+def note_cheerp_forbidden : Note<
+    "candidate unavailable since it breaks Cheerp %0 rules">;
 def warn_cheerp_unsafe_cast : Warning<
   "Cheerp: Using values cast to unrelated types is undefined behaviour unless the destination type is the actual type of the value">;
 def warn_cheerp_inefficient_unions : Warning<

@@ -6662,6 +6662,13 @@ void Sema::AddOverloadCandidate(
     Candidate.DeductionFailure.Data = FailedAttr;
     return;
   }
+
+  if (Context.getTargetInfo().getTriple().getArch() == llvm::Triple::cheerp)
+    if (cheerp::isNamespaceClientDisabledDecl(Function, *this)) {
+    Candidate.Viable = false;
+    Candidate.FailureKind = ovl_fail_cheerp_forbidden;
+    return;
+  }
 }
 
 ObjCMethodDecl *
@@ -11395,6 +11402,13 @@ static void DiagnoseFailedExplicitSpec(Sema &S, OverloadCandidate *Cand) {
       << (ES.getExpr() ? ES.getExpr()->getSourceRange() : SourceRange());
 }
 
+static void DiagnoseCheerpForbidden(Sema &S, OverloadCandidate *Cand) {
+  FunctionDecl *Callee = Cand->Function;
+
+  S.Diag(Callee->getLocation(),
+         diag::note_cheerp_forbidden) << "namespace client";
+}
+
 /// Generates a 'note' diagnostic for an overload candidate.  We've
 /// already generated a primary error at the call site.
 ///
@@ -11496,6 +11510,9 @@ static void NoteFunctionCandidate(Sema &S, OverloadCandidate *Cand,
 
   case ovl_fail_explicit:
     return DiagnoseFailedExplicitSpec(S, Cand);
+
+  case ovl_fail_cheerp_forbidden:
+    return DiagnoseCheerpForbidden(S, Cand);
 
   case ovl_fail_inhctor_slice:
     // It's generally not interesting to note copy/move constructors here.

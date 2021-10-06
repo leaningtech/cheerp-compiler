@@ -81,6 +81,20 @@ void cheerp::checkCouldBeJsExported(const clang::CXXRecordDecl* Record, clang::S
 	checkDestructor(Record, sema, shouldContinue);
 }
 
+bool cheerp::isNamespaceClientDisabledDecl(clang::FunctionDecl* FD, clang::Sema& sema)
+{
+      const bool isClient = clang::AnalysisDeclContext::isInClientNamespace(FD);
+
+      if (!isClient || FD->hasBody())
+              return false;
+
+      bool doesWork = TypeChecker::checkParameters<TypeChecker::NamespaceClient, TypeChecker::ReturnValue>(FD, sema);
+      //TODO checks on the return
+      //forbidden |= TypeChecker::checkType<TypeChecker::KindOfValue::Return, TypeChecker::KindOfFunction::NamespaceClient> (FD->getReturnType(), Loc, sema, FD->getAttr<clang::AsmJSAttr>())
+      return !doesWork;
+}
+
+
 template <cheerp::TypeChecker::KindOfFunction kindOfFunction, cheerp::TypeChecker::FailureMode failureMode>
 bool cheerp::TypeChecker::checkParameters(const clang::FunctionDecl* FD, clang::Sema& sema)
 {
