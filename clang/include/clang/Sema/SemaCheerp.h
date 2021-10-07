@@ -36,9 +36,6 @@ void checkCouldBeJsExported(const clang::CXXRecordDecl* Record, clang::Sema& sem
 
 class TypeChecker
 {
-private:
-	static TypeKind classifyType(const clang::QualType& Qy, const clang::Sema& sema);
-
 public:
 	enum KindOfValue
 	{
@@ -54,6 +51,8 @@ public:
 	{
 		Diagnostic, ReturnValue
 	};
+
+	static TypeKind classifyType(const clang::QualType& Qy, const clang::Sema& sema);
 
 	template <KindOfValue kindOfValue, KindOfFunction kindOfFunction, FailureMode failureMode>
 	static bool checkType(const clang::QualType& Ty, clang::SourceLocation Loc, clang::Sema& sema, const clang::Attr* asmJSAttr);
@@ -146,5 +145,8 @@ enum class CheerpAttributeToAdd
 
 CheerpAttributeToAdd getCheerpAttributeToAdd(const clang::Decl*& decl, clang::ASTContext& Context);
 void checksOnAsmJSAttributeInjection(clang::Sema& sema, const clang::Decl* decl);
+
+bool canAddressOfClientBeTaken(const clang::VarDecl* VD, const clang::Sema& sema);
+
 }  //end namespace cheerp
 #endif //_CHEERP_SEMA_CHEERP_H
