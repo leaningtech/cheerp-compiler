@@ -777,3 +777,37 @@ void cheerp::checksOnAsmJSAttributeInjection(clang::Sema& sema, const clang::Dec
 			<< "'asmjs'"
 			<< decl->getAttr<PackedAttr>();
 }
+
+bool cheerp::canAddressOfClientBeTaken(const clang::VarDecl* VD, const clang::Sema& sema)
+{
+	using namespace clang;
+	QualType Ty = VD->getType();
+	while (true)
+	{
+		const auto type = cheerp::TypeChecker::classifyType(Ty, sema);
+
+		switch (type)
+		{
+			case TypeKind::Boolean:
+			case TypeKind::IntLess32Bit:
+			case TypeKind::UnsignedInt32Bit:
+			case TypeKind::SignedInt32Bit:
+			case TypeKind::FloatingPoint:
+			case TypeKind::Pointer:
+			{
+				return false;
+			}
+			case TypeKind::Reference:
+			{
+				break;
+			}
+			default:
+			{
+				return true;
+			}
+
+		}
+
+		Ty = Ty.getTypePtr()->getPointeeType();
+	}
+}
