@@ -1079,7 +1079,7 @@ Function* TypeOptimizer::rewriteIntrinsic(Function* F, FunctionType* FT)
 	}
 
 
-	const std::string& intrName = Intrinsic::getName(F->getIntrinsicID(), newTys);
+	const std::string& intrName = Intrinsic::getName(F->getIntrinsicID(), newTys, module);
 
 	// If the name does not change we only need to fix the type
 	if(F->getName() == intrName)
