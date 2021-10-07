@@ -11677,6 +11677,8 @@ def err_cheerp_wrong_member_field_ptr: Error<
   "Cheerp: Cannot get a member field pointer for classes and structs with the %0 attribute">;
 def err_cheerp_wrong_member_func_addr: Error<
   "Cheerp: Cannot get a member function pointer of class %0 with attribute %1 from member function %2 with attribute %3">;
+def err_cheerp_address_namespace_client_non_ref : Error<
+  "Cheerp: Taking the address of a namespace client object is forbidden">;
 def err_cheerp_incompatible_attributes_against_type : Error<
   "Cheerp: Type %0 of %1 %2 is incompatible with attribute %3 of %4 %5">;
 def err_cheerp_incompatible_attributes : Error<
