@@ -13512,6 +13512,12 @@ QualType Sema::CheckAddressOfOperand(ExprResult &OrigOp, SourceLocation OpLoc) {
                !isa<BindingDecl>(dcl) && !isa<MSGuidDecl>(dcl))
       llvm_unreachable("Unknown/unexpected decl type");
 
+    // CHEERP: forbid taking the address of extern namespace client values
+    if (dcl->getDeclContext()->isClientNamespace())
+      if (VarDecl* VD = dyn_cast<VarDecl>(dcl))
+	if (VD->hasExternalStorage())
+	  Diag(OpLoc, diag::err_cheerp_address_namespace_client_extern);
+
     // CHEERP: forbid taking the address of pointer fields in asmjs structs from
     // genericjs
     if (FunctionDecl* FD = getCurFunctionDecl()) {
