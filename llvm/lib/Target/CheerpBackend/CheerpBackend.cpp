@@ -94,7 +94,7 @@ bool CheerpWritePass::runOnModule(Module& M)
 #endif
 
   std::error_code ErrorCode;
-  llvm::ToolOutputFile secondaryFile(SecondaryOutputFile, ErrorCode, sys::fs::F_None);
+  llvm::ToolOutputFile secondaryFile(SecondaryOutputFile, ErrorCode, sys::fs::OF_None);
   std::unique_ptr<llvm::formatted_raw_ostream> secondaryOut;
   if (!SecondaryOutputFile.empty())
   {
