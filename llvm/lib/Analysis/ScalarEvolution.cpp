@@ -1145,6 +1145,9 @@ const SCEV *ScalarEvolution::getLosslessPtrToIntExpr(const SCEV *Op,
   if (const SCEV *S = UniqueSCEVs.FindNodeOrInsertPos(ID, IP))
     return S;
 
+  if (!getDataLayout().isByteAddressable())
+    return Op;
+
   // It isn't legal for optimizations to construct new ptrtoint expressions
   // for non-integral pointers.
   if (getDataLayout().isNonIntegralPointerType(Op->getType()))
@@ -8785,11 +8788,6 @@ ScalarEvolution::ExitLimit::ExitLimit(
   for (const auto *PredSet : PredSetList)
     for (const auto *P : *PredSet)
       addPredicate(P);
-  assert((isa<SCEVCouldNotCompute>(E) || !E->getType()->isPointerTy()) &&
-         "Backedge count should be int");
-  assert((isa<SCEVCouldNotCompute>(ConstantMaxNotTaken) ||
-          !ConstantMaxNotTaken->getType()->isPointerTy()) &&
-         "Max backedge count should be int");
 }
 
 ScalarEvolution::ExitLimit::ExitLimit(
