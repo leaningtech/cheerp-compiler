@@ -298,7 +298,7 @@ def ZExt : EnumAttr<"zeroext", [ParamAttr, RetAttr]>;
 def MustProgress : EnumAttr<"mustprogress", [FnAttr]>;
 
 /// Static C++ method
-def Static : EnumAttr<"static">;
+def Static : EnumAttr<"static", [FnAttr]>;
 
 /// Target-independent string attributes.
 def LessPreciseFPMAD : StrBoolAttr<"less-precise-fpmad">;
