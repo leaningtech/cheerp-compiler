@@ -6095,11 +6095,15 @@ const SCEV *ScalarEvolution::createNodeForSelectOrPHIInstWithICmpInstCond(
         break;
       const SCEV *LDiff = getMinusSCEV(LA, LS);
       const SCEV *RDiff = getMinusSCEV(RA, RS);
+      if (isa<SCEVCouldNotCompute>(LDiff) || isa<SCEVCouldNotCompute>(RDiff))
+        return getUnknown(I);
       if (LDiff == RDiff)
         return getAddExpr(Signed ? getSMaxExpr(LS, RS) : getUMaxExpr(LS, RS),
                           LDiff);
       LDiff = getMinusSCEV(LA, RS);
       RDiff = getMinusSCEV(RA, LS);
+      if (isa<SCEVCouldNotCompute>(LDiff) || isa<SCEVCouldNotCompute>(RDiff))
+        return getUnknown(I);
       if (LDiff == RDiff)
         return getAddExpr(Signed ? getSMinExpr(LS, RS) : getUMinExpr(LS, RS),
                           LDiff);
@@ -6118,6 +6122,8 @@ const SCEV *ScalarEvolution::createNodeForSelectOrPHIInstWithICmpInstCond(
       const SCEV *FalseValExpr = getSCEV(FalseVal);  // x+y
       const SCEV *Y = getMinusSCEV(FalseValExpr, X); // y = (x+y)-x
       const SCEV *C = getMinusSCEV(TrueValExpr, Y);  // C = (C+y)-y
+      if (isa<SCEVCouldNotCompute>(Y) || isa<SCEVCouldNotCompute>(C))
+        return getUnknown(I);
       if (isa<SCEVConstant>(C) && cast<SCEVConstant>(C)->getAPInt().ule(1))
         return getAddExpr(getUMaxExpr(X, C), Y);
     }
@@ -12563,7 +12569,10 @@ ScalarEvolution::howManyLessThans(const SCEV *LHS, const SCEV *RHS,
 
       // See what would happen if we assume the backedge is taken. This is
       // used to compute MaxBECount.
-      BECountIfBackedgeTaken = getUDivCeilSCEV(getMinusSCEV(RHS, Start), Stride);
+      const SCEV *M1 = getMinusSCEV(RHS, Start);
+      if (isa<SCEVCouldNotCompute>(M1))
+        return M1;
+      BECountIfBackedgeTaken = getUDivCeilSCEV(M1, Stride);
     }
 
     // At this point, we know:
@@ -12637,6 +12646,8 @@ ScalarEvolution::howManyLessThans(const SCEV *LHS, const SCEV *RHS,
     }();
 
     const SCEV *Delta = getMinusSCEV(End, Start);
+    if (isa<SCEVCouldNotCompute>(Delta))
+      return Delta;
     if (!MayAddOverflow) {
       // floor((D + (S - 1)) / S)
       // We prefer this formulation if it's legal because it's fewer operations.
@@ -12735,8 +12746,14 @@ ScalarEvolution::howManyGreaterThans(const SCEV *LHS, const SCEV *RHS,
   // FIXME: This can overflow. Holding off on fixing this for now;
   // howManyGreaterThans will hopefully be gone soon.
   const SCEV *One = getOne(Stride->getType());
+  const SCEV *M1 = getMinusSCEV(Start, End);
+  if (isa<SCEVCouldNotCompute>(M1))
+    return M1;
+  const SCEV *M2 = getMinusSCEV(Stride, One);
+  if (isa<SCEVCouldNotCompute>(M2))
+    return M2;
   const SCEV *BECount = getUDivExpr(
-      getAddExpr(getMinusSCEV(Start, End), getMinusSCEV(Stride, One)), Stride);
+      getAddExpr(M1, M2), Stride);
 
   APInt MaxStart = IsSigned ? getSignedRangeMax(Start)
                             : getUnsignedRangeMax(Start);
