@@ -7137,6 +7137,12 @@ void Sema::CheckCompletedCXXClass(Scope *S, CXXRecordDecl *Record) {
     if (Record->isDynamicClass())
       Diag(Record->getLocation(), diag::err_cheerp_attribute_on_virtual_class) << Record->getAttr<ByteLayoutAttr>();
   }
+  //CHEERP: If the record is namespace client it can't have any field
+  if (Record->isClientNamespace())
+    if (!Record->field_empty()) {
+      Diag(Record->getLocation(), diag::err_cheerp_client_class_with_fields);
+      return;
+    }
   // CHEERP: If the record type is asmjs, disallow genericjs fields, including pointers
   if (Record->hasAttr<AsmJSAttr>()) {
     for (const auto* f: Record->fields()) {
