@@ -147,6 +147,7 @@ CheerpAttributeToAdd getCheerpAttributeToAdd(const clang::Decl*& decl, clang::AS
 void checksOnAsmJSAttributeInjection(clang::Sema& sema, const clang::Decl* decl);
 
 bool canAddressOfClientBeTaken(const clang::VarDecl* VD, const clang::Sema& sema);
+bool isBuiltinOrClientPtr(const clang::QualType& QTy, const clang::Sema& sema);
 
 }  //end namespace cheerp
 #endif //_CHEERP_SEMA_CHEERP_H
