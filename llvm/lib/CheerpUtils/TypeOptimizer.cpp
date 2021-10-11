@@ -1304,7 +1304,7 @@ Function* TypeOptimizer::rewriteFunctionSignature(Function* F)
 		}
 		else
 		{
-			AttributeSet CurAttrs = PAL.getParamAttributes(i);
+			AttributeSet CurAttrs = PAL.getParamAttrs(i);
 			if(CurAttrs.hasAttribute(Attribute::ByVal))
 			{
 				Type* argType = oldFuncType->getParamType(i);
@@ -1327,7 +1327,7 @@ Function* TypeOptimizer::rewriteFunctionSignature(Function* F)
 					PAL = PAL.addParamAttribute(F->getContext(), i, Attribute::getWithStructRetType(F->getContext(), rewrittenArgType));
 				}
 			}
-			ArgAttrVec.push_back(PAL.getParamAttributes(i));
+			ArgAttrVec.push_back(PAL.getParamAttrs(i));
 		}
 	}
 	F->setAttributes(PAL);
@@ -1342,8 +1342,8 @@ Function* TypeOptimizer::rewriteFunctionSignature(Function* F)
 
 	// Recompute the parameter attributes list based on the new arguments for
 	// the function.
-	NF->setAttributes(AttributeList::get(F->getContext(), PAL.getFnAttributes(),
-				PAL.getRetAttributes(), ArgAttrVec));
+	NF->setAttributes(AttributeList::get(F->getContext(), PAL.getFnAttrs(),
+				PAL.getRetAttrs(), ArgAttrVec));
 
 	F->getParent()->getFunctionList().insert(F->getIterator(), NF);
 
@@ -1593,7 +1593,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 							Function* calledFunction = CI->getCalledFunction();
 							for(uint32_t i=0;i<CI->getNumArgOperands();i++)
 							{
-								if(newAttrs.hasParamAttribute(i, Attribute::ByVal))
+								if(newAttrs.hasParamAttr(i, Attribute::ByVal))
 								{
 									Type* argType = localTypeMapping.getOriginalOperandType(CI->getArgOperand(i));
 									assert(argType->isPointerTy());
@@ -1629,7 +1629,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 									newAttrs=newAttrs.removeParamAttribute(module->getContext(), i, Attribute::ByVal);
 									attributesChanged = true;
 								}
-								if(newAttrs.hasParamAttribute(i, Attribute::StructRet))
+								if(newAttrs.hasParamAttr(i, Attribute::StructRet))
 								{
 									Type* argType = localTypeMapping.getOriginalOperandType(CI->getArgOperand(i));
 									assert(argType->isPointerTy());
@@ -1693,7 +1693,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 							else
 							{
 								Args.push_back(Op); // Unmodified argument
-								ArgAttrVec.push_back(CallPAL.getParamAttributes(ArgNo));
+								ArgAttrVec.push_back(CallPAL.getParamAttrs(ArgNo));
 							}
 						}
 
@@ -1706,8 +1706,8 @@ void TypeOptimizer::rewriteFunction(Function* F)
 						NewCall->setTailCallKind(CI->getTailCallKind());
 						NewCall->setCallingConv(CI->getCallingConv());
 						NewCall->setAttributes(
-							AttributeList::get(F->getContext(), CallPAL.getFnAttributes(),
-							CallPAL.getRetAttributes(), ArgAttrVec));
+							AttributeList::get(F->getContext(), CallPAL.getFnAttrs(),
+							CallPAL.getRetAttrs(), ArgAttrVec));
 						NewCall->setDebugLoc(CI->getDebugLoc());
 						Args.clear();
 						ArgAttrVec.clear();
