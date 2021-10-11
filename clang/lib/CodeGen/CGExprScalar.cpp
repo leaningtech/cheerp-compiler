@@ -3647,6 +3647,9 @@ static Value* tryEmitFMulAdd(const BinOpInfo &op,
   if (!op.FPFeatures.allowFPContractWithinStatement())
     return nullptr;
 
+  if (!CGF.getTarget().isByteAddressable())
+    return nullptr;
+
   // We have a potentially fusable op. Look for a mul on one of the operands.
   // Also, make sure that the mul result isn't used directly. In that case,
   // there's no point creating a muladd operation.
