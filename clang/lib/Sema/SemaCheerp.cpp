@@ -811,3 +811,34 @@ bool cheerp::canAddressOfClientBeTaken(const clang::VarDecl* VD, const clang::Se
 		Ty = Ty.getTypePtr()->getPointeeType();
 	}
 }
+
+bool cheerp::isBuiltinOrClientPtr(const clang::QualType& Ty, const clang::Sema& sema)
+{
+	const auto type = cheerp::TypeChecker::classifyType(Ty, sema);
+
+	switch (type)
+	{
+		case TypeKind::Boolean:
+		case TypeKind::IntLess32Bit:
+		case TypeKind::UnsignedInt32Bit:
+		case TypeKind::SignedInt32Bit:
+		case TypeKind::FloatingPoint:
+		{
+			return true;
+		}
+		case TypeKind::Pointer:
+		{
+			break;
+		}
+		default:
+		{
+			return false;
+		}
+
+	}
+
+	const clang::QualType PtrTy = Ty.getTypePtr()->getPointeeType();
+	const auto ptrType = cheerp::TypeChecker::classifyType(PtrTy, sema);
+
+	return (ptrType == TypeKind::NamespaceClient);
+}

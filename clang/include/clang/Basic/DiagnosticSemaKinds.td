@@ -11681,6 +11681,8 @@ def err_cheerp_address_namespace_client_non_ref : Error<
   "Cheerp: Taking the address of a namespace client object is forbidden">;
 def err_cheerp_client_class_with_fields : Error<
   "Cheerp: Namespace client records can not have fields">;
+def err_cheerp_client_non_external : Error<
+  "Cheerp: Namespace client globals should be external">;
 def err_cheerp_incompatible_attributes_against_type : Error<
   "Cheerp: Type %0 of %1 %2 is incompatible with attribute %3 of %4 %5">;
 def err_cheerp_incompatible_attributes : Error<

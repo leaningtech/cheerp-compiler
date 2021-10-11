@@ -7728,6 +7728,10 @@ NamedDecl *Sema::ActOnVariableDeclarator(
         }
       }
     }
+    if (NewVD->getDeclContext()->isClientNamespace())
+      if (!NewVD->hasExternalStorage() && !cheerp::isBuiltinOrClientPtr(NewVD->getType(), *this)) {
+        Diag(NewVD->getLocation(), diag::err_cheerp_client_non_external);
+      }
   } else {
     // CHEERP: Disallow explicitly putting the cheerp attributes on local variables
     if (NewVD->hasAttr<GenericJSAttr>() && !NewVD->getAttr<GenericJSAttr>()->isImplicit()) {
