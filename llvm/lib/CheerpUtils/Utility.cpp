@@ -157,6 +157,27 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 		}
 		return false;
 	};
+	//Certain floating point comparisons require to render the operands twice
+	auto isUserASpecialFCmp = [](const Instruction& I)
+	{
+		assert(I.hasOneUse());
+		const Use& U = *I.use_begin();
+		const Instruction* userInst = cast<Instruction>(U.getUser());
+		if (const FCmpInst* cmp = dyn_cast<FCmpInst>(userInst))
+		{
+			switch (cmp->getPredicate())
+			{
+				case CmpInst::FCMP_ONE:
+				case CmpInst::FCMP_UEQ:
+				case CmpInst::FCMP_ORD:
+				case CmpInst::FCMP_UNO:
+					return true;
+				default:
+					break;
+			}
+		}
+		return false;
+	};
 	// Do not inline the instruction if the use is in another block
 	// If this happen the instruction may have been hoisted outside a loop and we want to keep it there
 	auto isUserInOtherBlock = [&isUserAPhiInNextBlock](const Instruction& I)
@@ -228,7 +249,7 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 			// Geps with constant indices used (in)directly only in Load or Store can be compactly encoded.
 			if (isGepOnlyUsedInLoadStore(I))
 				return true;
-			if (hasMoreThan1Use || isUserInOtherBlock(I))
+			if (hasMoreThan1Use || isUserInOtherBlock(I) || isUserASpecialFCmp(I))
 				return false;
 			return true;
 		}
@@ -309,7 +330,7 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 	}
 	else if(!hasMoreThan1Use)
 	{
-		if(isUserInOtherBlock(I))
+		if(isUserInOtherBlock(I) || isUserASpecialFCmp(I))
 			return false;
 		switch(I.getOpcode())
 		{
