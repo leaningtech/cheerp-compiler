@@ -28,6 +28,7 @@ cmake -C ../llvm/CheerpCmakeConf.cmake \
   -DCLANG_VENDOR="Cheerp %{VERSION}" \
   -DCMAKE_BUILD_TYPE=Release \
   -DLLVM_ENABLE_PROJECTS=clang \
+  -DLLVM_ENABLE_NEW_PASS_MANAGER=OFF \
   ../llvm/
 
 

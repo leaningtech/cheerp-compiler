@@ -12,6 +12,7 @@ override_dh_auto_configure:
 	    -DCMAKE_BUILD_TYPE=Release \
 	    -DCLANG_VENDOR="Cheerp ${deb_version}" \
 	    -DLLVM_ENABLE_PROJECTS=clang \
+	    -DLLVM_ENABLE_NEW_PASS_MANAGER=OFF \
 	    ../llvm/
 
 override_dh_auto_install:
