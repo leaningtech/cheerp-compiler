@@ -113,6 +113,44 @@ void CheerpWriter::compileFloatComparison(const llvm::Value* lhs, const llvm::Va
 		stream << ')';
 		if(parentPrio > LOGICAL_OR) stream << ')';
 	}
+	else if(p==CmpInst::FCMP_ONE)
+	{
+		if(parentPrio > LOGICAL_AND) stream << '(';
+		stream << "(";
+		compileOperand(lhs,PARENT_PRIORITY::COMPARISON);
+		stream << "<";
+		compileOperand(rhs,PARENT_PRIORITY::COMPARISON);
+		stream << ')';
+		if (asmjs)
+			stream << '|';
+		else
+			stream << "||";
+		stream << "(";
+		compileOperand(lhs,PARENT_PRIORITY::COMPARISON);
+		stream << ">";
+		compileOperand(rhs,PARENT_PRIORITY::COMPARISON);
+		stream << ')';
+		if(parentPrio > LOGICAL_AND) stream << ')';
+	}
+	else if(p==CmpInst::FCMP_UEQ)
+	{
+		stream << "!(";
+		stream << "(";
+		compileOperand(lhs,PARENT_PRIORITY::COMPARISON);
+		stream << "<";
+		compileOperand(rhs,PARENT_PRIORITY::COMPARISON);
+		stream << ')';
+		if (asmjs)
+			stream << '|';
+		else
+			stream << "||";
+		stream << "(";
+		compileOperand(lhs,PARENT_PRIORITY::COMPARISON);
+		stream << ">";
+		compileOperand(rhs,PARENT_PRIORITY::COMPARISON);
+		stream << ')';
+		stream << ')';
+	}
 	else
 	{
 		if(parentPrio > COMPARISON) stream << '(';

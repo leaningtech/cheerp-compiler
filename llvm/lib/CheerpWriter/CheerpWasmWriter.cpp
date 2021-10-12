@@ -1174,6 +1174,31 @@ void CheerpWasmWriter::compileFCmp(const Value* lhs, const Value* rhs, CmpInst::
 			encodeInst(WasmOpcode::F32_NE, code);
 
 		encodeInst(WasmOpcode::I32_OR, code);
+	} else if (p == CmpInst::FCMP_ONE || p == CmpInst::FCMP_UEQ) {
+		// Check whether either is bigger than the other
+		// If there is a NaN operad, both will fail
+		// If there are different, both will fail
+		// So the answer will be true only for FCMP_ONE
+		// (to be flipped in the case of FCMP_UEQ)
+		compileOperand(code, lhs);
+		compileOperand(code, rhs);
+		if (ty->isDoubleTy())
+			encodeInst(WasmOpcode::F64_LT, code);
+		else
+			encodeInst(WasmOpcode::F32_LT, code);
+
+		compileOperand(code, lhs);
+		compileOperand(code, rhs);
+		if (ty->isDoubleTy())
+			encodeInst(WasmOpcode::F64_GT, code);
+		else
+			encodeInst(WasmOpcode::F32_GT, code);
+
+		encodeInst(WasmOpcode::I32_OR, code);
+
+		//Invert
+		if (p == CmpInst::FCMP_UEQ)
+			encodeInst(WasmOpcode::I32_EQZ, code);
 	} else {
 		compileOperand(code, lhs);
 		compileOperand(code, rhs);
