@@ -95,7 +95,7 @@ bool ByValLowering::runOnModule(Module& M)
 			if (Attrs.hasAttribute(AttrIdx, Attribute::ByVal))
 			{
 				Func.removeAttribute(AttrIdx, Attribute::ByVal);
-				Func.addAttribute(AttrIdx, Attribute::NoAlias);
+				Func.addAttribute(AttrIdx, Attribute::get(M.getContext(), Attribute::NoAlias));
 				Modified |= true;
 			}
 		}
