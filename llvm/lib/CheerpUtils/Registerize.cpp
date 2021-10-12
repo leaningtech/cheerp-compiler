@@ -3458,7 +3458,7 @@ Registerize::InstructionSetOrderedByID Registerize::gatherDerivedMemoryAccesses(
 					}
 					// This escapes, unless the argument is flagged as nocapture
 					//NOTE: Parameter attributes start at index 1
-					if(F->getAttributes().hasAttribute(U->getOperandNo()+1, Attribute::NoCapture))
+					if(F->getAttributes().hasAttributeAtIndex(U->getOperandNo()+1, Attribute::NoCapture))
 						break;
 				}
 				escapingInsts.insert(CI);
