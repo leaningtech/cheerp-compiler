@@ -32,7 +32,7 @@ static bool ExpandCall(const DataLayout& DL, CallInst* Call)
 	for (unsigned ArgIdx = 0; ArgIdx < Call->getNumArgOperands(); ++ArgIdx)
 	{
 		unsigned AttrIdx = ArgIdx + 1;
-		if (Attrs.hasAttribute(AttrIdx, Attribute::ByVal))
+		if (Attrs.hasAttributeAtIndex(AttrIdx, Attribute::ByVal))
 		{
 			Modify = true;
 			Value *ArgPtr = Call->getArgOperand(ArgIdx);
@@ -69,8 +69,8 @@ static bool ExpandCall(const DataLayout& DL, CallInst* Call)
 			assert(isa<CallInst>(Call));
 			Builder.SetInsertPoint(Call->getNextNode());
 			Builder.CreateLifetimeEnd(CopyBuf, ArgSize);
-			Call->removeAttribute(AttrIdx, Attribute::ByVal);
-			Call->addAttribute(AttrIdx, Attribute::NoAlias);
+			Call->removeAttributeAtIndex(AttrIdx, Attribute::ByVal);
+			Call->addAttributeAtIndex(AttrIdx, Attribute::NoAlias);
 		}
 	}
 	if (Modify)
@@ -92,10 +92,10 @@ bool ByValLowering::runOnModule(Module& M)
 		for (unsigned ArgIdx = 0; ArgIdx < Func.arg_size(); ++ArgIdx)
 		{
 			unsigned AttrIdx = ArgIdx + 1;
-			if (Attrs.hasAttribute(AttrIdx, Attribute::ByVal))
+			if (Attrs.hasAttributeAtIndex(AttrIdx, Attribute::ByVal))
 			{
-				Func.removeAttribute(AttrIdx, Attribute::ByVal);
-				Func.addAttribute(AttrIdx, Attribute::get(M.getContext(), Attribute::NoAlias));
+				Func.removeAttributeAtIndex(AttrIdx, Attribute::ByVal);
+				Func.addAttributeAtIndex(AttrIdx, Attribute::get(M.getContext(), Attribute::NoAlias));
 				Modified |= true;
 			}
 		}
