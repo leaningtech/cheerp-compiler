@@ -13934,7 +13934,7 @@ QualType Sema::CheckAddressOfOperand(ExprResult &OrigOp, SourceLocation OpLoc) {
                !isa<BindingDecl>(dcl) && !isa<MSGuidDecl>(dcl))
       llvm_unreachable("Unknown/unexpected decl type");
 
-    // CHEERP: forbid taking the address of extern namespace client values
+    // CHEERP: forbid taking the address of namespace client values
     if (dcl->getDeclContext()->isClientNamespace())
       if (VarDecl* VD = dyn_cast<VarDecl>(dcl))
 	if (!cheerp::canAddressOfClientBeTaken(VD, *this)) {
