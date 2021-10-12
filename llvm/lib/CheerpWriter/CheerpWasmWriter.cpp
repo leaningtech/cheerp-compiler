@@ -1131,12 +1131,12 @@ void CheerpWasmWriter::compileICmp(const ICmpInst& ci, const CmpInst::Predicate 
 
 void CheerpWasmWriter::compileFCmp(const Value* lhs, const Value* rhs, CmpInst::Predicate p, WasmBuffer& code)
 {
+	Type* ty = lhs->getType();
+	assert(ty->isDoubleTy() || ty->isFloatTy());
+	assert(ty == rhs->getType());
+
 	if (p == CmpInst::FCMP_ORD)
 	{
-		Type* ty = lhs->getType();
-		assert(ty->isDoubleTy() || ty->isFloatTy());
-		assert(ty == rhs->getType());
-
 		// Check if both operands are equal to itself. A nan-value is
 		// never equal to itself. Use a logical and operator for the
 		// resulting comparison.
@@ -1156,10 +1156,6 @@ void CheerpWasmWriter::compileFCmp(const Value* lhs, const Value* rhs, CmpInst::
 
 		encodeInst(WasmOpcode::I32_AND, code);
 	} else if (p == CmpInst::FCMP_UNO) {
-		Type* ty = lhs->getType();
-		assert(ty->isDoubleTy() || ty->isFloatTy());
-		assert(ty == rhs->getType());
-
 		// Check if at least one operand is not equal to itself.
 		// A nan-value is never equal to itself. Use a logical
 		// or operator for the resulting comparison.
@@ -1181,8 +1177,6 @@ void CheerpWasmWriter::compileFCmp(const Value* lhs, const Value* rhs, CmpInst::
 	} else {
 		compileOperand(code, lhs);
 		compileOperand(code, rhs);
-		Type* ty = lhs->getType();
-		assert(ty->isDoubleTy() || ty->isFloatTy());
 		// It is much more efficient to invert the predicate if we need to check for unorderedness
 		bool invertForUnordered = CmpInst::isUnordered(p);
 		if(invertForUnordered)
