@@ -4796,6 +4796,14 @@ static void TryReferenceInitializationCore(Sema &S,
   Sema::ReferenceCompareResult RefRelationship =
       S.CompareReferenceRelationship(DeclLoc, cv1T1, cv2T2, &RefConv);
 
+  // CHEERP: forbid taking the address of global namespace client variables
+  if (DeclRefExpr* DRE = dyn_cast<DeclRefExpr>(Initializer))
+    if (DRE->getDecl()->getDeclContext()->isClientNamespace())
+      if (VarDecl* VD = dyn_cast<VarDecl>(DRE->getDecl()))
+        if (VD->hasGlobalStorage())
+          if (cheerp::isBuiltinOrClientPtr(VD->getType(), S))
+            S.Diag(DRE->getExprLoc(), diag::err_cheerp_wrong_addreof_client_global);
+
   // CHEERP: forbid taking the address of pointer fields in asmjs structs from
   // genericjs
   if (FunctionDecl* FD = S.getCurFunctionDecl()) {
