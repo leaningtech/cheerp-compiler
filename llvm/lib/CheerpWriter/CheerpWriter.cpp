@@ -2946,7 +2946,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileTerminatorInstru
 		{
 			stream << "throw ";
 			compileOperand(I.getOperand(0));
-			stream << ".a0[0].a0;" << NewLine;
+			stream << ".a2;" << NewLine;
 			return COMPILE_OK;
 		}
 		case Instruction::Invoke:

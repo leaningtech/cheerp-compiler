@@ -469,12 +469,24 @@ Address CodeGenFunction::getEHSelectorSlot() {
   return Address(EHSelectorSlot, Int32Ty, CharUnits::fromQuantity(4));
 }
 
+Address CodeGenFunction::getEHObjectSlot() {
+  if (!EHObjectSlot) {
+    llvm::FunctionType *FTy = llvm::FunctionType::get(CGM.VoidTy, false);
+    EHObjectSlot = CreateTempAlloca(FTy->getPointerTo(), "ehobject.slot");
+  }
+  return Address(EHObjectSlot, CharUnits::fromQuantity(4));
+}
+
 llvm::Value *CodeGenFunction::getExceptionFromSlot() {
   return Builder.CreateLoad(getExceptionSlot(), "exn");
 }
 
 llvm::Value *CodeGenFunction::getSelectorFromSlot() {
   return Builder.CreateLoad(getEHSelectorSlot(), "sel");
+}
+
+llvm::Value *CodeGenFunction::getObjectFromSlot() {
+  return Builder.CreateLoad(getEHObjectSlot(), "obj");
 }
 
 void CodeGenFunction::EmitCXXThrowExpr(const CXXThrowExpr *E,
@@ -888,6 +900,9 @@ llvm::BasicBlock *CodeGenFunction::EmitLandingPad() {
     llvm::Value *LPadSel = Builder.CreateStructGEP(LPadInst, 1);
     LPadSel = Builder.CreateLoad(Address(LPadSel, getIntAlign()));
     Builder.CreateStore(LPadSel, getEHSelectorSlot());
+    llvm::Value *LPadObj = Builder.CreateStructGEP(LPadInst, 2);
+    LPadObj = Builder.CreateLoad(Address(LPadObj, getIntAlign()));
+    Builder.CreateStore(LPadObj, getEHObjectSlot());
   }
 
   // Save the exception pointer.  It's safe to use a single exception
@@ -1699,16 +1714,20 @@ llvm::BasicBlock *CodeGenFunction::getEHResumeBlock(bool isCleanup) {
     LPadVal = Builder.CreateInsertValue(LPadVal, Sel, 1, "lpad.val");
     Builder.CreateResume(LPadVal);
   } else {
+    llvm::Value *Obj = getObjectFromSlot();
+
     llvm::StructType* STy = GetLandingPadTy();
     llvm::Type* Tys[1] = { STy->getPointerTo() };
     llvm::Function *F = CGM.getIntrinsic(llvm::Intrinsic::cheerp_allocate, Tys);
     uint64_t size = CGM.getDataLayout().getStructLayout(STy)->getSizeInBytes();
     llvm::Value* Args[1] = { llvm::ConstantInt::get(Int32Ty, size) };
     llvm::Value* LPadVal = Builder.CreateCall(F, Args);
-    llvm::Value* LPadExn = Builder.CreateStructGEP(LPadVal, 0, "lpad.val");
+    llvm::Value* LPadExn = Builder.CreateStructGEP(LPadVal, 0, "lpad.val.exn");
     Builder.CreateStore(Exn, Address(LPadExn, getPointerAlign()));
-    llvm::Value* LPadSel = Builder.CreateStructGEP(LPadVal, 1, "lpad.val");
+    llvm::Value* LPadSel = Builder.CreateStructGEP(LPadVal, 1, "lpad.val.sel");
     Builder.CreateStore(Sel, Address(LPadSel, getPointerAlign()));
+    llvm::Value* LPadObj = Builder.CreateStructGEP(LPadVal, 2, "lpad.val.obj");
+    Builder.CreateStore(Obj, Address(LPadObj, getPointerAlign()));
     Builder.CreateResume(LPadVal);
   }
   Builder.restoreIP(SavedIP);
