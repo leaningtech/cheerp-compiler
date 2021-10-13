@@ -4867,6 +4867,8 @@ DenseSet<const Token*> CheerpWriter::getLabeledTokens(const TokenList& Tokens)
 			case Token::TK_Condition:
 			case Token::TK_BrIf:
 			case Token::TK_BrIfNot:
+			case Token::TK_Try:
+			case Token::TK_Catch:
 				break;
 			case Token::TK_Loop:
 			case Token::TK_Switch:
