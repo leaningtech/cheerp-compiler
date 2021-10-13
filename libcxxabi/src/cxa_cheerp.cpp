@@ -25,17 +25,17 @@ namespace [[cheerp::genericjs]] cheerp {
 			}
 	};
 }
-namespace __cxxabiv1 {
+namespace [[cheerp::genericjs]] __cxxabiv1 {
 
 struct __cheerp_landingpad
 {
 	void* val;
 	int sel;
+	void(*jsObj)();
 };
 
 struct Exception
 {
-	client::Object* jsObj;
 	void* obj;
 	void* adjustedPtr;
 	const std::type_info* tinfo;
@@ -45,7 +45,7 @@ struct Exception
 	Exception* next;
 	Exception* primary; // null if this is the primary exception
 	Exception(void* obj, const std::type_info* tinfo, void(*dest)(void*), Exception* primary = nullptr) noexcept
-		: jsObj(nullptr), obj(obj), adjustedPtr(nullptr), tinfo(tinfo), dest(dest), refCount(1), 
+		: obj(obj), adjustedPtr(nullptr), tinfo(tinfo), dest(dest), refCount(1), 
 		  handlerCount(0), next(nullptr), primary(primary)
 	{
 	}
@@ -53,11 +53,7 @@ struct Exception
 	{
 		if(dest)
 			dest(obj);
-		free(obj);
-	}
-	void setJsObject(client::Object* o)
-	{
-		jsObj = o;
+		//free(obj);
 	}
 	int incRef() noexcept
 	{
@@ -123,7 +119,7 @@ static void do_throw(Exception* ex)
 	uncaughtExceptions += 1;
 
 	//TODO: if I remove this statement clang crashes
-	__cheerp_landingpad* lp = new __cheerp_landingpad { nullptr, 0};
+	__cheerp_landingpad* lp = new __cheerp_landingpad { nullptr, 0, nullptr};
 	client::CheerpException* wrapper = new client::CheerpException(ex->tinfo->name());
 	__builtin_cheerp_throw(wrapper);
 }
@@ -272,12 +268,10 @@ __gxx_personality_v0
 		}
 	}
 	if(!native)
-		return new __cheerp_landingpad{nullptr, 0};
+		return new __cheerp_landingpad{nullptr, 0, nullptr};
 
 	Exception* ex = current_exception;
-	// Used for resume
-	ex->setJsObject(obj);
-	__cheerp_landingpad* lp = new __cheerp_landingpad { ex, 0};
+	__cheerp_landingpad* lp = new __cheerp_landingpad { ex, 0, reinterpret_cast<void(*)()>(obj)};
 
 	for(int i = 0; i < n; i++)
 	{
