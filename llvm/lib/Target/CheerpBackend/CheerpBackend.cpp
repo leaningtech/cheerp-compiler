@@ -80,7 +80,7 @@ bool CheerpWritePass::runOnModule(Module& M)
     if (ErrorCode)
     {
        // An error occurred opening the source map file, bail out
-       llvm::report_fatal_error(ErrorCode.message(), false);
+       llvm::report_fatal_error(StringRef(ErrorCode.message()), false);
        return false;
     }
   }
@@ -152,7 +152,7 @@ bool CheerpWritePass::runOnModule(Module& M)
   if (!SecondaryOutputFile.empty() && ErrorCode)
   {
     // An error occurred opening the asm.js memory file, bail out
-    llvm::report_fatal_error(ErrorCode.message(), false);
+    llvm::report_fatal_error(StringRef(ErrorCode.message()), false);
     return false;
   }
   if (!WasmOnly)
