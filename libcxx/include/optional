@@ -229,7 +229,11 @@ struct __optional_destruct_base<_Tp, false>
     typedef _Tp value_type;
     static_assert(is_object_v<value_type>,
         "instantiation of optional with a non-object type is undefined behavior");
+#ifdef __CHEERP__
+    struct
+#else
     union
+#endif
     {
         char __null_state_;
         value_type __val_;

@@ -139,7 +139,11 @@ private:
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_AVAILABILITY_FORMAT friend decltype(auto)
   visit_format_arg(_Visitor&& __vis, basic_format_arg<_Ctx> __arg);
 
+#ifdef __CHEERP__
+  struct {
+#else
   union {
+#endif
     bool __boolean;
     char_type __char_type;
     int __int;
