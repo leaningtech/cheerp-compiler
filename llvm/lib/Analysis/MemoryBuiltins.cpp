@@ -204,7 +204,7 @@ getAllocationDataForFunction(const Function *Callee, AllocType AllocTy,
   else if (Callee->getIntrinsicID() == Intrinsic::cheerp_allocate_array && !callocLike)
     FnData = &AllocDataCheerpMalloc;
 
-  if (FnData && ((FnData->AllocTy & AllocTy) != FnData->AllocTy))
+  if (FnData && ((FnData->AllocTy & AllocTy) == FnData->AllocTy))
     return *FnData;
 
   // Make sure that the function is available.
