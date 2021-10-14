@@ -175,7 +175,11 @@ public:
     void (*__format_)(basic_format_parse_context<_CharT>&, _Context&, const void*);
   };
 
+#ifdef __CHEERP__
+  struct {
+#else
   union {
+#endif
     monostate __monostate_;
     bool __boolean_;
     _CharT __char_type_;
