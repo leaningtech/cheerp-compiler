@@ -2898,7 +2898,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileTerminatorInstru
 				compileOperand(ci.getCalledOperand());
 			}
 
-			compileMethodArgs(ci.op_begin(),ci.op_begin()+ci.getNumArgOperands(),ci, /*forceBoolean*/ false);
+			compileMethodArgs(ci.op_begin(),ci.op_begin()+ci.arg_size(),ci, /*forceBoolean*/ false);
 			stream << ';' << NewLine;
 			//Only consider the normal successor for PHIs here
 			//For each successor output the variables for the phi nodes
@@ -4319,7 +4319,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			{
 				// In calling asmjs functions the varargs are passed on the stack
 				bool asmJSCallingConvention = asmjs || (calledFunc && calledFunc->getSection() == StringRef("asmjs"));
-				size_t n = asmJSCallingConvention ? fTy->getNumParams() : ci.getNumArgOperands();
+				size_t n = asmJSCallingConvention ? fTy->getNumParams() : ci.arg_size();
 				compileMethodArgs(ci.op_begin(),ci.op_begin()+n, ci, /*forceBoolean*/ false);
 			}
 			if(!retTy->isVoidTy())
