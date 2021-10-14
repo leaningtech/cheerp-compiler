@@ -335,7 +335,7 @@ void CheerpNativeRewriter::rewriteConstructorImplementation(Module& M, Function&
 	{
 		std::string diag = "No native constructor found for class ";
 		diag.append(getClassName(F.getName().data()));
-		llvm::report_fatal_error(diag, false);
+		llvm::report_fatal_error(StringRef(diag), false);
 	}
 	if(lowerConstructor->getType() != F.arg_begin()->getType())
 	{

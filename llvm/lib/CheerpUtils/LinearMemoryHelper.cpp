@@ -403,8 +403,8 @@ void LinearMemoryHelper::addGlobals()
 			Type* bTy = b->getType()->getPointerElementType();
 			uint32_t typeAlignA = TypeSupport::getAlignmentAsmJS(targetData, aTy);
 			uint32_t typeAlignB = TypeSupport::getAlignmentAsmJS(targetData, bTy);
-			uint32_t alignA = std::max(typeAlignA, a->getAlignment());
-			uint32_t alignB = std::max(typeAlignB, b->getAlignment());
+			uint32_t alignA = std::max<uint32_t>(typeAlignA, a->getAlignment());
+			uint32_t alignB = std::max<uint32_t>(typeAlignB, b->getAlignment());
 			// Bigger alignment should be stored before smaller alignment.
 			return alignA > alignB;
 		}
@@ -419,7 +419,7 @@ void LinearMemoryHelper::addGlobals()
 		Type* ty = G->getType();
 		uint32_t size = targetData.getTypeAllocSize(ty->getPointerElementType());
 		// Ensure the right alignment for the type
-		uint32_t alignment = std::max(TypeSupport::getAlignmentAsmJS(targetData, ty->getPointerElementType()), G->getAlignment());
+		uint32_t alignment = std::max<uint32_t>(TypeSupport::getAlignmentAsmJS(targetData, ty->getPointerElementType()), G->getAlignment());
 		// The following is correct if alignment is a power of 2 (which it should be)
 		heapStart = (heapStart + alignment - 1) & ~(alignment - 1);
 		globalAddresses.emplace(G, heapStart);
