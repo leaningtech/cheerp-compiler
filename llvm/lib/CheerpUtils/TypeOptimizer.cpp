@@ -1591,7 +1591,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 							AttributeList newAttrs=CI->getAttributes();
 							bool attributesChanged=false;
 							Function* calledFunction = CI->getCalledFunction();
-							for(uint32_t i=0;i<CI->getNumArgOperands();i++)
+							for(uint32_t i=0;i<CI->arg_size();i++)
 							{
 								if(newAttrs.hasParamAttr(i, Attribute::ByVal))
 								{
@@ -1657,7 +1657,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 					bool needsRewrite = rewrittenFuncType != CI->getFunctionType();
 					if (!needsRewrite && !keepI64 && CI->getFunctionType()->isVarArg())
 					{
-						for (auto& A: CI->arg_operands())
+						for (auto& A: CI->args())
 						{
 							if (isI64ToRewrite(A->getType()))
 							{

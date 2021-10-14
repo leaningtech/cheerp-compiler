@@ -262,7 +262,7 @@ bool AllocaLowering::runOnFunction(Function& F)
 		const PointerType* pTy = cast<PointerType>(ci->getCalledOperand()->getType());
 		const FunctionType* fTy = cast<FunctionType>(pTy->getElementType());
 
-		size_t totalParamNum = ci->getNumArgOperands();
+		size_t totalParamNum = ci->arg_size();
 		size_t fixedParamsNum = fTy->getNumParams();
 		size_t varargParamNum = totalParamNum - fixedParamsNum;
 

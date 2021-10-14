@@ -29,7 +29,7 @@ static bool ExpandCall(const DataLayout& DL, CallInst* Call)
 {
 	bool Modify = false;
 	AttributeList Attrs = Call->getAttributes();
-	for (unsigned ArgIdx = 0; ArgIdx < Call->getNumArgOperands(); ++ArgIdx)
+	for (unsigned ArgIdx = 0; ArgIdx < Call->arg_size(); ++ArgIdx)
 	{
 		unsigned AttrIdx = ArgIdx + 1;
 		if (Attrs.hasAttributeAtIndex(AttrIdx, Attribute::ByVal))
