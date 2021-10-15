@@ -429,11 +429,11 @@ define void @test12_4(){
 ; NOT_TUNIT_OPM-LABEL: define {{[^@]+}}@test12_4() {
 ; NOT_TUNIT_OPM-NEXT:    [[A:%.*]] = tail call noalias i8* @malloc(i64 noundef 4)
 ; NOT_TUNIT_OPM-NEXT:    [[B:%.*]] = tail call noalias i8* @malloc(i64 noundef 4)
-; NOT_TUNIT_OPM-NEXT:    [[A_1:%.*]] = getelementptr i8, i8* [[A]], i64 1
-; NOT_TUNIT_OPM-NEXT:    tail call void @two_args(i8* noalias nocapture [[A]], i8* noalias nocapture [[B]])
-; NOT_TUNIT_OPM-NEXT:    tail call void @two_args(i8* nocapture [[A]], i8* nocapture [[A]])
+; NOT_TUNIT_OPM:    [[A_1:%.*]] = getelementptr i8, i8* [[A]], i64 1
+; NOT_TUNIT_OPM:    tail call void @two_args(i8* noalias nocapture [[A]], i8* noalias nocapture [[B]])
+; NOT_TUNIT_OPM-NEXT:    tail call void @two_args(i8* nocapture [[A]], i8* nocapture {{.*}})
 ; NOT_TUNIT_OPM-NEXT:    tail call void @two_args(i8* nocapture [[A]], i8* nocapture [[A_1]])
-; NOT_TUNIT_OPM-NEXT:    tail call void @two_args(i8* nocapture [[A]], i8* nocapture [[B]])
+; NOT_TUNIT_OPM-NEXT:    tail call void @two_args(i8* nocapture {{.*}}, i8* nocapture {{.*}})
 ; NOT_TUNIT_OPM-NEXT:    ret void
 ;
   %A = tail call noalias i8* @malloc(i64 4)

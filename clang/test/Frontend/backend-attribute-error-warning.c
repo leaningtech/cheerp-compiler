@@ -1,5 +1,5 @@
-// RUN: %clang_cc1 -verify=expected,enabled -emit-codegen-only %s
-// RUN: %clang_cc1 -verify -emit-codegen-only -Wno-attribute-warning %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -verify=expected,enabled -emit-codegen-only %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -verify -emit-codegen-only -Wno-attribute-warning %s
 
 __attribute__((error("oh no foo"))) void foo(void);
 

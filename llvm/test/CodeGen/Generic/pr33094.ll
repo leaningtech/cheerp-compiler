@@ -1,5 +1,7 @@
 ; RUN: llc < %s
 
+target triple = "x86_64-unknown-linux"
+
 ; PR33094
 ; Make sure that a constant extractvalue doesn't cause a crash in
 ; SelectionDAGBuilder::visitExtractValue.

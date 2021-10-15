@@ -1,5 +1,7 @@
 ; RUN: llc < %s
 
+target triple = "x86_64-unknown-linux"
+
 ; This caused the backend to assert out with:
 ; SparcInstrInfo.cpp:103: failed assertion `0 && "Unexpected unsigned type"'
 ;

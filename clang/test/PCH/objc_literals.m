@@ -1,8 +1,8 @@
 // UNSUPPORTED: -zos, -aix
-// RUN: %clang_cc1 -emit-pch -o %t %s
-// RUN: %clang_cc1 -include-pch %t -verify %s
-// RUN: %clang_cc1 -include-pch %t -ast-print %s | FileCheck -check-prefix=CHECK-PRINT %s
-// RUN: %clang_cc1 -include-pch %t -emit-llvm -o - %s | FileCheck -check-prefix=CHECK-IR %s
+// RUN: %clang_cc1 -triple x86_64-unknown-none-none -emit-pch -o %t %s
+// RUN: %clang_cc1 -triple x86_64-unknown-none-none -include-pch %t -verify %s
+// RUN: %clang_cc1 -triple x86_64-unknown-none-none -include-pch %t -ast-print %s | FileCheck -check-prefix=CHECK-PRINT %s
+// RUN: %clang_cc1 -triple x86_64-unknown-none-none -include-pch %t -emit-llvm -o - %s | FileCheck -check-prefix=CHECK-IR %s
 
 // expected-no-diagnostics
 

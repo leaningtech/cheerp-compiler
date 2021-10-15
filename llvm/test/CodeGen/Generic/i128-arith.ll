@@ -1,5 +1,7 @@
 ; RUN: llc < %s 
 
+target triple = "x86_64-unknown-linux"
+
 define i64 @foo(i64 %x, i64 %y, i32 %amt) {
         %tmp0 = zext i64 %x to i128
         %tmp1 = sext i64 %y to i128

@@ -1,6 +1,7 @@
 ; RUN: llc < %s
 ; REQUIRES: default_triple
 
+target triple = "x86_64-unknown-linux"
 	%Env = type i8*
 
 define void @.main(%Env) gc "shadow-stack" {

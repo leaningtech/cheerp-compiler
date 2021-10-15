@@ -4,8 +4,8 @@
 // RUN: echo "src:%s=init" | sed -e 's/\\/\\\\/g' > %t-file.ignorelist
 // RUN: echo "type:PODWithCtorAndDtor=init" > %t-type.ignorelist
 // RUN: echo "type:NS::PODWithCtor=init" >> %t-type.ignorelist
-// RUN: %clang_cc1 -fsanitize=address -fsanitize-ignorelist=%t-file.ignorelist -emit-llvm -o - %s | FileCheck %s --check-prefix=IGNORELIST
-// RUN: %clang_cc1 -fsanitize=address -fsanitize-ignorelist=%t-type.ignorelist -emit-llvm -o - %s | FileCheck %s --check-prefix=IGNORELIST
+// RUN: %clang_cc1 -triple %itanium_abi_triple -fsanitize=address -fsanitize-ignorelist=%t-file.ignorelist -emit-llvm -o - %s | FileCheck %s --check-prefix=IGNORELIST
+// RUN: %clang_cc1 -triple %itanium_abi_triple -fsanitize=address -fsanitize-ignorelist=%t-type.ignorelist -emit-llvm -o - %s | FileCheck %s --check-prefix=IGNORELIST
 
 struct PODStruct {
   int x;

@@ -1,5 +1,7 @@
 ; RUN: llc < %s
 
+target triple = "x86_64-unknown-linux"
+
 declare i8* @llvm.stacksave()
 
 declare void @llvm.stackrestore(i8*)

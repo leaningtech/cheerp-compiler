@@ -37,7 +37,7 @@ define void @test_memcpy(%T* noalias align 8 %a, %T* noalias align 16 %b) {
 define void @test_memcpy_constant(%T* %d) {
 ; CHECK-LABEL: @test_memcpy_constant(
 ; CHECK-NEXT:    [[TMP1:%.*]] = bitcast %T* [[D:%.*]] to i8*
-; CHECK-NEXT:    call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 16 [[TMP1]], i8* align 8 getelementptr inbounds ([[T:%.*]], %T* @C, i32 0, i32 0), i64 8, i1 false)
+; CHECK-NEXT:    call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 16 [[TMP1]], i8* align 8 bitcast ([[T:%.*]]* @C to i8*), i32 8, i1 false)
 ; CHECK-NEXT:    ret void
 ;
   %val = load %T, %T* @C, align 8

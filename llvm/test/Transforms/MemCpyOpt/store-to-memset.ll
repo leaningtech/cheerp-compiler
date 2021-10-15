@@ -40,7 +40,7 @@ define i8* @foo(i8* returned %0, i32 %1, i64 %2) {
 ; CHECK-NEXT:    [[TMP33:%.*]] = getelementptr inbounds i8, i8* [[TMP20]], i64 13
 ; CHECK-NEXT:    [[TMP34:%.*]] = getelementptr inbounds i8, i8* [[TMP20]], i64 14
 ; CHECK-NEXT:    [[TMP35:%.*]] = getelementptr inbounds i8, i8* [[TMP20]], i64 15
-; CHECK-NEXT:    call void @llvm.memset.p0i8.i64(i8* align 1 [[TMP4]], i8 [[VV]], i64 32, i1 false)
+; CHECK-NEXT:    call void @llvm.memset.p0i8.i32(i8* align 1 [[TMP4]], i8 [[VV]], i32 32, i1 false)
 ; CHECK-NEXT:    ret i8* [[TMP0]]
 ;
 entry:

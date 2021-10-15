@@ -13,8 +13,7 @@ define void @caller() {
 ; IS________OPM-NEXT:  entry:
 ; IS________OPM-NEXT:    [[LEFT:%.*]] = alloca [3 x i32], align 4
 ; IS________OPM-NEXT:    [[ARRAYDECAY:%.*]] = getelementptr inbounds [3 x i32], [3 x i32]* [[LEFT]], i64 0, i64 0
-; IS________OPM-NEXT:    call void @callee(i32* noalias nocapture noundef nonnull readonly align 4 dereferenceable(12) [[ARRAYDECAY]])
-; IS________OPM-NEXT:    ret void
+; IS________OPM:    ret void
 ;
 ; IS__TUNIT_NPM-LABEL: define {{[^@]+}}@caller() {
 ; IS__TUNIT_NPM-NEXT:  entry:
@@ -50,10 +49,6 @@ entry:
 
 define internal void @callee(i32* noalias %arg) {
 ; IS________OPM-LABEL: define {{[^@]+}}@callee
-; IS________OPM-SAME: (i32* noalias nocapture noundef nonnull readonly align 4 dereferenceable(12) [[ARG:%.*]]) {
-; IS________OPM-NEXT:  entry:
-; IS________OPM-NEXT:    call void @use(i32* noalias nocapture noundef nonnull readonly align 4 dereferenceable(12) [[ARG]])
-; IS________OPM-NEXT:    ret void
 ;
 ; IS__TUNIT_NPM-LABEL: define {{[^@]+}}@callee
 ; IS__TUNIT_NPM-SAME: (i32 [[TMP0:%.*]], i32 [[TMP1:%.*]], i32 [[TMP2:%.*]]) {
@@ -72,7 +67,7 @@ define internal void @callee(i32* noalias %arg) {
 ; IS__TUNIT_NPM-NEXT:    [[ARG_PRIV_0_B8_CAST:%.*]] = bitcast i8* [[ARG_PRIV_0_B8]] to i32*
 ; IS__TUNIT_NPM-NEXT:    store i32 [[TMP2]], i32* [[ARG_PRIV_0_B8_CAST]], align 4
 ; IS__TUNIT_NPM-NEXT:    [[TMP5:%.*]] = bitcast [3 x i32]* [[ARG_PRIV]] to i32*
-; IS__TUNIT_NPM-NEXT:    call void @use(i32* noalias nocapture noundef nonnull readonly align 4 dereferenceable(12) [[TMP5]])
+; IS__TUNIT_NPM-NEXT:    call void @use(i32* noalias nocapture nonnull readonly align 4 dereferenceable(12) [[TMP5]])
 ; IS__TUNIT_NPM-NEXT:    ret void
 ;
 ; IS__CGSCC_NPM-LABEL: define {{[^@]+}}@callee

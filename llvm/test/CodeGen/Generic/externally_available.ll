@@ -1,5 +1,7 @@
 ; RUN: llc -verify-machine-dom-info < %s | not grep test_
 
+target triple = "x86_64-unknown-linux"
+
 ; XFAIL: aix
 ; AIX system assembler default print error for undefined reference .
 ; so AIX chose to emit the available externally symbols into .s,

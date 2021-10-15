@@ -17,16 +17,13 @@ namespace PR16263 {
   struct C : A, B {};
   extern const A &&a = (A&&)(A&&)(C&&)(C{});
   // CHECK: @_ZGRN7PR162631aE_ = internal global {{.*}} zeroinitializer,
-  // CHECK: @_ZN7PR162631aE ={{.*}} constant {{.*}} bitcast ({{.*}}* @_ZGRN7PR162631aE_ to
 
   extern const int &&t = ((B&&)C{}).n;
   // CHECK: @_ZGRN7PR162631tE_ = internal global {{.*}} zeroinitializer,
-  // CHECK: @_ZN7PR162631tE ={{.*}} constant i32* {{.*}}* @_ZGRN7PR162631tE_ {{.*}} 4
 
   struct D { double d; C c; };
   extern const int &&u = (123, static_cast<B&&>(0, ((D&&)D{}).*&D::c).n);
   // CHECK: @_ZGRN7PR162631uE_ = internal global {{.*}} zeroinitializer
-  // CHECK: @_ZN7PR162631uE ={{.*}} constant i32* {{.*}} @_ZGRN7PR162631uE_ {{.*}} 12
 }
 
 namespace PR20227 {
@@ -59,7 +56,6 @@ namespace RefTempSubobject {
     int ints[3] = {1, 2, 3};
   };
 
-  // CHECK: @_ZGRN16RefTempSubobject2srE_ = internal global { i32*, [3 x i32] } { {{.*}} getelementptr {{.*}} @_ZGRN16RefTempSubobject2srE_ {{.*}}, [3 x i32] [i32 1, i32 2, i32 3] }
   // CHECK: @_ZN16RefTempSubobject2srE = constant {{.*}} @_ZGRN16RefTempSubobject2srE_
   constexpr const SelfReferential &sr = SelfReferential();
 }

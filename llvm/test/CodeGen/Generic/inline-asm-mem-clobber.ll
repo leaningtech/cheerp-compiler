@@ -1,5 +1,7 @@
 ; RUN: llc -O2 -no-integrated-as < %s | FileCheck %s
 
+target triple = "x86_64-unknown-linux"
+
 ; XCore default subtarget does not support 8-byte alignment on stack.
 ; XFAIL: xcore
 

@@ -1,6 +1,8 @@
 ; RUN: llc < %s
 ; PR9900
 
+target triple = "x86_64-unknown-linux"
+
 %zero = type [0 x i8]
 %foobar = type { i32, %zero }
 

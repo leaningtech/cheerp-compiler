@@ -1,5 +1,7 @@
 ; RUN: llc -no-integrated-as < %s
 
+target triple = "x86_64-unknown-linux"
+
         %struct..0anon = type { [100 x i32] }
 
 define void @test() {

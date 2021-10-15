@@ -5,7 +5,7 @@
 define void @test(i32* nocapture %c) nounwind optsize {
 ; All the stores in this example should be merged into a single memset.
 ; CHECK-NOT:  store i32 -1
-; CHECK: call void @llvm.memset.p0i8.i64
+; CHECK: call void @llvm.memset.p0i8.i32
   store i32 -1, i32* %c, align 4
   %1 = getelementptr inbounds i32, i32* %c, i32 1
   store i32 -1, i32* %1, align 4

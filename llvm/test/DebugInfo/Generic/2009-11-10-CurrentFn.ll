@@ -1,5 +1,6 @@
 ; RUN: llc < %s -o /dev/null
 
+target triple = "x86_64-unknown-linux"
 define void @bar(i32 %i) nounwind uwtable ssp !dbg !5 {
 entry:
   tail call void (...) @foo() nounwind, !dbg !14

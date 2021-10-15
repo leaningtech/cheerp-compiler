@@ -1,5 +1,7 @@
 ; RUN: llc < %s
 
+target triple = "x86_64-unknown-linux"
+
 ; Test that a negative constant smaller than 64 bits (e.g., int)
 ; is correctly implemented with sign-extension.
 ; In particular, the current code generated is:

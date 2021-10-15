@@ -1,5 +1,6 @@
 ; RUN: llc -O0 %s -o /dev/null
 
+target triple = "x86_64-unknown-linux"
 define void @CGRectStandardize(i32* sret(i32) %agg.result, i32* byval(i32) %rect) nounwind ssp !dbg !0 {
 entry:
   call void @llvm.dbg.declare(metadata i32* %rect, metadata !23, metadata !DIExpression()), !dbg !24

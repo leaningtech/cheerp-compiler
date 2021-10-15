@@ -8,9 +8,9 @@
 @__profn_bar = private constant [3 x i8] c"bar"
 
 define i32 @foo(i32 ()* ) {
-  call void @llvm.instrprof.increment(i8* getelementptr inbounds ([3 x i8], [3 x i8]* @__profn_foo, i32 0, i32 0), i64 12884901887, i32 1, i32 0)
+  call void @llvm.instrprof.increment(i8* bitcast ([3 x i8]* @__profn_foo to i8*), i64 12884901887, i32 1, i32 0)
   %2 = ptrtoint i32 ()* %0 to i64
-  call void @llvm.instrprof.value.profile(i8* getelementptr inbounds ([3 x i8], [3 x i8]* @__profn_foo, i32 0, i32 0), i64 12884901887, i64 %2, i32 0, i32 0)
+  call void @llvm.instrprof.value.profile(i8* bitcast ([3 x i8]* @__profn_foo to i8*), i64 12884901887, i64 %2, i32 0, i32 0)
   %3 = tail call i32 %0()
   ret i32 %3
 }

@@ -5,6 +5,8 @@
 ; CHECK-LABEL: @f
 ; CHECK-LABEL: @g
 
+target triple = "x86_64-unknown-linux"
+
 define i32 @f(i8* %p) nounwind {
 entry:
   %0 = load i8, i8* %p

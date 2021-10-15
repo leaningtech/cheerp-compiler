@@ -95,7 +95,7 @@ namespace test3 {
   };
 
   // The offset half of the pointer is still initialized to zero.
-  // CHECK-GLOBALS-DAG: @_ZN5test34mptrE ={{.*}} global { i64, i64 } { i64 0, i64 1 }
+  // CHECK-GLOBALS-DAG: @_ZN5test34mptrE ={{.*}} global %memberptr { i64 0, i64 1 }
   void (A::*mptr)() = &A::foo;
 
   // CHECK-LABEL: define{{.*}} void @_ZN5test34testEv()

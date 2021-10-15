@@ -15,41 +15,41 @@
 
 define void @foo() {
 ; CHECK-VF8-160-LABEL: @foo(
-; CHECK-VF8-160-NEXT:    store <4 x i32> <i32 1, i32 2, i32 3, i32 4>, <4 x i32>* bitcast ([8 x i32]* @X to <4 x i32>*), align 1
+; CHECK-VF8-160-NEXT:    store <4 x i32> <i32 1, i32 2, i32 3, i32 4>, <4 x i32>* bitcast (i32* getelementptr inbounds ([8 x i32], [8 x i32]* @X, i16 0, i16 0) to <4 x i32>*), align 1
 ; CHECK-VF8-160-NEXT:    store <4 x i32> <i32 5, i32 6, i32 7, i32 8>, <4 x i32>* bitcast (i32* getelementptr inbounds ([8 x i32], [8 x i32]* @X, i16 0, i16 4) to <4 x i32>*), align 1
 ; CHECK-VF8-160-NEXT:    ret void
 ;
 ; CHECK-VF4-160-LABEL: @foo(
-; CHECK-VF4-160-NEXT:    store <4 x i32> <i32 1, i32 2, i32 3, i32 4>, <4 x i32>* bitcast ([8 x i32]* @X to <4 x i32>*), align 1
+; CHECK-VF4-160-NEXT:    store <4 x i32> <i32 1, i32 2, i32 3, i32 4>, <4 x i32>* bitcast (i32* getelementptr inbounds ([8 x i32], [8 x i32]* @X, i16 0, i16 0) to <4 x i32>*), align 1
 ; CHECK-VF4-160-NEXT:    store <4 x i32> <i32 5, i32 6, i32 7, i32 8>, <4 x i32>* bitcast (i32* getelementptr inbounds ([8 x i32], [8 x i32]* @X, i16 0, i16 4) to <4 x i32>*), align 1
 ; CHECK-VF4-160-NEXT:    ret void
 ;
 ; CHECK-VF2-160-LABEL: @foo(
-; CHECK-VF2-160-NEXT:    store <2 x i32> <i32 1, i32 2>, <2 x i32>* bitcast ([8 x i32]* @X to <2 x i32>*), align 1
+; CHECK-VF2-160-NEXT:    store <2 x i32> <i32 1, i32 2>, <2 x i32>* bitcast (i32* getelementptr inbounds ([8 x i32], [8 x i32]* @X, i16 0, i16 0) to <2 x i32>*), align 1
 ; CHECK-VF2-160-NEXT:    store <2 x i32> <i32 3, i32 4>, <2 x i32>* bitcast (i32* getelementptr inbounds ([8 x i32], [8 x i32]* @X, i16 0, i16 2) to <2 x i32>*), align 1
 ; CHECK-VF2-160-NEXT:    store <2 x i32> <i32 5, i32 6>, <2 x i32>* bitcast (i32* getelementptr inbounds ([8 x i32], [8 x i32]* @X, i16 0, i16 4) to <2 x i32>*), align 1
 ; CHECK-VF2-160-NEXT:    store <2 x i32> <i32 7, i32 8>, <2 x i32>* bitcast (i32* getelementptr inbounds ([8 x i32], [8 x i32]* @X, i16 0, i16 6) to <2 x i32>*), align 1
 ; CHECK-VF2-160-NEXT:    ret void
 ;
 ; CHECK-VF8-128-LABEL: @foo(
-; CHECK-VF8-128-NEXT:    store <4 x i32> <i32 1, i32 2, i32 3, i32 4>, <4 x i32>* bitcast ([8 x i32]* @X to <4 x i32>*), align 1
+; CHECK-VF8-128-NEXT:    store <4 x i32> <i32 1, i32 2, i32 3, i32 4>, <4 x i32>* bitcast (i32* getelementptr inbounds ([8 x i32], [8 x i32]* @X, i16 0, i16 0) to <4 x i32>*), align 1
 ; CHECK-VF8-128-NEXT:    store <4 x i32> <i32 5, i32 6, i32 7, i32 8>, <4 x i32>* bitcast (i32* getelementptr inbounds ([8 x i32], [8 x i32]* @X, i16 0, i16 4) to <4 x i32>*), align 1
 ; CHECK-VF8-128-NEXT:    ret void
 ;
 ; CHECK-VF4-128-LABEL: @foo(
-; CHECK-VF4-128-NEXT:    store <4 x i32> <i32 1, i32 2, i32 3, i32 4>, <4 x i32>* bitcast ([8 x i32]* @X to <4 x i32>*), align 1
+; CHECK-VF4-128-NEXT:    store <4 x i32> <i32 1, i32 2, i32 3, i32 4>, <4 x i32>* bitcast (i32* getelementptr inbounds ([8 x i32], [8 x i32]* @X, i16 0, i16 0) to <4 x i32>*), align 1
 ; CHECK-VF4-128-NEXT:    store <4 x i32> <i32 5, i32 6, i32 7, i32 8>, <4 x i32>* bitcast (i32* getelementptr inbounds ([8 x i32], [8 x i32]* @X, i16 0, i16 4) to <4 x i32>*), align 1
 ; CHECK-VF4-128-NEXT:    ret void
 ;
 ; CHECK-VF2-128-LABEL: @foo(
-; CHECK-VF2-128-NEXT:    store <2 x i32> <i32 1, i32 2>, <2 x i32>* bitcast ([8 x i32]* @X to <2 x i32>*), align 1
+; CHECK-VF2-128-NEXT:    store <2 x i32> <i32 1, i32 2>, <2 x i32>* bitcast (i32* getelementptr inbounds ([8 x i32], [8 x i32]* @X, i16 0, i16 0) to <2 x i32>*), align 1
 ; CHECK-VF2-128-NEXT:    store <2 x i32> <i32 3, i32 4>, <2 x i32>* bitcast (i32* getelementptr inbounds ([8 x i32], [8 x i32]* @X, i16 0, i16 2) to <2 x i32>*), align 1
 ; CHECK-VF2-128-NEXT:    store <2 x i32> <i32 5, i32 6>, <2 x i32>* bitcast (i32* getelementptr inbounds ([8 x i32], [8 x i32]* @X, i16 0, i16 4) to <2 x i32>*), align 1
 ; CHECK-VF2-128-NEXT:    store <2 x i32> <i32 7, i32 8>, <2 x i32>* bitcast (i32* getelementptr inbounds ([8 x i32], [8 x i32]* @X, i16 0, i16 6) to <2 x i32>*), align 1
 ; CHECK-VF2-128-NEXT:    ret void
 ;
 ; CHECK-VF8-256-LABEL: @foo(
-; CHECK-VF8-256-NEXT:    store <8 x i32> <i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8>, <8 x i32>* bitcast ([8 x i32]* @X to <8 x i32>*), align 1
+; CHECK-VF8-256-NEXT:    store <8 x i32> <i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8>, <8 x i32>* bitcast (i32* getelementptr inbounds ([8 x i32], [8 x i32]* @X, i16 0, i16 0) to <8 x i32>*), align 1
 ; CHECK-VF8-256-NEXT:    ret void
 ;
 ; CHECK-VF2-128-128-LABEL: @foo(

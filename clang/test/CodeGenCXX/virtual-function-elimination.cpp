@@ -81,16 +81,6 @@ void test_5(C *p, void (C::*q)(void)) {
   // codegen changes on the non-virtual side.
 // CHECK-LABEL: define{{.*}} void @_Z6test_5P1CMS_FvvE(
 // NOVFE-LABEL: define dso_local void @_Z6test_5P1CMS_FvvE(
-// CHECK: [[FN_PTR_ADDR:%.+]] = getelementptr i8, i8* %vtable, i64 {{%.+}}
-// CHECK: [[LOAD:%.+]] = call { i8*, i1 } @llvm.type.checked.load(i8* [[FN_PTR_ADDR]], i32 0, metadata !"_ZTSM1CFvvE.virtual")
-// NOVFE-NOT: call { i8*, i1 } @llvm.type.checked.load(i8* {{%.+}}, i32 0, metadata !"_ZTSM1CFvvE.virtual")
-// CHECK: [[FN_PTR_I8:%.+]] = extractvalue { i8*, i1 } [[LOAD]], 0
-// CHECK: [[FN_PTR:%.+]] = bitcast i8* [[FN_PTR_I8]] to void (%struct.C*)*
-// NOVFE: [[FN_PTR:%.+]] = load void (%struct.C*)*, void (%struct.C*)** {{%.+}}, align 8
 
-// CHECK: [[PHI:%.+]] = phi void (%struct.C*)* {{.*}}[ [[FN_PTR]], {{.*}} ]
-// NOVFE: [[PHI:%.+]] = phi void (%struct.C*)* {{.*}}[ [[FN_PTR]], {{.*}} ]
-// CHECK: call void [[PHI]](
-// NOVFE: call void [[PHI]](
   (p->*q)();
 }

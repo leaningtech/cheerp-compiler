@@ -41,13 +41,13 @@ define void @lshr_v8i64() {
 ; SSE-NEXT:    ret void
 ;
 ; AVX-LABEL: @lshr_v8i64(
-; AVX-NEXT:    [[TMP1:%.*]] = load <4 x i64>, <4 x i64>* bitcast ([8 x i64]* @a64 to <4 x i64>*), align 8
+; AVX-NEXT:    [[TMP1:%.*]] = load <4 x i64>, <4 x i64>* bitcast (i64* getelementptr inbounds ([8 x i64], [8 x i64]* @a64, i32 0, i64 0) to <4 x i64>*), align 8
 ; AVX-NEXT:    [[TMP2:%.*]] = load <4 x i64>, <4 x i64>* bitcast (i64* getelementptr inbounds ([8 x i64], [8 x i64]* @a64, i32 0, i64 4) to <4 x i64>*), align 8
-; AVX-NEXT:    [[TMP3:%.*]] = load <4 x i64>, <4 x i64>* bitcast ([8 x i64]* @b64 to <4 x i64>*), align 8
+; AVX-NEXT:    [[TMP3:%.*]] = load <4 x i64>, <4 x i64>* bitcast (i64* getelementptr inbounds ([8 x i64], [8 x i64]* @b64, i32 0, i64 0) to <4 x i64>*), align 8
 ; AVX-NEXT:    [[TMP4:%.*]] = load <4 x i64>, <4 x i64>* bitcast (i64* getelementptr inbounds ([8 x i64], [8 x i64]* @b64, i32 0, i64 4) to <4 x i64>*), align 8
 ; AVX-NEXT:    [[TMP5:%.*]] = lshr <4 x i64> [[TMP1]], [[TMP3]]
 ; AVX-NEXT:    [[TMP6:%.*]] = lshr <4 x i64> [[TMP2]], [[TMP4]]
-; AVX-NEXT:    store <4 x i64> [[TMP5]], <4 x i64>* bitcast ([8 x i64]* @c64 to <4 x i64>*), align 8
+; AVX-NEXT:    store <4 x i64> [[TMP5]], <4 x i64>* bitcast (i64* getelementptr inbounds ([8 x i64], [8 x i64]* @c64, i32 0, i64 0) to <4 x i64>*), align 8
 ; AVX-NEXT:    store <4 x i64> [[TMP6]], <4 x i64>* bitcast (i64* getelementptr inbounds ([8 x i64], [8 x i64]* @c64, i32 0, i64 4) to <4 x i64>*), align 8
 ; AVX-NEXT:    ret void
 ;
@@ -106,11 +106,11 @@ define void @lshr_v8i64() {
 
 define void @lshr_v16i32() {
 ; SSE-LABEL: @lshr_v16i32(
-; SSE-NEXT:    [[TMP1:%.*]] = load <4 x i32>, <4 x i32>* bitcast ([16 x i32]* @a32 to <4 x i32>*), align 4
+; SSE-NEXT:    [[TMP1:%.*]] = load <4 x i32>, <4 x i32>* bitcast (i32* getelementptr inbounds ([16 x i32], [16 x i32]* @a32, i32 0, i64 0) to <4 x i32>*), align 4
 ; SSE-NEXT:    [[TMP2:%.*]] = load <4 x i32>, <4 x i32>* bitcast (i32* getelementptr inbounds ([16 x i32], [16 x i32]* @a32, i32 0, i64 4) to <4 x i32>*), align 4
 ; SSE-NEXT:    [[TMP3:%.*]] = load <4 x i32>, <4 x i32>* bitcast (i32* getelementptr inbounds ([16 x i32], [16 x i32]* @a32, i32 0, i64 8) to <4 x i32>*), align 4
 ; SSE-NEXT:    [[TMP4:%.*]] = load <4 x i32>, <4 x i32>* bitcast (i32* getelementptr inbounds ([16 x i32], [16 x i32]* @a32, i32 0, i64 12) to <4 x i32>*), align 4
-; SSE-NEXT:    [[TMP5:%.*]] = load <4 x i32>, <4 x i32>* bitcast ([16 x i32]* @b32 to <4 x i32>*), align 4
+; SSE-NEXT:    [[TMP5:%.*]] = load <4 x i32>, <4 x i32>* bitcast (i32* getelementptr inbounds ([16 x i32], [16 x i32]* @b32, i32 0, i64 0) to <4 x i32>*), align 4
 ; SSE-NEXT:    [[TMP6:%.*]] = load <4 x i32>, <4 x i32>* bitcast (i32* getelementptr inbounds ([16 x i32], [16 x i32]* @b32, i32 0, i64 4) to <4 x i32>*), align 4
 ; SSE-NEXT:    [[TMP7:%.*]] = load <4 x i32>, <4 x i32>* bitcast (i32* getelementptr inbounds ([16 x i32], [16 x i32]* @b32, i32 0, i64 8) to <4 x i32>*), align 4
 ; SSE-NEXT:    [[TMP8:%.*]] = load <4 x i32>, <4 x i32>* bitcast (i32* getelementptr inbounds ([16 x i32], [16 x i32]* @b32, i32 0, i64 12) to <4 x i32>*), align 4
@@ -118,7 +118,7 @@ define void @lshr_v16i32() {
 ; SSE-NEXT:    [[TMP10:%.*]] = lshr <4 x i32> [[TMP2]], [[TMP6]]
 ; SSE-NEXT:    [[TMP11:%.*]] = lshr <4 x i32> [[TMP3]], [[TMP7]]
 ; SSE-NEXT:    [[TMP12:%.*]] = lshr <4 x i32> [[TMP4]], [[TMP8]]
-; SSE-NEXT:    store <4 x i32> [[TMP9]], <4 x i32>* bitcast ([16 x i32]* @c32 to <4 x i32>*), align 4
+; SSE-NEXT:    store <4 x i32> [[TMP9]], <4 x i32>* bitcast (i32* getelementptr inbounds ([16 x i32], [16 x i32]* @c32, i32 0, i64 0) to <4 x i32>*), align 4
 ; SSE-NEXT:    store <4 x i32> [[TMP10]], <4 x i32>* bitcast (i32* getelementptr inbounds ([16 x i32], [16 x i32]* @c32, i32 0, i64 4) to <4 x i32>*), align 4
 ; SSE-NEXT:    store <4 x i32> [[TMP11]], <4 x i32>* bitcast (i32* getelementptr inbounds ([16 x i32], [16 x i32]* @c32, i32 0, i64 8) to <4 x i32>*), align 4
 ; SSE-NEXT:    store <4 x i32> [[TMP12]], <4 x i32>* bitcast (i32* getelementptr inbounds ([16 x i32], [16 x i32]* @c32, i32 0, i64 12) to <4 x i32>*), align 4
@@ -222,11 +222,11 @@ define void @lshr_v16i32() {
 
 define void @lshr_v32i16() {
 ; SSE-LABEL: @lshr_v32i16(
-; SSE-NEXT:    [[TMP1:%.*]] = load <8 x i16>, <8 x i16>* bitcast ([32 x i16]* @a16 to <8 x i16>*), align 2
+; SSE-NEXT:    [[TMP1:%.*]] = load <8 x i16>, <8 x i16>* bitcast (i16* getelementptr inbounds ([32 x i16], [32 x i16]* @a16, i32 0, i64 0) to <8 x i16>*), align 2
 ; SSE-NEXT:    [[TMP2:%.*]] = load <8 x i16>, <8 x i16>* bitcast (i16* getelementptr inbounds ([32 x i16], [32 x i16]* @a16, i32 0, i64 8) to <8 x i16>*), align 2
 ; SSE-NEXT:    [[TMP3:%.*]] = load <8 x i16>, <8 x i16>* bitcast (i16* getelementptr inbounds ([32 x i16], [32 x i16]* @a16, i32 0, i64 16) to <8 x i16>*), align 2
 ; SSE-NEXT:    [[TMP4:%.*]] = load <8 x i16>, <8 x i16>* bitcast (i16* getelementptr inbounds ([32 x i16], [32 x i16]* @a16, i32 0, i64 24) to <8 x i16>*), align 2
-; SSE-NEXT:    [[TMP5:%.*]] = load <8 x i16>, <8 x i16>* bitcast ([32 x i16]* @b16 to <8 x i16>*), align 2
+; SSE-NEXT:    [[TMP5:%.*]] = load <8 x i16>, <8 x i16>* bitcast (i16* getelementptr inbounds ([32 x i16], [32 x i16]* @b16, i32 0, i64 0) to <8 x i16>*), align 2
 ; SSE-NEXT:    [[TMP6:%.*]] = load <8 x i16>, <8 x i16>* bitcast (i16* getelementptr inbounds ([32 x i16], [32 x i16]* @b16, i32 0, i64 8) to <8 x i16>*), align 2
 ; SSE-NEXT:    [[TMP7:%.*]] = load <8 x i16>, <8 x i16>* bitcast (i16* getelementptr inbounds ([32 x i16], [32 x i16]* @b16, i32 0, i64 16) to <8 x i16>*), align 2
 ; SSE-NEXT:    [[TMP8:%.*]] = load <8 x i16>, <8 x i16>* bitcast (i16* getelementptr inbounds ([32 x i16], [32 x i16]* @b16, i32 0, i64 24) to <8 x i16>*), align 2
@@ -234,7 +234,7 @@ define void @lshr_v32i16() {
 ; SSE-NEXT:    [[TMP10:%.*]] = lshr <8 x i16> [[TMP2]], [[TMP6]]
 ; SSE-NEXT:    [[TMP11:%.*]] = lshr <8 x i16> [[TMP3]], [[TMP7]]
 ; SSE-NEXT:    [[TMP12:%.*]] = lshr <8 x i16> [[TMP4]], [[TMP8]]
-; SSE-NEXT:    store <8 x i16> [[TMP9]], <8 x i16>* bitcast ([32 x i16]* @c16 to <8 x i16>*), align 2
+; SSE-NEXT:    store <8 x i16> [[TMP9]], <8 x i16>* bitcast (i16* getelementptr inbounds ([32 x i16], [32 x i16]* @c16, i32 0, i64 0) to <8 x i16>*), align 2
 ; SSE-NEXT:    store <8 x i16> [[TMP10]], <8 x i16>* bitcast (i16* getelementptr inbounds ([32 x i16], [32 x i16]* @c16, i32 0, i64 8) to <8 x i16>*), align 2
 ; SSE-NEXT:    store <8 x i16> [[TMP11]], <8 x i16>* bitcast (i16* getelementptr inbounds ([32 x i16], [32 x i16]* @c16, i32 0, i64 16) to <8 x i16>*), align 2
 ; SSE-NEXT:    store <8 x i16> [[TMP12]], <8 x i16>* bitcast (i16* getelementptr inbounds ([32 x i16], [32 x i16]* @c16, i32 0, i64 24) to <8 x i16>*), align 2

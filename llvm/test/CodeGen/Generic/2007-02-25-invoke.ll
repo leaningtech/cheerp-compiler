@@ -2,6 +2,8 @@
 
 ; PR1224
 
+target triple = "x86_64-unknown-linux"
+
 declare i32 @test()
 define i32 @test2() personality i32 (...)* @__gxx_personality_v0 {
         %A = invoke i32 @test() to label %invcont unwind label %blat

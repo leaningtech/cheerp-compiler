@@ -6,7 +6,7 @@ target datalayout = "e-p:64:64"
 
 @0 = private unnamed_addr constant [2 x void (...)*] [void (...)* bitcast (void ()* @f to void (...)*), void (...)* bitcast (void ()* @g to void (...)*)], align 16
 
-; AARCH64: @f = alias void (), void ()* @[[JT:.*]]
+; AARCH64: @f = alias void (), {{.*}}void ()* @[[JT:.*]] to [
 
 define void @f() !type !0 {
   ret void

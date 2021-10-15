@@ -10,6 +10,8 @@
 ; REQUIRES: debug_frame
 ; REQUIRES: default_triple
 
+target triple = "x86_64-unknown-linux"
+
 ; Function Attrs: nounwind
 define i32 @foo() #0 !dbg !4 {
 entry:

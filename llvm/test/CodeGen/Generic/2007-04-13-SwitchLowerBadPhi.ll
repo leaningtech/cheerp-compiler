@@ -1,6 +1,8 @@
 ; RUN: llc < %s -O0
 ; PR 1323
 
+target triple = "x86_64-unknown-linux"
+
 	%struct.comp = type { i8*, i32, i8*, [3 x i8], i32 }
 
 define void @regbranch() {

@@ -1,6 +1,8 @@
 ; RUN: llc < %s
 ; This crashed the PPC backend.
 
+target triple = "x86_64-unknown-linux"
+
 define void @test() {
         %tmp125 = fcmp uno double 0.000000e+00, 0.000000e+00            ; <i1> [#uses=1]
         br i1 %tmp125, label %bb154, label %cond_false133

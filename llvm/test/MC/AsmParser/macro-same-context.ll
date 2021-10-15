@@ -4,6 +4,8 @@
 ; RUN: not llc < %s 2>&1 | FileCheck %s
 ; REQUIRES: default_triple
 
+target triple = "x86_64-unknown-linux"
+
 define void @test() {
   call void asm sideeffect ".macro FOO\0A.endm", "~{dirflag},~{fpsr},~{flags}"() #1
   call void asm sideeffect ".macro FOO\0A.endm", "~{dirflag},~{fpsr},~{flags}"() #1

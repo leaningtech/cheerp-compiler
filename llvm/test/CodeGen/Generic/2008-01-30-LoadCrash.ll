@@ -1,5 +1,7 @@
 ; RUN: llc < %s
 
+target triple = "x86_64-unknown-linux"
+
 @letters.3100 = external constant [63 x i8]		; <[63 x i8]*> [#uses=2]
 
 define i32 @mkstemps(i8* %pattern, i32 %suffix_len, i64 %tmp42.rle) nounwind  {

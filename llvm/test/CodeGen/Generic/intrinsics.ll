@@ -1,6 +1,8 @@
 ; RUN: llc < %s
 ; RUN: llc -O0 < %s
 
+target triple = "x86_64-unknown-linux"
+
 ;; SQRT
 declare float @llvm.sqrt.f32(float)
 

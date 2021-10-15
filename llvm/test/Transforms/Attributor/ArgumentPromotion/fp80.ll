@@ -110,9 +110,9 @@ define internal i64 @CaptureAStruct(%struct.Foo* byval(%struct.Foo) %a) {
 ; IS________OPM-NEXT:    [[A_PTR:%.*]] = alloca %struct.Foo*, align 8
 ; IS________OPM-NEXT:    br label [[LOOP:%.*]]
 ; IS________OPM:       loop:
-; IS________OPM-NEXT:    [[PHI:%.*]] = phi %struct.Foo* [ null, [[ENTRY:%.*]] ], [ [[A]], [[LOOP]] ]
+; IS________OPM-NEXT:    [[PHI:%.*]] = phi %struct.Foo* [ null, [[ENTRY:%.*]] ], [ {{.*}}, [[LOOP]] ]
 ; IS________OPM-NEXT:    [[TMP0:%.*]] = phi %struct.Foo* [ [[A]], [[ENTRY]] ], [ [[TMP0]], [[LOOP]] ]
-; IS________OPM-NEXT:    br label [[LOOP]]
+; IS________OPM:    br label [[LOOP]]
 ;
 ; IS__TUNIT_NPM: Function Attrs: nofree noreturn nosync nounwind readnone
 ; IS__TUNIT_NPM-LABEL: define {{[^@]+}}@CaptureAStruct
@@ -126,9 +126,9 @@ define internal i64 @CaptureAStruct(%struct.Foo* byval(%struct.Foo) %a) {
 ; IS__TUNIT_NPM-NEXT:    [[A_PTR:%.*]] = alloca %struct.Foo*, align 8
 ; IS__TUNIT_NPM-NEXT:    br label [[LOOP:%.*]]
 ; IS__TUNIT_NPM:       loop:
-; IS__TUNIT_NPM-NEXT:    [[PHI:%.*]] = phi %struct.Foo* [ null, [[ENTRY:%.*]] ], [ [[A_PRIV]], [[LOOP]] ]
+; IS__TUNIT_NPM-NEXT:    [[PHI:%.*]] = phi %struct.Foo* [ null, [[ENTRY:%.*]] ], [ {{.*}}, [[LOOP]] ]
 ; IS__TUNIT_NPM-NEXT:    [[TMP2:%.*]] = phi %struct.Foo* [ [[A_PRIV]], [[ENTRY]] ], [ [[TMP2]], [[LOOP]] ]
-; IS__TUNIT_NPM-NEXT:    br label [[LOOP]]
+; IS__TUNIT_NPM:    br label [[LOOP]]
 ;
 ; IS__CGSCC____: Function Attrs: nofree norecurse noreturn nosync nounwind readnone
 ; IS__CGSCC____-LABEL: define {{[^@]+}}@CaptureAStruct
@@ -140,9 +140,9 @@ define internal i64 @CaptureAStruct(%struct.Foo* byval(%struct.Foo) %a) {
 ; IS__CGSCC____-NEXT:    [[A_PTR:%.*]] = alloca %struct.Foo*, align 8
 ; IS__CGSCC____-NEXT:    br label [[LOOP:%.*]]
 ; IS__CGSCC____:       loop:
-; IS__CGSCC____-NEXT:    [[PHI:%.*]] = phi %struct.Foo* [ null, [[ENTRY:%.*]] ], [ [[A_PRIV]], [[LOOP]] ]
+; IS__CGSCC____-NEXT:    [[PHI:%.*]] = phi %struct.Foo* [ null, [[ENTRY:%.*]] ], [ {{.*}}, [[LOOP]] ]
 ; IS__CGSCC____-NEXT:    [[TMP2:%.*]] = phi %struct.Foo* [ [[A_PRIV]], [[ENTRY]] ], [ [[TMP2]], [[LOOP]] ]
-; IS__CGSCC____-NEXT:    br label [[LOOP]]
+; IS__CGSCC____:    br label [[LOOP]]
 ;
 entry:
   %a_ptr = alloca %struct.Foo*

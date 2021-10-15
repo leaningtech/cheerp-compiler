@@ -17,9 +17,9 @@ define i32 @test1(%t* %ptr) {
 ; CHECK-NEXT:    [[P_2:%.*]] = getelementptr inbounds [[T]], %t* [[PTR]], i64 0, i32 4
 ; CHECK-NEXT:    [[P_3:%.*]] = getelementptr inbounds [[T]], %t* [[PTR]], i64 0, i32 5, i64 0
 ; CHECK-NEXT:    [[TMP0:%.*]] = bitcast i8** [[P_1]] to i8*
-; CHECK-NEXT:    call void @llvm.memset.p0i8.i64(i8* align 8 [[TMP0]], i8 0, i64 20, i1 false)
+; CHECK-NEXT:    call void @llvm.memset.p0i8.i32(i8* align 8 [[TMP0]], i8 0, i32 20, i1 false)
 ; CHECK-NEXT:    [[TMP1:%.*]] = bitcast i32* [[P_2]] to i8*
-; CHECK-NEXT:    call void @llvm.memset.p0i8.i64(i8* align 8 [[TMP1]], i8 0, i64 8195, i1 false)
+; CHECK-NEXT:    call void @llvm.memset.p0i8.i32(i8* align 8 [[TMP1]], i8 0, i32 8195, i1 false)
 ; CHECK-NEXT:    ret i32 0
 ;
 invoke.cont6:
@@ -127,7 +127,7 @@ define void @test7([4 x i32]* %ptr) {
 ; CHECK-NEXT:    [[TMP2:%.*]] = getelementptr inbounds [4 x i32], [4 x i32]* [[PTR]], i64 0, i32 2
 ; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr inbounds [4 x i32], [4 x i32]* [[PTR]], i64 0, i32 3
 ; CHECK-NEXT:    [[TMP4:%.*]] = bitcast i32* [[TMP0]] to i8*
-; CHECK-NEXT:    call void @llvm.memset.p0i8.i64(i8* align 1 [[TMP4]], i8 0, i64 16, i1 false)
+; CHECK-NEXT:    call void @llvm.memset.p0i8.i32(i8* align 1 [[TMP4]], i8 0, i32 16, i1 false)
 ; CHECK-NEXT:    call void @clobber()
 ; CHECK-NEXT:    ret void
 ;
@@ -149,8 +149,8 @@ define void @test8(%t* noalias %src, %t* %dst) {
 ; CHECK-NEXT:    [[TMP1:%.*]] = bitcast %t* [[SRC:%.*]] to i8*
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast %t* [[DST:%.*]] to i8*
 ; CHECK-NEXT:    [[TMP3:%.*]] = bitcast %t* [[SRC]] to i8*
-; CHECK-NEXT:    call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 1 [[TMP2]], i8* align 1 [[TMP3]], i64 8224, i1 false)
-; CHECK-NEXT:    call void @llvm.memset.p0i8.i64(i8* align 1 [[TMP1]], i8 0, i64 8224, i1 false)
+; CHECK-NEXT:    call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 1 [[TMP2]], i8* align 1 [[TMP3]], i32 8224, i1 false)
+; CHECK-NEXT:    call void @llvm.memset.p0i8.i32(i8* align 1 [[TMP1]], i8 0, i32 8224, i1 false)
 ; CHECK-NEXT:    ret void
 ;
   %1 = load %t, %t* %src

@@ -1,6 +1,8 @@
 ; RUN: llc < %s
 ; Verify codegen's don't crash on overflow intrinsics.
 
+target triple = "x86_64-unknown-linux"
+
 ;; SADD
 
 define zeroext i8 @sadd_i8(i8 signext %a, i8 signext %b) nounwind ssp {

@@ -139,13 +139,13 @@ declare void @unknown_no_openmp() "llvm.assume"="omp_no_openmp"
 ; CHECK-NEXT:    [[CMP:%.*]] = icmp eq i32 [[C]], -1
 ; CHECK-NEXT:    br i1 [[CMP]], label [[MASTER1:%.*]], label [[EXIT:%.*]]
 ; CHECK:       master1:
-; CHECK-NEXT:    call void @use.internalized(i8* nofree addrspacecast (i8 addrspace(3)* getelementptr inbounds ([16 x i8], [16 x i8] addrspace(3)* @x, i32 0, i32 0) to i8*)) #[[ATTR5]]
+; CHECK-NEXT:    call void @use.internalized(i8* nofree addrspacecast (i8 addrspace(3)* bitcast ([16 x i8] addrspace(3)* @x to i8 addrspace(3)*) to i8*)) #[[ATTR5]]
 ; CHECK-NEXT:    br label [[NEXT:%.*]]
 ; CHECK:       next:
 ; CHECK-NEXT:    call void @unknown_no_openmp()
 ; CHECK-NEXT:    br label [[MASTER2:%.*]]
 ; CHECK:       master2:
-; CHECK-NEXT:    call void @use.internalized(i8* nofree addrspacecast (i8 addrspace(3)* getelementptr inbounds ([4 x i8], [4 x i8] addrspace(3)* @y, i32 0, i32 0) to i8*)) #[[ATTR5]]
+; CHECK-NEXT:    call void @use.internalized(i8* nofree addrspacecast (i8 addrspace(3)* bitcast ([4 x i8] addrspace(3)* @y to i8 addrspace(3)*) to i8*)) #[[ATTR5]]
 ; CHECK-NEXT:    br label [[EXIT]]
 ; CHECK:       exit:
 ; CHECK-NEXT:    call void @__kmpc_target_deinit(%struct.ident_t* @[[GLOB1]], i8 1, i1 true)

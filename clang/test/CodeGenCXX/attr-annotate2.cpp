@@ -11,7 +11,7 @@
 // CHECK-NEXT:    [[J:%.*]] = alloca i32, align 4
 // CHECK-NEXT:    store i32 10, i32* [[N]], align 4
 // CHECK-NEXT:    [[J1:%.*]] = bitcast i32* [[J]] to i8*
-// CHECK-NEXT:    call void @llvm.var.annotation(i8* [[J1]], i8* getelementptr inbounds ([45 x i8], [45 x i8]* @[[STR]], i32 0, i32 0), i8* getelementptr inbounds ([{{[0-9]+}} x i8], [{{[0-9]+}} x i8]* @[[FILENAME]], i32 0, i32 0), i32 {{.*}}, i8* bitcast ({ i32 }* @[[ARGS]] to i8*))
+// CHECK-NEXT:    call void @llvm.var.annotation(i8* [[J1]], i8* bitcast ([45 x i8]* @[[STR]] to i8*), i8* bitcast ([{{[0-9]+}} x i8]* @[[FILENAME]] to i8*), i32 {{.*}}, i8* bitcast ({ i32 }* @[[ARGS]] to i8*))
 // CHECK-NEXT:    store i32 0, i32* [[J]], align 4
 // CHECK-NEXT:    ret void
 //

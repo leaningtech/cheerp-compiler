@@ -1,5 +1,7 @@
 ; RUN: llc < %s
 
+target triple = "x86_64-unknown-linux"
+
 define void @QRiterate(i32 %p.1, double %tmp.212) {
 entry:
         %tmp.184 = icmp sgt i32 %p.1, 0         ; <i1> [#uses=1]

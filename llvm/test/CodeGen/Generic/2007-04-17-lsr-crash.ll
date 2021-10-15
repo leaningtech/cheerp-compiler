@@ -1,5 +1,7 @@
 ; RUN: llc < %s
 
+target triple = "x86_64-unknown-linux"
+
 define void @foo(i32 %inTextSize) {
 entry:
 	br label %bb236.outer

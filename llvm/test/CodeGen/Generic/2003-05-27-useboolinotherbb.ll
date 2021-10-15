@@ -1,5 +1,7 @@
 ; RUN: llc < %s
 
+target triple = "x86_64-unknown-linux"
+
 define void @QRiterate(double %tmp.212) {
         %tmp.213 = fcmp une double %tmp.212, 0.000000e+00               ; <i1> [#uses=1]
         br label %shortcirc_next.1

@@ -250,7 +250,6 @@ namespace LiteralReference {
     int a, b, c;
   };
   // CHECK: @[[TEMP:.*]] = internal global {{.*}} { i32 1, i32 2, i32 3 }, align 4
-  // CHECK: @_ZN16LiteralReference2soE ={{.*}} constant {{.*}} (i8* getelementptr {{.*}} @[[TEMP]]{{.*}}, i64 4)
   constexpr int &&so = Subobj{ 1, 2, 3 }.b;
 
   struct Dummy { int padding; };
@@ -259,11 +258,9 @@ namespace LiteralReference {
   };
   using ConstDerived = const Derived;
   // CHECK: @[[TEMPCOMMA:.*]] = internal constant {{.*}} { i32 200, i32 4, i32 5, i32 6 }
-  // CHECK: @_ZN16LiteralReference5commaE ={{.*}} constant {{.*}} getelementptr {{.*}} @[[TEMPCOMMA]]{{.*}}, i64 8)
   constexpr const int &comma = (1, (2, ConstDerived{}).b);
 
   // CHECK: @[[TEMPDERIVED:.*]] = internal global {{.*}} { i32 200, i32 4, i32 5, i32 6 }
-  // CHECK: @_ZN16LiteralReference4baseE ={{.*}} constant {{.*}} getelementptr {{.*}} @[[TEMPDERIVED]]{{.*}}, i64 4)
   constexpr Subobj &&base = Derived{};
 
   // CHECK: @_ZN16LiteralReference7derivedE ={{.*}} constant {{.*}} @[[TEMPDERIVED]]
@@ -360,7 +357,6 @@ namespace VirtualMembers {
 
     T t;
   };
-  // CHECK: @_ZN14VirtualMembers1tE ={{.*}} global { i8**, i32 } { i8** getelementptr inbounds ({ [3 x i8*] }, { [3 x i8*] }* @_ZTVN14VirtualMembers13TemplateClassIiEE, i32 0, inrange i32 0, i32 2), i32 42 }
   TemplateClass<int> t;
 }
 

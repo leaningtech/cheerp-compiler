@@ -10,19 +10,19 @@
 define void @f(i1 %x) #0 {
 ; CHECK-LABEL: @f(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[TMP0:%.*]] = load <2 x i64>, <2 x i64>* bitcast (%struct.a* @a to <2 x i64>*), align 8
+; CHECK-NEXT:    [[TMP0:%.*]] = load <2 x i64>, <2 x i64>* bitcast (i64* getelementptr inbounds (%struct.a, %struct.a* @a, i32 0, i32 0, i32 0) to <2 x i64>*), align 8
 ; CHECK-NEXT:    br i1 [[X:%.*]], label [[WHILE_BODY_LR_PH:%.*]], label [[WHILE_END:%.*]]
 ; CHECK:       while.body.lr.ph:
 ; CHECK-NEXT:    [[TMP1:%.*]] = extractelement <2 x i64> [[TMP0]], i32 1
 ; CHECK-NEXT:    [[ICMP_A1:%.*]] = icmp eq i64 [[TMP1]], 0
-; CHECK-NEXT:    [[TMP2:%.*]] = load <2 x i64>, <2 x i64>* bitcast (%struct.a* @b to <2 x i64>*), align 8
+; CHECK-NEXT:    [[TMP2:%.*]] = load <2 x i64>, <2 x i64>* bitcast (i64* getelementptr inbounds (%struct.a, %struct.a* @b, i32 0, i32 0, i32 0) to <2 x i64>*), align 8
 ; CHECK-NEXT:    [[TMP3:%.*]] = insertelement <2 x i1> poison, i1 [[ICMP_A1]], i32 0
 ; CHECK-NEXT:    [[TMP4:%.*]] = insertelement <2 x i1> [[TMP3]], i1 [[ICMP_A1]], i32 1
 ; CHECK-NEXT:    [[TMP5:%.*]] = select <2 x i1> [[TMP4]], <2 x i64> [[TMP2]], <2 x i64> [[TMP0]]
 ; CHECK-NEXT:    br label [[WHILE_END]]
 ; CHECK:       while.end:
 ; CHECK-NEXT:    [[TMP6:%.*]] = phi <2 x i64> [ [[TMP0]], [[ENTRY:%.*]] ], [ [[TMP5]], [[WHILE_BODY_LR_PH]] ]
-; CHECK-NEXT:    [[TMP7:%.*]] = load <2 x i64>, <2 x i64>* bitcast (%struct.a* @c to <2 x i64>*), align 8
+; CHECK-NEXT:    [[TMP7:%.*]] = load <2 x i64>, <2 x i64>* bitcast (i64* getelementptr inbounds (%struct.a, %struct.a* @c, i32 0, i32 0, i32 0) to <2 x i64>*), align 8
 ; CHECK-NEXT:    [[TMP8:%.*]] = extractelement <2 x i64> [[TMP6]], i32 0
 ; CHECK-NEXT:    [[ICMP_D0:%.*]] = icmp eq i64 [[TMP8]], 0
 ; CHECK-NEXT:    br i1 [[ICMP_D0]], label [[IF_END:%.*]], label [[IF_THEN:%.*]]
@@ -32,7 +32,7 @@ define void @f(i1 %x) #0 {
 ; CHECK-NEXT:    [[TMP10:%.*]] = extractelement <2 x i64> [[TMP6]], i32 1
 ; CHECK-NEXT:    [[TMP11:%.*]] = insertelement <2 x i64> [[TMP9]], i64 [[TMP10]], i32 1
 ; CHECK-NEXT:    [[TMP12:%.*]] = and <2 x i64> [[TMP11]], [[TMP7]]
-; CHECK-NEXT:    store <2 x i64> [[TMP12]], <2 x i64>* bitcast (%struct.a* @a to <2 x i64>*), align 8
+; CHECK-NEXT:    store <2 x i64> [[TMP12]], <2 x i64>* bitcast (i64* getelementptr inbounds (%struct.a, %struct.a* @a, i32 0, i32 0, i32 0) to <2 x i64>*), align 8
 ; CHECK-NEXT:    br label [[IF_END]]
 ; CHECK:       if.end:
 ; CHECK-NEXT:    ret void

@@ -1,5 +1,7 @@
 ; RUN: llc < %s
 
+target triple = "x86_64-unknown-linux"
+
 @c = external global i32, align 4
 
 define void @foo(i160 %x) {

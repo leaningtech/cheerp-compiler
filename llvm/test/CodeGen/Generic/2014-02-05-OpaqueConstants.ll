@@ -2,6 +2,8 @@
 ; RUN: llc < %s
 ; XFAIL: r600
 
+target triple = "x86_64-unknown-linux"
+
 @a = common global i32* null, align 8
 @c = common global i32 0, align 4
 @b = common global i32* null, align 8

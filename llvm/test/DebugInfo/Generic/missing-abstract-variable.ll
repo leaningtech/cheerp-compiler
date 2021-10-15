@@ -94,6 +94,7 @@
 ; CHECK-NOT: DW_TAG
 ; CHECK:         DW_AT_abstract_origin {{.*}} "s"
 
+target triple = "x86_64-unknown-linux"
 @t = external global i32
 
 ; Function Attrs: uwtable

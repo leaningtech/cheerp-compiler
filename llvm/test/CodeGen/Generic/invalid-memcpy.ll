@@ -1,5 +1,7 @@
 ; RUN: llc < %s 
 
+target triple = "x86_64-unknown-linux"
+
 ; This testcase is invalid (the alignment specified for memcpy is 
 ; greater than the alignment guaranteed for Qux or C.0.1173), but it
 ; should compile, not crash the code generator.

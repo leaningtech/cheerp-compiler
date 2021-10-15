@@ -793,12 +793,10 @@ define void @arg_nonnull_violation2_1(i1 %c) {
 ; IS__TUNIT____: Function Attrs: nofree nosync nounwind readnone willreturn
 ; IS__TUNIT____-LABEL: define {{[^@]+}}@arg_nonnull_violation2_1
 ; IS__TUNIT____-SAME: (i1 [[C:%.*]]) #[[ATTR0]] {
-; IS__TUNIT____-NEXT:    unreachable
 ;
 ; IS__CGSCC____: Function Attrs: nofree norecurse nosync nounwind readnone willreturn
 ; IS__CGSCC____-LABEL: define {{[^@]+}}@arg_nonnull_violation2_1
 ; IS__CGSCC____-SAME: (i1 [[C:%.*]]) #[[ATTR0]] {
-; IS__CGSCC____-NEXT:    unreachable
 ;
   %null = getelementptr i32, i32* null, i32 0
   %mustnull = select i1 %c, i32* null, i32* %null
@@ -810,12 +808,10 @@ define void @arg_nonnull_violation2_2(i1 %c) {
 ; IS__TUNIT____: Function Attrs: nofree nosync nounwind readnone willreturn
 ; IS__TUNIT____-LABEL: define {{[^@]+}}@arg_nonnull_violation2_2
 ; IS__TUNIT____-SAME: (i1 [[C:%.*]]) #[[ATTR0]] {
-; IS__TUNIT____-NEXT:    unreachable
 ;
 ; IS__CGSCC____: Function Attrs: nofree norecurse nosync nounwind readnone willreturn
 ; IS__CGSCC____-LABEL: define {{[^@]+}}@arg_nonnull_violation2_2
 ; IS__CGSCC____-SAME: (i1 [[C:%.*]]) #[[ATTR0]] {
-; IS__CGSCC____-NEXT:    unreachable
 ;
   %null = getelementptr i32, i32* null, i32 0
   %mustnull = select i1 %c, i32* null, i32* %null

@@ -2,6 +2,8 @@
 ; RUN: llc -O2 -print-after-all < %s 2>&1 | FileCheck %s --check-prefix=ALL
 ; RUN: llc -O2 -print-after-all -filter-print-funcs=foo < %s 2>&1 | FileCheck %s --check-prefix=FOO
 ; REQUIRES: default_triple
+target triple = "x86_64-unknown-linux"
+
 define void @tester(){
   ret void
 }

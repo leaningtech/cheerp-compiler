@@ -11,7 +11,7 @@ define <4 x i64> @test_mm256_abs_epi8(<4 x i64> %a) local_unnamed_addr #0 {
 ; CHECK-LABEL: @test_mm256_abs_epi8(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[TMP0:%.*]] = load <4 x i64>, <4 x i64>* bitcast ([100 x i64]* @__msan_param_tls to <4 x i64>*), align 8
-; ORIGIN-NEXT:   [[TMP1:%.*]] = load i32, i32* getelementptr inbounds ([200 x i32], [200 x i32]* @__msan_param_origin_tls, i32 0, i32 0), align 4
+; ORIGIN-NEXT:   [[TMP1:%.*]] = load i32, i32* bitcast ([200 x i32]* @__msan_param_origin_tls to i32*), align 4
 ; CHECK:         call void @llvm.donothing()
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast <4 x i64> [[TMP0]] to <32 x i8>
 ; CHECK-NEXT:    [[TMP3:%.*]] = bitcast <4 x i64> [[A:%.*]] to <32 x i8>
@@ -33,7 +33,7 @@ define <4 x i64> @test_mm256_abs_epi16(<4 x i64> %a) local_unnamed_addr #0 {
 ; CHECK-LABEL: @test_mm256_abs_epi16(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[TMP0:%.*]] = load <4 x i64>, <4 x i64>* bitcast ([100 x i64]* @__msan_param_tls to <4 x i64>*), align 8
-; ORIGIN-NEXT:   [[TMP1:%.*]] = load i32, i32* getelementptr inbounds ([200 x i32], [200 x i32]* @__msan_param_origin_tls, i32 0, i32 0), align 4
+; ORIGIN-NEXT:   [[TMP1:%.*]] = load i32, i32* bitcast ([200 x i32]* @__msan_param_origin_tls to i32*), align 4
 ; CHECK:         call void @llvm.donothing()
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast <4 x i64> [[TMP0]] to <16 x i16>
 ; CHECK-NEXT:    [[TMP3:%.*]] = bitcast <4 x i64> [[A:%.*]] to <16 x i16>
@@ -55,7 +55,7 @@ define <4 x i64> @test_mm256_abs_epi32(<4 x i64> %a) local_unnamed_addr #0 {
 ; CHECK-LABEL: @test_mm256_abs_epi32(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[TMP0:%.*]] = load <4 x i64>, <4 x i64>* bitcast ([100 x i64]* @__msan_param_tls to <4 x i64>*), align 8
-; ORIGIN-NEXT:   [[TMP1:%.*]] = load i32, i32* getelementptr inbounds ([200 x i32], [200 x i32]* @__msan_param_origin_tls, i32 0, i32 0), align 4
+; ORIGIN-NEXT:   [[TMP1:%.*]] = load i32, i32* bitcast ([200 x i32]* @__msan_param_origin_tls to i32*), align 4
 ; CHECK:         call void @llvm.donothing()
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast <4 x i64> [[TMP0]] to <8 x i32>
 ; CHECK-NEXT:    [[TMP3:%.*]] = bitcast <4 x i64> [[A:%.*]] to <8 x i32>
@@ -77,7 +77,7 @@ define <4 x double> @test_fabs(<4 x double> %a) local_unnamed_addr #0 {
 ; CHECK-LABEL: @test_fabs(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[TMP0:%.*]] = load <4 x i64>, <4 x i64>* bitcast ([100 x i64]* @__msan_param_tls to <4 x i64>*), align 8
-; ORIGIN-NEXT:   [[TMP1:%.*]] = load i32, i32* getelementptr inbounds ([200 x i32], [200 x i32]* @__msan_param_origin_tls, i32 0, i32 0), align 4
+; ORIGIN-NEXT:   [[TMP1:%.*]] = load i32, i32* bitcast ([200 x i32]* @__msan_param_origin_tls to i32*), align 4
 ; CHECK:         call void @llvm.donothing()
 ; CHECK-NEXT:    [[TMP2:%.*]] = tail call <4 x double> @llvm.fabs.v4f64(<4 x double> [[A:%.*]])
 ; CHECK-NEXT:    store <4 x i64> [[TMP0]], <4 x i64>* bitcast ([100 x i64]* @__msan_retval_tls to <4 x i64>*), align 8

@@ -3,6 +3,8 @@
 ; RUN: llc < %s -pre-RA-sched=fast
 ; PR859
 
+target triple = "x86_64-unknown-linux"
+
 ; The top-down schedulers are excluded here because they don't yet support
 ; targets that use physreg defs.
 

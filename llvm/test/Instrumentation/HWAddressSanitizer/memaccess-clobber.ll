@@ -15,6 +15,6 @@ entry:
   ; CHECK-NEXT: load i32, i32* %x.hwasan, align 4
   %y = load i32, i32* %x
   ; CHECK:  Clobber from:   %y = load i32, i32* %x.hwasan, align 4
-  ; CHECK-NEXT: call void @llvm.memset.p0i8.i64(i8* align 1 {{.*}}, i8 0, i64 1, i1 false)
+  ; CHECK-NEXT: call void @llvm.memset.p0i8.i32(i8* align 1 {{.*}}, i8 0, i32 1, i1 false)
   ret i32 %y
 }

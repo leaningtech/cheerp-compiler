@@ -1,6 +1,8 @@
 ; RUN: llc < %s
 ; PR2612
 
+target triple = "x86_64-unknown-linux"
+
 @current_foo = internal global {  } zeroinitializer
 
 define i32 @foo() {

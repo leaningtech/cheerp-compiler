@@ -1,5 +1,7 @@
 ; RUN: llc < %s
 
+target triple = "x86_64-unknown-linux"
+
 define void @QRiterate(double %tmp.212) {
 entry:
         br label %shortcirc_next.1

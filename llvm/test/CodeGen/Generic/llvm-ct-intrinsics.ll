@@ -1,6 +1,8 @@
 ; Make sure this testcase is supported by all code generators
 ; RUN: llc < %s
 
+target triple = "x86_64-unknown-linux"
+
 declare i64 @llvm.ctpop.i64(i64)
 
 declare i32 @llvm.ctpop.i32(i32)

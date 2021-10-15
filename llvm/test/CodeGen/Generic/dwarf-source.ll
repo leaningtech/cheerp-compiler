@@ -31,6 +31,8 @@
 ; OBJ-4-NOT: 22222222222222222222222222222222
 ; OBJ-5-NEXT: source: "22222222222222222222222222222222"
 
+target triple = "x86_64-unknown-linux"
+
 ; ModuleID = 't.c'
 source_filename = "t.c"
 

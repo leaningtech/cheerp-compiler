@@ -1,4 +1,6 @@
 ; RUN: llc < %s
+target triple = "x86_64-unknown-linux"
+
 @a_str = internal constant [8 x i8] c"a = %f\0A\00"		; <[8 x i8]*> [#uses=1]
 @b_str = internal constant [8 x i8] c"b = %f\0A\00"		; <[8 x i8]*> [#uses=1]
 @add_str = internal constant [12 x i8] c"a + b = %f\0A\00"		; <[12 x i8]*> [#uses=1]

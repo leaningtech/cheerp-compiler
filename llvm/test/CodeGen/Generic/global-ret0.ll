@@ -1,5 +1,7 @@
 ; RUN: llc < %s
 
+target triple = "x86_64-unknown-linux"
+
 @g = global i32 0               ; <i32*> [#uses=1]
 
 define i32 @main() {

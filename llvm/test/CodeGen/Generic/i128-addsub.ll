@@ -1,5 +1,7 @@
 ; RUN: llc < %s
 
+target triple = "x86_64-unknown-linux"
+
 define void @test_add(i64 %AL, i64 %AH, i64 %BL, i64 %BH, i64* %RL, i64* %RH) {
 entry:
 	%tmp1 = zext i64 %AL to i128		; <i128> [#uses=1]

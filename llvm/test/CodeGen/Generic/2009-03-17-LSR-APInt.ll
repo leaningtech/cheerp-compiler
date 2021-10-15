@@ -1,6 +1,8 @@
 ; RUN: llc < %s
 ; PR3806
 
+target triple = "x86_64-unknown-linux"
+
 	%struct..0__pthread_mutex_s = type { i32, i32, i32, i32, i32, i32, %struct.__pthread_list_t }
 	%struct.Alignment = type { i32 }
 	%struct.QDesignerFormWindowInterface = type { %struct.QWidget }

@@ -1,4 +1,6 @@
 ; RUN: llc < %s 
+target triple = "x86_64-unknown-linux"
+
         %struct.TypHeader = type { i32, %struct.TypHeader**, [3 x i8], i8 }
 @.str_67 = external global [4 x i8]             ; <[4 x i8]*> [#uses=1]
 @.str_87 = external global [17 x i8]            ; <[17 x i8]*> [#uses=1]

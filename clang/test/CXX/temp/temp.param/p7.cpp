@@ -1,6 +1,6 @@
-// RUN: %clang_cc1 -fsyntax-only -verify=expected,cxx17 -std=c++98 %s -Wno-c++11-extensions
-// RUN: %clang_cc1 -fsyntax-only -verify=expected,cxx17 -std=c++17 %s
-// RUN: %clang_cc1 -fsyntax-only -verify=expected,cxx20 -std=c++20 %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -fsyntax-only -verify=expected,cxx17 -std=c++98 %s -Wno-c++11-extensions
+// RUN: %clang_cc1 -triple %itanium_abi_triple -fsyntax-only -verify=expected,cxx17 -std=c++17 %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -fsyntax-only -verify=expected,cxx20 -std=c++20 %s
 
 // C++98:
 // A non-type template-parameter shall not be declared to have

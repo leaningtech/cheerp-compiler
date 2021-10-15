@@ -11,7 +11,7 @@ define internal void @f(%struct.ss* byval(%struct.ss)  %b, i32* byval(i32) %X) n
 ; IS__TUNIT_OPM-LABEL: define {{[^@]+}}@f
 ; IS__TUNIT_OPM-SAME: (%struct.ss* noalias nocapture nofree noundef nonnull byval([[STRUCT_SS:%.*]]) align 8 dereferenceable(12) [[B:%.*]], i32* noalias nocapture nofree noundef nonnull writeonly byval(i32) align 4 dereferenceable(4) [[X:%.*]]) #[[ATTR0:[0-9]+]] {
 ; IS__TUNIT_OPM-NEXT:  entry:
-; IS__TUNIT_OPM-NEXT:    [[TMP:%.*]] = getelementptr [[STRUCT_SS]], %struct.ss* [[B]], i32 0, i32 0
+; IS__TUNIT_OPM-NEXT:    [[TMP:%.*]] = bitcast [[STRUCT_SS]]* [[B]]
 ; IS__TUNIT_OPM-NEXT:    [[TMP1:%.*]] = load i32, i32* [[TMP]], align 8
 ; IS__TUNIT_OPM-NEXT:    [[TMP2:%.*]] = add i32 [[TMP1]], 1
 ; IS__TUNIT_OPM-NEXT:    store i32 [[TMP2]], i32* [[TMP]], align 8
@@ -29,7 +29,7 @@ define internal void @f(%struct.ss* byval(%struct.ss)  %b, i32* byval(i32) %X) n
 ; IS__TUNIT_NPM-NEXT:    store i32 [[TMP0]], i32* [[B_PRIV_CAST]], align 4
 ; IS__TUNIT_NPM-NEXT:    [[B_PRIV_0_1:%.*]] = getelementptr [[STRUCT_SS]], %struct.ss* [[B_PRIV]], i32 0, i32 1
 ; IS__TUNIT_NPM-NEXT:    store i64 [[TMP1]], i64* [[B_PRIV_0_1]], align 4
-; IS__TUNIT_NPM-NEXT:    [[TMP:%.*]] = getelementptr [[STRUCT_SS]], %struct.ss* [[B_PRIV]], i32 0, i32 0
+; IS__TUNIT_NPM-NEXT:    [[TMP:%.*]] = bitcast [[STRUCT_SS]]* [[B_PRIV]]
 ; IS__TUNIT_NPM-NEXT:    [[TMP1:%.*]] = load i32, i32* [[TMP]], align 8
 ; IS__TUNIT_NPM-NEXT:    [[TMP2:%.*]] = add i32 [[TMP1]], 1
 ; IS__TUNIT_NPM-NEXT:    store i32 [[TMP2]], i32* [[TMP]], align 8
@@ -40,7 +40,7 @@ define internal void @f(%struct.ss* byval(%struct.ss)  %b, i32* byval(i32) %X) n
 ; IS__CGSCC_OPM-LABEL: define {{[^@]+}}@f
 ; IS__CGSCC_OPM-SAME: (%struct.ss* noalias nocapture nofree noundef nonnull byval([[STRUCT_SS:%.*]]) align 8 dereferenceable(12) [[B:%.*]], i32* noalias nocapture nofree noundef nonnull writeonly byval(i32) align 4 dereferenceable(4) [[X:%.*]]) #[[ATTR0:[0-9]+]] {
 ; IS__CGSCC_OPM-NEXT:  entry:
-; IS__CGSCC_OPM-NEXT:    [[TMP:%.*]] = getelementptr [[STRUCT_SS]], %struct.ss* [[B]], i32 0, i32 0
+; IS__CGSCC_OPM-NEXT:    [[TMP:%.*]] = bitcast [[STRUCT_SS]]* [[B]]
 ; IS__CGSCC_OPM-NEXT:    [[TMP1:%.*]] = load i32, i32* [[TMP]], align 8
 ; IS__CGSCC_OPM-NEXT:    [[TMP2:%.*]] = add i32 [[TMP1]], 1
 ; IS__CGSCC_OPM-NEXT:    store i32 [[TMP2]], i32* [[TMP]], align 8
@@ -56,7 +56,7 @@ define internal void @f(%struct.ss* byval(%struct.ss)  %b, i32* byval(i32) %X) n
 ; IS__CGSCC_NPM-NEXT:    [[B_PRIV_CAST:%.*]] = bitcast %struct.ss* [[B_PRIV]] to i32*
 ; IS__CGSCC_NPM-NEXT:    store i32 1, i32* [[B_PRIV_CAST]], align 8
 ; IS__CGSCC_NPM-NEXT:    [[B_PRIV_0_1:%.*]] = getelementptr [[STRUCT_SS]], %struct.ss* [[B_PRIV]], i32 0, i32 1
-; IS__CGSCC_NPM-NEXT:    [[TMP:%.*]] = getelementptr [[STRUCT_SS]], %struct.ss* [[B_PRIV]], i32 0, i32 0
+; IS__CGSCC_NPM-NEXT:    [[TMP:%.*]] = bitcast [[STRUCT_SS]]* [[B_PRIV]]
 ; IS__CGSCC_NPM-NEXT:    [[TMP1:%.*]] = load i32, i32* [[TMP]], align 8
 ; IS__CGSCC_NPM-NEXT:    [[TMP2:%.*]] = add i32 [[TMP1]], 1
 ; IS__CGSCC_NPM-NEXT:    store i32 [[TMP2]], i32* [[TMP]], align 8

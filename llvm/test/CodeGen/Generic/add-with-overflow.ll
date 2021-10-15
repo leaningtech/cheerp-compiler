@@ -1,6 +1,8 @@
 ; RUN: llc < %s
 ; RUN: llc < %s -fast-isel
 
+target triple = "x86_64-unknown-linux"
+
 @ok = internal constant [4 x i8] c"%d\0A\00"
 @no = internal constant [4 x i8] c"no\0A\00"
 

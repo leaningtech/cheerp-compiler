@@ -10,10 +10,8 @@ define void @must_remove_memcpy(i8* noalias nocapture dereferenceable(4096) %dst
 ; CHECK-LABEL: @must_remove_memcpy(
 ; CHECK-NEXT:    [[SRC:%.*]] = alloca [4096 x i8], align 1
 ; CHECK-NEXT:    [[P:%.*]] = getelementptr inbounds [4096 x i8], [4096 x i8]* [[SRC]], i64 0, i64 0
-; CHECK-NEXT:    [[DST1:%.*]] = bitcast i8* [[DST:%.*]] to [4096 x i8]*
-; CHECK-NEXT:    [[DST12:%.*]] = bitcast [4096 x i8]* [[DST1]] to i8*
-; CHECK-NEXT:    call void @llvm.memset.p0i8.i64(i8* [[DST12]], i8 0, i64 4096, i1 false)
-; CHECK-NEXT:    ret void
+; CHECK-NEXT:    call void @llvm.memset.p0i8.i64(i8* [[P]], i8 0, i64 4096, i1 false)
+; CHECK:    ret void
 ;
   %src = alloca [4096 x i8], align 1
   %p = getelementptr inbounds [4096 x i8], [4096 x i8]* %src, i64 0, i64 0

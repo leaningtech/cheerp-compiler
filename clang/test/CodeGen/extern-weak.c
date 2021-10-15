@@ -1,5 +1,5 @@
-// RUN: %clang_cc1 -O3 -emit-llvm -o - %s | grep extern_weak
-// RUN: %clang_cc1 -O3 -emit-llvm -o - %s | llc
+// RUN: %clang_cc1 -triple %itanium_abi_triple -O3 -emit-llvm -o - %s | grep extern_weak
+// RUN: %clang_cc1 -triple %itanium_abi_triple -O3 -emit-llvm -o - %s | llc
 
 #if !defined(__linux__) && !defined(__FreeBSD__) && \
     !defined(__OpenBSD__) && !defined(__CYGWIN__) && !defined(__DragonFly__)

@@ -27,7 +27,7 @@ struct X {
 // CHECK-LOAD: cxx14-lambdas.cpp:7:73: CompoundStmt= Extent=[7:73 - 9:6]
 // CHECK-LOAD: cxx14-lambdas.cpp:8:7: ReturnStmt= Extent=[8:7 - 8:29]
 
-// RUN: env CINDEXTEST_INDEXLOCALSYMBOLS=1 c-index-test -index-file -std=c++14 %s | FileCheck -check-prefix=CHECK-INDEX %s
+// RUN: env CINDEXTEST_INDEXLOCALSYMBOLS=1 c-index-test -index-file -std=c++14 -target x86_64-unknown-linux %s | FileCheck -check-prefix=CHECK-INDEX %s
 // CHECK-INDEX: [indexEntityReference]: kind: variable | name: localA | USR: c:cxx14-lambdas.cpp@100@S@X@F@f#@localA | lang: C | cursor: DeclRefExpr=localA:6:9 | loc: 7:27
 // CHECK-INDEX: [indexEntityReference]: kind: variable | name: ptr | USR: c:cxx14-lambdas.cpp@139@S@X@F@f#@Sa@F@operator()#I#1@ptr | lang: C | cursor: VariableRef=ptr:7:20 | loc: 7:20
 // CHECK-INDEX: [indexEntityReference]: kind: variable | name: localB | USR: c:cxx14-lambdas.cpp@100@S@X@F@f#@localB | lang: C | cursor: DeclRefExpr=localB:6:17 | loc: 7:42

@@ -1,6 +1,8 @@
 ; RUN: llc < %s
 ; PR1228
 
+target triple = "x86_64-unknown-linux"
+
 	%"struct.std::basic_string<char,std::char_traits<char>,std::allocator<char> >::_Alloc_hider" = type { i8* }
 	%"struct.std::locale" = type { %"struct.std::locale::_Impl"* }
 	%"struct.std::locale::_Impl" = type { i32, %"struct.std::locale::facet"**, i32, %"struct.std::locale::facet"**, i8** }
