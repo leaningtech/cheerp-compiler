@@ -49,7 +49,7 @@ entry:
 ; CHECK: ret void
 
 ; ADDR-LABEL: @Store(
-; ADDR: %[[ADDRSHADOW:.*]] = load i64, {{.*}}[100 x i64]* @__msan_param_tls, i32 0, i32 0)
+; ADDR: %[[ADDRSHADOW:.*]] = load i64, {{.*}}[100 x i64]* @__msan_param_tls to i64*)
 ; ADDR: %[[MASKSHADOW:.*]] = load <4 x i1>, {{.*}}@__msan_param_tls to i64), i64 40)
 
 ; ADDR: %[[ADDRBAD:.*]] = icmp ne i64 %[[ADDRSHADOW]], 0
@@ -89,7 +89,7 @@ entry:
 ; CHECK: ret <4 x double> %[[X]]
 
 ; ADDR-LABEL: @Load(
-; ADDR: %[[ADDRSHADOW:.*]] = load i64, {{.*}}[100 x i64]* @__msan_param_tls, i32 0, i32 0)
+; ADDR: %[[ADDRSHADOW:.*]] = load i64, {{.*}}[100 x i64]* @__msan_param_tls to i64*)
 ; ADDR: %[[MASKSHADOW:.*]] = load <4 x i1>, {{.*}}@__msan_param_tls to i64), i64 40)
 
 ; ADDR: %[[ADDRBAD:.*]] = icmp ne i64 %[[ADDRSHADOW]], 0

@@ -1,6 +1,8 @@
 ; RUN: llc < %s
 ; PR4975
 
+target triple = "x86_64-unknown-linux"
+
 %0 = type <{ [0 x i32] }>
 %union.T0 = type { }
 

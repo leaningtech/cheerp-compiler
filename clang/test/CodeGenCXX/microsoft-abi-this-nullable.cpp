@@ -34,8 +34,7 @@ void call_right_no_override(ChildNoOverride *child) {
   // CHECK: %[[RIGHT_i8:.*]] = getelementptr inbounds i8, i8* %[[CHILD_i8]], i32 4
   // CHECK: %[[RIGHT:.*]] = bitcast i8* %[[RIGHT_i8]] to %struct.Right*
   //
-  // CHECK: %[[VFPTR:.*]] = bitcast %struct.Right* %[[RIGHT]] to void (%struct.Right*)***
-  // CHECK: %[[VFTABLE:.*]] = load void (%struct.Right*)**, void (%struct.Right*)*** %[[VFPTR]]
+  // CHECK: %[[VFTABLE:.*]] = bitcast {{.*}} to void (%struct.Right*)**
   // CHECK: %[[VFUN:.*]] = getelementptr inbounds void (%struct.Right*)*, void (%struct.Right*)** %[[VFTABLE]], i64 0
 }
 

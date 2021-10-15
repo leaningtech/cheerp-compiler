@@ -1,4 +1,5 @@
 ; RUN: llc %s -o /dev/null
+target triple = "x86_64-unknown-linux"
 source_filename = "test/DebugInfo/Generic/2009-11-06-NamelessGlobalVariable.ll"
 
 @0 = internal constant i32 1, !dbg !0

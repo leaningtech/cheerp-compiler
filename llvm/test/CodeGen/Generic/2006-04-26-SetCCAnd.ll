@@ -1,5 +1,7 @@
 ; RUN: llc < %s
 ; PR748
+target triple = "x86_64-unknown-linux"
+
 @G = external global i16		; <i16*> [#uses=1]
 
 define void @OmNewObjHdr() {

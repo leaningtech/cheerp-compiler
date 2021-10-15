@@ -1,5 +1,7 @@
 ; RUN: llc < %s
 
+target triple = "x86_64-unknown-linux"
+
 ; On this code, llc did not pass the sixth argument (%reg321) to printf.
 ; It passed the first five in %o0 - %o4, but never initialized %o5.
 @.LC12 = internal global [44 x i8] c"\09\09M = %g, I = %g, V = %g\0A\09\09O = %g, E = %g\0A\0A\00"		; <[44 x i8]*> [#uses=1]

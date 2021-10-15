@@ -1,5 +1,6 @@
 ; RUN: llc -mtriple=x86_64 < %s
 
+target triple = "x86_64-unknown-linux"
 	%Env = type i8*
 
 define void @.main(%Env) gc "shadow-stack" {

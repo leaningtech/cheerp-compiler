@@ -1,9 +1,11 @@
 # RUN: llc -run-pass=mir-debugify -o - %s | FileCheck --check-prefixes=ALL,VALUE %s
 # RUN: llc -run-pass=mir-debugify -debugify-level=locations -o - %s | FileCheck --check-prefixes=ALL --implicit-check-not=dbg.value %s
 # RUN: llc -run-pass=mir-debugify,mir-strip-debug,mir-debugify -o - %s | FileCheck --check-prefixes=ALL,VALUE %s
+
 --- |
   ; ModuleID = 'loc-only.ll'
   source_filename = "loc-only.ll"
+  target triple = "x86_64-unknown-linux"
 
   ; ALL-LABEL: @test
   define i32 @test(i32 %a, i32 %b) {

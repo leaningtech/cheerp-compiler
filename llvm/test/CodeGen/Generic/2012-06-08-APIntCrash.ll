@@ -1,5 +1,7 @@
 ; RUN: llc < %s
 
+target triple = "x86_64-unknown-linux"
+
 define void @test1(<8 x i32>* %ptr)
 {
 	%1 = load <8 x i32>, <8 x i32>* %ptr, align 32

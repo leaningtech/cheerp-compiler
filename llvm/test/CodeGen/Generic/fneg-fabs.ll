@@ -1,5 +1,7 @@
 ; RUN: llc < %s
 
+target triple = "x86_64-unknown-linux"
+
 define double @fneg(double %X) {
         %Y = fsub double -0.000000e+00, %X               ; <double> [#uses=1]
         ret double %Y

@@ -2,6 +2,7 @@
 ; REQUIRES: default_triple
 ; PR7545
 
+target triple = "x86_64-unknown-linux"
 @.str = private constant [4 x i8] c"one\00", align 1 ; <[4 x i8]*> [#uses=1]
 @.str1 = private constant [4 x i8] c"two\00", align 1 ; <[5 x i8]*> [#uses=1]
 @C.9.2167 = internal constant [2 x i8*] [i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str, i64 0, i64 0), i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str1, i64 0, i64 0)]

@@ -25,43 +25,6 @@ static std::unique_ptr<Module> parseIR(LLVMContext &C, const char *IR) {
   return Mod;
 }
 
-TEST(LoadsTest, FindAvailableLoadedValueSameBasePtrConstantOffsetsNullAA) {
-  LLVMContext C;
-  std::unique_ptr<Module> M = parseIR(C,
-                                      R"IR(
-target datalayout = "p:64:64:64:32"
-%class = type <{ i32, i32 }>
-
-define i32 @f() {
-entry:
-  %o = alloca %class
-  %f1 = getelementptr inbounds %class, %class* %o, i32 0, i32 0
-  store i32 42, i32* %f1
-  %f2 = getelementptr inbounds %class, %class* %o, i32 0, i32 1
-  store i32 43, i32* %f2
-  %v = load i32, i32* %f1
-  ret i32 %v
-}
-)IR");
-  auto *GV = M->getNamedValue("f");
-  ASSERT_TRUE(GV);
-  auto *F = dyn_cast<Function>(GV);
-  ASSERT_TRUE(F);
-  Instruction *Inst = &F->front().front();
-  auto *AI = dyn_cast<AllocaInst>(Inst);
-  ASSERT_TRUE(AI);
-  Inst = &*++F->front().rbegin();
-  auto *LI = dyn_cast<LoadInst>(Inst);
-  ASSERT_TRUE(LI);
-  BasicBlock::iterator BBI(LI);
-  Value *Loaded = FindAvailableLoadedValue(
-      LI, LI->getParent(), BBI, 0, nullptr, nullptr);
-  ASSERT_TRUE(Loaded);
-  auto *CI = dyn_cast<ConstantInt>(Loaded);
-  ASSERT_TRUE(CI);
-  ASSERT_TRUE(CI->equalsInt(42));
-}
-
 TEST(LoadsTest, CanReplacePointersIfEqual) {
   LLVMContext C;
   std::unique_ptr<Module> M = parseIR(C,

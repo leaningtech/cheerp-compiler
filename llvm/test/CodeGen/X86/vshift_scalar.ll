@@ -1,6 +1,7 @@
 ; RUN: llc < %s
 ; REQUIRES: default_triple
 
+target triple = "x86_64-unknown-linux"
 ; Legalization test that requires scalarizing a vector.
 
 define void @update(<1 x i32> %val, <1 x i32>* %dst) nounwind {

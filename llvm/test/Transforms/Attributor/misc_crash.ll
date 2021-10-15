@@ -26,7 +26,7 @@ define i32* @func1() {
 ; CHECK: Function Attrs: nofree norecurse nosync nounwind readnone willreturn
 ; CHECK-LABEL: define {{[^@]+}}@func1
 ; CHECK-SAME: () #[[ATTR0]] {
-; CHECK-NEXT:    ret i32* getelementptr inbounds ([1 x i32], [1 x i32]* @var1, i32 0, i32 0)
+; CHECK-NEXT:    ret i32* bitcast ([1 x i32]* @var1 to i32*)
 ;
   %ptr = call i32* @func1a([1 x i32]* @var1)
   ret i32* %ptr

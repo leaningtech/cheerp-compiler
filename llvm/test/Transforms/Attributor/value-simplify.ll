@@ -568,7 +568,7 @@ define i8* @complicated_args_byval2() {
 ; IS__CGSCC_OPM-NEXT:    ret i8* [[C]]
 ;
 ; IS__CGSCC_NPM-LABEL: define {{[^@]+}}@complicated_args_byval2() {
-; IS__CGSCC_NPM-NEXT:    [[TMP1:%.*]] = load i8*, i8** getelementptr inbounds ([[STRUCT_X:%.*]], %struct.X* @S, i32 0, i32 0), align 8
+; IS__CGSCC_NPM-NEXT:    [[TMP1:%.*]] = load i8*, i8** bitcast ([[STRUCT_X:%.*]]* @S to i8**), align 8
 ; IS__CGSCC_NPM-NEXT:    [[C:%.*]] = call i8* @test_byval2(i8* noalias nofree readnone "no-capture-maybe-returned" [[TMP1]])
 ; IS__CGSCC_NPM-NEXT:    ret i8* [[TMP1]]
 ;

@@ -33,7 +33,7 @@ private:
 
   void setupTestPrinter() {
     auto ExpectedTestPrinter = TestAsmPrinter::create(
-        sys::getDefaultTargetTriple(), /*DwarfVersion=*/4, dwarf::DWARF32);
+        sys::getProcessTriple(), /*DwarfVersion=*/4, dwarf::DWARF32);
     ASSERT_THAT_EXPECTED(ExpectedTestPrinter, Succeeded());
     TestPrinter = std::move(ExpectedTestPrinter.get());
   }

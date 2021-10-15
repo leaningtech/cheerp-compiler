@@ -428,9 +428,9 @@ for.end:                                          ; preds = %for.body
 define i32 @foo1() local_unnamed_addr #0 {
 ; SSE-LABEL: @foo1(
 ; SSE-NEXT:  entry:
-; SSE-NEXT:    [[TMP0:%.*]] = load <4 x i32>, <4 x i32>* bitcast ([64 x i32]* @ib to <4 x i32>*), align 16
+; SSE-NEXT:    [[TMP0:%.*]] = load <4 x i32>, <4 x i32>* bitcast (i32* getelementptr inbounds ([64 x i32], [64 x i32]* @ib, i64 0, i64 0) to <4 x i32>*), align 16
 ; SSE-NEXT:    [[TMP1:%.*]] = xor <4 x i32> [[TMP0]], <i32 -1, i32 -1, i32 -1, i32 -1>
-; SSE-NEXT:    store <4 x i32> [[TMP1]], <4 x i32>* bitcast ([64 x i32]* @ia to <4 x i32>*), align 16
+; SSE-NEXT:    store <4 x i32> [[TMP1]], <4 x i32>* bitcast (i32* getelementptr inbounds ([64 x i32], [64 x i32]* @ia, i64 0, i64 0) to <4 x i32>*), align 16
 ; SSE-NEXT:    [[TMP2:%.*]] = load <4 x i32>, <4 x i32>* bitcast (i32* getelementptr inbounds ([64 x i32], [64 x i32]* @ib, i64 0, i64 4) to <4 x i32>*), align 16
 ; SSE-NEXT:    [[TMP3:%.*]] = xor <4 x i32> [[TMP2]], <i32 -1, i32 -1, i32 -1, i32 -1>
 ; SSE-NEXT:    store <4 x i32> [[TMP3]], <4 x i32>* bitcast (i32* getelementptr inbounds ([64 x i32], [64 x i32]* @ia, i64 0, i64 4) to <4 x i32>*), align 16
@@ -498,9 +498,9 @@ define i32 @foo1() local_unnamed_addr #0 {
 ;
 ; AVX512-LABEL: @foo1(
 ; AVX512-NEXT:  entry:
-; AVX512-NEXT:    [[TMP0:%.*]] = load <16 x i32>, <16 x i32>* bitcast ([64 x i32]* @ib to <16 x i32>*), align 16
+; AVX512-NEXT:    [[TMP0:%.*]] = load <16 x i32>, <16 x i32>* bitcast (i32* getelementptr inbounds ([64 x i32], [64 x i32]* @ib, i64 0, i64 0) to <16 x i32>*), align 16
 ; AVX512-NEXT:    [[TMP1:%.*]] = xor <16 x i32> [[TMP0]], <i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1>
-; AVX512-NEXT:    store <16 x i32> [[TMP1]], <16 x i32>* bitcast ([64 x i32]* @ia to <16 x i32>*), align 16
+; AVX512-NEXT:    store <16 x i32> [[TMP1]], <16 x i32>* bitcast (i32* getelementptr inbounds ([64 x i32], [64 x i32]* @ia, i64 0, i64 0) to <16 x i32>*), align 16
 ; AVX512-NEXT:    [[TMP2:%.*]] = load <16 x i32>, <16 x i32>* bitcast (i32* getelementptr inbounds ([64 x i32], [64 x i32]* @ib, i64 0, i64 16) to <16 x i32>*), align 16
 ; AVX512-NEXT:    [[TMP3:%.*]] = xor <16 x i32> [[TMP2]], <i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1>
 ; AVX512-NEXT:    store <16 x i32> [[TMP3]], <16 x i32>* bitcast (i32* getelementptr inbounds ([64 x i32], [64 x i32]* @ia, i64 0, i64 16) to <16 x i32>*), align 16

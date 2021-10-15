@@ -1,5 +1,7 @@
 ; RUN: llc < %s
 
+target triple = "x86_64-unknown-linux"
+
 define i8 @test1(double %X) {
 	%tmp.1 = fptosi double %X to i8		; <i8> [#uses=1]
 	ret i8 %tmp.1

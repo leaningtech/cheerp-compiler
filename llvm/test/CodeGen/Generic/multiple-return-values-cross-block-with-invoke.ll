@@ -1,4 +1,6 @@
 ; RUN: llc < %s
+target triple = "x86_64-unknown-linux"
+
 declare { i64, double } @wild()
 
 define void @foo(i64* %p, double* %q) nounwind personality i32 (...)* @__gxx_personality_v0 {

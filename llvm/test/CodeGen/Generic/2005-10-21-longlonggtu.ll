@@ -1,5 +1,7 @@
 ; RUN: llc < %s
 
+target triple = "x86_64-unknown-linux"
+
 define float @t(i64 %u_arg) {
         %u = bitcast i64 %u_arg to i64          ; <i64> [#uses=1]
         %tmp5 = add i64 %u, 9007199254740991            ; <i64> [#uses=1]

@@ -97,14 +97,14 @@ struct S {
 };
 // ALL-LABEL: critical_ref
 void critical_ref(S &s) {
-  // ALL: [[S_ADDR:%.+]] = alloca %struct.S*,
-  // ALL: [[S_REF:%.+]] = load %struct.S*, %struct.S** [[S_ADDR]],
-  // ALL: [[S_A_REF:%.+]] = getelementptr inbounds %struct.S, %struct.S* [[S_REF]], i32 0, i32 0
+  // ALL: [[S_ADDR:%.+]] = alloca %struct.{{.*}}S*,
+  // ALL: [[S_REF:%.+]] = load %struct.{{.*}}S*, %struct.{{.*}}S** [[S_ADDR]],
+  // ALL: [[S_A_REF:%.+]] = getelementptr inbounds %struct.{{.*}}S, %struct.{{.*}}S* [[S_REF]], i32 0, i32 0
   ++s.a;
   // ALL: call void @__kmpc_critical(
   [[omp::directive(critical)]]
-  // ALL: [[S_REF:%.+]] = load %struct.S*, %struct.S** [[S_ADDR]],
-  // ALL: [[S_A_REF:%.+]] = getelementptr inbounds %struct.S, %struct.S* [[S_REF]], i32 0, i32 0
+  // ALL: [[S_REF:%.+]] = load %struct.{{.*}}S*, %struct.{{.*}}S** [[S_ADDR]],
+  // ALL: [[S_A_REF:%.+]] = getelementptr inbounds %struct.{{.*}}S, %struct.{{.*}}S* [[S_REF]], i32 0, i32 0
   ++s.a;
   // ALL: call void @__kmpc_end_critical(
 }

@@ -10,7 +10,7 @@ struct X { int a[2]; };
 // CHECK: @test.i23 = internal global i32 4, align 4
 // CHECK: @i = global i32 4, align 4
 // CHECK: @Arr = global [100 x i32] zeroinitializer, align 16
-// CHECK: @foo2.X = internal global i32* bitcast (i8* getelementptr (i8, i8* bitcast ([100 x i32]* @Arr to i8*), i64 196) to i32*), align 8
+// CHECK: @foo2.X = internal global i32* getelementptr inbounds ([100 x i32], [100 x i32]* @Arr, i32 0, i32 49), align 8
 // CHECK: @foo2.i23 = internal global i32 0, align 4
 //.
 // CHECK-LABEL: define {{[^@]+}}@test

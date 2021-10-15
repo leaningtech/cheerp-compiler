@@ -12,11 +12,6 @@ declare { i8*, i1 } @llvm.type.checked.load(i8*, i32, metadata)
 !0 = !{i64 0, !"vfunc1.type"}
 !1 = !{i64 4, !"vfunc2.type"}
 
-; CHECK:      @vtable = internal unnamed_addr constant { [2 x i32] } { [2 x i32] [
-; CHECK-SAME:   i32 trunc (i64 sub (i64 ptrtoint (void ()* @vfunc1_live              to i64), i64 ptrtoint ({ [2 x i32] }* @vtable to i64)) to i32),
-; CHECK-SAME:   i32 0
-; CHECK-SAME: ] }, align 8, !type !0, !type !1, !vcall_visibility !2
-
 ; (1) vfunc1_live is referenced from @main, stays alive
 define internal void @vfunc1_live() {
   ; CHECK: define internal void @vfunc1_live(

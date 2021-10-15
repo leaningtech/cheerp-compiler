@@ -98,7 +98,7 @@ define void @NormalArgAfterNoUndef(i32 noundef %a, i32 %b) nounwind uwtable sani
 define void @PartialArg(i32 %a) nounwind uwtable sanitize_memory {
 ; CHECK-LABEL: @PartialArg(
 ; CHECK-NEXT:    [[TMP1:%.*]] = load i32, i32* bitcast ([100 x i64]* @__msan_param_tls to i32*), align 8
-; CHECK-NEXT:    [[TMP2:%.*]] = load i32, i32* getelementptr inbounds ([200 x i32], [200 x i32]* @__msan_param_origin_tls, i32 0, i32 0), align 4
+; CHECK-NEXT:    [[TMP2:%.*]] = load i32, i32* bitcast ([200 x i32]* @__msan_param_origin_tls to i32*), align 4
 ; CHECK-NEXT:    call void @llvm.donothing()
 ; CHECK-NEXT:    [[P:%.*]] = inttoptr i64 0 to i32*
 ; CHECK-NEXT:    [[TMP3:%.*]] = ptrtoint i32* [[P]] to i64

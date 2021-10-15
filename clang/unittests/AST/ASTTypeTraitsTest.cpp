@@ -161,13 +161,6 @@ TEST(DynTypedNode, NNSLocSourceRange) {
                              nestedNameSpecifierLoc()));
 }
 
-TEST(DynTypedNode, AttrSourceRange) {
-  RangeVerifier<DynTypedNode> Verifier;
-  Verifier.expectRange(1, 31, 1, 31);
-  EXPECT_TRUE(Verifier.match("void x(char *y __attribute__((nonnull)) );",
-                             ast_matchers::attr()));
-}
-
 TEST(DynTypedNode, DeclDump) {
   DumpVerifier Verifier;
   Verifier.expectSubstring("FunctionDecl");

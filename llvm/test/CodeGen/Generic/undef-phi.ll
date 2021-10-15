@@ -1,5 +1,7 @@
 ; RUN: llc < %s -verify-machineinstrs -verify-coalescing
 ;
+target triple = "x86_64-unknown-linux"
+
 ; This function has a PHI with one undefined input. Verify that PHIElimination
 ; inserts an IMPLICIT_DEF instruction in the predecessor so all paths to the use
 ; pass through a def.

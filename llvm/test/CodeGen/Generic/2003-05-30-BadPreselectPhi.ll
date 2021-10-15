@@ -1,5 +1,7 @@
 ; RUN: llc < %s
 
+target triple = "x86_64-unknown-linux"
+
 ;; Date:     May 28, 2003.
 ;; From:     test/Programs/SingleSource/richards_benchmark.c
 ;; Function: struct task *handlerfn(struct packet *pkt)

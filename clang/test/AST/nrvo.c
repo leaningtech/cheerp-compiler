@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -ast-dump -fblocks %s | FileCheck -strict-whitespace %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -ast-dump -fblocks %s | FileCheck -strict-whitespace %s
 
 struct A {};
 

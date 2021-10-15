@@ -1,5 +1,7 @@
 ; RUN: llc -no-integrated-as < %s
 
+target triple = "x86_64-unknown-linux"
+
 ; Test that we can have an "X" output constraint.
 
 define void @test(i16 * %t) {

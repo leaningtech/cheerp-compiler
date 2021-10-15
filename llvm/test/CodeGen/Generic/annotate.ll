@@ -1,5 +1,7 @@
 ; RUN: llc < %s
 
+target triple = "x86_64-unknown-linux"
+
 ; PR15253
 
 @.str = private unnamed_addr constant [4 x i8] c"sth\00", section "llvm.metadata"

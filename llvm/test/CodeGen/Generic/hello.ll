@@ -1,5 +1,7 @@
 ; RUN: llc < %s
 
+target triple = "x86_64-unknown-linux"
+
 @.str_1 = internal constant [7 x i8] c"hello\0A\00"             ; <[7 x i8]*> [#uses=1]
 
 declare i32 @printf(i8*, ...)

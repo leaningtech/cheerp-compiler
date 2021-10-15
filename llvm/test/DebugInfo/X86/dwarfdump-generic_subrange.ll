@@ -2,6 +2,7 @@
 
 ; RUN: llc %s -mtriple=x86_64 -filetype=obj -o - | llvm-dwarfdump - | FileCheck %s
 
+target triple = "x86_64-unknown-linux"
 ;; Test whether DW_AT_data_location is generated.
 ; CHECK-LABEL:  DW_TAG_array_type
 

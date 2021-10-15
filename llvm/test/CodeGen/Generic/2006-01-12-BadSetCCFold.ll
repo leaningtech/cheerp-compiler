@@ -1,5 +1,7 @@
 ; RUN: llc < %s
 ; ModuleID = '2006-01-12-BadSetCCFold.ll'
+target triple = "x86_64-unknown-linux"
+
 	%struct.node_t = type { double*, %struct.node_t*, %struct.node_t**, double**, double*, i32, i32 }
 
 define void @main() {

@@ -2,7 +2,7 @@
 @import DependsOnModule;
 
 // RUN: rm -rf %t %t-obj
-// RUN: %clang_cc1 -w -Wunused -fmodules -fmodule-format=obj -fimplicit-module-maps -fdisable-module-hash -fmodules-cache-path=%t-obj -F %S/Inputs -DBLARG -DWIBBLE=WOBBLE -fmodule-feature myfeature %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -w -Wunused -fmodules -fmodule-format=obj -fimplicit-module-maps -fdisable-module-hash -fmodules-cache-path=%t-obj -F %S/Inputs -DBLARG -DWIBBLE=WOBBLE -fmodule-feature myfeature %s
 // RUN: %clang -module-file-info %t-obj/DependsOnModule.pcm | FileCheck %s
 // RUN: %clang -module-file-info %t-obj/DependsOnModule.pcm | FileCheck %s
 

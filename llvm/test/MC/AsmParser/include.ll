@@ -2,6 +2,8 @@
 ; UNSUPPORTED: -zos
 ; REQUIRES: default_triple
 
+target triple = "x86_64-unknown-linux"
+
 module asm ".include \22module.x\22"
 
 define void @f() {

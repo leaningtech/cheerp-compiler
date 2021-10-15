@@ -6,7 +6,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define void @var_funnel_i64(i64 %a64, <2 x i64> %a128, <4 x i64> %a256, <8 x i64> %a512, i64 %b64, <2 x i64> %b128, <4 x i64> %b256, <8 x i64> %b512, i64 %c64, <2 x i64> %c128, <4 x i64> %c256, <8 x i64> %c512) sanitize_memory {
 ; CHECK-LABEL: @var_funnel_i64(
-; CHECK-NEXT:    [[TMP1:%.*]] = load i64, i64* getelementptr inbounds ([100 x i64], [100 x i64]* @__msan_param_tls, i32 0, i32 0), align 8
+; CHECK-NEXT:    [[TMP1:%.*]] = load i64, i64* bitcast ([100 x i64]* @__msan_param_tls to i64*), align 8
 ; CHECK-NEXT:    [[TMP2:%.*]] = load i64, i64* inttoptr (i64 add (i64 ptrtoint ([100 x i64]* @__msan_param_tls to i64), i64 120) to i64*), align 8
 ; CHECK-NEXT:    [[TMP3:%.*]] = load i64, i64* inttoptr (i64 add (i64 ptrtoint ([100 x i64]* @__msan_param_tls to i64), i64 240) to i64*), align 8
 ; CHECK-NEXT:    [[TMP4:%.*]] = load <2 x i64>, <2 x i64>* inttoptr (i64 add (i64 ptrtoint ([100 x i64]* @__msan_param_tls to i64), i64 8) to <2 x i64>*), align 8
@@ -182,7 +182,7 @@ define void @var_funnel_i8(i8 %a8, <16 x i8> %a128, <32 x i8> %a256, <64 x i8> %
 
 define void @var_rotate_i64(i64 %a64, <2 x i64> %a128, <4 x i64> %a256, <8 x i64> %a512, i64 %c64, <2 x i64> %c128, <4 x i64> %c256, <8 x i64> %c512) sanitize_memory {
 ; CHECK-LABEL: @var_rotate_i64(
-; CHECK-NEXT:    [[TMP1:%.*]] = load i64, i64* getelementptr inbounds ([100 x i64], [100 x i64]* @__msan_param_tls, i32 0, i32 0), align 8
+; CHECK-NEXT:    [[TMP1:%.*]] = load i64, i64* bitcast ([100 x i64]* @__msan_param_tls to i64*), align 8
 ; CHECK-NEXT:    [[TMP2:%.*]] = load i64, i64* inttoptr (i64 add (i64 ptrtoint ([100 x i64]* @__msan_param_tls to i64), i64 120) to i64*), align 8
 ; CHECK-NEXT:    [[TMP3:%.*]] = load <2 x i64>, <2 x i64>* inttoptr (i64 add (i64 ptrtoint ([100 x i64]* @__msan_param_tls to i64), i64 8) to <2 x i64>*), align 8
 ; CHECK-NEXT:    [[TMP4:%.*]] = load <2 x i64>, <2 x i64>* inttoptr (i64 add (i64 ptrtoint ([100 x i64]* @__msan_param_tls to i64), i64 128) to <2 x i64>*), align 8

@@ -1,5 +1,7 @@
 ; RUN: llc < %s
 
+target triple = "x86_64-unknown-linux"
+
 define void @intersect_pixel() {
 entry:
         %tmp125 = fcmp uno double 0.000000e+00, 0.000000e+00            ; <i1> [#uses=1]

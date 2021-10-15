@@ -1,5 +1,7 @@
 ; RUN: llc < %s
 
+target triple = "x86_64-unknown-linux"
+
 declare i1 @llvm.isunordered.f64(double, double)
 
 define i1 @test(double %X, double %Y) {

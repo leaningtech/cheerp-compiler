@@ -1,5 +1,7 @@
 ; RUN: llc -regalloc=pbqp < %s
 
+target triple = "x86_64-unknown-linux"
+
 define i32 @foo() {
 entry:
   %call = tail call i32 (...) @baz()

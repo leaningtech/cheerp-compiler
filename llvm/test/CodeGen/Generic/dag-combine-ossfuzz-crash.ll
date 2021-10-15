@@ -1,6 +1,8 @@
 ; RUN: llc < %s
 ; XFAIL: avr
 
+target triple = "x86_64-unknown-linux"
+
 ; llc built with address sanitizer crashes because of a dangling node pointer
 ; oss-fuzz -  DAGCombiner::useDivRem (5011)
 

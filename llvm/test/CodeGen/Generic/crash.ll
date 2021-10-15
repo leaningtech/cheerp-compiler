@@ -1,6 +1,8 @@
 ; RUN: llc %s -o -
 
 ; PR6332
+target triple = "x86_64-unknown-linux"
+
 %struct.AVCodecTag = type {}
 @ff_codec_bmp_tags = external global [0 x %struct.AVCodecTag]
 @tags = global [1 x %struct.AVCodecTag*] [%struct.AVCodecTag* getelementptr

@@ -10,6 +10,8 @@
 
 ; Regression test for nondeterminism introduced in https://reviews.llvm.org/D57694
 
+target triple = "x86_64-unknown-linux"
+
 define void @test(i32 %x) !dbg !4 {
 entry:
 	call void @llvm.dbg.value(metadata void (i32)* @f1, metadata !6, metadata !DIExpression()), !dbg !8

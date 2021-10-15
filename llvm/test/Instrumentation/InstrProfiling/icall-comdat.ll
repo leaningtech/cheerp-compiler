@@ -27,9 +27,9 @@ $bar = comdat any
 
 define i32 @bar(i32 ()* ) comdat {
 entry:
-  call void @llvm.instrprof.increment(i8* getelementptr inbounds ([3 x i8], [3 x i8]* @__profn_bar, i32 0, i32 0), i64 12884901887, i32 1, i32 0)
+  call void @llvm.instrprof.increment(i8* bitcast ([3 x i8]* @__profn_bar to i8*), i64 12884901887, i32 1, i32 0)
   %1 = ptrtoint i32 ()* %0 to i64
-  call void @llvm.instrprof.value.profile(i8* getelementptr inbounds ([3 x i8], [3 x i8]* @__profn_bar, i32 0, i32 0), i64 12884901887, i64 %1, i32 0, i32 0)
+  call void @llvm.instrprof.value.profile(i8* bitcast ([3 x i8]* @__profn_bar to i8*), i64 12884901887, i64 %1, i32 0, i32 0)
   %2 = tail call i32 %0()
   ret i32 %2
 }

@@ -11,7 +11,7 @@ define void @foo(i64* nocapture %P) {
 ; CHECK-NEXT:    [[TMP1:%.*]] = bitcast i16* [[ARRAYIDX]] to i32*
 ; CHECK-NEXT:    [[ARRAYIDX1:%.*]] = getelementptr inbounds i16, i16* [[TMP0]], i64 3
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i16* [[TMP0]] to i8*
-; CHECK-NEXT:    call void @llvm.memset.p0i8.i64(i8* align 2 [[TMP2]], i8 0, i64 8, i1 false)
+; CHECK-NEXT:    call void @llvm.memset.p0i8.i32(i8* align 2 [[TMP2]], i8 0, i32 8, i1 false)
 ; CHECK-NEXT:    ret void
 ;
 entry:

@@ -3,6 +3,7 @@
 ; ModuleID = 'pr6157.bc'
 ; formerly crashed in SelectionDAGBuilder
 
+target triple = "x86_64-unknown-linux"
 %tart.reflect.ComplexType = type { double, double }
 
 @.type.SwitchStmtTest = constant %tart.reflect.ComplexType { double 3.0, double 2.0 }

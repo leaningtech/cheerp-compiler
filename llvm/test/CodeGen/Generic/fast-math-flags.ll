@@ -1,5 +1,7 @@
 ; RUN: not llc < %s 2>&1 | FileCheck %s
 
+target triple = "x86_64-unknown-linux"
+
 ; CHECK: error: fast-math-flags specified for call without floating-point scalar or vector return type
 define i64 @test_lrintf(float %f) {
 entry:

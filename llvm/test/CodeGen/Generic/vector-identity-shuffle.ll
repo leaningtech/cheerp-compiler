@@ -1,5 +1,7 @@
 ; RUN: llc < %s 
 
+target triple = "x86_64-unknown-linux"
+
 
 define void @test(<4 x float>* %tmp2.i) {
         %tmp2.i.upgrd.1 = load <4 x float>, <4 x float>* %tmp2.i             ; <<4 x float>> [#uses=4]

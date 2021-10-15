@@ -1063,9 +1063,9 @@ LambdaExpr
 
 TEST(Traverse, IgnoreUnlessSpelledInSourceImplicit) {
   {
-    auto AST = buildASTFromCode(R"cpp(
+    auto AST = buildASTFromCodeWithArgs(R"cpp(
 int i = 0;
-)cpp");
+)cpp", {"-target", "x86_64-unknown-gnu"});
     const auto *TUDecl = AST->getASTContext().getTranslationUnitDecl();
 
     EXPECT_EQ(dumpASTString(TK_IgnoreUnlessSpelledInSource, TUDecl),
@@ -1158,7 +1158,7 @@ void decomposition()
 }
 
 )cpp",
-                                       {"-std=c++20"});
+                                       {"-std=c++20", "-target", "x86_64-unknown-gnu"});
 
   {
     auto BN = ast_matchers::match(
@@ -1498,7 +1498,7 @@ DecompositionDecl ''
 
 TEST(Traverse, IgnoreUnlessSpelledInSourceTemplateInstantiations) {
 
-  auto AST = buildASTFromCode(R"cpp(
+  auto AST = buildASTFromCodeWithArgs(R"cpp(
 template<typename T>
 struct TemplStruct {
   TemplStruct() {}
@@ -1541,7 +1541,7 @@ template float timesTwo(float);
 template<> bool timesTwo<bool>(bool) {
   return true;
 }
-)cpp");
+)cpp", {"-target", "x86_64-unknown-gnu"});
   {
     auto BN = ast_matchers::match(
         classTemplateDecl(hasName("TemplStruct")).bind("rec"),

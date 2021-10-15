@@ -1,5 +1,6 @@
 ; RUN: llc < %s
 
+target triple = "x86_64-unknown-linux"
 !llvm.dbg.cu = !{!0}
 !llvm.module.flags = !{!2}
 

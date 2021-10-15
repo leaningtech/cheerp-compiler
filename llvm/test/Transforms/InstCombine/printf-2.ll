@@ -85,7 +85,7 @@ define void @test_simplify8() {
 
 define void @test_simplify9() {
 ; CHECK-LABEL: @test_simplify9(
-; CHECK-NEXT:    [[PUTS:%.*]] = call i32 @puts(i8* nonnull dereferenceable(1) getelementptr inbounds ([12 x i8], [12 x i8]* @str.1, i32 0, i32 0))
+; CHECK-NEXT:    [[PUTS:%.*]] = call i32 @puts(i8* nonnull dereferenceable(1) bitcast ([12 x i8]* @str.1 to i8*))
 ; CHECK-NEXT:    ret void
 ;
   %fmt = getelementptr [3 x i8], [3 x i8]* @format_str, i32 0, i32 0
@@ -101,7 +101,7 @@ define void @test_simplify9() {
 define void @test_simplify10() {
 ; CHECK-LABEL: @test_simplify10(
 ; CHECK-NEXT:    [[PUTCHAR:%.*]] = call i32 @putchar(i32 97)
-; CHECK-NEXT:    [[PUTS:%.*]] = call i32 @puts(i8* nonnull dereferenceable(1) getelementptr inbounds ([12 x i8], [12 x i8]* @str.2, i32 0, i32 0))
+; CHECK-NEXT:    [[PUTS:%.*]] = call i32 @puts(i8* nonnull dereferenceable(1) bitcast ([12 x i8]* @str.2 to i8*))
 ; CHECK-NEXT:    ret void
 ;
   %fmt = getelementptr [3 x i8], [3 x i8]* @format_str, i32 0, i32 0

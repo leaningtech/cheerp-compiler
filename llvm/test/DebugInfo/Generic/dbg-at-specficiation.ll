@@ -3,6 +3,7 @@
 ; Do not unnecessarily use AT_specification DIE.
 ; CHECK-NOT: AT_specification
 
+target triple = "x86_64-unknown-linux"
 source_filename = "test/DebugInfo/Generic/dbg-at-specficiation.ll"
 
 @a = common global [10 x i32] zeroinitializer, align 16, !dbg !0

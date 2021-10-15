@@ -28,9 +28,9 @@ define void @test1(%struct.bar* %this) {
 ; CHECK-NEXT:    [[TMP14:%.*]] = getelementptr inbounds [[STRUCT_BAR]], %struct.bar* [[THIS]], i32 0, i32 4, i32 0, i32 3
 ; CHECK-NEXT:    [[TMP15:%.*]] = getelementptr inbounds [[STRUCT_BAR]], %struct.bar* [[THIS]], i32 0, i32 5
 ; CHECK-NEXT:    [[TMP16:%.*]] = bitcast float* [[TMP0]] to i8*
-; CHECK-NEXT:    call void @llvm.memset.p0i8.i64(i8* align 4 [[TMP16]], i8 0, i64 32, i1 false)
+; CHECK-NEXT:    call void @llvm.memset.p0i8.i32(i8* align 4 [[TMP16]], i8 0, i32 32, i1 false)
 ; CHECK-NEXT:    [[TMP17:%.*]] = bitcast float* [[TMP8]] to i8*
-; CHECK-NEXT:    call void @llvm.memset.p0i8.i64(i8* align 4 [[TMP17]], i8 0, i64 32, i1 false)
+; CHECK-NEXT:    call void @llvm.memset.p0i8.i32(i8* align 4 [[TMP17]], i8 0, i32 32, i1 false)
 ; CHECK-NEXT:    unreachable
 ;
 entry:

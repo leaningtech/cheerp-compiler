@@ -1,5 +1,6 @@
 ; RUN: llc  -o /dev/null < %s
 ; Radar 7937664
+target triple = "x86_64-unknown-linux"
 %struct.AppleEvent = type opaque
 
 define void @DisposeDMNotificationUPP(void (%struct.AppleEvent*)* %userUPP) "frame-pointer"="non-leaf" nounwind ssp {

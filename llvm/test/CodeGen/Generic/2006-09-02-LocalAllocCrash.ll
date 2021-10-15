@@ -1,5 +1,7 @@
 ; RUN: llc < %s -regalloc=fast -optimize-regalloc=0
 	
+target triple = "x86_64-unknown-linux"
+
 %struct.CHESS_POSITION = type { i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i32, i32, i8, i8, [64 x i8], i8, i8, i8, i8, i8 }
 @search = external global %struct.CHESS_POSITION		; <%struct.CHESS_POSITION*> [#uses=2]
 @bishop_shift_rl45 = external global [64 x i32]		; <[64 x i32]*> [#uses=1]

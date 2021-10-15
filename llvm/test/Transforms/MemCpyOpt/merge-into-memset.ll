@@ -13,10 +13,10 @@ define void @foo(i1 %c, i8* %d, i8* %e, i8* %f) {
 ; CHECK-NEXT:    [[TMP4:%.*]] = bitcast [50 x i8]* [[TMP]] to i8*
 ; CHECK-NEXT:    [[TMP1:%.*]] = getelementptr inbounds i8, i8* [[TMP4]], i64 1
 ; CHECK-NEXT:    call void @llvm.memset.p0i8.i64(i8* nonnull [[D:%.*]], i8 0, i64 10, i1 false)
-; CHECK-NEXT:    call void @llvm.memset.p0i8.i64(i8* align 8 [[TMP4]], i8 0, i64 11, i1 false)
+; CHECK-NEXT:    call void @llvm.memset.p0i8.i32(i8* align 8 [[TMP4]], i8 0, i32 11, i1 false)
 ; CHECK-NEXT:    br i1 [[C:%.*]], label [[IF_THEN:%.*]], label [[EXIT:%.*]]
 ; CHECK:       if.then:
-; CHECK-NEXT:    call void @llvm.memset.p0i8.i64(i8* align 8 [[F:%.*]], i8 0, i64 11, i1 false)
+; CHECK-NEXT:    call void @llvm.memset.p0i8.i32(i8* align 8 [[F:%.*]], i8 0, i32 11, i1 false)
 ; CHECK-NEXT:    br label [[EXIT]]
 ; CHECK:       exit:
 ; CHECK-NEXT:    ret void

@@ -131,7 +131,7 @@ define i32 @main() nounwind  {
 ; IS__CGSCC_NPM-SAME: () #[[ATTR1:[0-9]+]] {
 ; IS__CGSCC_NPM-NEXT:  entry:
 ; IS__CGSCC_NPM-NEXT:    [[S:%.*]] = alloca [[STRUCT_SS:%.*]], align 4
-; IS__CGSCC_NPM-NEXT:    [[TMP1:%.*]] = getelementptr [[STRUCT_SS]], %struct.ss* [[S]], i32 0, i32 0
+; IS__CGSCC_NPM-NEXT:    [[TMP1:%.*]] = bitcast [[STRUCT_SS]]* [[S]]
 ; IS__CGSCC_NPM-NEXT:    [[TMP4:%.*]] = getelementptr [[STRUCT_SS]], %struct.ss* [[S]], i32 0, i32 1
 ; IS__CGSCC_NPM-NEXT:    ret i32 3
 ;

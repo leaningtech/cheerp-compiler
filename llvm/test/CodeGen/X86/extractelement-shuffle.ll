@@ -5,6 +5,7 @@
 ; following program.  The bug is DAGCombine assumes that the bit convert
 ; preserves the number of elements so the optimization code tries to read
 ; through the 3rd mask element, which doesn't exist.
+target triple = "x86_64-unknown-linux"
 define i32 @update(<2 x i64> %val1, <2 x i64> %val2) nounwind readnone {
 entry:
 	%shuf = shufflevector <2 x i64> %val1, <2 x i64> %val2, <2 x i32> <i32 0, i32 3>

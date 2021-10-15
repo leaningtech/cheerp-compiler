@@ -54,7 +54,6 @@ GUID const_init = __uuidof(Curly);
 // CHECK-64: @gr ={{.*}} constant %struct._GUID* bitcast ({ i32, i16, i16, [8 x i8] }* @_GUID_12345678_1234_1234_1234_1234567890ab to %struct._GUID*), align 8
 const GUID& gr = __uuidof(S1);
 
-// CHECK: @gp ={{.*}} global %struct._GUID* bitcast ({ i32, i16, i16, [8 x i8] }* @_GUID_12345678_1234_1234_1234_1234567890ab to %struct._GUID*), align 4
 const GUID* gp = &__uuidof(S1);
 
 // CHECK: @cp ={{.*}} global %struct._GUID* bitcast ({ i32, i16, i16, [8 x i8] }* @_GUID_12345678_1234_1234_1234_1234567890ac to %struct._GUID*), align 4

@@ -1,5 +1,5 @@
 set(LLVM_LINK_COMPONENTS
-  CheerpWriter
+  CheerpUtils
   Core
   IRReader
   )

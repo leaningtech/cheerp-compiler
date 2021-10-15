@@ -13,8 +13,7 @@ define void @caller() {
 ; IS________OPM-NEXT:  entry:
 ; IS________OPM-NEXT:    [[LEFT:%.*]] = alloca [3 x i32], align 4
 ; IS________OPM-NEXT:    [[ARRAYDECAY:%.*]] = getelementptr inbounds [3 x i32], [3 x i32]* [[LEFT]], i64 0, i64 0
-; IS________OPM-NEXT:    call void @callee(i32* noalias nocapture noundef nonnull readonly align 4 dereferenceable(12) [[ARRAYDECAY]])
-; IS________OPM-NEXT:    ret void
+; IS________OPM:    ret void
 ;
 ; IS__TUNIT_NPM-LABEL: define {{[^@]+}}@caller() {
 ; IS__TUNIT_NPM-NEXT:  entry:
@@ -44,10 +43,6 @@ entry:
 
 define internal void @callee(i32* noalias %arg) {
 ; IS________OPM-LABEL: define {{[^@]+}}@callee
-; IS________OPM-SAME: (i32* noalias nocapture noundef nonnull readonly align 4 dereferenceable(12) [[ARG:%.*]]) {
-; IS________OPM-NEXT:  entry:
-; IS________OPM-NEXT:    call void @use(i32* noalias nocapture noundef nonnull readonly align 4 dereferenceable(12) [[ARG]])
-; IS________OPM-NEXT:    ret void
 ;
 ; IS________NPM-LABEL: define {{[^@]+}}@callee
 ; IS________NPM-SAME: (i32 [[TMP0:%.*]], i32 [[TMP1:%.*]], i32 [[TMP2:%.*]]) {

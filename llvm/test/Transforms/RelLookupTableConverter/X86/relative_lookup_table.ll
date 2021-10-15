@@ -83,26 +83,26 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Relative switch lookup table for strings
 ; CHECK: @reltable.string_table = private unnamed_addr constant [3 x i32]
 ; CHECK-SAME: [
-; CHECK-SAME: i32 trunc (i64 sub (i64 ptrtoint ([5 x i8]* @.str to i64), i64 ptrtoint ([3 x i32]* @reltable.string_table to i64)) to i32),
-; CHECK-SAME: i32 trunc (i64 sub (i64 ptrtoint ([4 x i8]* @.str.1 to i64), i64 ptrtoint ([3 x i32]* @reltable.string_table to i64)) to i32),
-; CHECK-SAME: i32 trunc (i64 sub (i64 ptrtoint ([4 x i8]* @.str.2 to i64), i64 ptrtoint ([3 x i32]* @reltable.string_table to i64)) to i32)
+; CHECK-SAME: i32 trunc (i64 sub (i64 ptrtoint (i8* getelementptr inbounds ([5 x i8], [5 x i8]* @.str, i64 0, i64 0) to i64), i64 ptrtoint ([3 x i32]* @reltable.string_table to i64)) to i32),
+; CHECK-SAME: i32 trunc (i64 sub (i64 ptrtoint (i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str.1, i64 0, i64 0) to i64), i64 ptrtoint ([3 x i32]* @reltable.string_table to i64)) to i32),
+; CHECK-SAME: i32 trunc (i64 sub (i64 ptrtoint (i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str.2, i64 0, i64 0) to i64), i64 ptrtoint ([3 x i32]* @reltable.string_table to i64)) to i32)
 ; CHECK-SAME: ], align 4
 
 ; Relative switch lookup table for strings with holes, where holes are filled with relative offset to default values
 ; CHECK: @reltable.string_table_holes = private unnamed_addr constant [4 x i32]
 ; CHECK-SAME: [
-; CHECK-SAME: i32 trunc (i64 sub (i64 ptrtoint ([5 x i8]* @.str to i64), i64 ptrtoint ([4 x i32]* @reltable.string_table_holes to i64)) to i32),
-; CHECK-SAME: i32 trunc (i64 sub (i64 ptrtoint ([8 x i8]* @.str.3 to i64), i64 ptrtoint ([4 x i32]* @reltable.string_table_holes to i64)) to i32),
-; CHECK-SAME: i32 trunc (i64 sub (i64 ptrtoint ([4 x i8]* @.str.2 to i64), i64 ptrtoint ([4 x i32]* @reltable.string_table_holes to i64)) to i32),
-; CHECK-SAME: i32 trunc (i64 sub (i64 ptrtoint ([6 x i8]* @.str.4 to i64), i64 ptrtoint ([4 x i32]* @reltable.string_table_holes to i64)) to i32)
+; CHECK-SAME: i32 trunc (i64 sub (i64 ptrtoint (i8* getelementptr inbounds ([5 x i8], [5 x i8]* @.str, i64 0, i64 0) to i64), i64 ptrtoint ([4 x i32]* @reltable.string_table_holes to i64)) to i32),
+; CHECK-SAME: i32 trunc (i64 sub (i64 ptrtoint (i8* getelementptr inbounds ([8 x i8], [8 x i8]* @.str.3, i64 0, i64 0) to i64), i64 ptrtoint ([4 x i32]* @reltable.string_table_holes to i64)) to i32),
+; CHECK-SAME: i32 trunc (i64 sub (i64 ptrtoint (i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str.2, i64 0, i64 0) to i64), i64 ptrtoint ([4 x i32]* @reltable.string_table_holes to i64)) to i32),
+; CHECK-SAME: i32 trunc (i64 sub (i64 ptrtoint (i8* getelementptr inbounds ([6 x i8], [6 x i8]* @.str.4, i64 0, i64 0) to i64), i64 ptrtoint ([4 x i32]* @reltable.string_table_holes to i64)) to i32)
 ; CHECK-SAME: ], align 4
 
 ; Single value check
 ; CHECK: @reltable.single_value = private unnamed_addr constant [3 x i32]
 ; CHECK-SAME: [
-; CHECK-SAME: i32 trunc (i64 sub (i64 ptrtoint ([5 x i8]* @.str to i64), i64 ptrtoint ([3 x i32]* @reltable.single_value to i64)) to i32),
-; CHECK-SAME: i32 trunc (i64 sub (i64 ptrtoint ([4 x i8]* @.str.1 to i64), i64 ptrtoint ([3 x i32]* @reltable.single_value to i64)) to i32),
-; CHECK-SAME: i32 trunc (i64 sub (i64 ptrtoint ([4 x i8]* @.str.2 to i64), i64 ptrtoint ([3 x i32]* @reltable.single_value to i64)) to i32)
+; CHECK-SAME: i32 trunc (i64 sub (i64 ptrtoint (i8* getelementptr inbounds ([5 x i8], [5 x i8]* @.str, i64 0, i64 0) to i64), i64 ptrtoint ([3 x i32]* @reltable.single_value to i64)) to i32),
+; CHECK-SAME: i32 trunc (i64 sub (i64 ptrtoint (i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str.1, i64 0, i64 0) to i64), i64 ptrtoint ([3 x i32]* @reltable.single_value to i64)) to i32),
+; CHECK-SAME: i32 trunc (i64 sub (i64 ptrtoint (i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str.2, i64 0, i64 0) to i64), i64 ptrtoint ([3 x i32]* @reltable.single_value to i64)) to i32)
 ; CHECK-SAME: ], align 4
 ;
 

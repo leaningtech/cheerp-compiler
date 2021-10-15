@@ -1,5 +1,7 @@
 ; RUN: llc < %s
 
+target triple = "x86_64-unknown-linux"
+
 define i32 @test(i32 %tmp158) {
 entry:
         switch i32 %tmp158, label %bb336 [

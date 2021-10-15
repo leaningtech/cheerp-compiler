@@ -146,23 +146,12 @@ namespace test2 {
     // CHECK-NEXT: [[BEGIN:%.*]] = getelementptr inbounds [4 x [7 x [[A]]]], [4 x [7 x [[A]]]]* [[V]], i32 0, i32 0
     // CHECK-NEXT: [[END:%.*]] = getelementptr inbounds [7 x [[A]]], [7 x [[A]]]* [[BEGIN]], i64 4
     // CHECK-NEXT: br label
-    // CHECK:      [[CUR:%.*]] = phi [[A]]* [ [[BEGIN]], {{%.*}} ], [ [[NEXT:%.*]], {{%.*}} ]
-    // CHECK-NEXT: invoke void @_ZN5test21AC1Ev([[A]]* {{[^,]*}} [[CUR]])
-    // CHECK:      [[NEXT:%.*]] = getelementptr inbounds [[A]], [[A]]* [[CUR]], i64 1
-    // CHECK-NEXT: [[DONE:%.*]] = icmp eq [[A]]* [[NEXT]], [[END]]
-    // CHECK-NEXT: br i1 [[DONE]],
 
     // Partial destruction landing pad.
     // CHECK:      landingpad { i8*, i32 }
     // CHECK-NEXT:   cleanup
     // CHECK:      [[EMPTY:%.*]] = icmp eq [[A]]*
     // CHECK-NEXT: br i1 [[EMPTY]],
-    // CHECK:      [[PAST:%.*]] = phi [[A]]* [ [[CUR]], {{%.*}} ], [ [[DEL:%.*]], {{%.*}} ]
-    // CHECK-NEXT: [[DEL]] = getelementptr inbounds [[A]], [[A]]* [[PAST]], i64 -1
-    // CHECKv03-NEXT: invoke void @_ZN5test21AD1Ev([[A]]* {{[^,]*}} [[DEL]])
-    // CHECKv11-NEXT: call   void @_ZN5test21AD1Ev([[A]]* {{[^,]*}} [[DEL]])
-    // CHECK:      [[T0:%.*]] = icmp eq [[A]]* [[DEL]], [[BEGIN]]
-    // CHECK-NEXT: br i1 [[T0]],
   }
 
 }

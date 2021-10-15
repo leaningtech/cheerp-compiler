@@ -15,7 +15,7 @@ define void @foo(i32* %p) {
 ; CHECK-NEXT:    [[A2:%.*]] = getelementptr i32, i32* [[P]], i64 2
 ; CHECK-NEXT:    [[A3:%.*]] = getelementptr i32, i32* [[P]], i64 3
 ; CHECK-NEXT:    [[TMP1:%.*]] = bitcast i32* [[A0]] to i8*
-; CHECK-NEXT:    call void @llvm.memset.p0i8.i64(i8* align 4 [[TMP1]], i8 0, i64 16, i1 false)
+; CHECK-NEXT:    call void @llvm.memset.p0i8.i32(i8* align 4 [[TMP1]], i8 0, i32 16, i1 false)
 ; CHECK-NEXT:    ret void
 ;
   %a0 = getelementptr i32, i32* %p, i64 0

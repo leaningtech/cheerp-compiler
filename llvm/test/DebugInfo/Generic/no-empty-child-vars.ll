@@ -68,6 +68,7 @@
 ; CHECK:       DW_TAG_inlined_subroutine
 ; CHECK:     NULL
 
+target triple = "x86_64-unknown-linux"
 ; Function Attrs: norecurse nounwind readnone uwtable willreturn
 define dso_local i32 @foo(i32 %bar) local_unnamed_addr !dbg !7 {
 entry:

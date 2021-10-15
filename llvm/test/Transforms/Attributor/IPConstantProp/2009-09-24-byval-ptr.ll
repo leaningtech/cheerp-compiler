@@ -20,7 +20,7 @@ define internal void @vfu1(%struct.MYstr* byval(%struct.MYstr) align 4 %u) nounw
 ; IS________OPM-NEXT:  entry:
 ; IS________OPM-NEXT:    [[TMP0:%.*]] = getelementptr [[STRUCT_MYSTR]], %struct.MYstr* [[U]], i32 0, i32 1
 ; IS________OPM-NEXT:    store i32 99, i32* [[TMP0]], align 4
-; IS________OPM-NEXT:    [[TMP1:%.*]] = getelementptr [[STRUCT_MYSTR]], %struct.MYstr* [[U]], i32 0, i32 0
+; IS________OPM-NEXT:    [[TMP1:%.*]] = bitcast [[STRUCT_MYSTR]]* [[U]]
 ; IS________OPM-NEXT:    store i8 97, i8* [[TMP1]], align 8
 ; IS________OPM-NEXT:    [[L:%.*]] = load i8, i8* [[TMP1]], align 8
 ; IS________OPM-NEXT:    call void @use(i8 [[L]])

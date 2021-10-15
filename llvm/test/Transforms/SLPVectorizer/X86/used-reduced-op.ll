@@ -8,7 +8,7 @@
 define void @n() local_unnamed_addr #0 {
 ; CHECK-LABEL: @n(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[TMP0:%.*]] = load <4 x i32>, <4 x i32>* bitcast ([8 x [4 x i32]]* @k to <4 x i32>*), align 16
+; CHECK-NEXT:    [[TMP0:%.*]] = load <4 x i32>, <4 x i32>* bitcast (i32* getelementptr inbounds ([8 x [4 x i32]], [8 x [4 x i32]]* @k, i64 0, i64 0, i64 0) to <4 x i32>*), align 16
 ; CHECK-NEXT:    [[TMP1:%.*]] = load i32, i32* getelementptr inbounds ([8 x [4 x i32]], [8 x [4 x i32]]* @k, i64 0, i64 1, i64 0), align 16
 ; CHECK-NEXT:    [[TMP2:%.*]] = load i32, i32* getelementptr inbounds ([8 x [4 x i32]], [8 x [4 x i32]]* @k, i64 0, i64 1, i64 1), align 4
 ; CHECK-NEXT:    [[TMP3:%.*]] = load i32, i32* getelementptr inbounds ([8 x [4 x i32]], [8 x [4 x i32]]* @k, i64 0, i64 1, i64 2), align 8

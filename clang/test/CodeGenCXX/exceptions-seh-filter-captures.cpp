@@ -87,8 +87,7 @@ void V::test_virtual(int p1) {
 // CHECK: %[[p1_i8:[^ ]*]] = call i8* @llvm.localrecover(i8* bitcast (void (%struct.V*, i32)* @"?test_virtual@V@@QEAAXH@Z" to i8*), i8* %frame_pointer, i32 1)
 // CHECK: %[[p1_ptr:[^ ]*]] = bitcast i8* %[[p1_i8]] to i32*
 // CHECK: %[[p1:[^ ]*]] = load i32, i32* %[[p1_ptr]]
-// CHECK: %[[this_2:[^ ]*]] = bitcast %struct.V* %[[this]] to void (%struct.V*, i32)***
-// CHECK: %[[vtable:[^ ]*]] = load void (%struct.V*, i32)**, void (%struct.V*, i32)*** %[[this_2]], align 8
+// CHECK: %[[vtable:[^ ]*]] = bitcast {{.*}} to void (%struct.V*, i32)**
 // CHECK: %[[vfn:[^ ]*]] = getelementptr inbounds void (%struct.V*, i32)*, void (%struct.V*, i32)** %[[vtable]], i64 0
 // CHECK: %[[virt:[^ ]*]] = load void (%struct.V*, i32)*, void (%struct.V*, i32)** %[[vfn]], align 8
 // CHECK: call void %[[virt]](%struct.V* {{[^,]*}} %[[this]], i32 noundef %[[p1]])

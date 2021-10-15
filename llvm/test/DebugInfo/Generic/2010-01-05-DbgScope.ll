@@ -1,5 +1,6 @@
 ; RUN: llc < %s -o /dev/null
 ; PR 5942
+target triple = "x86_64-unknown-linux"
 define i8* @foo() nounwind {
 entry:
   %0 = load i32, i32* undef, align 4, !dbg !0          ; <i32> [#uses=1]

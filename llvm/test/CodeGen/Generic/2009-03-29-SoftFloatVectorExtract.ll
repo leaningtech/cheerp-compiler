@@ -2,6 +2,8 @@
 ; RUN: llc < %s
 ; PR3899
 
+target triple = "x86_64-unknown-linux"
+
 @m = external global <2 x double>
 
 define double @vector_ex() nounwind #0 {

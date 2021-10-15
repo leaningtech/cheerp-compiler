@@ -1,6 +1,8 @@
 ; RUN: llc < %s
 ; PR3288
 
+target triple = "x86_64-unknown-linux"
+
 define void @a() {
   %i = insertvalue [2 x [2 x i32]] undef, [2 x i32] undef, 1
   ret void

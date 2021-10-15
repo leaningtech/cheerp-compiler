@@ -43,17 +43,17 @@ define i32 @maxi8(i32) {
 ; SSE-NEXT:    ret i32 [[TMP23]]
 ;
 ; AVX-LABEL: @maxi8(
-; AVX-NEXT:    [[TMP2:%.*]] = load <8 x i32>, <8 x i32>* bitcast ([32 x i32]* @arr to <8 x i32>*), align 16
+; AVX-NEXT:    [[TMP2:%.*]] = load <8 x i32>, <8 x i32>* bitcast (i32* getelementptr inbounds ([32 x i32], [32 x i32]* @arr, i64 0, i64 0) to <8 x i32>*), align 16
 ; AVX-NEXT:    [[TMP3:%.*]] = call i32 @llvm.vector.reduce.smax.v8i32(<8 x i32> [[TMP2]])
 ; AVX-NEXT:    ret i32 [[TMP3]]
 ;
 ; AVX2-LABEL: @maxi8(
-; AVX2-NEXT:    [[TMP2:%.*]] = load <8 x i32>, <8 x i32>* bitcast ([32 x i32]* @arr to <8 x i32>*), align 16
+; AVX2-NEXT:    [[TMP2:%.*]] = load <8 x i32>, <8 x i32>* bitcast (i32* getelementptr inbounds ([32 x i32], [32 x i32]* @arr, i64 0, i64 0) to <8 x i32>*), align 16
 ; AVX2-NEXT:    [[TMP3:%.*]] = call i32 @llvm.vector.reduce.smax.v8i32(<8 x i32> [[TMP2]])
 ; AVX2-NEXT:    ret i32 [[TMP3]]
 ;
 ; THRESH-LABEL: @maxi8(
-; THRESH-NEXT:    [[TMP2:%.*]] = load <8 x i32>, <8 x i32>* bitcast ([32 x i32]* @arr to <8 x i32>*), align 16
+; THRESH-NEXT:    [[TMP2:%.*]] = load <8 x i32>, <8 x i32>* bitcast (i32* getelementptr inbounds ([32 x i32], [32 x i32]* @arr, i64 0, i64 0) to <8 x i32>*), align 16
 ; THRESH-NEXT:    [[TMP3:%.*]] = call i32 @llvm.vector.reduce.smax.v8i32(<8 x i32> [[TMP2]])
 ; THRESH-NEXT:    ret i32 [[TMP3]]
 ;
@@ -155,7 +155,7 @@ define i32 @maxi8_store_in(i32) {
 
 define i32 @maxi16(i32) {
 ; CHECK-LABEL: @maxi16(
-; CHECK-NEXT:    [[TMP2:%.*]] = load <16 x i32>, <16 x i32>* bitcast ([32 x i32]* @arr to <16 x i32>*), align 16
+; CHECK-NEXT:    [[TMP2:%.*]] = load <16 x i32>, <16 x i32>* bitcast (i32* getelementptr inbounds ([32 x i32], [32 x i32]* @arr, i64 0, i64 0) to <16 x i32>*), align 16
 ; CHECK-NEXT:    [[TMP3:%.*]] = call i32 @llvm.vector.reduce.smax.v16i32(<16 x i32> [[TMP2]])
 ; CHECK-NEXT:    ret i32 [[TMP3]]
 ;
@@ -210,7 +210,7 @@ define i32 @maxi16(i32) {
 
 define i32 @maxi32(i32) {
 ; CHECK-LABEL: @maxi32(
-; CHECK-NEXT:    [[TMP2:%.*]] = load <32 x i32>, <32 x i32>* bitcast ([32 x i32]* @arr to <32 x i32>*), align 16
+; CHECK-NEXT:    [[TMP2:%.*]] = load <32 x i32>, <32 x i32>* bitcast (i32* getelementptr inbounds ([32 x i32], [32 x i32]* @arr, i64 0, i64 0) to <32 x i32>*), align 16
 ; CHECK-NEXT:    [[TMP3:%.*]] = call i32 @llvm.vector.reduce.smax.v32i32(<32 x i32> [[TMP2]])
 ; CHECK-NEXT:    ret i32 [[TMP3]]
 ;
@@ -340,7 +340,7 @@ define float @maxf8(float) {
 ; DEFAULT-NEXT:    ret float [[TMP23]]
 ;
 ; THRESH-LABEL: @maxf8(
-; THRESH-NEXT:    [[TMP2:%.*]] = load <2 x float>, <2 x float>* bitcast ([32 x float]* @arr1 to <2 x float>*), align 16
+; THRESH-NEXT:    [[TMP2:%.*]] = load <2 x float>, <2 x float>* bitcast (float* getelementptr inbounds ([32 x float], [32 x float]* @arr1, i64 0, i64 0) to <2 x float>*), align 16
 ; THRESH-NEXT:    [[TMP3:%.*]] = extractelement <2 x float> [[TMP2]], i32 0
 ; THRESH-NEXT:    [[TMP4:%.*]] = extractelement <2 x float> [[TMP2]], i32 1
 ; THRESH-NEXT:    [[TMP5:%.*]] = fcmp fast ogt float [[TMP3]], [[TMP4]]
@@ -443,7 +443,7 @@ define float @maxf16(float) {
 ; DEFAULT-NEXT:    ret float [[TMP47]]
 ;
 ; THRESH-LABEL: @maxf16(
-; THRESH-NEXT:    [[TMP2:%.*]] = load <2 x float>, <2 x float>* bitcast ([32 x float]* @arr1 to <2 x float>*), align 16
+; THRESH-NEXT:    [[TMP2:%.*]] = load <2 x float>, <2 x float>* bitcast (float* getelementptr inbounds ([32 x float], [32 x float]* @arr1, i64 0, i64 0) to <2 x float>*), align 16
 ; THRESH-NEXT:    [[TMP3:%.*]] = extractelement <2 x float> [[TMP2]], i32 0
 ; THRESH-NEXT:    [[TMP4:%.*]] = extractelement <2 x float> [[TMP2]], i32 1
 ; THRESH-NEXT:    [[TMP5:%.*]] = fcmp fast ogt float [[TMP3]], [[TMP4]]
@@ -642,7 +642,7 @@ define float @maxf32(float) {
 ; DEFAULT-NEXT:    ret float [[TMP95]]
 ;
 ; THRESH-LABEL: @maxf32(
-; THRESH-NEXT:    [[TMP2:%.*]] = load <2 x float>, <2 x float>* bitcast ([32 x float]* @arr1 to <2 x float>*), align 16
+; THRESH-NEXT:    [[TMP2:%.*]] = load <2 x float>, <2 x float>* bitcast (float* getelementptr inbounds ([32 x float], [32 x float]* @arr1, i64 0, i64 0) to <2 x float>*), align 16
 ; THRESH-NEXT:    [[TMP3:%.*]] = extractelement <2 x float> [[TMP2]], i32 0
 ; THRESH-NEXT:    [[TMP4:%.*]] = extractelement <2 x float> [[TMP2]], i32 1
 ; THRESH-NEXT:    [[TMP5:%.*]] = fcmp fast ogt float [[TMP3]], [[TMP4]]
@@ -977,7 +977,7 @@ define i32 @maxi8_mutiple_uses2(i32) {
 ; DEFAULT-NEXT:    ret i32 [[TMP17]]
 ;
 ; THRESH-LABEL: @maxi8_mutiple_uses2(
-; THRESH-NEXT:    [[TMP2:%.*]] = load <2 x i32>, <2 x i32>* bitcast ([32 x i32]* @arr to <2 x i32>*), align 16
+; THRESH-NEXT:    [[TMP2:%.*]] = load <2 x i32>, <2 x i32>* bitcast (i32* getelementptr inbounds ([32 x i32], [32 x i32]* @arr, i64 0, i64 0) to <2 x i32>*), align 16
 ; THRESH-NEXT:    [[TMP3:%.*]] = extractelement <2 x i32> [[TMP2]], i32 0
 ; THRESH-NEXT:    [[TMP4:%.*]] = extractelement <2 x i32> [[TMP2]], i32 1
 ; THRESH-NEXT:    [[TMP5:%.*]] = icmp sgt i32 [[TMP3]], [[TMP4]]

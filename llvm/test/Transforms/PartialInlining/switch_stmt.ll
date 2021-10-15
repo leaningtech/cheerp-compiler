@@ -62,8 +62,7 @@ define dso_local signext i32 @caller(i32 signext %c) !prof !30 {
 ; CHECK-LABEL: @caller(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[RC_I:%.*]] = alloca i32, align 4
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast i32* [[RC_I]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 4, i8* [[TMP0]])
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i32(i64 4, i32* [[RC_I]])
 ; CHECK-NEXT:    store i32 0, i32* [[RC_I]], align 4
 ; CHECK-NEXT:    switch i32 [[C:%.*]], label [[SW_DEFAULT_I:%.*]] [
 ; CHECK-NEXT:    i32 0, label [[CODEREPL_I:%.*]]
@@ -84,8 +83,7 @@ define dso_local signext i32 @caller(i32 signext %c) !prof !30 {
 ; CHECK-NEXT:    br label [[CALLEE_1_EXIT]]
 ; CHECK:       callee.1.exit:
 ; CHECK-NEXT:    [[TMP1:%.*]] = load i32, i32* [[RC_I]], align 4
-; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[RC_I]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 4, i8* [[TMP2]])
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0i32(i64 4, i32* [[RC_I]])
 ;
 entry:
   %0 = call signext i32 @callee(i32 signext %c, i32 signext %c)

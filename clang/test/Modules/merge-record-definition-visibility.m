@@ -1,7 +1,7 @@
 // UNSUPPORTED: -zos, -aix
 // RUN: rm -rf %t
 // RUN: mkdir %t
-// RUN: %clang_cc1 -emit-llvm -o %t/test.bc -F%S/Inputs/merge-record-definition %s \
+// RUN: %clang_cc1 -triple %itanium_abi_triple -emit-llvm -o %t/test.bc -F%S/Inputs/merge-record-definition %s \
 // RUN:            -fmodules -fimplicit-module-maps -fmodules-cache-path=%t/modules.cache
 
 // Test a case when a struct definition is first imported as invisible and then as visible.

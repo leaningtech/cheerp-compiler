@@ -3,6 +3,8 @@
 ; Test that a sequence of constant indices are folded correctly
 ; into the equivalent offset at compile-time.
 
+target triple = "x86_64-unknown-linux"
+
         %MixedA = type { float, [15 x i32], i8, float }
         %MixedB = type { float, %MixedA, float }
 @fmtArg = internal global [44 x i8] c"sqrt(2) = %g\0Aexp(1) = %g\0Api = %g\0Afive = %g\0A\00"           ; <[44 x i8]*> [#uses=1]

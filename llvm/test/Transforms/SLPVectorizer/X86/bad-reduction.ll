@@ -547,7 +547,7 @@ define void @PR47450(i16* nocapture readonly %p) {
 ; CHECK-NEXT:    [[S:%.*]] = shl nuw nsw i32 [[Z]], 1
 ; CHECK-NEXT:    [[TMP1:%.*]] = insertelement <4 x i32> poison, i32 [[S]], i32 0
 ; CHECK-NEXT:    [[SHUFFLE:%.*]] = shufflevector <4 x i32> [[TMP1]], <4 x i32> poison, <4 x i32> zeroinitializer
-; CHECK-NEXT:    store <4 x i32> [[SHUFFLE]], <4 x i32>* bitcast ([8 x i32]* @output to <4 x i32>*), align 16
+; CHECK-NEXT:    store <4 x i32> [[SHUFFLE]], <4 x i32>* bitcast (i32* getelementptr inbounds ([8 x i32], [8 x i32]* @output, i64 0, i64 0) to <4 x i32>*), align 16
 ; CHECK-NEXT:    ret void
 ;
   %x = load i16, i16* %p, align 2

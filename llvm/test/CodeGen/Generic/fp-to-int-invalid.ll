@@ -1,5 +1,7 @@
 ; RUN: llc < %s
 ; PR4057
+target triple = "x86_64-unknown-linux"
+
 define void @test_cast_float_to_char(i8* %result) nounwind {
 entry:
 	%result_addr = alloca i8*		; <i8**> [#uses=2]

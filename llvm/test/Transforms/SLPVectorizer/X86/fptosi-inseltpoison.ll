@@ -75,9 +75,9 @@ define void @fptosi_8f64_8i64() #0 {
 ; AVX256NODQ-NEXT:    ret void
 ;
 ; AVX512-LABEL: @fptosi_8f64_8i64(
-; AVX512-NEXT:    [[TMP1:%.*]] = load <8 x double>, <8 x double>* bitcast ([8 x double]* @src64 to <8 x double>*), align 8
+; AVX512-NEXT:    [[TMP1:%.*]] = load <8 x double>, <8 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 0) to <8 x double>*), align 8
 ; AVX512-NEXT:    [[TMP2:%.*]] = fptosi <8 x double> [[TMP1]] to <8 x i64>
-; AVX512-NEXT:    store <8 x i64> [[TMP2]], <8 x i64>* bitcast ([8 x i64]* @dst64 to <8 x i64>*), align 8
+; AVX512-NEXT:    store <8 x i64> [[TMP2]], <8 x i64>* bitcast (i64* getelementptr inbounds ([8 x i64], [8 x i64]* @dst64, i32 0, i64 0) to <8 x i64>*), align 8
 ; AVX512-NEXT:    ret void
 ;
 ; AVX256DQ-LABEL: @fptosi_8f64_8i64(
@@ -127,9 +127,9 @@ define void @fptosi_8f64_8i32() #0 {
 ; SSE-NEXT:    ret void
 ;
 ; AVX-LABEL: @fptosi_8f64_8i32(
-; AVX-NEXT:    [[TMP1:%.*]] = load <8 x double>, <8 x double>* bitcast ([8 x double]* @src64 to <8 x double>*), align 8
+; AVX-NEXT:    [[TMP1:%.*]] = load <8 x double>, <8 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 0) to <8 x double>*), align 8
 ; AVX-NEXT:    [[TMP2:%.*]] = fptosi <8 x double> [[TMP1]] to <8 x i32>
-; AVX-NEXT:    store <8 x i32> [[TMP2]], <8 x i32>* bitcast ([16 x i32]* @dst32 to <8 x i32>*), align 4
+; AVX-NEXT:    store <8 x i32> [[TMP2]], <8 x i32>* bitcast (i32* getelementptr inbounds ([16 x i32], [16 x i32]* @dst32, i32 0, i64 0) to <8 x i32>*), align 4
 ; AVX-NEXT:    ret void
 ;
   %a0 = load double, double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 0), align 8
@@ -161,9 +161,9 @@ define void @fptosi_8f64_8i32() #0 {
 
 define void @fptosi_8f64_8i16() #0 {
 ; CHECK-LABEL: @fptosi_8f64_8i16(
-; CHECK-NEXT:    [[TMP1:%.*]] = load <8 x double>, <8 x double>* bitcast ([8 x double]* @src64 to <8 x double>*), align 8
+; CHECK-NEXT:    [[TMP1:%.*]] = load <8 x double>, <8 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 0) to <8 x double>*), align 8
 ; CHECK-NEXT:    [[TMP2:%.*]] = fptosi <8 x double> [[TMP1]] to <8 x i16>
-; CHECK-NEXT:    store <8 x i16> [[TMP2]], <8 x i16>* bitcast ([32 x i16]* @dst16 to <8 x i16>*), align 2
+; CHECK-NEXT:    store <8 x i16> [[TMP2]], <8 x i16>* bitcast (i16* getelementptr inbounds ([32 x i16], [32 x i16]* @dst16, i32 0, i64 0) to <8 x i16>*), align 2
 ; CHECK-NEXT:    ret void
 ;
   %a0 = load double, double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 0), align 8
@@ -308,9 +308,9 @@ define void @fptosi_8f32_8i64() #0 {
 ; AVX256NODQ-NEXT:    ret void
 ;
 ; AVX512-LABEL: @fptosi_8f32_8i64(
-; AVX512-NEXT:    [[TMP1:%.*]] = load <8 x float>, <8 x float>* bitcast ([16 x float]* @src32 to <8 x float>*), align 4
+; AVX512-NEXT:    [[TMP1:%.*]] = load <8 x float>, <8 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 0) to <8 x float>*), align 4
 ; AVX512-NEXT:    [[TMP2:%.*]] = fptosi <8 x float> [[TMP1]] to <8 x i64>
-; AVX512-NEXT:    store <8 x i64> [[TMP2]], <8 x i64>* bitcast ([8 x i64]* @dst64 to <8 x i64>*), align 8
+; AVX512-NEXT:    store <8 x i64> [[TMP2]], <8 x i64>* bitcast (i64* getelementptr inbounds ([8 x i64], [8 x i64]* @dst64, i32 0, i64 0) to <8 x i64>*), align 8
 ; AVX512-NEXT:    ret void
 ;
 ; AVX256DQ-LABEL: @fptosi_8f32_8i64(
@@ -360,9 +360,9 @@ define void @fptosi_8f32_8i32() #0 {
 ; SSE-NEXT:    ret void
 ;
 ; AVX-LABEL: @fptosi_8f32_8i32(
-; AVX-NEXT:    [[TMP1:%.*]] = load <8 x float>, <8 x float>* bitcast ([16 x float]* @src32 to <8 x float>*), align 4
+; AVX-NEXT:    [[TMP1:%.*]] = load <8 x float>, <8 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 0) to <8 x float>*), align 4
 ; AVX-NEXT:    [[TMP2:%.*]] = fptosi <8 x float> [[TMP1]] to <8 x i32>
-; AVX-NEXT:    store <8 x i32> [[TMP2]], <8 x i32>* bitcast ([16 x i32]* @dst32 to <8 x i32>*), align 4
+; AVX-NEXT:    store <8 x i32> [[TMP2]], <8 x i32>* bitcast (i32* getelementptr inbounds ([16 x i32], [16 x i32]* @dst32, i32 0, i64 0) to <8 x i32>*), align 4
 ; AVX-NEXT:    ret void
 ;
   %a0 = load float, float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 0), align 4
@@ -394,9 +394,9 @@ define void @fptosi_8f32_8i32() #0 {
 
 define void @fptosi_8f32_8i16() #0 {
 ; CHECK-LABEL: @fptosi_8f32_8i16(
-; CHECK-NEXT:    [[TMP1:%.*]] = load <8 x float>, <8 x float>* bitcast ([16 x float]* @src32 to <8 x float>*), align 4
+; CHECK-NEXT:    [[TMP1:%.*]] = load <8 x float>, <8 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 0) to <8 x float>*), align 4
 ; CHECK-NEXT:    [[TMP2:%.*]] = fptosi <8 x float> [[TMP1]] to <8 x i16>
-; CHECK-NEXT:    store <8 x i16> [[TMP2]], <8 x i16>* bitcast ([32 x i16]* @dst16 to <8 x i16>*), align 2
+; CHECK-NEXT:    store <8 x i16> [[TMP2]], <8 x i16>* bitcast (i16* getelementptr inbounds ([32 x i16], [32 x i16]* @dst16, i32 0, i64 0) to <8 x i16>*), align 2
 ; CHECK-NEXT:    ret void
 ;
   %a0 = load float, float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 0), align 4

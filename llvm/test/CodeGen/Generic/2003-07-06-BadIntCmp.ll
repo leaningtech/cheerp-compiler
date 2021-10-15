@@ -1,5 +1,7 @@
 ; RUN: llc < %s
 
+target triple = "x86_64-unknown-linux"
+
 ;; Date: May 28, 2003.
 ;; From: test/Programs/MultiSource/Olden-perimeter/maketree.c
 ;; Function: int CheckOutside(int x, int y)

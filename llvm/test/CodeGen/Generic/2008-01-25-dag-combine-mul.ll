@@ -4,6 +4,8 @@
 ; XCore default subtarget does not support 8-byte alignment on stack.
 ; XFAIL: xcore
 
+target triple = "x86_64-unknown-linux"
+
 define i32 @f(i16* %pc) {
 entry:
 	%acc = alloca i64, align 8		; <i64*> [#uses=4]

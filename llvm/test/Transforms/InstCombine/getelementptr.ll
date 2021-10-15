@@ -771,8 +771,6 @@ define i32 addrspace(1)* @test33_addrspacecast(%struct.Key* %A) {
 define i8* @test34(i8* %Val, i64 %V) nounwind {
 ; CHECK-LABEL: @test34(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[C_CAST:%.*]] = inttoptr i64 [[V:%.*]] to i8*
-; CHECK-NEXT:    ret i8* [[C_CAST]]
 ;
 entry:
   %A = alloca %T2, align 8

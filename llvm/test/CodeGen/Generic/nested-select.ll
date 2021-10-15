@@ -1,5 +1,7 @@
 ; RUN: llc < %s -o /dev/null
 
+target triple = "x86_64-unknown-linux"
+
 ; Test that select of a select works
 
 %typedef.tree = type opaque

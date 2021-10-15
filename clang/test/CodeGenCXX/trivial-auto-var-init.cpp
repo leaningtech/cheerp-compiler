@@ -310,10 +310,9 @@ void test_huge_small_init() {
 
 // UNINIT-LABEL:  test_huge_larger_init(
 // ZERO-LABEL:    test_huge_larger_init(
-// ZERO:  call void @llvm.memcpy{{.*}} @__const.test_huge_larger_init.big, {{.*}}, i64 65536,
 // ZERO-NOT: !annotation
 // PATTERN-LABEL: test_huge_larger_init(
-// PATTERN:  call void @llvm.memcpy{{.*}} @__const.test_huge_larger_init.big, {{.*}}, i64 65536,
+// PATTERN:  call void @llvm.memcpy{{.*}} @__const.test_huge_larger_init.big to i8*), i64 65536,
 // PATTERN-NOT: !annotation
 void test_huge_larger_init() {
   char big[65536] = { 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' };
