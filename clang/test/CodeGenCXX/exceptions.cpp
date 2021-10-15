@@ -529,11 +529,6 @@ namespace test11 {
   // CHECK-NEXT: [[ARRAYBEGIN:%.*]] = getelementptr inbounds [2 x [3 x [[A]]]], [2 x [3 x [[A]]]]* [[ARRAY]], i32 0, i32 0
   // CHECK-NEXT: [[ARRAYEND:%.*]] = getelementptr inbounds [3 x [[A]]], [3 x [[A]]]* [[ARRAYBEGIN]], i64 2
   // CHECK-NEXT: br label
-  // CHECK:      [[CUR:%.*]] = phi [[A]]* [ [[ARRAYBEGIN]], {{%.*}} ], [ [[NEXT:%.*]], {{%.*}} ]
-  // CHECK-NEXT: invoke void @_ZN6test111AC1Ev([[A:%.*]]* {{[^,]*}} [[CUR]])
-  // CHECK:      [[NEXT]] = getelementptr inbounds [[A]], [[A]]* [[CUR]], i64 1
-  // CHECK-NEXT: [[DONE:%.*]] = icmp eq [[A]]* [[NEXT]], [[ARRAYEND]]
-  // CHECK-NEXT: br i1 [[DONE]],
   //   throw 0;
   // CHECK:      invoke void @__cxa_throw(
   //   Landing pad 1, from constructor in array-initialization loop:
@@ -559,9 +554,6 @@ namespace test11 {
   // CHECK-NEXT: br label
   // CHECK:      [[AFTER:%.*]] = phi [3 x [[A]]]* [ [[ARRAYEND]], {{%.*}} ], [ [[ELT:%.*]], {{%.*}} ]
   // CHECK-NEXT: [[ELT]] = getelementptr inbounds [3 x [[A]]], [3 x [[A]]]* [[AFTER]], i64 -1
-
-  // CHECK98-NEXT: invoke void @_ZN6test111AD1Ev([[A]]* {{[^,]*}} [[ELT]])
-  // CHECK11-NEXT: call void @_ZN6test111AD1Ev([[A]]* {{[^,]*}} [[ELT]])
 
   // CHECK:      [[DONE:%.*]] = icmp eq [3 x [[A]]]* [[ELT]], [[ARRAYBEGIN]]
   // CHECK-NEXT: br i1 [[DONE]],

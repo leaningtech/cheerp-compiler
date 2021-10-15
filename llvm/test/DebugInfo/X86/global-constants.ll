@@ -1,5 +1,6 @@
 ; RUN: llc %s -mtriple=x86_64 -filetype=obj -o - | llvm-dwarfdump - | FileCheck %s
 
+target triple = "x86_64-unknown-linux"
 ; CHECK-DAG-LABEL:  DW_AT_name ("negconstant")
 ; CHECK:  DW_AT_const_value (-1)
 ; CHECK-DAG-LABEL:  DW_AT_name ("negconstant2")

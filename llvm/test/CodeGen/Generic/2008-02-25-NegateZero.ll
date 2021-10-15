@@ -1,6 +1,8 @@
 ; RUN: llc < %s 
 ; rdar://5763967
 
+target triple = "x86_64-unknown-linux"
+
 define void @test() {
 entry:
 	%tmp98 = load float, float* null, align 4		; <float> [#uses=1]

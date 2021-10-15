@@ -1,5 +1,7 @@
 ; RUN: llc < %s
 
+target triple = "x86_64-unknown-linux"
+
 ; PR15253
 
 %struct.mystruct = type { i32 }

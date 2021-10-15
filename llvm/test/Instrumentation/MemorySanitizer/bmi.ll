@@ -40,6 +40,7 @@ entry:
 ; CHECK-LABEL: @Test_bzhi_64(
 ; CHECK-DAG: %[[SA:.*]] = load i64, ptr @__msan_param_tls
 ; CHECK-DAG: %[[SB:.*]] = load i64, {{.*}}@__msan_param_tls to i64), i64 8)
+; CHECK-DAG: %[[SA:.*]] = load i64, {{.*}}@__msan_param_tls
 ; CHECK-DAG: %[[SB0:.*]] = icmp ne i64 %[[SB]], 0
 ; CHECK-DAG: %[[SB1:.*]] = sext i1 %[[SB0]] to i64
 ; CHECK-DAG: %[[X:.*]] = call i64 @llvm.x86.bmi.bzhi.64(i64 %[[SA]], i64 %b)
@@ -73,6 +74,7 @@ entry:
 ; CHECK-LABEL: @Test_bextr_64(
 ; CHECK-DAG: %[[SA:.*]] = load i64, ptr @__msan_param_tls
 ; CHECK-DAG: %[[SB:.*]] = load i64, {{.*}}@__msan_param_tls to i64), i64 8)
+; CHECK-DAG: %[[SA:.*]] = load i64, {{.*}}@__msan_param_tls
 ; CHECK-DAG: %[[SB0:.*]] = icmp ne i64 %[[SB]], 0
 ; CHECK-DAG: %[[SB1:.*]] = sext i1 %[[SB0]] to i64
 ; CHECK-DAG: %[[X:.*]] = call i64 @llvm.x86.bmi.bextr.64(i64 %[[SA]], i64 %b)
@@ -106,6 +108,7 @@ entry:
 ; CHECK-LABEL: @Test_pdep_64(
 ; CHECK-DAG: %[[SA:.*]] = load i64, ptr @__msan_param_tls
 ; CHECK-DAG: %[[SB:.*]] = load i64, {{.*}}@__msan_param_tls to i64), i64 8)
+; CHECK-DAG: %[[SA:.*]] = load i64, {{.*}}@__msan_param_tls
 ; CHECK-DAG: %[[SB0:.*]] = icmp ne i64 %[[SB]], 0
 ; CHECK-DAG: %[[SB1:.*]] = sext i1 %[[SB0]] to i64
 ; CHECK-DAG: %[[X:.*]] = call i64 @llvm.x86.bmi.pdep.64(i64 %[[SA]], i64 %b)
@@ -138,6 +141,7 @@ entry:
 ; CHECK-LABEL: @Test_pext_64(
 ; CHECK-DAG: %[[SA:.*]] = load i64, ptr @__msan_param_tls
 ; CHECK-DAG: %[[SB:.*]] = load i64, {{.*}}@__msan_param_tls to i64), i64 8)
+; CHECK-DAG: %[[SA:.*]] = load i64, {{.*}}@__msan_param_tls
 ; CHECK-DAG: %[[SB0:.*]] = icmp ne i64 %[[SB]], 0
 ; CHECK-DAG: %[[SB1:.*]] = sext i1 %[[SB0]] to i64
 ; CHECK-DAG: %[[X:.*]] = call i64 @llvm.x86.bmi.pext.64(i64 %[[SA]], i64 %b)

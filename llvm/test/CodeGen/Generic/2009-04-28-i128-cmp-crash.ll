@@ -3,6 +3,8 @@
 ; rdar://7516906
 ; PR5963
 
+target triple = "x86_64-unknown-linux"
+
 define i32 @test(i128* %P) nounwind {
 entry:
 	%tmp48 = load i128, i128* %P

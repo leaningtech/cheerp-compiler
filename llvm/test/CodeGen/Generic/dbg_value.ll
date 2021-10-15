@@ -1,6 +1,8 @@
 ; RUN: llc < %s
 ; rdar://7759395
 
+target triple = "x86_64-unknown-linux"
+
 %0 = type { i32, i32 }
 
 define void @t(%0*, i32, i32, i32, i32) nounwind {

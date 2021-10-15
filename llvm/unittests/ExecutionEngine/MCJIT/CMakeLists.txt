@@ -10,6 +10,7 @@ set(LLVM_LINK_COMPONENTS
   Support
   Target
   nativecodegen
+  CheerpUtils
   )
 
 set(MCJITTestsSources

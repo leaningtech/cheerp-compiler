@@ -1,9 +1,9 @@
 // UNSUPPORTED: -zos, -aix
 // RUN: rm -rf %t
 // RUN: split-file %s %t
-// RUN: %clang_cc1 -emit-llvm -o %t/test.bc -F%t/Frameworks %t/test.m \
+// RUN: %clang_cc1 -triple %itanium_abi_triple -emit-llvm -o %t/test.bc -F%t/Frameworks %t/test.m \
 // RUN:            -fmodules -fimplicit-module-maps -fmodules-cache-path=%t/modules.cache
-// RUN: %clang_cc1 -emit-llvm -o %t/test.bc -F%t/Frameworks %t/test-functions.m \
+// RUN: %clang_cc1 -triple %itanium_abi_triple -emit-llvm -o %t/test.bc -F%t/Frameworks %t/test-functions.m \
 // RUN:            -fmodules -fimplicit-module-maps -fmodules-cache-path=%t/modules.cache
 
 // Test a case when Objective-C interface ivars are present in two different modules.

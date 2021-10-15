@@ -1,5 +1,7 @@
 ; RUN: llc < %s
 
+target triple = "x86_64-unknown-linux"
+
 ;;
 ;; Test the sequence:
 ;;	cast -> setle 0, %cast -> br %cond

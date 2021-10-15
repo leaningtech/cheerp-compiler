@@ -2,6 +2,8 @@
 ; the number of block IDs.
 ; RUN: llc -regalloc=fast -optimize-regalloc=0 < %s
 
+target triple = "x86_64-unknown-linux"
+
 define void @foo() nounwind {
 entry:
   br i1 undef, label %bb5.i1632, label %bb1.i1605

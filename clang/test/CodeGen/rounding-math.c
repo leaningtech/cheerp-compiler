@@ -21,9 +21,9 @@ struct S *func_03(void) {
   return &var_03;
 }
 
-// CHECK: @var_01 = {{.*}} %struct.S { float 1.000000e+00 }
-// CHECK: @var_02 = {{.*}} %struct.S { float 1.000000e+00 }
-// CHECK: @func_03.var_03 = {{.*}} %struct.S { float 1.000000e+00 }
+// CHECK: @var_01 = {{.*}} %struct._Z1S { float 1.000000e+00 }
+// CHECK: @var_02 = {{.*}} %struct._Z1S { float 1.000000e+00 }
+// CHECK: @func_03.var_03 = {{.*}} %struct._Z1S { float 1.000000e+00 }
 
 #pragma STDC FENV_ROUND FE_UPWARD
 
@@ -39,7 +39,7 @@ struct S *func_06(void) {
   return &var_06;
 }
 
-// CHECK: @var_04 = {{.*}} %struct.S { float 0x3FF0000020000000 }
-// CHECK: @var_05 = {{.*}} %struct.S { float 0x3FF0000020000000 }
-// CHECK: @func_06.var_06 = {{.*}} %struct.S { float 0x3FF0000020000000 }
+// CHECK: @var_04 = {{.*}} %struct._Z1S { float 0x3FF0000020000000 }
+// CHECK: @var_05 = {{.*}} %struct._Z1S { float 0x3FF0000020000000 }
+// CHECK: @func_06.var_06 = {{.*}} %struct._Z1S { float 0x3FF0000020000000 }
 

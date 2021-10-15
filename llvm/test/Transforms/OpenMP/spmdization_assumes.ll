@@ -15,14 +15,14 @@ target triple = "nvptx64"
 %struct.ident_t = type { i32, i32, i32, i32, i8* }
 
 @0 = private unnamed_addr constant [23 x i8] c";unknown;unknown;0;0;;\00", align 1
-@1 = private unnamed_addr constant %struct.ident_t { i32 0, i32 2, i32 0, i32 0, i8* getelementptr inbounds ([23 x i8], [23 x i8]* @0, i32 0, i32 0) }, align 8
+@1 = private unnamed_addr constant %struct.ident_t { i32 0, i32 2, i32 0, i32 0, i8* bitcast ([23 x i8]* @0 to i8*) }, align 8
 @__omp_offloading_fd02_404433c2_main_l5_exec_mode = weak constant i8 1
 @llvm.compiler.used = appending global [1 x i8*] [i8* @__omp_offloading_fd02_404433c2_main_l5_exec_mode], section "llvm.metadata"
 
 ; Function Attrs: alwaysinline convergent norecurse nounwind
 ;.
 ; CHECK: @[[GLOB0:[0-9]+]] = private unnamed_addr constant [23 x i8] c"
-; CHECK: @[[GLOB1:[0-9]+]] = private unnamed_addr constant [[STRUCT_IDENT_T:%.*]] { i32 0, i32 2, i32 0, i32 0, i8* getelementptr inbounds ([23 x i8], [23 x i8]* @[[GLOB0]], i32 0, i32 0) }, align 8
+; CHECK: @[[GLOB1:[0-9]+]] = private unnamed_addr constant [[STRUCT_IDENT_T:%.*]] { i32 0, i32 2, i32 0, i32 0, i8* bitcast ([23 x i8]* @[[GLOB0]] to i8*) }, align 8
 ; CHECK: @[[__OMP_OFFLOADING_FD02_404433C2_MAIN_L5_EXEC_MODE:[a-zA-Z0-9_$"\\.-]+]] = weak constant i8 3
 ; CHECK: @[[LLVM_COMPILER_USED:[a-zA-Z0-9_$"\\.-]+]] = appending global [1 x i8*] [i8* @__omp_offloading_fd02_404433c2_main_l5_exec_mode], section "llvm.metadata"
 ; CHECK: @[[GLOB2:[0-9]+]] = private unnamed_addr constant [[STRUCT_IDENT_T:%.*]] { i32 0, i32 2, i32 0, i32 22, i8* getelementptr inbounds ([23 x i8], [23 x i8]* @[[GLOB0]], i32 0, i32 0) }, align 8

@@ -1,6 +1,8 @@
 ; RUN: llc < %s
 ; PR1114
 
+target triple = "x86_64-unknown-linux"
+
 declare i1 @foo()
 
 define i32 @test(i32* %A, i32* %B) {

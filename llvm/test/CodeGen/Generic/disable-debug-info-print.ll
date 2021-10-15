@@ -1,6 +1,8 @@
 ; RUN: llc -disable-debug-info-print=true -exception-model=dwarf -o - %s | FileCheck %s
 ; RUN: llc -disable-debug-info-print=true -exception-model=sjlj -o - %s | FileCheck %s --check-prefix=SJLJ-CHECK
 
+target triple = "x86_64-unknown-linux"
+
 define i16 @main() nounwind !dbg !7 {
 entry:
   ret i16 0, !dbg !9

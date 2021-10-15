@@ -13,7 +13,7 @@ void foo(int *b) {
   struct HasField f;
   // CHECK: %[[A:.+]] = getelementptr inbounds %struct.HasField, %struct.HasField addrspace(4)* %{{.+}}
   // CHECK: %[[BITCAST:.+]] = bitcast i32 addrspace(4)* addrspace(4)* %[[A]] to i8 addrspace(4)*
-  // CHECK: %[[CALL:.+]] = call i8 addrspace(4)* @llvm.ptr.annotation.p4i8(i8 addrspace(4)* %[[BITCAST]], i8* getelementptr inbounds ([14 x i8], [14 x i8]* [[ANNOT]]
+  // CHECK: %[[CALL:.+]] = call i8 addrspace(4)* @llvm.ptr.annotation.p4i8(i8 addrspace(4)* %[[BITCAST]], i8* bitcast ([14 x i8]* [[ANNOT]]
   // CHECK: bitcast i8 addrspace(4)* %[[CALL]] to i32 addrspace(4)* addrspace(4)*
   f.a = b;
 }

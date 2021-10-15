@@ -1,5 +1,7 @@
 ; RUN: llc < %s
 
+target triple = "x86_64-unknown-linux"
+
 define i32 @test(i32 %tmp93) {
         %tmp98 = shl i32 %tmp93, 31             ; <i32> [#uses=1]
         %tmp99 = ashr i32 %tmp98, 31            ; <i32> [#uses=1]

@@ -1,5 +1,7 @@
 ; RUN: llc < %s
 
+target triple = "x86_64-unknown-linux"
+
 define i64 @test_imm(i64 %X) {
         %Y = ashr i64 %X, 17            ; <i64> [#uses=1]
         ret i64 %Y

@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -O2 -verify -emit-codegen-only %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -O2 -verify -emit-codegen-only %s
 
 __attribute__((error("oh no foo"))) void foo(void);
 

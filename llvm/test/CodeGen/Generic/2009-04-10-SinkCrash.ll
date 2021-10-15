@@ -1,5 +1,7 @@
 ; RUN: llc < %s
 
+target triple = "x86_64-unknown-linux"
+
 define void @QRiterate(i32 %p.1, double %tmp.212) nounwind {
 entry:
 	br i1 false, label %shortcirc_next.1, label %exit.1.critedge

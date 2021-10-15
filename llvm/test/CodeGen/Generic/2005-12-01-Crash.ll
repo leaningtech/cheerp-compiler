@@ -1,4 +1,6 @@
 ; RUN: llc < %s
+target triple = "x86_64-unknown-linux"
+
 @str = external global [36 x i8]		; <[36 x i8]*> [#uses=0]
 @str.upgrd.1 = external global [29 x i8]		; <[29 x i8]*> [#uses=0]
 @str1 = external global [29 x i8]		; <[29 x i8]*> [#uses=0]

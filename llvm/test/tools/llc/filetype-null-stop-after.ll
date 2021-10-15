@@ -2,3 +2,5 @@
 ; there's no output at all.
 ; REQUIRES: default_triple
 ; RUN: llc -filetype=null -stop-after=finalize-isel -o - %s | count 0
+target triple = "x86_64-unknown-linux"
+

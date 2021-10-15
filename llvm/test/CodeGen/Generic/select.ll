@@ -1,5 +1,7 @@
 ; RUN: llc < %s
 
+target triple = "x86_64-unknown-linux"
+
 %Domain = type { i8*, i32, i32*, i32, i32, i32*, %Domain* }
 @AConst = constant i32 123              ; <i32*> [#uses=1]
 

@@ -119,7 +119,7 @@ void call_f5(void) { global_f5 = func_f5(global_f5); }
 
 // CHECK-LABEL: @call_f6
 // CHECK: %[[TMP0:[^ ]+]] = alloca %struct.f6, align 4
-// CHECK: %[[TMP:[^ ]+]] = load [3 x i64], [3 x i64]* bitcast (%struct.f6* @global_f6 to [3 x i64]*), align 4
+// CHECK: %[[TMP:[^ ]+]] = load [3 x i64], [3 x i64]* bitcast ({{.*}}%struct.f6* @global_f6{{.*}} to [3 x i64]*), align 4
 // CHECK: call void @func_f6(%struct.f6* sret(%struct.f6) align 4 %[[TMP0]], [3 x i64] %[[TMP]])
 struct f6 global_f6;
 void call_f6(void) { global_f6 = func_f6(global_f6); }
@@ -136,7 +136,7 @@ void call_f7(void) { global_f7 = func_f7(global_f7); }
 
 // CHECK-LABEL: @call_f8
 // CHECK: %[[TMP0:[^ ]+]] = alloca %struct.f8, align 4
-// CHECK: %[[TMP:[^ ]+]] = load [4 x i64], [4 x i64]* bitcast (%struct.f8* @global_f8 to [4 x i64]*), align 4
+// CHECK: %[[TMP:[^ ]+]] = load [4 x i64], [4 x i64]* bitcast ({{.*}}%struct.f8* @global_f8{{.*}} to [4 x i64]*), align 4
 // CHECK: call void @func_f8(%struct.f8* sret(%struct.f8) align 4 %[[TMP0]], [4 x i64] %[[TMP]])
 struct f8 global_f8;
 void call_f8(void) { global_f8 = func_f8(global_f8); }

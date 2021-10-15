@@ -1,5 +1,7 @@
 ; RUN: llc < %s
 
+target triple = "x86_64-unknown-linux"
+
 ;; Date:     May 28, 2003.
 ;; From:     test/Programs/External/SPEC/CINT2000/254.gap.llvm.bc
 ;; Function: int %OpenOutput(sbyte* %filename.1)

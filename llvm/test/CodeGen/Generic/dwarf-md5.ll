@@ -36,6 +36,8 @@
 ; OBJ-NEXT: dir_index: 0
 ; OBJ-5-NEXT: md5_checksum: 22222222222222222222222222222222
 
+target triple = "x86_64-unknown-linux"
+
 ; ModuleID = 't.c'
 source_filename = "t.c"
 

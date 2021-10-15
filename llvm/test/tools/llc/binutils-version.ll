@@ -4,6 +4,8 @@
 ; RUN: llc %s -filetype=null -binutils-version=2
 ; RUN: llc %s -filetype=null -binutils-version=2.35
 
+target triple = "x86_64-unknown-linux"
+
 ;; Disallow -binutils-version=0 because we use $major==0 to indicate the MC
 ;; default.
 ; RUN: not llc %s -filetype=null -binutils-version=0 2>&1 | FileCheck %s --check-prefix=ERR

@@ -46,9 +46,9 @@ define void @ctpop_2i64() #0 {
 ; AVX1-NEXT:    ret void
 ;
 ; AVX2-LABEL: @ctpop_2i64(
-; AVX2-NEXT:    [[TMP1:%.*]] = load <2 x i64>, <2 x i64>* bitcast ([4 x i64]* @src64 to <2 x i64>*), align 8
+; AVX2-NEXT:    [[TMP1:%.*]] = load <2 x i64>, <2 x i64>* bitcast (i64* getelementptr inbounds ([4 x i64], [4 x i64]* @src64, i32 0, i64 0) to <2 x i64>*), align 8
 ; AVX2-NEXT:    [[TMP2:%.*]] = call <2 x i64> @llvm.ctpop.v2i64(<2 x i64> [[TMP1]])
-; AVX2-NEXT:    store <2 x i64> [[TMP2]], <2 x i64>* bitcast ([4 x i64]* @dst64 to <2 x i64>*), align 8
+; AVX2-NEXT:    store <2 x i64> [[TMP2]], <2 x i64>* bitcast (i64* getelementptr inbounds ([4 x i64], [4 x i64]* @dst64, i32 0, i64 0) to <2 x i64>*), align 8
 ; AVX2-NEXT:    ret void
 ;
   %ld0 = load i64, i64* getelementptr inbounds ([4 x i64], [4 x i64]* @src64, i32 0, i64 0), align 8

@@ -1,5 +1,7 @@
 ; RUN: llc < %s
 
+target triple = "x86_64-unknown-linux"
+
 define i32 @test1(i32 %x) nounwind uwtable ssp {
 entry:
   %retval = alloca i32, align 4

@@ -232,12 +232,9 @@ define void @caller_multiple(i32 %a, i32 %b) #1 {
 ; CHECK-NEXT:    store i32 [[INC]], i32* [[I]], align 4
 ; CHECK-NEXT:    br label [[FOR_COND1]]
 ; CHECK:       for.end4:
-; CHECK-NEXT:    [[TMP4:%.*]] = bitcast i32* [[A_ADDR_I]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 4, i8* [[TMP4]])
-; CHECK-NEXT:    [[TMP5:%.*]] = bitcast i32* [[B_ADDR_I]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 4, i8* [[TMP5]])
-; CHECK-NEXT:    [[TMP6:%.*]] = bitcast i32* [[I_I]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 4, i8* [[TMP6]])
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i32(i64 4, i32* [[A_ADDR_I]])
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i32(i64 4, i32* [[B_ADDR_I]])
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i32(i64 4, i32* [[I_I]])
 ; CHECK-NEXT:    store i32 0, i32* [[A_ADDR_I]], align 4
 ; CHECK-NEXT:    store i32 5, i32* [[B_ADDR_I]], align 4
 ; CHECK-NEXT:    br label [[FOR_COND_I:%.*]]
@@ -404,12 +401,9 @@ define void @caller_nested(i32 %a, i32 %b) #1 {
 ; CHECK-NEXT:    store i32 [[INC14]], i32* [[I9]], align 4
 ; CHECK-NEXT:    br label [[FOR_COND10]]
 ; CHECK:       for.end15:
-; CHECK-NEXT:    [[TMP8:%.*]] = bitcast i32* [[A_ADDR_I]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 4, i8* [[TMP8]])
-; CHECK-NEXT:    [[TMP9:%.*]] = bitcast i32* [[B_ADDR_I]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 4, i8* [[TMP9]])
-; CHECK-NEXT:    [[TMP10:%.*]] = bitcast i32* [[I_I]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 4, i8* [[TMP10]])
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i32(i64 4, i32* [[A_ADDR_I]])
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i32(i64 4, i32* [[B_ADDR_I]])
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i32(i64 4, i32* [[I_I]])
 ; CHECK-NEXT:    store i32 0, i32* [[A_ADDR_I]], align 4
 ; CHECK-NEXT:    store i32 5, i32* [[B_ADDR_I]], align 4
 ; CHECK-NEXT:    br label [[FOR_COND_I:%.*]]

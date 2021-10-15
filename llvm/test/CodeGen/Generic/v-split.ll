@@ -1,5 +1,7 @@
 ; RUN: llc < %s
 
+target triple = "x86_64-unknown-linux"
+
 %f8 = type <8 x float>
 
 define void @test_f8(%f8 *%P, %f8* %Q, %f8 *%S) {

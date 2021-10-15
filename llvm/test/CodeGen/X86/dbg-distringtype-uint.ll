@@ -42,6 +42,7 @@
 ; The optimizations encode the constant string as an i64 constant in
 ; the debug info for esym, the return variable of the function esym.
 
+target triple = "x86_64-unknown-linux"
 @"semiempirical_corrections_mp_esym_$ELEMNT" = internal unnamed_addr constant [1 x [8 x i8]] [[8 x i8] c"abcdefgh"], align 8, !dbg !0
 
 ; Function Attrs: nofree nounwind uwtable

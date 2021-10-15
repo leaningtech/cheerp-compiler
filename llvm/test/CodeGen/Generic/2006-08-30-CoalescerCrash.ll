@@ -1,4 +1,6 @@
 ; RUN: llc < %s	
+target triple = "x86_64-unknown-linux"
+
 %struct.CUMULATIVE_ARGS = type { i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32 }
 	%struct.VEC_edge = type { i32, i32, [1 x %struct.edge_def*] }
 	%struct._obstack_chunk = type { i8*, %struct._obstack_chunk*, [4 x i8] }

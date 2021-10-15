@@ -1,6 +1,8 @@
 ; RUN: llc < %s
 ; PR1833
 
+target triple = "x86_64-unknown-linux"
+
 	%struct.__class_type_info_pseudo = type { %struct.__type_info_pseudo }
 	%struct.__type_info_pseudo = type { i8*, i8* }
 @_ZTI2e1 = external constant %struct.__class_type_info_pseudo		; <%struct.__class_type_info_pseudo*> [#uses=1]

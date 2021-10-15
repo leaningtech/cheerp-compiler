@@ -1,5 +1,7 @@
 ; RUN: llc < %s 
 
+target triple = "x86_64-unknown-linux"
+
 define void @start_pass_huff(i32 %gather_statistics) {
 entry:
         %tmp = icmp eq i32 %gather_statistics, 0                ; <i1> [#uses=1]

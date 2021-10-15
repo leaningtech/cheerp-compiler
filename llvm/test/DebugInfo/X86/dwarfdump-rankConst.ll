@@ -17,6 +17,7 @@
 ;;------------------------------
 
 ; ModuleID = 'dwarfdump-rank.ll'
+target triple = "x86_64-unknown-linux"
 source_filename = "dwarfdump-rank.ll"
 
 define void @sub_(i64* noalias %arank, i64* noalias %"arank$sd") !dbg !5 {

@@ -1,5 +1,7 @@
 ; RUN: llc < %s
 
+target triple = "x86_64-unknown-linux"
+
 ; This caused a problem because the argument of a call was defined by
 ; the return value of another call that appears later in the code.
 ; When processing the first call, the second call has not yet been processed

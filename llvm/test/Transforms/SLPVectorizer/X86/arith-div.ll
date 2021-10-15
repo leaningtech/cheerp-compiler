@@ -63,9 +63,9 @@ define void @sdiv_v16i32_uniformconst() {
 ; AVX-NEXT:    ret void
 ;
 ; AVX512-LABEL: @sdiv_v16i32_uniformconst(
-; AVX512-NEXT:    [[TMP1:%.*]] = load <16 x i32>, <16 x i32>* bitcast ([16 x i32]* @a32 to <16 x i32>*), align 4
+; AVX512-NEXT:    [[TMP1:%.*]] = load <16 x i32>, <16 x i32>* bitcast (i32* getelementptr inbounds ([16 x i32], [16 x i32]* @a32, i32 0, i64 0) to <16 x i32>*), align 4
 ; AVX512-NEXT:    [[TMP2:%.*]] = sdiv <16 x i32> [[TMP1]], <i32 5, i32 5, i32 5, i32 5, i32 5, i32 5, i32 5, i32 5, i32 5, i32 5, i32 5, i32 5, i32 5, i32 5, i32 5, i32 5>
-; AVX512-NEXT:    store <16 x i32> [[TMP2]], <16 x i32>* bitcast ([16 x i32]* @c32 to <16 x i32>*), align 4
+; AVX512-NEXT:    store <16 x i32> [[TMP2]], <16 x i32>* bitcast (i32* getelementptr inbounds ([16 x i32], [16 x i32]* @c32, i32 0, i64 0) to <16 x i32>*), align 4
 ; AVX512-NEXT:    ret void
 ;
   %a0  = load i32, i32* getelementptr inbounds ([16 x i32], [16 x i32]* @a32, i32 0, i64 0 ), align 4
@@ -160,9 +160,9 @@ define void @srem_v16i32_uniformconst() {
 ; AVX-NEXT:    ret void
 ;
 ; AVX512-LABEL: @srem_v16i32_uniformconst(
-; AVX512-NEXT:    [[TMP1:%.*]] = load <16 x i32>, <16 x i32>* bitcast ([16 x i32]* @a32 to <16 x i32>*), align 4
+; AVX512-NEXT:    [[TMP1:%.*]] = load <16 x i32>, <16 x i32>* bitcast (i32* getelementptr inbounds ([16 x i32], [16 x i32]* @a32, i32 0, i64 0) to <16 x i32>*), align 4
 ; AVX512-NEXT:    [[TMP2:%.*]] = srem <16 x i32> [[TMP1]], <i32 5, i32 5, i32 5, i32 5, i32 5, i32 5, i32 5, i32 5, i32 5, i32 5, i32 5, i32 5, i32 5, i32 5, i32 5, i32 5>
-; AVX512-NEXT:    store <16 x i32> [[TMP2]], <16 x i32>* bitcast ([16 x i32]* @c32 to <16 x i32>*), align 4
+; AVX512-NEXT:    store <16 x i32> [[TMP2]], <16 x i32>* bitcast (i32* getelementptr inbounds ([16 x i32], [16 x i32]* @c32, i32 0, i64 0) to <16 x i32>*), align 4
 ; AVX512-NEXT:    ret void
 ;
   %a0  = load i32, i32* getelementptr inbounds ([16 x i32], [16 x i32]* @a32, i32 0, i64 0 ), align 4
@@ -257,9 +257,9 @@ define void @udiv_v16i32_uniformconst() {
 ; AVX-NEXT:    ret void
 ;
 ; AVX512-LABEL: @udiv_v16i32_uniformconst(
-; AVX512-NEXT:    [[TMP1:%.*]] = load <16 x i32>, <16 x i32>* bitcast ([16 x i32]* @a32 to <16 x i32>*), align 4
+; AVX512-NEXT:    [[TMP1:%.*]] = load <16 x i32>, <16 x i32>* bitcast (i32* getelementptr inbounds ([16 x i32], [16 x i32]* @a32, i32 0, i64 0) to <16 x i32>*), align 4
 ; AVX512-NEXT:    [[TMP2:%.*]] = udiv <16 x i32> [[TMP1]], <i32 5, i32 5, i32 5, i32 5, i32 5, i32 5, i32 5, i32 5, i32 5, i32 5, i32 5, i32 5, i32 5, i32 5, i32 5, i32 5>
-; AVX512-NEXT:    store <16 x i32> [[TMP2]], <16 x i32>* bitcast ([16 x i32]* @c32 to <16 x i32>*), align 4
+; AVX512-NEXT:    store <16 x i32> [[TMP2]], <16 x i32>* bitcast (i32* getelementptr inbounds ([16 x i32], [16 x i32]* @c32, i32 0, i64 0) to <16 x i32>*), align 4
 ; AVX512-NEXT:    ret void
 ;
   %a0  = load i32, i32* getelementptr inbounds ([16 x i32], [16 x i32]* @a32, i32 0, i64 0 ), align 4
@@ -354,9 +354,9 @@ define void @urem_v16i32_uniformconst() {
 ; AVX-NEXT:    ret void
 ;
 ; AVX512-LABEL: @urem_v16i32_uniformconst(
-; AVX512-NEXT:    [[TMP1:%.*]] = load <16 x i32>, <16 x i32>* bitcast ([16 x i32]* @a32 to <16 x i32>*), align 4
+; AVX512-NEXT:    [[TMP1:%.*]] = load <16 x i32>, <16 x i32>* bitcast (i32* getelementptr inbounds ([16 x i32], [16 x i32]* @a32, i32 0, i64 0) to <16 x i32>*), align 4
 ; AVX512-NEXT:    [[TMP2:%.*]] = urem <16 x i32> [[TMP1]], <i32 5, i32 5, i32 5, i32 5, i32 5, i32 5, i32 5, i32 5, i32 5, i32 5, i32 5, i32 5, i32 5, i32 5, i32 5, i32 5>
-; AVX512-NEXT:    store <16 x i32> [[TMP2]], <16 x i32>* bitcast ([16 x i32]* @c32 to <16 x i32>*), align 4
+; AVX512-NEXT:    store <16 x i32> [[TMP2]], <16 x i32>* bitcast (i32* getelementptr inbounds ([16 x i32], [16 x i32]* @c32, i32 0, i64 0) to <16 x i32>*), align 4
 ; AVX512-NEXT:    ret void
 ;
   %a0  = load i32, i32* getelementptr inbounds ([16 x i32], [16 x i32]* @a32, i32 0, i64 0 ), align 4

@@ -1,5 +1,7 @@
 ; RUN: llc < %s
 
+target triple = "x86_64-unknown-linux"
+
 	%struct.exception = type { i8, i8, i32, i8*, i8*, i32, i8* }
 @program_error = external global %struct.exception		; <%struct.exception*> [#uses=1]
 

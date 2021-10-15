@@ -101,7 +101,6 @@ std::initializer_list<std::initializer_list<int>> nested = {
 // CHECK-STATIC-BE:            i32* getelementptr ([2 x i32], [2 x i32]* @_ZGR6nested2_, i32 0, i32 2) }
 // CHECK-STATIC-BE: ], align 8
 // CHECK-STATIC-BE: @nested ={{.*}} global {{.*}} { {{.*}} getelementptr inbounds ([3 x {{.*}}], [3 x {{.*}}]* @_ZGR6nested_, i32 0, i32 0),
-// CHECK-STATIC-BE:                           {{.*}} bitcast ({{.*}}* getelementptr (i8, i8* bitcast ([3 x {{.*}}]* @_ZGR6nested_ to i8*), i64 48) to {{.*}}*) }
 
 // CHECK-DYNAMIC-BE: @nested ={{.*}} global
 // CHECK-DYNAMIC-BE: @_ZGR6nested_ = internal global [3 x

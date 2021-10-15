@@ -1,4 +1,6 @@
 ; RUN: llc < %s
+target triple = "x86_64-unknown-linux"
+
 ; PR10733
 declare void @_Znam()
 

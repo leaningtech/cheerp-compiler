@@ -29,7 +29,7 @@ define void @foo() {
 ; AVX-NEXT:    [[TMP3:%.*]] = insertelement <8 x i32> poison, i32 [[TMP1]], i64 0
 ; AVX-NEXT:    [[TMP4:%.*]] = insertelement <8 x i32> [[TMP3]], i32 [[TMP2]], i64 1
 ; AVX-NEXT:    [[SHUFFLE:%.*]] = shufflevector <8 x i32> [[TMP4]], <8 x i32> poison, <8 x i32> <i32 0, i32 1, i32 0, i32 1, i32 0, i32 1, i32 0, i32 1>
-; AVX-NEXT:    store <8 x i32> [[SHUFFLE]], <8 x i32>* bitcast ([8 x i32]* @a to <8 x i32>*), align 16
+; AVX-NEXT:    store <8 x i32> [[SHUFFLE]], <8 x i32>* bitcast (i32* getelementptr inbounds ([8 x i32], [8 x i32]* @a, i64 0, i64 0) to <8 x i32>*), align 16
 ; AVX-NEXT:    ret void
 ;
 ; AVX512-LABEL: @foo(

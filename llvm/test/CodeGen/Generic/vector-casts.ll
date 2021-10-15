@@ -1,6 +1,8 @@
 ; RUN: llc < %s
 ; PR2671
 
+target triple = "x86_64-unknown-linux"
+
 define void @a(<2 x double>* %p, <2 x i8>* %q) {
   %t = load <2 x double>, <2 x double>* %p
   %r = fptosi <2 x double> %t to <2 x i8>

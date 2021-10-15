@@ -22,7 +22,7 @@ L(1, t, X);
 // CHECK-LABEL: define{{.*}} void @_Z2l2v
 // CHECK:       call {{.*}} @_ZN1XC1Ev
 // CHECK-NEXT:  call void @llvm.lifetime.end
-// CHECK-NEXT:  call {{.*}} @_ZN1XC1ERKS_
+// CHECK:  call {{.*}} @_ZN1XC1ERKS_
 // CHECK-NEXT:  call void @llvm.lifetime.end
 // CHECK-NEXT:  ret void
 L(2, t, X&);
@@ -36,7 +36,7 @@ L(3, t, T);
 // CHECK-LABEL: define{{.*}} void @_Z2l4v
 // CHECK:       call {{.*}} @_ZN1XC1Ev
 // CHECK-NEXT:  call void @llvm.lifetime.end
-// CHECK-NEXT:  call {{.*}} @_ZN1XC1ERKS_
+// CHECK:  call {{.*}} @_ZN1XC1ERKS_
 // CHECK-NEXT:  call void @llvm.lifetime.end
 // CHECK-NEXT:  ret void
 L(4, t, T&);
@@ -46,13 +46,13 @@ L(4, t, T&);
 // CHECK-NEXT:  call {{.*}} @_ZN1XC1EOS_
 // CHECK-NEXT:  call void @llvm.lifetime.end
 // CHECK-NEXT:  call void @llvm.lifetime.end
-// CHECK-NEXT:  ret void
+// CHECK:  ret void
 L(5, t, auto);
 
 // CHECK-LABEL: define{{.*}} void @_Z2l6v
 // CHECK:       call {{.*}} @_ZN1XC1Ev
 // CHECK-NEXT:  call void @llvm.lifetime.end
-// CHECK-NEXT:  call {{.*}} @_ZN1XC1ERKS_
+// CHECK:  call {{.*}} @_ZN1XC1ERKS_
 // CHECK-NEXT:  call void @llvm.lifetime.end
 // CHECK-NEXT:  ret void
 L(6, t, auto&);
@@ -62,13 +62,13 @@ L(6, t, auto&);
 // CHECK-NEXT:  call {{.*}} @_ZN1XC1EOS_
 // CHECK-NEXT:  call void @llvm.lifetime.end
 // CHECK-NEXT:  call void @llvm.lifetime.end
-// CHECK-NEXT:  ret void
+// CHECK:  ret void
 L(7, t, decltype(auto));
 
 // CHECK-LABEL: define{{.*}} void @_Z2l8v
 // CHECK:       call {{.*}} @_ZN1XC1Ev
 // CHECK-NEXT:  call void @llvm.lifetime.end
-// CHECK-NEXT:  call {{.*}} @_ZN1XC1ERKS_
+// CHECK:  call {{.*}} @_ZN1XC1ERKS_
 // CHECK-NEXT:  call void @llvm.lifetime.end
 // CHECK-NEXT:  ret void
 L(8, (t), decltype(auto));
@@ -90,7 +90,7 @@ F(1, t, X);
 // CHECK-LABEL: define{{.*}} void @_Z2f2v
 // CHECK:       call {{.*}} @_ZN1XC1Ev
 // CHECK-NEXT:  call void @llvm.lifetime.end
-// CHECK-NEXT:  call {{.*}} @_ZN1XC1ERKS_
+// CHECK:  call {{.*}} @_ZN1XC1ERKS_
 // CHECK-NEXT:  call void @llvm.lifetime.end
 // CHECK-NEXT:  ret void
 F(2, t, X&);
@@ -104,7 +104,7 @@ F(3, t, T);
 // CHECK-LABEL: define{{.*}} void @_Z2f4v
 // CHECK:       call {{.*}} @_ZN1XC1Ev
 // CHECK-NEXT:  call void @llvm.lifetime.end
-// CHECK-NEXT:  call {{.*}} @_ZN1XC1ERKS_
+// CHECK:  call {{.*}} @_ZN1XC1ERKS_
 // CHECK-NEXT:  call void @llvm.lifetime.end
 // CHECK-NEXT:  ret void
 F(4, t, T&);
@@ -114,13 +114,13 @@ F(4, t, T&);
 // CHECK-NEXT:  call {{.*}} @_ZN1XC1EOS_
 // CHECK-NEXT:  call void @llvm.lifetime.end
 // CHECK-NEXT:  call void @llvm.lifetime.end
-// CHECK-NEXT:  ret void
+// CHECK:  ret void
 F(5, t, auto);
 
 // CHECK-LABEL: define{{.*}} void @_Z2f6v
 // CHECK:       call {{.*}} @_ZN1XC1Ev
 // CHECK-NEXT:  call void @llvm.lifetime.end
-// CHECK-NEXT:  call {{.*}} @_ZN1XC1ERKS_
+// CHECK:  call {{.*}} @_ZN1XC1ERKS_
 // CHECK-NEXT:  call void @llvm.lifetime.end
 // CHECK-NEXT:  ret void
 F(6, t, auto&);
@@ -130,13 +130,13 @@ F(6, t, auto&);
 // CHECK-NEXT:  call {{.*}} @_ZN1XC1EOS_
 // CHECK-NEXT:  call void @llvm.lifetime.end
 // CHECK-NEXT:  call void @llvm.lifetime.end
-// CHECK-NEXT:  ret void
+// CHECK:  ret void
 F(7, t, decltype(auto));
 
 // CHECK-LABEL: define{{.*}} void @_Z2f8v
 // CHECK:       call {{.*}} @_ZN1XC1Ev
 // CHECK-NEXT:  call void @llvm.lifetime.end
-// CHECK-NEXT:  call {{.*}} @_ZN1XC1ERKS_
+// CHECK:  call {{.*}} @_ZN1XC1ERKS_
 // CHECK-NEXT:  call void @llvm.lifetime.end
 // CHECK-NEXT:  ret void
 F(8, (t), decltype(auto));
@@ -159,7 +159,7 @@ B(1, X);
 // CHECK-LABEL: define{{.*}} void @_Z2b2v
 // CHECK:       call {{.*}} @_ZN1XC1Ev
 // CHECK-NEXT:  call void @llvm.lifetime.end
-// CHECK-NEXT:  call {{.*}} @_ZN1XC1ERKS_
+// CHECK:  call {{.*}} @_ZN1XC1ERKS_
 // CHECK-NEXT:  call void @llvm.lifetime.end
 // CHECK-NEXT:  ret void
 B(2, X&);
@@ -173,7 +173,7 @@ B(3, T);
 // CHECK-LABEL: define{{.*}} void @_Z2b4v
 // CHECK:       call {{.*}} @_ZN1XC1Ev
 // CHECK-NEXT:  call void @llvm.lifetime.end
-// CHECK-NEXT:  call {{.*}} @_ZN1XC1ERKS_
+// CHECK:  call {{.*}} @_ZN1XC1ERKS_
 // CHECK-NEXT:  call void @llvm.lifetime.end
 // CHECK-NEXT:  ret void
 B(4, T&);
@@ -183,7 +183,7 @@ B(4, T&);
 // CHECK-NEXT:  call {{.*}} @_ZN1XC1EOS_
 // CHECK-NEXT:  call void @llvm.lifetime.end
 // CHECK-NEXT:  call void @llvm.lifetime.end
-// CHECK-NEXT:  ret void
+// CHECK:  ret void
 B(5, );
 
 #undef B

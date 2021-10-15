@@ -1,5 +1,7 @@
 ; RUN: llc < %s
 ; PR1011	
+target triple = "x86_64-unknown-linux"
+
 %struct.mng_data = type { i8* (%struct.mng_data*, i32)*, i32, i32, i32, i8, i8, i32, i32, i32, i32, i32 }
 
 define void @mng_display_bgr565() {

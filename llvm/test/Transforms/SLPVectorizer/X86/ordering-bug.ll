@@ -10,12 +10,12 @@
 define void @f(i1 %x) #0 {
 ; CHECK-LABEL: @f(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[TMP0:%.*]] = load <2 x i64>, <2 x i64>* bitcast (%struct.a* @a to <2 x i64>*), align 8
+; CHECK-NEXT:    [[TMP0:%.*]] = load <2 x i64>, <2 x i64>* bitcast (i64* getelementptr inbounds (%struct.a, %struct.a* @a, i32 0, i32 0, i32 0) to <2 x i64>*), align 8
 ; CHECK-NEXT:    br i1 [[X:%.*]], label [[WHILE_BODY_LR_PH:%.*]], label [[WHILE_END:%.*]]
 ; CHECK:       while.body.lr.ph:
 ; CHECK-NEXT:    [[TMP1:%.*]] = extractelement <2 x i64> [[TMP0]], i32 1
 ; CHECK-NEXT:    [[ICMP_A1:%.*]] = icmp eq i64 [[TMP1]], 0
-; CHECK-NEXT:    [[TMP2:%.*]] = load <2 x i64>, <2 x i64>* bitcast (%struct.a* @b to <2 x i64>*), align 8
+; CHECK-NEXT:    [[TMP2:%.*]] = load <2 x i64>, <2 x i64>* bitcast (i64* getelementptr inbounds (%struct.a, %struct.a* @b, i32 0, i32 0, i32 0) to <2 x i64>*), align 8
 ; CHECK-NEXT:    [[TMP3:%.*]] = insertelement <2 x i1> poison, i1 [[ICMP_A1]], i32 0
 ; CHECK-NEXT:    [[SHUFFLE:%.*]] = shufflevector <2 x i1> [[TMP3]], <2 x i1> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP4:%.*]] = select <2 x i1> [[SHUFFLE]], <2 x i64> [[TMP2]], <2 x i64> [[TMP0]]

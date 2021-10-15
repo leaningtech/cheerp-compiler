@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 %s -emit-llvm -o - | opt -O3 | llc | \
+// RUN: %clang_cc1 -triple %itanium_abi_triple %s -emit-llvm -o - | opt -O3 | llc | \
 // RUN:    not grep _foo2
 
 void foo(void) __asm__("foo2");

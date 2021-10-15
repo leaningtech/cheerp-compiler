@@ -1,6 +1,7 @@
 ; RUN: llc %s -mtriple=x86_64 -filetype=obj -o - 2>&1 | FileCheck %s --check-prefix=ERROR
 ; ERROR: invalid expression
 
+target triple = "x86_64-unknown-linux"
 !llvm.dbg.cu = !{!0}
 !llvm.module.flags = !{!13, !14, !15, !16}
 

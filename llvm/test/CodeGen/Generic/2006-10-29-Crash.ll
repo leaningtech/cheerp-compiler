@@ -1,5 +1,7 @@
 ; RUN: llc < %s
 
+target triple = "x86_64-unknown-linux"
+
 define void @form_component_prediction(i32 %dy) {
 entry:
         %tmp7 = and i32 %dy, 1          ; <i32> [#uses=1]

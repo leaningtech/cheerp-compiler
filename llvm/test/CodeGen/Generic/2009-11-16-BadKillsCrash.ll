@@ -1,6 +1,8 @@
 ; RUN: llc < %s
 ; PR5495
 
+target triple = "x86_64-unknown-linux"
+
 %"struct.std::__ctype_abstract_base<wchar_t>" = type { %"struct.std::locale::facet" }
 %"struct.std::basic_ios<char,std::char_traits<char> >" = type { %"struct.std::ios_base", %"struct.std::basic_ostream<char,std::char_traits<char> >"*, i8, i8, %"struct.std::basic_streambuf<char,std::char_traits<char> >"*, %"struct.std::ctype<char>"*, %"struct.std::__ctype_abstract_base<wchar_t>"*, %"struct.std::__ctype_abstract_base<wchar_t>"* }
 %"struct.std::basic_istream<char,std::char_traits<char> >" = type { i32 (...)**, i32, %"struct.std::basic_ios<char,std::char_traits<char> >" }

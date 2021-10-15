@@ -1,6 +1,7 @@
 ; RUN: llc -O0 < %s -o /dev/null
 ; llc should not crash on this optimized out debug info.
 ; PR6588
+target triple = "x86_64-unknown-linux"
 declare void @llvm.dbg.declare(metadata, metadata, metadata) nounwind readnone
 
 define void @foo() {

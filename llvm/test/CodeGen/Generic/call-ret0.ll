@@ -1,4 +1,6 @@
 ; RUN: llc < %s
+target triple = "x86_64-unknown-linux"
+
 define i32 @foo(i32 %x) {
         ret i32 %x
 }
