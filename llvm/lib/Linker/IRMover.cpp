@@ -477,14 +477,6 @@ class IRLinker {
     if (DGV->hasLocalLinkage())
       return nullptr;
 
-    // If we found an intrinsic declaration with mismatching prototypes, we
-    // probably had a nameclash. Don't use that version.
-    if (auto *FDGV = dyn_cast<Function>(DGV))
-      if (FDGV->isIntrinsic())
-        if (const auto *FSrcGV = dyn_cast<Function>(SrcGV))
-          if (FDGV->getFunctionType() != TypeMap.get(FSrcGV->getFunctionType()))
-            return nullptr;
-
     // Otherwise, we do in fact link to the destination global.
     return DGV;
   }
