@@ -10,7 +10,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "CheerpTargetMachine.h"
-#include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
@@ -21,6 +20,7 @@
 #include "llvm/IR/Type.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/PostDominators.h"
+#include "llvm/MC/TargetRegistry.h"
 #include "llvm/Cheerp/Writer.h"
 #include "llvm/Cheerp/WasmWriter.h"
 #include "llvm/Cheerp/LinearMemoryHelper.h"
