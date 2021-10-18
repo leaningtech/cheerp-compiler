@@ -13,8 +13,8 @@
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCInstrInfo.h"
 #include "llvm/MC/MCRegisterInfo.h"
+#include "llvm/MC/TargetRegistry.h"
 #include "llvm/ADT/Triple.h"
-#include "llvm/Support/TargetRegistry.h"
 
 namespace llvm {
   class Triple;
