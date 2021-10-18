@@ -2071,11 +2071,14 @@ def GenericJS : InheritableAttr {
   let Spellings = [CXX11<"cheerp", "genericjs">, GNU<"cheerp_genericjs">];
   let Documentation = [Undocumented];
 }
+def : MutualExclusions<[AsmJS, GenericJS]>;
 
 def ByteLayout : InheritableAttr {
   let Spellings = [CXX11<"cheerp", "bytelayout">, GNU<"cheerp_bytelayout">];
   let Documentation = [Undocumented];
 }
+def : MutualExclusions<[JsExport, ByteLayout]>;
+def : MutualExclusions<[GenericJS, ByteLayout]>;
 
 def DefaultNew : Attr {
   let Spellings = [CXX11<"cheerp", "default_new">, GNU<"cheerp_default_new">];
@@ -2327,6 +2330,7 @@ def Packed : InheritableAttr {
 //  let Subjects = [Tag, Field];
   let Documentation = [Undocumented];
 }
+def : MutualExclusions<[AsmJS, Packed]>;
 
 def IntelOclBicc : DeclOrTypeAttr {
   let Spellings = [Clang<"intel_ocl_bicc", 0>];
