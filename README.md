@@ -89,16 +89,20 @@ Go check the README.md of https://github.com/leaningtech/cheerp-newlib
 
 ### Build libcxx
 
-        * CMake will generate targets for each tool and library, and most
-          LLVM sub-projects generate their own ``check-<project>`` target.
-
-        * Running a serial build will be **slow**.  To improve speed, try running a
-          parallel build.  That's done by default in Ninja; for ``make``, use the option
-          ``-j NNN``, where ``NNN`` is the number of parallel jobs to run.
-          In most cases, you get the best performance if you specify the number of CPU threads you have.
-          On some Unix systems, you can specify this with ``-j$(nproc)``.
-
-      * For more information see [CMake](https://llvm.org/docs/CMake.html)
+```
+cd libcxx
+mkdir build
+cd build
+cmake -DCMAKE_INSTALL_PREFIX=/opt/cheerp   -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=/opt/cheerp/share/cmake/Modules/  CheerpToolchain.cmake -DLIBCXX_ENABLE_SHA  RED=OFF -DLIBCXX_ENABLE_ASSERTIONS=OFF -DLIBCXX_INCLUDE_BENCHMARKS=OFF -DLIBCXX_CXX_ABI_INCLUDE_PATHS=$CHEERP_SRC/  cheerp-compiler/libcxxabi/include -DLIBCX  X_CXX_ABI=libcxxabi -DCMAKE_CXX_FLAGS="-f  exceptions" ..
+make
+make install
+cd ..
+mkdir build_asmjs
+cd build_asmjs
+cmake -DCMAKE_INSTALL_PREFIX=/opt/cheerp   -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=/opt/cheerp/share/cmake/Modules/CheerpWasmToolchain.cmake -DLIBCXX_ENABLE_SHA  RED=OFF -DLIBCXX_ENABLE_ASSERTIONS=OFF -DLIBCXX_INCLUDE_BENCHMARKS=OFF -D  LIBCXX_CXX_ABI_INCLUDE_PATHS=$CHEERP_SRC/  cheerp-compiler/libcxxabi/include -DLIBCX  X_CXX_ABI=libcxxabi -DCMAKE_CXX_FLAGS="-f  exceptions" ..
+make
+make install
+```
 
 ### Build libcxxabi
 
