@@ -178,6 +178,12 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 					break;
 			}
 		}
+		if(const IntrinsicInst* II=dyn_cast<IntrinsicInst>(userInst))
+		{
+			if (II->getIntrinsicID() == Intrinsic::abs)
+				//Abs will be rendered as (X >= 0) ? X : -X in both writers
+				return true;
+		}
 		return false;
 	};
 	// Do not inline the instruction if the use is in another block
