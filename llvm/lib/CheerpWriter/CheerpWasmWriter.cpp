@@ -1622,6 +1622,34 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 							encodeInst(WasmOpcode::RETURN, code);
 						return true;
 					}
+					case Intrinsic::abs:
+					{
+						//Implementing ( X >= 0 ) ? X : -X
+						//Note that abs takes 2 arguments, the actual value (X) + a flag that dictates
+						//what the output should be for X == INT_MIN (=-2^31).
+						//Since in one case it's -2^31 and the other in Undefined, we consider both
+						//at the same time rendering -2^31 (note that it's surprisingly a negative value)
+						auto* operand = ci.op_begin()->get();
+						const llvm::Type* type = calledFunc->getReturnType();
+						const bool isI64 = type->isIntegerTy(64);
+
+						//Put on the stack the operand
+						compileOperand(code, operand);
+
+						//Put on the stack the negation of the operand
+						compileTypedZero(code, type);
+						compileOperand(code, operand);
+						encodeInst(isI64 ? WasmOpcode::I64_SUB : WasmOpcode::I32_SUB, code);
+
+						//Do the comparison between operand and 0
+						compileOperand(code, operand);
+						compileTypedZero(code, type);
+						encodePredicate(type, CmpInst::ICMP_SGE, code);
+
+						//Select
+						encodeInst(WasmOpcode::SELECT, code);
+						return true;
+					}
 					case Intrinsic::memmove:
 					{
 						compileOperand(code, ci.op_begin()->get());
