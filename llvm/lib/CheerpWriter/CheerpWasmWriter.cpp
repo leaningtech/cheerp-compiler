@@ -1648,7 +1648,13 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 
 						//Select
 						encodeInst(WasmOpcode::SELECT, code);
-						return true;
+
+						if(useTailCall)
+						{
+							encodeInst(WasmOpcode::RETURN, code);
+							return true;
+						}
+						return false;
 					}
 					case Intrinsic::memmove:
 					{

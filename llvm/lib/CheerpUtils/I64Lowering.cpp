@@ -685,6 +685,27 @@ struct I64LoweringVisitor: public InstVisitor<I64LoweringVisitor, HighInt>
 				ctlz_cttz_impl(Arg.low, Arg.high);
 				break;
 			}
+			case Intrinsic::abs:
+			{
+				//Lower i64.abs(X) by returning either (X) or (-X) depending on the most significant bit of Arg.high
+				//Since -X = ~X + 1 = X ^ (-1) + 1
+				//And             X = X ^   0  + 0
+				//We will compute X = X ^ mask + toAdd
+				//Where mask and toAdd are computed in a branchless way
+				HighInt Arg = visitValue(I.getOperand(0));
+				Value* Mask = Builder.CreateAShr(Arg.high, ConstantInt::get(Int32Ty, 31));	// this will either be 0 or 0xffffffff
+				Value* ToAdd = Builder.CreateLShr(Arg.high, ConstantInt::get(Int32Ty, 31));	// this will either be 0 or 0x00000001
+				Value* Low = Builder.CreateXor(Arg.low, Mask);
+				Low = Builder.CreateAdd(Low, ToAdd);						// Low is either = Arg.low or its negation
+				Value* Cond = Builder.CreateICmpEQ(Low, ConstantInt::get(Int32Ty, 0));
+				Value* Ext = Builder.CreateZExt(Cond, Int32Ty);
+				Value* ToAdd2 = Builder.CreateAnd(Ext, ToAdd);
+				Value* High = Builder.CreateXor(Arg.high, Mask);
+				High = Builder.CreateAdd(High, ToAdd2);						// High is either Arg.high or its negation
+				Res.high = High;
+				Res.low = Low;
+				break;
+			}
 			default:
 			{
 				report_fatal_error("Unsupported 64 bit intrinsic");
