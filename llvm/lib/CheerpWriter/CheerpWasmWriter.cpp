@@ -752,9 +752,9 @@ void CheerpWasmWriter::compileUnsignedInteger(WasmBuffer& code, const llvm::Valu
 	}
 }
 
-void CheerpWasmWriter::compileTypedZero(WasmBuffer& code, llvm::Type* t)
+void CheerpWasmWriter::compileTypedZero(WasmBuffer& code, const llvm::Type* t)
 {
-	// Encode a literal f64, f32 or i32 zero as the return value.
+	// Encode a literal f64, f32, i64 or i32 zero as the return value.
 	encodeLiteralType(t, code);
 	if (t->isDoubleTy()) {
 		encodeF64(0., code);
