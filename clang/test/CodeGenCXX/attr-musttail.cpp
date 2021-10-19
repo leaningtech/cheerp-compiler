@@ -57,13 +57,13 @@ int Foo::TailFrom2(int x) {
   [[clang::musttail]] return ((*this).*pmf)(x);
 }
 
-// CHECK: %call = musttail call i32 %8(%class.Foo* nonnull align 1 dereferenceable(1) %this.adjusted, i32 %9)
+// CHECK: %call = musttail call i32 %9(%class.Foo* nonnull align 1 dereferenceable(1) %this.adjusted, i32 %10)
 
 int Foo::TailFrom3(int x) {
   [[clang::musttail]] return (this->*pmf)(x);
 }
 
-// CHECK: %call = musttail call i32 %8(%class.Foo* nonnull align 1 dereferenceable(1) %this.adjusted, i32 %9)
+// CHECK: %call = musttail call i32 %9(%class.Foo* nonnull align 1 dereferenceable(1) %this.adjusted, i32 %10)
 
 void ReturnsVoid();
 
@@ -225,4 +225,4 @@ void TestVirtual::TailFrom() {
   [[clang::musttail]] return TailTo();
 }
 
-// CHECK: musttail call void %1(%class.TestVirtual* nonnull align 8 dereferenceable(8) %this1)
+// CHECK: musttail call void %2(%class.TestVirtual* nonnull align 8 dereferenceable(8) %this1)
