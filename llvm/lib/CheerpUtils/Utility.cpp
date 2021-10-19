@@ -157,14 +157,16 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 		}
 		return false;
 	};
-	//Certain floating point comparisons require to render the operands twice
-	auto isUserASpecialFCmp = [](const Instruction& I)
+	//Certain instructions require a given argument to be rendered more than once
+	auto userRequiresMultipleRenderings = [](const Instruction& I)
 	{
 		assert(I.hasOneUse());
 		const Use& U = *I.use_begin();
 		const Instruction* userInst = cast<Instruction>(U.getUser());
 		if (const FCmpInst* cmp = dyn_cast<FCmpInst>(userInst))
 		{
+			//Those FCmpInst will all need to be renderized as f(f(a,a),f(b,b)) or f(f(a,b),f(a,b))
+			//So both arguments will be used twice
 			switch (cmp->getPredicate())
 			{
 				case CmpInst::FCMP_ONE:
@@ -249,7 +251,7 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 			// Geps with constant indices used (in)directly only in Load or Store can be compactly encoded.
 			if (isGepOnlyUsedInLoadStore(I))
 				return true;
-			if (hasMoreThan1Use || isUserInOtherBlock(I) || isUserASpecialFCmp(I))
+			if (hasMoreThan1Use || isUserInOtherBlock(I) || userRequiresMultipleRenderings(I))
 				return false;
 			return true;
 		}
@@ -330,7 +332,7 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 	}
 	else if(!hasMoreThan1Use)
 	{
-		if(isUserInOtherBlock(I) || isUserASpecialFCmp(I))
+		if(isUserInOtherBlock(I) || userRequiresMultipleRenderings(I))
 			return false;
 		switch(I.getOpcode())
 		{
