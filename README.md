@@ -38,7 +38,7 @@ ninja install
 
 For development, consider to add the following option:
 ```
--DLLVM_ENABLE_ASSERTIONS=True
+-DCMAKE_CXX_FLAGS_RELEASE="-DNDEBUG"
 ```
 
 ## External components
