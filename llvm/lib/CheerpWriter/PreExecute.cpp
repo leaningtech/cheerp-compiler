@@ -291,6 +291,17 @@ static GenericValue pre_execute_smax(FunctionType *FT,
   return GV;
 }
 
+static GenericValue pre_execute_abs(FunctionType *FT,
+                                       ArrayRef<GenericValue> Args) {
+  ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
+  GenericValue GV;
+  if(Args[0].IntVal.sgt(APInt(FT->getReturnType()->isIntegerTy(32) ? 32 : 64, 0)))
+    GV.IntVal = Args[0].IntVal;
+  else
+    GV.IntVal = -Args[0].IntVal;
+  return GV;
+}
+
 static GenericValue pre_execute_umin(FunctionType *FT,
                                        ArrayRef<GenericValue> Args) {
   ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
@@ -566,6 +577,8 @@ static void* LazyFunctionCreator(const std::string& funcName)
         return (void*)(void(*)())pre_execute_umax;
     if (strncmp(funcName.c_str(), "llvm.smax.", strlen("llvm.smax."))==0)
         return (void*)(void(*)())pre_execute_smax;
+    if (strncmp(funcName.c_str(), "llvm.abs.", strlen("llvm.abs."))==0)
+        return (void*)(void(*)())pre_execute_abs;
     if (strcmp(funcName.c_str(), "assertEqualImpl") == 0)
         return (void*)(void(*)())assertEqualImpl;
     if (strcmp(funcName.c_str(), "llvm.dbg.value") == 0)
