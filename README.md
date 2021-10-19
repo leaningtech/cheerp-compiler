@@ -35,47 +35,10 @@ cmake -C ../llvm/CheerpCmakeConf.cmake -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_
 ninja
 ninja install
 ```
-
-### Getting the Source Code and Building LLVM
-
-The LLVM Getting Started documentation may be out of date.  The [Clang
-Getting Started](http://clang.llvm.org/get_started.html) page might have more
-accurate information.
-
-This is an example work-flow and configuration to get and build the LLVM source:
-
-1. Checkout LLVM (including related sub-projects like Clang):
-
-     * ``git clone https://github.com/llvm/llvm-project.git``
-
-     * Or, on windows, ``git clone --config core.autocrlf=false
-    https://github.com/llvm/llvm-project.git``
-
-2. Configure and build LLVM and Clang:
-
-     * ``cd llvm-project``
-
-     * ``cmake -S llvm -B build -G <generator> [options]``
-
-        Some common build system generators are:
-
-        * ``Ninja`` --- for generating [Ninja](https://ninja-build.org)
-          build files. Most llvm developers use Ninja.
-        * ``Unix Makefiles`` --- for generating make-compatible parallel makefiles.
-        * ``Visual Studio`` --- for generating Visual Studio projects and
-          solutions.
-        * ``Xcode`` --- for generating Xcode projects.
-
-        Some common options:
-
-        * ``-DLLVM_ENABLE_PROJECTS='...'`` and ``-DLLVM_ENABLE_RUNTIMES='...'`` ---
-          semicolon-separated list of the LLVM sub-projects and runtimes you'd like to
-          additionally build. ``LLVM_ENABLE_PROJECTS`` can include any of: clang,
-          clang-tools-extra, cross-project-tests, flang, libc, libclc, lld, lldb,
-          mlir, openmp, polly, or pstl. ``LLVM_ENABLE_RUNTIMES`` can include any of
-          libcxx, libcxxabi, libunwind, compiler-rt, libc or openmp. Some runtime
-          projects can be specified either in ``LLVM_ENABLE_PROJECTS`` or in
-          ``LLVM_ENABLE_RUNTIMES``.
+For development, consider to add the following option:
+```
+-DCMAKE_CXX_FLAGS_RELEASE="-DNDEBUG"
+```
 
 ## External components
 
