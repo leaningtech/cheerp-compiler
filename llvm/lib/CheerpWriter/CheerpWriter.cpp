@@ -926,6 +926,31 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(const
 		stream << "|0)|0";
 		return COMPILE_OK;
 	}
+	else if(intrinsicId==Intrinsic::abs)
+	{
+		//Implementing ( X >= 0 ) ? X : -X
+		//Note that abs takes 2 arguments, the actual value (X) + a flag that dictates
+		//what the output should be for X == INT_MIN (=-2^31).
+		//Since in one case it's -2^31 and the other in Undefined, we consider both
+		//at the same time rendering -2^31 (note that it's surprisingly a negative value)
+
+		const int bitWidth = (*it)->getType()->getIntegerBitWidth();
+
+		stream << "((";
+		compileOperand(*(it), TERNARY);
+		stream << ">=0";
+		if (bitWidth > 32)
+		{
+			assert(bitWidth == 64);
+			stream << "n";
+		}
+		stream << ")?";
+		compileOperand(*(it), TERNARY);
+		stream << ":-";
+		compileOperand(*(it), TERNARY);
+		stream << ')';
+		return COMPILE_OK;
+	}
 	else if(intrinsicId==Intrinsic::flt_rounds)
 	{
 		// Rounding mode 1: nearest
