@@ -1638,11 +1638,11 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 
 						//Put on the stack the negation of the operand
 						compileTypedZero(code, type);
-						compileOperand(code, operand);
+						compileSignedInteger(code, operand, /*forComparison*/false);
 						encodeInst(isI64 ? WasmOpcode::I64_SUB : WasmOpcode::I32_SUB, code);
 
 						//Do the comparison between operand and 0
-						compileOperand(code, operand);
+						compileSignedInteger(code, operand, /*forComparison*/true);
 						compileTypedZero(code, type);
 						encodePredicate(type, CmpInst::ICMP_SGE, code);
 
