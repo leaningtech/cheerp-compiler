@@ -189,7 +189,7 @@ public:
     // MachineModuleAnalysis needs a TargetMachine instance.
     llvm::InitializeAllTargets();
 
-    std::string TripleName = Triple::normalize(sys::getDefaultTargetTriple());
+    std::string TripleName = Triple::normalize(sys::getProcessTriple());
     std::string Error;
     const Target *TheTarget =
         TargetRegistry::lookupTarget(TripleName, Error);
