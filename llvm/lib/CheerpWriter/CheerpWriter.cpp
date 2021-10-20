@@ -939,7 +939,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(const
 		const int bitWidth = (*it)->getType()->getIntegerBitWidth();
 
 		stream << "((";
-		compileOperand(*(it), TERNARY);
+		compileSignedInteger(*(it), /*forComparison*/ true, COMPARISON);
 		stream << ">=0";
 		if (bitWidth > 32)
 		{
@@ -949,7 +949,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(const
 		stream << ")?";
 		compileOperand(*(it), TERNARY);
 		stream << ":-";
-		compileOperand(*(it), TERNARY);
+		compileSignedInteger(*(it), /*forComparison*/ false, ADD_SUB);
 		stream << ')';
 		return COMPILE_OK;
 	}
