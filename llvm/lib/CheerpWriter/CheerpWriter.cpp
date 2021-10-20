@@ -154,6 +154,8 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinNamespace(
 	}
 	else
 	{
+		if (auto* X = callV.getCalledFunction()->getMetadata("cheerp.interfacename"))
+			funcName = dyn_cast<MDString>(X->getOperand(0))->getString();
 		User::const_op_iterator it = callV.arg_begin();
 
 		//Normal function
