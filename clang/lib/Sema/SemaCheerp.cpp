@@ -488,6 +488,12 @@ void cheerp::CheerpSemaData::addFunction(clang::FunctionDecl* FD, const bool isC
 	using namespace clang;
 	const bool isJsExport = FD->hasAttr<JsExportAttr>();
 
+	if (FD->hasAttr<CheerpInterfaceNameAttr>())
+	{
+		//TODO(carlo): add checks on the fact that it should have no body
+		if (!isClient)
+			sema.Diag(FD->getLocation(), clang::diag::err_cheerp_interface_name_non_client);
+	}
 	if (isa<CXXMethodDecl>(FD))
 	{
 		addMethod((CXXMethodDecl*)FD, isJsExport);

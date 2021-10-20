@@ -5973,6 +5973,15 @@ static void handleObjCBridgeAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   D->addAttr(::new (S.Context) ObjCBridgeAttr(S.Context, AL, Parm->Ident));
 }
 
+static void handleCheerpInterfaceNameAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
+  StringRef Str;
+  SourceLocation ArgLoc;
+  if (!S.checkStringLiteralArgumentAttr(AL, 0, Str, &ArgLoc))
+    return;
+
+  D->addAttr(::new (S.Context) CheerpInterfaceNameAttr(S.Context, AL, Str));
+}
+
 static void handleObjCBridgeMutableAttr(Sema &S, Decl *D,
                                         const ParsedAttr &AL) {
   IdentifierLoc *Parm = AL.isArgIdent(0) ? AL.getArgAsIdent(0) : nullptr;
@@ -8888,6 +8897,9 @@ ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D, const ParsedAttr &AL,
     break;
   case ParsedAttr::AT_ObjCBridge:
     handleObjCBridgeAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_CheerpInterfaceName:
+    handleCheerpInterfaceNameAttr(S, D, AL);
     break;
   case ParsedAttr::AT_ObjCBridgeMutable:
     handleObjCBridgeMutableAttr(S, D, AL);
