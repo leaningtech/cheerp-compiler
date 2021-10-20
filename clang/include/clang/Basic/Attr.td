@@ -2336,7 +2336,6 @@ def Packed : InheritableAttr {
 //  let Subjects = [Tag, Field];
   let Documentation = [Undocumented];
 }
-def : MutualExclusions<[AsmJS, Packed]>;
 
 def IntelOclBicc : DeclOrTypeAttr {
   let Spellings = [Clang<"intel_ocl_bicc", 0>];
