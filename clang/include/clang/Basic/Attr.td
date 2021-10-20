@@ -2061,6 +2061,12 @@ def JsExport : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def CheerpInterfaceName : InheritableAttr {
+  let Spellings = [CXX11<"cheerp", "interface_name">, GNU<"cheerp_interface_name">];
+  let Args = [StringArgument<"NameInterface">];
+  let Documentation = [Undocumented];
+}
+
 def AsmJS : InheritableAttr {
   let Spellings = [CXX11<"cheerp", "asmjs">, CXX11<"cheerp", "wasm">,
                    GNU<"cheerp_asmjs">, GNU<"cheerp_wasm">];
