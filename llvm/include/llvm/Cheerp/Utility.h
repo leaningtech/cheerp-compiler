@@ -173,6 +173,10 @@ bool isNumStatementsLessThan(const llvm::BasicBlock* BB,
 		}
 		Count++;
 	}
+	else if (llvm::isa<llvm::ResumeInst>(BB->getTerminator()))
+	{
+		Count++;
+	}
 	return Count < N;
 }
 
