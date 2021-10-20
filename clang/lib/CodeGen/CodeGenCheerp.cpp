@@ -34,3 +34,14 @@ void cheerp::JsExportContext::addRecordJsExportMetadata(const clang::CXXMethodDe
        llvm::MDNode* node = llvm::MDNode::get(context,values);
        namedNode->addOperand(node);
 }
+
+void cheerp::JsExportContext::addFunctionImportNameMetadata(llvm::Function* F, const llvm::StringRef name)
+{
+       llvm::NamedMDNode* namedNode = module.getOrInsertNamedMetadata("imported_name_match");
+
+       llvm::SmallVector<llvm::Metadata*,2> values;
+       values.push_back(llvm::ConstantAsMetadata::get(F));
+       values.push_back(llvm::MDString::get(context, name));
+       llvm::MDNode* node = llvm::MDNode::get(context,values);
+       namedNode->addOperand(node);
+}

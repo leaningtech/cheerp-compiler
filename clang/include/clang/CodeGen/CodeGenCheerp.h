@@ -30,6 +30,7 @@ public:
 	}
 	void addFreeFunctionJsExportMetadata(llvm::Function* F);
 	void addRecordJsExportMetadata(const clang::CXXMethodDecl *method, llvm::Function* F, const llvm::StringRef className);
+	void addFunctionImportNameMetadata(llvm::Function* F, const llvm::StringRef name);
 private:
 	llvm::Module& module;
 	llvm::LLVMContext& context;
