@@ -31,7 +31,7 @@ This is only one of the components of Cheerp. Please see https://github.com/lean
 ```
 mkdir build
 cd build
-cmake -C ../llvm/CheerpCmakeConf.cmake -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_PROJECTS=clang -DLLVM_ENABLE_NEW_PASS_MANAGER=OFF -G Ninja ../llvm/
+cmake -C ../llvm/CheerpCmakeConf.cmake -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_PROJECTS=clang -G Ninja ../llvm/
 ninja
 ninja install
 ```
