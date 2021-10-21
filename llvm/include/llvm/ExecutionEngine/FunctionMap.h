@@ -14,14 +14,14 @@ public:
 
 class VirtualFunctionMap: public FunctionMapBase {
 public:
-	 llvm::Function* getFunction(void* addr)
+	 llvm::Function* getFunction(void* addr) override
 	 {
 		 uintptr_t addri = reinterpret_cast<uintptr_t>(addr);
 		 auto it = rev_map.find(addri);
 		 assert(it != rev_map.end() && "This function address does not exists");
 		 return it->second;
 	 }
-	 void* getAddress(llvm::Function* f)
+	 void* getAddress(llvm::Function* f) override
 	 {
 		std::map<llvm::Function*,uint32_t>::iterator it;
 		bool inserted;
@@ -41,11 +41,11 @@ private:
 };
 class DirectFunctionMap: public FunctionMapBase {
 public:
-	 llvm::Function* getFunction(void* addr)
+	 llvm::Function* getFunction(void* addr) override
 	 {
 		 return reinterpret_cast<llvm::Function*>(addr);
 	 }
-	 void* getAddress(llvm::Function* f)
+	 void* getAddress(llvm::Function* f) override
 	 {
 		return f;
 	 }

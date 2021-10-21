@@ -656,7 +656,7 @@ public:
 };
 
 class CheerpCompileJobAction : public JobAction {
-  virtual void anchor();
+  virtual void anchor() override;
 public:
   CheerpCompileJobAction(ActionList &Inputs, types::ID Type);
   static bool classof(const Action *A) {
@@ -665,7 +665,7 @@ public:
 };
 
 class CheerpOptimizeJobAction : public JobAction {
-  virtual void anchor();
+  virtual void anchor() override;
 public:
   CheerpOptimizeJobAction(ActionList &Inputs, types::ID Type);
   static bool classof(const Action *A) {
