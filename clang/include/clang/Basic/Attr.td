@@ -2063,6 +2063,7 @@ def JsExport : InheritableAttr {
 
 def CheerpInterfaceName : InheritableAttr {
   let Spellings = [CXX11<"cheerp", "interface_name">, GNU<"cheerp_interface_name">];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
   let Args = [StringArgument<"NameInterface">];
   let Documentation = [Undocumented];
 }
