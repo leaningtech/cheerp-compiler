@@ -3503,13 +3503,15 @@ void CheerpWriter::compileSignedInteger(const llvm::Value* v, bool forComparison
 			stream << C->getSExtValue();
 		return;
 	}
-	PARENT_PRIORITY signedPrio = shiftAmount == 0 ? BIT_OR : SHIFT;
-	if(parentPrio > signedPrio) stream << '(';
 	if(width == 64)
 	{
 		compileOperand(v, parentPrio);
+		return;
 	}
-	else if(width == 32)
+
+	PARENT_PRIORITY signedPrio = shiftAmount == 0 ? BIT_OR : SHIFT;
+	if(parentPrio > signedPrio) stream << '(';
+	if(width == 32)
 	{
 		//Use simpler code
 		compileOperand(v, BIT_OR);
