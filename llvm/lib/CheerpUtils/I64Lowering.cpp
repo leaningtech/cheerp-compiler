@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2020 Leaning Technologies
+// Copyright 2020-2021 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -739,7 +739,7 @@ struct I64LoweringVisitor: public InstVisitor<I64LoweringVisitor, HighInt>
 
 		Value* Low = Builder.CreateCall(Func, Args);
 		GlobalVariable* Sret = cast<GlobalVariable>(M.getOrInsertGlobal("cheerpSretSlot", Int32Ty));
-		Value* High = Builder.CreateLoad(Sret); 
+		Value* High = Builder.CreateLoad(Int32Ty, Sret);
 
 		ToDelete.push_back(&I);
 		Changed = true;

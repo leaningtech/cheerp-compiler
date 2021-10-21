@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2017-2020 Leaning Technologies
+// Copyright 2017-2021 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -188,7 +188,7 @@ bool AllocaLowering::runOnFunction(Function& F)
 	if (needFrame)
 	{
 		savedStack = Builder.CreateCall(getStack, {}, "savedStack");
-		newStack = Builder.CreateGEP(savedStack, ConstantInt::get(int32Ty, -nbytes, true));
+		newStack = Builder.CreateGEP(savedStack->getType()->getScalarType()->getPointerElementType(), savedStack, ConstantInt::get(int32Ty, -nbytes, true));
 		Builder.CreateCall(setStack, newStack);
 	}
 
@@ -199,7 +199,7 @@ bool AllocaLowering::runOnFunction(Function& F)
 
 		Constant* offset = ConstantInt::get(int32Ty, nbytes + a.second, true);
 		IRBuilder<> Builder(a.first);
-		Value* gep = Builder.CreateGEP(newStack, offset);
+		Value* gep = Builder.CreateGEP(newStack->getType()->getScalarType()->getPointerElementType(), newStack, offset);
 		gep  = Builder.CreateBitCast(gep, a.first->getType());
 		ReplaceInstWithValue(a.first->getParent()->getInstList(), ii, gep);
 
@@ -270,7 +270,7 @@ bool AllocaLowering::runOnFunction(Function& F)
 		Value* stackPtr = Builder.CreateCall(getStack, {});
 		// Each argument pushed is 8 bytes in size
 		Constant* pushOffset = ConstantInt::get(int32Ty, -varargParamNum*8, false);
-		Value* pushedStackPtr = Builder.CreateGEP(stackPtr, pushOffset);
+		Value* pushedStackPtr = Builder.CreateGEP(stackPtr->getType()->getScalarType()->getPointerElementType(), stackPtr, pushOffset);
 		Builder.CreateCall(setStack, pushedStackPtr);
 		// Calling convention for variadic arguments in asm.js mode:
 		// arguments are pushed into the stack in the reverse order
@@ -280,7 +280,7 @@ bool AllocaLowering::runOnFunction(Function& F)
 		{
 			i++;
 			Constant* offset = ConstantInt::get(int32Ty, -i*8, true);
-			Value* loc = Builder.CreateGEP(stackPtr, offset);
+			Value* loc = Builder.CreateGEP(stackPtr->getType()->getScalarType()->getPointerElementType(), stackPtr, offset);
 			loc = Builder.CreateBitCast(loc, op->get()->getType()->getPointerTo(0));
 			Builder.CreateStore(op->get(), loc);
 		}
