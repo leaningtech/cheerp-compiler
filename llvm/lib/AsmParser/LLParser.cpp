@@ -2732,7 +2732,7 @@ bool LLParser::parseStructDefinition(SMLoc TypeLoc, StringRef Name,
 bool LLParser::parseStructBody(SmallVectorImpl<Type *> &Body, Type* &DirectBaseTy) {
   bool isDirectBase = EatIfPresent(lltok::kw_directbase);
   DirectBaseTy = nullptr;
-  if (isDirectBase && parseType(DirectBaseTy, "expected directbase type"))
+  if (isDirectBase && parseType(DirectBaseTy, Twine("expected directbase type")))
     return true;
 
   assert(Lex.getKind() == lltok::lbrace);
