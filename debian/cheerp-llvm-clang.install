@@ -51,7 +51,6 @@ opt/cheerp/lib/clang/14.0.0/include/ia32intrin.h
 opt/cheerp/lib/clang/14.0.0/include/stdarg.h
 opt/cheerp/lib/libclang.so*
 opt/cheerp/bin/
-opt/cheerp/bin/clang-check
 opt/cheerp/bin/clang-14
 opt/cheerp/bin/llvm-nm
 opt/cheerp/bin/llvm-as
