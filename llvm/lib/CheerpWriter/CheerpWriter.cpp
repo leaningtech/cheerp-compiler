@@ -948,8 +948,20 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(const
 		}
 		stream << ")?";
 		compileOperand(*(it), TERNARY);
-		stream << ":-";
-		compileSignedInteger(*(it), /*forComparison*/ false, ADD_SUB);
+		stream << ":";
+		if (bitWidth > 32)
+		{
+			assert(bitWidth == 64);
+			stream << "BigInt.asIntN(64,0n-";
+			compileSignedInteger(*(it), /*forComparison*/ false, ADD_SUB);
+			stream << ")";
+		}
+		else
+		{
+			stream << "0-";
+			compileSignedInteger(*(it), /*forComparison*/ false, ADD_SUB);
+			stream << "|0";
+		}
 		stream << ')';
 		return COMPILE_OK;
 	}
