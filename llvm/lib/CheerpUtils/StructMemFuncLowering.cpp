@@ -29,8 +29,8 @@ StringRef StructMemFuncLowering::getPassName() const {
 void StructMemFuncLowering::createMemFunc(IRBuilder<>* IRB, Value* baseDst, Value* baseSrc, size_t size,
 						SmallVector<Value*, 8>& indexes)
 {
-	Value* src = IRB->CreateGEP(baseSrc, indexes);
-	Value* dst = IRB->CreateGEP(baseDst, indexes);
+	Value* src = IRB->CreateGEP(baseSrc->getType()->getScalarType()->getPointerElementType(), baseSrc, indexes);
+	Value* dst = IRB->CreateGEP(baseDst->getType()->getScalarType()->getPointerElementType(), baseDst, indexes);
 	assert(!src->getType()->getPointerElementType()->isArrayTy());
 	// Create a type safe memcpy
 	IRB->CreateMemCpy(dst, MaybeAlign(), src, MaybeAlign(), size, false, NULL, NULL, NULL, NULL, false);
@@ -99,10 +99,10 @@ void StructMemFuncLowering::recursiveCopy(IRBuilder<>* IRB, Value* baseDst, Valu
 		Value* elementDst = baseDst;
 		if(indexes.size() != 1 || !isa<ConstantInt>(indexes[0]) || cast<ConstantInt>(indexes[0])->getZExtValue()!=0)
 		{
-			elementSrc = IRB->CreateGEP(baseSrc, indexes);
-			elementDst = IRB->CreateGEP(baseDst, indexes);
+			elementSrc = IRB->CreateGEP(baseSrc->getType()->getScalarType()->getPointerElementType(), baseSrc, indexes);
+			elementDst = IRB->CreateGEP(baseDst->getType()->getScalarType()->getPointerElementType(), baseDst, indexes);
 		}
-		Value* element = IRB->CreateAlignedLoad(elementSrc, MaybeAlign(baseAlign));
+		Value* element = IRB->CreateAlignedLoad(elementSrc->getType()->getPointerElementType(), elementSrc, MaybeAlign(baseAlign));
 		IRB->CreateAlignedStore(element, elementDst, MaybeAlign(baseAlign));
 	}
 }
@@ -173,7 +173,7 @@ void StructMemFuncLowering::recursiveReset(IRBuilder<>* IRB, Value* baseDst, Val
 			computedResetVal=IRB->CreateShl(computedResetVal, 8);
 			computedResetVal=IRB->CreateOr(computedResetVal, expandedResetVal);
 		}
-		Value* elementDst = IRB->CreateGEP(baseDst, indexes);
+		Value* elementDst = IRB->CreateGEP(baseDst->getType()->getScalarType()->getPointerElementType(), baseDst, indexes);
 		IRB->CreateAlignedStore(computedResetVal, elementDst, MaybeAlign(baseAlign));
 	}
 	else if(curType->isFloatTy() || curType->isDoubleTy())
@@ -193,7 +193,7 @@ void StructMemFuncLowering::recursiveReset(IRBuilder<>* IRB, Value* baseDst, Val
 			floatResetVal = ConstantFP::get(curType->getContext(), APFloat(APFloat::IEEEsingle(), floatConstant));
 		else
 			floatResetVal = ConstantFP::get(curType->getContext(), APFloat(APFloat::IEEEdouble(), floatConstant));
-		Value* elementDst = IRB->CreateGEP(baseDst, indexes);
+		Value* elementDst = IRB->CreateGEP(baseDst->getType()->getScalarType()->getPointerElementType(), baseDst, indexes);
 		IRB->CreateAlignedStore(floatResetVal, elementDst, MaybeAlign(baseAlign));
 	}
 	else if(PointerType* PT=dyn_cast<PointerType>(curType))
@@ -201,7 +201,7 @@ void StructMemFuncLowering::recursiveReset(IRBuilder<>* IRB, Value* baseDst, Val
 		// Only constant NULL is supported
 		// TODO: Stop non constant in the frontend
 		assert(cast<ConstantInt>( resetVal )->getZExtValue() == 0);
-		Value* elementDst = IRB->CreateGEP(baseDst, indexes);
+		Value* elementDst = IRB->CreateGEP(baseDst->getType()->getScalarType()->getScalarType()->getPointerElementType(), baseDst, indexes);
 		IRB->CreateAlignedStore(ConstantPointerNull::get(PT), elementDst, MaybeAlign(baseAlign));
 	}
 	else
@@ -224,13 +224,13 @@ void StructMemFuncLowering::createGenericLoop(IRBuilder<>* IRB, BasicBlock* prev
 	{
 		IRB->SetInsertPoint(previousBlock->getTerminator());
 		if (needsLoop)
-			endPtr = IRB->CreateInBoundsGEP(dst, isForward ? elementsCount : ConstantInt::get(int32Type, 0));
+			endPtr = IRB->CreateInBoundsGEP(dst->getType()->getScalarType()->getPointerElementType(), dst, isForward ? elementsCount : ConstantInt::get(int32Type, 0));
 		if (!isForward)
 		{
 			assert(mode == MEMMOVE);
 			//Move src and dst past the end of the range (we copy backwards)
-			src = IRB->CreateInBoundsGEP(src, elementsCount);
-			dst = IRB->CreateInBoundsGEP(dst, elementsCount);
+			src = IRB->CreateInBoundsGEP(src->getType()->getScalarType()->getPointerElementType(), src, elementsCount);
+			dst = IRB->CreateInBoundsGEP(dst->getType()->getScalarType()->getPointerElementType(), dst, elementsCount);
 		}
 		IRB->SetInsertPoint(currentBlock);
 	}
@@ -256,8 +256,8 @@ void StructMemFuncLowering::createGenericLoop(IRBuilder<>* IRB, BasicBlock* prev
 	// Immediately decrement by one, so that we are accessing a valid elements
 	if (!isForward)
 	{
-		srcVal = IRB->CreateInBoundsGEP(srcVal, ConstantInt::get(int32Type, -1));
-		dstVal = IRB->CreateInBoundsGEP(dstVal, ConstantInt::get(int32Type, -1));
+		srcVal = IRB->CreateInBoundsGEP(srcVal->getType()->getScalarType()->getPointerElementType(), srcVal, ConstantInt::get(int32Type, -1));
+		dstVal = IRB->CreateInBoundsGEP(dstVal->getType()->getScalarType()->getPointerElementType(), dstVal, ConstantInt::get(int32Type, -1));
 	}
 
 	// Now, recursively descend into the object to copy all the values
@@ -275,8 +275,8 @@ void StructMemFuncLowering::createGenericLoop(IRBuilder<>* IRB, BasicBlock* prev
 		if (isForward)
 		{
 			if (mode != MEMSET)
-				srcVal = IRB->CreateInBoundsGEP(srcVal, ConstantInt::get(int32Type, 1));
-			dstVal = IRB->CreateInBoundsGEP(dstVal, ConstantInt::get(int32Type, 1));
+				srcVal = IRB->CreateInBoundsGEP(srcVal->getType()->getScalarType()->getPointerElementType(), srcVal, ConstantInt::get(int32Type, 1));
+			dstVal = IRB->CreateInBoundsGEP(dstVal->getType()->getScalarType()->getPointerElementType(), dstVal, ConstantInt::get(int32Type, 1));
 		}
 
 		// Close the loop for dst (and src)
@@ -471,10 +471,10 @@ bool StructMemFuncLowering::runOnBlock(BasicBlock& BB, bool asmjs)
 				if(uint32_t tailSize = sizeInt % elemSize) {
 					IRBuilder<> IRB(CI->getNextNode());
 					uint32_t skipCount = sizeInt / elemSize;
-					llvm::Value* tailDst = IRB.CreateGEP(dst, ConstantInt::get(int32Type, skipCount));
+					llvm::Value* tailDst = IRB.CreateGEP(dst->getType()->getScalarType()->getPointerElementType(), dst, ConstantInt::get(int32Type, skipCount));
 					llvm::Value* tailSrc = src;
 					if(mode != MEMSET)
-						tailSrc = IRB.CreateGEP(src, ConstantInt::get(int32Type, skipCount));
+						tailSrc = IRB.CreateGEP(src->getType()->getScalarType()->getPointerElementType(), src, ConstantInt::get(int32Type, skipCount));
 					uint32_t newAlign = alignInt;
 					// The tail operation starts at a multiple of elemSize
 					while(elemSize % newAlign != 0)
