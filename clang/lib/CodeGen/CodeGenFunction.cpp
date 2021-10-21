@@ -2084,7 +2084,7 @@ llvm::Value *CodeGenFunction::emitArrayLength(const ArrayType *origArrayType,
     assert((!llvmArrayType || arrayType) &&
            "LLVM and Clang types are out-of-synch");
     // Create the actual GEP.
-    addr = Address(Builder.CreateInBoundsGEP(addr.getPointer(),
+    addr = Address(Builder.CreateInBoundsGEP(addr.getElementType(), addr.getPointer(),
                                              gepIndices, "array.begin"),
                    addr.getAlignment());
   } else {
