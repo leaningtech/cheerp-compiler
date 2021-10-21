@@ -222,30 +222,30 @@ public:
     NoAsmVariants = true;
   }
 
-  virtual ArrayRef<Builtin::Info> getTargetBuiltins() const;
+  virtual ArrayRef<Builtin::Info> getTargetBuiltins() const override;
   virtual void getTargetDefines(const LangOptions &Opts,
-                                MacroBuilder &Builder) const;
+                                MacroBuilder &Builder) const override;
 
-  virtual BuiltinVaListKind getBuiltinVaListKind() const {
+  virtual BuiltinVaListKind getBuiltinVaListKind() const override{
     return TargetInfo::CharPtrBuiltinVaList;
   }
 
-  virtual ArrayRef<const char *> getGCCRegNames() const {
+  virtual ArrayRef<const char *> getGCCRegNames() const override {
     return None;
   }
 
-  virtual ArrayRef<GCCRegAlias> getGCCRegAliases() const {
+  virtual ArrayRef<GCCRegAlias> getGCCRegAliases() const override {
     return None;
   }
 
   virtual bool validateAsmConstraint(const char *&Name,
-                                     TargetInfo::ConstraintInfo &Info) const {
+                                     TargetInfo::ConstraintInfo &Info) const override {
     return false;
   }
-  virtual const char *getClobbers() const {
+  virtual const char *getClobbers() const override {
     return "";
   }
-  virtual bool isValidClobber(StringRef Name) const {
+  virtual bool isValidClobber(StringRef Name) const override {
     // Special handling for Cheerp, any name can be clobbered
     return true;
   }
