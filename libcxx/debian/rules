@@ -14,7 +14,8 @@ override_dh_auto_configure:
 	    -DLIBCXX_CXX_ABI_INCLUDE_PATHS=$(CURDIR)/libcxxabi/include \
 	    -DLIBCXX_CXX_ABI=libcxxabi \
 	    -DLIBCXX_ENABLE_NEW_DELETE_DEFINITIONS=ON \
-	    -DCMAKE_CXX_FLAGS="-fexceptions"
+	    -DCMAKE_CXX_FLAGS="-fexceptions" \
+	    -DLIBCXX_INCLUDE_BENCHMARKS=OFF
 	dh_auto_configure -Bbuild_asmjs -Dlibcxx -- \
 	    -DCMAKE_BUILD_TYPE=Release \
 	    -DCMAKE_INSTALL_PREFIX=/opt/cheerp \
@@ -25,7 +26,8 @@ override_dh_auto_configure:
 	    -DLIBCXX_CXX_ABI_INCLUDE_PATHS=$(CURDIR)/libcxxabi/include \
 	    -DLIBCXX_ENABLE_NEW_DELETE_DEFINITIONS=ON \
 	    -DLIBCXX_CXX_ABI=libcxxabi \
-	    -DCMAKE_CXX_FLAGS="-fexceptions"
+	    -DCMAKE_CXX_FLAGS="-fexceptions" \
+	    -DLIBCXX_INCLUDE_BENCHMARKS=OFF
 
 override_dh_auto_build:
 	dh_auto_build -Bbuild_genericjs
