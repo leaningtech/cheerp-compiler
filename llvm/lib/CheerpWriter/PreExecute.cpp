@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2015 Leaning Technologies
+// Copyright 2015-2021 Leaning Technologies
 //
 //===---------------------------------------------------------------------===//
 
@@ -271,7 +271,6 @@ static GenericValue pre_execute_memset(FunctionType *FT,
 
 static GenericValue pre_execute_umax(FunctionType *FT,
                                        ArrayRef<GenericValue> Args) {
-  ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
   GenericValue GV;
   if(Args[0].IntVal.ugt(Args[1].IntVal))
     GV.IntVal = Args[0].IntVal;
@@ -282,7 +281,6 @@ static GenericValue pre_execute_umax(FunctionType *FT,
 
 static GenericValue pre_execute_smax(FunctionType *FT,
                                        ArrayRef<GenericValue> Args) {
-  ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
   GenericValue GV;
   if(Args[0].IntVal.sgt(Args[1].IntVal))
     GV.IntVal = Args[0].IntVal;
@@ -293,7 +291,6 @@ static GenericValue pre_execute_smax(FunctionType *FT,
 
 static GenericValue pre_execute_abs(FunctionType *FT,
                                        ArrayRef<GenericValue> Args) {
-  ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
   GenericValue GV;
   if(Args[0].IntVal.sgt(APInt(FT->getReturnType()->isIntegerTy(32) ? 32 : 64, 0)))
     GV.IntVal = Args[0].IntVal;
@@ -304,7 +301,6 @@ static GenericValue pre_execute_abs(FunctionType *FT,
 
 static GenericValue pre_execute_umin(FunctionType *FT,
                                        ArrayRef<GenericValue> Args) {
-  ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
   GenericValue GV;
   if(Args[0].IntVal.ult(Args[1].IntVal))
     GV.IntVal = Args[0].IntVal;
@@ -315,7 +311,6 @@ static GenericValue pre_execute_umin(FunctionType *FT,
 
 static GenericValue pre_execute_smin(FunctionType *FT,
                                        ArrayRef<GenericValue> Args) {
-  ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
   GenericValue GV;
   if(Args[0].IntVal.slt(Args[1].IntVal))
     GV.IntVal = Args[0].IntVal;
