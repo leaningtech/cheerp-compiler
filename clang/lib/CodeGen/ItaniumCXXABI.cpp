@@ -2404,7 +2404,6 @@ Address ItaniumCXXABI::InitializeArrayCookie(CodeGenFunction &CGF,
 
   unsigned AS = NewPtr.getAddressSpace();
 
-  ASTContext &Ctx = getContext();
   CharUnits SizeSize = CGF.getSizeSize();
 
   // The size of the cookie.
