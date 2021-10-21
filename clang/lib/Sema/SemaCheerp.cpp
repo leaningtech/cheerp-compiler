@@ -416,6 +416,9 @@ void cheerp::checkFunctionOnDefinition(clang::FunctionDecl* FD, clang::Sema& sem
 
 	if (isClient)
 	{
+		if (FD->hasAttr<clang::CheerpInterfaceNameAttr>())
+			sema.Diag(FD->getLocation(), clang::diag::err_cheerp_interface_name_non_client);
+
 		if (FD->isOutOfLine())
 			sema.Diag(FD->getLocation(), clang::diag::err_cheerp_client_out_of_line);
 
@@ -434,6 +437,10 @@ void cheerp::checkFunctionOnDefinition(clang::FunctionDecl* FD, clang::Sema& sem
 void cheerp::checkFunctionOnDeclaration(clang::FunctionDecl* FD, clang::Sema& sema, const bool isAlsoDefinition)
 {
 	const bool isClient = clang::AnalysisDeclContext::isInClientNamespace(FD);
+
+	if (FD->hasAttr<clang::CheerpInterfaceNameAttr>())
+		if (!isClient)
+			sema.Diag(FD->getLocation(), clang::diag::err_cheerp_interface_name_non_client);
 
 	if (isClient)
 	{
@@ -488,12 +495,6 @@ void cheerp::CheerpSemaData::addFunction(clang::FunctionDecl* FD, const bool isC
 	using namespace clang;
 	const bool isJsExport = FD->hasAttr<JsExportAttr>();
 
-	if (FD->hasAttr<CheerpInterfaceNameAttr>())
-	{
-		//TODO(carlo): add checks on the fact that it should have no body
-		if (!isClient)
-			sema.Diag(FD->getLocation(), clang::diag::err_cheerp_interface_name_non_client);
-	}
 	if (isa<CXXMethodDecl>(FD))
 	{
 		addMethod((CXXMethodDecl*)FD, isJsExport);
