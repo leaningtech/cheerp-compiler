@@ -831,8 +831,6 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	std::vector<llvm::CallBase*> unreachList;
 	std::vector<std::pair<llvm::CallBase*, llvm::Function*> > devirtualizedCalls;
 
-
-
 	//Fixing function casts implies that new functions types will be created
 	//Exporting the table implies that functions can be added outside of our control
 	if (!FixWrongFuncCasts && !WasmExportedTable)
@@ -896,16 +894,6 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 				toUnreachable.push_back(fIt.F);
 			}
 		}
-	}
-
-	//Avoid too much inlining of devirtualized calls
-	for (auto pair : devirtualizedCalls)
-	{
-		llvm::CallInst& CI = *pair.first;
-		llvm::Function& F = *pair.second;
-
-		if (F.getInstructionCount() > 10u)
-			CI.setIsNoInline();
 	}
 
 	//Loop over every possible call site (either direct or indirect that matches the signature)
