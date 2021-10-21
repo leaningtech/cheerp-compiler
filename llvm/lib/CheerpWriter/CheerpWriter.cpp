@@ -3012,7 +3012,10 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			Value* PersonalityF = C->getOperand(0);
 			compileOperand(PersonalityF);
 			stream <<'(';
-			stream << namegen.getName(&I);
+			if(I.use_empty())
+				stream << "null";
+			else
+				stream << namegen.getName(&I);
 			stream << ",[";
 			const LandingPadInst& LP = cast<LandingPadInst>(I);
 			for(unsigned i = 0; i < LP.getNumClauses(); i++)
@@ -5150,7 +5153,8 @@ void CheerpWriter::compileTokens(const TokenList& Tokens)
 			{
 				stream << "}catch(" << namegen.getBuiltinName(NameGenerator::EXCEPTION) << "){" << NewLine;
 				assert(T.getBB()->isLandingPad());
-				stream << namegen.getName(T.getBB()->getLandingPadInst()) << '=' << namegen.getBuiltinName(NameGenerator::EXCEPTION) << ";" << NewLine;
+				if(!T.getBB()->getLandingPadInst()->use_empty())
+					stream << namegen.getName(T.getBB()->getLandingPadInst()) << '=' << namegen.getBuiltinName(NameGenerator::EXCEPTION) << ";" << NewLine;
 				break;
 			}
 			case Token::TK_BrIf:
