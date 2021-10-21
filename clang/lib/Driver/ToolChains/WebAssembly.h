@@ -50,40 +50,40 @@ namespace cheerp {
   public:
     Link(const ToolChain &TC) : Tool("cheerp::Link", "linker", TC) {}
 
-    virtual bool hasIntegratedCPP() const { return false; }
-    virtual bool isLinkJob() const { return true; }
+    virtual bool hasIntegratedCPP() const override { return false; }
+    virtual bool isLinkJob() const override { return true; }
 
     virtual void ConstructJob(Compilation &C, const JobAction &JA,
                               const InputInfo &Output,
                               const InputInfoList &Inputs,
                               const llvm::opt::ArgList &TCArgs,
-                              const char *LinkingOutput) const;
+                              const char *LinkingOutput) const override;
   };
 
   class LLVM_LIBRARY_VISIBILITY CheerpOptimizer : public Tool {
   public:
     CheerpOptimizer(const ToolChain &TC) : Tool("cheerp::CheerpOptimizer", "optimizer", TC) {}
 
-    virtual bool hasIntegratedCPP() const { return false; }
+    virtual bool hasIntegratedCPP() const override { return false; }
 
     virtual void ConstructJob(Compilation &C, const JobAction &JA,
                               const InputInfo &Output,
                               const InputInfoList &Inputs,
                               const llvm::opt::ArgList &TCArgs,
-                              const char *LinkingOutput) const;
+                              const char *LinkingOutput) const override;
   };
 
   class LLVM_LIBRARY_VISIBILITY CheerpCompiler : public Tool {
   public:
     CheerpCompiler(const ToolChain &TC) : Tool("cheerp::CheerpCompiler", "linker", TC) {}
 
-    virtual bool hasIntegratedCPP() const { return false; }
+    virtual bool hasIntegratedCPP() const override { return false; }
 
     virtual void ConstructJob(Compilation &C, const JobAction &JA,
                               const InputInfo &Output,
                               const InputInfoList &Inputs,
                               const llvm::opt::ArgList &TCArgs,
-                              const char *LinkingOutput) const;
+                              const char *LinkingOutput) const override;
   };
 } // end namespace cheerp
 } // end namespace tools
