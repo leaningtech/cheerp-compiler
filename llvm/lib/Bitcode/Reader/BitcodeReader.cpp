@@ -2005,9 +2005,6 @@ Error BitcodeReader::parseTypeTableBody() {
       if (NumRecords >= TypeList.size())
         return error("Invalid TYPE table");
 
-      // TODO: These are not required
-      bool hasByteLayout = Record[1];
-      bool hasAsmJS = Record[2];
       // Check to see if this was forward referenced, if so fill in the temp.
       StructType *Res = cast_or_null<StructType>(TypeList[NumRecords]);
       if (Res) {
