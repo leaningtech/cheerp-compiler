@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2015-2020 Leaning Technologies
+// Copyright 2015-2021 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -1718,7 +1718,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 							GlobalVariable* Sret = cast<GlobalVariable>(module->getOrInsertGlobal("cheerpSretSlot", Int32Ty));
 							IRBuilder<> Builder(CI);
 							Value* Low = Ret;
-							Value* High = Builder.CreateLoad(Sret);
+							Value* High = Builder.CreateLoad(Int32Ty, Sret);
 							Ret = AssembleI64(Low, High, Builder);
 							// Since we are reading from global memory,
 							// remove attributes that say otherwise
