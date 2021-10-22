@@ -241,6 +241,7 @@ __gxx_personality_v0
                     (client::Object* obj, __cheerp_clause* catches, int n) noexcept
 {
 	static bool reent = false;
+	static __cheerp_landingpad lp {nullptr, 0, nullptr};
 	if(reent)
 		__builtin_cheerp_throw(obj);
 
@@ -268,17 +269,20 @@ __gxx_personality_v0
 		}
 	}
 	if(!native)
-		return new __cheerp_landingpad{nullptr, 0, nullptr};
+	{
+		lp = __cheerp_landingpad{nullptr, 0, nullptr};
+		return &lp;
+	}
 
 	Exception* ex = current_exception;
-	__cheerp_landingpad* lp = new __cheerp_landingpad { ex, 0, reinterpret_cast<void(*)()>(obj)};
+	lp = __cheerp_landingpad { ex, 0, reinterpret_cast<void(*)()>(obj)};
 
 	for(int i = 0; i < n; i++)
 	{
 		if(catches[i].val == nullptr)
 		{
 			// This is a catch(...) clause
-			lp->sel = catches[i].sel;
+			lp.sel = catches[i].sel;
 			break;
 		}
 		std::ptrdiff_t adjustedOffset = 0;
@@ -296,12 +300,12 @@ __gxx_personality_v0
 			{
 				ex->adjustedPtr = __builtin_cheerp_downcast<void,void>(ex->adjustedPtr, -adjustedOffset);
 			}
-			lp->sel = catches[i].sel;
+			lp.sel = catches[i].sel;
 			break;
 		}
 	}
 	reent = false;
-	return lp;
+	return &lp;
 }
 
 }
