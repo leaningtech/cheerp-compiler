@@ -1120,7 +1120,7 @@ _LIBCPP_BEGIN_NAMESPACE_STD _LIBCPP_END_NAMESPACE_STD
 #  endif
 
 #  if __has_attribute(__init_priority__)
-#    define _LIBCPP_INIT_PRIORITY_MAX __attribute__((__init_priority__(100)))
+#    define _LIBCPP_INIT_PRIORITY_MAX __attribute__((__init_priority__(101)))
 #  else
 #    define _LIBCPP_INIT_PRIORITY_MAX
 #  endif
