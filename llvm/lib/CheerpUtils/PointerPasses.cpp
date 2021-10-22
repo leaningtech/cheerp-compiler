@@ -719,7 +719,7 @@ DelayInsts::InsertPoint DelayInsts::delayInst(const Instruction* I, const LoopIn
 	// TODO: Call/Invoke may be moved in some conditions
 	if(I->mayReadOrWriteMemory() || I->getOpcode() == Instruction::PHI ||
 		I->getOpcode() == Instruction::Call || I->getOpcode() == Instruction::Invoke ||
-		I->use_empty())
+		I->getOpcode() == Instruction::LandingPad || I->use_empty())
 	{
 		return InsertPoint(I);
 	}
