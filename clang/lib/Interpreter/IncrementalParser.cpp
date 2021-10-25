@@ -52,11 +52,7 @@ public:
           std::unique_ptr<FrontendAction> Act;
           switch (CI.getFrontendOpts().ProgramAction) {
           default:
-            Err = llvm::createStringError(
-                std::errc::state_not_recoverable,
-                "Driver initialization failed. "
-                "Incremental mode for action %d is not supported",
-                CI.getFrontendOpts().ProgramAction);
+            abort();
             return Act;
           case frontend::ASTDump:
             LLVM_FALLTHROUGH;
