@@ -338,8 +338,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 						Value* B = ci->getOperand(1);
 
 						Instruction* op = BinaryOperator::CreateAdd(A, B, "uadd_sat_add", ci);
-						Instruction* negA = BinaryOperator::CreateSub(ConstantInt::get(A->getType(), 0), A, "uadd_sat_neg", ci);
-						Instruction* cmp = ICmpInst::Create(Instruction::ICmp, ICmpInst::ICMP_ULT, negA, B, "uadd_sat_cmp", ci);
+						Instruction* cmp = ICmpInst::Create(Instruction::ICmp, ICmpInst::ICMP_ULT, op, B, "uadd_sat_cmp", ci);
 						Instruction* res = SelectInst::Create(cmp, ConstantInt::get(A->getType(), -1), op, "uadd_sat", ci);
 
 						ci->replaceAllUsesWith(res);
