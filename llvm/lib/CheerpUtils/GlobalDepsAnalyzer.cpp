@@ -127,7 +127,6 @@ void GlobalDepsAnalyzer::simplifyCalls(llvm::Module & module) const
 		const llvm::TargetLibraryInfo* TLI = TLIP ? &TLIP->getTLI(F) : nullptr;
 		assert(TLI);
 		LibCallSimplifier callSimplifier(*DL, TLI, ORE, nullptr, nullptr, LibCallReplacer);
-		//F.setPersonalityFn(nullptr);
 
 		const bool isAsmJS = (F.getSection() == StringRef("asmjs"));
 
@@ -208,7 +207,6 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 
 	// Replace calls like 'printf("Hello!")' with 'puts("Hello!")'.
 	for (Function& F : module.getFunctionList()) {
-		//F.setPersonalityFn(nullptr);
 		bool asmjs = F.getSection() == StringRef("asmjs");
 		for (BasicBlock& bb : F)
 		{

@@ -44,6 +44,7 @@ bool CheerpLowerInvoke::runOnFunction(Function &F) {
   if(KeepInvokes && F.getSection() != StringRef("asmjs"))
     return false;
   bool Changed = false;
+  F.setPersonalityFn(nullptr);
   for (BasicBlock &BB : F)
     if (InvokeInst *II = dyn_cast<InvokeInst>(BB.getTerminator())) {
       SmallVector<Value *, 16> CallArgs(II->arg_begin(), II->arg_end());
