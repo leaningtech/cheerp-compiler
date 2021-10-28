@@ -516,7 +516,8 @@ private:
 	void compileArrayClassType(llvm::Type* T);
 	void compileResizeArrayClassType(llvm::Type* T);
 	void compileArrayPointerType();
-	static bool needsUnsignedTruncation(std::unordered_set<const llvm::Value*> visited, const llvm::Value* v, bool asmjs);
+	static bool needsUnsignedTruncation(std::unordered_map<const llvm::Value*, bool>& visited, const llvm::Value* v, bool asmjs);
+	static bool needsUnsignedTruncationImpl(std::unordered_map<const llvm::Value*, bool>& visited, const llvm::Value* v, bool asmjs);
 
 	/**
 	 * Methods implemented in Opcodes.cpp
