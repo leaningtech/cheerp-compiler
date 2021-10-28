@@ -53,7 +53,7 @@ struct Exception
 	{
 		if(dest)
 			dest(obj);
-		//free(obj);
+		delete reinterpret_cast<char*>(obj);
 	}
 	int incRef() noexcept
 	{
@@ -118,8 +118,6 @@ static void do_throw(Exception* ex)
 	current_exception = ex;
 	uncaughtExceptions += 1;
 
-	//TODO: if I remove this statement clang crashes
-	__cheerp_landingpad* lp = new __cheerp_landingpad { nullptr, 0, nullptr};
 	client::CheerpException* wrapper = new client::CheerpException(ex->tinfo->name());
 	__builtin_cheerp_throw(wrapper);
 }
@@ -235,6 +233,26 @@ struct __cheerp_clause
 	std::type_info* val;
 	int sel;
 };
+
+struct
+#ifdef __ASMJS__
+[[cheerp::wasm]]
+#endif
+can_catch_ret {
+	std::ptrdiff_t adjustedOffset;
+	bool can_catch;
+	bool deref;
+};
+#ifdef __ASMJS__
+[[cheerp::wasm]]
+#endif
+can_catch_ret can_catch(const __shim_type_info* catcher, const __shim_type_info* thrown)
+{
+	can_catch_ret ret {0, false, false};
+	ret.can_catch = catcher->can_catch(thrown, ret.adjustedOffset, ret.deref);
+	return ret;
+}
+
 __attribute((noinline))
  __cheerp_landingpad*
 __gxx_personality_v0
@@ -285,20 +303,19 @@ __gxx_personality_v0
 			lp.sel = catches[i].sel;
 			break;
 		}
-		std::ptrdiff_t adjustedOffset = 0;
 		const __shim_type_info* catcher = static_cast<const __shim_type_info*>(catches[i].val);
 		const __shim_type_info* thrown = static_cast<const __shim_type_info*>(ex->tinfo);
-		bool deref = false;
-		if(catcher->can_catch(thrown, adjustedOffset, deref))
+		can_catch_ret cc = can_catch(catcher, thrown);
+		if(cc.can_catch)
 		{
 			ex->adjustedPtr = ex->obj;
-			if(deref)
+			if(cc.deref)
 			{
 				ex->adjustedPtr = *static_cast<void**>(ex->adjustedPtr);
 			}
-			if(adjustedOffset != 0 && ex->adjustedPtr != nullptr)
+			if(cc.adjustedOffset != 0 && ex->adjustedPtr != nullptr)
 			{
-				ex->adjustedPtr = __builtin_cheerp_downcast<void,void>(ex->adjustedPtr, -adjustedOffset);
+				ex->adjustedPtr = __builtin_cheerp_downcast<void,void>(ex->adjustedPtr, -cc.adjustedOffset);
 			}
 			lp.sel = catches[i].sel;
 			break;
