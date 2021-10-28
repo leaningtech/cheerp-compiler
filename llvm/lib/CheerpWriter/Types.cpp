@@ -510,7 +510,7 @@ void CheerpWriter::compileArrayPointerType()
 		<< NewLine;
 }
 
-bool CheerpWriter::needsUnsignedTruncation(std::unordered_set<const llvm::Value*> visited, const Value* v, bool asmjs)
+bool CheerpWriter::needsUnsignedTruncationImpl(std::unordered_map<const llvm::Value*, bool>& visited, const Value* v, bool asmjs)
 {
 	if(isa<CmpInst>(v))
 	{
@@ -519,8 +519,6 @@ bool CheerpWriter::needsUnsignedTruncation(std::unordered_set<const llvm::Value*
 	}
 	if(!v->getType()->isIntegerTy(8) && !v->getType()->isIntegerTy(16))
 		return true;
-	if(!visited.insert(v).second)
-		return false;
 	if(isa<ConstantInt>(v))
 	{
 		// Constants are compiled as zero extended
@@ -580,8 +578,33 @@ bool CheerpWriter::needsUnsignedTruncation(std::unordered_set<const llvm::Value*
 	return true;
 }
 
+bool CheerpWriter::needsUnsignedTruncation(std::unordered_map<const llvm::Value*, bool>& visited, const Value* v, bool asmjs)
+{
+	//needsUnsignedTruncation will visit a sub-graph of the instructions vising every operand recursively
+	//the terminating conditions are:
+	//- either visiting a non-treated Value (eg. an argument, or an Instruction::Add)
+	//	(and in this case the answer is that the truncation is needed)
+	//- or looping back on an already visited Value
+	//	in that case we return either the already computed result or optimistically return that no truncation is needed
+	//
+	//Why we return optimistically 'no truncation needed' (for the current visited node)?
+	//Basically since any negative result will propagate regardless, so we are fine waiting to visit a 'root' / dominating instruction
+	//	(and it has to exist otherwise the IR is malformed if it loops into itself).
+	//
+	//propagate regardless = visiting non-And -> result is propagated up the recursion
+	//			 visiting And -> result is propagated as in the current node (and all the ones upstream) is marked as needing truncation
+
+	auto iter = visited.find(v);
+	if(iter != visited.end())
+		return iter->second;
+
+	iter = visited.insert({v, false}).first;
+	iter->second = needsUnsignedTruncationImpl(visited, v, asmjs);
+	return iter->second;
+}
+
 bool CheerpWriter::needsUnsignedTruncation(const Value* v, bool asmjs)
 {
-	std::unordered_set<const llvm::Value*> visited;
+	std::unordered_map<const llvm::Value*, bool> visited;
 	return needsUnsignedTruncation(visited, v, asmjs);
 }
