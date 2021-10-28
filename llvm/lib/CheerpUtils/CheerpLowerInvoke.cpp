@@ -10,6 +10,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Cheerp/CFGPasses.h"
+#include "llvm/Cheerp/CommandLine.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Instructions.h"
@@ -35,12 +36,12 @@ namespace {
 }
 
 char CheerpLowerInvoke::ID = 0;
-INITIALIZE_PASS(CheerpLowerInvoke, "cheerplowerinvoke",
-                "Lower invoke and unwind for wasm functions",
+INITIALIZE_PASS(CheerpLowerInvoke, "CheerpLowerInvoke",
+                "Lower invoke to call",
                 false, false)
 
 bool CheerpLowerInvoke::runOnFunction(Function &F) {
-  if(F.getSection() != StringRef("asmjs"))
+  if(KeepInvokes && F.getSection() != StringRef("asmjs"))
     return false;
   bool Changed = false;
   for (BasicBlock &BB : F)

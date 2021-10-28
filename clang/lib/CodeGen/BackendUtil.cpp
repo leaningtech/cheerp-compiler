@@ -689,8 +689,6 @@ getInstrProfOptions(const CodeGenOptions &CodeGenOpts,
 
 static void addCheerpPasses(const PassManagerBuilder &Builder,
                             legacy::PassManagerBase &PM) {
-  PM.add(createCheerpLowerInvokePass());
-  PM.add(createCFGSimplificationPass());
   //Run mem2reg first, to remove load/stores for the this argument
   //We need this to track this in custom constructors for DOM types, such as String::String(const char*)
   PM.add(createPromoteMemoryToRegisterPass());

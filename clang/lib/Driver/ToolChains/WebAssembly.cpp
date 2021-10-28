@@ -641,6 +641,11 @@ void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
   if(std::find(features.begin(), features.end(), EXPORTEDTABLE) != features.end())
     CmdArgs.push_back("-cheerp-wasm-exported-table");
 
+  CmdArgs.push_back("-CheerpLowerInvoke");
+  if (Args.hasArg(options::OPT_fexceptions))
+    CmdArgs.push_back("-cheerp-keep-invokes");
+  CmdArgs.push_back("-simplifycfg");
+
   CmdArgs.push_back("-GlobalDepsAnalyzer");
   CmdArgs.push_back("-TypeOptimizer");
   CmdArgs.push_back("-CheerpLowerSwitch");
