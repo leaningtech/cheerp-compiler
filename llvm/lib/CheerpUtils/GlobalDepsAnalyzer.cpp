@@ -673,6 +673,21 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 			}
 		}
 	}
+	// If we are in opt, there is a chance that a following
+	// pass will convert malloc into a calloc, so keep that if we keep malloc
+	if(!llcPass && hasAsmJSMalloc)
+	{
+		Function* fcalloc = module.getFunction("calloc");
+		if (fcalloc)
+		{
+			asmJSExportedFuncions.insert(fcalloc);
+			externals.push_back(fcalloc);
+			// Visit calloc and friends
+			enqueueFunction(fcalloc);
+			processEnqueuedFunctions();
+			reachableGlobals.insert(fcalloc);
+		}
+	}
 
 	// Create a dummy function that prevents nullptr conflicts.
 	if(hasAsmJS)
