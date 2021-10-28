@@ -77,3 +77,5 @@ llvm::cl::opt<bool> WasmAnyref("cheerp-wasm-externref", llvm::cl::desc("Enable s
 llvm::cl::opt<bool> WasmReturnCalls("cheerp-wasm-return-calls", llvm::cl::desc("Enable return-call and return-call-indirect opcodes"));
 
 llvm::cl::opt<bool> UseBigInts("cheerp-use-bigints", llvm::cl::desc("Use the BigInt type in JS to represent i64 values"));
+
+llvm::cl::opt<bool> KeepInvokes("cheerp-keep-invokes", llvm::cl::desc("Don't lower invokes to calls"));
