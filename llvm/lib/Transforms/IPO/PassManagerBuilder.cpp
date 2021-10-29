@@ -138,8 +138,8 @@ static cl::opt<bool> EnableSimpleLoopUnswitch(
              "cleanup passes integrated into the loop pass manager pipeline."));
 
 cl::opt<bool>
-    EnableGVNSink("enable-gvn-sink", cl::init(false), cl::ZeroOrMore,
-                  cl::desc("Enable the GVN sinking pass (default = off)"));
+    EnableGVNSink("enable-gvn-sink", cl::init(true), cl::ZeroOrMore,
+                  cl::desc("Enable the GVN sinking pass (default = on)"));
 
 // This option is used in simplifying testing SampleFDO optimizations for
 // profile loading.
