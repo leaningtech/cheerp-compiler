@@ -6018,6 +6018,27 @@ void CheerpWriter::compileAsmJSClosure()
 	stream << "};" << NewLine;
 }
 
+void CheerpWriter::compileAsmJSffiObject()
+{
+	stream << "{" << NewLine;
+	stream << "heapSize:__heap.byteLength," << NewLine;
+	stream << "stackStart:" << linearHelper.getStackStart() << ',' << NewLine;
+	stream << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) << ":" << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) << "," << NewLine;
+	if (checkBounds)
+	{
+		stream << "checkBoundsAsmJS:checkBoundsAsmJS," << NewLine;
+	}
+	compileImports();
+	if (globalDeps.needsBuiltin(BuiltinInstr::BUILTIN::GROW_MEM))
+	{
+		stream << namegen.getBuiltinName(NameGenerator::Builtin::GROW_MEM);
+		stream << ':';
+		stream << namegen.getBuiltinName(NameGenerator::Builtin::GROW_MEM);
+		stream << ',' << NewLine;
+	}
+	stream << "}";
+}
+
 void CheerpWriter::compileAsmJSTopLevel()
 {
 	compileDummies();
@@ -6044,23 +6065,6 @@ void CheerpWriter::compileAsmJSTopLevel()
 			llvm_unreachable("We expect to have at least HEAP8");
 	}
 	stream << namegen.getBuiltinName(NameGenerator::Builtin::ASSIGN_HEAPS) << "(__heap);" << NewLine;
-	stream << "var ffi = {" << NewLine;
-	stream << "heapSize:__heap.byteLength," << NewLine;
-	stream << "stackStart:" << linearHelper.getStackStart() << ',' << NewLine;
-	stream << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) << ":" << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) << "," << NewLine;
-	if (checkBounds)
-	{
-		stream << "checkBoundsAsmJS:checkBoundsAsmJS," << NewLine;
-	}
-	compileImports();
-	if (globalDeps.needsBuiltin(BuiltinInstr::BUILTIN::GROW_MEM))
-	{
-		stream << namegen.getBuiltinName(NameGenerator::Builtin::GROW_MEM);
-		stream << ':';
-		stream << namegen.getBuiltinName(NameGenerator::Builtin::GROW_MEM);
-		stream << ',' << NewLine;
-	}
-	stream << "};" << NewLine;
 	stream << "var stdlib = {"<<NewLine;
 	stream << "Math:Math,"<<NewLine;
 	stream << "Infinity:Infinity,"<<NewLine;
@@ -6517,7 +6521,11 @@ void CheerpWriter::makeJS()
 			areExtraParenthesisOpen = false;
 
 		if (globalDeps.needAsmJS())
-			stream << "var __asm=asmJS(stdlib, ffi, __heap);" << NewLine;
+		{
+			stream << "var __asm=asmJS(stdlib, ";
+			compileAsmJSffiObject();
+			stream << ", __heap);" << NewLine;
+		}
 	}
 
 	compileDefineExports();
