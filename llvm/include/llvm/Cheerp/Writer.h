@@ -751,6 +751,7 @@ private:
 	void compileModuleClosureEnd();
 	void compileHelpers();
 	void compileImports();
+	void compileAsmJSffiObject();
 	void compileAsmJSClosure();
 	void compileAsmJSTopLevel();
 	void compileGenericJS();
