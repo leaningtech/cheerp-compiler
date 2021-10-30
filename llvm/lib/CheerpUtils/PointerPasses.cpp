@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2014-2019 Leaning Technologies
+// Copyright 2014-2021 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -32,7 +32,6 @@
 #include <set>
 #include <map>
 
-STATISTIC(NumIndirectFun, "Number of indirect functions processed");
 STATISTIC(NumAllocasTransformedToArrays, "Number of allocas of values transformed to allocas of arrays");
 
 namespace llvm {
