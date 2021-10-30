@@ -2953,6 +2953,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileTerminatorInstru
 		{
 			compileCallInstruction(cast<CallBase>(I), LOWEST);
 			stream << ";" << NewLine;
+			return COMPILE_OK;
 		}
 		case Instruction::Br:
 		case Instruction::Switch:
