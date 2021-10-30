@@ -2924,6 +2924,10 @@ const BasicBlock* CheerpWasmWriter::compileTokens(WasmBuffer& code,
 				compileBranchTable(code, si, Cases);
 				break;
 			}
+			case Token::TK_Try:
+			case Token::TK_Catch:
+				report_fatal_error("Try and Catch not handled");
+				break;
 			case Token::TK_Case:
 				report_fatal_error("Case token found outside of switch block");
 				break;
