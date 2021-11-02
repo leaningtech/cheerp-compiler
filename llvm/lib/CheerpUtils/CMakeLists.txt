@@ -26,6 +26,7 @@ add_llvm_component_library(LLVMCheerpUtils
   ConstantExprLowering.cpp
   StoreMerging.cpp
   CheerpLowerInvoke.cpp
+  SinkGenerator.cpp
   )
 
 add_dependencies(LLVMCheerpUtils intrinsics_gen)

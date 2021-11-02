@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2017 Leaning Technologies
+// Copyright 2017-2021 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -50,7 +50,37 @@ public:
 	bool runOnFunction(Function &F) override;
 	StringRef getPassName() const override;
 };
+}//llvm
 
+namespace cheerp{
+
+using namespace llvm;
+
+/*
+ * This pass generates BasicBlocks such that they have only unconditional predecessors,
+ * that in some metric are similar enough so that sinking logic (either GVNSink or
+ * SimplifyCFG::Sink) are able to sink common instruction in the generated block.
+ */
+class SinkGenerator: public FunctionPass
+{
+private:
+	typedef std::vector<std::vector<BasicBlock*> > VectorGroupOfBlocks;
+	typedef std::vector<std::pair<BasicBlock*, VectorGroupOfBlocks> > SinkLocationToCreate;
+
+	void examineBasicBlock(BasicBlock& BB, SinkLocationToCreate& groupedIncomings);
+	void addSinkTargets(BasicBlock& BB, const VectorGroupOfBlocks& groups);
+	void addSingleSinkTarget(BasicBlock& BB, const std::vector<BasicBlock*>& incomings);
+public:
+	static char ID;
+	explicit SinkGenerator() : FunctionPass(ID) { }
+	bool runOnFunction(Function &F) override;
+	StringRef getPassName() const override;
+
+	virtual void getAnalysisUsage(AnalysisUsage&) const override;
+};
+} //cheerp
+
+namespace llvm{
 //===----------------------------------------------------------------------===//
 //
 // RemoveFwdBlocks
@@ -77,6 +107,14 @@ ModulePass* createFixFunctionCastsPass();
 //
 FunctionPass* createCheerpLowerInvokePass();
 
-}
+}// llvm
 
+namespace cheerp
+{
+//===----------------------------------------------------------------------===//
+//
+// RemoveFwdBlocks
+//
+	llvm::FunctionPass *createSinkGeneratorPass();
+}//cheerp
 #endif
