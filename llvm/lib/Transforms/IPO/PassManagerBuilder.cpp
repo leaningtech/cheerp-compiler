@@ -25,6 +25,7 @@
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
 #include "llvm/Cheerp/StructMemFuncLowering.h"
+#include "llvm/Cheerp/CFGPasses.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Verifier.h"
@@ -407,6 +408,7 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
     if (EnableGVNHoist)
       MPM.add(createGVNHoistPass());
     if (EnableGVNSink) {
+      MPM.add(cheerp::createSinkGeneratorPass());
       MPM.add(createGVNSinkPass());
       MPM.add(createCFGSimplificationPass());
     }
