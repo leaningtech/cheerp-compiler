@@ -32,15 +32,94 @@ private:
 	BlockSignature signature;
 	const BasicBlock* currBB;
 	const BasicBlock& succBB;
+	const int isOpcode = 1<<28;
+	const int isNonInstMap = 2<<28;
+	const int isInvalid = 3<<28;
+	const int isUser = 4<<28;
+	std::unordered_map<const Value*, int> nonInstMap;
+	int lowerNotMapped = 0;
+
+	int getNonInstMapped(const Value* V)
+	{
+		const auto pair = nonInstMap.insert({V, lowerNotMapped});
+		if (pair.second)
+			lowerNotMapped++;
+
+		return pair.first->second;
+	}
+
+	std::unordered_map<const Instruction*, int> useMap;
+	int lowerAssignedInvalidID = 0;
+	std::pair<int,int> getUseMapped(const Use& use)
+	{
+		const Instruction* useI = cast<Instruction>(&use);
+		const auto iter = useMap.find(useI);
+
+		if (iter != useMap.end())
+		{
+			if (useI->getParent() == currBB)
+			{
+				return {iter->second, use.getOperandNo()};
+			}
+			else if (useI->getParent() == &succBB)
+			{
+				const PHINode* phi = cast<PHINode>(useI);
+				assert(phi);
+				//Since phis will be rewritten into one,
+				//the operand number is not relevant
+				return {iter->second, 0};
+			}
+		}
+
+		//We treat only the cases where the user is a lower indexed function OR a phi in the successor
+		//All other cases will not be meargeable so we add a unique ID
+		return {isInvalid, lowerAssignedInvalidID++};
+	}
 public:
 	BlockSignatureHelper(const BasicBlock& succBB)
 		: succBB(succBB)
 	{
+		int nextId = maxIteration;
+		for (const PHINode& phi : succBB.phis())
+		{
+			useMap.insert({&phi, nextId++});
+		}
 	}
 	void analyze(const Instruction& I)
 	{
 		//Opcodes should match
 		signature.push_back(I.getOpcode() + isOpcode);
+
+		//Non-Instruction operands should match
+		for (uint32_t i = 0; i<I.getNumOperands(); i++)
+		{
+			const llvm::Value* operand = I.getOperand(i);
+			if (!isa<Instruction>(operand))
+			{
+				signature.push_back(i + isNonInstMap);
+				signature.push_back(getNonInstMapped(operand));
+			}
+		}
+
+		//Signature consider the set of uses of a given Instruction
+		//Only signature with matching uses are considered for merging
+		std::set<std::pair<int,int> > usesRepresentation;
+	        for (const Use& use : I.uses())
+			usesRepresentation.insert(getUseMapped(use));
+
+		signature.push_back(isUser);
+		signature.push_back(usesRepresentation.size());
+		//std::set will be iterated deterministically, so given equivalent sets always the same signature will be generated
+		for (auto p : usesRepresentation)
+		{
+			signature.push_back(p.first);
+			signature.push_back(p.second);
+		}
+	}
+	void addInstructionToMap(const Instruction& I, const int currIteration)
+	{
+		//Add Instruction to useMap
+		useMap.insert({&I, currIteration});
 	}
 	void analyze(const BasicBlock* bb)
 	{
@@ -51,6 +130,7 @@ public:
 		for (auto iter = currBB->rbegin(); iter != currBB->rend() && currIteration < maxIteration; iter++, currIteration++)
 		{
 			analyze(*iter);
+			addInstructionToMap(*iter, currIteration);
 		}
 	}
 	BlockSignature getSignature() const
