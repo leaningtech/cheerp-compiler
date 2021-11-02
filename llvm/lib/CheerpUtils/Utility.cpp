@@ -1273,6 +1273,7 @@ void initializeCheerpOpts(PassRegistry &Registry)
 	initializeByValLoweringPass(Registry);
 	initializeI64LoweringPassPass(Registry);
 	initializeCheerpLowerInvokePass(Registry);
+	initializeSinkGeneratorPass(Registry);
 }
 
 }
