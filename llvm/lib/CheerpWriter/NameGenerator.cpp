@@ -199,11 +199,13 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 	 */
 	std::set< useGlobalPair, std::greater< useGlobalPair > > allGlobalValues;
 
+	const Function* mainOrWebMain = getMainFunction(M);
+
 	for (const Function & f : M.getFunctionList() )
 	{
 		unsigned nUses = f.getNumUses();
 
-		if ( f.getName() == "_Z7webMainv" )
+		if ( &f == mainOrWebMain)
 			++nUses; // We explicitly invoke the webmain
 
 		// Constructors are also explicitly invoked

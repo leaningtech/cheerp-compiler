@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2011-2020 Leaning Technologies
+// Copyright 2011-2021 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -531,9 +531,8 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 		}
 	}
 
-	llvm::Function* webMainOrMain = module.getFunction("_Z7webMainv");
-	if (webMainOrMain || (webMainOrMain = module.getFunction("webMain")) ||
-		(webMainOrMain = module.getFunction("main")))
+	llvm::Function* webMainOrMain = getMainFunction(module);
+	if (webMainOrMain)
 	{
 		// Webmain entry point
 		extendLifetime(webMainOrMain);
