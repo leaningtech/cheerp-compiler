@@ -1010,9 +1010,7 @@ bool PreExecute::runOnModule(Module& m)
 
     if (PreExecuteMain)
     {
-        Function* mainFunc = m.getFunction("_Z7webMainv");
-        if (!mainFunc)
-            mainFunc = m.getFunction("main");
+        Function* mainFunc = getMainFunction(m);
         assert(mainFunc && "unable to find main/webMain in module!");
         if(runOnConstructor(target, triple, m, mainFunc))
         {

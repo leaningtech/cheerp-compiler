@@ -5200,7 +5200,7 @@ void CheerpWriter::compileMethod(const Function& F)
 			stream << getName(&*curArg);
 	}
 	stream << "){" << NewLine;
-	if (measureTimeToMain && F.getName() == "main")
+	if (measureTimeToMain && (&F == getMainFunction(module)) )
 	{
 		stream << "__cheerp_main_time=__cheerp_now();" << NewLine;
 	}
