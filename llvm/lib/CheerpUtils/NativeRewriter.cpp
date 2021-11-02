@@ -101,6 +101,15 @@ void CheerpNativeRewriter::baseSubstitutionForBuiltin(User* i, Instruction* old,
 		assert(false);
 		return;
 	}
+	// if the previous instruction is an invoke ,then it must mean that this user
+	// is an old constructor that we are replacing, since invokes are terminators.
+	// Don't add a load here because it would break the IR, and it is useless anyway.
+	// Just put an undef, then later we are going to remove the user entirely.
+	if(userInst->getPrevNode() && isa<InvokeInst>(userInst->getPrevNode()))
+	{
+		userInst->replaceUsesOfWith(old, UndefValue::get(old->getType()));
+		return;
+	}
 	LoadInst* loadI=new LoadInst(source->getAllocatedType(), source, "cheerpPtrLoad", insertPoint);
 	userInst->replaceUsesOfWith(old, loadI);
 }
@@ -179,9 +188,21 @@ bool CheerpNativeRewriter::rewriteIfNativeConstructorCall(Module& M, Instruction
 		return true;
 	}
 	Function* newFunc = getReturningConstructor(M, called);
-	CallInst* newCall=CallInst::Create(newFunc, initialArgs, "retConstructor", callInst);
+	CallBase* newCall = nullptr;
+	Instruction* InsertPt = nullptr;
+	if (InvokeInst* inv = dyn_cast<InvokeInst>(callInst))
+	{
+		BasicBlock* nextBB = BasicBlock::Create(M.getContext(), "invokeCont", inv->getParent()->getParent(), inv->getNormalDest());
+		newCall=InvokeInst::Create(newFunc, nextBB, inv->getUnwindDest(), initialArgs, "retConstructor", callInst);
+		InsertPt = BranchInst::Create(inv->getNormalDest(), nextBB);
+	}
+	else
+	{
+		newCall=CallInst::Create(newFunc, initialArgs, "retConstructor", callInst);
+		InsertPt = callInst;
+	}
+	new StoreInst(newCall, newI, InsertPt);
 	newCall->setDebugLoc(callInst->getDebugLoc());
-	new StoreInst(newCall, newI, callInst);
 	return true;
 }
 
@@ -202,63 +223,24 @@ void CheerpNativeRewriter::rewriteNativeAllocationUsers(Module& M, SmallVector<I
 	//Loop over the uses and look for constructors call
 	for(unsigned j=0;j<users.size();j++)
 	{
-		Instruction* userInst = dyn_cast<Instruction>(users[j]);
-		if(userInst==NULL)
+		if(CallBase* cb = dyn_cast<CallBase>(users[j]))
 		{
-			baseSubstitutionForBuiltin(users[j], i, newI);
-			continue;
-		}
-		switch(userInst->getOpcode())
-		{
-			case Instruction::Call:
+			SmallVector<Value*, 4> initialArgs(cb->arg_begin()+1,cb->arg_end());
+			bool ret=rewriteIfNativeConstructorCall(M, i, newI, cb,
+								cb->getCalledFunction(),builtinTypeName,
+								initialArgs);
+			if(ret)
 			{
-				CallInst* callInst=static_cast<CallInst*>(userInst);
-				//Ignore the last argument, since it's not part of the real ones
-				SmallVector<Value*, 4> initialArgs(callInst->op_begin()+1,callInst->op_end()-1);
-				bool ret=rewriteIfNativeConstructorCall(M, i, newI, callInst,
-									callInst->getCalledFunction(),builtinTypeName,
-									initialArgs);
-				if(ret)
+				if(!foundConstructor)
 				{
-					if(!foundConstructor)
-					{
-						toRemove.push_back(i);
-						foundConstructor = true;
-					}
-					toRemove.push_back(callInst);
+					toRemove.push_back(i);
+					foundConstructor = true;
 				}
-				else
-					baseSubstitutionForBuiltin(callInst, i, newI);
-				break;
-			}
-			case Instruction::Invoke:
-			{
-				InvokeInst* invokeInst=static_cast<InvokeInst*>(userInst);
-				SmallVector<Value*, 4> initialArgs(invokeInst->op_begin()+1,invokeInst->op_end()-3);
-				bool ret=rewriteIfNativeConstructorCall(M, i, newI, invokeInst,
-									invokeInst->getCalledFunction(),builtinTypeName,
-									initialArgs);
-				if(ret)
-				{
-					if(!foundConstructor)
-					{
-						toRemove.push_back(i);
-						foundConstructor = true;
-					}
-					toRemove.push_back(invokeInst);
-					//We need to add a branch to the success label of the invoke call
-					BranchInst::Create(invokeInst->getNormalDest(),invokeInst);
-				}
-				else
-					baseSubstitutionForBuiltin(invokeInst, i, newI);
-				break;
-			}
-			default:
-			{
-				baseSubstitutionForBuiltin(users[j], i, newI);
-				break;
+				toRemove.push_back(cb);
+				continue;
 			}
 		}
+		baseSubstitutionForBuiltin(users[j], i, newI);
 	}
 	if(!foundConstructor)
 		new StoreInst(i, newI, i->getNextNode());
@@ -427,7 +409,7 @@ bool CheerpNativeRewriter::rewriteNativeObjectsConstructors(Module& M, Function&
 	{
 		for(auto& I: BB)
 		{
-			if(I.getOpcode()==Instruction::Alloca)
+			if(isa<AllocaInst>(I))
 			{
 				AllocaInst& i=cast<AllocaInst>(I);
 				Type* t=i.getAllocatedType();
@@ -441,9 +423,9 @@ bool CheerpNativeRewriter::rewriteNativeObjectsConstructors(Module& M, Function&
 				rewriteNativeAllocationUsers(M,toRemove,&i,t,builtinTypeName);
 				Changed = true;
 			}
-			else if(I.getOpcode()==Instruction::Call)
+			else if(isa<CallBase>(I))
 			{
-				CallInst& i=cast<CallInst>(I);
+				CallBase& i=cast<CallBase>(I);
 				//Check if the function is the C++ new
 				Function* called=i.getCalledFunction();
 				if(called==NULL)
