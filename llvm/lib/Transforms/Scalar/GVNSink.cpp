@@ -739,6 +739,22 @@ Optional<SinkingInstructionCandidate> GVNSink::analyzeInstructionForSinking(
         PHI.areAnyIncomingValuesConstant())
       return None;
 
+    // Cheerp: Do not sink instructions if that causes a struct member pointer to escape
+    const DataLayout& DL = I0->getModule()->getDataLayout();
+    if (!DL.isByteAddressable()) {
+      auto DoesEscapePointer = [](const Value *Op) -> bool {
+        if (const GetElementPtrInst* GEP = dyn_cast<GetElementPtrInst>(Op)) {
+          gep_type_iterator It = std::next(gep_type_begin(GEP), GEP->getNumOperands() - 1);
+          return It.isStruct();
+        }
+        return false;
+      };
+      if (isa<StoreInst>(I0) && OpNum == 1 && any_of(PHI.getValues(), DoesEscapePointer))
+        return None;
+      if (isa<LoadInst>(I0) && OpNum == 0 && any_of(PHI.getValues(), DoesEscapePointer))
+        return None;
+    }
+
     NeededPHIs.reserve(NeededPHIs.size());
     NeededPHIs.insert(PHI);
     PHIContents.insert(PHI.getValues().begin(), PHI.getValues().end());
