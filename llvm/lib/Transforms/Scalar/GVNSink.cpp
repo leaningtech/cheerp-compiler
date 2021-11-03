@@ -297,7 +297,7 @@ public:
   }
 
   bool areAnyIncomingValuesConstant() const {
-    return llvm::any_of(Values, [&](Value *V) { return isa<Constant>(V); });
+    return llvm::any_of(Values, [&](Value *V) { return isa<Constant>(V) || isa<InlineAsm>(V); });
   }
 
   // Hash functor
