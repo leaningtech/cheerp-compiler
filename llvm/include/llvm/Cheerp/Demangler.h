@@ -57,18 +57,22 @@ public:
 
 		char * iter = res;
 		std::string curr = "";
+		unsigned int numConsecutiveColons = 0;
 
 		while (*iter != 0)
 		{
 			curr += *iter;
+			if (*iter == ':')
+				numConsecutiveColons++;
+			else
+				numConsecutiveColons = 0;
 			iter++;
 
-			if (curr[curr.size()-2] == ':')
-				if (curr[curr.size()-1] == ':')
-				{
-					scopes.push_back(std::string(curr.begin(), curr.end()-2));
-					curr = "";
-				}
+			if (numConsecutiveColons == 2)
+			{
+				scopes.push_back(std::string(curr.begin(), curr.end()-2));
+				curr = "";
+			}
 		}
 
 		assert(!curr.empty());
