@@ -52,6 +52,7 @@
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Use.h"
@@ -747,11 +748,22 @@ Optional<SinkingInstructionCandidate> GVNSink::analyzeInstructionForSinking(
           gep_type_iterator It = std::next(gep_type_begin(GEP), GEP->getNumOperands() - 1);
           return It.isStruct();
         }
+        if (isa<AllocaInst>(Op->stripPointerCastsSafe()))
+          return true;
+        return false;
+      };
+      auto IsLifeTimeMarker = [](const Instruction* I) -> bool {
+        if (auto II = dyn_cast<IntrinsicInst>(I)) {
+          return II->getIntrinsicID() == Intrinsic::lifetime_start ||
+                 II->getIntrinsicID() == Intrinsic::lifetime_end;
+        }
         return false;
       };
       if (isa<StoreInst>(I0) && OpNum == 1 && any_of(PHI.getValues(), DoesEscapePointer))
         return None;
       if (isa<LoadInst>(I0) && OpNum == 0 && any_of(PHI.getValues(), DoesEscapePointer))
+        return None;
+      if (IsLifeTimeMarker(I0) && OpNum == 1 && any_of(PHI.getValues(), DoesEscapePointer))
         return None;
     }
 
