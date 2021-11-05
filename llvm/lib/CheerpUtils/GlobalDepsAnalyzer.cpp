@@ -766,7 +766,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	struct IndirectFunctionsData
 	{
 		std::vector<FunctionData> funcs;
-		std::vector<CallInst*> indirectCallSites;
+		std::vector<CallBase*> indirectCallSites;
 		bool signatureUsed;
 		IndirectFunctionsData():signatureUsed(false)
 		{
@@ -828,8 +828,8 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	}
 
 	//Check agains the previous set what CallInstruction are actually impossible (and remove them)
-	std::vector<llvm::CallInst*> unreachList;
-	std::vector<std::pair<llvm::CallInst*, llvm::Function*> > devirtualizedCalls;
+	std::vector<llvm::CallBase*> unreachList;
+	std::vector<std::pair<llvm::CallBase*, llvm::Function*> > devirtualizedCalls;
 
 
 
@@ -845,7 +845,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 			{
 				for (Instruction& I : bb)
 				{
-					CallInst* ci = dyn_cast<CallInst>(&I);
+					CallBase* ci = dyn_cast<CallBase>(&I);
 					if (!ci)
 						continue;
 					Value* calledValue = ci->getCalledOperand();
@@ -1015,7 +1015,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 
 	//Processing has to be done in reverse, so that multiple unreachable callInst in the same BasicBlock are processed from the last to the first
 	//This avoid erasing the latter ones while processing the first
-	for (CallInst* ci : reverse(unreachList))
+	for (CallBase* ci : reverse(unreachList))
 	{
 		modifiedFunctions.insert(ci->getParent()->getParent());
 		llvm::changeToUnreachable(ci, /*UseTrap*/false);
