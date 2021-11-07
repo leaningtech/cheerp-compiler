@@ -483,6 +483,7 @@ void initializeFixFunctionCastsPass(PassRegistry&);
 void initializeByValLoweringPass(PassRegistry&);
 void initializeI64LoweringPassPass(PassRegistry&);
 void initializeSinkGeneratorPass(PassRegistry&);
+void initializePartialExecuterPass(PassRegistry&);
 void initializeConstantExprLoweringPass(PassRegistry&);
 void initializeStoreMergingPass(PassRegistry&);
 
