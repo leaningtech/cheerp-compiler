@@ -561,7 +561,7 @@ private:
 llvm::Instruction* getOrCreateNextInsertPoint(llvm::Instruction& I);
 
 //replace CallInst(bitcast someFunc, ....) with BitCast(CalInst someFunc), returning whether something has been modified
-bool replaceCallOfBitCastWithBitCastOfCall(llvm::CallInst& callInst, bool mayFail = false, bool performPtrIntConversions = false);
+bool replaceCallOfBitCastWithBitCastOfCall(llvm::CallBase& callInst, bool mayFail = false, bool performPtrIntConversions = false);
 
 void replaceSomeUsesWith(std::vector<llvm::Use*> uses, llvm::Value* toSubstitute);
 
