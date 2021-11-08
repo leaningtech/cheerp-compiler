@@ -487,6 +487,10 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 			}
 			return CacheAndReturn(true);
 		}
+		case Instruction::Invoke:
+		{
+			return CacheAndReturn(false);
+		}
 		default:
 		{
 #ifndef NDEBUG
