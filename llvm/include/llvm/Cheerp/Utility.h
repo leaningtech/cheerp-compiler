@@ -558,6 +558,8 @@ private:
 	bool forceTypedArrays;
 };
 
+llvm::Instruction* getOrCreateNextInsertPoint(llvm::Instruction& I);
+
 //replace CallInst(bitcast someFunc, ....) with BitCast(CalInst someFunc), returning whether something has been modified
 bool replaceCallOfBitCastWithBitCastOfCall(llvm::CallInst& callInst, bool mayFail = false, bool performPtrIntConversions = false);
 
