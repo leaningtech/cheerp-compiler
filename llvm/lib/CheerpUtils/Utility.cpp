@@ -1144,6 +1144,36 @@ bool mayContainSideEffects(const Value* V, const PointerAnalyzer& PA)
 	return false;
 }
 
+Instruction* getOrCreateNextInsertPoint(Instruction& I)
+{
+	//For InvokeInst this creates a BB where to put instructions
+	//This will possibly invalidate Analysis passes
+	if (InvokeInst* invoke = dyn_cast<InvokeInst>(&I))
+	{
+		BasicBlock* normalDest = invoke->getNormalDest();
+
+		Function& F = *invoke->getFunction();
+		BasicBlock* forwardBB = BasicBlock::Create(F.getParent()->getContext());
+		forwardBB->setName("invokeNextNode");
+		forwardBB->insertInto(&F);
+
+		//Rewire branches and phi
+		//invoke -> forwardBB -> normalDest
+		//  \
+		//   -----> unwindDest
+		normalDest->replacePhiUsesWith(invoke->getParent(), forwardBB);
+		BranchInst* uncondBranch = BranchInst::Create(normalDest, forwardBB);
+		invoke->setNormalDest(forwardBB);
+
+		return uncondBranch;
+	}
+
+	//Other terminators are not handled
+	assert(!I.isTerminator());
+
+	return I.getNextNode();
+}
+
 bool replaceCallOfBitCastWithBitCastOfCall(CallInst& callInst, bool mayFail, bool performPtrIntConversions)
 {
 	auto addCast = [&performPtrIntConversions](Value* src, Type* oldType, Type* newType, Instruction* insertPoint) -> Value*
