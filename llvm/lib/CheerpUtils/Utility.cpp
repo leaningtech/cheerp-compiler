@@ -1146,11 +1146,21 @@ bool mayContainSideEffects(const Value* V, const PointerAnalyzer& PA)
 
 Instruction* getOrCreateNextInsertPoint(Instruction& I)
 {
-	//For InvokeInst this creates a BB where to put instructions
+	//For InvokeInst this possibly creates a BB where to put instructions
 	//This will possibly invalidate Analysis passes
 	if (InvokeInst* invoke = dyn_cast<InvokeInst>(&I))
 	{
 		BasicBlock* normalDest = invoke->getNormalDest();
+
+		if (BasicBlock* pred = normalDest->getSinglePredecessor())
+		{
+			Instruction* firstNonPHI = normalDest->getFirstNonPHI();
+			if (firstNonPHI == &*normalDest->begin())
+			{
+				//Single predecessors BB without phis is a valid insertion point
+				return firstNonPHI;
+			}
+		}
 
 		Function& F = *invoke->getFunction();
 		BasicBlock* forwardBB = BasicBlock::Create(F.getParent()->getContext());
