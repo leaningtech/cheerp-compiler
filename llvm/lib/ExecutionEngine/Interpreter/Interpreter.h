@@ -201,6 +201,12 @@ public:
     llvm_unreachable("Instruction not interpretable yet!");
   }
 
+  void visitOuter(Instruction& I)
+  {
+	  llvm::errs() << I << "\n";
+	  visit(I);
+  }
+
   GenericValue callExternalFunction(Function *F,
                                     ArrayRef<GenericValue> ArgVals);
   void exitCalled(GenericValue GV);

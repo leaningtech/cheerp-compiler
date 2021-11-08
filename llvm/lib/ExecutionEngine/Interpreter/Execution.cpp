@@ -2253,6 +2253,6 @@ void Interpreter::run() {
     ++NumDynamicInsts;
 
     LLVM_DEBUG(dbgs() << "About to interpret: " << I << "\n");
-    visit(I);   // Dispatch to one of the visit* methods...
+    visitOuter(I);   // Dispatch to one of the visit* methods...
   }
 }
