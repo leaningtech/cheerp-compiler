@@ -1184,7 +1184,7 @@ Instruction* getOrCreateNextInsertPoint(Instruction& I)
 	return I.getNextNode();
 }
 
-bool replaceCallOfBitCastWithBitCastOfCall(CallInst& callInst, bool mayFail, bool performPtrIntConversions)
+bool replaceCallOfBitCastWithBitCastOfCall(CallBase& callInst, bool mayFail, bool performPtrIntConversions)
 {
 	auto addCast = [&performPtrIntConversions](Value* src, Type* oldType, Type* newType, Instruction* insertPoint) -> Value*
 	{
@@ -1251,7 +1251,8 @@ bool replaceCallOfBitCastWithBitCastOfCall(CallInst& callInst, bool mayFail, boo
 
 	if (oldReturnType != newReturnType) {
 		callInst.mutateType(newReturnType);
-		Value* n = addCast(&callInst, newReturnType, oldReturnType, callInst.getNextNode());
+		//getOrCreateNextInsertPoint might possibly create a forwarding BB for InvokeInst
+		Value* n = addCast(&callInst, newReturnType, oldReturnType, getOrCreateNextInsertPoint(callInst));
 		if (n != &callInst)
 		{
 			// Appease 'replaceAllUsesWith'
