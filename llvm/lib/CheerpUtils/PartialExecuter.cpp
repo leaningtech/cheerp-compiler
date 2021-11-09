@@ -67,6 +67,23 @@ void PartialExecuter::getAnalysisUsage(AnalysisUsage& AU) const
 	llvm::ModulePass::getAnalysisUsage(AU);
 }
 
+std::unordered_map<const BasicBlock*, int> PartialExecuter::groupBasicBlocks(const Function& F)
+{
+  std::unordered_map<const BasicBlock*, int> map;
+  int SccNum = 0;
+  for (scc_iterator<const Function *> It = scc_begin(&F); !It.isAtEnd();
+       ++It, ++SccNum) {
+    // Ignore single-block SCCs since they either aren't loops or LoopInfo will
+    // catch them.
+    const std::vector<const BasicBlock *> &Scc = *It;
+    
+    for (const auto *BB : Scc) {
+      	map[BB] = SccNum;
+    }
+  }
+  return map;
+}
+
 class PartialInterpreter : public llvm::Interpreter {
 	std::unordered_set<const llvm::Value*> computed;
 	const llvm::BasicBlock* old;
@@ -127,12 +144,35 @@ public:
 		else
 			llvm::errs() << "compute ";
 		llvm::errs() << I << "\n";
+		
 
 		if (skip)
-			return;
+		{
+			if (BranchInst* BR = dyn_cast<BranchInst>(&I))
+			{
+				visitBranchInst(*BR);
+			}
+			return; 
+		}
 		computed.insert(&I);
-		Interpreter::visit(I);
+		visit(I);
 	}
+/*	void visitBranchInst(BranchInst &I) {
+		llvm::errs() << "BING\n";
+  ExecutionContext &SF = ECStack.back();
+  BasicBlock *Dest;
+
+  Dest = I.getSuccessor(0);          // Uncond branches have a fixed dest...
+  if (!I.isUnconditional()) {
+    Value *Cond = I.getCondition();
+    if (getOperandValue(Cond, SF).IntVal == 0) // If false cond...
+      Dest = I.getSuccessor(1);
+  }
+  SwitchToNewBasicBlock(Dest, SF);
+}
+*/
+
+
 /// Create a new interpreter object.
 ///
 static ExecutionEngine* create(std::unique_ptr<Module> M,
@@ -162,6 +202,23 @@ bool PartialExecuter::runOnModule( llvm::Module & module )
 
 	for (Function& F : module)
 	{
+		std::unordered_map<const BasicBlock*, int> MAP = groupBasicBlocks(F);
+
+		std::unordered_map<int, std::vector<const BasicBlock*>> INVERSE;
+		for (auto& x : MAP)
+		{
+			INVERSE[x.second].push_back(x.first);
+		}
+
+		for (auto& x : INVERSE)
+		{
+			llvm::errs() << x.first << ":\t";
+	//		for (auto & y : x.second)
+				llvm::errs() << x.second.size() << "\n";
+		}
+
+
+
 		if (F.getName() == "printf")
 		{
 using namespace llvm;
