@@ -813,7 +813,7 @@ std::pair<std::string, std::string> TypeSupport::ClientFunctionDemangled::getCli
 
 	if (demangler.isFunction())
 	{
-		while (namespaced.back() != '.' && !namespaced.empty())
+		while (!namespaced.empty() && namespaced.back() != '.')
 		{
 			funcName += namespaced.back();
 			namespaced.pop_back();
