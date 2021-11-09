@@ -68,19 +68,91 @@ void PartialExecuter::getAnalysisUsage(AnalysisUsage& AU) const
 }
 
 class PartialInterpreter : public llvm::Interpreter {
+	std::unordered_set<const llvm::Value*> computed;
+	const llvm::BasicBlock* old;
 public:
 	explicit PartialInterpreter(std::unique_ptr<llvm::Module> M)
 		: llvm::Interpreter(std::move(M), /*preExecute*/false)
 	{
+		llvm::errs() << "BINGO\n";
+		old = nullptr;
 	}
-	
-//	void visit(llvm::Instruction& I) override
-//	{
-//		llvm::errs() << I << "\n";
-//		if (/*check whether has to be skipped*/false)
-//			return;
-//		Interpreter::visit(I);
-//	}	
+	bool isValueComputed(const llvm::Value* V) const
+	{
+		if (isa<Constant>(V))
+			return true;
+		if (isa<Argument>(V))
+		{
+			//TODO: depends on the argument
+			return false;
+		}
+		if (const PHINode* phi = dyn_cast<PHINode>(V))
+		{
+			return computed.count(phi->getIncomingValueForBlock(old));
+		}
+		if (isa<Instruction>(V))
+		{
+			return computed.count(V);
+		}
+		if (isa<BasicBlock>(V))
+			return true;
+		return false;
+	}
+	bool areOperandsComputed(const llvm::Instruction& I) const
+	{
+		for (auto& op : I.operands())
+		{
+			if (!isValueComputed(op))
+				return false;
+		}
+		return true;
+	}
+	bool hasToBeSkipped(llvm::Instruction& I) const
+	{
+		if (isa<CallBase>(I))
+			return true;
+		if (isa<StoreInst>(I))
+			return true;
+		if (!areOperandsComputed(I))
+			return true;
+		return false;
+	}
+	void visitOuter(llvm::Instruction& I) override
+	{
+		const bool skip = hasToBeSkipped(I);
+		old = I.getParent();
+
+		if (skip)
+			llvm::errs() << "        ";
+		else
+			llvm::errs() << "compute ";
+		llvm::errs() << I << "\n";
+
+		if (skip)
+			return;
+		computed.insert(&I);
+		Interpreter::visit(I);
+	}
+/// Create a new interpreter object.
+///
+static ExecutionEngine* create(std::unique_ptr<Module> M,
+                                     std::string *ErrStr) {
+  // Tell this Module to materialize everything and release the GVMaterializer.
+  if (Error Err = M->materializeAll()) {
+    std::string Msg;
+    handleAllErrors(std::move(Err), [&](ErrorInfoBase &EIB) {
+      Msg = EIB.message();
+    });
+    if (ErrStr)
+      *ErrStr = Msg;
+    // We got an error, just return 0
+    return nullptr;
+  }
+
+  return new PartialInterpreter(std::move(M));
+}
+
+
 };
 
 
@@ -90,7 +162,7 @@ bool PartialExecuter::runOnModule( llvm::Module & module )
 
 	for (Function& F : module)
 	{
-		if (F.getName() == "main")
+		if (F.getName() == "printf")
 		{
 using namespace llvm;
     llvm::ExecutionEngine *currentEE;
@@ -105,13 +177,14 @@ std::unique_ptr<Module> uniqM(&module);
 
     TargetMachine* machine = target->createTargetMachine(triple, "", "", TargetOptions(), None); 
  
-    EngineBuilder builder(std::move(uniqM)); 
-    builder.setEngineKind(llvm::EngineKind::PreExecuteInterpreter); 
-    builder.setOptLevel(CodeGenOpt::Default); 
-    builder.setErrorStr(&error); 
-    builder.setVerifyModules(true); 
+//    EngineBuilder builder(std::move(uniqM)); 
+//    builder.setEngineKind(llvm::EngineKind::PreExecuteInterpreter); 
+ //   builder.setOptLevel(CodeGenOpt::Default); 
+  //  builder.setErrorStr(&error); 
+  //  builder.setVerifyModules(true); 
  
-    currentEE = builder.create(machine); 
+  //  currentEE = builder.create(machine); 
+       currentEE = PartialInterpreter::create(std::move(uniqM), &error);
     assert(currentEE && "failed to create execution engine!"); 
 //    currentEE->InstallStoreListener(StoreListener); 
   //  currentEE->InstallAllocaListener(AllocaListener); 
@@ -120,8 +193,11 @@ std::unique_ptr<Module> uniqM(&module);
 
     allocator = std::make_unique<Allocator>(*currentEE->ValueAddresses);
 
-    currentEE->runFunction(&F, std::vector< GenericValue >(100));
-/*
+    PartialInterpreter* X = (PartialInterpreter*)(currentEE);
+    X->runFunction(&F, std::vector< GenericValue >(100));
+ //   currentEE->runFunction(&F, std::vector< GenericValue >(100));
+    
+    /*
 			llvm::errs() << F.getName() << "\n";
     std::unique_ptr<Module> uniqM(&module); 
 			llvm::errs() << F.getName() << "\n";
@@ -139,13 +215,13 @@ std::unique_ptr<Module> uniqM(&module);
 		if (F.isDeclaration())
 			continue;
 
-		llvm::errs() << F.getName() << "\n";
+/*		llvm::errs() << F.getName() << "\n";
 		{
 		for (auto& u : F.uses())
 			llvm::errs() << *u.getUser() << "\n";
 		llvm::errs() << "\n";
 		}
-	}
+*/	}
 
 
 

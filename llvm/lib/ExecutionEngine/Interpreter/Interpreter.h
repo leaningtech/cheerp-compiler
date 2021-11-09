@@ -201,9 +201,8 @@ public:
     llvm_unreachable("Instruction not interpretable yet!");
   }
 
-  void visitOuter(Instruction& I)
+  virtual void visitOuter(Instruction& I)
   {
-	  llvm::errs() << I << "\n";
 	  visit(I);
   }
 
