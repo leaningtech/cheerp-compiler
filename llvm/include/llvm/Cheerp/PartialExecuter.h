@@ -19,6 +19,7 @@
 #include "llvm/Cheerp/DeterministicUnorderedSet.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Cheerp/BuiltinInstructions.h"
+#include <unordered_map>
 
 namespace cheerp
 {
@@ -31,9 +32,11 @@ public:
 	static char ID;
 	PartialExecuter();
 	bool runOnModule(llvm::Module& module) override;
+	bool runOnFunction(llvm::Function&);
 private:
 	void getAnalysisUsage(llvm::AnalysisUsage& AU) const override;
 	llvm::StringRef getPassName() const override;
+	std::unordered_map<const llvm::BasicBlock*, int> groupBasicBlocks(const llvm::Function& F);
 };
 
 inline llvm::Pass * createPartialExecuterPass()
