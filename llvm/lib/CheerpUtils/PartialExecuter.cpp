@@ -144,27 +144,23 @@ typedef std::vector<ValueGenericValuePair> LocalState;
 
 class PartialInterpreter : public llvm::Interpreter {
 	std::unordered_set<const llvm::Value*> computed;
-	const llvm::BasicBlock* old;
 public:
-	void visitBasicBlock(LocalState& state, llvm::BasicBlock* BB, llvm::BasicBlock* from=nullptr);
+	llvm::BasicBlock* visitBasicBlock(LocalState& state, llvm::BasicBlock* BB, llvm::BasicBlock* from=nullptr);
 	explicit PartialInterpreter(std::unique_ptr<llvm::Module> M)
 		: llvm::Interpreter(std::move(M), /*preExecute*/false)
 	{
 		llvm::errs() << "BINGO\n";
-		old = nullptr;
 	}
 	bool isValueComputed(const llvm::Value* V) const
 	{
+		if (computed.count(V))
+			return true;
 		if (isa<Constant>(V))
 			return true;
 		if (isa<Argument>(V))
 		{
 			//TODO: depends on the argument
 			return false;
-		}
-		if (const PHINode* phi = dyn_cast<PHINode>(V))
-		{
-			return computed.count(phi->getIncomingValueForBlock(old));
 		}
 		if (isa<Instruction>(V))
 		{
@@ -191,13 +187,30 @@ public:
 			return true;
 		if (!areOperandsComputed(I))
 			return true;
+		if (LoadInst* load = dyn_cast<LoadInst>(&I))
+		{
+			Value* ptr = load->getPointerOperand();
+			if (GetElementPtrInst* gep = dyn_cast<GetElementPtrInst>(ptr))
+			{
+				if (!gep->isInBounds())
+					return true;
+				//TODO: CHECK whether the location is also constant!!
+				return false;
+			}
+			//ConstantExpr are also possibly good
+			//PHI also
+			//
+			//In reality here we need a map of valid ptrs to be updated
+			//TODO: 
+			return false;
+		}	
 		return false;
 	}
 	void visitOuter(llvm::Instruction& I) override
 	{
 		const bool skip = hasToBeSkipped(I);
-		old = I.getParent();
-
+		const bool term = I.isTerminator();
+		
 		if (skip)
 			llvm::errs() << "        ";
 		else
@@ -209,10 +222,12 @@ public:
 		{
 			if (BranchInst* BR = dyn_cast<BranchInst>(&I))
 			{
-				visitBranchInst(*BR);
+				//visitBranchInst(*BR);
 			}
 			return; 
 		}
+		if (term)
+			return;
 		computed.insert(&I);
 		visit(I);
 	}
@@ -256,7 +271,7 @@ static ExecutionEngine* create(std::unique_ptr<Module> M,
 
 };
 
-void visitBasicBlock2(LocalState& state, llvm::BasicBlock* BB, llvm::BasicBlock* from=nullptr)
+llvm::BasicBlock* visitBasicBlock2(LocalState& state, llvm::BasicBlock* BB, llvm::BasicBlock* from=nullptr)
 {
 	std::unique_ptr<Module> uniqM((BB)->getParent()->getParent()); 
 	std::string error; 
@@ -264,9 +279,9 @@ void visitBasicBlock2(LocalState& state, llvm::BasicBlock* BB, llvm::BasicBlock*
 	std::unique_ptr<Allocator> allocator;
 	allocator = std::make_unique<Allocator>(*currentEE->ValueAddresses);
 
-	currentEE->visitBasicBlock(state, BB, from);
+	return currentEE->visitBasicBlock(state, BB, from);
 }
-void PartialInterpreter::visitBasicBlock(LocalState& state, llvm::BasicBlock* BB, llvm::BasicBlock* from)
+llvm::BasicBlock* PartialInterpreter::visitBasicBlock(LocalState& state, llvm::BasicBlock* BB, llvm::BasicBlock* from)
 {
 	using namespace llvm;
 
@@ -279,29 +294,66 @@ void PartialInterpreter::visitBasicBlock(LocalState& state, llvm::BasicBlock* BB
 	executionContext.CurInst = BB->begin();
 
 	std::vector<std::pair<const llvm::Value*, const llvm::Value*> > incomings;
+	llvm::errs() << *BB << "\n";
 	while (PHINode* phi = dyn_cast<PHINode>(&*executionContext.CurInst))
 	{
 		if (from)
 		{
-			const llvm::Value* incoming = phi->getIncomingValueForBlock(from);
+			llvm::Value* incoming = phi->getIncomingValueForBlock(from);
 			incomings.push_back({phi, incoming});
 		}
 		executionContext.CurInst++;
 	}
 	executionContext.Caller = nullptr;
 	for (auto& p : state)
+	{
 		executionContext.Values[const_cast<llvm::Value*>(p.first)] = p.second;
-
+		computed.insert(p.first);
+	}
 	for (auto& p : incomings)
+	{
 		if (executionContext.Values.count(const_cast<llvm::Value*>(p.second)))
 			executionContext.Values[const_cast<llvm::Value*>(p.first)] = executionContext.Values[const_cast<llvm::Value*>(p.second)];
-
+		computed.insert(p.first);
+	}
 
 	while (executionContext.CurInst != BB->end())
 	{
 		visitOuter(*executionContext.CurInst);
 		executionContext.CurInst++;
 	}
+
+	for (const Value* Vconst : computed)
+	{
+		Value* V = const_cast<Value*>(Vconst);
+		state.push_back({V, executionContext.Values[V]});
+	}
+	Instruction* Term = BB->getTerminator();
+
+	BasicBlock* next = nullptr;
+	if (BranchInst* BI = dyn_cast<BranchInst>(Term))
+	{
+		if (BI->isConditional())
+		{
+			if (computed.count(BI->getCondition()))
+			{
+				GenericValue V = executionContext.Values[BI->getCondition()];
+				if (V.IntVal == 0)
+					next = BI->getSuccessor(1);
+				else
+					next = BI->getSuccessor(0);
+			}
+		}
+		else
+			next = BI->getSuccessor(0);
+	}
+
+
+	llvm::errs() << *Term << "\n";
+		
+	//TODO: RAII to pop
+	popSingleStack();
+	return next;
 }
 
 LocalState intersection(const LocalState& lhs, const LocalState& rhs)
@@ -442,62 +494,61 @@ bool PartialExecuter::runOnFunction(llvm::Function& F)
 
 		LocalState state;
 		visitBasicBlock2(state, &F.getEntryBlock());
-		if (false)
+	}
+	{
+
+		llvm::BasicBlock* BB = nullptr;
+		llvm::BasicBlock* from = nullptr;
+		for (BasicBlock& bb : F)
 		{
-		using namespace llvm;
-	    llvm::ExecutionEngine *currentEE;
-	    llvm::Module *currentModule;
-	    std::unique_ptr<Allocator> allocator;
-	    
-
-	std::unique_ptr<Module> uniqM(F.getParent()); 
-	    std::string error; 
-		std::string triple = sys::getProcessTriple();
-	    const Target *target = TargetRegistry::lookupTarget(triple, error);
-
-	    TargetMachine* machine = target->createTargetMachine(triple, "", "", TargetOptions(), None); 
-	 
-	//    EngineBuilder builder(std::move(uniqM)); 
-	//    builder.setEngineKind(llvm::EngineKind::PreExecuteInterpreter); 
-	 //   builder.setOptLevel(CodeGenOpt::Default); 
-	  //  builder.setErrorStr(&error); 
-	  //  builder.setVerifyModules(true); 
-	 
-	  //  currentEE = builder.create(machine); 
-	       currentEE = PartialInterpreter::create(std::move(uniqM), &error);
-	    assert(currentEE && "failed to create execution engine!"); 
-	//    currentEE->InstallStoreListener(StoreListener); 
-	  //  currentEE->InstallAllocaListener(AllocaListener); 
-	    //currentEE->InstallRetListener(RetListener); 
-	 //   currentEE->InstallLazyFunctionCreator(LazyFunctionCreator); 
-
-	    allocator = std::make_unique<Allocator>(*currentEE->ValueAddresses);
-
-	    PartialInterpreter* X = (PartialInterpreter*)(currentEE);
-	    X->runFunction(&F, std::vector< GenericValue >(100));
-
-	   
-
-	    //   currentEE->runFunction(&F, std::vector< GenericValue >(100));
-	    
-	    /*
-				llvm::errs() << F.getName() << "\n";
-	    std::unique_ptr<Module> uniqM(&module); 
-				llvm::errs() << F.getName() << "\n";
-				PartialInterpreter p(std::move(uniqM));
-				llvm::errs() << F.getName() << "\n";
-
-				p.runFunction(&F, ArrayRef<GenericValue>())	
-	*/
-
-
-/*		llvm::errs() << F.getName() << "\n";
-		{
-		for (auto& u : F.uses())
-			llvm::errs() << *u.getUser() << "\n";
-		llvm::errs() << "\n";
+			if (bb.getName() == "if.end38.i")
+				from = &bb;
+			if (bb.getName() == "for.cond.i")
+				BB = &bb;
 		}
-*/	}
+		LocalState state;
+		for (auto* X : F.users())
+		{
+			if (CallInst* CI = dyn_cast<CallInst>(X))
+			{
+				llvm::errs() << *X << "\n";
+				int i=0;
+				for (auto& op : CI->args())
+				{
+					if (isa<Constant>(op))
+					{
+						llvm::errs() << *op << "\n";
+						state.push_back({F.getArg(i), GenericValue(op)});
+					}
+				}	
+				i++;
+			
+			}
+		}
+		for (auto& p : state)
+		{
+			llvm::errs() << *p.first << "\n\t->\t";
+//			if (isa<Value*>(GVTOP(p.second)))
+//				llvm::errs() << *(llvm::Value*)GVTOP(p.second);
+//			else
+				llvm::errs() << p.second.UIntPairVal.first << "," << p.second.UIntPairVal.second << "..." << p.second.IntVal;
+			llvm::errs() << "\n\n";
+		}
+		while (BB){
+		BasicBlock* next = visitBasicBlock2(state, BB, from);
+		from = BB;
+		BB = next;
+		}
+		for (auto& p : state)
+		{
+			llvm::errs() << *p.first << "\n\t->\t";
+//			if (isa<Value>(GVTOP(p.second)))
+
+//				llvm::errs() << *(llvm::Value*)GVTOP(p.second);
+//			else
+				llvm::errs() << p.second.UIntPairVal.first << "," << p.second.UIntPairVal.second << "..." << p.second.IntVal;
+			llvm::errs() << "\n\n";
+		}
 	}
 	return true;
 }

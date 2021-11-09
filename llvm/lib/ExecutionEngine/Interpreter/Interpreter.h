@@ -100,6 +100,11 @@ public:
 	  ECStack.push_back(ExecutionContext());
 	  return ECStack.front();
   }
+  void popSingleStack()
+  {
+	  ECStack.pop_back();
+	  assert(ECStack.empty());
+  }
   explicit Interpreter(std::unique_ptr<Module> M, bool preExecute);
   ~Interpreter() override;
 
