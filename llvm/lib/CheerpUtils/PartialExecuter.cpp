@@ -140,7 +140,7 @@ std::unordered_map<const BasicBlock*, int> PartialExecuter::groupBasicBlocks(con
 
 typedef std::pair<const llvm::Value*, GenericValue> ValueGenericValuePair;
 typedef std::vector<ValueGenericValuePair> LocalState;
-//typedef std::unordered_map<ValueGenericValuePair> LocalStateMAP;
+typedef std::unordered_map<const llvm::Value*, GenericValue> LocalStateMAP;
 
 class PartialInterpreter : public llvm::Interpreter {
 	std::unordered_set<const llvm::Value*> computed;
@@ -308,6 +308,7 @@ llvm::BasicBlock* PartialInterpreter::visitBasicBlock(LocalState& state, llvm::B
 	for (auto& p : state)
 	{
 		executionContext.Values[const_cast<llvm::Value*>(p.first)] = p.second;
+	//TODO: possibly remove from computed when looping
 		computed.insert(p.first);
 	}
 	for (auto& p : incomings)
@@ -316,6 +317,8 @@ llvm::BasicBlock* PartialInterpreter::visitBasicBlock(LocalState& state, llvm::B
 			executionContext.Values[const_cast<llvm::Value*>(p.first)] = executionContext.Values[const_cast<llvm::Value*>(p.second)];
 		computed.insert(p.first);
 	}
+//LocalStateMAP MAPP(state.begin(), state.end());
+state.clear();
 
 	while (executionContext.CurInst != BB->end())
 	{
@@ -337,12 +340,14 @@ llvm::BasicBlock* PartialInterpreter::visitBasicBlock(LocalState& state, llvm::B
 		{
 			if (computed.count(BI->getCondition()))
 			{
-				GenericValue V = executionContext.Values[BI->getCondition()];
-				if (V.IntVal == 0)
+				GenericValue& V = executionContext.Values[BI->getCondition()];
+				if (V.IntVal == 0u)
 					next = BI->getSuccessor(1);
 				else
 					next = BI->getSuccessor(0);
 			}
+			else if (BI->getSuccessor(0)->getName() == "error.i")
+				next = BI->getSuccessor(1);
 		}
 		else
 			next = BI->getSuccessor(0);
@@ -520,12 +525,13 @@ bool PartialExecuter::runOnFunction(llvm::Function& F)
 						llvm::errs() << *op << "\n";
 						state.push_back({F.getArg(i), GenericValue(op)});
 					}
+					i++;
+					break; //??
 				}	
-				i++;
 			
 			}
 		}
-		for (auto& p : state)
+if(false)		for (auto& p : state)
 		{
 			llvm::errs() << *p.first << "\n\t->\t";
 //			if (isa<Value*>(GVTOP(p.second)))
@@ -539,7 +545,7 @@ bool PartialExecuter::runOnFunction(llvm::Function& F)
 		from = BB;
 		BB = next;
 		}
-		for (auto& p : state)
+	if (true)	for (auto& p : state)
 		{
 			llvm::errs() << *p.first << "\n\t->\t";
 //			if (isa<Value>(GVTOP(p.second)))
