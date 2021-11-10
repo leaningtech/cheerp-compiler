@@ -270,7 +270,7 @@ static ExecutionEngine* create(std::unique_ptr<Module> M,
 
 
 };
-
+llvm::CallBase* CICCIO = nullptr;
 llvm::BasicBlock* visitBasicBlock2(LocalState& state, llvm::BasicBlock* BB, llvm::BasicBlock* from=nullptr)
 {
 	std::unique_ptr<Module> uniqM((BB)->getParent()->getParent()); 
@@ -279,7 +279,36 @@ llvm::BasicBlock* visitBasicBlock2(LocalState& state, llvm::BasicBlock* BB, llvm
 	std::unique_ptr<Allocator> allocator;
 	allocator = std::make_unique<Allocator>(*currentEE->ValueAddresses);
 
-	return currentEE->visitBasicBlock(state, BB, from);
+	std::set<const llvm::Value*> SET;
+	LocalState state2;
+	for (auto& x : state)
+	{
+		if (SET.insert(x.first).second)
+			state2.push_back(x);
+		else 
+		    {
+			    llvm::errs() <<"AAAAAAAAAAAA\t" <<  x.second.IntVal << "\n";
+		    }
+	}
+	std::swap(state, state2);
+	assert(state.size() == SET.size());
+
+	int i=0;
+				for (auto& op : CICCIO->args())
+				{
+					llvm::errs() << *op << "\n";
+					if (isa<Constant>(op))
+					{
+						llvm::errs() << *op << "AA\n";
+						state.push_back({BB->getParent()->getArg(i), currentEE->getConstantValue((Constant*)(&*op))});//;GenericValue((llvm::Value*)op)});
+					}
+					i++;
+					break; //??
+				}	
+
+	BasicBlock* ret =  currentEE->visitBasicBlock(state, BB, from);
+	currentEE->removeModule((BB)->getParent()->getParent());
+	return ret;
 }
 llvm::BasicBlock* PartialInterpreter::visitBasicBlock(LocalState& state, llvm::BasicBlock* BB, llvm::BasicBlock* from)
 {
@@ -293,46 +322,78 @@ llvm::BasicBlock* PartialInterpreter::visitBasicBlock(LocalState& state, llvm::B
 	executionContext.CurBB = BB;
 	executionContext.CurInst = BB->begin();
 
-	std::vector<std::pair<const llvm::Value*, const llvm::Value*> > incomings;
-	llvm::errs() << *BB << "\n";
+	std::vector<std::pair<const llvm::Value*, GenericValue> > incomings;
+	if (false)	for (auto &p:state)
+		{
+			llvm::errs() << *p.first << "\n\t\t";
+////			llvm::Value* Z = (llvm::Value*)GVTORP(p.second);
+//			if (Z)
+//				llvm::errs() << *Z << "\n";
+//			else
+				llvm::errs() << p.second.IntVal << "\n";
+		}
+//	llvm::errs() << *BB << "\n";
+	executionContext.Caller = nullptr;
+	for (auto& p : state)
+	{
+		if (false) if (isa<LoadInst>(p.first)) 
+		{
+			GenericValue V = getOperandValue(const_cast<Value*>(p.first), executionContext);
+			llvm::errs() << "\t\t" << V.IntVal << "\n";
+			llvm::errs()<< *p.first << "\t" << p.second.IntVal << "\t" << p.second.UIntPairVal.first << "\t" << p.second.UIntPairVal.second << "\n";
+		}
+		executionContext.Values[const_cast<llvm::Value*>(p.first)] = p.second;
+	//TODO: possibly remove from computed when looping
+		computed.insert(p.first);
+	}
 	while (PHINode* phi = dyn_cast<PHINode>(&*executionContext.CurInst))
 	{
 		if (from)
 		{
 			llvm::Value* incoming = phi->getIncomingValueForBlock(from);
-			incomings.push_back({phi, incoming});
+			incomings.push_back({phi, getOperandValue(incoming, executionContext)});
 		}
 		executionContext.CurInst++;
 	}
-	executionContext.Caller = nullptr;
-	for (auto& p : state)
-	{
-		executionContext.Values[const_cast<llvm::Value*>(p.first)] = p.second;
-	//TODO: possibly remove from computed when looping
-		computed.insert(p.first);
-	}
+state.clear();
 	for (auto& p : incomings)
 	{
-		if (executionContext.Values.count(const_cast<llvm::Value*>(p.second)))
-			executionContext.Values[const_cast<llvm::Value*>(p.first)] = executionContext.Values[const_cast<llvm::Value*>(p.second)];
+//		llvm::errs() << *p.first << "\t" << *p.second << "\n";
+//		assert(executionContext.Values.count(const_cast<llvm::Value*>(p.second)));
+			executionContext.Values[const_cast<llvm::Value*>(p.first)] = p.second;
+			//executionContext.Values[const_cast<llvm::Value*>(p.second)];
 		computed.insert(p.first);
+		state.push_back({p.first, p.second});
 	}
 //LocalStateMAP MAPP(state.begin(), state.end());
-state.clear();
 
 	while (executionContext.CurInst != BB->end())
 	{
+		llvm::errs() << *executionContext.CurInst << "\n";
 		visitOuter(*executionContext.CurInst);
 		executionContext.CurInst++;
 	}
-
+/*
 	for (const Value* Vconst : computed)
 	{
 		Value* V = const_cast<Value*>(Vconst);
-		state.push_back({V, executionContext.Values[V]});
+		state.push_back({V,executionContext.Values[V]});
+	}
+	*/
+	for (auto& x : executionContext.Values)
+	{
+		state.push_back({x.first, x.second});
 	}
 	Instruction* Term = BB->getTerminator();
-
+	for (auto& p : state)
+	{
+		if (isa<LoadInst>(p.first)) 
+		{
+			GenericValue V = getOperandValue(const_cast<Value*>(p.first), executionContext);
+			llvm::errs() << "\t\t" << V.IntVal << "\n";
+			llvm::errs()<< *p.first << "\t" << p.second.IntVal << "\t" << p.second.UIntPairVal.first << "\t" << p.second.UIntPairVal.second << "\n";
+		}
+	}
 	BasicBlock* next = nullptr;
 	if (BranchInst* BI = dyn_cast<BranchInst>(Term))
 	{
@@ -340,7 +401,7 @@ state.clear();
 		{
 			if (computed.count(BI->getCondition()))
 			{
-				GenericValue& V = executionContext.Values[BI->getCondition()];
+				GenericValue V = getOperandValue(BI->getCondition(), executionContext);
 				if (V.IntVal == 0u)
 					next = BI->getSuccessor(1);
 				else
@@ -495,7 +556,7 @@ bool PartialExecuter::runOnFunction(llvm::Function& F)
 			llvm::errs() << x.second.size() << "\t" << x.second.front()->getName() << "\n";
 	}
 
-	{
+if (false)	{
 
 		LocalState state;
 		visitBasicBlock2(state, &F.getEntryBlock());
@@ -523,7 +584,8 @@ bool PartialExecuter::runOnFunction(llvm::Function& F)
 					if (isa<Constant>(op))
 					{
 						llvm::errs() << *op << "\n";
-						state.push_back({F.getArg(i), GenericValue(op)});
+						CICCIO = CI;
+					//	state.push_back({F.getArg(i), RPTOGV(getPointerToGlobal(*op))});//;GenericValue((llvm::Value*)op)});
 					}
 					i++;
 					break; //??
@@ -531,7 +593,7 @@ bool PartialExecuter::runOnFunction(llvm::Function& F)
 			
 			}
 		}
-if(false)		for (auto& p : state)
+/*if(false)		for (auto& p : state)
 		{
 			llvm::errs() << *p.first << "\n\t->\t";
 //			if (isa<Value*>(GVTOP(p.second)))
@@ -540,12 +602,14 @@ if(false)		for (auto& p : state)
 				llvm::errs() << p.second.UIntPairVal.first << "," << p.second.UIntPairVal.second << "..." << p.second.IntVal;
 			llvm::errs() << "\n\n";
 		}
+*/
 		while (BB){
 		BasicBlock* next = visitBasicBlock2(state, BB, from);
 		from = BB;
 		BB = next;
 		}
-	if (true)	for (auto& p : state)
+/*
+ * if (true)	for (auto& p : state)
 		{
 			llvm::errs() << *p.first << "\n\t->\t";
 //			if (isa<Value>(GVTOP(p.second)))
@@ -554,6 +618,12 @@ if(false)		for (auto& p : state)
 //			else
 				llvm::errs() << p.second.UIntPairVal.first << "," << p.second.UIntPairVal.second << "..." << p.second.IntVal;
 			llvm::errs() << "\n\n";
+		}
+*/
+		llvm::errs() << "\n----\n";
+		for (auto &p:state)
+		{
+		//	llvm::errs() << *p.first << "\t\t" << *(llvm::Value*)GVTOP(p.second) << "\n";
 		}
 	}
 	return true;

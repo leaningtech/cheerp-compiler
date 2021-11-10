@@ -555,7 +555,9 @@ protected:
 
   void emitGlobals(bool AllowUnresolved);
 
+ public:
   GenericValue getConstantValue(const Constant *C);
+ protected:
   void LoadValueFromMemory(GenericValue &Result, GenericValue *Ptr,
                            Type *Ty);
 
