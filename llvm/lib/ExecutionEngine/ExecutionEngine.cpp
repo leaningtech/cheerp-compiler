@@ -1123,7 +1123,7 @@ void ExecutionEngine::LoadValueFromMemory(GenericValue &Result,
                                           GenericValue *Ptr,
                                           Type *Ty) {
   const unsigned LoadBytes = getDataLayout().getTypeStoreSize(Ty);
-
+  llvm::errs() << (long long)(Ptr) << "\n";
   switch (Ty->getTypeID()) {
   case Type::IntegerTyID:
     // An APInt with all words initially zero.

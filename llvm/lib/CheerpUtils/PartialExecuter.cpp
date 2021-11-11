@@ -149,7 +149,6 @@ public:
 	explicit PartialInterpreter(std::unique_ptr<llvm::Module> M)
 		: llvm::Interpreter(std::move(M), /*preExecute*/false)
 	{
-		llvm::errs() << "BINGO\n";
 	}
 	bool isValueComputed(const llvm::Value* V) const
 	{
@@ -182,7 +181,11 @@ public:
 	bool hasToBeSkipped(llvm::Instruction& I) const
 	{
 		if (isa<CallBase>(I))
-			return true;
+		{
+			CallBase* CB = cast<CallBase>(&I);
+			if (!CB->getCalledFunction() || CB->getCalledFunction()->getName() != "memchr")
+				return true;
+		}
 		if (isa<StoreInst>(I))
 			return true;
 		if (!areOperandsComputed(I))
@@ -208,6 +211,7 @@ public:
 	}
 	void visitOuter(llvm::Instruction& I) override
 	{
+		llvm::errs() << "visitOuter " << I << "\n";
 		const bool skip = hasToBeSkipped(I);
 		const bool term = I.isTerminator();
 		
@@ -232,7 +236,6 @@ public:
 		visit(I);
 	}
 /*	void visitBranchInst(BranchInst &I) {
-		llvm::errs() << "BING\n";
   ExecutionContext &SF = ECStack.back();
   BasicBlock *Dest;
 
@@ -280,35 +283,39 @@ llvm::BasicBlock* visitBasicBlock2(LocalState& state, llvm::BasicBlock* BB, llvm
 	allocator = std::make_unique<Allocator>(*currentEE->ValueAddresses);
 
 	std::set<const llvm::Value*> SET;
-	LocalState state2;
+/*	LocalState state2;
 	for (auto& x : state)
 	{
 		if (SET.insert(x.first).second)
 			state2.push_back(x);
 		else 
 		    {
-			    llvm::errs() <<"AAAAAAAAAAAA\t" <<  x.second.IntVal << "\n";
+			    llvm::errs() <<"AAAAAAAAAAAA\t" <<  x.second.IntVal <<"\t" << *x.first <<  "\n";
 		    }
 	}
 	std::swap(state, state2);
 	assert(state.size() == SET.size());
-
+*/
 	int i=0;
 				for (auto& op : CICCIO->args())
 				{
-					llvm::errs() << *op << "\n";
 					if (isa<Constant>(op))
 					{
-						llvm::errs() << *op << "AA\n";
 						state.push_back({BB->getParent()->getArg(i), currentEE->getConstantValue((Constant*)(&*op))});//;GenericValue((llvm::Value*)op)});
 					}
 					i++;
 					break; //??
 				}	
 
-	BasicBlock* ret =  currentEE->visitBasicBlock(state, BB, from);
+BasicBlock* curr = BB;
+while (curr)
+{
+	BasicBlock* ret =  currentEE->visitBasicBlock(state, curr, from);
+	from = curr;
+	curr = ret;
+}
 	currentEE->removeModule((BB)->getParent()->getParent());
-	return ret;
+	return curr;
 }
 llvm::BasicBlock* PartialInterpreter::visitBasicBlock(LocalState& state, llvm::BasicBlock* BB, llvm::BasicBlock* from)
 {
@@ -344,34 +351,49 @@ llvm::BasicBlock* PartialInterpreter::visitBasicBlock(LocalState& state, llvm::B
 		}
 		executionContext.Values[const_cast<llvm::Value*>(p.first)] = p.second;
 	//TODO: possibly remove from computed when looping
-		computed.insert(p.first);
+		//computed.insert(p.first);
 	}
 	while (PHINode* phi = dyn_cast<PHINode>(&*executionContext.CurInst))
 	{
 		if (from)
 		{
 			llvm::Value* incoming = phi->getIncomingValueForBlock(from);
+	assert(incoming);
 			incomings.push_back({phi, getOperandValue(incoming, executionContext)});
 		}
 		executionContext.CurInst++;
 	}
+
 state.clear();
 	for (auto& p : incomings)
 	{
-//		llvm::errs() << *p.first << "\t" << *p.second << "\n";
+		llvm::errs() <<"PHI-->\t"<< *p.first << "\t" ;
+		p.second.print("");
 //		assert(executionContext.Values.count(const_cast<llvm::Value*>(p.second)));
 			executionContext.Values[const_cast<llvm::Value*>(p.first)] = p.second;
 			//executionContext.Values[const_cast<llvm::Value*>(p.second)];
 		computed.insert(p.first);
 		state.push_back({p.first, p.second});
 	}
+incomings.clear();
+if(false)	for (auto& x : executionContext.Values)
+	{
+		llvm::errs() << "VALUES...\t" << *x.first << "\t"; 
+			x.second.print("..");
+		//<< x.second.IntVal << "\n";
+	}
+
 //LocalStateMAP MAPP(state.begin(), state.end());
 
 	while (executionContext.CurInst != BB->end())
 	{
-		llvm::errs() << *executionContext.CurInst << "\n";
+		//llvm::errs() << *executionContext.CurInst << "\n";
 		visitOuter(*executionContext.CurInst);
 		executionContext.CurInst++;
+	}
+	for (auto& x : executionContext.Values)
+	{
+//		llvm::errs() << "VALUES2..\t" << *x.first << "\t" << x.second.IntVal << "\n";
 	}
 /*
 	for (const Value* Vconst : computed)
@@ -603,11 +625,11 @@ if (false)	{
 			llvm::errs() << "\n\n";
 		}
 */
-		while (BB){
 		BasicBlock* next = visitBasicBlock2(state, BB, from);
-		from = BB;
-		BB = next;
-		}
+		//while (BB){
+		//from = BB;
+		//BB = next;
+		//}
 /*
  * if (true)	for (auto& p : state)
 		{

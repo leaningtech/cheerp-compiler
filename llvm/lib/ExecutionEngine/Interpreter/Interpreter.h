@@ -96,14 +96,16 @@ class Interpreter : public ExecutionEngine, public InstVisitor<Interpreter> {
 public:
   ExecutionContext& getSingleStack()
   {
-	  assert(ECStack.empty());
-	  ECStack.push_back(ExecutionContext());
-	  return ECStack.front();
+//	  assert(ECStack.empty());
+if (ECStack.empty())
+	ECStack.push_back(ExecutionContext());
+	  assert(ECStack.size() == 1);
+return ECStack.front();
   }
   void popSingleStack()
   {
-	  ECStack.pop_back();
-	  assert(ECStack.empty());
+//	  ECStack.pop_back();
+//	  assert(ECStack.empty());
   }
   explicit Interpreter(std::unique_ptr<Module> M, bool preExecute);
   ~Interpreter() override;
