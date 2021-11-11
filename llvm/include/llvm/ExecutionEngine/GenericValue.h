@@ -44,6 +44,12 @@ struct GenericValue {
     UIntPairVal.second = 0;
   }
   explicit GenericValue(void *V) : PointerVal(V), IntVal(1, 0) {}
+
+
+  void print(const char* C) const
+  {
+	  llvm::errs() << C << "\t" << (long long)PointerVal << "\t" << IntVal << "\t" << AggregateVal.size() << "\n";
+  }
 };
 
 inline GenericValue PTOGV(void *P) { return GenericValue(P); }
