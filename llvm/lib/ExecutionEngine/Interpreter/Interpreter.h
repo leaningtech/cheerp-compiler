@@ -94,10 +94,18 @@ class Interpreter : public ExecutionEngine, public InstVisitor<Interpreter> {
   bool CleanAbort;
 
 public:
+  unsigned int sizeStack()
+  {
+	  return ECStack.size();
+  }
+  ExecutionContext& getLastStack()
+  {
+	  assert(!ECStack.empty());
+	  return ECStack.back();
+  }
   ExecutionContext& getSingleStack()
   {
-//	  assert(ECStack.empty());
-if (ECStack.empty())
+	  assert(ECStack.empty());
 	ECStack.push_back(ExecutionContext());
 	  assert(ECStack.size() == 1);
 return ECStack.front();
@@ -215,11 +223,11 @@ return ECStack.front();
     llvm_unreachable("Instruction not interpretable yet!");
   }
 
-  virtual void visitOuter(Instruction& I)
+/*  virtual void visitOuter(Instruction& I)
   {
 	  visit(I);
   }
-
+*/
   GenericValue callExternalFunction(Function *F,
                                     ArrayRef<GenericValue> ArgVals);
   void exitCalled(GenericValue GV);
