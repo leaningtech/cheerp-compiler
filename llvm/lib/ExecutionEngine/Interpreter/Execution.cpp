@@ -1093,10 +1093,10 @@ GenericValue Interpreter::executeGEPOperation(Value *Ptr, gep_type_iterator I,
     }
   }
   GenericValue Result;
-  llvm::errs() << *Ptr << "\t" << Total << "\n";
-  getOperandValue(Ptr, SF).print("executeGEPOperation temp");
+//  llvm::errs() << *Ptr << "\t" << Total << "\n";
+  //getOperandValue(Ptr, SF).print("executeGEPOperation temp");
   Result.PointerVal = ((char*)getOperandValue(Ptr, SF).PointerVal) + Total;
-Result.print("executeGEPOperation");
+//Result.print("executeGEPOperation");
   LLVM_DEBUG(dbgs() << "GEP Index " << Total << " bytes.\n");
   return Result;
 }
@@ -1111,9 +1111,11 @@ void Interpreter::visitGetElementPtrInst(GetElementPtrInst &I) {
 void Interpreter::visitLoadInst(LoadInst &I) {
   ExecutionContext &SF = ECStack.back();
   GenericValue SRC = getOperandValue(I.getPointerOperand(), SF);
-  SRC.print("I.getPointerOperand()" );
+ // SRC.print("I.getPointerOperand()" );
   GenericValue *Ptr = (GenericValue*)GVTORP(SRC);
   GenericValue Result;
+ // llvm::errs() << (long long)Ptr << "\n";
+ // Ptr->print("asd");
   LoadValueFromMemory(Result, Ptr, I.getType());
   SetValue(&I, Result, SF);
   if (I.isVolatile() && PrintVolatile)

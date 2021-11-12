@@ -213,12 +213,23 @@ i++;
 }	
 			}
 		}
-		if (isa<StoreInst>(I))
+//TODO??	if (isa<StoreInst>(I))
+//			return true;
+
+		if (isa<VAArgInst>(I))
 			return true;
 		if (!areOperandsComputed(I))
 			return true;
 		if (LoadInst* load = dyn_cast<LoadInst>(&I))
 		{
+  GenericValue SRC = getOperandValue(load->getPointerOperand(), getLastStack());
+  GenericValue *Ptr = (GenericValue*)GVTORP(SRC);
+if ((long long)Ptr < 100)
+	return true;
+//  if (Ptr->IntVal:w
+		 
+
+
 			Value* ptr = load->getPointerOperand();
 			if (GetElementPtrInst* gep = dyn_cast<GetElementPtrInst>(ptr))
 			{
@@ -242,6 +253,7 @@ void visitOuter(llvm::Instruction& I)
 		curInstModifyed = false;
 	//	llvm::errs() << "visitOuter " << I << "\n";
 		
+
 		if (PHINode* phi = dyn_cast<PHINode>(&I))
 		{
 			const llvm::BasicBlock* from = getIncomingBB();
@@ -249,7 +261,8 @@ void visitOuter(llvm::Instruction& I)
 			{
 				llvm::Value* incoming = phi->getIncomingValueForBlock(from);
 				assert(incoming);
-				incomings.push_back({phi, getOperandValue(incoming, getLastStack())});
+				if (!isa<Instruction>(incoming) || computed.count(incoming))
+					incomings.push_back({phi, getOperandValue(incoming, getLastStack())});
 			}
 			return;
 		}
@@ -264,7 +277,6 @@ void visitOuter(llvm::Instruction& I)
 			}
 			incomings.clear();
 		}
-
 
 		const bool skip = hasToBeSkipped(I);
 		const bool term = I.isTerminator();
@@ -321,25 +333,10 @@ curInstModifyed = true;
 		}
 			return;
 		}
+
 		computed.insert(&I);
 		visit(I);
 	}
-	/*	void visitBranchInst(BranchInst &I) {
-		ExecutionContext &SF = ECStack.back();
-		BasicBlock *Dest;
-
-		Dest = I.getSuccessor(0);          // Uncond branches have a fixed dest...
-		if (!I.isUnconditional()) {
-		Value *Cond = I.getCondition();
-		if (getOperandValue(Cond, SF).IntVal == 0) // If false cond...
-		Dest = I.getSuccessor(1);
-		}
-		SwitchToNewBasicBlock(Dest, SF);
-		}
-		*/
-
-
-
 
 	/// Create a new interpreter object.
 	///
@@ -365,6 +362,8 @@ curInstModifyed = true;
 llvm::CallBase* CICCIO = nullptr;
 llvm::BasicBlock* visitBasicBlock2(LocalState& state, llvm::BasicBlock* BB, llvm::BasicBlock* from=nullptr)
 {
+	if (!CICCIO)
+		return nullptr;
 	std::unique_ptr<Module> uniqM((BB)->getParent()->getParent()); 
 	std::string error; 
 	PartialInterpreter* currentEE = (PartialInterpreter*)(PartialInterpreter::create(std::move(uniqM), &error));
@@ -441,13 +440,29 @@ llvm::BasicBlock* PartialInterpreter::visitBasicBlock(llvm::BasicBlock* BB, llvm
 				else
 					next = BI->getSuccessor(0);
 			}
-			else if (BI->getSuccessor(0)->getName() == "error.i")
+	/*		else if (BI->getSuccessor(0)->getName() == "error.i")
 				next = BI->getSuccessor(1);
+			else if (BI->getSuccessor(1)->getName() == "_vfprintf_r.exit")
+				next = BI->getSuccessor(0);
+			else
+			{
+				BasicBlock* A = BI->getSuccessor(0);
+				BasicBlock* B = BI->getSuccessor(1);
+
+				if (BranchInst* bi= dyn_cast<BranchInst>(B->getTerminator()))
+					if (!bi->isConditional())
+						if (bi->getSuccessor(0) == A)
+							next = A;
+			}*/
 		}
 		else
 			next = BI->getSuccessor(0);
 	}
-
+	else if (SwitchInst *SI = dyn_cast<SwitchInst>(Term))
+	{
+		auto c = SI->findCaseValue(ConstantInt::get(SI->getFunction()->getParent()->getContext(), getOperandValue(SI->getCondition(), executionContext).IntVal ));
+		next = c->getCaseSuccessor();
+	}
 
 	llvm::errs() << *Term << "\n";
 		
@@ -567,14 +582,13 @@ bool PartialExecuter::runOnFunction(llvm::Function& F)
 //		if immediate dominator is in the SCC, jump there(a refinement would be immediate dominator in SCC while invalidating all otherwise reachable SCC) or bail out
 //	bail out:
 //		sign as reachable all out-going edges from the SCC (keeping only the state pre-SCC) + all BB in the SCC
-		if (F.hasAddressTaken())
-			return false;
+//		if (F.hasAddressTaken())
+//			return false;
 
 
 		if (F.isDeclaration())
 			return false;
 
-	llvm::errs() << F.getName() << "\n";
 	std::unordered_map<const BasicBlock*, int> MAP = groupBasicBlocks(F);
 
 	std::map<int, std::vector<const BasicBlock*>> INVERSE;
@@ -583,18 +597,12 @@ bool PartialExecuter::runOnFunction(llvm::Function& F)
 		INVERSE[x.second].push_back(x.first);
 	}
 
-	for (auto& x : INVERSE)
+if(false)	for (auto& x : INVERSE)
 	{
 		llvm::errs() << x.first << ":\t";
-//		for (auto & y : x.second)
 			llvm::errs() << x.second.size() << "\t" << x.second.front()->getName() << "\n";
 	}
 
-if (false)	{
-
-		LocalState state;
-		visitBasicBlock2(state, &F.getEntryBlock());
-	}
 	{
 
 		llvm::BasicBlock* BB = nullptr;
@@ -607,17 +615,19 @@ if (false)	{
 				BB = &bb;
 		}
 		LocalState state;
+		CICCIO = nullptr;
+		int COUNT=0;
 		for (auto* X : F.users())
 		{
 			if (CallInst* CI = dyn_cast<CallInst>(X))
 			{
-				llvm::errs() << *X << "\n";
+						COUNT++;
+//				llvm::errs() << *X << "\n";
 				int i=0;
 				for (auto& op : CI->args())
 				{
 					if (isa<Constant>(op))
 					{
-						llvm::errs() << *op << "\n";
 						CICCIO = CI;
 					//	state.push_back({F.getArg(i), RPTOGV(getPointerToGlobal(*op))});//;GenericValue((llvm::Value*)op)});
 					}
@@ -627,6 +637,12 @@ if (false)	{
 			
 			}
 		}
+	if (COUNT > 1)
+		CICCIO = nullptr;
+	if (!CICCIO)
+		return false;
+	llvm::errs() << "\n\n............\t\t";
+	llvm::errs() << F.getName() << "\n";
 /*if(false)		for (auto& p : state)
 		{
 			llvm::errs() << *p.first << "\n\t->\t";
@@ -637,7 +653,8 @@ if (false)	{
 			llvm::errs() << "\n\n";
 		}
 */
-		BasicBlock* next = visitBasicBlock2(state, BB, from);
+	//	BasicBlock* next = visitBasicBlock2(state, BB, from);
+		BasicBlock* next = visitBasicBlock2(state, &F.getEntryBlock());
 		//while (BB){
 		//from = BB;
 		//BB = next;
@@ -669,7 +686,9 @@ bool PartialExecuter::runOnModule( llvm::Module & module )
 
 	for (Function& F : module)
 	{
-		if (F.getName() != "printf")
+		if (F.getName() == "__wasm_nullptr")
+			continue;
+		if (F.getName() == "__sfp")
 			continue;
 		runOnFunction(F);
 	}
