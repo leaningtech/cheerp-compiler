@@ -271,12 +271,9 @@ _LIBCPP_CONSTEXPR const intmax_t ratio<_Num, _Den>::den;
 template <class _Tp>                    struct __is_ratio                     : false_type {};
 template <intmax_t _Num, intmax_t _Den> struct __is_ratio<ratio<_Num, _Den> > : true_type  {};
 
-//Cheerp: The specification assumes at least 64-bit, we need to limit more
-#ifndef __CHEERP__
 typedef ratio<1LL, 1000000000000000000LL> atto;
 typedef ratio<1LL,    1000000000000000LL> femto;
 typedef ratio<1LL,       1000000000000LL> pico;
-#endif
 typedef ratio<1LL,          1000000000LL> nano;
 typedef ratio<1LL,             1000000LL> micro;
 typedef ratio<1LL,                1000LL> milli;
@@ -287,11 +284,9 @@ typedef ratio<                100LL, 1LL> hecto;
 typedef ratio<               1000LL, 1LL> kilo;
 typedef ratio<            1000000LL, 1LL> mega;
 typedef ratio<         1000000000LL, 1LL> giga;
-#ifndef __CHEERP__
 typedef ratio<      1000000000000LL, 1LL> tera;
 typedef ratio<   1000000000000000LL, 1LL> peta;
 typedef ratio<1000000000000000000LL, 1LL> exa;
-#endif
 
 template <class _R1, class _R2>
 struct __ratio_multiply
