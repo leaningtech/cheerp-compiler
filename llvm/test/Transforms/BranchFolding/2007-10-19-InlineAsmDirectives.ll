@@ -1,4 +1,4 @@
-; RUN: opt -march=x86 < %s -O3 | llc -march=x86 -no-integrated-as | FileCheck %s
+; RUN: opt -enable-gvn-sink=0 -march=x86 < %s -O3 | llc -march=x86 -no-integrated-as | FileCheck %s
 ; REQUIRES: default_triple
 
 ;; We don't want branch folding to fold asm directives.
