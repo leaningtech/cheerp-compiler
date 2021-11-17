@@ -19,6 +19,7 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Utils.h"
+#include "llvm/Transforms/Utils/BasicBlockUtils.h"
 using namespace llvm;
 
 #define DEBUG_TYPE "cheerplowerinvoke"
@@ -72,6 +73,8 @@ bool CheerpLowerInvoke::runOnFunction(Function &F) {
       ++NumInvokes;
       Changed = true;
     }
+  if(Changed)
+    llvm::EliminateUnreachableBlocks(F);
   return Changed;
 }
 
