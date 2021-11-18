@@ -569,6 +569,11 @@ public:
     LLVM_DEBUG(dbgs() << "GVNSink: running on function @" << F.getName()
                       << "\n");
 
+    //BBorder keeps the original ordering of BasicBlocks
+    BBorder.clear();
+    for (const auto& bb : F)
+	    BBorder[&bb] = BBorder.size();
+
     unsigned NumSunk = 0;
     ReversePostOrderTraversal<Function*> RPOT(&F);
     for (auto *N : RPOT)
@@ -578,6 +583,7 @@ public:
   }
 
 private:
+  DenseMap<const llvm::BasicBlock*, unsigned> BBorder;
   ValueTable VN;
 
   bool shouldAvoidSinkingInstruction(Instruction *I) {
@@ -845,6 +851,7 @@ unsigned GVNSink::sinkBB(BasicBlock *BBEnd) {
     LLVM_DEBUG(dbgs() << " -- Splitting edge to ";
                BBEnd->printAsOperand(dbgs()); dbgs() << "\n");
     InsertBB = SplitBlockPredecessors(BBEnd, C.Blocks, ".gvnsink.split");
+    BBorder[InsertBB] = BBorder.size();
     if (!InsertBB) {
       LLVM_DEBUG(dbgs() << " -- FAILED to split edge!\n");
       // Edge couldn't be split.
@@ -861,8 +868,14 @@ unsigned GVNSink::sinkBB(BasicBlock *BBEnd) {
 void GVNSink::sinkLastInstruction(ArrayRef<BasicBlock *> Blocks,
                                   BasicBlock *BBEnd) {
   SmallVector<Instruction *, 4> Insts;
+  //Sort Blocks using BBorder
+  std::vector<std::pair<int, BasicBlock*> > indexBBVector;
   for (BasicBlock *BB : Blocks)
-    Insts.push_back(BB->getTerminator()->getPrevNode());
+    indexBBVector.push_back({BBorder[BB], BB});
+  std::sort(indexBBVector.begin(), indexBBVector.end());
+
+  for (auto& p : indexBBVector)
+    Insts.push_back(p.second->getTerminator()->getPrevNode());
   Instruction *I0 = Insts.front();
 
   SmallVector<Value *, 4> NewOperands;
