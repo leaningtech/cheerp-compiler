@@ -1120,6 +1120,198 @@ if(false)	for (auto& x : INVERSE)
 	return true;
 }
 
+class FunctionData
+{
+	llvm::Function& F;
+	std::map<llvm::BasicBlock*, int> visitCounter;
+public:
+	FunctionData(llvm::Function& F)
+		: F(F)
+	{
+	}
+	llvm::Function* getFunction()
+	{
+		return &F;
+	}
+	bool incrementAndCheckVisitCounter(llvm::BasicBlock* BB)
+	{
+		assert(BB);
+		int currentCounter = visitCounter[BB]++;
+
+		return (currentCounter < 30);
+	}
+};
+
+class SubGraph;
+
+struct GraphNode {
+	BasicBlock* BB;
+	SmallVector<BasicBlock*, 2> Succs;
+	SubGraph& Graph;
+	explicit GraphNode(BasicBlock* BB, SubGraph& Graph);
+};
+
+class SubGraph {
+public:
+	typedef DeterministicBBSet BlockSet;
+	typedef std::unordered_map<BasicBlock*, GraphNode> NodeMap;
+
+	explicit SubGraph(BlockSet Blocks): Blocks(std::move(Blocks))
+	{
+	}
+private:
+	GraphNode* getOrCreate(BasicBlock* BB)
+	{
+		auto it = Nodes.find(BB);
+		if (it == Nodes.end())
+		{
+			it = Nodes.emplace(BB, GraphNode(BB, *this)).first;
+		}
+		return &it->second;
+	}
+	friend struct GraphTraits<SubGraph*>;
+	friend struct GraphNode;
+
+	BlockSet Blocks;
+	NodeMap Nodes;
+};
+
+GraphNode::GraphNode(BasicBlock* BB, SubGraph& Graph): BB(BB), Graph(Graph)
+{
+        for (auto Succ: successors(BB))
+        {
+                // Skip edges that go outside of the SubGraph
+                if (!Graph.Blocks.count(Succ))
+                        continue;
+                Succs.push_back(Succ);
+        }
+}
+
+
+class BasicBlockGroupData
+{
+	FunctionData& data;
+	std::map<llvm::BasicBlock*, std::set<llvm::BasicBlock*> > incomings;
+	std::set<llvm::BasicBlock*> inner;
+	bool multiHead {false};
+	llvm::BasicBlock* start;
+	llvm::BasicBlock* from;		//TODO: from can become a set, conserving the phi that are equals
+	static std::set<llvm::BasicBlock*> getAllBasicBlocks(llvm::Function& F)
+	{
+		std::set<llvm::BasicBlock*> ret;
+		for (llvm::BasicBlock& bb : F)
+		{
+			ret.insert(&bb);
+		}
+		return ret;
+	}
+	void splitIntoSCCs(std::deque<BasicBlockGroupData>& blockQueue, std::map<llvm::BasicBlock*, int>& blockToIndexMap)
+	{
+		//We begin with N nodes, remove 'start', and we find the SCCs of the remaining N-1 nodes.
+		//
+		//For N = 1, it means 0 nodes remaining -> no SCCs
+		//For N > 1, it means > 0 nodes remaining, we divide them in 1 or more SCCs
+		//
+		//Then iff there are any edges going back to start, we add all nodes again as a single SCC to the end
+		//
+		//During the actual visit we might discover that we eventually will not loop back to start (so the recursion terminate) or we stop since we reached the maximum iteration number
+
+		SubGraph::BlockSet Group;
+		for (llvm::BasicBlock* bb : inner)
+		{
+			if (inner != start)
+				Group->insert(bb);
+		}
+		SubGraph SG(std::move(Group));
+
+		int index = 0;
+		for (auto& SCC: make_range(scc_begin(&SG), scc_end(&SG)))
+		{
+			std::set<llvm::BasicBlock*> subset(SCC.begin(), SCC.end());
+			blockQueue.emplace_back(BasicBlockGroupData(data, subset));
+			for (llvm::BasicBlock* bb : SCC)
+			{
+				blockToIndexMap[bb] = index;
+			}
+			index++;
+		}
+	}
+public:
+	BasicBlockGroupData(FunctionData& data, const std::set<llvm::BasicBlock*>& inner, llvm::BasicBlock* start = nullptr)
+		: data(data), inner(inner), start(start), from(nullptr)
+	{
+		if (start)
+			assert(start->getParent() == data.getFunction());
+	}
+	BasicBlockGroupData(FunctionData& data, llvm::Function& F)
+		: BasicBlockGroupData(data, getAllBasicBlocks(F), &F.getEntryBlock())
+	{
+		assert(&F == data.getFunction());
+	}
+	void addIncomingEdge(llvm::BasicBlock* target, llvm::BasicBlock* comingFrom)
+	{
+		assert(inner.count(target));
+		if (start == nullptr)
+		{
+			start = target;
+			from = comingFrom;
+		}
+		if (start != target)
+		{
+			multiHead = true;
+			from = nullptr;
+		}
+		if (comingFrom != from)
+		{
+			from = nullptr;
+		}
+	}
+	std::set<llvm::BasicBlock*> actualVisit(llvm::BasicBlock& BB)
+	{
+		//Do the visit of the BB, with comingFrom (possibly nullptr) as predecessor
+		//Loop backs will be directed to another BBgroup
+		//The visit will return the set of reachable BBs -> add them to the subGroups data accordingly
+	}
+	void recursiveVisit()
+	{
+		if (multiHead)
+		{
+			//Mark everything as reachable
+			return;
+		}
+		if (!start)
+		{
+			//Not reachable in any way, nothing to do
+			return;
+		}
+		if (data.incrementAndCheckVisitCounter(start) == false)
+		{
+			//Mark everything as reachable
+			return;
+		}
+		if (inner.size() == 1)
+		{
+			//Do the visit of the BB, with comingFrom (possibly nullptr) as predecessor
+			return;
+		}
+		std::deque<BasicBlockGroupData> subGroups;
+		std::map<llvm::BasicBlock*, int> subGroupsID;
+		splitIntoSCCs(subGroups, subGroupsID);	//These should be partially ordered with the last one possibly being the replica of the current one
+
+		//Do the actual visit for start
+		std::set<llvm::BasicBlock*> possibleDestinations = actualVisit(*start);
+	
+		for (llvm::BasicBlock* succ : possibleDestinations)
+			subGroups[subGroupsID[succ]].addIncomingEdge(succ, start);
+
+		//Recurse on the (possibly empty) subGroups
+		for (BasicBlockGroupData& BBgroup : subGroups)
+		{
+			BBgroup.recursiveVisit();
+		}
+	}
+};
+
 bool PartialExecuter::runOnModule( llvm::Module & module )
 {
 	using namespace llvm;
