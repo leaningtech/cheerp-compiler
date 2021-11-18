@@ -33,10 +33,17 @@ public:
 	PartialExecuter();
 	bool runOnModule(llvm::Module& module) override;
 	bool runOnFunction(llvm::Function&);
+	llvm::BasicBlock* getImmediateDom(llvm::BasicBlock* bb, bool status);
+	llvm::BasicBlock* getOnlyOne(llvm::BasicBlock* bb);
+
 private:
 	void getAnalysisUsage(llvm::AnalysisUsage& AU) const override;
 	llvm::StringRef getPassName() const override;
 	std::unordered_map<const llvm::BasicBlock*, int> groupBasicBlocks(const llvm::Function& F);
+
+	std::map<llvm::BasicBlock*, std::set<llvm::BasicBlock*> > implementationSCC;
+	std::map<llvm::BasicBlock*, std::set<llvm::BasicBlock*> > implementationGLOBAL;
+	void findNextVisited(llvm::Function& F, bool status);
 };
 
 inline llvm::Pass * createPartialExecuterPass()

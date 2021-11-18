@@ -1103,7 +1103,7 @@ GenericValue Interpreter::executeGEPOperation(Value *Ptr, gep_type_iterator I,
 
 void Interpreter::visitGetElementPtrInst(GetElementPtrInst &I) {
   ExecutionContext &SF = ECStack.back();
-  llvm::errs() << "GEP\t" << *I.getPointerOperand() << "\n";
+ // llvm::errs() << "GEP\t" << *I.getPointerOperand() << "\n";
   SetValue(&I, executeGEPOperation(I.getPointerOperand(),
                                    gep_type_begin(I), gep_type_end(I), SF), SF);
 }
@@ -2221,7 +2221,7 @@ llvm::errs() << "CALL FUNCTION\n";
     return;
   }
 
- assert(ECStack.size() == 2);
+// assert(ECStack.size() == 2);
 
   // Get pointers to first LLVM BB & Instruction in function.
   StackFrame.CurBB     = &F->front();
