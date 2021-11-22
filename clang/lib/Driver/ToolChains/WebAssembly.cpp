@@ -569,7 +569,9 @@ void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
   CmdArgs.push_back("-ReplaceNopCastsAndByteSwaps");
   if(!Args.hasArg(options::OPT_cheerp_no_lto))
   {
+
     CmdArgs.push_back("-FreeAndDeleteRemoval");
+    CmdArgs.push_back("-PartialExecuter");
     CmdArgs.push_back("-cheerp-lto");
     CmdArgs.push_back("-Os");
     // -Os converts loops to canonical form, which may causes empty forwarding branches, remove those
