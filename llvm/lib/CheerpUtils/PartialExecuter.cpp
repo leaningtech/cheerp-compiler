@@ -198,14 +198,11 @@ public:
 	}
 	bool isValueComputed(const llvm::Value* V) const
 	{
-		if (computed.count(V))
-			return true;
 		if (isa<Constant>(V))
 			return true;
 		if (isa<Argument>(V))
 		{
-			//TODO: depends on the argument
-			return false;
+			return computed.count(V);
 		}
 		if (isa<Instruction>(V))
 		{
@@ -364,14 +361,27 @@ return true;
 		return false;
 	}
 bool curInstModifyed;
+void clearFunction(llvm::Function& F)
+{
+	for (Instruction& I : instructions(F))
+	{
+		visitOuter<VisitingPolicy::REMOVE_VALUES>(I);
+	}
+}
 
 template <PartialInterpreter::VisitingPolicy policy>
 void visitOuter(llvm::Instruction& I) 
 	{
+			if (policy == REMOVE_VALUES)
+			{
+				if (computed.count(&I))
+					computed.erase(&I);
+				return;
+			}
+
 		curInstModifyed = false;
 	//	llvm::errs() << "visitOuter " << I << "\n";
 		
-
 		if (PHINode* phi = dyn_cast<PHINode>(&I))
 		{
 			const llvm::BasicBlock* from = getIncomingBB();
@@ -379,7 +389,7 @@ void visitOuter(llvm::Instruction& I)
 			{
 				llvm::Value* incoming = phi->getIncomingValueForBlock(from);
 				assert(incoming);
-				if (!isa<Instruction>(incoming) || computed.count(incoming))
+				if (isValueComputed(incoming))
 					incomings.push_back({phi, getOperandValue(incoming, getLastStack())});
 			}
 			return;
@@ -399,7 +409,9 @@ void visitOuter(llvm::Instruction& I)
 		const bool skip = hasToBeSkipped(I);
 		const bool term = I.isTerminator();
 
-if (false && I.getFunction()->getName() == "__ieee754_rem_pio2")
+		if (policy == VisitingPolicy::REMOVE_VALUES)
+
+if (true)
 {
 		if (skip || !term)
 		{
@@ -430,7 +442,7 @@ if (false && I.getFunction()->getName() == "__ieee754_rem_pio2")
 	{
 		if (BI->isConditional())
 		{
-			if (computed.count(BI->getCondition()))
+			if (isValueComputed(BI->getCondition()))
 			{
 				GenericValue V = getOperandValue(BI->getCondition(), getLastStack());
 				if (V.IntVal == 0u)
@@ -587,6 +599,7 @@ if (CICCIO)
 		{
 			//				state.push_back({BB->getParent()->getArg(i), currentEE->getConstantValue((Constant*)(&*op))});//;GenericValue((llvm::Value*)op)});
 		executionContext.Values[const_cast<llvm::Argument*>(BB->getParent()->getArg(i))] = currentEE->getConstantValue((Constant*)(&*op));//;GenericValue((llvm::Value*)op)});
+		currentEE->computed.insert(BB->getParent()->getArg(i));
 }
 i++;
 //break; //??
@@ -756,7 +769,7 @@ llvm::BasicBlock* PartialInterpreter::visitBasicBlock(llvm::BasicBlock* BB, llvm
 	{
 		if (BI->isConditional())
 		{
-			if (computed.count(BI->getCondition()))
+			if (isValueComputed(BI->getCondition()))
 			{
 				GenericValue V = getOperandValue(BI->getCondition(), executionContext);
 				if (V.IntVal == 0u)
@@ -1080,6 +1093,9 @@ public:
 	//	llvm::errs() << callBase << "\n";
 		std::unique_ptr<Module> uniqM(F.getParent()); 
 		currentEE = (PartialInterpreter*)(PartialInterpreter::create(std::move(uniqM), &error));
+		
+	//	currentEE->clearFunction(F);
+		
 		allocator = std::make_unique<Allocator>(*currentEE->ValueAddresses);
 
 		std::set<const llvm::Value*> SET;
@@ -1092,12 +1108,16 @@ public:
 		{
 			if (isa<Constant>(op))
 			{
+				llvm::errs() << *op << "\n";
+
 				//				state.push_back({BB->getParent()->getArg(i), currentEE->getConstantValue((Constant*)(&*op))});//;GenericValue((llvm::Value*)op)});
 				executionContext.Values[const_cast<llvm::Argument*>(F.getArg(i))] = currentEE->getConstantValue((Constant*)(&*op));//;GenericValue((llvm::Value*)op)});
+				currentEE->computed.insert(F.getArg(i));
 		
 			}
 			i++;
 		}
+llvm::errs() << "DONE\n";
 	}
 	void doneVisitCallBase()
 	{
@@ -1331,8 +1351,12 @@ public:
 	{
 		visitingAll = true;
 		for (llvm::BasicBlock* bb : inner)
+		{
+			data.currentEE->setIncomingBB(nullptr);
+			data.currentEE->visitBasicBlock<PartialInterpreter::VisitingPolicy::REMOVE_VALUES>(bb, nullptr);
 			for (llvm::BasicBlock* succ : successors(bb))
 				registerEdge(bb, succ);
+		}
 	}
 	void registerEdge(llvm::BasicBlock* from, llvm::BasicBlock* to)
 	{
@@ -1454,12 +1478,6 @@ bool PartialExecuter::runOnFunction(llvm::Function& F)
 		if (F.isDeclaration())
 			return false;
 
-		if (F.getName() == StringRef("memchr") || F.getName() == StringRef("_ZN6client6String8fromUtf8EPKcj"))
-		{
-			//Some problems with APint being different sizes on +=
-			return false;
-		}
-
 		llvm::errs() << "......\t" << F.getName() << "\n";
 		FunctionData data(F);
 
@@ -1479,7 +1497,6 @@ bool PartialExecuter::runOnFunction(llvm::Function& F)
                         {
 				X++;
 				llvm::errs() << X << "\n" << *CS << "\n";
-
 					data.visitCallBase(*CS);	
 					
 					{BasicBlockGroupData groupData(data);
