@@ -244,6 +244,8 @@ public:
 		{
 		//	return true;
 			CallBase& CB = cast<CallBase>(I);
+			if (!CB.getCalledFunction())
+				return true;
 	//		if (!CB.getCalledFunction() || CB.getCalledFunction()->getName() != "memchr")
 	//			return true;
 	//		else
@@ -397,12 +399,19 @@ void visitOuter(llvm::Instruction& I)
 		const bool skip = hasToBeSkipped(I);
 		const bool term = I.isTerminator();
 
-/*		if (skip)
-			llvm::errs() << "        ";
-		else
+if (false && I.getFunction()->getName() == "__ieee754_rem_pio2")
+{
+		if (skip || !term)
+		{
+			if (!skip)
 			llvm::errs() << "compute ";
+			else
+			llvm::errs() << "        ";
+		}
+		else
+			llvm::errs() << "COMPUTE ";
 		llvm::errs() << I << "\n";
-*/
+}
 		if (skip)
 		{
 			if (BranchInst* BR = dyn_cast<BranchInst>(&I))
@@ -1445,8 +1454,11 @@ bool PartialExecuter::runOnFunction(llvm::Function& F)
 		if (F.isDeclaration())
 			return false;
 
-	//	if (F.getName() != StringRef("printf"))
-	//		return false;
+		if (F.getName() == StringRef("memchr") || F.getName() == StringRef("_ZN6client6String8fromUtf8EPKcj"))
+		{
+			//Some problems with APint being different sizes on +=
+			return false;
+		}
 
 		llvm::errs() << "......\t" << F.getName() << "\n";
 		FunctionData data(F);
@@ -1482,7 +1494,8 @@ bool PartialExecuter::runOnFunction(llvm::Function& F)
                 }
 		
 
-		data.emitStats();
+		if (!hasIndirectUse && F.getLinkage() != GlobalValue::ExternalLinkage)
+			data.emitStats();
 
 		llvm::errs() << "\n";
 
