@@ -1049,6 +1049,7 @@ class FunctionData
 {
 	llvm::Function& F;
 	std::map<llvm::BasicBlock*, int> visitCounter;
+	std::map<llvm::BasicBlock*, std::set<llvm::BasicBlock*>> visitedEdges;
 public:
 	FunctionData(llvm::Function& F)
 		: F(F)
@@ -1058,12 +1059,41 @@ public:
 	{
 		return &F;
 	}
+	void registerEdge(llvm::BasicBlock* from, llvm::BasicBlock* to)
+	{
+		visitedEdges[to].insert(from);
+	}
+	void emitStats()
+	{
+		int BBs =0;
+		std::set<std::pair<llvm::BasicBlock*, llvm::BasicBlock*>> Edges;
+		for (auto& x : F)
+		{
+			BBs++;
+			for (auto* p : predecessors(&x))
+				Edges.insert({&x, p});
+		}
+
+
+		//Also start has to signed
+		int X = 0;
+		for (auto& x : visitedEdges)
+		{
+			X += x.second.size();
+		}
+		llvm::errs() << "Total edges \t\t" << X << "\t" << Edges.size() <<"\n";
+		llvm::errs() << "Reachable BB\t\t" << visitedEdges.size() + 1 << "\t" << BBs << "\n";
+		if ((visitedEdges.size() + 1 != BBs) || (Edges.size() != X))
+		{
+			llvm::errs() << "FAIL\n";
+		}
+	}
 	bool incrementAndCheckVisitCounter(llvm::BasicBlock* BB)
 	{
 		assert(BB);
 		int currentCounter = visitCounter[BB]++;
 
-		return (currentCounter < 30);
+		return (currentCounter < 5);
 	}
 };
 
@@ -1150,6 +1180,7 @@ class BasicBlockGroupData
 	BasicBlockGroupData* parent;
 	std::deque<BasicBlockGroupData> subGroups;
 	std::map<llvm::BasicBlock*, int> subGroupsID;
+	bool visitingAll{false};
 	static std::set<llvm::BasicBlock*> getAllBasicBlocks(llvm::Function& F)
 	{
 		std::set<llvm::BasicBlock*> ret;
@@ -1175,7 +1206,7 @@ public:
 		: data(BBGData.data), inner(BBGData.inner), start(nullptr), from(nullptr), parent(&BBGData)
 	{
 	}
-	void addIncomingEdge(llvm::BasicBlock* target, llvm::BasicBlock* comingFrom)
+	void addIncomingEdge(llvm::BasicBlock* comingFrom, llvm::BasicBlock* target)
 	{
 		/*
 		//if (start)
@@ -1208,7 +1239,7 @@ public:
 	}
 	std::set<llvm::BasicBlock*> actualVisit(llvm::BasicBlock& BB)
 	{
-		llvm::errs() << BB.getName() << "\n";
+//		llvm::errs() << BB.getName() << "\n";
 	
 		std::set <llvm::BasicBlock*> bbs;
 		for (auto* bb : successors(&BB))
@@ -1220,57 +1251,62 @@ public:
 		//The visit will return the set of reachable BBs -> add them to the subGroups data accordingly
 		return std::set<llvm::BasicBlock*>();
 	}
-	void notifySuccessor(llvm::BasicBlock* succ, llvm::BasicBlock* from)
+	void notifySuccessor(llvm::BasicBlock* from, llvm::BasicBlock* succ)
 	{
-		//llvm::errs() << *succ << "\nxxxxxxxx\n" << *from << "\n-------\n";
-	//	llvm::errs() << (- subGroupsID[succ]) << " / " << subGroups.size() << "\t" << succ->getName() << "\n";
+		if (visitingAll)
+		{
+			if (inner.count(succ) == 0)
+				parent->notifySuccessor(from, succ);
+			return;
+		}
 		if (subGroupsID.count(succ) == 0)
 		{
 			assert(parent);
-			llvm::errs() << "PROPAGATE UP..\n";
-			llvm::errs() << succ->getName() << "--" << from->getName() << "\n";
-			parent->notifySuccessor(succ, from);
-		}
-		else if (subGroupsID.at(succ) == 0)
-		{
-	//		if (succ == start)
-				llvm::errs() << "BINGO\n";
-	//		else
-	//			parent->notifySuccessor(succ, from);
+			llvm::errs() << "go to parent!\n";
+			parent->notifySuccessor(from, succ);
 		}
 		else
 		{
 			int X = -subGroupsID.at(succ);
-//			llvm::errs() << X << "\t" << subGroups.size() << "\n";
+			//llvm::errs() << X << "\t" << subGroups.size() << "\n";
 			assert( X < (int)subGroups.size());
-			subGroups.at(X).addIncomingEdge(succ, from);
+			subGroups.at(X).addIncomingEdge(from, succ);
 		}
+	}
+	void visitAll()
+	{
+		visitingAll = true;
+		for (llvm::BasicBlock* bb : inner)
+			for (llvm::BasicBlock* succ : successors(bb))
+				registerEdge(bb, succ);
+	}
+	void registerEdge(llvm::BasicBlock* from, llvm::BasicBlock* to)
+	{
+		llvm::errs() << from->getName() << "\t" << to->getName() << "\n";
+		data.registerEdge(from, to);
+		llvm::errs() << "then notify\n";
+		notifySuccessor(from, to);
 	}
 	void recursiveVisit()
 	{
 		llvm::errs() << inner.size() << "\n";
 		if (multiHead)
 		{
-			llvm::errs() << "multiHead\n";
+			llvm::errs() << "FINALLY A MULTIHEAD\n remove assertion & text\n";
+			assert(false);
 			//Mark everything as reachable
+			visitAll();
 			return;
 		}
 		if (!start)
 		{
-			llvm::errs() << "no start\n";
 			//Not reachable in any way, nothing to do
 			return;
 		}
-//		llvm::errs() << start->getName() << "\n";
 		if (data.incrementAndCheckVisitCounter(start) == false)
 		{
-			llvm::errs() << "countered\n";
+			visitAll();
 			//Mark everything as reachable
-			return;
-		}
-		if (false && inner.size() == 1)	//Actually it's this true??? should be probably be removed
-		{
-			//Do the visit of the BB, with comingFrom (possibly nullptr) as predecessor
 			return;
 		}
 		splitIntoSCCs(subGroups, subGroupsID);	//These should be partially ordered with the last one possibly being the replica of the current one
@@ -1279,7 +1315,7 @@ public:
 		std::set<llvm::BasicBlock*> possibleDestinations = actualVisit(*start);
 	
 		for (llvm::BasicBlock* succ : possibleDestinations)
-			notifySuccessor(succ, start);
+			registerEdge(start, succ);
 
 		//Fist has been already done
 		subGroups.pop_back();
@@ -1369,6 +1405,8 @@ bool PartialExecuter::runOnFunction(llvm::Function& F)
 		FunctionData data(F);
 		BasicBlockGroupData groupData(data);
 		groupData.recursiveVisit();
+
+		data.emitStats();
 
 		llvm::errs() << "\n";
 
