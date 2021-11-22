@@ -1122,7 +1122,7 @@ void ExecutionEngine::StoreValueToMemory(const GenericValue &Val,
 void ExecutionEngine::LoadValueFromMemory(GenericValue &Result,
                                           GenericValue *Ptr,
                                           Type *Ty) {
-	  llvm::errs() << (long long)Ptr << "\n";
+//	  llvm::errs() << (long long)Ptr << "\n";
       	const unsigned LoadBytes = getDataLayout().getTypeStoreSize(Ty);
   switch (Ty->getTypeID()) {
   case Type::IntegerTyID:

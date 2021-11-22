@@ -259,7 +259,7 @@ bool problems = false;
 }
 else
 {
-	llvm::errs() << i << "-th argument not known\n";
+//	llvm::errs() << i << "-th argument not known\n";
 	problems = true;
 }
 i++;
@@ -403,8 +403,6 @@ void visitOuter(llvm::Instruction& I)
 			llvm::errs() << "compute ";
 		llvm::errs() << I << "\n";
 */
-
-		llvm::errs() <<"\t" << I << "\n";
 		if (skip)
 		{
 			if (BranchInst* BR = dyn_cast<BranchInst>(&I))
@@ -718,13 +716,14 @@ return curr;
 template <PartialInterpreter::VisitingPolicy policy>
 llvm::BasicBlock* PartialInterpreter::visitBasicBlock(llvm::BasicBlock* BB, llvm::BasicBlock* from)
 {
+	assert(BB);
 	using namespace llvm;
-	llvm::errs() << BB->getName() << "\n";
+//	llvm::errs() << BB->getName() << "------------------\n";
 
 	//	LocalStateMAP stateMap(state.begin(), state.end());
 
 	ExecutionContext& executionContext = getLastStack();
-//	executionContext.CurFunction = BB->getParent();	
+	//	executionContext.CurFunction = BB->getParent();	
 	executionContext.CurBB = BB;
 	executionContext.CurInst = BB->begin();
 
@@ -1047,10 +1046,13 @@ llvm::BasicBlock* PartialExecuter::getImmediateDom(llvm::BasicBlock* bb, bool st
 
 class FunctionData
 {
+	std::string error; 
+	std::unique_ptr<Allocator> allocator;
 	llvm::Function& F;
 	std::map<llvm::BasicBlock*, int> visitCounter;
 	std::map<llvm::BasicBlock*, std::set<llvm::BasicBlock*>> visitedEdges;
 public:
+	PartialInterpreter* currentEE{nullptr};
 	FunctionData(llvm::Function& F)
 		: F(F)
 	{
@@ -1062,6 +1064,36 @@ public:
 	void registerEdge(llvm::BasicBlock* from, llvm::BasicBlock* to)
 	{
 		visitedEdges[to].insert(from);
+	}
+	void visitCallBase(const llvm::CallBase& callBase)
+	{
+		assert(currentEE == nullptr);
+	//	llvm::errs() << callBase << "\n";
+		std::unique_ptr<Module> uniqM(F.getParent()); 
+		currentEE = (PartialInterpreter*)(PartialInterpreter::create(std::move(uniqM), &error));
+		allocator = std::make_unique<Allocator>(*currentEE->ValueAddresses);
+
+		std::set<const llvm::Value*> SET;
+
+		ExecutionContext& executionContext = currentEE->getSingleStack();
+		executionContext.CurFunction = &F;	
+	
+		int i=0;
+		for (auto& op : callBase.args())
+		{
+			if (isa<Constant>(op))
+			{
+				//				state.push_back({BB->getParent()->getArg(i), currentEE->getConstantValue((Constant*)(&*op))});//;GenericValue((llvm::Value*)op)});
+				executionContext.Values[const_cast<llvm::Argument*>(F.getArg(i))] = currentEE->getConstantValue((Constant*)(&*op));//;GenericValue((llvm::Value*)op)});
+		
+			}
+			i++;
+		}
+	}
+	void doneVisitCallBase()
+	{
+//		delete currentEE;
+		currentEE = nullptr;
 	}
 	void emitStats()
 	{
@@ -1093,7 +1125,7 @@ public:
 		assert(BB);
 		int currentCounter = visitCounter[BB]++;
 
-		return (currentCounter < 5);
+		return (currentCounter < 100);
 	}
 };
 
@@ -1178,6 +1210,7 @@ class BasicBlockGroupData
 	llvm::BasicBlock* start;
 	llvm::BasicBlock* from;		//TODO: from can become a set, conserving the phi that are equals
 	BasicBlockGroupData* parent;
+	//TODO: keep also track of the oldest parent with a bigger inner? or somehow keep a map to jump directly to the right parent
 	std::deque<BasicBlockGroupData> subGroups;
 	std::map<llvm::BasicBlock*, int> subGroupsID;
 	bool visitingAll{false};
@@ -1239,30 +1272,42 @@ public:
 	}
 	std::set<llvm::BasicBlock*> actualVisit(llvm::BasicBlock& BB)
 	{
-//		llvm::errs() << BB.getName() << "\n";
-	
+
+		data.currentEE->setIncomingBB(from);
+		BasicBlock* ret = data.currentEE->visitBasicBlock<PartialInterpreter::VisitingPolicy::NORMAL>(&BB, from);
+
 		std::set <llvm::BasicBlock*> bbs;
-		for (auto* bb : successors(&BB))
-			bbs.insert(bb);
+
+		if (ret)
+		{
+			bbs.insert(ret);
+		}
+		else
+		{
+			for (auto* bb : successors(&BB))
+				bbs.insert(bb);
+		}
 		return bbs;
 	
 		//Do the visit of the BB, with comingFrom (possibly nullptr) as predecessor
 		//Loop backs will be directed to another BBgroup
 		//The visit will return the set of reachable BBs -> add them to the subGroups data accordingly
-		return std::set<llvm::BasicBlock*>();
 	}
 	void notifySuccessor(llvm::BasicBlock* from, llvm::BasicBlock* succ)
 	{
 		if (visitingAll)
 		{
 			if (inner.count(succ) == 0)
+			{
+				//llvm::errs() << "AAAA\t" << from->getName() << "\t" << succ->getName() << "\n";
 				parent->notifySuccessor(from, succ);
+			}
 			return;
 		}
 		if (subGroupsID.count(succ) == 0)
 		{
 			assert(parent);
-			llvm::errs() << "go to parent!\n";
+			//llvm::errs() << "go to parent!\n";
 			parent->notifySuccessor(from, succ);
 		}
 		else
@@ -1282,14 +1327,14 @@ public:
 	}
 	void registerEdge(llvm::BasicBlock* from, llvm::BasicBlock* to)
 	{
-		llvm::errs() << from->getName() << "\t" << to->getName() << "\n";
+		//llvm::errs() << from->getName() << "\t" << to->getName() << "\n";
 		data.registerEdge(from, to);
-		llvm::errs() << "then notify\n";
+		//llvm::errs() << "then notify\n";
 		notifySuccessor(from, to);
 	}
 	void recursiveVisit()
 	{
-		llvm::errs() << inner.size() << "\n";
+		//llvm::errs() << inner.size() << "\n";
 		if (multiHead)
 		{
 			llvm::errs() << "FINALLY A MULTIHEAD\n remove assertion & text\n";
@@ -1305,6 +1350,9 @@ public:
 		}
 		if (data.incrementAndCheckVisitCounter(start) == false)
 		{
+			//TODO: reset Values in certain cases!!!!!!!!!!!
+		//	llvm::errs() << start->getName() << "\n";
+		//	llvm::errs() << "OH NOOOOOOOOOO COUNTERED\n\n";
 			visitAll();
 			//Mark everything as reachable
 			return;
@@ -1370,17 +1418,13 @@ void BasicBlockGroupData::splitIntoSCCs(std::deque<BasicBlockGroupData>& blockQu
 bool PartialExecuter::runOnModule( llvm::Module & module )
 {
 	using namespace llvm;
+	bool changed = false;
 
 	for (Function& F : module)
 	{
-		if (F.getName() == "__wasm_nullptr")
-			continue;
-		if (F.getName() == "__sfp")
-			continue;
-		runOnFunction(F);
+		changed |= runOnFunction(F);
 	}
 
-	bool changed = false;
 	return changed;
 }
 
@@ -1400,11 +1444,43 @@ bool PartialExecuter::runOnFunction(llvm::Function& F)
 
 		if (F.isDeclaration())
 			return false;
-	
+
+	//	if (F.getName() != StringRef("printf"))
+	//		return false;
+
 		llvm::errs() << "......\t" << F.getName() << "\n";
 		FunctionData data(F);
-		BasicBlockGroupData groupData(data);
-		groupData.recursiveVisit();
+
+		bool hasIndirectUse = false;
+
+		int X = 0;
+		for (const Use &U : F.uses())
+                {
+                        const User *FU = U.getUser();
+                        if (!isa<CallInst>(FU) && !isa<InvokeInst>(FU))
+                        {
+                                hasIndirectUse = true;
+                                continue;
+                        }
+                        const CallBase* CS = cast<CallBase>(FU);
+                        if (CS->isCallee(&U))
+                        {
+				X++;
+				llvm::errs() << X << "\n" << *CS << "\n";
+
+					data.visitCallBase(*CS);	
+					
+					{BasicBlockGroupData groupData(data);
+					groupData.recursiveVisit();
+					}
+					data.doneVisitCallBase();	
+                        }
+                        else
+                        {
+                                hasIndirectUse = true;
+                        }
+                }
+		
 
 		data.emitStats();
 
