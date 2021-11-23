@@ -244,8 +244,12 @@ public:
 	}
 	bool hasToBeSkipped(llvm::Instruction& I) //TODO:const
 	{
+		if (isa<LandingPadInst>(I)) //LandingPadInst are not handled by Interpreter
+			return true;
 		if (isa<CallBase>(I))
 		{
+//			if (isa<InvokeInst>(I)) //Invokes are not handled by Interpreter
+//				return true;
 		//	return true;
 			CallBase& CB = cast<CallBase>(I);
 			if (!CB.getCalledFunction())
@@ -276,18 +280,7 @@ else
 i++;
 }
 
-/*if (CB.getCalledFunction() && CB.getCalledFunction()->getName() == "_printf_common" && !problems)
-	return false;
-if (CB.getCalledFunction() && CB.getCalledFunction()->getName() == "__sfputs_r" && !problems)
-	return false;getDataLayout
-if (CB.getCalledFunction() && CB.getCalledFunction()->getName() == "__sfputc_r" && !problems)
-	return false;
-*/
-
-			
-//			if (CB.getCalledFunction() && CB.getCalledFunction()->getName() == "_printf_common")
-//				return false;
-			if (!CB.getCalledFunction() || CB.getCalledFunction()->getName() != "memchr")
+			if (CB.getCalledFunction()->getName() != "memchr")
 				return true;
 			}
 		}
@@ -557,7 +550,7 @@ void visitBasicBlocksResettingState(PartialInterpreter& PI, std::set<llvm::Basic
 std::vector<llvm::BasicBlock* > TOUNREACHABLE;
 void removeEdgeBetweenBlocks(llvm::BasicBlock* from, llvm::BasicBlock* to)
 {
-	for (PHINode& phi : to->phis())
+	if(false)for (PHINode& phi : to->phis())
 	{
 		if (phi.getBasicBlockIndex(from) == -1)
 			continue;
@@ -568,7 +561,24 @@ void removeEdgeBetweenBlocks(llvm::BasicBlock* from, llvm::BasicBlock* to)
 	//cleanup phi
 //TODO: consider using to->removePredecessor(from) (then change to unreachable can used again??)
 	//change terminator
-	llvm::Instruction* I = from->getTerminator();
+	int Z = 0;
+	for (BasicBlock* bb : predecessors(to))
+		if (bb == from)
+			Z++;
+	for (int i=0; i<Z; i++)
+	{
+        to->removePredecessor(from);
+	}
+	if(false)for (PHINode& phi : to->phis())
+	{
+		if (phi.getBasicBlockIndex(from) == -1)
+			continue;
+//		llvm::errs() << phi << "\n";
+//		llvm::errs() << from->getName() << "\tCONDITIONAL\n";
+		phi.removeIncomingValue(from, /*DeletePHIIfEmpty*/false);
+	}
+if (true)
+{	llvm::Instruction* I = from->getTerminator();
 	if (BranchInst* BI = dyn_cast<BranchInst>(I))
 	{
 		if (BI->isConditional())
@@ -593,6 +603,7 @@ void removeEdgeBetweenBlocks(llvm::BasicBlock* from, llvm::BasicBlock* to)
 			//TOUNREACHABLE.push_back(BI->getParent());
 			//changeToUnreachable(BI);
 			BI->eraseFromParent();
+//        to->removePredecessor(from);
 			UnreachableInst* unreach = new UnreachableInst(from->getParent()->getParent()->getContext(), from);
 		}
 	}
@@ -603,13 +614,14 @@ void removeEdgeBetweenBlocks(llvm::BasicBlock* from, llvm::BasicBlock* to)
       --i;
       auto *Successor = i->getCaseSuccessor();
       if (Successor == to) {
-//        Successor->removePredecessor(PredDef);
+    //    Successor->removePredecessor(from);
         SI->removeCase(i);
       }
     }
     if (SI->getDefaultDest() == to && SI->getNumSuccessors() == 1)
     {
 	    SI->eraseFromParent();
+  //      to->removePredecessor(from);
 		UnreachableInst* unreach = new UnreachableInst(from->getParent()->getParent()->getContext(), from);
 
     }
@@ -619,6 +631,7 @@ void removeEdgeBetweenBlocks(llvm::BasicBlock* from, llvm::BasicBlock* to)
 else
 {
 	assert(false);
+}
 }
 }
 	
@@ -1222,6 +1235,33 @@ public:
 			llvm::errs() << "WORKING\n";
 		}
 	}
+	bool hasModifications()
+	{
+		int BBs =0;
+		std::set<std::pair<llvm::BasicBlock*, llvm::BasicBlock*>> Edges;
+		for (auto& x : F)
+		{
+			BBs++;
+			for (auto* p : predecessors(&x))
+				Edges.insert({&x, p});
+		}
+
+
+		//Also start has to signed
+		int X = 0;
+		for (auto& x : visitedEdges)
+		{
+			X += x.second.size();
+		}
+		if ((visitedEdges.size() + 1 != BBs) || (Edges.size() != X))
+		{
+			return true;
+		llvm::errs() << "Total edges \t\t" << X << "\t" << Edges.size() <<"\n";
+		llvm::errs() << "Reachable BB\t\t" << visitedEdges.size() + 1 << "\t" << BBs << "\n";
+			llvm::errs() << "WORKING\n";
+		}
+		return false;
+	}
 	bool incrementAndCheckVisitCounter(llvm::BasicBlock* BB)
 	{
 		assert(BB);
@@ -1529,12 +1569,10 @@ bool PartialExecuter::runOnModule( llvm::Module & module )
 	for (Function& F : module)
 	{
 		changed |= runOnFunction(F);
-		verifyFunction(F);
 
-		//llvm::errs()<< "FUNCTION\n" << F<< "\n\n\n";
+		verifyFunction(F);
 		for (BasicBlock& BB : F)
 		{
-		//	llvm::errs() << BB << "\n\n";
 			std::set<llvm::BasicBlock*> pred;
 			for (BasicBlock* bb : predecessors(&BB))
 				pred.insert(bb);
@@ -1572,6 +1610,8 @@ bool PartialExecuter::runOnFunction(llvm::Function& F)
 
 		bool hasIndirectUse = false;
 
+		std::vector<const CallBase*> callBases;
+
 		int X = 0;
 		for (const Use &U : F.uses())
                 {
@@ -1585,6 +1625,7 @@ bool PartialExecuter::runOnFunction(llvm::Function& F)
                         if (CS->isCallee(&U))
                         {
 				X++;
+				callBases.push_back(CS);
 //				llvm::errs() << X << "\n" << *CS << "\n";
 					data.visitCallBase(*CS);	
 					
@@ -1602,10 +1643,16 @@ bool PartialExecuter::runOnFunction(llvm::Function& F)
 
 		if (!hasIndirectUse && F.getLinkage() != GlobalValue::ExternalLinkage)
 		{
-			data.emitStats();
+			if (data.hasModifications())
+			{
+//			llvm::errs() << F << "\n";
+			for (const CallBase* CS : callBases)
+//				llvm::errs() << *CS << "\n";
+//			data.emitStats();
 			data.cleanupBB();
-		llvm::errs() << "\n";
+//		llvm::errs() << "\n";
 			return true;
+			}
 		}
 
 		llvm::errs() << "\n";
