@@ -199,7 +199,14 @@ public:
 	bool isValueComputed(const llvm::Value* V) const
 	{
 		if (isa<Constant>(V))
+		{
+			if (const GlobalVariable* GVar = dyn_cast<GlobalVariable>(V))
+			{
+				if (!GVar->hasInitializer() || GVar->isExternallyInitialized())
+					return false;
+			}
 			return true;
+		}
 		if (isa<Argument>(V))
 		{
 			return computed.count(V);
@@ -251,8 +258,13 @@ int i=0;
 bool problems = false;
 				for (auto& op : CB.args())
 	{
+		Function* FF = dyn_cast<Function>(CB.getCalledFunction());
+			if (i >= FF->getFunctionType()->getNumParams())
+				break;
 		if (isValueComputed(op))
 		{
+			//TODO: fix Vaarg
+		//	llvm::errs() << *op << "\taaaaa\n";
 			//TODO: no recursion!!
 			computed.insert(CB.getCalledFunction()->getArg(i));
 }
@@ -545,14 +557,16 @@ void visitBasicBlocksResettingState(PartialInterpreter& PI, std::set<llvm::Basic
 std::vector<llvm::BasicBlock* > TOUNREACHABLE;
 void removeEdgeBetweenBlocks(llvm::BasicBlock* from, llvm::BasicBlock* to)
 {
-	//cleanup phi
-//TODO: consider using to->removePredecessor(from) (then change to unreachable can used again??)
 	for (PHINode& phi : to->phis())
 	{
+		if (phi.getBasicBlockIndex(from) == -1)
+			continue;
 //		llvm::errs() << phi << "\n";
-//		llvm::errs() << from->getName() << "\n";
+//		llvm::errs() << from->getName() << "\tCONDITIONAL\n";
 		phi.removeIncomingValue(from, /*DeletePHIIfEmpty*/false);
 	}
+	//cleanup phi
+//TODO: consider using to->removePredecessor(from) (then change to unreachable can used again??)
 	//change terminator
 	llvm::Instruction* I = from->getTerminator();
 	if (BranchInst* BI = dyn_cast<BranchInst>(I))
@@ -571,6 +585,11 @@ void removeEdgeBetweenBlocks(llvm::BasicBlock* from, llvm::BasicBlock* to)
 		}
 		else
 		{
+	for (PHINode& phi : to->phis())
+	{
+	//	if (phi.getBasicBlockIndex(from) >= 0)
+	//		phi.addIncomingValue(from, /*DeletePHIIfEmpty*/false);
+	}
 			//TOUNREACHABLE.push_back(BI->getParent());
 			//changeToUnreachable(BI);
 			BI->eraseFromParent();
@@ -588,7 +607,19 @@ void removeEdgeBetweenBlocks(llvm::BasicBlock* from, llvm::BasicBlock* to)
         SI->removeCase(i);
       }
     }
+    if (SI->getDefaultDest() == to && SI->getNumSuccessors() == 1)
+    {
+	    SI->eraseFromParent();
+		UnreachableInst* unreach = new UnreachableInst(from->getParent()->getParent()->getContext(), from);
+
+    }
+
+	
 	}
+else
+{
+	assert(false);
+}
 }
 	
 llvm::CallBase* CICCIO = nullptr;
@@ -615,6 +646,7 @@ if (CICCIO)
 	{
 		if (isa<Constant>(op))
 		{
+				llvm::errs() << *op << "\tbbbb\n";
 			//				state.push_back({BB->getParent()->getArg(i), currentEE->getConstantValue((Constant*)(&*op))});//;GenericValue((llvm::Value*)op)});
 		executionContext.Values[const_cast<llvm::Argument*>(BB->getParent()->getArg(i))] = currentEE->getConstantValue((Constant*)(&*op));//;GenericValue((llvm::Value*)op)});
 		currentEE->computed.insert(BB->getParent()->getArg(i));
@@ -1124,9 +1156,14 @@ public:
 		int i=0;
 		for (auto& op : callBase.args())
 		{
-			if (isa<Constant>(op))
+			if (i >= F.getFunctionType()->getNumParams())
+				break;
+			if (currentEE->isValueComputed(op))
 			{
-	//			llvm::errs() << *op << "\n";
+//				llvm::errs() << F << "\n";
+//				llvm::errs() << callBase << "\n";
+//				llvm::errs() << *op << "\tcccc\n";
+//				llvm::errs() << i << "\t-------\n";
 
 				//				state.push_back({BB->getParent()->getArg(i), currentEE->getConstantValue((Constant*)(&*op))});//;GenericValue((llvm::Value*)op)});
 				executionContext.Values[const_cast<llvm::Argument*>(F.getArg(i))] = currentEE->getConstantValue((Constant*)(&*op));//;GenericValue((llvm::Value*)op)});
@@ -1492,6 +1529,22 @@ bool PartialExecuter::runOnModule( llvm::Module & module )
 	for (Function& F : module)
 	{
 		changed |= runOnFunction(F);
+		verifyFunction(F);
+
+		//llvm::errs()<< "FUNCTION\n" << F<< "\n\n\n";
+		for (BasicBlock& BB : F)
+		{
+		//	llvm::errs() << BB << "\n\n";
+			std::set<llvm::BasicBlock*> pred;
+			for (BasicBlock* bb : predecessors(&BB))
+				pred.insert(bb);
+
+			for (PHINode& phi : BB.phis())
+			{
+				for (BasicBlock* bb : pred)
+					assert(phi.getBasicBlockIndex(bb) != -1);
+			}
+		}
 	}
 
 	return changed;
