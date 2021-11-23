@@ -546,9 +546,13 @@ std::vector<llvm::BasicBlock* > TOUNREACHABLE;
 void removeEdgeBetweenBlocks(llvm::BasicBlock* from, llvm::BasicBlock* to)
 {
 	//cleanup phi
-//	for (PHINode& phi : to->phis())
-//		phi.removeIncomingValue(from, /*DeletePHIIfEmpty*/false);
-
+//TODO: consider using to->removePredecessor(from) (then change to unreachable can used again??)
+	for (PHINode& phi : to->phis())
+	{
+//		llvm::errs() << phi << "\n";
+//		llvm::errs() << from->getName() << "\n";
+		phi.removeIncomingValue(from, /*DeletePHIIfEmpty*/false);
+	}
 	//change terminator
 	llvm::Instruction* I = from->getTerminator();
 	if (BranchInst* BI = dyn_cast<BranchInst>(I))
@@ -567,9 +571,23 @@ void removeEdgeBetweenBlocks(llvm::BasicBlock* from, llvm::BasicBlock* to)
 		}
 		else
 		{
-			TOUNREACHABLE.push_back(BI->getParent());
-			changeToUnreachable(BI);
+			//TOUNREACHABLE.push_back(BI->getParent());
+			//changeToUnreachable(BI);
+			BI->eraseFromParent();
+			UnreachableInst* unreach = new UnreachableInst(from->getParent()->getParent()->getContext(), from);
 		}
+	}
+	else if (SwitchInst* SI = dyn_cast<SwitchInst>(I))
+	{
+
+    for (SwitchInst::CaseIt i = SI->case_end(), e = SI->case_begin(); i != e;) {
+      --i;
+      auto *Successor = i->getCaseSuccessor();
+      if (Successor == to) {
+//        Successor->removePredecessor(PredDef);
+        SI->removeCase(i);
+      }
+    }
 	}
 }
 	
@@ -1164,7 +1182,7 @@ public:
 		{
 		llvm::errs() << "Total edges \t\t" << X << "\t" << Edges.size() <<"\n";
 		llvm::errs() << "Reachable BB\t\t" << visitedEdges.size() + 1 << "\t" << BBs << "\n";
-			llvm::errs() << "FAIL\n";
+			llvm::errs() << "WORKING\n";
 		}
 	}
 	bool incrementAndCheckVisitCounter(llvm::BasicBlock* BB)
@@ -1388,8 +1406,8 @@ public:
 		//llvm::errs() << inner.size() << "\n";
 		if (multiHead)
 		{
-			llvm::errs() << "FINALLY A MULTIHEAD\n remove assertion & text\n";
-			assert(false);
+	//		llvm::errs() << "FINALLY A MULTIHEAD\n remove assertion & text\n";
+	//		assert(false);
 			//Mark everything as reachable
 			visitAll();
 			return;
@@ -1496,7 +1514,7 @@ bool PartialExecuter::runOnFunction(llvm::Function& F)
 		if (F.isDeclaration())
 			return false;
 
-		llvm::errs() << "......\t" << F.getName() << "\n";
+//		llvm::errs() << "......\t" << F.getName() << "\n";
 		FunctionData data(F);
 
 		bool hasIndirectUse = false;
@@ -1514,7 +1532,7 @@ bool PartialExecuter::runOnFunction(llvm::Function& F)
                         if (CS->isCallee(&U))
                         {
 				X++;
-				llvm::errs() << X << "\n" << *CS << "\n";
+//				llvm::errs() << X << "\n" << *CS << "\n";
 					data.visitCallBase(*CS);	
 					
 					{BasicBlockGroupData groupData(data);
@@ -1533,6 +1551,8 @@ bool PartialExecuter::runOnFunction(llvm::Function& F)
 		{
 			data.emitStats();
 			data.cleanupBB();
+		llvm::errs() << "\n";
+			return true;
 		}
 
 		llvm::errs() << "\n";
@@ -1595,8 +1615,8 @@ if(false)	for (auto& x : INVERSE)
 		return false;
 	if (!CICCIO)
 		return false;
-	llvm::errs() << "\n\n............\t\t";
-	llvm::errs() << F.getName() << "\n";
+//	llvm::errs() << "\n\n............\t\t";
+//	llvm::errs() << F.getName() << "\n";
 /*if(false)		for (auto& p : state)
 		{
 			llvm::errs() << *p.first << "\n\t->\t";
