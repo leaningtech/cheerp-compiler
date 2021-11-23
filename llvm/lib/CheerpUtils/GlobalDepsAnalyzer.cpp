@@ -624,7 +624,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 		assert(visited.empty());
 	}
 	// Erase printf_float body if it is not used
-	if(!usesFloatPrintf)
+	if(false)if(!usesFloatPrintf)
 	{
 		llvm::Function* printfFloat = module.getFunction("_printf_float");
 		if(printfFloat)
@@ -1105,7 +1105,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 void GlobalDepsAnalyzer::visitGlobal( const GlobalValue * C, VisitedSet & visited, const SubExprVec & subexpr )
 {
 	// Delay visiting all printf-like globals, we need to dectect if printf_float is actually used
-	if ( delayPrintf && C->hasName() && C->getName().endswith("printf") )
+	if (false&& delayPrintf && C->hasName() && C->getName().endswith("printf") )
 	{
 		printfLikeQueue.insert(C);
 		return;
@@ -1588,7 +1588,7 @@ int GlobalDepsAnalyzer::filterModule( const DenseSet<const Function*>& droppedMa
 		//Internalize all but print-family
 	//	if(!GA->getName().endswith("printf"))
 		GA->setLinkage(GlobalValue::InternalLinkage);
-		
+	
 		if ( isReachable(GA) )
 		{
 			//If we are in opt (perfoming lto) we process only InternalLinkage aliases
