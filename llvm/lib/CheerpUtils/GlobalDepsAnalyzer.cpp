@@ -1518,6 +1518,7 @@ bool GlobalDepsAnalyzer::isMathIntrinsic(const llvm::Function* F)
 
 bool GlobalDepsAnalyzer::isPrintfFamily(const llvm::StringRef& n)
 {
+	return false;
 	// In this list only keep non-wide and non-i-prefixed printf functions
 	// NOTE: Wide char versions do not have a separate printf_float method
 	return n == "asnprintf" || n == "asprintf" || n == "dprintf" || n == "fprintf" ||
@@ -1585,8 +1586,8 @@ int GlobalDepsAnalyzer::filterModule( const DenseSet<const Function*>& droppedMa
 		GlobalAlias * GA = &*it++;
 
 		//Internalize all but print-family
-		if(!GA->getName().endswith("printf"))
-			GA->setLinkage(GlobalValue::InternalLinkage);
+	//	if(!GA->getName().endswith("printf"))
+		GA->setLinkage(GlobalValue::InternalLinkage);
 		
 		if ( isReachable(GA) )
 		{
