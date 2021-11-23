@@ -546,8 +546,8 @@ std::vector<llvm::BasicBlock* > TOUNREACHABLE;
 void removeEdgeBetweenBlocks(llvm::BasicBlock* from, llvm::BasicBlock* to)
 {
 	//cleanup phi
-	for (PHINode& phi : to->phis())
-		phi.removeIncomingValue(from, /*DeletePHIIfEmpty*/false);
+//	for (PHINode& phi : to->phis())
+//		phi.removeIncomingValue(from, /*DeletePHIIfEmpty*/false);
 
 	//change terminator
 	llvm::Instruction* I = from->getTerminator();
@@ -1108,7 +1108,7 @@ public:
 		{
 			if (isa<Constant>(op))
 			{
-				llvm::errs() << *op << "\n";
+	//			llvm::errs() << *op << "\n";
 
 				//				state.push_back({BB->getParent()->getArg(i), currentEE->getConstantValue((Constant*)(&*op))});//;GenericValue((llvm::Value*)op)});
 				executionContext.Values[const_cast<llvm::Argument*>(F.getArg(i))] = currentEE->getConstantValue((Constant*)(&*op));//;GenericValue((llvm::Value*)op)});
@@ -1117,12 +1117,30 @@ public:
 			}
 			i++;
 		}
-llvm::errs() << "DONE\n";
+//llvm::errs() << "DONE\n";
 	}
 	void doneVisitCallBase()
 	{
 //		delete currentEE;
 		currentEE = nullptr;
+	}
+	void cleanupBB()
+	{
+		int BBs =0;
+		std::set<std::pair<llvm::BasicBlock*, llvm::BasicBlock*>> Edges;
+		for (auto& x : F)
+		{
+			BBs++;
+			for (auto* p : predecessors(&x))
+				Edges.insert({p, &x});
+		}
+
+		for (auto& p : Edges)
+		{
+			if (visitedEdges[p.second].count(p.first) == 0)
+				removeEdgeBetweenBlocks(p.first, p.second);
+		}
+
 	}
 	void emitStats()
 	{
@@ -1142,10 +1160,10 @@ llvm::errs() << "DONE\n";
 		{
 			X += x.second.size();
 		}
-		llvm::errs() << "Total edges \t\t" << X << "\t" << Edges.size() <<"\n";
-		llvm::errs() << "Reachable BB\t\t" << visitedEdges.size() + 1 << "\t" << BBs << "\n";
 		if ((visitedEdges.size() + 1 != BBs) || (Edges.size() != X))
 		{
+		llvm::errs() << "Total edges \t\t" << X << "\t" << Edges.size() <<"\n";
+		llvm::errs() << "Reachable BB\t\t" << visitedEdges.size() + 1 << "\t" << BBs << "\n";
 			llvm::errs() << "FAIL\n";
 		}
 	}
@@ -1512,7 +1530,10 @@ bool PartialExecuter::runOnFunction(llvm::Function& F)
 		
 
 		if (!hasIndirectUse && F.getLinkage() != GlobalValue::ExternalLinkage)
+		{
 			data.emitStats();
+			data.cleanupBB();
+		}
 
 		llvm::errs() << "\n";
 
