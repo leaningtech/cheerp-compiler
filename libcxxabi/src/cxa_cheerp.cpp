@@ -9,7 +9,7 @@
 namespace [[cheerp::genericjs]] client {
 	class CheerpException: public Error {
 	public:
-		CheerpException(const String& msg);
+		CheerpException(const String& msg) noexcept;
 	};
 }
 namespace [[cheerp::genericjs]] cheerp {
