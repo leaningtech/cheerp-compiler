@@ -4415,7 +4415,23 @@ void CodeGenFunction::EmitCallArg(CallArgList &args, const Expr *E,
   }
 
   bool isNull = isa<GNUNullExpr>(E);
-  args.add(EmitAnyExprToTemp(E), type, isNull);
+
+  AggValueSlot AggSlot = AggValueSlot::ignored();
+  if (hasAggregateEvaluationKind(E->getType()))
+  {
+    AggSlot = CreateAggTemp(E->getType(), "agg.tmp");
+    if (!getTarget().isByteAddressable()) {
+	  if (auto *Size = EmitLifetimeStart(CGM.getDataLayout().getTypeAllocSize(AggSlot.getAddress().getElementType()), AggSlot.getPointer())) {
+		if (E->getType().isDestructedType()) {
+		  EHStack.pushCleanup<CallLifetimeEnd>(NormalEHLifetimeMarker, AggSlot.getAddress(), Size);
+		} else {
+		  args.addLifetimeCleanup({AggSlot.getPointer(), Size});
+		}
+
+	  }
+    }
+  }
+  args.add(EmitAnyExpr(E, AggSlot), type, isNull);
 }
 
 QualType CodeGenFunction::getVarArgType(const Expr *Arg) {
@@ -5589,6 +5605,9 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
   // we can't use the full cleanup mechanism.
   for (CallLifetimeEnd &LifetimeEnd : CallLifetimeEndAfterCall)
     LifetimeEnd.Emit(*this, /*Flags=*/{});
+
+  for (auto &LT : CallArgs.getLifetimeCleanups())
+    EmitLifetimeEnd(LT.Size, LT.Addr);
 
   if (!ReturnValue.isExternallyDestructed() &&
       RetTy.isDestructedType() == QualType::DK_nontrivial_c_struct)

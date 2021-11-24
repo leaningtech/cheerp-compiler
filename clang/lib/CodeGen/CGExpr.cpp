@@ -224,10 +224,6 @@ RValue CodeGenFunction::EmitAnyExprToTemp(const Expr *E) {
   if (hasAggregateEvaluationKind(E->getType()))
   {
     AggSlot = CreateAggTemp(E->getType(), "agg.tmp");
-    if (!getTarget().isByteAddressable()) {
-      if (auto *Size = EmitLifetimeStart(CGM.getDataLayout().getTypeAllocSize(AggSlot.getAddress().getElementType()), AggSlot.getPointer()))
-        EHStack.pushCleanup<CallLifetimeEnd>(NormalCleanup, AggSlot.getAddress(), Size);
-    }
   }
   return EmitAnyExpr(E, AggSlot);
 }
