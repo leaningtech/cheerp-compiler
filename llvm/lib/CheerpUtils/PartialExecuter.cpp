@@ -813,7 +813,7 @@ llvm::BasicBlock* PartialInterpreter::visitBasicBlock(llvm::BasicBlock* BB, llvm
 	executionContext.CurInst = BB->begin();
 
 
-	executionContext.Caller = nullptr;
+//	executionContext.Caller = nullptr;
 
 	while (getLastStack().CurInst != BB->end())
 	{
@@ -1135,6 +1135,7 @@ class FunctionData
 	std::unique_ptr<Allocator> allocator;
 	llvm::Function& F;
 	std::map<llvm::BasicBlock*, int> visitCounter;
+	std::map<llvm::BasicBlock*, int> lowestOutgoing;
 	std::map<llvm::BasicBlock*, std::set<llvm::BasicBlock*>> visitedEdges;
 public:
 	PartialInterpreter* currentEE{nullptr};
@@ -1165,13 +1166,21 @@ public:
 
 		ExecutionContext& executionContext = currentEE->getSingleStack();
 		executionContext.CurFunction = &F;	
-	
+		executionContext.Caller = const_cast<llvm::CallBase*>(&callBase);
+
 		int i=0;
+	//	llvm::errs() << callBase << "\n";
 		for (auto& op : callBase.args())
 		{
 			if (i >= F.getFunctionType()->getNumParams())
-				break;
-			if (currentEE->isValueComputed(op))
+			{
+				//TODO: add this check
+	//			if (!currentEE->isValueComputed(op))
+	//				llvm::errs() << "AAAA\n";
+//					break;
+	  //				executionContext.VarArgs.push_back(currentEE->getConstantValue((Constant*)(&*op)));
+			}
+			else if (currentEE->isValueComputed(op))
 			{
 //				llvm::errs() << F << "\n";
 //				llvm::errs() << callBase << "\n";
@@ -1185,6 +1194,9 @@ public:
 			}
 			i++;
 		}
+  // Handle varargs arguments...
+
+		
 //llvm::errs() << "DONE\n";
 	}
 	void doneVisitCallBase()
@@ -1232,7 +1244,7 @@ public:
 		{
 		llvm::errs() << "Total edges \t\t" << X << "\t" << Edges.size() <<"\n";
 		llvm::errs() << "Reachable BB\t\t" << visitedEdges.size() + 1 << "\t" << BBs << "\n";
-			llvm::errs() << "WORKING\n";
+			llvm::errs() << "WORKING\t\t" << F.getName()<< "\n";
 		}
 	}
 	bool hasModifications()
@@ -1261,6 +1273,20 @@ public:
 			llvm::errs() << "WORKING\n";
 		}
 		return false;
+	}
+	void addOutgoing(llvm::BasicBlock* BB)
+	{
+		if (lowestOutgoing.count(BB))
+			lowestOutgoing[BB] = std::min(lowestOutgoing[BB], visitCounter[BB]);
+		else
+			lowestOutgoing[BB] = visitCounter[BB];
+	}
+	bool checkOutgoing(llvm::BasicBlock* BB)
+	{
+		if (lowestOutgoing.count(BB) == 0)
+			return true;
+		llvm::errs() << lowestOutgoing[BB] << "\t" << visitCounter[BB] << "\n";
+		return lowestOutgoing[BB] == visitCounter[BB];
 	}
 	bool incrementAndCheckVisitCounter(llvm::BasicBlock* BB)
 	{
@@ -1356,6 +1382,7 @@ class BasicBlockGroupData
 	std::deque<BasicBlockGroupData> subGroups;
 	std::map<llvm::BasicBlock*, int> subGroupsID;
 	bool visitingAll{false};
+	const int iteration{0};
 	static std::set<llvm::BasicBlock*> getAllBasicBlocks(llvm::Function& F)
 	{
 		std::set<llvm::BasicBlock*> ret;
@@ -1378,7 +1405,7 @@ public:
 	{
 	}
 	BasicBlockGroupData(BasicBlockGroupData& BBGData)
-		: data(BBGData.data), inner(BBGData.inner), start(nullptr), from(nullptr), parent(&BBGData)
+		: data(BBGData.data), inner(BBGData.inner), start(nullptr), from(nullptr), parent(&BBGData), iteration{BBGData.iteration +1}
 	{
 	}
 	void addIncomingEdge(llvm::BasicBlock* comingFrom, llvm::BasicBlock* target)
@@ -1435,14 +1462,14 @@ public:
 		//Loop backs will be directed to another BBgroup
 		//The visit will return the set of reachable BBs -> add them to the subGroups data accordingly
 	}
-	void notifySuccessor(llvm::BasicBlock* from, llvm::BasicBlock* succ)
+	void notifySuccessor(llvm::BasicBlock* from, llvm::BasicBlock* succ, const int iter)
 	{
 		if (visitingAll)
 		{
 			if (inner.count(succ) == 0)
 			{
 				//llvm::errs() << "AAAA\t" << from->getName() << "\t" << succ->getName() << "\n";
-				parent->notifySuccessor(from, succ);
+				parent->notifySuccessor(from, succ, iter);
 			}
 			return;
 		}
@@ -1450,7 +1477,9 @@ public:
 		{
 			assert(parent);
 			//llvm::errs() << "go to parent!\n";
-			parent->notifySuccessor(from, succ);
+
+			data.addOutgoing(start);
+			parent->notifySuccessor(from, succ, iter);
 		}
 		else
 		{
@@ -1476,7 +1505,7 @@ public:
 		//llvm::errs() << from->getName() << "\t" << to->getName() << "\n";
 		data.registerEdge(from, to);
 		//llvm::errs() << "then notify\n";
-		notifySuccessor(from, to);
+		notifySuccessor(from, to, iteration);
 	}
 	void recursiveVisit()
 	{
@@ -1518,7 +1547,16 @@ public:
 			subGroups.back().recursiveVisit();
 			subGroups.pop_back();
 		}
-	}
+
+//TODO		if (!data.checkOutgoing(start))
+//			visitAll();
+		
+		/*
+		llvm::errs() << start->getName() << "\t\t";
+		llvm::errs() << lowerOut << "\t" << higherOut << "\n";
+		if (impossibleBounds())
+			visitAll();
+*/	}
 };
 
 void BasicBlockGroupData::splitIntoSCCs(std::deque<BasicBlockGroupData>& blockQueue, std::map<llvm::BasicBlock*, int>& blockToIndexMap)
@@ -1629,7 +1667,8 @@ bool PartialExecuter::runOnFunction(llvm::Function& F)
 //				llvm::errs() << X << "\n" << *CS << "\n";
 					data.visitCallBase(*CS);	
 					
-					{BasicBlockGroupData groupData(data);
+					{
+						BasicBlockGroupData groupData(data);
 					groupData.recursiveVisit();
 					}
 					data.doneVisitCallBase();	
@@ -1645,12 +1684,12 @@ bool PartialExecuter::runOnFunction(llvm::Function& F)
 		{
 			if (data.hasModifications())
 			{
-//			llvm::errs() << F << "\n";
+			llvm::errs() << F << "\n";
 			for (const CallBase* CS : callBases)
-//				llvm::errs() << *CS << "\n";
-//			data.emitStats();
+				llvm::errs() << *CS << "\n";
+			data.emitStats();
 			data.cleanupBB();
-//		llvm::errs() << "\n";
+		llvm::errs() << "\n";
 			return true;
 			}
 		}
