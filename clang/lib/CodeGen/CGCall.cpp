@@ -5606,8 +5606,17 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
   for (CallLifetimeEnd &LifetimeEnd : CallLifetimeEndAfterCall)
     LifetimeEnd.Emit(*this, /*Flags=*/{});
 
-  for (auto &LT : CallArgs.getLifetimeCleanups())
+  for (auto &LT : CallArgs.getLifetimeCleanups()) {
     EmitLifetimeEnd(LT.Size, LT.Addr);
+  }
+  if (InvokeDest && !CallArgs.getLifetimeCleanups().empty()) {
+    CGBuilderTy::InsertPoint IP = Builder.saveIP();
+    Builder.SetInsertPoint(InvokeDest->getLandingPadInst()->getNextNode());
+    for (auto &LT : CallArgs.getLifetimeCleanups()) {
+      EmitLifetimeEnd(LT.Size, LT.Addr);
+    }
+    Builder.restoreIP(IP);
+  }
 
   if (!ReturnValue.isExternallyDestructed() &&
       RetTy.isDestructedType() == QualType::DK_nontrivial_c_struct)
