@@ -178,8 +178,83 @@ typedef std::unordered_map<const llvm::Value*, GenericValue> LocalStateMAP;
 
 class PartialInterpreter : public llvm::Interpreter {
 	const llvm::BasicBlock* fromBB{nullptr};	
-	std::vector<std::pair<const llvm::Value*, GenericValue> > incomings;
+	enum BitMask : uint32_t
+	{
+		NONE = 0,
+		ALIGNED2 = 0x00000001,
+		ALIGNED4 = 0x00000003,
+		ALIGNED8 = 0x00000007,
+		ALL = 0xffffffff,
+	};
+	std::vector<std::pair<const llvm::Value*, std::pair<GenericValue, BitMask> > > incomings;
 public:
+	std::unordered_map<const llvm::Value*, BitMask> stronglyKnownBits;
+	BitMask computeStronglyKnownBits(const llvm::Instruction& I)
+	{
+		BitMask min = BitMask::ALL;
+
+		for (auto& op : I.operands())
+		{
+			min = BitMask(min & getBitMask(op));
+		}
+
+		//TODO: for phis just copy them
+		//TODO: also SelectInst can be specialcased
+
+		switch (I.getOpcode())
+		{
+			case Instruction::Load:
+			{
+				//TODO: actually any check is needed??
+				return BitMask::ALL;
+			}
+			case Instruction::Add:
+			case Instruction::Sub:
+			case Instruction::Mul:
+			case Instruction::PtrToInt:
+			case Instruction::BitCast:
+			case Instruction::GetElementPtr:
+			{
+				//Those all work modulo N
+				return min;
+			}
+			case Instruction::And:
+			{
+				//If either is Constant && less than equal min -> ALL
+				if (const ConstantInt* CI = dyn_cast<ConstantInt>(I.getOperand(0)))
+				{
+					if (CI->getZExtValue() <= min)
+						return BitMask::ALL;
+				}
+				if (const ConstantInt* CI = dyn_cast<ConstantInt>(I.getOperand(1)))
+				{
+					if (CI->getZExtValue() <= min)
+						return BitMask::ALL;
+				}
+
+				[[clang::fallback]];
+			}
+			case Instruction::Or:
+			case Instruction::Xor:
+			{
+				//Those all work modulo 2^k
+				return min;
+			}
+			default:
+			{
+				if (min == BitMask::ALL)
+				{
+					//All operands fully known
+					return BitMask::ALL;
+				}
+				else
+				{
+					//Some operands NOT fully known, means in general no information is conserved
+					return BitMask::NONE;
+				}
+			}
+		}
+	}
 	std::unordered_set<const llvm::Value*> computed;
 	void setIncomingBB(const llvm::BasicBlock* from)
 	{
@@ -195,6 +270,19 @@ public:
 	explicit PartialInterpreter(std::unique_ptr<llvm::Module> M)
 		: llvm::Interpreter(std::move(M), /*preExecute*/false)
 	{
+	}
+	BitMask getBitMask(const llvm::Value* V) const
+	{
+		if (isa<ConstantData>(V))
+			return BitMask::ALL;
+
+		if (isa<Constant>(V))
+			return BitMask::ALIGNED8;
+
+		if (stronglyKnownBits.count(V))
+			return stronglyKnownBits.at(V);
+
+		return BitMask::NONE;
 	}
 	bool isValueComputed(const llvm::Value* V) const
 	{
@@ -268,6 +356,9 @@ bool problems = false;
 		//	llvm::errs() << *op << "\taaaaa\n";
 			//TODO: no recursion!!
 			computed.insert(CB.getCalledFunction()->getArg(i));
+			stronglyKnownBits[CB.getCalledFunction()->getArg(i)]= getBitMask(op);
+			llvm::errs() << *CB.getCalledFunction()->getArg(i) << "\t" << getBitMask(op) << "\n";
+
 }
 else
 {
@@ -289,8 +380,8 @@ i++;
 		if (!areOperandsComputed(I))
 			return true;
 			//ADD THAT RANDOM INSTRUCTIONS ARE NOT EXECUTABLE
-		if (isa<PtrToIntInst>(I))
-			return true;	//PTR TO INT ARE not preexecutable
+//		if (isa<PtrToIntInst>(I))
+//			return true;	//PTR TO INT ARE not preexecutable
 //TODO: also int to ptr ??
 		if (StoreInst* load = dyn_cast<StoreInst>(&I))
 		{
@@ -396,7 +487,7 @@ void visitOuter(llvm::Instruction& I)
 				llvm::Value* incoming = phi->getIncomingValueForBlock(from);
 				assert(incoming);
 				if (isValueComputed(incoming))
-					incomings.push_back({phi, getOperandValue(incoming, getLastStack())});
+					incomings.push_back({phi, {getOperandValue(incoming, getLastStack()), getBitMask(incoming)}});
 			}
 			return;
 		}
@@ -406,16 +497,16 @@ void visitOuter(llvm::Instruction& I)
 			{
 		//		llvm::errs() <<"PHI-->\t"<< *p.first << "\t" ;
 		//		p.second.print("");
-				getLastStack().Values[const_cast<llvm::Value*>(p.first)] = p.second;
+				getLastStack().Values[const_cast<llvm::Value*>(p.first)] = p.second.first;
 				computed.insert(p.first);
+				stronglyKnownBits[const_cast<llvm::Value*>(p.first)] = p.second.second;
 			}
 			incomings.clear();
 		}
 
 		const bool skip = hasToBeSkipped(I);
 		const bool term = I.isTerminator();
-
-if (true)
+	if (true)
 {
 		if (skip || !term)
 		{
@@ -428,6 +519,7 @@ if (true)
 			llvm::errs() << "COMPUTE ";
 		llvm::errs() << I << "\n";
 }
+
 		if (skip)
 		{
 
@@ -463,6 +555,7 @@ if (true)
 	}
 	else if (ReturnInst* RI = dyn_cast<ReturnInst>(&I))
 	{
+		stronglyKnownBits[getFirstStack().Caller] = getBitMask(RI->getReturnValue());
 		visit(I);
 curInstModifyed = true;
 return;
@@ -478,7 +571,11 @@ curInstModifyed = true;
 		}
 
 		computed.insert(&I);
+		stronglyKnownBits[&I] = computeStronglyKnownBits(I);
 		visit(I);
+
+
+		llvm::errs() << stronglyKnownBits[&I] << "\t" << I << "\n";
 	if (computed.count(&I))
 		llvm::errs() << I << "\n";
 		if (policy == PartialInterpreter::VisitingPolicy::REMOVE_VALUES)
@@ -836,7 +933,8 @@ llvm::BasicBlock* PartialInterpreter::visitBasicBlock(llvm::BasicBlock* BB, llvm
 	{
 		if (BI->isConditional())
 		{
-			if (isValueComputed(BI->getCondition()))
+			llvm::errs() << *BI->getCondition() << "\t" << getBitMask(BI->getCondition()) << "\tTEST\n";
+			if (isValueComputed(BI->getCondition()) && (getBitMask(BI->getCondition()) == BitMask::ALL) )
 			{
 				GenericValue V = getOperandValue(BI->getCondition(), executionContext);
 				if (V.IntVal == 0u)
@@ -864,7 +962,8 @@ llvm::BasicBlock* PartialInterpreter::visitBasicBlock(llvm::BasicBlock* BB, llvm
 	}
 	else if (SwitchInst *SI = dyn_cast<SwitchInst>(Term))
 	{
-		if (isValueComputed(SI->getCondition()))
+			llvm::errs() << *SI->getCondition() << "\t" << getBitMask(SI->getCondition()) << "\tTEST\n";
+		if (isValueComputed(SI->getCondition()) && (getBitMask(SI->getCondition()) == BitMask::ALL) )
 			{
 		auto c = SI->findCaseValue(ConstantInt::get(SI->getFunction()->getParent()->getContext(), getOperandValue(SI->getCondition(), executionContext).IntVal ));
 		next = c->getCaseSuccessor();
@@ -1642,8 +1741,8 @@ bool PartialExecuter::runOnModule( llvm::Module & module )
 	classifyFunctions(module);
 	
 	
-	llvm::errs() << "BEFORE PARTIAL EXECUTER\n";
-	llvm::errs() << module << "\n";
+//	llvm::errs() << "BEFORE PARTIAL EXECUTER\n";
+	//llvm::errs() << module << "\n";
 
 
 	for (Function& F : module)
@@ -1665,7 +1764,7 @@ bool PartialExecuter::runOnModule( llvm::Module & module )
 			}
 		}
 	}
-	llvm::errs() << "PARTIAL EXECUTER DONE\n";
+//	llvm::errs() << "PARTIAL EXECUTER DONE\n";
 
 	return changed;
 }
@@ -1687,6 +1786,8 @@ bool PartialExecuter::runOnFunction(llvm::Function& F)
 		if (F.isDeclaration())
 			return false;
 
+		if (F.getName() != "printf")
+			return false;
 //		llvm::errs() << "......\t" << F.getName() << "\n";
 		FunctionData data(F);
 

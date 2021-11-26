@@ -103,6 +103,11 @@ public:
 	  assert(!ECStack.empty());
 	  return ECStack.back();
   }
+  ExecutionContext& getFirstStack()
+  {
+	  assert(!ECStack.empty());
+	  return ECStack.front();
+  }
   ExecutionContext& getSingleStack()
   {
 	  assert(ECStack.empty());
