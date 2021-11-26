@@ -254,9 +254,6 @@ public:
 			CallBase& CB = cast<CallBase>(I);
 			if (!CB.getCalledFunction())
 				return true;
-	//		if (!CB.getCalledFunction() || CB.getCalledFunction()->getName() != "memchr")
-	//			return true;
-	//		else
 			{
 int i=0;
 bool problems = false;
@@ -291,6 +288,10 @@ i++;
 			return true;
 		if (!areOperandsComputed(I))
 			return true;
+			//ADD THAT RANDOM INSTRUCTIONS ARE NOT EXECUTABLE
+//		if (isa<PtrToIntInst>(I))
+//			return true;	//PTR TO INT ARE not preexecutable
+//TODO: also int to ptr ??
 		if (StoreInst* load = dyn_cast<StoreInst>(&I))
 		{
 			return true;
@@ -414,9 +415,7 @@ void visitOuter(llvm::Instruction& I)
 		const bool skip = hasToBeSkipped(I);
 		const bool term = I.isTerminator();
 
-		if (policy == VisitingPolicy::REMOVE_VALUES)
-
-if (true)
+if (false)
 {
 		if (skip || !term)
 		{
@@ -860,8 +859,11 @@ llvm::BasicBlock* PartialInterpreter::visitBasicBlock(llvm::BasicBlock* BB, llvm
 	}
 	else if (SwitchInst *SI = dyn_cast<SwitchInst>(Term))
 	{
+		if (isValueComputed(SI->getCondition()))
+			{
 		auto c = SI->findCaseValue(ConstantInt::get(SI->getFunction()->getParent()->getContext(), getOperandValue(SI->getCondition(), executionContext).IntVal ));
 		next = c->getCaseSuccessor();
+		}
 	}
 
 //	llvm::errs() << *Term << "\n";
@@ -1134,6 +1136,7 @@ class FunctionData
 	std::string error; 
 	std::unique_ptr<Allocator> allocator;
 	llvm::Function& F;
+	public://TODO:remove public
 	std::map<llvm::BasicBlock*, int> visitCounter;
 	std::map<llvm::BasicBlock*, int> lowestOutgoing;
 	std::map<llvm::BasicBlock*, std::set<llvm::BasicBlock*>> visitedEdges;
@@ -1382,7 +1385,8 @@ class BasicBlockGroupData
 	std::deque<BasicBlockGroupData> subGroups;
 	std::map<llvm::BasicBlock*, int> subGroupsID;
 	bool visitingAll{false};
-	const int iteration{0};
+	int iteration{-1};
+	std::vector<std::pair<llvm::BasicBlock*, int> > escaping;
 	static std::set<llvm::BasicBlock*> getAllBasicBlocks(llvm::Function& F)
 	{
 		std::set<llvm::BasicBlock*> ret;
@@ -1405,7 +1409,7 @@ public:
 	{
 	}
 	BasicBlockGroupData(BasicBlockGroupData& BBGData)
-		: data(BBGData.data), inner(BBGData.inner), start(nullptr), from(nullptr), parent(&BBGData), iteration{BBGData.iteration +1}
+		: data(BBGData.data), inner(BBGData.inner), start(nullptr), from(nullptr), parent(&BBGData)
 	{
 	}
 	void addIncomingEdge(llvm::BasicBlock* comingFrom, llvm::BasicBlock* target)
@@ -1462,16 +1466,27 @@ public:
 		//Loop backs will be directed to another BBgroup
 		//The visit will return the set of reachable BBs -> add them to the subGroups data accordingly
 	}
-	void notifySuccessor(llvm::BasicBlock* from, llvm::BasicBlock* succ, const int iter)
+	bool shouldCleanUp()
 	{
-		if (visitingAll)
+		for (auto& p : escaping)
+		{
+			//llvm::errs() <<"escaping:\t" << p.first->getName() << "\t" << p.second <<"\n";
+			if (data.visitCounter[p.first] != p.second)
+				return true;
+		}
+		return false;
+	}
+	bool notifySuccessor(llvm::BasicBlock* from, llvm::BasicBlock* succ, const int iter)
+	{
+		if (visitingAll)//TODO: remove this special case
 		{
 			if (inner.count(succ) == 0)
 			{
+				assert(parent);
 				//llvm::errs() << "AAAA\t" << from->getName() << "\t" << succ->getName() << "\n";
 				parent->notifySuccessor(from, succ, iter);
 			}
-			return;
+			return false;
 		}
 		if (subGroupsID.count(succ) == 0)
 		{
@@ -1479,7 +1494,14 @@ public:
 			//llvm::errs() << "go to parent!\n";
 
 			data.addOutgoing(start);
-			parent->notifySuccessor(from, succ, iter);
+			const bool notified = parent->notifySuccessor(from, succ, iter);
+
+			if (notified)
+			{
+				escaping.push_back({from, iter});
+			}
+
+			return false;
 		}
 		else
 		{
@@ -1487,6 +1509,8 @@ public:
 			//llvm::errs() << X << "\t" << subGroups.size() << "\n";
 			assert( X < (int)subGroups.size());
 			subGroups.at(X).addIncomingEdge(from, succ);
+
+			return true;
 		}
 	}
 	void visitAll()
@@ -1520,11 +1544,16 @@ public:
 		}
 		if (!start)
 		{
+//			llvm::errs() << "no start\n";
 			//Not reachable in any way, nothing to do
 			return;
 		}
-		if (data.incrementAndCheckVisitCounter(start) == false)
+		iteration = std::min(100, ++data.visitCounter[start]);
+
+		if (iteration == 100)
 		{
+
+			data.visitCounter[start] = 200;
 			//TODO: reset Values in certain cases!!!!!!!!!!!
 		//	llvm::errs() << start->getName() << "\n";
 		//	llvm::errs() << "OH NOOOOOOOOOO COUNTERED\n\n";
@@ -1548,9 +1577,12 @@ public:
 			subGroups.pop_back();
 		}
 
-//TODO		if (!data.checkOutgoing(start))
-//			visitAll();
-		
+//TODO: fix??
+		if (shouldCleanUp())
+		{
+			//llvm::errs() << "SHOULD CLEAN UP\n";
+			//visitAll();
+		}
 		/*
 		llvm::errs() << start->getName() << "\t\t";
 		llvm::errs() << lowerOut << "\t" << higherOut << "\n";
@@ -1604,10 +1636,18 @@ bool PartialExecuter::runOnModule( llvm::Module & module )
 	using namespace llvm;
 	bool changed = false;
 
+	classifyFunctions(module);
+	
+	
+	llvm::errs() << "BEFORE PARTIAL EXECUTER\n";
+	llvm::errs() << module << "\n";
+
+
 	for (Function& F : module)
 	{
 		changed |= runOnFunction(F);
 
+	//	llvm::errs() << F.getName() << "\taaa\n";
 		verifyFunction(F);
 		for (BasicBlock& BB : F)
 		{
@@ -1622,6 +1662,7 @@ bool PartialExecuter::runOnModule( llvm::Module & module )
 			}
 		}
 	}
+	llvm::errs() << "PARTIAL EXECUTER DONE\n";
 
 	return changed;
 }
@@ -1684,17 +1725,17 @@ bool PartialExecuter::runOnFunction(llvm::Function& F)
 		{
 			if (data.hasModifications())
 			{
-			llvm::errs() << F << "\n";
-			for (const CallBase* CS : callBases)
-				llvm::errs() << *CS << "\n";
-			data.emitStats();
+	//		llvm::errs() << F << "\n";
+			//for (const CallBase* CS : callBases)
+			//	llvm::errs() << *CS << "\n";
+			//data.emitStats();
 			data.cleanupBB();
-		llvm::errs() << "\n";
+	//	llvm::errs() << "\n";
 			return true;
 			}
 		}
 
-		llvm::errs() << "\n";
+		//llvm::errs() << "\n";
 
 return false;
 
@@ -1792,6 +1833,105 @@ if(false)	for (auto& x : INVERSE)
 	}
 	return true;
 }
+bool isPreExecutable(const llvm::Function& F)
+{
+	if (F.isDeclaration())
+		return false;
+
+	std::vector<const llvm::PtrToIntInst*> toCheck;
+
+	for (const llvm::Instruction& I : instructions(F))
+	{
+		if (isa<CallInst>(I))
+			return false;
+		if (isa<StoreInst>(I))
+			return false;
+		if (isa<PtrToIntInst>(I))
+			toCheck.push_back(dyn_cast<PtrToIntInst>(&I));
+	}
+
+	{
+		//Check the users
+		for (const Instruction* I : toCheck)
+		{
+                        for(const Use& U: I->uses())
+                        {
+                                const Instruction* userI = cast<Instruction>(U.getUser());
+				if (userI->getOpcode() == Instruction::And)
+				{
+					if (userI->getOperand(0) == I)
+					{
+						auto* Int32Ty = Type::getInt32Ty(F.getParent()->getContext());
+						if (userI->getOperand(1) == ConstantInt::get(Int32Ty, 1))
+							continue;
+						if (userI->getOperand(1) == ConstantInt::get(Int32Ty, 2))
+							continue;
+						if (userI->getOperand(1) == ConstantInt::get(Int32Ty, 3))
+							continue;
+						if (userI->getOperand(1) == ConstantInt::get(Int32Ty, 4))
+							continue;
+						if (userI->getOperand(1) == ConstantInt::get(Int32Ty, 5))
+							continue;
+						if (userI->getOperand(1) == ConstantInt::get(Int32Ty, 6))
+							continue;
+						if (userI->getOperand(1) == ConstantInt::get(Int32Ty, 7))
+							continue;
+					}
+				}
+				return false;
+			}
+		}
+	}
+	{
+		std::set<const llvm::Value*> visited;
+		std::vector<const llvm::Value*> toProcess;
+
+		for (const PtrToIntInst* I : toCheck)
+			toProcess.push_back(I->getPointerOperand());
+
+		while (!toProcess.empty())
+		{
+			const Value* V = toProcess.back();
+				llvm::errs() << *V << "\n";
+			toProcess.pop_back();
+			
+			if (!visited.insert(V).second)
+				continue;
+
+			if (isa<Argument>(V))
+			{
+				llvm::errs() << *V << "\n";
+				//DO STUFF
+				continue;
+			}
+
+			if (const PHINode* phi = dyn_cast<PHINode>(V))
+			{
+				for (const Value *Incoming : phi->incoming_values())
+					toProcess.push_back(Incoming);
+				continue;
+			}
+
+			return false;
+		}
+	}
+
+	return true;
+}
+
+void PartialExecuter::classifyFunctions(const llvm::Module& module)
+{
+	if (false)
+	for (const llvm::Function& F : module)
+	{
+		if (isPreExecutable(F))
+		{
+			isPreExecutableFunction.insert(&F);
+			llvm::errs() << F.getName() << "\n";
+		}
+	}
+}
+
 
 
 }

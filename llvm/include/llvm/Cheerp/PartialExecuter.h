@@ -44,6 +44,9 @@ private:
 	std::map<llvm::BasicBlock*, std::set<llvm::BasicBlock*> > implementationSCC;
 	std::map<llvm::BasicBlock*, std::set<llvm::BasicBlock*> > implementationGLOBAL;
 	void findNextVisited(llvm::Function& F, bool status);
+
+	void classifyFunctions(const llvm::Module& module);
+	std::set<const llvm::Function*> isPreExecutableFunction;
 };
 
 inline llvm::Pass * createPartialExecuterPass()

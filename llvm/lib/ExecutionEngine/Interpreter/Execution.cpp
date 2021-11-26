@@ -893,7 +893,6 @@ void Interpreter::exitCalled(GenericValue GV) {
 ///
 void Interpreter::popStackAndReturnValueToCaller(Type *RetTy,
                                                  GenericValue Result) {
-	llvm::errs() << "popStackAndReturnValueToCaller" << "\n";
       	// Clear virtual address mapping for allocas
   for (const auto& a: ECStack.back().Allocas.Allocations) {
     ValueAddresses->unmap(a.get());
@@ -926,7 +925,6 @@ void Interpreter::popStackAndReturnValueToCaller(Type *RetTy,
 }
 
 void Interpreter::visitReturnInst(ReturnInst &I) {
-	llvm::errs() << "VISITING RETURN\n";
       	ExecutionContext &SF = ECStack.back();
   Type *RetTy = Type::getVoidTy(I.getContext());
   GenericValue Result;
@@ -1202,7 +1200,6 @@ void Interpreter::visitIntrinsicInst(IntrinsicInst &I) {
 
 void Interpreter::visitCallBase(CallBase &I) {
   ExecutionContext &SF = ECStack.back();
-  llvm::errs() << "VISIT CALL BASE\n";
   SF.Caller = &I;
   std::vector<GenericValue> ArgVals;
   const unsigned NumArgs = SF.Caller->arg_size();
@@ -2212,7 +2209,6 @@ void Interpreter::callFunction(Function *F, ArrayRef<GenericValue> ArgVals) {
   ECStack.emplace_back();
   ExecutionContext &StackFrame = ECStack.back();
   StackFrame.CurFunction = F;
-llvm::errs() << "CALL FUNCTION\n";
   // Special handling for external functions.
   if (F->isDeclaration()) {
     GenericValue Result = callExternalFunction (F, ArgVals);
