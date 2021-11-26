@@ -205,7 +205,7 @@ public:
 		{
 			case Instruction::Load:
 			{
-				//TODO: actually any check is needed??
+				//TODO: actually any check is needed??	YES
 				return BitMask::ALL;
 			}
 			case Instruction::Add:
@@ -357,7 +357,7 @@ bool problems = false;
 			//TODO: no recursion!!
 			computed.insert(CB.getCalledFunction()->getArg(i));
 			stronglyKnownBits[CB.getCalledFunction()->getArg(i)]= getBitMask(op);
-			llvm::errs() << *CB.getCalledFunction()->getArg(i) << "\t" << getBitMask(op) << "\n";
+//			llvm::errs() << *CB.getCalledFunction()->getArg(i) << "\t" << getBitMask(op) << "\n";
 
 }
 else
@@ -396,9 +396,6 @@ if ((long long)Ptr < 100)
 		//	return true;
   GenericValue SRC = getOperandValue(load->getPointerOperand(), getLastStack());
   GenericValue *Ptr = (GenericValue*)GVTORP(SRC);
-if ((long long)Ptr < 100)
-	return true;
-//  if (Ptr->IntVal:w
 		 
 std::vector<std::pair<long long, long long> > V;
 for (auto& gv : I.getFunction()->getParent()->globals())
@@ -408,13 +405,15 @@ for (auto& gv : I.getFunction()->getParent()->globals())
 		continue;
 	if (!GV->hasInitializer())
 		continue;
+
   GenericValue SRC = getOperandValue(GV, getLastStack());
   GenericValue *Ptr = (GenericValue*)GVTORP(SRC);
 //llvm ::errs() << GV->getName() << "\t" <<"\t" << (long long)Ptr<<"\t"<< GV->isConstant()<<"\n";
+	//bail out if there are pointers 
+//	llvm::errs() << *GV->getInitializer() << "\n";
 if (GV->isConstant())
   V.push_back({(long long)Ptr, ((long long)Ptr)+getDataLayout().getTypeAllocSize(GV->getInitializer()->getType())});
 }
-
 
 //std::sort(V.begin(), V.end());
 for (int i=0; i<V.size(); i++)
@@ -506,7 +505,7 @@ void visitOuter(llvm::Instruction& I)
 
 		const bool skip = hasToBeSkipped(I);
 		const bool term = I.isTerminator();
-	if (true)
+	if (false)
 {
 		if (skip || !term)
 		{
@@ -575,9 +574,9 @@ curInstModifyed = true;
 		visit(I);
 
 
-		llvm::errs() << stronglyKnownBits[&I] << "\t" << I << "\n";
-	if (computed.count(&I))
-		llvm::errs() << I << "\n";
+		//llvm::errs() << stronglyKnownBits[&I] << "\t" << I << "\n";
+//	if (computed.count(&I))
+//		llvm::errs() << I << "\n";
 		if (policy == PartialInterpreter::VisitingPolicy::REMOVE_VALUES)
 		{
 			if (getLastStack().Values.count(&I))
@@ -933,7 +932,6 @@ llvm::BasicBlock* PartialInterpreter::visitBasicBlock(llvm::BasicBlock* BB, llvm
 	{
 		if (BI->isConditional())
 		{
-			llvm::errs() << *BI->getCondition() << "\t" << getBitMask(BI->getCondition()) << "\tTEST\n";
 			if (isValueComputed(BI->getCondition()) && (getBitMask(BI->getCondition()) == BitMask::ALL) )
 			{
 				GenericValue V = getOperandValue(BI->getCondition(), executionContext);
@@ -942,27 +940,12 @@ llvm::BasicBlock* PartialInterpreter::visitBasicBlock(llvm::BasicBlock* BB, llvm
 				else
 					next = BI->getSuccessor(0);
 			}
-	/*		else if (BI->getSuccessor(0)->getName() == "error.i")
-				next = BI->getSuccessor(1);
-			else if (BI->getSuccessor(1)->getName() == "_vfprintf_r.exit")
-				next = BI->getSuccessor(0);
-			else
-			{
-				BasicBlock* A = BI->getSuccessor(0);
-				BasicBlock* B = BI->getSuccessor(1);
-
-				if (BranchInst* bi= dyn_cast<BranchInst>(B->getTerminator()))
-					if (!bi->isConditional())
-						if (bi->getSuccessor(0) == A)
-							next = A;
-			}*/
 		}
 		else
 			next = BI->getSuccessor(0);
 	}
 	else if (SwitchInst *SI = dyn_cast<SwitchInst>(Term))
 	{
-			llvm::errs() << *SI->getCondition() << "\t" << getBitMask(SI->getCondition()) << "\tTEST\n";
 		if (isValueComputed(SI->getCondition()) && (getBitMask(SI->getCondition()) == BitMask::ALL) )
 			{
 		auto c = SI->findCaseValue(ConstantInt::get(SI->getFunction()->getParent()->getContext(), getOperandValue(SI->getCondition(), executionContext).IntVal ));
@@ -1327,8 +1310,11 @@ public:
 		}
 
 	}
-	void emitStats()
+	void emitStats(std::vector<const CallBase*>& callBases)
 	{
+			llvm::errs() <<"\n" << F.getName() << "\n\n";
+			for (const CallBase* CS : callBases)
+				llvm::errs() << *CS << "\n";
 		int BBs =0;
 		std::set<std::pair<llvm::BasicBlock*, llvm::BasicBlock*>> Edges;
 		for (auto& x : F)
@@ -1829,10 +1815,7 @@ bool PartialExecuter::runOnFunction(llvm::Function& F)
 		{
 			if (data.hasModifications())
 			{
-	//		llvm::errs() << F << "\n";
-			//for (const CallBase* CS : callBases)
-			//	llvm::errs() << *CS << "\n";
-			//data.emitStats();
+		//	data.emitStats(callBases);
 			data.cleanupBB();
 	//	llvm::errs() << "\n";
 			return true;
