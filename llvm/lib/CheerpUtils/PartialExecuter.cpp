@@ -289,8 +289,8 @@ i++;
 		if (!areOperandsComputed(I))
 			return true;
 			//ADD THAT RANDOM INSTRUCTIONS ARE NOT EXECUTABLE
-//		if (isa<PtrToIntInst>(I))
-//			return true;	//PTR TO INT ARE not preexecutable
+		if (isa<PtrToIntInst>(I))
+			return true;	//PTR TO INT ARE not preexecutable
 //TODO: also int to ptr ??
 		if (StoreInst* load = dyn_cast<StoreInst>(&I))
 		{
@@ -415,7 +415,7 @@ void visitOuter(llvm::Instruction& I)
 		const bool skip = hasToBeSkipped(I);
 		const bool term = I.isTerminator();
 
-if (false)
+if (true)
 {
 		if (skip || !term)
 		{
@@ -430,10 +430,13 @@ if (false)
 }
 		if (skip)
 		{
-			if (BranchInst* BR = dyn_cast<BranchInst>(&I))
+
+			if (sizeStack() > 1)
 			{
-				//visitBranchInst(*BR);
-			}
+				popSingleStack();
+				//CALL FAILED, delete caller!
+				computed.erase(getLastStack().Caller);
+			}	
 			return; 
 		}
 		if (term)
@@ -476,6 +479,8 @@ curInstModifyed = true;
 
 		computed.insert(&I);
 		visit(I);
+	if (computed.count(&I))
+		llvm::errs() << I << "\n";
 		if (policy == PartialInterpreter::VisitingPolicy::REMOVE_VALUES)
 		{
 			if (getLastStack().Values.count(&I))
@@ -869,7 +874,6 @@ llvm::BasicBlock* PartialInterpreter::visitBasicBlock(llvm::BasicBlock* BB, llvm
 //	llvm::errs() << *Term << "\n";
 		
 	//TODO: RAII to pop
-	popSingleStack();
 	return next;
 }
 
@@ -1169,7 +1173,6 @@ public:
 
 		ExecutionContext& executionContext = currentEE->getSingleStack();
 		executionContext.CurFunction = &F;	
-		executionContext.Caller = const_cast<llvm::CallBase*>(&callBase);
 
 		int i=0;
 	//	llvm::errs() << callBase << "\n";
