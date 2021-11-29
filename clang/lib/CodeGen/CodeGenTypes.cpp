@@ -890,6 +890,13 @@ llvm::StructType *CodeGenTypes::ConvertRecordDeclType(const RecordDecl *RD) {
     SmallString<256> TypeName;
     getRecordTypeName(RD, "", TypeName);
     Entry = llvm::StructType::getTypeByName(CGM.getLLVMContext(), TypeName);
+    if (Entry && !Entry->isOpaque() && CGRecordLayouts.find(Key) == CGRecordLayouts.end()) {
+      // In a few cases we define the body of a llvm struct directly (like for __cheerp_landingpad),
+      // but clang is not happy if he doesn't also create other helper structures here.
+      // So pretend that we didn't find the type and let clang generate it again.
+      Entry = nullptr;
+    }
+
   }
 
   // If we don't have a StructType at all yet, create the forward declaration.
