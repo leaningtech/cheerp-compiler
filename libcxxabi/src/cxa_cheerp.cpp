@@ -36,24 +36,35 @@ struct __cheerp_landingpad
 
 struct Exception
 {
+	static Exception* global_list;
+
 	void* obj;
 	void* adjustedPtr;
 	const std::type_info* tinfo;
 	void (*dest)(void*);
 	int refCount;
 	int handlerCount;
+	Exception* global_next;
 	Exception* next;
 	Exception* primary; // null if this is the primary exception
 	Exception(void* obj, const std::type_info* tinfo, void(*dest)(void*), Exception* primary = nullptr) noexcept
 		: obj(obj), adjustedPtr(nullptr), tinfo(tinfo), dest(dest), refCount(1), 
 		  handlerCount(0), next(nullptr), primary(primary)
 	{
+		this->global_next = global_list;
+		global_list = this;
 	}
 	~Exception() noexcept
 	{
 		if(dest)
 			dest(obj);
 		delete reinterpret_cast<char*>(obj);
+		for (Exception* cur = global_list; cur != nullptr; cur = cur->global_next) {
+			if (cur->global_next == this) {
+				cur->global_next = this->global_next;
+				break;
+			}
+		}
 	}
 	int incRef() noexcept
 	{
@@ -81,16 +92,28 @@ struct Exception
 	}
 };
 
+Exception* Exception::global_list = nullptr;
+
 // Global variable to store the currently thrown exception.
 // This is needed just by the personality, which will reset it to null immediately
 // Ideally this would be contained in the actual CheerpException object
 static Exception* current_exception = nullptr;
 
-// Global list of currently active (thrown or caught exceptions
+// Global list of currently active (thrown or caught) exceptions
 static Exception* thrown_exceptions = nullptr;
 
 // Global counter of currently uncaught exceptions
 static int uncaughtExceptions = 0;
+
+static Exception* find_exception_from_unwind_ptr(void* unwind)
+{
+	for (Exception* cur = Exception::global_list; cur != nullptr; cur = cur->global_next) {
+		if (cur->obj == unwind) {
+			return cur;
+		}
+	}
+	return nullptr;
+}
 
 extern "C" {
 
@@ -98,7 +121,7 @@ void __cxa_decrement_exception_refcount(void* obj) noexcept
 {
 	if(obj != nullptr)
 	{
-		Exception* ex = static_cast<Exception*>(obj);
+		Exception* ex = find_exception_from_unwind_ptr(obj);
 		if(ex->decRef() == 0)
 			delete ex;
 	}
@@ -107,7 +130,7 @@ void __cxa_increment_exception_refcount(void* obj) noexcept
 {
 	if(obj != nullptr)
 	{
-		static_cast<Exception*>(obj)->incRef();
+		find_exception_from_unwind_ptr(obj)->incRef();
 	}
 }
 
@@ -134,7 +157,7 @@ __attribute((noinline))
 void*
 __cxa_begin_catch(void* unwind_arg) noexcept
 {
-	Exception* ex = static_cast<Exception*>(unwind_arg);
+	Exception* ex = find_exception_from_unwind_ptr(unwind_arg);
 	// Increment the handler count, removing the flag about being rethrown
 	ex->handlerCount = ex->handlerCount < 0 ?
 		-ex->handlerCount + 1 : ex->handlerCount + 1;
@@ -153,7 +176,7 @@ __attribute((noinline))
 void*
 __cxa_get_exception_ptr(void* unwind_arg) noexcept
 {
-	return static_cast<Exception*>(unwind_arg)->adjustedPtr;
+	return find_exception_from_unwind_ptr(unwind_arg)->adjustedPtr;
 }
 
 __attribute((noinline))
@@ -190,7 +213,7 @@ void __cxa_end_catch() noexcept {
 				delete dep;
 			}
 			// Destroy the primary exception only if its refCount goes to 0
-			__cxa_decrement_exception_refcount(ex);
+			__cxa_decrement_exception_refcount(ex->obj);
 		}
 	}
 }
@@ -217,7 +240,7 @@ void* __cxa_current_primary_exception() noexcept
 [[noreturn]]
 void __cxa_rethrow_primary_exception(void* obj)
 {
-	Exception* ex = static_cast<Exception*>(obj);
+	Exception* ex = find_exception_from_unwind_ptr(obj);
 	__cxa_increment_exception_refcount(ex);
 	Exception* dep = new Exception(ex->obj, ex->tinfo, nullptr, ex);
 	do_throw(dep);
@@ -293,7 +316,7 @@ __gxx_personality_v0
 	}
 
 	Exception* ex = current_exception;
-	lp = __cheerp_landingpad { ex, 0, reinterpret_cast<void(*)()>(obj)};
+	lp = __cheerp_landingpad { ex->obj, 0, reinterpret_cast<void(*)()>(obj)};
 
 	for(int i = 0; i < n; i++)
 	{
