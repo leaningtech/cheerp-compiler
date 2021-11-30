@@ -24,7 +24,7 @@ STATISTIC(NumNewAllocas, "Number of new allocas created");
 
 namespace llvm {
 
-static bool ExpandCall(const DataLayout& DL, CallInst* Call)
+static bool ExpandCall(const DataLayout& DL, CallBase* Call)
 {
 	bool Modify = false;
 	AttributeList Attrs = Call->getAttributes();
@@ -53,7 +53,9 @@ static bool ExpandCall(const DataLayout& DL, CallInst* Call)
 			Function *Func = Call->getParent()->getParent();
 			Func->getEntryBlock().getInstList().push_front(CopyBuf);
 			IRBuilder<> Builder(Call);
-			Builder.CreateLifetimeStart(CopyBuf, ArgSize);
+			// TODO: Support lifetime for invokes
+			if(isa<CallInst>(Call))
+				Builder.CreateLifetimeStart(CopyBuf, ArgSize);
 			// Using the argument's alignment attribute for the memcpy
 			// should be OK because the LLVM Language Reference says that
 			// the alignment attribute specifies "the alignment of the stack
@@ -65,18 +67,20 @@ static bool ExpandCall(const DataLayout& DL, CallInst* Call)
 			Call->setArgOperand(ArgIdx, CopyBuf);
 			// Mark the argument copy as unused using llvm.lifetime.end.
 			// TODO: handle invoke
-			assert(isa<CallInst>(Call));
-			Builder.SetInsertPoint(Call->getNextNode());
-			Builder.CreateLifetimeEnd(CopyBuf, ArgSize);
+			if(isa<CallInst>(Call))
+			{
+				Builder.SetInsertPoint(Call->getNextNode());
+				Builder.CreateLifetimeEnd(CopyBuf, ArgSize);
+			}
 			Call->removeAttributeAtIndex(AttrIdx, Attribute::ByVal);
 			Call->addAttributeAtIndex(AttrIdx, Attribute::NoAlias);
 		}
 	}
-	if (Modify)
+	if (Modify && isa<CallInst>(Call))
 	{
 		// This is no longer a tail call because the callee references
 		// memory alloca'd by the caller.
-		Call->setTailCall(false);
+		cast<CallInst>(Call)->setTailCall(false);
 	}
 	return Modify;
 }
@@ -102,9 +106,8 @@ bool ByValLowering::runOnModule(Module& M)
 		{
 			for (auto Inst = BB->begin(), E = BB->end(); Inst != E; ++Inst)
 			{
-				if (CallInst *Call = dyn_cast<CallInst>(Inst))
+				if (CallBase *Call = dyn_cast<CallBase>(Inst))
 					Modified |= ExpandCall(DL, Call);
-				// TODO: handle Invoke
 			}
 		}
 	}
