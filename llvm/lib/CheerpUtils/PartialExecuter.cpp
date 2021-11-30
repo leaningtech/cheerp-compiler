@@ -1289,7 +1289,10 @@ public:
 	}
 	void doneVisitCallBase()
 	{
-//		delete currentEE;
+		bool removed = currentEE->removeModule(F.getParent());
+		(void)removed;
+		assert(removed);
+		delete currentEE;
 		currentEE = nullptr;
 	}
 	void cleanupBB()
@@ -1723,8 +1726,7 @@ bool PartialExecuter::runOnModule( llvm::Module & module )
 {
 	using namespace llvm;
 	bool changed = false;
-
-	classifyFunctions(module);
+	//classifyFunctions(module);
 	
 	
 //	llvm::errs() << "BEFORE PARTIAL EXECUTER\n";
@@ -1733,9 +1735,9 @@ bool PartialExecuter::runOnModule( llvm::Module & module )
 
 	for (Function& F : module)
 	{
+	llvm::errs() << F.getName() << "\taaa\n";
 		changed |= runOnFunction(F);
 
-	//	llvm::errs() << F.getName() << "\taaa\n";
 		verifyFunction(F);
 		for (BasicBlock& BB : F)
 		{
@@ -1772,8 +1774,8 @@ bool PartialExecuter::runOnFunction(llvm::Function& F)
 		if (F.isDeclaration())
 			return false;
 
-		if (F.getName() != "printf")
-			return false;
+//		if (F.getName() != "printf")
+//			return false;
 //		llvm::errs() << "......\t" << F.getName() << "\n";
 		FunctionData data(F);
 
@@ -1795,12 +1797,11 @@ bool PartialExecuter::runOnFunction(llvm::Function& F)
                         {
 				X++;
 				callBases.push_back(CS);
-//				llvm::errs() << X << "\n" << *CS << "\n";
+				llvm::errs() << X << "\tPLIPPO\n" << *CS << "\n";
 					data.visitCallBase(*CS);	
-					
 					{
 						BasicBlockGroupData groupData(data);
-					groupData.recursiveVisit();
+						groupData.recursiveVisit();
 					}
 					data.doneVisitCallBase();	
                         }
@@ -1815,7 +1816,9 @@ bool PartialExecuter::runOnFunction(llvm::Function& F)
 		{
 			if (data.hasModifications())
 			{
-		//	data.emitStats(callBases);
+				//TODO: Check no CE are in the globals we are loading from
+				//TODO: collect data on used Globals -> force alignment on those
+			data.emitStats(callBases);
 			data.cleanupBB();
 	//	llvm::errs() << "\n";
 			return true;
