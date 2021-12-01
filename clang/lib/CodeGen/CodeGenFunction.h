@@ -2009,19 +2009,16 @@ public:
     auto* Ret = llvm::StructType::getTypeByName(CGM.getLLVMContext(), "struct._ZN10__cxxabiv119__cheerp_landingpadE");
     if (Ret)
       return Ret;
-    // ObjTy is actually client::Object*, but for simplicity we use void(*)(),
-    // which has also always a complete object kind.
-    auto* ObjTy = llvm::FunctionType::get(CGM.VoidTy, false);
-    llvm::Type* Tys[] { CGM.Int8PtrTy, CGM.Int32Ty, ObjTy->getPointerTo() };
-    return llvm::StructType::create(Tys, "struct._ZN10__cxxabiv119__cheerp_landingpadE", true, nullptr, false, false);
+    llvm::Type* Tys[] { CGM.Int8PtrTy, CGM.Int32Ty};
+
+    bool asmjs = CGM.getContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly;
+    return llvm::StructType::create(Tys, "struct._ZN10__cxxabiv119__cheerp_landingpadE", true, nullptr, false, asmjs);
   }
 
   /// Returns the contents of the function's exception object and selector
   /// slots.
   llvm::Value *getExceptionFromSlot();
   llvm::Value *getSelectorFromSlot();
-  // CHEERP: Object slot, used to store the thrown js exception
-  llvm::Value *getObjectFromSlot();
 
   Address getNormalCleanupDestSlot();
 

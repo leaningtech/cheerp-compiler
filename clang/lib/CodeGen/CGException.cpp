@@ -484,10 +484,6 @@ llvm::Value *CodeGenFunction::getSelectorFromSlot() {
   return Builder.CreateLoad(getEHSelectorSlot(), "sel");
 }
 
-llvm::Value *CodeGenFunction::getObjectFromSlot() {
-  return Builder.CreateLoad(getEHObjectSlot(), "obj");
-}
-
 void CodeGenFunction::EmitCXXThrowExpr(const CXXThrowExpr *E,
                                        bool KeepInsertionPoint) {
   if (const Expr *SubExpr = E->getSubExpr()) {
@@ -904,10 +900,6 @@ llvm::BasicBlock *CodeGenFunction::EmitLandingPad() {
     Address Sel = Builder.CreateStructGEP(EHObj, 1, "eh.sel");
     Builder.CreateStore(LPadSel, Sel);
     Builder.CreateStore(LPadSel, getEHSelectorSlot());
-    llvm::Value *LPadObj = Builder.CreateStructGEP(LPadInst, 2);
-    LPadObj = Builder.CreateLoad(Address(LPadObj, getIntAlign()));
-    Address Obj = Builder.CreateStructGEP(EHObj, 2, "eh.obj");
-    Builder.CreateStore(LPadObj, Obj);
   }
 
   // Save the exception pointer.  It's safe to use a single exception
