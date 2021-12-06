@@ -149,23 +149,6 @@ void PartialExecuter::getAnalysisUsage(AnalysisUsage& AU) const
 {
 }
 
-std::unordered_map<const BasicBlock*, int> PartialExecuter::groupBasicBlocks(const Function& F)
-{
-  std::unordered_map<const BasicBlock*, int> map;
-  int SccNum = 0;
-  for (scc_iterator<const Function *> It = scc_begin(&F); !It.isAtEnd();
-       ++It, --SccNum) {
-    // Ignore single-block SCCs since they either aren't loops or LoopInfo will
-    // catch them.
-    const std::vector<const BasicBlock *> &Scc = *It;
-    
-    for (const auto *BB : Scc) {
-      	map[BB] = SccNum;
-    }
-  }
-  return map;
-}
-
 static bool isValueComputedConstant(const llvm::Value* V)
 {
 	if (isa<Constant>(V))
@@ -1561,24 +1544,14 @@ void PartialExecuter::processFunction(llvm::Function& F)
 //		if immediate dominator is in the SCC, jump there(a refinement would be immediate dominator in SCC while invalidating all otherwise reachable SCC) or bail out
 //	bail out:
 //		sign as reachable all out-going edges from the SCC (keeping only the state pre-SCC) + all BB in the SCC
-//		if (F.hasAddressTaken())
-//			return false;
-
 
 		if (F.isDeclaration())
 			return;
 
-//		if (F.getName() != "printf")
-//			return false;
 //		llvm::errs() << "......\t" << F.getName() << "\n";
 		FunctionData& data = moduleData->getFunctionData(F);
 
 		bool hasIndirectUse = false;
-
-
-
-
-		std::vector<const CallBase*>& callBases = data.callBases;
 
 		int X = 0;
 		for (const Use &U : F.uses())
@@ -1612,13 +1585,12 @@ void PartialExecuter::processFunction(llvm::Function& F)
 
 
 				data.callBases.push_back(CS);
-				llvm::errs() << X << "\tPLIPPO\n" << *CS << "\n";
-					data.visitCallBase(*CS);	
-					{
-						BasicBlockGroupData groupData(data);
-						groupData.recursiveVisit();
-					}
-					data.doneVisitCallBase();
+				data.visitCallBase(*CS);	
+				{
+					BasicBlockGroupData groupData(data);
+					groupData.recursiveVisit();
+				}
+				data.doneVisitCallBase();
                         }
                         else
                         {
@@ -1631,13 +1603,12 @@ void PartialExecuter::processFunction(llvm::Function& F)
 			;
 		else
 		{
-			llvm::errs() << "EXTERNAL\t" << F.getName() <<"\n";
-					data.visitNoInfo();	
-					{
-						BasicBlockGroupData groupData(data);
-						groupData.recursiveVisit();
-					}
-					data.doneVisitCallBase();
+			data.visitNoInfo();	
+			{
+				BasicBlockGroupData groupData(data);
+				groupData.recursiveVisit();
+			}
+			data.doneVisitCallBase();
 		}
 		
 }
