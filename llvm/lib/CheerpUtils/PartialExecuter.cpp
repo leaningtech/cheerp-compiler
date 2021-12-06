@@ -507,7 +507,6 @@ void visitOuter(llvm::Instruction& I)
 					computed.erase(&I);
 				return;
 			}
-
 		
 		if (PHINode* phi = dyn_cast<PHINode>(&I))
 		{
@@ -944,44 +943,65 @@ public:
 		
 		return executionContext;
 	}
-	void visitCallBase(const llvm::CallBase& callBase)
+	std::vector<const llvm::Value*> getArguments(const llvm::CallBase* callBase)
 	{
-		ExecutionContext& executionContext = setUpPartialInterpreter();
+		std::vector<const llvm::Value*> args(F.getFunctionType()->getNumParams(), nullptr);
 
-		int i=0;
-	//	llvm::errs() << callBase << "\n";
-		for (auto& op : callBase.args())
+		if (callBase)
 		{
-			if (i >= F.getFunctionType()->getNumParams())
+			for (uint32_t i=0; i<F.getFunctionType()->getNumParams(); i++)
+				args[i] = callBase->getArgOperand(i);
+			
+			//Filter out not computed arguments
+			for (auto& v : args)
 			{
-				//TODO: add this check
-	//			if (!currentEE->isValueComputed(op))
-	//				llvm::errs() << "AAAA\n";
-//					break;
-	  //				executionContext.VarArgs.push_back(currentEE->getConstantValue((Constant*)(&*op)));
+				if (currentEE->isValueComputed(v) == false)
+					v = nullptr;
 			}
-			else if (currentEE->isValueComputed(op))
-			{
-//				llvm::errs() << F << "\n";
-//				llvm::errs() << callBase << "\n";
-//				llvm::errs() << *op << "\tcccc\n";
-//				llvm::errs() << i << "\t-------\n";
-
-				//				state.push_back({BB->getParent()->getArg(i), currentEE->getConstantValue((Constant*)(&*op))});//;GenericValue((llvm::Value*)op)});
-				executionContext.Values[const_cast<llvm::Argument*>(F.getArg(i))] = currentEE->getConstantValue((Constant*)(&*op));//;GenericValue((llvm::Value*)op)});
-				currentEE->computed.insert(F.getArg(i));
-				currentEE->stronglyKnownBits[F.getArg(i)]= currentEE->getBitMask(op);
-			}
-			i++;
 		}
-  // Handle varargs arguments...
 
+		return args;
+	}
+	void visitCallEquivalent(const std::vector<const llvm::Value*>& arguments)
+	{
+		//Insert the arguments in the map
+		{
+			ExecutionContext& executionContext = setUpPartialInterpreter();
+
+			assert(arguments.size() == F.getFunctionType()->getNumParams());
+
+			for (uint32_t i=0; i<arguments.size(); i++)
+			{
+				const llvm::Value* x = arguments[i];
+				if (!x)
+					continue;
+				
+				llvm::Argument* ith_arg = const_cast<llvm::Argument*>(F.getArg(i));
+				executionContext.Values[ith_arg] = currentEE->getConstantValue((Constant*)x);
+				currentEE->computed.insert(ith_arg);
+				currentEE->stronglyKnownBits[ith_arg]= currentEE->getBitMask(x);
+			}
+		}
+
+		//Do the visit
+		actualVisit();
 		
-//llvm::errs() << "DONE\n";
+		//Cleanup
+		doneVisitCallBase();
+	}
+	void actualVisit();
+	void visitCallBase(const llvm::CallBase* callBase)
+	{
+		const auto& equivalentArgs = getArguments(callBase);
+
+		visitCallEquivalent(equivalentArgs);
+  		// Handle varargs arguments...
 	}
 	void visitNoInfo()
 	{
-		setUpPartialInterpreter();
+		const auto& equivalentArgs = getArguments(nullptr);
+
+		visitCallEquivalent(equivalentArgs);
 	}
 	void doneVisitCallBase()
 	{
@@ -1435,6 +1455,12 @@ void BasicBlockGroupData::splitIntoSCCs(std::deque<BasicBlockGroupData>& blockQu
 	blockToIndexMap[start] = 0;	
 }
 
+void FunctionData::actualVisit()
+{
+	BasicBlockGroupData groupData(*this);
+	groupData.recursiveVisit();
+}
+
 bool PartialExecuter::runOnModule( llvm::Module & module )
 {
 	using namespace llvm;
@@ -1524,12 +1550,7 @@ void PartialExecuter::processFunction(llvm::Function& F)
 
 
 				data.callBases.push_back(CS);
-				data.visitCallBase(*CS);	
-				{
-					BasicBlockGroupData groupData(data);
-					groupData.recursiveVisit();
-				}
-				data.doneVisitCallBase();
+				data.visitCallBase(CS);	
                         }
                         else
                         {
@@ -1543,11 +1564,6 @@ void PartialExecuter::processFunction(llvm::Function& F)
 		else
 		{
 			data.visitNoInfo();	
-			{
-				BasicBlockGroupData groupData(data);
-				groupData.recursiveVisit();
-			}
-			data.doneVisitCallBase();
 		}
 		
 }
