@@ -891,7 +891,8 @@ class FunctionData
 	std::map<llvm::BasicBlock*, std::set<llvm::BasicBlock*>> visitedEdges;
 	ModuleData& moduleData;
 public:
-	std::vector<std::vector<const Value*> > callEquivalentVisited;
+	std::deque<std::vector<const Value*> > callEquivalentQueue;
+	uint32_t indexCallEquivalentQueue{0};
 	PartialInterpreter* currentEE{nullptr};
 	explicit FunctionData(llvm::Function& F, ModuleData& moduleData)
 		: F(F), moduleData(moduleData)
@@ -958,19 +959,27 @@ public:
 		}
 		return true;
 	}
-	void visitCallEquivalent(const std::vector<const llvm::Value*>& arguments)
+	void enqueCallEquivalent(const std::vector<const llvm::Value*>& arguments)
 	{
 		//Check wether we already visited something similar
-		for (const auto& args : callEquivalentVisited)
+		for (const auto& args : callEquivalentQueue)
 		{
 			if (areEquivalent(arguments, args))
 			{
 				return;
 			}
 		}
-		callEquivalentVisited.push_back(arguments);
-
-
+		callEquivalentQueue.push_back(arguments);
+	}
+	const std::vector<const llvm::Value*>* getSomethingToVisit()
+	{
+		if (indexCallEquivalentQueue >= callEquivalentQueue.size())
+			return nullptr;
+		else
+			return &callEquivalentQueue[indexCallEquivalentQueue++];
+	}	
+	void visitCallEquivalent(const std::vector<const llvm::Value*>& arguments)
+	{
 		//Insert the arguments in the map
 		{
 			ExecutionContext& executionContext = setUpPartialInterpreter();
@@ -1001,14 +1010,14 @@ public:
 	{
 		const auto& equivalentArgs = getArguments(callBase);
 
-		visitCallEquivalent(equivalentArgs);
+		enqueCallEquivalent(equivalentArgs);
   		// Handle varargs arguments...
 	}
 	void visitNoInfo()
 	{
 		const auto& equivalentArgs = getArguments(nullptr);
 
-		visitCallEquivalent(equivalentArgs);
+		enqueCallEquivalent(equivalentArgs);
 	}
 	void doneVisitCallBase()
 	{
@@ -1515,44 +1524,47 @@ void PartialExecuter::processFunction(llvm::Function& F)
 //	bail out:
 //		sign as reachable all out-going edges from the SCC (keeping only the state pre-SCC) + all BB in the SCC
 
-		if (F.isDeclaration())
-			return;
+	if (F.isDeclaration())
+		return;
 
-//		llvm::errs() << "......\t" << F.getName() << "\n";
-		FunctionData& data = moduleData->getFunctionData(F);
+	FunctionData& data = moduleData->getFunctionData(F);
 
-		bool hasIndirectUse = false;
+	bool hasIndirectUse = false;
 
-		int X = 0;
-		for (const Use &U : F.uses())
-                {
-                        const User *FU = U.getUser();
-                        if (!isa<CallInst>(FU) && !isa<InvokeInst>(FU))
-                        {
-                                hasIndirectUse = true;
-                                continue;
-                        }
-                        const CallBase* CS = cast<CallBase>(FU);
-                        if (CS->isCallee(&U))
-                        {
-				X++;
-				
-				data.visitCallBase(CS);	
-                        }
-                        else
-                        {
-                                hasIndirectUse = true;
-                        }
-                }
-		
-		
-		if (!hasIndirectUse && F.getLinkage() != GlobalValue::ExternalLinkage)
-			;
+	int X = 0;
+	for (const Use &U : F.uses())
+	{
+		const User *FU = U.getUser();
+		if (!isa<CallInst>(FU) && !isa<InvokeInst>(FU))
+		{
+			hasIndirectUse = true;
+			continue;
+		}
+		const CallBase* CS = cast<CallBase>(FU);
+		if (CS->isCallee(&U))
+		{
+			X++;
+			
+			data.visitCallBase(CS);	
+		}
 		else
 		{
-			data.visitNoInfo();	
+			hasIndirectUse = true;
 		}
-		
+	}
+	
+	
+	if (!hasIndirectUse && F.getLinkage() != GlobalValue::ExternalLinkage)
+		;
+	else
+	{
+		data.visitNoInfo();	
+	}
+
+	while (const auto* toBeVisited = data.getSomethingToVisit())
+	{
+		data.visitCallEquivalent(*toBeVisited);
+	}	
 }
 
 bool PartialExecuter::runOnFunction(llvm::Function& F)
