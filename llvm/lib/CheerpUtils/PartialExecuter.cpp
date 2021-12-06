@@ -163,26 +163,6 @@ static bool isValueComputedConstant(const llvm::Value* V)
 	return false;
 }
 
-static bool areEquivalent(const llvm::CallBase& a, const llvm::CallBase& b)
-{
-	assert(a.getFunctionType() == b.getFunctionType());
-
-	const uint32_t numNonVAArg = a.getFunctionType()->getNumParams();
-
-
-	for (uint32_t i=0; i<numNonVAArg; i++)
-	{
-		llvm::Value* Va = a.getArgOperand(i);
-		llvm::Value* Vb = b.getArgOperand(i);
-		
-		if (Va != Vb)
-			return false;
-		if (!isValueComputedConstant(Va))	//Actually, it's stronger than this, we just need a subset!
-			return false;
-	}
-	return true;
-}
-
 typedef std::pair<const llvm::Value*, GenericValue> ValueGenericValuePair;
 typedef std::vector<ValueGenericValuePair> LocalState;
 typedef std::unordered_map<const llvm::Value*, GenericValue> LocalStateMAP;
@@ -911,7 +891,7 @@ class FunctionData
 	std::map<llvm::BasicBlock*, std::set<llvm::BasicBlock*>> visitedEdges;
 	ModuleData& moduleData;
 public:
-	std::vector<const CallBase*> callBases;
+	std::vector<std::vector<const Value*> > callEquivalentVisited;
 	PartialInterpreter* currentEE{nullptr};
 	explicit FunctionData(llvm::Function& F, ModuleData& moduleData)
 		: F(F), moduleData(moduleData)
@@ -962,8 +942,35 @@ public:
 
 		return args;
 	}
+	static bool areEquivalent(const std::vector<const llvm::Value*>& a, const std::vector<const llvm::Value*>& b)
+	{
+		assert(a.size() == b.size());
+
+		const uint32_t numElements = a.size();
+	
+		for (uint32_t i=0; i<numElements; i++)
+		{
+			if (b[i] == nullptr)
+				continue;
+
+			if (a[i] != b[i])
+				return false;
+		}
+		return true;
+	}
 	void visitCallEquivalent(const std::vector<const llvm::Value*>& arguments)
 	{
+		//Check wether we already visited something similar
+		for (const auto& args : callEquivalentVisited)
+		{
+			if (areEquivalent(arguments, args))
+			{
+				return;
+			}
+		}
+		callEquivalentVisited.push_back(arguments);
+
+
 		//Insert the arguments in the map
 		{
 			ExecutionContext& executionContext = setUpPartialInterpreter();
@@ -1029,11 +1036,9 @@ public:
 		}
 
 	}
-	void emitStats(std::vector<const CallBase*>& callBases)
+	void emitStats()
 	{
 			llvm::errs() <<"\n" << F.getName() << "\n\n";
-			for (const CallBase* CS : callBases)
-				llvm::errs() << *CS << "\n";
 		int BBs =0;
 		std::set<std::pair<llvm::BasicBlock*, llvm::BasicBlock*>> Edges;
 		for (auto& x : F)
@@ -1531,25 +1536,7 @@ void PartialExecuter::processFunction(llvm::Function& F)
                         if (CS->isCallee(&U))
                         {
 				X++;
-
-				bool found = false;
-				for (const CallBase* cb : data.callBases)
-				{
-					if (areEquivalent(*cb, *CS))
-					{
-						llvm::errs() << *CS << "\n" << *cb << "\nFOUND\n";
-						found = true;
-						break;
-					}
-				}
-
-				if (found)
-				{
-					continue;
-				}
-
-
-				data.callBases.push_back(CS);
+				
 				data.visitCallBase(CS);	
                         }
                         else
@@ -1580,7 +1567,7 @@ bool PartialExecuter::runOnFunction(llvm::Function& F)
 	{
 			//TODO: Check no CE are in the globals we are loading from
 			//TODO: collect data on used Globals -> force alignment on those
-		data.emitStats(data.callBases);
+		data.emitStats();
 		data.cleanupBB();
 		return true;
 	}
