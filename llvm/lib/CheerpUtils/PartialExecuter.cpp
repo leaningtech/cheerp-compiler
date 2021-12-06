@@ -533,6 +533,10 @@ void visitOuter(llvm::Instruction& I)
 			}
 			incomings.clear();
 		}
+///Here PHI have been properly processed
+
+
+
 
 		const bool skip = hasToBeSkipped(I);
 		const bool term = I.isTerminator();
@@ -906,11 +910,12 @@ class FunctionData
 	std::map<llvm::BasicBlock*, int> visitCounter;
 	std::map<llvm::BasicBlock*, int> lowestOutgoing;
 	std::map<llvm::BasicBlock*, std::set<llvm::BasicBlock*>> visitedEdges;
+	ModuleData& moduleData;
 public:
 	std::vector<const CallBase*> callBases;
 	PartialInterpreter* currentEE{nullptr};
-	FunctionData(llvm::Function& F)
-		: F(F)
+	explicit FunctionData(llvm::Function& F, ModuleData& moduleData)
+		: F(F), moduleData(moduleData)
 	{
 	}
 	llvm::Function* getFunction()
@@ -1094,7 +1099,7 @@ public:
 		assert(functionData.empty());
                 for (Function& F : M)
                 {
-                        functionData.emplace(&F, FunctionData(F));
+                        functionData.emplace(&F, FunctionData(F, *this));
                 }
         }
 };
