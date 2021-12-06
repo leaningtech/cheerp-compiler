@@ -35,16 +35,11 @@ public:
 	bool runOnModule(llvm::Module& module) override;
 private:
 	bool runOnFunction(llvm::Function&);
-	void processModule(llvm::Module & module);
 	void processFunction(llvm::Function & F);
 	ModuleData* moduleData;
 
 	void getAnalysisUsage(llvm::AnalysisUsage& AU) const override;
 	llvm::StringRef getPassName() const override;
-	std::unordered_map<const llvm::BasicBlock*, int> groupBasicBlocks(const llvm::Function& F);
-
-	void classifyFunctions(const llvm::Module& module);
-	std::set<const llvm::Function*> isPreExecutableFunction;
 };
 
 inline llvm::Pass * createPartialExecuterPass()

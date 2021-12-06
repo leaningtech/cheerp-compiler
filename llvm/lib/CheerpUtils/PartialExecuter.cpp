@@ -172,12 +172,12 @@ static bool areEquivalent(const llvm::CallBase& a, const llvm::CallBase& b)
 
 	for (uint32_t i=0; i<numNonVAArg; i++)
 	{
-		llvm::Value* Va = a.getOperand(i);
-		llvm::Value* Vb = b.getOperand(i);
+		llvm::Value* Va = a.getArgOperand(i);
+		llvm::Value* Vb = b.getArgOperand(i);
 		
 		if (Va != Vb)
 			return false;
-		if (!isValueComputedConstant(Va))
+		if (!isValueComputedConstant(Va))	//Actually, it's stronger than this, we just need a subset!
 			return false;
 	}
 	return true;
@@ -248,7 +248,7 @@ public:
 						return BitMask::ALL;
 				}
 
-				[[clang::fallback]];
+				[[clang::fallthrough]];
 			}
 			case Instruction::Or:
 			case Instruction::Xor:
@@ -316,11 +316,15 @@ public:
 			{
 				GenericValue V = getOperandValue(I.getOperand(0), getLastStack());
 				if (V.IntVal == 0u)
+				{
 					if (isValueComputed(I.getOperand(2)))
 						return true;
+				}
 				else
+				{
 					if (isValueComputed(I.getOperand(1)))
 						return true;
+				}
 
 			}	
 		}
@@ -384,35 +388,30 @@ if (!FF->doesNotThrow())
 	 return true;
 */
 int i=0;
-bool problems = false;
 				for (auto& op : CB.args())
-	{
+			{
 
 
-			if (i >= FF->getFunctionType()->getNumParams())
-				break;
-		if (isValueComputed(op))
+					if (i >= FF->getFunctionType()->getNumParams())
+						break;
+				if (isValueComputed(op))
+				{
+					//TODO: fix Vaarg
+				//	llvm::errs() << *op << "\taaaaa\n";
+					//TODO: no recursion!!
+					computed.insert(CB.getCalledFunction()->getArg(i));
+					stronglyKnownBits[CB.getCalledFunction()->getArg(i)]= getBitMask(op);
+			//		llvm::errs() << getBitMask(op) << "\t" << *op << "\n";
+		//			llvm::errs() << *CB.getCalledFunction()->getArg(i) << "\t" << getBitMask(op) << "\n";
+
+		}
+		else
 		{
-			//TODO: fix Vaarg
-		//	llvm::errs() << *op << "\taaaaa\n";
-			//TODO: no recursion!!
-			computed.insert(CB.getCalledFunction()->getArg(i));
-			stronglyKnownBits[CB.getCalledFunction()->getArg(i)]= getBitMask(op);
-	//		llvm::errs() << getBitMask(op) << "\t" << *op << "\n";
-//			llvm::errs() << *CB.getCalledFunction()->getArg(i) << "\t" << getBitMask(op) << "\n";
+		//	llvm::errs() << i << "-th argument not known\n";
+		}
+		i++;
+		}
 
-}
-else
-{
-//	llvm::errs() << i << "-th argument not known\n";
-	problems = true;
-}
-i++;
-}
-
-//llvm::errs() << CB << "\n";
-			if (false && CB.getCalledFunction()->getName() != "memchr")
-				return true;
 			}
 		}
 //		if (isa<PtrToIntInst>(I))
@@ -491,7 +490,6 @@ return true;
 		}	
 		return false;
 	}
-bool curInstModifyed;
 void clearFunction(llvm::Function& F)
 {
 	for (Instruction& I : instructions(F))
@@ -510,8 +508,6 @@ void visitOuter(llvm::Instruction& I)
 				return;
 			}
 
-		curInstModifyed = false;
-	//	llvm::errs() << "visitOuter " << I << "\n";
 		
 		if (PHINode* phi = dyn_cast<PHINode>(&I))
 		{
@@ -603,19 +599,16 @@ if (isa<CallBase>(&I))
 		if (RI->getReturnValue())
 			stronglyKnownBits[getFirstStack().Caller] = getBitMask(RI->getReturnValue());
 		visit(I);
-curInstModifyed = true;
 return;
 	}
 	else if (UnreachableInst* UI = dyn_cast<UnreachableInst>(&I))
 	{
 //		visit(I);
-//	curInstModifyed = true;
 	}
 	assert(next);
 	setIncomingBB(I.getParent());
 	getLastStack().CurBB = next;
 	getLastStack().CurInst = next->begin();
-curInstModifyed = true;
 
 		}
 			return;
@@ -699,17 +692,8 @@ void visitBasicBlocksResettingState(PartialInterpreter& PI, std::set<llvm::Basic
 	}
 }
 
-std::vector<llvm::BasicBlock* > TOUNREACHABLE;
 void removeEdgeBetweenBlocks(llvm::BasicBlock* from, llvm::BasicBlock* to)
 {
-	if(false)for (PHINode& phi : to->phis())
-	{
-		if (phi.getBasicBlockIndex(from) == -1)
-			continue;
-//		llvm::errs() << phi << "\n";
-//		llvm::errs() << from->getName() << "\tCONDITIONAL\n";
-		phi.removeIncomingValue(from, /*DeletePHIIfEmpty*/false);
-	}
 	//cleanup phi
 //TODO: consider using to->removePredecessor(from) (then change to unreachable can used again??)
 	//change terminator
@@ -721,15 +705,6 @@ void removeEdgeBetweenBlocks(llvm::BasicBlock* from, llvm::BasicBlock* to)
 	{
         to->removePredecessor(from);
 	}
-	if(false)for (PHINode& phi : to->phis())
-	{
-		if (phi.getBasicBlockIndex(from) == -1)
-			continue;
-//		llvm::errs() << phi << "\n";
-//		llvm::errs() << from->getName() << "\tCONDITIONAL\n";
-		phi.removeIncomingValue(from, /*DeletePHIIfEmpty*/false);
-	}
-if (true)
 {	llvm::Instruction* I = from->getTerminator();
 	if (BranchInst* BI = dyn_cast<BranchInst>(I))
 	{
@@ -747,16 +722,8 @@ if (true)
 		}
 		else
 		{
-	for (PHINode& phi : to->phis())
-	{
-	//	if (phi.getBasicBlockIndex(from) >= 0)
-	//		phi.addIncomingValue(from, /*DeletePHIIfEmpty*/false);
-	}
-			//TOUNREACHABLE.push_back(BI->getParent());
-			//changeToUnreachable(BI);
 			BI->eraseFromParent();
-//        to->removePredecessor(from);
-			UnreachableInst* unreach = new UnreachableInst(from->getParent()->getParent()->getContext(), from);
+			new UnreachableInst(from->getParent()->getParent()->getContext(), from);
 		}
 	}
 	else if (SwitchInst* SI = dyn_cast<SwitchInst>(I))
@@ -774,7 +741,7 @@ if (true)
     {
 	    SI->eraseFromParent();
   //      to->removePredecessor(from);
-		UnreachableInst* unreach = new UnreachableInst(from->getParent()->getParent()->getContext(), from);
+		new UnreachableInst(from->getParent()->getParent()->getContext(), from);
 
     }
 
@@ -806,13 +773,7 @@ llvm::BasicBlock* PartialInterpreter::visitBasicBlock(llvm::BasicBlock* BB, llvm
 
 	while (getLastStack().CurInst != BB->end())
 	{
-		ExecutionContext& exe = getLastStack();
-		Instruction* curr = &*getLastStack().CurInst;
-		//llvm::errs() << *executionContext.CurInst << "\n";
 		visitOuter<policy>(*getLastStack().CurInst++);
-
-		//		if (curr == &*getLastStack().CurInst)
-//			 exe.CurInst++;
 	}
 
 	Instruction* Term = BB->getTerminator();
@@ -854,14 +815,10 @@ LocalState intersection(const LocalState& lhs, const LocalState& rhs)
 	return lhs;
 }
 
-class FunctionVisitingData;
-
 class SCCVisitingData
 {
-	FunctionVisitingData& functionVisitingData;
 	const std::vector<const llvm::BasicBlock*> BBs;
 	std::unordered_set<const llvm::BasicBlock*> reacheableBBs;
-	const int IDscc;
 	const llvm::BasicBlock* entryPoint;
 	bool hasEntryPointBeenSet{false};
 	LocalState localState;
@@ -879,8 +836,7 @@ class SCCVisitingData
 		return entryPoint;
 	}
 public:
-	SCCVisitingData(FunctionVisitingData& data, const int IDscc)
-		: functionVisitingData(data), IDscc(IDscc)
+	SCCVisitingData()
 	{
 	}
 	void visit()
@@ -939,12 +895,6 @@ public:
 		reacheableBBs.insert(BBs.begin(), BBs.end());
 		//TODO: do visit and sign other reachable SCC as reachable
 	}
-};
-
-class FunctionVisitingData
-{
-public:
-
 };
 
 class FunctionData
@@ -1026,7 +976,7 @@ public:
 	}
 	void visitNoInfo()
 	{
-		ExecutionContext& executionContext = setUpPartialInterpreter();
+		setUpPartialInterpreter();
 	}
 	void doneVisitCallBase()
 	{
@@ -1147,10 +1097,6 @@ public:
                         functionData.emplace(&F, FunctionData(F));
                 }
         }
-	void clearFunctionData()
-	{
-		functionData.clear();
-	}
 };
 
 }//cheerp
@@ -1484,28 +1430,20 @@ void BasicBlockGroupData::splitIntoSCCs(std::deque<BasicBlockGroupData>& blockQu
 	blockToIndexMap[start] = 0;	
 }
 
-void PartialExecuter::processModule(llvm::Module & module)
+bool PartialExecuter::runOnModule( llvm::Module & module )
 {
-	moduleData = new ModuleData();
-	moduleData->initFunctionData(module);
+	using namespace llvm;
+	bool changed = false;
+	//TODO: classifyFunctions(module) ?? possibly to precompute where to recurse;
+	
+	ModuleData data;
+	moduleData = &data;
+	data.initFunctionData(module);
 
 	for (Function& F : module)
 	{
 		processFunction(F);
 	}
-}
-
-bool PartialExecuter::runOnModule( llvm::Module & module )
-{
-	using namespace llvm;
-	bool changed = false;
-	//classifyFunctions(module);
-	
-	
-//	llvm::errs() << "BEFORE PARTIAL EXECUTER\n";
-	llvm::errs() << module << "\n";
-
-	processModule(module);
 
 	for (Function& F : module)
 	{
@@ -1526,10 +1464,6 @@ bool PartialExecuter::runOnModule( llvm::Module & module )
 			}
 		}
 	}
-//	llvm::errs() << "PARTIAL EXECUTER DONE\n";
-
-	moduleData->clearFunctionData();
-	delete moduleData;
 
 	return changed;
 }
@@ -1632,108 +1566,6 @@ bool PartialExecuter::runOnFunction(llvm::Function& F)
 
 	return false;
 }
-
-
-bool isPreExecutable(const llvm::Function& F)
-{
-	if (F.isDeclaration())
-		return false;
-
-	std::vector<const llvm::PtrToIntInst*> toCheck;
-
-	for (const llvm::Instruction& I : instructions(F))
-	{
-		if (isa<CallInst>(I))
-			return false;
-		if (isa<StoreInst>(I))
-			return false;
-		if (isa<PtrToIntInst>(I))
-			toCheck.push_back(dyn_cast<PtrToIntInst>(&I));
-	}
-
-	{
-		//Check the users
-		for (const Instruction* I : toCheck)
-		{
-                        for(const Use& U: I->uses())
-                        {
-                                const Instruction* userI = cast<Instruction>(U.getUser());
-				if (userI->getOpcode() == Instruction::And)
-				{
-					if (userI->getOperand(0) == I)
-					{
-						auto* Int32Ty = Type::getInt32Ty(F.getParent()->getContext());
-						if (userI->getOperand(1) == ConstantInt::get(Int32Ty, 1))
-							continue;
-						if (userI->getOperand(1) == ConstantInt::get(Int32Ty, 2))
-							continue;
-						if (userI->getOperand(1) == ConstantInt::get(Int32Ty, 3))
-							continue;
-						if (userI->getOperand(1) == ConstantInt::get(Int32Ty, 4))
-							continue;
-						if (userI->getOperand(1) == ConstantInt::get(Int32Ty, 5))
-							continue;
-						if (userI->getOperand(1) == ConstantInt::get(Int32Ty, 6))
-							continue;
-						if (userI->getOperand(1) == ConstantInt::get(Int32Ty, 7))
-							continue;
-					}
-				}
-				return false;
-			}
-		}
-	}
-	{
-		std::set<const llvm::Value*> visited;
-		std::vector<const llvm::Value*> toProcess;
-
-		for (const PtrToIntInst* I : toCheck)
-			toProcess.push_back(I->getPointerOperand());
-
-		while (!toProcess.empty())
-		{
-			const Value* V = toProcess.back();
-				llvm::errs() << *V << "\n";
-			toProcess.pop_back();
-			
-			if (!visited.insert(V).second)
-				continue;
-
-			if (isa<Argument>(V))
-			{
-				llvm::errs() << *V << "\n";
-				//DO STUFF
-				continue;
-			}
-
-			if (const PHINode* phi = dyn_cast<PHINode>(V))
-			{
-				for (const Value *Incoming : phi->incoming_values())
-					toProcess.push_back(Incoming);
-				continue;
-			}
-
-			return false;
-		}
-	}
-
-	return true;
-}
-
-void PartialExecuter::classifyFunctions(const llvm::Module& module)
-{
-	if (false)
-	for (const llvm::Function& F : module)
-	{
-		if (isPreExecutable(F))
-		{
-			isPreExecutableFunction.insert(&F);
-			llvm::errs() << F.getName() << "\n";
-		}
-	}
-}
-
-
 
 }
 
