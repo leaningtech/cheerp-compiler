@@ -33,8 +33,10 @@
 
 #include <unordered_map>
 #include <unordered_set>
+
 #include <queue>
 
+#include "llvm/Transforms/IPO/Attributor.h"
 
 #include "llvm/ADT/SCCIterator.h"
 #include "llvm/InitializePasses.h"
@@ -129,6 +131,12 @@ using namespace llvm;
 
 //STATISTIC(NumRemovedGlobals, "Number of unused globals which have been removed");
 
+std::map<const llvm::BasicBlock*, int> TOTAL;
+std::map<const llvm::BasicBlock*, int> COMPUTED;
+std::map<const llvm::BasicBlock*, std::vector<const llvm::Instruction*> > COMPUTED2;
+
+
+
 namespace cheerp {
 
 using namespace std;
@@ -172,6 +180,40 @@ std::unordered_map<const BasicBlock*, int> PartialExecuter::groupBasicBlocks(con
   return map;
 }
 
+static bool isValueComputedConstant(const llvm::Value* V)
+{
+	if (isa<Constant>(V))
+	{
+		if (const GlobalVariable* GVar = dyn_cast<GlobalVariable>(V))
+		{
+			if (!GVar->hasInitializer() || GVar->isExternallyInitialized())
+				return false;
+		}
+		return true;
+	}
+	return false;
+}
+
+static bool areEquivalent(const llvm::CallBase& a, const llvm::CallBase& b)
+{
+	assert(a.getFunctionType() == b.getFunctionType());
+
+	const uint32_t numNonVAArg = a.getFunctionType()->getNumParams();
+
+
+	for (uint32_t i=0; i<numNonVAArg; i++)
+	{
+		llvm::Value* Va = a.getOperand(i);
+		llvm::Value* Vb = b.getOperand(i);
+		
+		if (Va != Vb)
+			return false;
+		if (!isValueComputedConstant(Va))
+			return false;
+	}
+	return true;
+}
+
 typedef std::pair<const llvm::Value*, GenericValue> ValueGenericValuePair;
 typedef std::vector<ValueGenericValuePair> LocalState;
 typedef std::unordered_map<const llvm::Value*, GenericValue> LocalStateMAP;
@@ -200,6 +242,11 @@ public:
 
 		//TODO: for phis just copy them
 		//TODO: also SelectInst can be specialcased
+		if (min == BitMask::ALL)
+		{
+			//All operands fully known
+			return BitMask::ALL;
+		}
 
 		switch (I.getOpcode())
 		{
@@ -242,16 +289,8 @@ public:
 			}
 			default:
 			{
-				if (min == BitMask::ALL)
-				{
-					//All operands fully known
-					return BitMask::ALL;
-				}
-				else
-				{
-					//Some operands NOT fully known, means in general no information is conserved
-					return BitMask::NONE;
-				}
+				//Some operands NOT fully known, means in general no information is conserved
+				return BitMask::NONE;
 			}
 		}
 	}
@@ -286,15 +325,8 @@ public:
 	}
 	bool isValueComputed(const llvm::Value* V) const
 	{
-		if (isa<Constant>(V))
-		{
-			if (const GlobalVariable* GVar = dyn_cast<GlobalVariable>(V))
-			{
-				if (!GVar->hasInitializer() || GVar->isExternallyInitialized())
-					return false;
-			}
+		if (isValueComputedConstant(V))
 			return true;
-		}
 		if (isa<Argument>(V))
 		{
 			return computed.count(V);
@@ -328,12 +360,33 @@ public:
 			if (!isValueComputed(op))
 				return false;
 		}
+		if (const SwitchInst* SI = dyn_cast <SwitchInst>(&I))
+		{
+			if ((getBitMask(SI->getCondition()) != BitMask::ALL) )
+				return false;
+		}
+		if (const BranchInst* SI = dyn_cast <BranchInst>(&I))
+		{
+			if (SI->isConditional())
+			if ((getBitMask(SI->getCondition()) != BitMask::ALL) )
+				return false;
+		}
 		return true;
 	}
 	bool hasToBeSkipped(llvm::Instruction& I) //TODO:const
 	{
+		if (isa<UnreachableInst>(I))
+			return true;
 		if (isa<LandingPadInst>(I)) //LandingPadInst are not handled by Interpreter
 			return true;
+//TODO??	if (isa<StoreInst>(I))
+//			return true;
+
+		if (isa<VAArgInst>(I))
+			return true;
+		if (!areOperandsComputed(I))
+			return true;
+			//ADD THAT RANDOM INSTRUCTIONS ARE NOT EXECUTABLE
 		if (isa<CallBase>(I))
 		{
 //			if (isa<InvokeInst>(I)) //Invokes are not handled by Interpreter
@@ -343,11 +396,30 @@ public:
 			if (!CB.getCalledFunction())
 				return true;
 			{
+		Function* FF = dyn_cast<Function>(CB.getCalledFunction());
+
+	//	llvm::errs() << FF->getName() << "\n";
+		if (FF->isDeclaration())
+			return true;
+
+//willReturn() will not actualy work since we should be fine to infinite loops (we are though?????)
+//TODO!!!
+/*
+		llvm::errs() << "enters\n";
+for (auto& BB : *FF)
+	if (isa<UnreachableInst>(BB.getTerminator()))
+		return true;
+		llvm::errs() << "exites\n";
+
+if (!FF->doesNotThrow())
+	 return true;
+*/
 int i=0;
 bool problems = false;
 				for (auto& op : CB.args())
 	{
-		Function* FF = dyn_cast<Function>(CB.getCalledFunction());
+
+
 			if (i >= FF->getFunctionType()->getNumParams())
 				break;
 		if (isValueComputed(op))
@@ -357,6 +429,7 @@ bool problems = false;
 			//TODO: no recursion!!
 			computed.insert(CB.getCalledFunction()->getArg(i));
 			stronglyKnownBits[CB.getCalledFunction()->getArg(i)]= getBitMask(op);
+	//		llvm::errs() << getBitMask(op) << "\t" << *op << "\n";
 //			llvm::errs() << *CB.getCalledFunction()->getArg(i) << "\t" << getBitMask(op) << "\n";
 
 }
@@ -368,18 +441,11 @@ else
 i++;
 }
 
-			if (CB.getCalledFunction()->getName() != "memchr")
+//llvm::errs() << CB << "\n";
+			if (false && CB.getCalledFunction()->getName() != "memchr")
 				return true;
 			}
 		}
-//TODO??	if (isa<StoreInst>(I))
-//			return true;
-
-		if (isa<VAArgInst>(I))
-			return true;
-		if (!areOperandsComputed(I))
-			return true;
-			//ADD THAT RANDOM INSTRUCTIONS ARE NOT EXECUTABLE
 //		if (isa<PtrToIntInst>(I))
 //			return true;	//PTR TO INT ARE not preexecutable
 //TODO: also int to ptr ??
@@ -505,6 +571,14 @@ void visitOuter(llvm::Instruction& I)
 
 		const bool skip = hasToBeSkipped(I);
 		const bool term = I.isTerminator();
+
+
+		if (false)
+if (isa<CallBase>(&I))
+{
+	llvm::errs() << skip << "\t" << I << "\n";
+}
+
 	if (false)
 {
 		if (skip || !term)
@@ -519,6 +593,10 @@ void visitOuter(llvm::Instruction& I)
 		llvm::errs() << I << "\n";
 }
 
+		if (!isa<AllocaInst>(&I))
+if (term)
+	TOTAL[I.getParent()]++;
+		
 		if (skip)
 		{
 
@@ -530,11 +608,21 @@ void visitOuter(llvm::Instruction& I)
 			}	
 			return; 
 		}
+
+		
+		if (!isa<AllocaInst>(&I))
+if (term)
+{
+	COMPUTED[I.getParent()]++;
+	COMPUTED2[I.getParent()].push_back(&I);
+}
+
 		if (term)
 		{
 
 		if (sizeStack() > 1)
 		{
+	llvm::errs() << I << "\t" << I.getParent()->getParent()->getName() << "\tciccio\n";
 	BasicBlock* next = nullptr;
 	if (BranchInst* BI = dyn_cast<BranchInst>(&I))
 	{
@@ -554,10 +642,16 @@ void visitOuter(llvm::Instruction& I)
 	}
 	else if (ReturnInst* RI = dyn_cast<ReturnInst>(&I))
 	{
-		stronglyKnownBits[getFirstStack().Caller] = getBitMask(RI->getReturnValue());
+		if (RI->getReturnValue())
+			stronglyKnownBits[getFirstStack().Caller] = getBitMask(RI->getReturnValue());
 		visit(I);
 curInstModifyed = true;
 return;
+	}
+	else if (UnreachableInst* UI = dyn_cast<UnreachableInst>(&I))
+	{
+//		visit(I);
+//	curInstModifyed = true;
 	}
 	assert(next);
 	setIncomingBB(I.getParent());
@@ -1240,7 +1334,7 @@ public:
 	{
 		visitedEdges[to].insert(from);
 	}
-	void visitCallBase(const llvm::CallBase& callBase)
+	ExecutionContext& setUpPartialInterpreter()
 	{
 		assert(currentEE == nullptr);
 	//	llvm::errs() << callBase << "\n";
@@ -1255,6 +1349,12 @@ public:
 
 		ExecutionContext& executionContext = currentEE->getSingleStack();
 		executionContext.CurFunction = &F;	
+		
+		return executionContext;
+	}
+	void visitCallBase(const llvm::CallBase& callBase)
+	{
+		ExecutionContext& executionContext = setUpPartialInterpreter();
 
 		int i=0;
 	//	llvm::errs() << callBase << "\n";
@@ -1278,7 +1378,7 @@ public:
 				//				state.push_back({BB->getParent()->getArg(i), currentEE->getConstantValue((Constant*)(&*op))});//;GenericValue((llvm::Value*)op)});
 				executionContext.Values[const_cast<llvm::Argument*>(F.getArg(i))] = currentEE->getConstantValue((Constant*)(&*op));//;GenericValue((llvm::Value*)op)});
 				currentEE->computed.insert(F.getArg(i));
-		
+				currentEE->stronglyKnownBits[F.getArg(i)]= currentEE->getBitMask(op);
 			}
 			i++;
 		}
@@ -1286,6 +1386,10 @@ public:
 
 		
 //llvm::errs() << "DONE\n";
+	}
+	void visitNoInfo()
+	{
+		ExecutionContext& executionContext = setUpPartialInterpreter();
 	}
 	void doneVisitCallBase()
 	{
@@ -1730,7 +1834,7 @@ bool PartialExecuter::runOnModule( llvm::Module & module )
 	
 	
 //	llvm::errs() << "BEFORE PARTIAL EXECUTER\n";
-	//llvm::errs() << module << "\n";
+	llvm::errs() << module << "\n";
 
 
 	for (Function& F : module)
@@ -1759,6 +1863,9 @@ bool PartialExecuter::runOnModule( llvm::Module & module )
 
 bool PartialExecuter::runOnFunction(llvm::Function& F)
 {
+	TOTAL.clear();
+	COMPUTED.clear();
+	COMPUTED2.clear();
 	using namespace llvm;
 //For each SCC (process in order)
 //	if single point of entry: start from there, otherwise (no point of entry -> all unreachable / multiple ones -> all reachable)
@@ -1781,6 +1888,9 @@ bool PartialExecuter::runOnFunction(llvm::Function& F)
 
 		bool hasIndirectUse = false;
 
+
+
+
 		std::vector<const CallBase*> callBases;
 
 		int X = 0;
@@ -1796,6 +1906,24 @@ bool PartialExecuter::runOnFunction(llvm::Function& F)
                         if (CS->isCallee(&U))
                         {
 				X++;
+
+				bool found = false;
+				for (const CallBase* cb : callBases)
+				{
+					if (areEquivalent(*cb, *CS))
+					{
+						llvm::errs() << *CS << "\n" << *cb << "\nFOUND\n";
+						found = true;
+						break;
+					}
+				}
+
+				if (found)
+				{
+					continue;
+				}
+
+
 				callBases.push_back(CS);
 				llvm::errs() << X << "\tPLIPPO\n" << *CS << "\n";
 					data.visitCallBase(*CS);	
@@ -1803,7 +1931,7 @@ bool PartialExecuter::runOnFunction(llvm::Function& F)
 						BasicBlockGroupData groupData(data);
 						groupData.recursiveVisit();
 					}
-					data.doneVisitCallBase();	
+					data.doneVisitCallBase();
                         }
                         else
                         {
@@ -1811,9 +1939,40 @@ bool PartialExecuter::runOnFunction(llvm::Function& F)
                         }
                 }
 		
-
+		
 		if (!hasIndirectUse && F.getLinkage() != GlobalValue::ExternalLinkage)
+			;
+		else
 		{
+			llvm::errs() << "EXTERNAL\t" << F.getName() <<"\n";
+					data.visitNoInfo();	
+					{
+						BasicBlockGroupData groupData(data);
+						groupData.recursiveVisit();
+					}
+					data.doneVisitCallBase();
+		}
+		
+
+	//	if (!hasIndirectUse && F.getLinkage() != GlobalValue::ExternalLinkage)
+		{
+			if(false) for (auto& p : TOTAL)
+			{
+
+				int z =0;
+				for (const llvm::Instruction& I : *p.first)
+					z++;
+	//		if (z >  (p.second - COMPUTED[p.first]))
+			if (COMPUTED[p.first] == TOTAL[p.first] && (TOTAL[p.first] > 0))
+			{
+				llvm::errs() << z << "\t" << COMPUTED[p.first] << "\t" << p.second << "\t" << p.first->getName() << "\n";
+				for (auto x : COMPUTED2[p.first])
+					llvm::errs() << "\t" << *x << "\n";
+			llvm::errs() << "\n";
+			}
+			}
+
+
 			if (data.hasModifications())
 			{
 				//TODO: Check no CE are in the globals we are loading from
