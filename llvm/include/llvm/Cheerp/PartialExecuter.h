@@ -24,6 +24,7 @@
 namespace cheerp
 {
 
+	class ModuleData;
 /**
  */
 class PartialExecuter : public llvm::ModulePass
@@ -32,11 +33,15 @@ public:
 	static char ID;
 	PartialExecuter();
 	bool runOnModule(llvm::Module& module) override;
-	bool runOnFunction(llvm::Function&);
 	llvm::BasicBlock* getImmediateDom(llvm::BasicBlock* bb, bool status);
 	llvm::BasicBlock* getOnlyOne(llvm::BasicBlock* bb);
 
 private:
+	bool runOnFunction(llvm::Function&);
+	void processModule(llvm::Module & module);
+	void processFunction(llvm::Function & F);
+	ModuleData* moduleData;
+
 	void getAnalysisUsage(llvm::AnalysisUsage& AU) const override;
 	llvm::StringRef getPassName() const override;
 	std::unordered_map<const llvm::BasicBlock*, int> groupBasicBlocks(const llvm::Function& F);

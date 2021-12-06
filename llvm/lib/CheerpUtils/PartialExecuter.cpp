@@ -129,14 +129,6 @@
 
 using namespace llvm;
 
-//STATISTIC(NumRemovedGlobals, "Number of unused globals which have been removed");
-
-std::map<const llvm::BasicBlock*, int> TOTAL;
-std::map<const llvm::BasicBlock*, int> COMPUTED;
-std::map<const llvm::BasicBlock*, std::vector<const llvm::Instruction*> > COMPUTED2;
-
-
-
 namespace cheerp {
 
 using namespace std;
@@ -155,12 +147,6 @@ PartialExecuter::PartialExecuter()
 
 void PartialExecuter::getAnalysisUsage(AnalysisUsage& AU) const
 {
-	AU.addPreserved<cheerp::PointerAnalyzer>();
-	AU.addPreserved<cheerp::Registerize>();
-//	auto &RI = AU.getResult<RegionInfoAnalysis>(F);
-
-
-	llvm::ModulePass::getAnalysisUsage(AU);
 }
 
 std::unordered_map<const BasicBlock*, int> PartialExecuter::groupBasicBlocks(const Function& F)
@@ -593,10 +579,6 @@ if (isa<CallBase>(&I))
 		llvm::errs() << I << "\n";
 }
 
-		if (!isa<AllocaInst>(&I))
-if (term)
-	TOTAL[I.getParent()]++;
-		
 		if (skip)
 		{
 
@@ -610,13 +592,6 @@ if (term)
 		}
 
 		
-		if (!isa<AllocaInst>(&I))
-if (term)
-{
-	COMPUTED[I.getParent()]++;
-	COMPUTED2[I.getParent()].push_back(&I);
-}
-
 		if (term)
 		{
 
@@ -1321,6 +1296,7 @@ class FunctionData
 	std::map<llvm::BasicBlock*, int> lowestOutgoing;
 	std::map<llvm::BasicBlock*, std::set<llvm::BasicBlock*>> visitedEdges;
 public:
+	std::vector<const CallBase*> callBases;
 	PartialInterpreter* currentEE{nullptr};
 	FunctionData(llvm::Function& F)
 		: F(F)
@@ -1492,6 +1468,27 @@ public:
 		int currentCounter = visitCounter[BB]++;
 
 		return (currentCounter < 100);
+	}
+};
+
+class ModuleData{
+public:
+	std::map<const llvm::Function*, FunctionData> functionData;
+        FunctionData& getFunctionData(const llvm::Function& F)
+        {
+                return functionData.at(&F);
+        }
+        void initFunctionData(llvm::Module& M)
+        {
+		assert(functionData.empty());
+                for (Function& F : M)
+                {
+                        functionData.emplace(&F, FunctionData(F));
+                }
+        }
+	void clearFunctionData()
+	{
+		functionData.clear();
 	}
 };
 
@@ -1826,6 +1823,17 @@ void BasicBlockGroupData::splitIntoSCCs(std::deque<BasicBlockGroupData>& blockQu
 	blockToIndexMap[start] = 0;	
 }
 
+void PartialExecuter::processModule(llvm::Module & module)
+{
+	moduleData = new ModuleData();
+	moduleData->initFunctionData(module);
+
+	for (Function& F : module)
+	{
+		processFunction(F);
+	}
+}
+
 bool PartialExecuter::runOnModule( llvm::Module & module )
 {
 	using namespace llvm;
@@ -1836,6 +1844,7 @@ bool PartialExecuter::runOnModule( llvm::Module & module )
 //	llvm::errs() << "BEFORE PARTIAL EXECUTER\n";
 	llvm::errs() << module << "\n";
 
+	processModule(module);
 
 	for (Function& F : module)
 	{
@@ -1858,14 +1867,14 @@ bool PartialExecuter::runOnModule( llvm::Module & module )
 	}
 //	llvm::errs() << "PARTIAL EXECUTER DONE\n";
 
+	moduleData->clearFunctionData();
+	delete moduleData;
+
 	return changed;
 }
 
-bool PartialExecuter::runOnFunction(llvm::Function& F)
+void PartialExecuter::processFunction(llvm::Function& F)
 {
-	TOTAL.clear();
-	COMPUTED.clear();
-	COMPUTED2.clear();
 	using namespace llvm;
 //For each SCC (process in order)
 //	if single point of entry: start from there, otherwise (no point of entry -> all unreachable / multiple ones -> all reachable)
@@ -1879,19 +1888,19 @@ bool PartialExecuter::runOnFunction(llvm::Function& F)
 
 
 		if (F.isDeclaration())
-			return false;
+			return;
 
 //		if (F.getName() != "printf")
 //			return false;
 //		llvm::errs() << "......\t" << F.getName() << "\n";
-		FunctionData data(F);
+		FunctionData& data = moduleData->getFunctionData(F);
 
 		bool hasIndirectUse = false;
 
 
 
 
-		std::vector<const CallBase*> callBases;
+		std::vector<const CallBase*>& callBases = data.callBases;
 
 		int X = 0;
 		for (const Use &U : F.uses())
@@ -1908,7 +1917,7 @@ bool PartialExecuter::runOnFunction(llvm::Function& F)
 				X++;
 
 				bool found = false;
-				for (const CallBase* cb : callBases)
+				for (const CallBase* cb : data.callBases)
 				{
 					if (areEquivalent(*cb, *CS))
 					{
@@ -1924,7 +1933,7 @@ bool PartialExecuter::runOnFunction(llvm::Function& F)
 				}
 
 
-				callBases.push_back(CS);
+				data.callBases.push_back(CS);
 				llvm::errs() << X << "\tPLIPPO\n" << *CS << "\n";
 					data.visitCallBase(*CS);	
 					{
@@ -1953,135 +1962,29 @@ bool PartialExecuter::runOnFunction(llvm::Function& F)
 					data.doneVisitCallBase();
 		}
 		
-
-	//	if (!hasIndirectUse && F.getLinkage() != GlobalValue::ExternalLinkage)
-		{
-			if(false) for (auto& p : TOTAL)
-			{
-
-				int z =0;
-				for (const llvm::Instruction& I : *p.first)
-					z++;
-	//		if (z >  (p.second - COMPUTED[p.first]))
-			if (COMPUTED[p.first] == TOTAL[p.first] && (TOTAL[p.first] > 0))
-			{
-				llvm::errs() << z << "\t" << COMPUTED[p.first] << "\t" << p.second << "\t" << p.first->getName() << "\n";
-				for (auto x : COMPUTED2[p.first])
-					llvm::errs() << "\t" << *x << "\n";
-			llvm::errs() << "\n";
-			}
-			}
-
-
-			if (data.hasModifications())
-			{
-				//TODO: Check no CE are in the globals we are loading from
-				//TODO: collect data on used Globals -> force alignment on those
-			data.emitStats(callBases);
-			data.cleanupBB();
-	//	llvm::errs() << "\n";
-			return true;
-			}
-		}
-
-		//llvm::errs() << "\n";
-
-return false;
-
-
-
-
-
-
-
-
-
-		llvm::errs() << "\n\n\t" << F.getName() << "\n";
-	findNextVisited(F, true);
-	findNextVisited(F, false);
-
-/*
-	std::map<int, std::vector<const BasicBlock*>> INVERSE;
-	for (auto& x : MAP)
-	{
-		INVERSE[x.second].push_back(x.first);
-	}
-
-if(false)	for (auto& x : INVERSE)
-	{
-		llvm::errs() << x.first << ":\t";
-			llvm::errs() << x.second.size() << "\t" << x.second.front()->getName() << "\n";
-	}
-
-*/	{
-
-		llvm::BasicBlock* BB = nullptr;
-		llvm::BasicBlock* from = nullptr;
-		for (BasicBlock& bb : F)
-		{
-			if (bb.getName() == "if.end38.i")
-				from = &bb;
-			if (bb.getName() == "for.cond.i")
-				BB = &bb;
-		}
-		LocalState state;
-		CICCIO = nullptr;
-		int COUNT=0;
-		llvm::errs() << "USERS\n";
-		for (auto* X : F.users())
-		{
-			if (CallInst* CI = dyn_cast<CallInst>(X))
-			{
-						COUNT++;
-				llvm::errs() << *X << "\n";
-				int i=0;
-						CICCIO = CI;	
-			}
-		}
-	if (COUNT > 1)
-		CICCIO = nullptr;
-	if (F.getName() == "__rem_pio2_large")
-		return false;
-	if (!CICCIO)
-		return false;
-//	llvm::errs() << "\n\n............\t\t";
-//	llvm::errs() << F.getName() << "\n";
-/*if(false)		for (auto& p : state)
-		{
-			llvm::errs() << *p.first << "\n\t->\t";
-//			if (isa<Value*>(GVTOP(p.second)))
-//				llvm::errs() << *(llvm::Value*)GVTOP(p.second);
-//			else
-				llvm::errs() << p.second.UIntPairVal.first << "," << p.second.UIntPairVal.second << "..." << p.second.IntVal;
-			llvm::errs() << "\n\n";
-		}
-*/
-	//	BasicBlock* next = visitBasicBlock2(state, BB, from);
-		BasicBlock* next = visitBasicBlock2(*this, state, &F.getEntryBlock());
-		//while (BB){
-		//from = BB;
-		//BB = next;
-		//}
-/*
- * if (true)	for (auto& p : state)
-		{
-			llvm::errs() << *p.first << "\n\t->\t";
-//			if (isa<Value>(GVTOP(p.second)))
-
-//				llvm::errs() << *(llvm::Value*)GVTOP(p.second);
-//			else
-				llvm::errs() << p.second.UIntPairVal.first << "," << p.second.UIntPairVal.second << "..." << p.second.IntVal;
-			llvm::errs() << "\n\n";
-		}
-*/
-		llvm::errs() << "\n----\n";
-		for (auto &p:state)
-		{
-		//	llvm::errs() << *p.first << "\t\t" << *(llvm::Value*)GVTOP(p.second) << "\n";
-		}
-	}
-	return true;
 }
+
+bool PartialExecuter::runOnFunction(llvm::Function& F)
+{
+	using namespace llvm;
+
+	if (F.isDeclaration())
+		return false;
+
+	FunctionData& data = moduleData->getFunctionData(F);
+	if (data.hasModifications())
+	{
+			//TODO: Check no CE are in the globals we are loading from
+			//TODO: collect data on used Globals -> force alignment on those
+		data.emitStats(data.callBases);
+		data.cleanupBB();
+		return true;
+	}
+
+	return false;
+}
+
+
 bool isPreExecutable(const llvm::Function& F)
 {
 	if (F.isDeclaration())
