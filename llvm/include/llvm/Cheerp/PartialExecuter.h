@@ -35,7 +35,7 @@ public:
 	bool runOnModule(llvm::Module& module) override;
 private:
 	bool runOnFunction(llvm::Function&);
-	void processFunction(llvm::Function & F);
+	bool processFunction(llvm::Function & F);
 	ModuleData* moduleData;
 
 	void getAnalysisUsage(llvm::AnalysisUsage& AU) const override;

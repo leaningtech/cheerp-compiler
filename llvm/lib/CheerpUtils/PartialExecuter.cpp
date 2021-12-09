@@ -1,6 +1,4 @@
-//===-- PartialExecuter.cpp - Remove unused functions/globals -----------===//
-//
-//                     Cheerp: The C++ compiler for the Web
+//===-- PartialExecuter.cpp - Remove unused functions/globals -----------=CB//                     Cheerp: The C++ compiler for the Web
 //
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
@@ -133,6 +131,8 @@ namespace cheerp {
 
 using namespace std;
 
+	ModuleData* MODULE_DATA;
+
 char PartialExecuter::ID = 0;
 
 StringRef PartialExecuter::getPassName() const
@@ -157,6 +157,13 @@ static bool isValueComputedConstant(const llvm::Value* V)
 		{
 			if (!GVar->hasInitializer() || GVar->isExternallyInitialized())
 				return false;
+		llvm::errs() << "globalVar" << "\n";
+		}
+		//TODO: actually in opt we got some problems since we might have to find, given a ConstantExpression, wether it's internal or external
+		llvm::errs() << *V << "\n";
+		if (const ConstantExpr* CE = dyn_cast<ConstantExpr>(V))
+		{
+			llvm::errs() << "is CE\n";
 		}
 		return true;
 	}
@@ -166,6 +173,8 @@ static bool isValueComputedConstant(const llvm::Value* V)
 typedef std::pair<const llvm::Value*, GenericValue> ValueGenericValuePair;
 typedef std::vector<ValueGenericValuePair> LocalState;
 typedef std::unordered_map<const llvm::Value*, GenericValue> LocalStateMAP;
+
+
 
 class PartialInterpreter : public llvm::Interpreter {
 	const llvm::BasicBlock* fromBB{nullptr};	
@@ -179,6 +188,7 @@ class PartialInterpreter : public llvm::Interpreter {
 	};
 	std::vector<std::pair<const llvm::Value*, std::pair<GenericValue, BitMask> > > incomings;
 public:
+	static void DO_STUFF(Function* pippo, CallBase* CB, CallBase* parent, PartialInterpreter& exe);
 	std::unordered_map<const llvm::Value*, BitMask> stronglyKnownBits;
 	BitMask computeStronglyKnownBits(const llvm::Instruction& I)
 	{
@@ -419,7 +429,8 @@ for (auto& gv : I.getFunction()->getParent()->globals())
 		continue;
 	if (!GV->hasInitializer())
 		continue;
-
+	if (GV->isExternallyInitialized())
+		continue;
   GenericValue SRC = getOperandValue(GV, getLastStack());
   GenericValue *Ptr = (GenericValue*)GVTORP(SRC);
 //llvm ::errs() << GV->getName() << "\t" <<"\t" << (long long)Ptr<<"\t"<< GV->isConstant()<<"\n";
@@ -514,18 +525,24 @@ void visitOuter(llvm::Instruction& I)
 		}
 ///Here PHI have been properly processed
 
+		if (false)
+if (isa<CallBase>(&I) && sizeStack() == 1)
+{
+	CallBase* CB= dyn_cast<CallBase>(&I);
+	llvm::Function* pippo = CB->getCalledFunction();
 
+	if (pippo)
+	{
+
+		PartialInterpreter::DO_STUFF(pippo, CB, nullptr, *this);
+	}
+}
 
 
 		const bool skip = hasToBeSkipped(I);
 		const bool term = I.isTerminator();
 
 
-		if (false)
-if (isa<CallBase>(&I))
-{
-	llvm::errs() << skip << "\t" << I << "\n";
-}
 
 	if (false)
 {
@@ -680,6 +697,15 @@ void removeEdgeBetweenBlocks(llvm::BasicBlock* from, llvm::BasicBlock* to)
 	//cleanup phi
 //TODO: consider using to->removePredecessor(from) (then change to unreachable can used again??)
 	//change terminator
+	
+//	to->removePredecessor(from);
+/*	for (PHINode& phi : to->phis())
+	{
+		while (phi.getBasicBlockIndex(from) != -1)
+			to->removePredecessor(from);
+		break;
+	}*/
+
 	int Z = 0;
 	for (BasicBlock* bb : predecessors(to))
 		if (bb == from)
@@ -688,11 +714,13 @@ void removeEdgeBetweenBlocks(llvm::BasicBlock* from, llvm::BasicBlock* to)
 	{
         to->removePredecessor(from);
 	}
+
 {	llvm::Instruction* I = from->getTerminator();
 	if (BranchInst* BI = dyn_cast<BranchInst>(I))
 	{
 		if (BI->isConditional())
 		{
+			assert(BI->getSuccessor(0) != BI->getSuccessor(1));
 			//Turn to unconditional
 			llvm::BasicBlock* other = nullptr;
 			if (BI->getSuccessor(0) != to)
@@ -727,6 +755,19 @@ void removeEdgeBetweenBlocks(llvm::BasicBlock* from, llvm::BasicBlock* to)
 		new UnreachableInst(from->getParent()->getParent()->getContext(), from);
 
     }
+    else if (SI->getDefaultDest() == to)
+    {
+	    BasicBlock* other = nullptr;
+    for (SwitchInst::CaseIt i = SI->case_end(), e = SI->case_begin(); i != e;) {
+      --i;
+      auto *Successor = i->getCaseSuccessor();
+      other = Successor;
+      SI->removeCase(i);
+      break;
+    }
+    assert(other);
+	    SI->setDefaultDest(other);
+    }
 
 	
 	}
@@ -756,6 +797,19 @@ llvm::BasicBlock* PartialInterpreter::visitBasicBlock(llvm::BasicBlock* BB, llvm
 
 	while (getLastStack().CurInst != BB->end())
 	{
+
+		Instruction* zz = &*getLastStack().CurInst;
+if (isa<CallBase>(zz))
+{
+	CallBase* CB= dyn_cast<CallBase>(zz);
+	llvm::Function* pippo = CB->getCalledFunction();
+
+	if (pippo)
+	{
+
+		PartialInterpreter::DO_STUFF(pippo, CB, nullptr, *this);
+	}
+}
 		visitOuter<policy>(*getLastStack().CurInst++);
 	}
 
@@ -897,6 +951,7 @@ public:
 	explicit FunctionData(llvm::Function& F, ModuleData& moduleData)
 		: F(F), moduleData(moduleData)
 	{
+		MODULE_DATA = &moduleData;
 	}
 	llvm::Function* getFunction()
 	{
@@ -924,7 +979,7 @@ public:
 		
 		return executionContext;
 	}
-	std::vector<const llvm::Value*> getArguments(const llvm::CallBase* callBase)
+	std::vector<const llvm::Value*> getArguments(const llvm::CallBase* callBase, const llvm::CallBase* parent, PartialInterpreter* exe)
 	{
 		std::vector<const llvm::Value*> args(F.getFunctionType()->getNumParams(), nullptr);
 
@@ -936,8 +991,42 @@ public:
 			//Filter out not computed arguments
 			for (auto& v : args)
 			{
-				if (currentEE->isValueComputed(v) == false)
+		/*		if (exe)
+				{
+				if (exe->isValueComputed(v) == false)
 					v = nullptr;
+				}
+				else{
+					if (isValueComputedConstant(v) == false)
+						v = nullptr;
+				}
+*/
+
+
+
+				if (isValueComputedConstant(v) == false)
+				{
+					if (isa<Argument>(v) && exe && exe->isValueComputed(v))
+					{
+
+					auto	     StoredAddr = (char*) exe->ValueAddresses->toReal(exe->getOperandValue((llvm::Value*)v, exe->getLastStack()).PointerVal);
+        const GlobalValue* GV = exe->getGlobalValueAtAddress(StoredAddr);
+
+	if (GV)
+	{
+	v = GV;
+	}
+	else
+	{
+		GenericValue value = exe->getOperandValue((llvm::Value*)v, exe->getLastStack());
+		value.print("uela\t");
+
+		v=nullptr;
+	}
+					}
+					else
+						v = nullptr;
+				}
 			}
 		}
 
@@ -961,6 +1050,18 @@ public:
 	}
 	void enqueCallEquivalent(const std::vector<const llvm::Value*>& arguments)
 	{
+		//Insert the arguments in the map
+		llvm::errs() << "enque\t" << F.getName();
+			for (uint32_t i=0; i<arguments.size(); i++)
+			{
+				const llvm::Value* x = arguments[i];
+				if (x)
+					llvm::errs() << "\t" << *x;
+				else
+					llvm::errs() << "\t" << "---";
+			}
+			llvm::errs() << "\n";
+
 		//Check wether we already visited something similar
 		for (const auto& args : callEquivalentQueue)
 		{
@@ -981,6 +1082,17 @@ public:
 	void visitCallEquivalent(const std::vector<const llvm::Value*>& arguments)
 	{
 		//Insert the arguments in the map
+		llvm::errs() << "visit\t" << F.getName();
+			for (uint32_t i=0; i<arguments.size(); i++)
+			{
+				const llvm::Value* x = arguments[i];
+				if (x)
+					llvm::errs() << "\t" << *x;
+				else
+					llvm::errs() << "\t" << "---";
+			}
+			llvm::errs() << "\n";
+	
 		{
 			ExecutionContext& executionContext = setUpPartialInterpreter();
 
@@ -999,6 +1111,7 @@ public:
 			}
 		}
 
+		llvm::errs() << "\n";
 		//Do the visit
 		actualVisit();
 		
@@ -1006,16 +1119,16 @@ public:
 		doneVisitCallBase();
 	}
 	void actualVisit();
-	void visitCallBase(const llvm::CallBase* callBase)
+/*	void visitCallBase(const llvm::CallBase* callBase)
 	{
 		const auto& equivalentArgs = getArguments(callBase);
 
 		enqueCallEquivalent(equivalentArgs);
   		// Handle varargs arguments...
-	}
+	}*/
 	void visitNoInfo()
 	{
-		const auto& equivalentArgs = getArguments(nullptr);
+		const auto& equivalentArgs = getArguments(nullptr, nullptr, nullptr);
 
 		enqueCallEquivalent(equivalentArgs);
 	}
@@ -1210,7 +1323,16 @@ template <> struct GraphTraits<SubGraph*> {
 };
 }//namespace llvm
 namespace cheerp{
-class BasicBlockGroupData
+void PartialInterpreter::DO_STUFF(Function* pippo, CallBase* CB, CallBase* parent, PartialInterpreter& exe)
+{
+		auto& FunData = cheerp::MODULE_DATA->getFunctionData(*pippo);
+		
+		const auto& equivalentArgs = FunData.getArguments(CB, parent, &exe);	
+
+		FunData.enqueCallEquivalent(equivalentArgs);
+}
+
+	class BasicBlockGroupData
 {
 	FunctionData& data;
 	std::map<llvm::BasicBlock*, std::set<llvm::BasicBlock*> > incomings;
@@ -1478,24 +1600,33 @@ void FunctionData::actualVisit()
 bool PartialExecuter::runOnModule( llvm::Module & module )
 {
 	using namespace llvm;
-	bool changed = false;
 	//TODO: classifyFunctions(module) ?? possibly to precompute where to recurse;
 	
 	ModuleData data;
 	moduleData = &data;
 	data.initFunctionData(module);
 
-	for (Function& F : module)
+	bool changed2 = true;
+	while (changed2)
 	{
-		processFunction(F);
+		changed2 = false;
+		for (Function& F : module)
+		{
+			bool R = processFunction(F);
+			if (R)
+				llvm::errs() << "processed\t" << F.getName() << "\n";
+			changed2 |= R;
+		}
 	}
 
+	bool changed = false;
 	for (Function& F : module)
 	{
-	llvm::errs() << F.getName() << "\taaa\n";
+		llvm::errs() << F.getName() << "\taaa\n";
 		changed |= runOnFunction(F);
 
 		verifyFunction(F);
+		llvm::errs() << F << "\n";
 		for (BasicBlock& BB : F)
 		{
 			std::set<llvm::BasicBlock*> pred;
@@ -1504,6 +1635,7 @@ bool PartialExecuter::runOnModule( llvm::Module & module )
 
 			for (PHINode& phi : BB.phis())
 			{
+//				llvm::errs() << BB << "\n";
 				for (BasicBlock* bb : pred)
 					assert(phi.getBasicBlockIndex(bb) != -1);
 			}
@@ -1513,7 +1645,7 @@ bool PartialExecuter::runOnModule( llvm::Module & module )
 	return changed;
 }
 
-void PartialExecuter::processFunction(llvm::Function& F)
+bool PartialExecuter::processFunction(llvm::Function& F)
 {
 	using namespace llvm;
 //For each SCC (process in order)
@@ -1525,7 +1657,7 @@ void PartialExecuter::processFunction(llvm::Function& F)
 //		sign as reachable all out-going edges from the SCC (keeping only the state pre-SCC) + all BB in the SCC
 
 	if (F.isDeclaration())
-		return;
+		return false;
 
 	FunctionData& data = moduleData->getFunctionData(F);
 
@@ -1545,7 +1677,7 @@ void PartialExecuter::processFunction(llvm::Function& F)
 		{
 			X++;
 			
-			data.visitCallBase(CS);	
+//			data.visitCallBase(CS);	
 		}
 		else
 		{
@@ -1561,10 +1693,13 @@ void PartialExecuter::processFunction(llvm::Function& F)
 		data.visitNoInfo();	
 	}
 
+	bool changed = false;
 	while (const auto* toBeVisited = data.getSomethingToVisit())
 	{
+		changed = true;
 		data.visitCallEquivalent(*toBeVisited);
 	}	
+	return changed;
 }
 
 bool PartialExecuter::runOnFunction(llvm::Function& F)
@@ -1574,6 +1709,8 @@ bool PartialExecuter::runOnFunction(llvm::Function& F)
 	if (F.isDeclaration())
 		return false;
 
+	bool changed = false;
+
 	FunctionData& data = moduleData->getFunctionData(F);
 	if (data.hasModifications())
 	{
@@ -1581,10 +1718,41 @@ bool PartialExecuter::runOnFunction(llvm::Function& F)
 			//TODO: collect data on used Globals -> force alignment on those
 		data.emitStats();
 		data.cleanupBB();
-		return true;
+		changed = true;
 	}
 
-	return false;
+	if (!data.callEquivalentQueue.empty())
+	{
+		const uint32_t dim = data.callEquivalentQueue.front().size();
+
+		for (int i=0; i<dim; i++)
+		{
+			const llvm::Value* C = nullptr;
+			bool bailout = false;
+			for (int j=0; j<data.callEquivalentQueue.size(); j++)
+			{
+				const llvm::Value* v = data.callEquivalentQueue[j][i];
+				if (!C)
+					C = v;
+				if (C != v)
+				{
+					bailout = true;
+					break;
+				}
+			}
+			if (!bailout && C)
+			{
+				F.getArg(i)->replaceAllUsesWith((llvm::Value*)C);
+				llvm::errs() << "GOOD\t" << F.getName() << "\t" << i << "\t" << *C << "\n";
+				changed = true;
+			}
+		}
+
+
+
+	}
+
+	return changed;
 }
 
 }
