@@ -36,6 +36,39 @@ struct
 {
 	void* val;
 	int sel;
+#ifdef __ASMJS__
+	[[cheerp::wasm]]
+#endif
+	__cheerp_landingpad() noexcept: val(nullptr), sel(0)
+	{
+	}
+#ifdef __ASMJS__
+	[[cheerp::wasm]]
+#endif
+	__cheerp_landingpad& operator=(const __cheerp_landingpad& o) noexcept
+	{
+		val = o.val;
+		sel = o.sel;
+		return *this;
+	}
+
+#ifdef __ASMJS__
+	[[cheerp::genericjs]]
+	void set_val(void* v) noexcept
+	{
+		set_val_inner(__builtin_cheerp_pointer_offset(v));
+	}
+	[[cheerp::wasm]]
+	void set_val_inner(size_t v) noexcept
+	{
+		val = reinterpret_cast<void*>(v);
+	}
+#else
+	void set_val(void* v) noexcept
+	{
+		val = v;
+	}
+#endif
 };
 
 template<typename T>
@@ -352,7 +385,7 @@ __gxx_personality_v0
 #ifdef __ASMJS__
 	[[cheerp::wasm]]
 #endif
-	static __cheerp_landingpad lp {nullptr, 0};
+	static __cheerp_landingpad lp;
 
 	if(reent)
 		__builtin_cheerp_throw(obj);
@@ -383,12 +416,13 @@ __gxx_personality_v0
 	}
 	if(!native)
 	{
-		lp = __cheerp_landingpad{nullptr, 0};
+		lp = __cheerp_landingpad();
 		return &lp;
 	}
 
 	Exception* ex = current_exception;
-	lp = __cheerp_landingpad { ex, 0};
+	lp = __cheerp_landingpad();
+	lp.set_val(ex);
 
 	for(int i = 0; i < n; i++)
 	{
