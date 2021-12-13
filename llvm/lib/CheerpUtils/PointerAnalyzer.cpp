@@ -527,7 +527,15 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 		}
 		if (visitByteLayoutChain(p))
 			return pointerKindData.valueMap.insert( std::make_pair(p, BYTE_LAYOUT ) ).first->second;
-		else if(getKindForType(p->getType()->getPointerElementType()) == COMPLETE_OBJECT)
+		if (auto* a = dyn_cast<Argument>(p))
+		{
+			if (a->getParent()->getAttributes().hasParamAttr(a->getArgNo(), "force-raw"))
+			{
+				pointerKindData.argsMap.insert( std::make_pair(p, RAW ) );
+				return pointerKindData.valueMap.insert( std::make_pair(p, RAW ) ).first->second;
+			}
+		}
+		if(getKindForType(p->getType()->getPointerElementType()) == COMPLETE_OBJECT)
 		{
 			if (isa<Argument>(p))
 				pointerKindData.argsMap.insert( std::make_pair(p, COMPLETE_OBJECT ) );
@@ -1450,10 +1458,15 @@ void PointerAnalyzer::prefetchFunc(const Function& F) const
 			}
 		}
 	}
+	llvm::Type* retType = F.getReturnType();
+	if (F.getAttributes().hasAttributeAtIndex(AttributeList::ReturnIndex, "force-raw"))
+	{
+		IndirectPointerKindConstraint returnConstraint(RETURN_CONSTRAINT, &F);
+		PACache.pointerKindData.constraintsMap[returnConstraint] = RAW;
+	}
 	if(PACache.addressTakenCache.checkAddressTaken(&F))
 	{
 		IndirectPointerKindConstraint returnConstraint(RETURN_CONSTRAINT, &F);
-		llvm::Type* retType = F.getReturnType();
 		if(retType->isPointerTy() && retType->getPointerElementType()->isStructTy())
 		{
 			StructType* st = cast<StructType>(retType->getPointerElementType());
