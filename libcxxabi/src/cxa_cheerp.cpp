@@ -313,7 +313,7 @@ void __cxa_end_catch() noexcept {
 				dep->deallocate();
 			}
 			// Destroy the primary exception only if its refCount goes to 0
-			__cxa_decrement_exception_refcount(ex->obj);
+			__cxa_decrement_exception_refcount(ex);
 		}
 	}
 }
