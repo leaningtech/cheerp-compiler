@@ -130,6 +130,12 @@ bool ConstantExprLowering::runOnInstruction(Instruction* I, bool& hasI64)
 		{
 			if (ConstantExpr* CE = dyn_cast<ConstantExpr>(O.get()))
 			{
+				// Leave alone casts of globals. We don't gain anything
+				// and it is harder to track globals later (e.g. to extract type info)
+				if (isa<GlobalVariable>(CE->stripPointerCastsSafe()))
+				{
+					continue;
+				}
 				if (CE->getType()->isIntegerTy(64))
 					hasI64 |= true;
 
