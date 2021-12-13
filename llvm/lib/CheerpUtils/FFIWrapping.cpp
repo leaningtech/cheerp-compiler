@@ -18,10 +18,30 @@ namespace cheerp {
 
 using namespace llvm;
 
+static void setForceRawAttribute(Module& M, Function* Wrapper)
+{
+	// Force PA to treat pointers of basic types coming in and out of this wrapper as RAW.
+	AttributeList Attrs;
+	for(auto& arg: Wrapper->args())
+	{
+		if (TypeSupport::isRawPointer(arg.getType(), true) && !TypeSupport::isAsmJSPointer(arg.getType()))
+		{
+			Attrs = Attrs.addParamAttribute(M.getContext(), arg.getArgNo(), "force-raw");
+		}
+	}
+	if (TypeSupport::isRawPointer(Wrapper->getReturnType(), true) && !TypeSupport::isAsmJSPointer(Wrapper->getReturnType()))
+	{
+		Attrs = Attrs.addRetAttribute(M.getContext(), Attribute::get(M.getContext(), "force-raw"));
+	}
+	Wrapper->setAttributes(Attrs);
+}
 static Function* wrapImport(Module& M, const Function* Orig)
 {
 	FunctionType* Ty = Orig->getFunctionType();
 	Function* Wrapper = cast<Function>(M.getOrInsertFunction(Twine("__wrapper__",Orig->getName()).str(), Ty).getCallee());
+
+	setForceRawAttribute(M, Wrapper);
+
 	BasicBlock* Entry = BasicBlock::Create(M.getContext(),"entry", Wrapper);
 	IRBuilder<> Builder(Entry);
 
@@ -29,11 +49,16 @@ static Function* wrapImport(Module& M, const Function* Orig)
 	for(auto& arg: Wrapper->args())
 		params.push_back(&arg);
 	CallInst* ForwardCall = Builder.CreateCall(const_cast<Function*>(Orig), params);
-	Value* Ret = ForwardCall->getType()->isVoidTy() ? nullptr : ForwardCall;
+	Type* RetTy = ForwardCall->getType();
+	Value* Ret = RetTy->isVoidTy() ? nullptr : ForwardCall;
+	if (Ret && RetTy->isPointerTy() && !TypeSupport::isAsmJSPointer(RetTy) && !TypeSupport::isClientType(RetTy))
+	{
+		Function* MakeRegular = Intrinsic::getDeclaration(&M, Intrinsic::cheerp_make_regular, { RetTy, RetTy });
+		Function* PointerOffset = Intrinsic::getDeclaration(&M, Intrinsic::cheerp_pointer_offset, { RetTy });
+		Value* Off = Builder.CreateCall(PointerOffset->getFunctionType(), PointerOffset, { Ret });
+		Ret = Builder.CreateCall(MakeRegular->getFunctionType(), MakeRegular, { Ret, Off} );
+	}
 	Builder.CreateRet(Ret);
-
-	Wrapper->setSection("asmjs");
-
 
 	// Replace all uses inside the 
 	return Wrapper;
@@ -68,20 +93,32 @@ static bool needsWrapping(const Function* F)
 	// we will import the dummy function
 	if (!TypeSupport::isClientFunc(F) && F->empty())
 		return false;
+	auto typeRequiresWrapper = [](Type* ty)
+	{
+		// non pointers are fine (TODO i64 eventually)
+		if (!ty->isPointerTy())
+			return false;
+		// pointers to asmjs types are fine
+		if (TypeSupport::isAsmJSPointer(ty))
+			return false;
+		// Excluding client pointers (which are always anyref), we support only
+		// split regulars, and they always need the wrapper
+		if (TypeSupport::isClientType(ty->getPointerElementType()))
+			return false;
+		return true;
+	};
 	// Check argument types
 	for (const auto& arg: F->args())
 	{
 		Type* ty = arg.getType();
-		// non pointers are fine (TODO i64 eventually)
-		if (!ty->isPointerTy())
-			continue;
-		// Excluding client pointers (which are always anyref), we support only
-		// split regulars, and they always need the wrapper
-		if (!TypeSupport::isClientType(ty->getPointerElementType()))
-		{
+		if (typeRequiresWrapper(ty))
 			return true;
-		}
 	}
+	// Check return value. This is only relevant for functions injected by the compiler,
+	// since we forbid calls to genericjs functions that return basic pointer types
+	// from wasm
+	if (typeRequiresWrapper(F->getReturnType()))
+		return true;
 
 	return false;
 }
