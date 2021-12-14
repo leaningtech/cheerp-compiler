@@ -850,19 +850,14 @@ struct PairHash
 	class FFIWrapping {
 	public:
 		FFIWrapping(llvm::Module& M,
-				DeterministicFunctionSet& imports,
-				DeterministicFunctionSet& insideModule,
-				DeterministicFunctionSet& outsideModule)
+				DeterministicFunctionSet& imports)
 				: M(M), imports(imports),
-				  insideModule(insideModule), outsideModule(outsideModule)
 		{
 		}
 		void run();
 	private:
 		llvm::Module& M;
 		DeterministicFunctionSet& imports;
-		DeterministicFunctionSet& insideModule;
-		DeterministicFunctionSet& outsideModule;
 	};
 }
 

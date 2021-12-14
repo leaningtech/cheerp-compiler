@@ -93,16 +93,6 @@ public:
 	const DeterministicFunctionSet & asmJSImports() const { return asmJSImportedFuncions; }
 
 	/**
-	 * Get a list of functions to compile outside of the asm.js/wasm module
-	 */
-	const DeterministicFunctionSet& outsideModule() const { return functionsOutsideModule; }
-
-	/**
-	 * Get a list of functions to compile inside of the asm.js/wasm module
-	 */
-	const DeterministicFunctionSet& insideModule() const { return functionsInsideModule; }
-
-	/**
 	 * Get the list of constructors (static initializers) required by the program
 	 */
 	const std::vector<llvm::Function*> & constructors() const { return constructorsNeeded; }
@@ -167,9 +157,6 @@ public:
 	// function is exported while the replacement is not. This function is used
 	// to re-insert the replacement function into the exported function list.
 	void insertAsmJSExport(llvm::Function* F);
-
-	// Add a function generated after GDA to the list
-	void insertFunction(llvm::Function* F, bool insideModule);
 
 	// Remove function from GDA's function list.
 	void eraseFunction(llvm::Function* F);
@@ -249,8 +236,6 @@ private:
 	std::unordered_set<llvm::Type* > arrayResizesNeeded;
 	DeterministicFunctionSet asmJSExportedFuncions;
 	DeterministicFunctionSet asmJSImportedFuncions;
-	DeterministicFunctionSet functionsInsideModule;
-	DeterministicFunctionSet functionsOutsideModule;
 	std::vector< llvm::Function* > constructorsNeeded;
 		
 	std::vector< const llvm::GlobalVariable * > varsOrder;

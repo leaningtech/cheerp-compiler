@@ -1096,7 +1096,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	// Create the FFI wrappers if needed
 	if (llcPass)
 	{
-		FFIWrapping FFIW(module, asmJSImportedFuncions, functionsInsideModule, functionsOutsideModule);
+		FFIWrapping FFIW(module, asmJSImportedFuncions);
 		FFIW.run();
 	}
 	return true;
@@ -1234,10 +1234,6 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 	}
 	const Module* module = F->getParent();
 	bool isAsmJS = F->getSection() == StringRef("asmjs");
-	if (isAsmJS)
-		functionsInsideModule.insert(F);
-	else
-		functionsOutsideModule.insert(F);
 	for ( const BasicBlock & bb : *F )
 		for (const Instruction & I : bb)
 		{
@@ -1642,13 +1638,6 @@ void GlobalDepsAnalyzer::insertAsmJSExport(llvm::Function* F) {
 	asmJSExportedFuncions.insert(F);
 }
 
-void GlobalDepsAnalyzer::insertFunction(llvm::Function* F, bool insideModule) {
-	if (insideModule)
-		functionsInsideModule.insert(F);
-	else
-		functionsOutsideModule.insert(F);
-}
-
 void GlobalDepsAnalyzer::eraseFunction(llvm::Function* F) {
 	assert(F && F != entryPoint && "Cound not erase entry point!");
 
@@ -1659,8 +1648,6 @@ void GlobalDepsAnalyzer::eraseFunction(llvm::Function* F) {
 	asmJSExportedFuncions.erase(F);
 	asmJSImportedFuncions.erase(F);
 	reachableGlobals.erase(F);
-	functionsInsideModule.erase(F);
-	functionsOutsideModule.erase(F);
 }
 
 }

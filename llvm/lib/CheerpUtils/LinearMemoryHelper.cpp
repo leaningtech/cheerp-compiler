@@ -472,27 +472,27 @@ void LinearMemoryHelper::addFunctions()
 	}
 
 	std::vector<const llvm::Function*> unsorted;
-	for (auto* F: globalDeps->insideModule())
+	for (auto& F: module->functions())
 	{
-		if (F->getSection() != StringRef("asmjs"))
+		if (F.getSection() != StringRef("asmjs"))
 			continue;
 
 		// Do not add __wasm_nullptr twice.
-		if (mode == FunctionAddressMode::Wasm && F->getName() == StringRef(wasmNullptrName))
+		if (mode == FunctionAddressMode::Wasm && F.getName() == StringRef(wasmNullptrName))
 			continue;
 
 		// Adding empty functions here will only cause a crash later
-		if (F->empty())
+		if (F.empty())
 			continue;
 
 		// WebAssembly has some builtin functions (sqrt, abs, copysign, etc.)
 		// which should be omitted, and is therefore a subset of the asmjs
 		// function list.
-		if (mode == FunctionAddressMode::Wasm && TypedBuiltinInstr::isWasmIntrinsic(F) && !F->hasAddressTaken()) {
+		if (mode == FunctionAddressMode::Wasm && TypedBuiltinInstr::isWasmIntrinsic(&F) && !F.hasAddressTaken()) {
 			continue;
 		}
 
-		unsorted.push_back(F);
+		unsorted.push_back(&F);
 	}
 
 	// Sort the list of functions by their usage.
