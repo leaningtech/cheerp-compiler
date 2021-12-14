@@ -123,9 +123,9 @@ static bool needsWrapping(const Function* F)
 	return false;
 }
 
-template<typename T>
+template<typename T, typename F>
 static void replaceAllUsesWithFiltered(Value* Old, T GetNew,
-		const DeterministicFunctionSet& whitelist)
+		F filter)
 {
 	auto UI = Old->use_begin(), E = Old->use_end();
 	for (; UI != E;)
@@ -134,7 +134,7 @@ static void replaceAllUsesWithFiltered(Value* Old, T GetNew,
 		++UI;
 		if (Instruction* I = dyn_cast<Instruction>(U.getUser()))
 		{
-			if (!whitelist.count(I->getParent()->getParent()))
+			if (!filter(I->getParent()->getParent()))
 				continue;
 			IRBuilder<> Builder(I);
 			Value* New = GetNew(Builder);
@@ -149,7 +149,7 @@ static void replaceAllUsesWithFiltered(Value* Old, T GetNew,
 			replaceAllUsesWithFiltered<std::function<Value*(IRBuilder<>&)>>(CE, [&GetNew, CE](IRBuilder<>& Builder) {
 				Value* New = GetNew(Builder);
 				return Builder.CreateBitCast(New, CE->getType());
-			}, whitelist);
+			}, filter);
 		}
 	}
 }
@@ -157,13 +157,16 @@ static void replaceAllUsesWithFiltered(Value* Old, T GetNew,
 void FFIWrapping::run()
 {
 	DeterministicFunctionSet newImports;
+	auto insideModule = [](Function* f)
+	{
+		return f->getSection() == "asmjs";
+	};
 	for (auto* F: imports)
 	{
 		if (needsWrapping(F))
 		{
 			Function* W = wrapImport(M, F);
 			newImports.insert(W);
-			outsideModule.insert(W);
 			replaceAllUsesWithFiltered(const_cast<Function*>(F), [W](IRBuilder<>&) { return W; }, insideModule);
 		}
 		else
@@ -179,7 +182,6 @@ void FFIWrapping::run()
 		replaceAllUsesWithFiltered(&G, [&G, &newImports, this](IRBuilder<>& Builder) {
 			Function* W = wrapGlobal(M, &G);
 			newImports.insert(W);
-			outsideModule.insert(W);
 			return Builder.CreateCall(W);
 		}, insideModule);
 	}

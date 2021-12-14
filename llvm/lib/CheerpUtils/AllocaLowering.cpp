@@ -41,7 +41,6 @@ static Function* getOrCreateGetStackWrapper(Module* M, cheerp::GlobalDepsAnalyze
 
 	wrapper->setSection("asmjs");
 	GDA.insertAsmJSExport(wrapper);
-	GDA.insertFunction(wrapper, true);
 	return wrapper;
 }
 static Function* getOrCreateSetStackWrapper(Module* M, cheerp::GlobalDepsAnalyzer& GDA)
@@ -62,7 +61,6 @@ static Function* getOrCreateSetStackWrapper(Module* M, cheerp::GlobalDepsAnalyze
 
 	wrapper->setSection("asmjs");
 	GDA.insertAsmJSExport(wrapper);
-	GDA.insertFunction(wrapper, true);
 	return wrapper;
 }
 
