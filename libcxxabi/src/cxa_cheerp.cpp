@@ -326,6 +326,13 @@ void __cxa_rethrow() {
 	do_throw(ex);
 }
 
+[[noreturn]]
+__attribute((noinline))
+void __cxa_resume(__cheerp_landingpad* lp) {
+	Exception* ex = find_exception_from_unwind_ptr(lp->val);
+	__builtin_cheerp_throw(ex->jsObj);
+}
+
 void* __cxa_current_primary_exception() noexcept
 {
 	Exception* ex = thrown_exceptions;

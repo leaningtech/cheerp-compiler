@@ -1266,7 +1266,17 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 						visitStruct(ST);
 				}
 			}
-			if (!isAsmJS && I.getOpcode() == Instruction::VAArg)
+			else if (isa<ResumeInst>(&I) && isAsmJS)
+			{
+				Function* cxa_resume = module->getFunction("__cxa_resume");
+				if (cxa_resume)
+				{
+					SubExprVec vec;
+					visitGlobal(cxa_resume, visited, vec );
+					externals.push_back(cxa_resume);
+				}
+			}
+			else if (!isAsmJS && I.getOpcode() == Instruction::VAArg)
 				hasVAArgs = true;
 			// Handle calls from asmjs module to outside and vice-versa
 			// and fill the info for the function tables

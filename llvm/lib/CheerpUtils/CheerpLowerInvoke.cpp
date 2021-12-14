@@ -42,7 +42,7 @@ INITIALIZE_PASS(CheerpLowerInvoke, "CheerpLowerInvoke",
                 false, false)
 
 bool CheerpLowerInvoke::runOnFunction(Function &F) {
-  if(KeepInvokes && F.getSection() != StringRef("asmjs"))
+  if(KeepInvokes)
     return false;
   bool Changed = false;
   F.setPersonalityFn(nullptr);
