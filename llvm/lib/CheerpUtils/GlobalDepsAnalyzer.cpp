@@ -1093,12 +1093,6 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	if (wasmStart)
 		callGlobalConstructorsOnStart(module, *this);
 
-	// Create the FFI wrappers if needed
-	if (llcPass)
-	{
-		FFIWrapping FFIW(module, asmJSImportedFuncions);
-		FFIW.run();
-	}
 	return true;
 }
 
@@ -1634,8 +1628,16 @@ void GlobalDepsAnalyzer::processEnqueuedFunctions() {
 	}
 }
 
-void GlobalDepsAnalyzer::insertAsmJSExport(llvm::Function* F) {
+void GlobalDepsAnalyzer::insertAsmJSExport(const llvm::Function* F) {
 	asmJSExportedFuncions.insert(F);
+}
+
+void GlobalDepsAnalyzer::insertAsmJSImport(const llvm::Function* F) {
+	asmJSImportedFuncions.insert(F);
+}
+
+void GlobalDepsAnalyzer::removeAsmJSImport(const llvm::Function* F) {
+	asmJSImportedFuncions.erase(F);
 }
 
 void GlobalDepsAnalyzer::eraseFunction(llvm::Function* F) {

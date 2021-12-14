@@ -37,6 +37,7 @@
 #include "llvm/Cheerp/SourceMaps.h"
 #include "llvm/Cheerp/StructMemFuncLowering.h"
 #include "llvm/Cheerp/ConstantExprLowering.h"
+#include "llvm/Cheerp/FFIWrapping.h"
 #include "llvm/Cheerp/StoreMerging.h"
 #include "llvm/Cheerp/CommandLine.h"
 #include "llvm/Transforms/Scalar.h"
@@ -209,6 +210,7 @@ bool CheerpTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
   PM.add(createStructMemFuncLowering());
   PM.add(createFreeAndDeleteRemovalPass());
   PM.add(cheerp::createGlobalDepsAnalyzerPass(mathMode,/*resolveAliases*/true, WasmOnly));
+  PM.add(cheerp::createFFIWrappingPass());
   PM.add(createFixIrreducibleControlFlowPass());
   PM.add(createPointerArithmeticToArrayIndexingPass());
   PM.add(createPointerToImmutablePHIRemovalPass());
