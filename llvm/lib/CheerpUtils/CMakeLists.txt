@@ -22,6 +22,7 @@ add_llvm_component_library(LLVMCheerpUtils
   FixFunctionCasts.cpp
   ByValLowering.cpp
   FFIWrapping.cpp
+  InvokeWrapping.cpp
   I64Lowering.cpp
   ConstantExprLowering.cpp
   StoreMerging.cpp
