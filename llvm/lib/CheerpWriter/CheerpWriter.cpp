@@ -5990,11 +5990,11 @@ void CheerpWriter::compileAsmJSClosure()
 	for ( const GlobalVariable* GV : linearHelper.globals() )
 		compileGlobalAsmJS(*GV);
 
-	for (const Function* F : globalDeps.insideModule())
+	for (const Function& F : module.functions())
 	{
-		if (!F->empty())
+		if (!F.empty() && F.getSection() == "asmjs")
 		{
-			compileMethod(*F);
+			compileMethod(F);
 		}
 	}
 
@@ -6084,14 +6084,16 @@ void CheerpWriter::compileAsmJSTopLevel()
 
 void CheerpWriter::compileGenericJS()
 {
-	for (const Function* F: globalDeps.outsideModule())
+	for (const Function& F: module.functions())
 	{
-		if (!F->empty())
+		if (F.getSection() == "asmjs")
+			continue;
+		if (!F.empty())
 		{
 #ifdef CHEERP_DEBUG_POINTERS
-			dumpAllPointers(*F, PA);
+			dumpAllPointers(F, PA);
 #endif //CHEERP_DEBUG_POINTERS
-			compileMethod(*F);
+			compileMethod(F);
 		}
 	}
 	for ( const GlobalVariable & GV : module.getGlobalList() )
