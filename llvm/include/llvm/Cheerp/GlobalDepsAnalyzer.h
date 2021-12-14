@@ -27,6 +27,9 @@
 namespace cheerp
 {
 
+// Handy alias for a deterministic set of const llvm::Function* with no erasures
+using DeterministicFunctionSet = cheerp::DeterministicUnorderedSet<const llvm::Function*, RestrictionsLifted::NoPointerStability>;
+
 extern const char* wasmNullptrName;
 
 /**
@@ -156,7 +159,12 @@ public:
 	// When folding identical functions, it is possible that the original
 	// function is exported while the replacement is not. This function is used
 	// to re-insert the replacement function into the exported function list.
-	void insertAsmJSExport(llvm::Function* F);
+	// It is also used in FFIWrapping.
+	void insertAsmJSExport(const llvm::Function* F);
+	// This is used in FFIWrapping to add the newly created wrappers as imports
+	void insertAsmJSImport(const llvm::Function* F);
+	// This is used in FFIWrapping to remove a wrapped function as import.
+	void removeAsmJSImport(const llvm::Function* F);
 
 	// Remove function from GDA's function list.
 	void eraseFunction(llvm::Function* F);

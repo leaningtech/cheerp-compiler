@@ -1,4 +1,4 @@
-//===-- FFIWrapping.cpp - Cheerp utility function --------------===//
+//===-- FFIWrapping.cpp - Cheerp backend pass --------------===//
 //
 //                     Cheerp: The C++ compiler for the Web
 //
@@ -9,7 +9,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Cheerp/Utility.h"
+#include "llvm/Cheerp/FFIWrapping.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
@@ -154,24 +154,25 @@ static void replaceAllUsesWithFiltered(Value* Old, T GetNew,
 	}
 }
 
-void FFIWrapping::run()
+bool FFIWrapping::runOnModule(Module& M)
 {
-	DeterministicFunctionSet newImports;
+	auto& GDA = getAnalysis<cheerp::GlobalDepsAnalyzer>();
+	bool Changed = false;
+	std::vector<const Function*> newImports;
+	std::vector<const Function*> oldImports;
 	auto insideModule = [](Function* f)
 	{
 		return f->getSection() == "asmjs";
 	};
-	for (auto* F: imports)
+	for (auto* F: GDA.asmJSImports())
 	{
 		if (needsWrapping(F))
 		{
+			Changed = true;
 			Function* W = wrapImport(M, F);
-			newImports.insert(W);
+			newImports.push_back(W);
+			oldImports.push_back(F);
 			replaceAllUsesWithFiltered(const_cast<Function*>(F), [W](IRBuilder<>&) { return W; }, insideModule);
-		}
-		else
-		{
-			newImports.insert(F);
 		}
 	}
 	// Replace client globals uses in asmjs with getter function wrappers
@@ -179,13 +180,29 @@ void FFIWrapping::run()
 	{
 		if (!TypeSupport::isClientGlobal(&G))
 			continue;
-		replaceAllUsesWithFiltered(&G, [&G, &newImports, this](IRBuilder<>& Builder) {
+		Changed = true;
+		replaceAllUsesWithFiltered(&G, [&G, &newImports, &M](IRBuilder<>& Builder) {
 			Function* W = wrapGlobal(M, &G);
-			newImports.insert(W);
+			newImports.push_back(W);
 			return Builder.CreateCall(W);
 		}, insideModule);
 	}
-	imports = std::move(newImports);
+	for (auto* W: newImports)
+		GDA.insertAsmJSImport(W);
+	for (auto* O: oldImports)
+		GDA.removeAsmJSImport(O);
+
+	return Changed;
 }
 
+void FFIWrapping::getAnalysisUsage(llvm::AnalysisUsage & AU) const
+{
+	AU.addRequired<cheerp::GlobalDepsAnalyzer>();
+	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
+	llvm::Pass::getAnalysisUsage(AU);
+}
+
+char FFIWrapping::ID = 0;
+
+ModulePass *createFFIWrappingPass() { return new FFIWrapping(); }
 }

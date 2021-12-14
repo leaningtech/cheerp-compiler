@@ -842,23 +842,6 @@ struct PairHash
 		}
 };
 
-	// Handy alias for a deterministic set of const llvm::Function* with no erasures
-	using DeterministicFunctionSet = cheerp::DeterministicUnorderedSet<const llvm::Function*, RestrictionsLifted::NoPointerStability>;
-
-	// Utility function to create a wrapper for FFI interoperability with
-	// asm.js/wasm
-	class FFIWrapping {
-	public:
-		FFIWrapping(llvm::Module& M,
-				DeterministicFunctionSet& imports)
-				: M(M), imports(imports),
-		{
-		}
-		void run();
-	private:
-		llvm::Module& M;
-		DeterministicFunctionSet& imports;
-	};
 }
 
 #endif //_CHEERP_UTILITY_H
