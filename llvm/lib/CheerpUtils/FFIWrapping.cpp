@@ -10,6 +10,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Cheerp/FFIWrapping.h"
+#include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
@@ -18,23 +19,6 @@ namespace cheerp {
 
 using namespace llvm;
 
-static void setForceRawAttribute(Module& M, Function* Wrapper)
-{
-	// Force PA to treat pointers of basic types coming in and out of this wrapper as RAW.
-	AttributeList Attrs;
-	for(auto& arg: Wrapper->args())
-	{
-		if (TypeSupport::isRawPointer(arg.getType(), true) && !TypeSupport::isAsmJSPointer(arg.getType()))
-		{
-			Attrs = Attrs.addParamAttribute(M.getContext(), arg.getArgNo(), "force-raw");
-		}
-	}
-	if (TypeSupport::isRawPointer(Wrapper->getReturnType(), true) && !TypeSupport::isAsmJSPointer(Wrapper->getReturnType()))
-	{
-		Attrs = Attrs.addRetAttribute(M.getContext(), Attribute::get(M.getContext(), "force-raw"));
-	}
-	Wrapper->setAttributes(Attrs);
-}
 static Function* wrapImport(Module& M, const Function* Orig)
 {
 	FunctionType* Ty = Orig->getFunctionType();

@@ -278,6 +278,15 @@ llvm::Instruction* findCommonInsertionPoint(const llvm::Instruction* I, const ll
  */
 const llvm::Instruction* getUniqueIncomingInst(const llvm::Value* v, const PointerAnalyzer& PA);
 
+
+/**
+ * Set the 'force-raw' atttribute on arguments and return if they would have the
+ * RAW kind in asmjs but not in genericjs. This is used on wrapper functions
+ * created in FFIWrapping and InvokeWrapping. They are in the genericjs section
+ * but should treat arguments/return as if they where in the asmjs section
+ */
+void setForceRawAttribute(llvm::Module& M, llvm::Function* Wrapper);
+
 class TypeSupport
 {
 public:

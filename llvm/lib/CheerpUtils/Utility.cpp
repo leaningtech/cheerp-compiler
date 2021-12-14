@@ -1304,6 +1304,26 @@ const Function* getMainFunction(const Module& module)
 {
 	return getMainFunction(const_cast<Module&>(module));
 }
+
+
+void setForceRawAttribute(Module& M, Function* Wrapper)
+{
+	// Force PA to treat pointers of basic types coming in and out of this wrapper as RAW.
+	AttributeList Attrs;
+	for(auto& arg: Wrapper->args())
+	{
+		if (TypeSupport::isRawPointer(arg.getType(), true) && !TypeSupport::isAsmJSPointer(arg.getType()))
+		{
+			Attrs = Attrs.addParamAttribute(M.getContext(), arg.getArgNo(), "force-raw");
+		}
+	}
+	if (TypeSupport::isRawPointer(Wrapper->getReturnType(), true) && !TypeSupport::isAsmJSPointer(Wrapper->getReturnType()))
+	{
+		Attrs = Attrs.addRetAttribute(M.getContext(), Attribute::get(M.getContext(), "force-raw"));
+	}
+	Wrapper->setAttributes(Attrs);
+}
+
 }
 
 namespace llvm
