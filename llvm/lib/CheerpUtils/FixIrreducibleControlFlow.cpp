@@ -13,6 +13,7 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Cheerp/FixIrreducibleControlFlow.h"
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
+#include "llvm/Cheerp/InvokeWrapping.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/SCCIterator.h"
@@ -246,6 +247,7 @@ char FixIrreducibleControlFlow::ID = 0;
 void FixIrreducibleControlFlow::getAnalysisUsage(AnalysisUsage & AU) const
 {
 	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
+	AU.addPreserved<cheerp::InvokeWrapping>();
 	llvm::Pass::getAnalysisUsage(AU);
 }
 

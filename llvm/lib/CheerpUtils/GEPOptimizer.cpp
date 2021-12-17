@@ -13,6 +13,7 @@
 
 #include "llvm/InitializePasses.h"
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
+#include "llvm/Cheerp/InvokeWrapping.h"
 #include "llvm/Cheerp/GEPOptimizer.h"
 #include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/Dominators.h"
@@ -588,6 +589,7 @@ void GEPOptimizer::getAnalysisUsage(AnalysisUsage & AU) const
 {
 	AU.addRequired<DominatorTreeWrapperPass>();
 	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
+	AU.addPreserved<cheerp::InvokeWrapping>();
 	llvm::Pass::getAnalysisUsage(AU);
 }
 

@@ -13,6 +13,7 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Cheerp/IdenticalCodeFolding.h"
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
+#include "llvm/Cheerp/InvokeWrapping.h"
 #include "llvm/IR/GlobalValue.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Support/Debug.h"
@@ -44,6 +45,7 @@ void IdenticalCodeFolding::getAnalysisUsage(AnalysisUsage& AU) const
 {
 	AU.addPreserved<Registerize>();
 	AU.addPreserved<GlobalDepsAnalyzer>();
+	AU.addPreserved<InvokeWrapping>();
 	AU.addRequired<cheerp::GlobalDepsAnalyzer>();
 
 	ModulePass::getAnalysisUsage(AU);

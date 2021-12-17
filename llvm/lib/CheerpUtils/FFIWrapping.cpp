@@ -10,6 +10,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Cheerp/FFIWrapping.h"
+#include "llvm/Cheerp/InvokeWrapping.h"
 #include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Function.h"
@@ -183,6 +184,7 @@ void FFIWrapping::getAnalysisUsage(llvm::AnalysisUsage & AU) const
 {
 	AU.addRequired<cheerp::GlobalDepsAnalyzer>();
 	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
+	AU.addPreserved<cheerp::InvokeWrapping>();
 	llvm::Pass::getAnalysisUsage(AU);
 }
 

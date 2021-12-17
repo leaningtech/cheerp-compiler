@@ -11,6 +11,7 @@
 
 #include "llvm/Cheerp/CFGPasses.h"
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
+#include "llvm/Cheerp/InvokeWrapping.h"
 #include "llvm/Cheerp/PointerAnalyzer.h"
 #include "llvm/Cheerp/Registerize.h"
 #include "llvm/Cheerp/LinearMemoryHelper.h"
@@ -82,6 +83,7 @@ void RemoveFwdBlocks::getAnalysisUsage(AnalysisUsage & AU) const
 	AU.addPreserved<cheerp::PointerAnalyzer>();
 	AU.addPreserved<cheerp::Registerize>();
 	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
+	AU.addPreserved<cheerp::InvokeWrapping>();
 	AU.addPreserved<cheerp::LinearMemoryHelper>();
 	llvm::Pass::getAnalysisUsage(AU);
 }
