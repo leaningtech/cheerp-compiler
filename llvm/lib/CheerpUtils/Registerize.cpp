@@ -13,6 +13,7 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
+#include "llvm/Cheerp/InvokeWrapping.h"
 #include "llvm/Cheerp/PHIHandler.h"
 #include "llvm/Cheerp/Registerize.h"
 #include "llvm/Cheerp/Utility.h"
@@ -45,6 +46,7 @@ void Registerize::getAnalysisUsage(AnalysisUsage & AU) const
 	AU.addPreserved<DominatorTreeWrapperPass>();
 	AU.addPreserved<PostDominatorTreeWrapperPass>();
 	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
+    AU.addPreserved<cheerp::InvokeWrapping>();
 	llvm::Pass::getAnalysisUsage(AU);
 }
 

@@ -14,6 +14,7 @@
 #include "llvm/Cheerp/I64Lowering.h"
 #include "llvm/Cheerp/Registerize.h"
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
+#include "llvm/Cheerp/InvokeWrapping.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/IRBuilder.h"
@@ -211,6 +212,7 @@ void ConstantExprLowering::getAnalysisUsage(llvm::AnalysisUsage & AU) const
 	AU.addPreserved<cheerp::LinearMemoryHelper>();
 	AU.addPreserved<Registerize>();
 	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
+	AU.addPreserved<cheerp::InvokeWrapping>();
 	AU.setPreservesCFG();
 	llvm::Pass::getAnalysisUsage(AU);
 }

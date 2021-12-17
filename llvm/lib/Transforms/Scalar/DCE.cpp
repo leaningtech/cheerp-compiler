@@ -29,6 +29,7 @@
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
+#include "llvm/Cheerp/InvokeWrapping.h"
 
 using namespace llvm;
 
@@ -172,6 +173,7 @@ struct DCELegacyPass : public FunctionPass {
     AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.setPreservesCFG();
     AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
+    AU.addPreserved<cheerp::InvokeWrapping>();
   }
 };
 }

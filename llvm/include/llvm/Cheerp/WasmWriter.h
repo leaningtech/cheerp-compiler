@@ -19,6 +19,7 @@
 #include "llvm/Cheerp/NameGenerator.h"
 #include "llvm/Cheerp/PointerAnalyzer.h"
 #include "llvm/Cheerp/Registerize.h"
+#include "llvm/Cheerp/InvokeWrapping.h"
 #include "llvm/Cheerp/TokenList.h"
 #include "llvm/Cheerp/DeterministicUnorderedSet.h"
 #include "llvm/Cheerp/WasmOpcodes.h"
@@ -88,6 +89,8 @@ private:
 	GlobalDepsAnalyzer & globalDeps;
 	// Helper class to manage linear memory state
 	const LinearMemoryHelper& linearHelper;
+
+	const LandingPadTable& landingPadTable;
 
 	const NameGenerator& namegen;
 
@@ -456,6 +459,7 @@ public:
 			cheerp::Registerize & registerize,
 			cheerp::GlobalDepsAnalyzer & gda,
 			const LinearMemoryHelper& linearHelper,
+			const LandingPadTable& landingPadTable,
 			const NameGenerator& namegen,
 			llvm::LLVMContext& C,
 			unsigned heapSize,
@@ -472,6 +476,7 @@ public:
 		edgeContext(),
 		globalDeps(gda),
 		linearHelper(linearHelper),
+		landingPadTable(landingPadTable),
 		namegen(namegen),
 		usedGlobals(0),
 		stackTopGlobal(0),

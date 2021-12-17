@@ -15,25 +15,26 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/CodeGen/Analysis.h"
 
 namespace cheerp {
 
 using namespace llvm;
 
-static CallInst* copyInvokeToCall(InvokeInst* IV)
+static CallInst* replaceInvokeWithWrapper(InvokeInst* IV, Function* Wrapper, ArrayRef<Value*> extraArgs)
 {
-      SmallVector<Value *, 16> CallArgs(IV->arg_begin(), IV->arg_end());
-      SmallVector<OperandBundleDef, 1> OpBundles;
-      IV->getOperandBundlesAsDefs(OpBundles);
-      // Insert a normal call instruction...
-      CallInst *NewCall =
-          CallInst::Create(IV->getFunctionType(), IV->getCalledOperand(),
-                           CallArgs, OpBundles, "", IV);
-      NewCall->takeName(IV);
-      NewCall->setCallingConv(IV->getCallingConv());
-      NewCall->setAttributes(IV->getAttributes());
-      NewCall->setDebugLoc(IV->getDebugLoc());
-	  return NewCall;
+	SmallVector<Value *, 16> CallArgs(IV->arg_begin(), IV->arg_end());
+	CallArgs.append(extraArgs.begin(), extraArgs.end());
+	SmallVector<OperandBundleDef, 1> OpBundles;
+	IV->getOperandBundlesAsDefs(OpBundles);
+	// Insert a normal call instruction...
+	CallInst *NewCall = CallInst::Create(Wrapper->getFunctionType(), Wrapper, CallArgs, OpBundles, "", IV);
+	NewCall->takeName(IV);
+	NewCall->setCallingConv(IV->getCallingConv());
+	NewCall->setAttributes(IV->getAttributes());
+	NewCall->setDebugLoc(IV->getDebugLoc());
+	IV->replaceAllUsesWith(NewCall);
+	return NewCall;
 }
 
 static GlobalVariable* getOrInsertHelperGlobal(Module& M)
@@ -52,30 +53,113 @@ static GlobalVariable* getOrInsertHelperGlobal(Module& M)
 	return G;
 }
 
-static Function* wrapInvoke(Module& M, InvokeInst& IV, DenseSet<Instruction*>& ToRemove)
+int LandingPadTable::LocalTypeIdMap::getTypeIdFor(Value* V)
 {
+	GlobalValue* GV = llvm::ExtractTypeInfo(V);
+	if(GV == nullptr)
+	{
+		return 0;
+	}
+	auto it = typeIdMap.find(GV);
+	if (it != typeIdMap.end())
+	{
+		return it->second;
+	}
+	int id = typeIdMap.size()+1;
+	typeIdMap.insert(std::make_pair(GV, id));
+	return id;
+}
+int LandingPadTable::LocalTypeIdMap::getTypeIdFor(Value* V) const
+{
+	GlobalValue* GV = llvm::ExtractTypeInfo(V);
+	if(GV == nullptr)
+	{
+		return 0;
+	}
+	auto it = typeIdMap.find(GV);
+	assert(it != typeIdMap.end());
+	return it->second;
+}
 
-	FunctionType* Ty = IV.getFunctionType();
-	Function* F = IV.getCalledFunction();
-	assert(F);
+void LandingPadTable::populate(Module& M)
+{
+	Type* Int32Ty = IntegerType::get(M.getContext(), 32);
+	StructType* elemTy = StructType::getTypeByName(M.getContext(), "struct._ZN10__cxxabiv115__cheerp_clauseE");
+	assert(elemTy && "missing __cheerp_clause type");
+	table = M.getGlobalVariable("__cxa_cheerp_clause_table");
+	assert(table && "missing __cxa_cheerp_clause_table global");
+	assert(!table->hasInitializer() && "__cxa_cheerp_clause_table alread initialized");
+
+	std::vector<Constant*> v;
+	for (Function& F: M.functions())
+	{
+		auto& typeIdMap = getLocalTypeIdMap(&F);
+		for (Instruction& I: instructions(F))
+		{
+			if (!isa<LandingPadInst>(I))
+				continue;
+			auto& LP = cast<LandingPadInst>(I);
+			Constant* start = ConstantInt::get(Int32Ty, v.size());
+			Constant* n = ConstantInt::get(Int32Ty, LP.getNumClauses());
+			entries.insert(std::make_pair(&LP, Entry{start, n}));
+			for(unsigned i = 0; i < LP.getNumClauses(); i++)
+			{
+				Constant* Clause = LP.getClause(i);
+				PointerType* InfoTy = cast<PointerType>(elemTy->getElementType(0));
+				int id = typeIdMap.getTypeIdFor(Clause);
+				Clause = isa<ConstantPointerNull>(Clause)
+					? ConstantPointerNull::get(InfoTy)
+					: Clause;
+				SmallVector<Constant*, 2> fields {
+					Clause,
+					ConstantInt::get(Int32Ty, id)
+				};
+				Constant* el = ConstantStruct::get(elemTy, fields);
+				v.push_back(el);
+			}
+		}
+	}
+	Constant* init = ConstantArray::get(ArrayType::get(elemTy, v.size()), v);
+	table->setValueType(init->getType());
+	table->mutateType(init->getType()->getPointerTo());
+	table->setInitializer(init);
+	if (elemTy->hasAsmJS())
+		table->setSection("asmjs");
+	// Move the table to the end of the globals. Since GDA already ran we can't deal
+	// with the fact that the RTTI globals referenced here may be not yet defined.
+	// Also, it is a waste do do the fixups when we can just render this last.
+	table->removeFromParent();
+	M.getGlobalList().push_back(table);
+}
+
+
+static Function* getInvokeWrapper(Module& M, Function* F, Constant* PersonalityFn, Type* LPadTy, LandingPadTable& table)
+{
+	Type* Int32Ty = IntegerType::get(M.getContext(), 32);
+	FunctionType* OldTy = F->getFunctionType();
+	SmallVector<Type*, 4> ParamTypes;
+	for (auto* paramTy: OldTy->params())
+	{
+		ParamTypes.push_back(paramTy);
+	}
+	ParamTypes.push_back(Int32Ty);
+	ParamTypes.push_back(Int32Ty);
+	FunctionType* Ty = FunctionType::get(OldTy->getReturnType(), ParamTypes, OldTy->isVarArg());
 	std::string fname = "__invoke_wrapper__";
 	fname += F->getName();
-	fname += "__";
-	fname += IV.getParent()->getParent()->getName();
-	fname += "__";
-	fname += IV.getParent()->getName();
-	Function* Wrapper = cast<Function>(M.getOrInsertFunction(fname.c_str(), Ty).getCallee());
-	assert(Wrapper->empty());
+	Function* Wrapper = cast<Function>(M.getOrInsertFunction(fname, Ty).getCallee());
+	if (!Wrapper->empty())
+		return Wrapper;
 	setForceRawAttribute(M, Wrapper);
 
-	Wrapper->setPersonalityFn(IV.getParent()->getParent()->getPersonalityFn());
+	Wrapper->setPersonalityFn(PersonalityFn);
 	BasicBlock* Entry = BasicBlock::Create(M.getContext(),"entry", Wrapper);
 	BasicBlock* Cont = BasicBlock::Create(M.getContext(),"cont", Wrapper);
 	BasicBlock* Catch = BasicBlock::Create(M.getContext(),"catch", Wrapper);
 	IRBuilder<> Builder(Entry);
 
-	llvm::SmallVector<Value*, 4> params;
-	for(auto& arg: Wrapper->args())
+	SmallVector<Value*, 4> params;
+	for(auto& arg: make_range(Wrapper->arg_begin(), Wrapper->arg_begin()+(Wrapper->arg_size()-2)))
 		params.push_back(&arg);
 	InvokeInst* ForwardInvoke = Builder.CreateInvoke(F, Cont, Catch, params);
 
@@ -87,41 +171,44 @@ static Function* wrapInvoke(Module& M, InvokeInst& IV, DenseSet<Instruction*>& T
 	Builder.CreateRet(Ret);
 
 	Builder.SetInsertPoint(Catch);
-	// TODO handle phis for shared landing pads
-	if(!IV.getUnwindDest()->getUniquePredecessor())
-	{
-		IV.getParent()->getParent()->dump();
-	}
-	assert(IV.getUnwindDest()->getUniquePredecessor());
-	LandingPadInst* OldLP = IV.getUnwindDest()->getLandingPadInst();
-	LandingPadInst* LP = cast<LandingPadInst>(OldLP->clone());
-	Builder.Insert(LP);
+	Value* Start = Wrapper->arg_end()-2;
+	Value* N = Wrapper->arg_end()-1;
+	LandingPadInst* LP = Builder.CreateLandingPad(LPadTy, 0);
+	LP->setCleanup(true);
+	table.addEntry(LP, LandingPadTable::Entry { Start, N });
 	Builder.CreateStore(LP, Helper);
 	Ret = ForwardInvoke->getType()->isVoidTy() ? nullptr : UndefValue::get(ForwardInvoke->getType());
 	Builder.CreateRet(Ret);
 
-	Builder.SetInsertPoint(&IV);
-	CallInst* Call = copyInvokeToCall(&IV);
-	Call->setCalledFunction(Wrapper);
-	IV.replaceAllUsesWith(Call);
+	return Wrapper;
+}
+static Function* wrapInvoke(Module& M, InvokeInst& IV, DenseSet<Instruction*>& ToRemove, LandingPadTable& table)
+{
+	Constant* PersonalityFn = IV.getParent()->getParent()->getPersonalityFn();
+	LandingPadInst* OldLP = IV.getUnwindDest()->getLandingPadInst();
+	ToRemove.insert(OldLP);
+	Type* LPadTy = OldLP->getType();
+	Function* Wrapper = getInvokeWrapper(M, IV.getCalledFunction(), PersonalityFn, LPadTy, table);
+
+	IRBuilder<> Builder(&IV);
+	LandingPadTable::Entry e = table.getEntry(OldLP);
+	SmallVector<Value*, 2> extraArgs = {
+		e.start,
+		e.n,
+	};
+	replaceInvokeWithWrapper(&IV, Wrapper, extraArgs);
+
+	GlobalVariable* Helper = getOrInsertHelperGlobal(M);
 	Value* Ex = Builder.CreateLoad(Helper->getType()->getPointerElementType(), Helper);
 	Value* Cond = Builder.CreateICmpEQ(Ex, ConstantPointerNull::get(cast<PointerType>(Ex->getType())));
-	IV.getNormalDest()->removePredecessor(IV.getParent());
-	IV.getUnwindDest()->removePredecessor(IV.getParent());
 	Builder.CreateCondBr(Cond, IV.getNormalDest(), IV.getUnwindDest());
 
 	IV.eraseFromParent();
 
-	Builder.SetInsertPoint(OldLP);
-	Ex = Builder.CreateLoad(Helper->Value::getType()->getPointerElementType(), Helper);
-	OldLP->replaceAllUsesWith(Ex);
-	ToRemove.insert(OldLP);
-	// what about resume?
-
 	return Wrapper;
 }
 
-static Function* wrapResume(Module& M, ResumeInst* RS, DenseSet<Instruction*>& ToRemove)
+static Function* wrapResume(Module& M, ResumeInst* RS)
 {
 	Function* CxaResume = M.getFunction("__cxa_resume");
 	assert(CxaResume);
@@ -134,17 +221,19 @@ static Function* wrapResume(Module& M, ResumeInst* RS, DenseSet<Instruction*>& T
 	Value* Call = Builder.CreateCall(CxaResume->getFunctionType(), CxaResume, LP);
 	RS->replaceAllUsesWith(Call);
 	Builder.CreateUnreachable();
-	ToRemove.insert(RS);
+	RS->eraseFromParent();
 	return CxaResume;
 }
 
 
 bool InvokeWrapping::runOnModule(Module& M)
 {
-	GDA = &getAnalysis<cheerp::GlobalDepsAnalyzer>();
+	auto& GDA = getAnalysis<cheerp::GlobalDepsAnalyzer>();
 	bool Changed = false;
 
-	DenseSet<Instruction*> ToRemove;
+	table.populate(M);
+
+	DenseSet<Instruction*> OldLPs;
 	for (Function& F: make_early_inc_range(M.functions()))
 	{
 		if (F.getSection() != "asmjs")
@@ -158,22 +247,26 @@ bool InvokeWrapping::runOnModule(Module& M)
 				// TODO handle indirect calls
 				assert(!indirect);
 				bool asmjs = indirect || IV->getCalledFunction()->getSection() == "asmjs";
-				Function* W = wrapInvoke(M, *IV, ToRemove);
+				Function* W = wrapInvoke(M, *IV, OldLPs, table);
 				if (asmjs)
 				{
-					GDA->insertAsmJSExport(IV->getCalledFunction());
+					GDA.insertAsmJSExport(IV->getCalledFunction());
 				}
-				GDA->insertAsmJSImport(W);
+				GDA.insertAsmJSImport(W);
 			} else if(auto* RS = dyn_cast<ResumeInst>(&I)) {
 				Changed = true;
-				Function* W = wrapResume(M, RS, ToRemove);
-				GDA->insertAsmJSImport(W);
+				Function* W = wrapResume(M, RS);
+				GDA.insertAsmJSImport(W);
 			}
 		}
 	}
-	for (auto* I: ToRemove)
+	for (auto* OldLP: OldLPs)
 	{
-		I->eraseFromParent();
+		IRBuilder<> Builder(OldLP);
+		GlobalVariable* Helper = getOrInsertHelperGlobal(M);
+		Value* Ex = Builder.CreateLoad(Helper->getType()->getPointerElementType(), Helper);
+		OldLP->replaceAllUsesWith(Ex);
+		OldLP->eraseFromParent();
 	}
 	return Changed;
 }

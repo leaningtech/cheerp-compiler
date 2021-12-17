@@ -358,7 +358,11 @@ int __cxa_uncaught_exceptions()
 	return uncaughtExceptions;
 }
 
-struct __cheerp_clause
+struct
+#ifdef __ASMJS__
+[[cheerp::wasm]]
+#endif
+__cheerp_clause
 {
 	std::type_info* val;
 	int sel;
@@ -383,10 +387,15 @@ can_catch_ret can_catch(const __shim_type_info* catcher, const __shim_type_info*
 	return ret;
 }
 
+#ifdef __ASMJS__
+[[cheerp::wasm]]
+#endif
+extern __cheerp_clause __cxa_cheerp_clause_table[];
+
 __attribute((noinline))
  __cheerp_landingpad*
 __gxx_personality_v0
-                    (client::Object* obj, __cheerp_clause* catches, int n) noexcept
+                    (client::Object* obj, int start, int n) noexcept
 {
 	static bool reent = false;
 #ifdef __ASMJS__
@@ -404,11 +413,11 @@ __gxx_personality_v0
 
 	if(!native)
 	{
-		for(int i = 0; i < n; i++)
+		for(int i = start; i < start+n; i++)
 		{
 			// Is the landingpad catching a foreign exception?
 			// if so, fabricate an Exception object.
-			if(static_cast<std::type_info*>(catches[i].val) == &typeid(cheerp::JSException))
+			if(static_cast<std::type_info*>(__cxa_cheerp_clause_table[i].val) == &typeid(cheerp::JSException))
 			{
 				cheerp::JSException* foreign = new cheerp::JSException(obj);
 				Exception* ex = Exception::allocate(foreign, &typeid(cheerp::JSException), nullptr);
@@ -431,15 +440,16 @@ __gxx_personality_v0
 	lp = __cheerp_landingpad();
 	lp.set_val(ex);
 
-	for(int i = 0; i < n; i++)
+	for(int i = start; i < start+n; i++)
 	{
-		if(catches[i].val == nullptr)
+		__cheerp_clause& clause = __cxa_cheerp_clause_table[i];
+		if(clause.val == nullptr)
 		{
 			// This is a catch(...) clause
-			lp.sel = catches[i].sel;
+			lp.sel = clause.sel;
 			break;
 		}
-		const __shim_type_info* catcher = static_cast<const __shim_type_info*>(catches[i].val);
+		const __shim_type_info* catcher = static_cast<const __shim_type_info*>(clause.val);
 		const __shim_type_info* thrown = static_cast<const __shim_type_info*>(ex->tinfo);
 		can_catch_ret cc = can_catch(catcher, thrown);
 		if(cc.can_catch)
@@ -453,7 +463,7 @@ __gxx_personality_v0
 			{
 				ex->adjustedPtr = __builtin_cheerp_downcast<void,void>(ex->adjustedPtr, -cc.adjustedOffset);
 			}
-			lp.sel = catches[i].sel;
+			lp.sel = clause.sel;
 			break;
 		}
 	}

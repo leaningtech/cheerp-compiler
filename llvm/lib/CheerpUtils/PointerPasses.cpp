@@ -16,6 +16,7 @@
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Cheerp/DeterministicUnorderedSet.h"
+#include "llvm/Cheerp/InvokeWrapping.h"
 #include "llvm/Cheerp/PointerPasses.h"
 #include "llvm/Cheerp/Registerize.h"
 #include "llvm/Cheerp/Utility.h"
@@ -164,6 +165,7 @@ void AllocaArrays::getAnalysisUsage(AnalysisUsage & AU) const
 	AU.addPreserved<cheerp::Registerize>();
 	AU.addRequired<cheerp::GlobalDepsAnalyzer>();
 	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
+	AU.addPreserved<cheerp::InvokeWrapping>();
 	AU.addPreserved<cheerp::LinearMemoryHelper>();
 	llvm::Pass::getAnalysisUsage(AU);
 }
@@ -372,6 +374,7 @@ char PointerArithmeticToArrayIndexing::ID = 0;
 void PointerArithmeticToArrayIndexing::getAnalysisUsage(AnalysisUsage & AU) const
 {
 	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
+	AU.addPreserved<cheerp::InvokeWrapping>();
 	llvm::Pass::getAnalysisUsage(AU);
 }
 
@@ -502,6 +505,7 @@ char PointerToImmutablePHIRemoval::ID = 0;
 void PointerToImmutablePHIRemoval::getAnalysisUsage(AnalysisUsage & AU) const
 {
 	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
+	AU.addPreserved<cheerp::InvokeWrapping>();
 	llvm::Pass::getAnalysisUsage(AU);
 }
 
@@ -1060,6 +1064,7 @@ void DelayInsts::getAnalysisUsage(AnalysisUsage & AU) const
 	AU.addPreserved<cheerp::PointerAnalyzer>();
 	AU.addPreserved<cheerp::Registerize>();
 	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
+	AU.addPreserved<cheerp::InvokeWrapping>();
 	AU.addPreserved<cheerp::LinearMemoryHelper>();
 	AU.addRequired<DominatorTreeWrapperPass>();
 	AU.addRequired<PostDominatorTreeWrapperPass>();

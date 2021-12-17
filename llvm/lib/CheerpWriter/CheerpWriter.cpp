@@ -17,6 +17,7 @@
 #include "llvm/Cheerp/PHIHandler.h"
 #include "llvm/Cheerp/Utility.h"
 #include "llvm/Cheerp/Writer.h"
+#include "llvm/Cheerp/InvokeWrapping.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/InstIterator.h"
@@ -1695,19 +1696,8 @@ void CheerpWriter::compileRawPointer(const Value* p, PARENT_PRIORITY parentPrio,
 
 int CheerpWriter::getTypeIdFor(Value* V)
 {
-	GlobalValue* GV = llvm::ExtractTypeInfo(V);
-	if(GV == nullptr)
-	{
-		return 0;
-	}
-	auto it = typeIdMap.find(GV);
-	if (it != typeIdMap.end())
-	{
-		return it->second;
-	}
-	int id = typeIdMap.size()+1;
-	typeIdMap.insert(std::make_pair(GV, id));
-	return id;
+	auto& local = landingPadTable.getLocalTypeIdMap(currentFun);
+	return local.getTypeIdFor(V);
 }
 
 int CheerpWriter::getHeapShiftForType(Type* et)
@@ -3020,19 +3010,12 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 				stream << "null";
 			else
 				stream << namegen.getName(&I);
-			stream << ",[";
+			stream << ",";
 			const LandingPadInst& LP = cast<LandingPadInst>(I);
-			for(unsigned i = 0; i < LP.getNumClauses(); i++)
-			{
-				Constant* Clause = LP.getClause(i);
-				int id = getTypeIdFor(Clause);
-				stream << "{a0:";
-				compileOperand(Clause, LOWEST);
-				stream << ",i1:" << id << "}";
-				if(i != LP.getNumClauses()-1)
-					stream << ',';
-			}
-			stream << "],0," << LP.getNumClauses();
+			auto entry = landingPadTable.getEntry(&LP);
+			compileOperand(entry.start);
+			stream << ",";
+			compileOperand(entry.n);
 			stream << ")";
 			return COMPILE_OK;
 		}
