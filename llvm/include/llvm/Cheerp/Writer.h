@@ -19,6 +19,7 @@
 #include "llvm/Cheerp/NameGenerator.h"
 #include "llvm/Cheerp/PointerAnalyzer.h"
 #include "llvm/Cheerp/Registerize.h"
+#include "llvm/Cheerp/InvokeWrapping.h"
 #include "llvm/Cheerp/SourceMaps.h"
 #include "llvm/Cheerp/Utility.h"
 #include "llvm/Cheerp/TokenList.h"
@@ -191,6 +192,7 @@ private:
 	const LinearMemoryHelper& linearHelper;
 	const NameGenerator& namegen;
 	const AllocaStoresExtractor& allocaStoresExtractor;
+	const LandingPadTable& landingPadTable;
 	TypeSupport types;
 	std::set<const llvm::GlobalVariable*> compiledGVars;
 	const std::array<const char*,6> typedArrayNames = {{"Uint8Array","Uint16Array","Int32Array","Float32Array","Float64Array","BigInt64Array"}};
@@ -618,6 +620,7 @@ public:
 			const cheerp::LinearMemoryHelper & linearHelper,
 			cheerp::NameGenerator& namegen,
 			cheerp::AllocaStoresExtractor& allocaStoresExtractor,
+			const cheerp::LandingPadTable& landingPadTable,
 			llvm::raw_ostream* asmJSMem,
 			const std::string& asmJSMemFile,
 			SourceMapGenerator* sourceMapGenerator,
@@ -644,6 +647,7 @@ public:
 		linearHelper(linearHelper),
 		namegen(namegen),
 		allocaStoresExtractor(allocaStoresExtractor),
+		landingPadTable(landingPadTable),
 		types(m),
 		heapNames(namegen),
 		asmJSMem(asmJSMem),

@@ -70,6 +70,7 @@ bool CheerpWritePass::runOnModule(Module& M)
 {
   cheerp::PointerAnalyzer &PA = getAnalysis<cheerp::PointerAnalyzer>();
   cheerp::GlobalDepsAnalyzer &GDA = getAnalysis<cheerp::GlobalDepsAnalyzer>();
+  cheerp::InvokeWrapping &IW = getAnalysis<cheerp::InvokeWrapping>();
   cheerp::Registerize &registerize = getAnalysis<cheerp::Registerize>();
   cheerp::AllocaStoresExtractor &allocaStoresExtractor = getAnalysis<cheerp::AllocaStoresExtractor>();
   cheerp::LinearMemoryHelper &linearHelper = getAnalysis<cheerp::LinearMemoryHelper>();
@@ -135,7 +136,7 @@ bool CheerpWritePass::runOnModule(Module& M)
 
   if (!WasmOnly)
   {
-    cheerp::CheerpWriter writer(M, *this, Out, PA, registerize, GDA, linearHelper, namegen, allocaStoresExtractor, memOut, asmjsMemFile,
+    cheerp::CheerpWriter writer(M, *this, Out, PA, registerize, GDA, linearHelper, namegen, allocaStoresExtractor, IW.getLandingPadTable(), memOut, asmjsMemFile,
             sourceMapGenerator.get(), PrettyCode, MakeModule, !NoNativeJavaScriptMath,
             !NoJavaScriptMathImul, !NoJavaScriptMathFround, !NoCredits, MeasureTimeToMain, CheerpHeapSize,
             BoundsCheck, SymbolicGlobalsAsmJS, wasmFile, ForceTypedArrays);
@@ -144,7 +145,7 @@ bool CheerpWritePass::runOnModule(Module& M)
 
   if (LinearOutput != AsmJs && secondaryOut)
   {
-    cheerp::CheerpWasmWriter wasmWriter(M, *this, *secondaryOut, PA, registerize, GDA, linearHelper, namegen,
+    cheerp::CheerpWasmWriter wasmWriter(M, *this, *secondaryOut, PA, registerize, GDA, linearHelper, IW.getLandingPadTable(), namegen,
                                     M.getContext(), CheerpHeapSize, !WasmOnly,
                                     PrettyCode, WasmSharedMemory,
                                     WasmExportedTable);
@@ -165,6 +166,7 @@ bool CheerpWritePass::runOnModule(Module& M)
 void CheerpWritePass::getAnalysisUsage(AnalysisUsage& AU) const
 {
   AU.addRequired<cheerp::GlobalDepsAnalyzer>();
+  AU.addRequired<cheerp::InvokeWrapping>();
   AU.addRequired<cheerp::PointerAnalyzer>();
   AU.addRequired<cheerp::Registerize>();
   AU.addRequired<cheerp::LinearMemoryHelper>();

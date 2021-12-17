@@ -12,6 +12,7 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Cheerp/CommandLine.h"
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
+#include "llvm/Cheerp/InvokeWrapping.h"
 #include "llvm/Cheerp/Utility.h"
 #include "llvm/Cheerp/StoreMerging.h"
 #include "llvm/IR/Instructions.h"
@@ -298,6 +299,7 @@ std::pair<const llvm::Value*, int> StoreMerging::findBasePointerAndOffset(const 
 void StoreMerging::getAnalysisUsage(AnalysisUsage &AU) const
 {
 	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
+	AU.addPreserved<cheerp::InvokeWrapping>();
 }
 
 char StoreMerging::ID = 0;

@@ -12,6 +12,7 @@
 #define DEBUG_TYPE "CheerpAllocaLowering"
 #include "llvm/Cheerp/AllocaLowering.h"
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
+#include "llvm/Cheerp/InvokeWrapping.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/Instructions.h"
@@ -302,6 +303,7 @@ void AllocaLowering::getAnalysisUsage(AnalysisUsage & AU) const
 	AU.addPreserved<cheerp::PointerAnalyzer>();
 	AU.addPreserved<cheerp::Registerize>();
 	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
+	AU.addPreserved<cheerp::InvokeWrapping>();
 	AU.addRequired<cheerp::GlobalDepsAnalyzer>();
 	AU.addRequired<DominatorTreeWrapperPass>();
 	llvm::Pass::getAnalysisUsage(AU);
