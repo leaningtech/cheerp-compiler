@@ -1351,7 +1351,7 @@ static llvm::FunctionCallee getAllocateExceptionFn(CodeGenModule &CGM, QualType 
   return CGM.CreateRuntimeFunction(FTy, "__cxa_allocate_exception");
 }
 
-static llvm::FunctionCallee getThrowFn(CodeGenModule &CGM) {
+static llvm::FunctionCallee getThrowFn(CodeGenModule &CGM, bool asmjs) {
   // void __cxa_throw(void *thrown_exception, std::type_info *tinfo,
   //                  void (*dest) (void *));
 
@@ -1359,7 +1359,7 @@ static llvm::FunctionCallee getThrowFn(CodeGenModule &CGM) {
   llvm::FunctionType *FTy =
     llvm::FunctionType::get(CGM.VoidTy, Args, /*isVarArg=*/false);
 
-  return CGM.CreateRuntimeFunction(FTy, "__cxa_throw");
+  return CGM.CreateRuntimeFunction(FTy, asmjs ? "__cxa_throw_wasm" : "__cxa_throw");
 }
 
 void ItaniumCXXABI::emitThrow(CodeGenFunction &CGF, const CXXThrowExpr *E) {
@@ -1400,7 +1400,8 @@ void ItaniumCXXABI::emitThrow(CodeGenFunction &CGF, const CXXThrowExpr *E) {
 
   llvm::Value* ExPtr = CGF.Builder.CreateBitCast(ExceptionPtr, CGM.Int8PtrTy);
   llvm::Value *args[] = { ExPtr, TypeInfo, Dtor };
-  CGF.EmitNoreturnRuntimeCallOrInvoke(getThrowFn(CGM), args);
+  bool asmjs = CGF.CurFn->getSection() == "asmjs";
+  CGF.EmitNoreturnRuntimeCallOrInvoke(getThrowFn(CGM, asmjs), args);
 }
 
 static llvm::FunctionCallee getItaniumDynamicCastFn(CodeGenFunction &CGF) {
