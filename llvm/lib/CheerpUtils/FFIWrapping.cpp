@@ -96,13 +96,15 @@ static bool needsWrapping(const Function* F)
 	for (const auto& arg: F->args())
 	{
 		Type* ty = arg.getType();
-		if (typeRequiresWrapper(ty))
+		bool hasForceRaw = F->getAttributes().hasParamAttr(arg.getArgNo(), "force-raw");
+		if (!hasForceRaw && typeRequiresWrapper(ty))
 			return true;
 	}
 	// Check return value. This is only relevant for functions injected by the compiler,
 	// since we forbid calls to genericjs functions that return basic pointer types
 	// from wasm
-	if (typeRequiresWrapper(F->getReturnType()))
+	bool hasForceRaw = F->getAttributes().hasRetAttr("force-raw");
+	if (!hasForceRaw && typeRequiresWrapper(F->getReturnType()))
 		return true;
 
 	return false;
