@@ -137,16 +137,29 @@ struct Exception
 	void* adjustedPtr;
 	const std::type_info* tinfo;
 	void (*dest)(void*);
+#ifdef __ASMJS__
+	int wasm_dest;
+#endif
 	int refCount;
 	int handlerCount;
 	Exception* global_next;
 	Exception* next;
 	Exception* primary; // null if this is the primary exception
 	Exception(void* obj, const std::type_info* tinfo, void(*dest)(void*), Exception* primary = nullptr) noexcept
-		: obj(obj), adjustedPtr(nullptr), tinfo(tinfo), dest(dest), refCount(1), 
+		: obj(obj), adjustedPtr(nullptr), tinfo(tinfo), dest(dest),
+#ifdef __ASMJS__
+          wasm_dest(0),
+#endif
+		  refCount(1), handlerCount(0), next(nullptr), primary(primary)
+	{
+	}
+#ifdef __ASMJS__
+	Exception(void* obj, const std::type_info* tinfo, int wasm_dest, Exception* primary = nullptr) noexcept
+		: obj(obj), adjustedPtr(nullptr), tinfo(tinfo), dest(nullptr), wasm_dest(wasm_dest), refCount(1), 
 		  handlerCount(0), next(nullptr), primary(primary)
 	{
 	}
+#endif
 	~Exception() noexcept
 	{
 		run_dest();
@@ -164,11 +177,29 @@ struct Exception
 	{
 		jsObj = o;
 	}
+#ifdef __ASMJS__
+	[[cheerp::wasm]]
+	static void run_wasm_dest(size_t dest, size_t obj) noexcept
+	{
+		void(*f)(void*) = reinterpret_cast<void(*)(void*)>(dest);
+		void* p = reinterpret_cast<void*>(obj);
+		f(p);
+	}
+#endif
 	void run_dest() noexcept
 	{
 		if(dest)
+		{
 			dest(obj);
-		dest = nullptr;
+			dest = nullptr;
+		}
+#ifdef __ASMJS__
+		else if(wasm_dest)
+		{
+			run_wasm_dest(wasm_dest, __builtin_cheerp_pointer_offset(obj));
+			wasm_dest = 0;
+		}
+#endif
 	}
 	int incRef() noexcept
 	{
@@ -252,6 +283,24 @@ __cxa_throw(void *thrown_object, std::type_info *tinfo, void (*dest)(void *)) {
 	Exception* ex = Exception::allocate(thrown_object, tinfo, dest);
 	do_throw(ex);
 }
+
+#ifdef __ASMJS__
+[[noreturn]]
+static void __cxa_throw_wasm_adapter(size_t thrown_object, std::type_info* tinfo, size_t dest)
+{
+	Exception* ex = Exception::allocate(__builtin_cheerp_make_regular<void>(static_cast<void*>(nullptr), thrown_object), tinfo, dest);
+	do_throw(ex);
+}
+
+[[noreturn]]
+[[cheerp::wasm]]
+__attribute((noinline))
+void
+__cxa_throw_wasm(void *thrown_object, std::type_info *tinfo, void (*dest)(void *)) {
+	__cxa_throw_wasm_adapter(reinterpret_cast<size_t>(thrown_object), tinfo, reinterpret_cast<size_t>(dest));
+}
+#endif
+
 
 __attribute((noinline))
 void*
