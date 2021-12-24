@@ -182,13 +182,63 @@ static Function* getInvokeWrapper(Module& M, Function* F, Constant* PersonalityF
 
 	return Wrapper;
 }
+
+using IndirectStubMap = DenseMap<FunctionType*, Function*>;
+static InvokeInst* replaceIndirectInvokeWithStub(Module& M, InvokeInst* IV, IndirectStubMap& stubs)
+{
+	Type* Int32Ty = IntegerType::get(M.getContext(), 32);
+	FunctionType* OldTy = IV->getFunctionType();
+	auto it = stubs.find(OldTy);
+	if (it == stubs.end())
+	{
+		SmallVector<Type*, 4> ParamTypes;
+		for (auto* paramTy: OldTy->params())
+		{
+			ParamTypes.push_back(paramTy);
+		}
+		// table index
+		ParamTypes.push_back(Int32Ty);
+		std::string fname = "__indirect_invoke_stub_";
+		fname += std::to_string(stubs.size()) + "__";
+		FunctionType* StubTy = FunctionType::get(OldTy->getReturnType(), ParamTypes, OldTy->isVarArg());
+		Function* Stub = cast<Function>(M.getOrInsertFunction(fname, StubTy).getCallee());
+		assert(Stub->empty());
+		Stub->setSection("asmjs");
+
+		BasicBlock* Entry = BasicBlock::Create(M.getContext(),"entry", Stub);
+		IRBuilder<> Builder(Entry);
+
+		SmallVector<Value*, 4> params;
+		for(auto& arg: make_range(Stub->arg_begin(), Stub->arg_begin()+Stub->arg_size()-1))
+			params.push_back(&arg);
+		Value* TableIdx = Stub->getArg(Stub->arg_size()-1);
+		Value* Called = Builder.CreateIntToPtr(TableIdx, OldTy->getPointerTo());
+		Value* Call = Builder.CreateCall(OldTy, Called, params);
+		Value* Ret = Call->getType()->isVoidTy() ? nullptr : Call;
+		Builder.CreateRet(Ret);
+
+		it = stubs.insert(std::make_pair(OldTy, Stub)).first;
+	}
+	Function* Stub = it->getSecond();
+	IRBuilder<> Builder(IV);
+	Value* TableIdx = Builder.CreatePtrToInt(IV->getCalledOperand(), Int32Ty);
+	SmallVector<Value*, 4> Args(IV->arg_begin(), IV->arg_end());
+	Args.push_back(TableIdx);
+	InvokeInst* StubIV = Builder.CreateInvoke(Stub->getFunctionType(), Stub, IV->getNormalDest(), IV->getUnwindDest(), Args);
+	IV->replaceAllUsesWith(StubIV);
+	IV->eraseFromParent();
+	return StubIV;
+}
+
 static Function* wrapInvoke(Module& M, InvokeInst& IV, DenseSet<Instruction*>& ToRemove, LandingPadTable& table)
 {
 	Constant* PersonalityFn = IV.getParent()->getParent()->getPersonalityFn();
 	LandingPadInst* OldLP = IV.getUnwindDest()->getLandingPadInst();
 	ToRemove.insert(OldLP);
 	Type* LPadTy = OldLP->getType();
-	Function* Wrapper = getInvokeWrapper(M, IV.getCalledFunction(), PersonalityFn, LPadTy, table);
+	Function* F = IV.getCalledFunction();
+	assert(F);
+	Function* Wrapper = getInvokeWrapper(M, F, PersonalityFn, LPadTy, table);
 
 	IRBuilder<> Builder(&IV);
 	LandingPadTable::Entry e = table.getEntry(OldLP);
@@ -233,6 +283,7 @@ bool InvokeWrapping::runOnModule(Module& M)
 
 	table.populate(M);
 
+	IndirectStubMap stubs;
 	DenseSet<Instruction*> OldLPs;
 	for (Function& F: make_early_inc_range(M.functions()))
 	{
@@ -243,10 +294,9 @@ bool InvokeWrapping::runOnModule(Module& M)
 			if (auto* IV = dyn_cast<InvokeInst>(&I))
 			{
 				Changed = true;
-				bool indirect = IV->isIndirectCall();
-				// TODO handle indirect calls
-				assert(!indirect);
-				bool asmjs = indirect || IV->getCalledFunction()->getSection() == "asmjs";
+				if (IV->isIndirectCall())
+					IV = replaceIndirectInvokeWithStub(M, IV, stubs);
+				bool asmjs = IV->getCalledFunction()->getSection() == "asmjs";
 				Function* W = wrapInvoke(M, *IV, OldLPs, table);
 				if (asmjs)
 				{
