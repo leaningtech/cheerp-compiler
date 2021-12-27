@@ -55,11 +55,13 @@ private:
 			If,
 			Case,
 			Direct,
+			Try,
 		};
 		Kind Kind;
 		const DomTreeNode* Dom;
 		TokenList::iterator EndPt;
 		bool Nested;
+		BasicBlock* UnwindDest;
 	};
 
 	bool enqueueSucc(const BasicBlock* CurBB, const BasicBlock* Succ);
@@ -341,7 +343,7 @@ void TokenListBuilder::processBlockTerminator(Token* BBT, const DomTreeNode* Cur
 			InsertPt = Tokens.insertAfter(InsertPt, Prologue);
 			const DomTreeNode* Dom = DT.getNode(BrInst->getSuccessor(0));
 			bool Nested = CurNode->getBlock() == getUniqueForwardPredecessor(Dom->getBlock(), LI);
-			Scope DirectScope { Scope::Direct, Dom, Tokens.end(), Nested};
+			Scope DirectScope { Scope::Direct, Dom, Tokens.end(), Nested, nullptr};
 			Scopes.push_back(DirectScope);
 		}
 		else
@@ -364,8 +366,8 @@ void TokenListBuilder::processBlockTerminator(Token* BBT, const DomTreeNode* Cur
 			bool IfNested = CurNode->getBlock() == getUniqueForwardPredecessor(IfDom->getBlock(), LI);
 			bool ElseNested = CurNode->getBlock() == getUniqueForwardPredecessor(ElseDom->getBlock(), LI);
 			InsertPt = IfPt;
-			Scope IfScope { Scope::If, IfDom, ElsePt, IfNested };
-			Scope ElseScope { Scope::If, ElseDom, EndPt, ElseNested };
+			Scope IfScope { Scope::If, IfDom, ElsePt, IfNested, nullptr };
+			Scope ElseScope { Scope::If, ElseDom, EndPt, ElseNested, nullptr };
 			Scopes.emplace_back(ElseScope);
 			Scopes.emplace_back(IfScope);
 		}
@@ -411,7 +413,7 @@ void TokenListBuilder::processBlockTerminator(Token* BBT, const DomTreeNode* Cur
 			{
 				SwitchScopes.back().EndPt = InsertPt;
 			}
-			Scope S { Scope::Case, Dom, Tokens.end(), Nested};
+			Scope S { Scope::Case, Dom, Tokens.end(), Nested, nullptr};
 			SwitchScopes.push_back(S);
 			i++;
 		});
@@ -448,7 +450,7 @@ void TokenListBuilder::processBlockTerminator(Token* BBT, const DomTreeNode* Cur
 			}
 			const DomTreeNode* Dom = DT.getNode(const_cast<BasicBlock*>(Succ));
 			bool Nested = CurNode->getBlock() == getUniqueForwardPredecessor(Succ, LI);
-			Scope S { Scope::Case, Dom, Tokens.end(), Nested};
+			Scope S { Scope::Case, Dom, Tokens.end(), Nested, nullptr };
 			SwitchScopes.push_back(S);
 		});
 		Token* End = Token::createSwitchEnd(Switch, Prev);
@@ -471,6 +473,21 @@ void TokenListBuilder::processBlockTerminator(Token* BBT, const DomTreeNode* Cur
 	}
 	else if (auto* Inv = dyn_cast<InvokeInst>(Term))
 	{
+		for (auto it = Scopes.rbegin(); it != Scopes.rend(); it++)
+		{
+			if (it->Kind != Scope::Try)
+				continue;
+			if (it->UnwindDest == Inv->getUnwindDest() && Inv->getUnwindDest()->phis().empty())
+			{
+				// TODO: consider merging catch blocks in an opt pass, instead of avoid creating
+				// unnecessary ones here.
+				const DomTreeNode* Dom = DT.getNode(Inv->getNormalDest());
+				bool Nested = CurNode->getBlock() == getUniqueForwardPredecessor(Dom->getBlock(), LI);
+				Scope DirectScope { Scope::Direct, Dom, Tokens.end(), Nested, nullptr };
+				Scopes.push_back(DirectScope);
+				return;
+			}
+		}
 		Token* Try = Token::createTry(BBT->getBB());
 		auto TryPt = Tokens.insert(BBT->getIter(), Try);
 		Token* NormalPrologue = Token::createPrologue(BBT->getBB(), 0);
@@ -489,8 +506,8 @@ void TokenListBuilder::processBlockTerminator(Token* BBT, const DomTreeNode* Cur
 		const DomTreeNode* CatchDom = DT.getNode(Inv->getUnwindDest());
 		bool CatchNested = CurNode->getBlock() == getUniqueForwardPredecessor(CatchDom->getBlock(), LI);
 		InsertPt = TryPt;
-		Scope CatchScope { Scope::If, CatchDom, EndPt, CatchNested };
-		Scope TryScope { Scope::If, TryDom, CatchPt, TryNested };
+		Scope CatchScope { Scope::If, CatchDom, EndPt, CatchNested, nullptr };
+		Scope TryScope { Scope::Try, TryDom, CatchPt, TryNested, Inv->getUnwindDest() };
 		Scopes.emplace_back(CatchScope);
 		Scopes.emplace_back(TryScope);
 	}
@@ -513,6 +530,7 @@ void TokenListBuilder::popScopes(const DomTreeNode* CurNode)
 			case Scope::Case:
 			case Scope::If:
 			case Scope::Direct:
+			case Scope::Try:
 			{
 				if (CurScope.Nested && DT.dominates(CurScope.Dom, CurNode))
 					return;
@@ -559,7 +577,7 @@ void TokenListBuilder::processLoopScopes(const BasicBlock* CurBB)
 		auto EndPt = Tokens.insertAfter(LoopPt, End);
 		InsertPt = LoopPt;
 
-		Scope LoopScope { Scope::Loop, DT.getNode(const_cast<BasicBlock*>(CurBB)), EndPt, true };
+		Scope LoopScope { Scope::Loop, DT.getNode(const_cast<BasicBlock*>(CurBB)), EndPt, true, nullptr };
 		Scopes.push_back(LoopScope);
 
 		LoopCounts.insert(std::make_pair(CurL, CurL->getNumBlocks()));
@@ -830,6 +848,7 @@ static bool isNaturalFlow(TokenList::iterator From, TokenList::iterator To, cons
 		switch (it->getKind())
 		{
 			case Token::TK_Else:
+			case Token::TK_Catch:
 				it = it->getMatch()->getIter();
 				if (it == To)
 					return true;
@@ -837,6 +856,7 @@ static bool isNaturalFlow(TokenList::iterator From, TokenList::iterator To, cons
 			case Token::TK_End:
 			case Token::TK_Loop:
 			case Token::TK_Block:
+			case Token::TK_Try:
 				break;
 			case Token::TK_Branch:
 			{
