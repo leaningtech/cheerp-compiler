@@ -23,8 +23,8 @@ using namespace llvm;
 
 static CallInst* replaceInvokeWithWrapper(InvokeInst* IV, Function* Wrapper, ArrayRef<Value*> extraArgs)
 {
-	SmallVector<Value *, 16> CallArgs(IV->arg_begin(), IV->arg_end());
-	CallArgs.append(extraArgs.begin(), extraArgs.end());
+	SmallVector<Value *, 16> CallArgs(extraArgs.begin(), extraArgs.end());
+	CallArgs.append(IV->arg_begin(), IV->arg_end());
 	SmallVector<OperandBundleDef, 1> OpBundles;
 	IV->getOperandBundlesAsDefs(OpBundles);
 	// Insert a normal call instruction...
@@ -138,12 +138,14 @@ static Function* getInvokeWrapper(Module& M, Function* F, Constant* PersonalityF
 	Type* Int32Ty = IntegerType::get(M.getContext(), 32);
 	FunctionType* OldTy = F->getFunctionType();
 	SmallVector<Type*, 4> ParamTypes;
+	// Start
+	ParamTypes.push_back(Int32Ty);
+	// N
+	ParamTypes.push_back(Int32Ty);
 	for (auto* paramTy: OldTy->params())
 	{
 		ParamTypes.push_back(paramTy);
 	}
-	ParamTypes.push_back(Int32Ty);
-	ParamTypes.push_back(Int32Ty);
 	FunctionType* Ty = FunctionType::get(OldTy->getReturnType(), ParamTypes, OldTy->isVarArg());
 	std::string fname = "__invoke_wrapper__";
 	fname += F->getName();
@@ -159,7 +161,7 @@ static Function* getInvokeWrapper(Module& M, Function* F, Constant* PersonalityF
 	IRBuilder<> Builder(Entry);
 
 	SmallVector<Value*, 4> params;
-	for(auto& arg: make_range(Wrapper->arg_begin(), Wrapper->arg_begin()+(Wrapper->arg_size()-2)))
+	for(auto& arg: make_range(Wrapper->arg_begin()+2, Wrapper->arg_end()))
 		params.push_back(&arg);
 	InvokeInst* ForwardInvoke = Builder.CreateInvoke(F, Cont, Catch, params);
 
@@ -171,8 +173,8 @@ static Function* getInvokeWrapper(Module& M, Function* F, Constant* PersonalityF
 	Builder.CreateRet(Ret);
 
 	Builder.SetInsertPoint(Catch);
-	Value* Start = Wrapper->arg_end()-2;
-	Value* N = Wrapper->arg_end()-1;
+	Value* Start = Wrapper->getArg(0);
+	Value* N = Wrapper->getArg(1);
 	LandingPadInst* LP = Builder.CreateLandingPad(LPadTy, 0);
 	LP->setCleanup(true);
 	table.addEntry(LP, LandingPadTable::Entry { Start, N });
@@ -192,12 +194,12 @@ static InvokeInst* replaceIndirectInvokeWithStub(Module& M, InvokeInst* IV, Indi
 	if (it == stubs.end())
 	{
 		SmallVector<Type*, 4> ParamTypes;
+		// TableIdx
+		ParamTypes.push_back(Int32Ty);
 		for (auto* paramTy: OldTy->params())
 		{
 			ParamTypes.push_back(paramTy);
 		}
-		// table index
-		ParamTypes.push_back(Int32Ty);
 		std::string fname = "__indirect_invoke_stub_";
 		fname += std::to_string(stubs.size()) + "__";
 		FunctionType* StubTy = FunctionType::get(OldTy->getReturnType(), ParamTypes, OldTy->isVarArg());
@@ -209,9 +211,9 @@ static InvokeInst* replaceIndirectInvokeWithStub(Module& M, InvokeInst* IV, Indi
 		IRBuilder<> Builder(Entry);
 
 		SmallVector<Value*, 4> params;
-		for(auto& arg: make_range(Stub->arg_begin(), Stub->arg_begin()+Stub->arg_size()-1))
+		for(auto& arg: make_range(Stub->arg_begin()+1, Stub->arg_end()))
 			params.push_back(&arg);
-		Value* TableIdx = Stub->getArg(Stub->arg_size()-1);
+		Value* TableIdx = Stub->getArg(0);
 		Value* Called = Builder.CreateIntToPtr(TableIdx, OldTy->getPointerTo());
 		Value* Call = Builder.CreateCall(OldTy, Called, params);
 		Value* Ret = Call->getType()->isVoidTy() ? nullptr : Call;
@@ -222,8 +224,9 @@ static InvokeInst* replaceIndirectInvokeWithStub(Module& M, InvokeInst* IV, Indi
 	Function* Stub = it->getSecond();
 	IRBuilder<> Builder(IV);
 	Value* TableIdx = Builder.CreatePtrToInt(IV->getCalledOperand(), Int32Ty);
-	SmallVector<Value*, 4> Args(IV->arg_begin(), IV->arg_end());
+	SmallVector<Value*, 4> Args;
 	Args.push_back(TableIdx);
+	Args.append(IV->arg_begin(), IV->arg_end());
 	InvokeInst* StubIV = Builder.CreateInvoke(Stub->getFunctionType(), Stub, IV->getNormalDest(), IV->getUnwindDest(), Args);
 	IV->replaceAllUsesWith(StubIV);
 	IV->eraseFromParent();
