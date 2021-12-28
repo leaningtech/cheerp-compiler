@@ -2769,12 +2769,13 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 		Type* tp = (*cur)->getType();
 
 		bool isImport = F && asmjs && globalDeps.asmJSImports().count(F);
+		bool asmjsCalleeArg = asmjsCallee || (F && arg_it != F->arg_end() && F->getAttributes().hasParamAttr(arg_it->getArgNo(), "force-raw"));
 		if(isImport && tp->isFloatTy())
 		{
 			stream << "+";
 			compileOperand(*cur,LOWEST);
 		}
-		else if(tp->isPointerTy() && !TypeSupport::isRawPointer(tp, asmjsCallee))
+		else if(tp->isPointerTy() && !TypeSupport::isRawPointer(tp, asmjsCalleeArg))
 		{
 			POINTER_KIND argKind = UNKNOWN;
 			// Calling convention:
