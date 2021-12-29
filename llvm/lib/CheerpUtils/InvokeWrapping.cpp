@@ -84,11 +84,19 @@ int LandingPadTable::LocalTypeIdMap::getTypeIdFor(Value* V) const
 void LandingPadTable::populate(Module& M)
 {
 	Type* Int32Ty = IntegerType::get(M.getContext(), 32);
-	StructType* elemTy = StructType::getTypeByName(M.getContext(), "struct._ZN10__cxxabiv115__cheerp_clauseE");
-	assert(elemTy && "missing __cheerp_clause type");
-	table = M.getGlobalVariable("__cxa_cheerp_clause_table");
-	assert(table && "missing __cxa_cheerp_clause_table global");
-	assert(!table->hasInitializer() && "__cxa_cheerp_clause_table alread initialized");
+	StructType* elemTy = nullptr;
+	table = nullptr;
+	// Initialize these variables lazily only if we encounter landing pads
+	auto initData = [this, &elemTy, &M]()
+	{
+		if (elemTy)
+			return;
+		elemTy = StructType::getTypeByName(M.getContext(), "struct._ZN10__cxxabiv115__cheerp_clauseE");
+		assert(elemTy && "missing __cheerp_clause type");
+		table = M.getGlobalVariable("__cxa_cheerp_clause_table");
+		assert(table && "missing __cxa_cheerp_clause_table global");
+		assert(!table->hasInitializer() && "__cxa_cheerp_clause_table alread initialized");
+	};
 
 	std::vector<Constant*> v;
 	for (Function& F: M.functions())
@@ -98,6 +106,7 @@ void LandingPadTable::populate(Module& M)
 		{
 			if (!isa<LandingPadInst>(I))
 				continue;
+			initData();
 			auto& LP = cast<LandingPadInst>(I);
 			Constant* start = ConstantInt::get(Int32Ty, v.size());
 			Constant* n = ConstantInt::get(Int32Ty, LP.getNumClauses());
@@ -119,6 +128,9 @@ void LandingPadTable::populate(Module& M)
 			}
 		}
 	}
+	// If we found no landing pads, there is nothing to do
+	if(elemTy == nullptr)
+		return;
 	Constant* init = ConstantArray::get(ArrayType::get(elemTy, v.size()), v);
 	table->setValueType(init->getType());
 	table->mutateType(init->getType()->getPointerTo());
