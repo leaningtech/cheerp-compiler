@@ -407,11 +407,7 @@ int __cxa_uncaught_exceptions()
 	return uncaughtExceptions;
 }
 
-struct
-#ifdef __ASMJS__
-[[cheerp::wasm]]
-#endif
-__cheerp_clause
+struct __cheerp_clause
 {
 	std::type_info* val;
 	int sel;
@@ -436,9 +432,6 @@ can_catch_ret can_catch(const __shim_type_info* catcher, const __shim_type_info*
 	return ret;
 }
 
-#ifdef __ASMJS__
-[[cheerp::wasm]]
-#endif
 extern __cheerp_clause __cxa_cheerp_clause_table[];
 
 __attribute((noinline))

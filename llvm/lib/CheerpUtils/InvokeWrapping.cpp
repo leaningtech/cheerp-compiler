@@ -135,8 +135,6 @@ void LandingPadTable::populate(Module& M)
 	table->setValueType(init->getType());
 	table->mutateType(init->getType()->getPointerTo());
 	table->setInitializer(init);
-	if (elemTy->hasAsmJS())
-		table->setSection("asmjs");
 	// Move the table to the end of the globals. Since GDA already ran we can't deal
 	// with the fact that the RTTI globals referenced here may be not yet defined.
 	// Also, it is a waste do do the fixups when we can just render this last.
