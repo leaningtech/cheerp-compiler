@@ -1624,6 +1624,8 @@ POINTER_KIND PointerAnalyzer::getPointerKindForMemberPointer(const TypeAndIndex&
 {
 	if(TypeSupport::hasByteLayout(cast<StructType>(baseAndIndex.type)->getElementType(baseAndIndex.index)->getPointerElementType()))
 		return BYTE_LAYOUT;
+	if(TypeSupport::isRawPointer(cast<StructType>(baseAndIndex.type)->getElementType(baseAndIndex.index), false))
+		return RAW;
 
 	IndirectPointerKindConstraint c(BASE_AND_INDEX_CONSTRAINT, baseAndIndex);
 	auto it=PACache.pointerKindData.constraintsMap.find(c);
