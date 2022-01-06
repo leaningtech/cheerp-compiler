@@ -887,14 +887,22 @@ llvm::BasicBlock *CodeGenFunction::EmitLandingPad() {
     llvm::Value *LPadSel = Builder.CreateExtractValue(LPadInst, 1);
     Builder.CreateStore(LPadSel, getEHSelectorSlot());
   } else {
-    LPadInst = Builder.CreateLandingPad(GetLandingPadTy()->getPointerTo(), 0);
+    llvm::Type* LPadTy = GetLandingPadTy();
+    LPadInst = Builder.CreateLandingPad(LPadTy->getPointerTo(), 0);
     Address EHObj = getEHObjectSlot();
+
+    llvm::Type* HackTy = LPadTy->getPointerTo();
+    llvm::Type* HackPtrTy = HackTy->getPointerTo();
 
     llvm::Value *LPadExn = Builder.CreateStructGEP(LPadInst, 0);
     LPadExn = Builder.CreateLoad(Address(LPadExn, getPointerAlign()));
+    llvm::Value* LPadExnHack = Builder.CreateBitCast(LPadExn, HackTy);
     Address Exn = Builder.CreateStructGEP(EHObj, 0, "eh.exn");
-    Builder.CreateStore(LPadExn, Exn);
+    Exn = Builder.CreateBitCast(Exn, HackPtrTy);
+    //Address EHSlot = Builder.CreateBitCast(getExceptionSlot(), HackPtrTy);
+    Builder.CreateStore(LPadExnHack, Exn);
     Builder.CreateStore(LPadExn, getExceptionSlot());
+
     llvm::Value *LPadSel = Builder.CreateStructGEP(LPadInst, 1);
     LPadSel = Builder.CreateLoad(Address(LPadSel, getIntAlign()));
     Address Sel = Builder.CreateStructGEP(EHObj, 1, "eh.sel");
