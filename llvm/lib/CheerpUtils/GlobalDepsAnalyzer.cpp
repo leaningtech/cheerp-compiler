@@ -1266,7 +1266,7 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 						visitStruct(ST);
 				}
 			}
-			else if (isa<ResumeInst>(&I) && isAsmJS)
+			else if (isa<ResumeInst>(&I))
 			{
 				Function* cxa_resume = module->getFunction("__cxa_resume");
 				if (cxa_resume)

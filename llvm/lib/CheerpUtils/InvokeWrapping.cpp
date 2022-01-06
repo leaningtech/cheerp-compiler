@@ -302,18 +302,19 @@ bool InvokeWrapping::runOnModule(Module& M)
 	DenseSet<Instruction*> OldLPs;
 	for (Function& F: make_early_inc_range(M.functions()))
 	{
-		if (F.getSection() != "asmjs")
-			continue;
+		bool asmjs = F.getSection() == "asmjs";
 		for (auto& I: make_early_inc_range(instructions(F)))
 		{
 			if (auto* IV = dyn_cast<InvokeInst>(&I))
 			{
+				if (!asmjs)
+					continue;
 				Changed = true;
 				if (IV->isIndirectCall())
 					IV = replaceIndirectInvokeWithStub(M, IV, stubs);
-				bool asmjs = IV->getCalledFunction()->getSection() == "asmjs";
+				bool asmjsCallee = IV->getCalledFunction()->getSection() == "asmjs";
 				Function* W = wrapInvoke(M, *IV, OldLPs, table);
-				if (asmjs)
+				if (asmjsCallee)
 				{
 					GDA.insertAsmJSExport(IV->getCalledFunction());
 				}
@@ -321,7 +322,8 @@ bool InvokeWrapping::runOnModule(Module& M)
 			} else if(auto* RS = dyn_cast<ResumeInst>(&I)) {
 				Changed = true;
 				Function* W = wrapResume(M, RS);
-				GDA.insertAsmJSImport(W);
+				if (asmjs)
+					GDA.insertAsmJSImport(W);
 			}
 		}
 	}
