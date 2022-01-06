@@ -1673,7 +1673,7 @@ void CheerpWriter::compileRawPointer(const Value* p, PARENT_PRIORITY parentPrio,
 		return;
 	}
 
-	bool asmjs = currentFun->getSection() == StringRef("asmjs");
+	bool asmjs = currentFun && currentFun->getSection() == StringRef("asmjs");
 	bool use_imul = asmjs || useMathImul;
 	bool needsCoercion = needsIntCoercion(parentPrio);
 	PARENT_PRIORITY basePrio = ADD_SUB;
@@ -2168,7 +2168,7 @@ bool CheerpWriter::doesConstantDependOnUndefined(const Constant* C) const
 {
 	if(isa<ConstantExpr>(C) && C->getOperand(0)->getType()->isPointerTy())
 		return doesConstantDependOnUndefined(cast<Constant>(C->getOperand(0)));
-	else if(isa<GlobalVariable>(C) && !compiledGVars.count(cast<GlobalVariable>(C)))
+	else if(isa<GlobalVariable>(C) && cast<GlobalVariable>(C)->getSection() != "asmjs" && !compiledGVars.count(cast<GlobalVariable>(C)))
 		return true;
 	else
 		return false;

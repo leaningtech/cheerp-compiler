@@ -88,8 +88,11 @@ void CheerpWriter::compileSimpleType(Type* t, llvm::Value* init)
 			}
 			else
 			{
-				if(PA.getPointerKindForStoredType(t)==COMPLETE_OBJECT)
+				POINTER_KIND k = PA.getPointerKindForStoredType(t);
+				if(k==COMPLETE_OBJECT)
 					stream << "null";
+				else if(k==RAW)
+					stream << '0';
 				else
 					stream << "nullObj";
 			}
@@ -279,6 +282,8 @@ uint32_t CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style, Str
 					compilePointerAs(init, memberPointerKind);
 				else if (memberPointerKind == COMPLETE_OBJECT)
 					stream << "null";
+				else if (memberPointerKind == RAW)
+					stream << '0';
 				else
 					stream << "nullObj";
 			}
