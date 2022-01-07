@@ -2951,7 +2951,9 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileTerminatorInstru
 		}
 		case Instruction::Br:
 		case Instruction::Switch:
+			return COMPILE_EMPTY;
 		case Instruction::Unreachable:
+			stream << ";" << NewLine;
 			return COMPILE_EMPTY;
 		default:
 			stream << "alert('Unsupported code');" << NewLine;
