@@ -2011,7 +2011,7 @@ public:
       return Ret;
     llvm::Type* Tys[] { CGM.Int8PtrTy, CGM.Int32Ty};
 
-    return llvm::StructType::create(Tys, "struct._ZN10__cxxabiv119__cheerp_landingpadE", true, nullptr, false, true /*asmjs*/);
+    return llvm::StructType::create(Tys, "struct._ZN10__cxxabiv119__cheerp_landingpadE", false, nullptr, false, true /*asmjs*/);
   }
 
   /// Returns the contents of the function's exception object and selector
