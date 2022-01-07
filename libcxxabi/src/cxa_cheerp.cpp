@@ -29,22 +29,16 @@ namespace [[cheerp::genericjs]] cheerp {
 namespace [[cheerp::genericjs]] __cxxabiv1 {
 
 struct
-#ifdef __ASMJS__
 [[cheerp::wasm]]
-#endif
  __cheerp_landingpad
 {
 	void* val;
 	int sel;
-#ifdef __ASMJS__
 	[[cheerp::wasm]]
-#endif
 	__cheerp_landingpad() noexcept: val(nullptr), sel(0)
 	{
 	}
-#ifdef __ASMJS__
 	[[cheerp::wasm]]
-#endif
 	__cheerp_landingpad& operator=(const __cheerp_landingpad& o) noexcept
 	{
 		val = o.val;
@@ -52,7 +46,6 @@ struct
 		return *this;
 	}
 
-#ifdef __ASMJS__
 	[[cheerp::genericjs]]
 	void set_val(void* v) noexcept
 	{
@@ -63,12 +56,6 @@ struct
 	{
 		val = reinterpret_cast<void*>(v);
 	}
-#else
-	void set_val(void* v) noexcept
-	{
-		val = v;
-	}
-#endif
 };
 
 template<typename T>
@@ -440,9 +427,7 @@ __gxx_personality_v0
                     (client::Object* obj, int start, int n) noexcept
 {
 	static bool reent = false;
-#ifdef __ASMJS__
 	[[cheerp::wasm]]
-#endif
 	static __cheerp_landingpad lp;
 
 	if(reent)
