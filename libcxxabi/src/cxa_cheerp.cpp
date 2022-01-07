@@ -67,7 +67,7 @@ class IdAllocator
 
 	int find_free_id()
 	{
-		int id = 0;
+		int id = 1;
 		for (; id < len; id++)
 		{
 			if (!slots[id])
