@@ -2011,8 +2011,7 @@ public:
       return Ret;
     llvm::Type* Tys[] { CGM.Int8PtrTy, CGM.Int32Ty};
 
-    bool asmjs = CGM.getContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly;
-    return llvm::StructType::create(Tys, "struct._ZN10__cxxabiv119__cheerp_landingpadE", true, nullptr, false, asmjs);
+    return llvm::StructType::create(Tys, "struct._ZN10__cxxabiv119__cheerp_landingpadE", true, nullptr, false, true /*asmjs*/);
   }
 
   /// Returns the contents of the function's exception object and selector
