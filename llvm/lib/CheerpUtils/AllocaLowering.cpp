@@ -135,8 +135,8 @@ bool AllocaLowering::runOnFunction(Function& F)
 					vastarts.push_back(ci);
 					continue;
 				}
-				// Skip if caller if both caller and callee not asmjs
-				if (!asmjs && calledFunc && calledFunc->getSection() != StringRef("asmjs"))
+				// Skip if both caller and callee not asmjs
+				if (!asmjs && (!calledFunc || calledFunc->getSection() != StringRef("asmjs")))
 					continue;
 				const PointerType* pTy = cast<PointerType>(ci->getCalledOperand()->getType());
 				const FunctionType* fTy = cast<FunctionType>(pTy->getElementType());
