@@ -40,7 +40,7 @@ public:
 	LandingPadTable(): table(nullptr)
 	{
 	};
-	void populate(llvm::Module& M);
+	void populate(llvm::Module& M, cheerp::GlobalDepsAnalyzer& GDA);
 	Entry getEntry(const llvm::LandingPadInst* lpad) const
 	{
 		auto it = entries.find(lpad);
