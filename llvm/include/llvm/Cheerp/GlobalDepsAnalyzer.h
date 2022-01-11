@@ -170,6 +170,10 @@ public:
 	// This is used in FFIWrapping to remove a wrapped function as import.
 	void removeAsmJSImport(const llvm::Function* F);
 
+	// This is used in InvokeWrapping to insert the array of __cheerp_clause
+	// if it is longer than 8 elements.
+	void insertDynAllocArray(llvm::Type* t);
+
 	// Remove function from GDA's function list.
 	void eraseFunction(llvm::Function* F);
 
