@@ -1976,11 +1976,11 @@ void CheerpWriter::compilePointerOffset(const Value* p, PARENT_PRIORITY parentPr
 	{
 		assert(isa<PointerType>(p->getType()));
 		Type* ty = llvm::cast<PointerType>(p->getType())->getPointerElementType();
-		if (parentPrio < SHIFT)
+		if (parentPrio > SHIFT)
 			stream << '(';
 		compileRawPointer(p, SHIFT);
 		stream << ">>" << getHeapShiftForType(ty);
-		if (parentPrio < SHIFT)
+		if (parentPrio > SHIFT)
 			stream << ')';
 		return;
 	}
