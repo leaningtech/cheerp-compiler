@@ -123,7 +123,11 @@ public:
 	/**
 	 * Determine if we need to compile the asm.js module
 	 */
-	bool needAsmJS() const { return hasAsmJS; }
+	bool needAsmJSCode() const { return hasAsmJSCode; }
+	/**
+	 * Determine if we need to compile the asm.js module
+	 */
+	bool needAsmJSMemory() const { return hasAsmJSMemory; }
 	
 	/**
 	 * Determine if linear memory malloc is ever used
@@ -264,7 +268,8 @@ private:
 	bool hasCreateClosureUsers;
 	bool hasVAArgs;
 	bool hasPointerArrays;
-	bool hasAsmJS;
+	bool hasAsmJSCode;
+	bool hasAsmJSMemory;
 	bool hasAsmJSMalloc;
 	bool mayNeedAsmJSFree;
 

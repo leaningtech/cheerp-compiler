@@ -46,7 +46,7 @@ StringRef GlobalDepsAnalyzer::getPassName() const
 GlobalDepsAnalyzer::GlobalDepsAnalyzer(MATH_MODE mathMode_, bool llcPass, bool wasmStart)
 	: ModulePass(ID), hasBuiltin{{false}}, mathMode(mathMode_), DL(NULL),
 	  entryPoint(NULL), hasCreateClosureUsers(false), hasVAArgs(false),
-	  hasPointerArrays(false), hasAsmJS(false), hasAsmJSMalloc(false),
+	  hasPointerArrays(false), hasAsmJSCode(false), hasAsmJSMemory(false), hasAsmJSMalloc(false),
 	  mayNeedAsmJSFree(false), llcPass(llcPass), wasmStart(wasmStart), delayPrintf(true),
 	  hasUndefinedSymbolErrors(false), forceTypedArrays(false)
 {
@@ -659,7 +659,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 			}
 			else
 			{
-				hasAsmJS = true;
+				hasAsmJSCode = true;
 				asmJSExportedFuncions.insert(ffree);
 				externals.push_back(ffree);
 				// Visit free and friends
@@ -686,14 +686,14 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	}
 
 	// Create a dummy function that prevents nullptr conflicts.
-	if(hasAsmJS)
+	if(hasAsmJSCode)
 		createNullptrFunction(module);
 
 	// Set the sret slot in the asmjs section if there is asmjs code
 	GlobalVariable* Sret = module.getGlobalVariable("cheerpSretSlot");
 	if (Sret)
 	{
-		if (hasAsmJS)
+		if (hasAsmJSCode)
 			Sret->setSection(StringRef("asmjs"));
 		if (llcPass && !Sret->hasInitializer())
 			Sret->setInitializer(ConstantInt::get(Type::getInt32Ty(module.getContext()), 0));
@@ -1141,7 +1141,7 @@ void GlobalDepsAnalyzer::visitGlobal( const GlobalValue * C, VisitedSet & visite
 
 				if (C->getSection() == StringRef("asmjs"))
 				{
-					hasAsmJS = true;
+					hasAsmJSCode = true;
 				}
 				enqueueFunction(F);
 			}
@@ -1150,7 +1150,7 @@ void GlobalDepsAnalyzer::visitGlobal( const GlobalValue * C, VisitedSet & visite
 		{
 			if (C->getSection() == StringRef("asmjs"))
 			{
-				hasAsmJS = true;
+				hasAsmJSMemory = true;
 			}
 			if (GV->hasInitializer() )
 			{
@@ -1246,6 +1246,8 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 				Type* allocaType = AI->getAllocatedType();
 				if(!isAsmJS)
 					visitType(allocaType, forceTypedArrays);
+				if (isAsmJS || (isa<StructType>(allocaType) && cast<StructType>(allocaType)->hasAsmJS()))
+					hasAsmJSMemory = true;
 			}
 			else if ( const CallBase* CB = dyn_cast<CallBase>(&I) )
 			{
@@ -1291,6 +1293,9 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 					const llvm::User* bc = cast<llvm::User>(ci.getCalledOperand());
 					calledFunc = dyn_cast<Function>(bc->getOperand(0));
 				}
+				// To call asmjs functions with variable arguments, we need the linear memory
+				if (ci.getFunctionType()->isVarArg() && (isAsmJS || (calledFunc && calledFunc->getSection() == "asmjs")))
+					hasAsmJSMemory = true;
 				// TODO: Handle import/export of indirect calls if possible
 				if (!calledFunc)
 					continue;

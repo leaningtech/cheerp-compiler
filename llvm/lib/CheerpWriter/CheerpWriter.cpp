@@ -5903,7 +5903,7 @@ void CheerpWriter::compileHelpers()
 	if(!wasmFile.empty() || asmJSMem)
 		compileFetchBuffer();
 
-	if (globalDeps.needAsmJS() && checkBounds)
+	if ((globalDeps.needAsmJSMemory() || globalDeps.needAsmJSCode() ) && checkBounds)
 	{
 		compileCheckBoundsAsmJSHelper();
 	}
@@ -6055,16 +6055,19 @@ void CheerpWriter::compileAsmJSTopLevel()
 			llvm_unreachable("We expect to have at least HEAP8");
 	}
 	stream << namegen.getBuiltinName(NameGenerator::Builtin::ASSIGN_HEAPS) << "(__heap);" << NewLine;
-	stream << "var stdlib = {"<<NewLine;
-	stream << "Math:Math,"<<NewLine;
-	stream << "Infinity:Infinity,"<<NewLine;
-	stream << "NaN:NaN,"<<NewLine;
-	for (int i = HEAP8; i<=LAST_ASMJS; i++)
+	if (globalDeps.needAsmJSCode())
 	{
-		//Here we forward declare all types, since they may be used even without explicitly mentioning the relative HEAPs
-		stream << typedArrayNames[i] << ':' << typedArrayNames[i] << ',' << NewLine;
+		stream << "var stdlib = {"<<NewLine;
+		stream << "Math:Math,"<<NewLine;
+		stream << "Infinity:Infinity,"<<NewLine;
+		stream << "NaN:NaN,"<<NewLine;
+		for (int i = HEAP8; i<=LAST_ASMJS; i++)
+		{
+			//Here we forward declare all types, since they may be used even without explicitly mentioning the relative HEAPs
+			stream << typedArrayNames[i] << ':' << typedArrayNames[i] << ',' << NewLine;
+		}
+		stream << "};" << NewLine;
 	}
-	stream << "};" << NewLine;
 	compileGlobalsInitAsmJS();
 }
 
@@ -6141,7 +6144,7 @@ void CheerpWriter::compileDummies()
 void CheerpWriter::compileWasmLoader()
 {
 	stream << "var ";
-	if (globalDeps.needAsmJS())
+	if (globalDeps.needAsmJSMemory())
 	{
 		for (int i = HEAP8; i<=LAST_WASM; i++)
 		{
@@ -6193,7 +6196,7 @@ void CheerpWriter::compileWasmLoader()
 	stream << ").then(" << shortestName << "=>{" << NewLine;
 	stream << "__asm=" << shortestName << ".instance.exports;" << NewLine;
 	stream << "__heap=__asm." << namegen.getBuiltinName(NameGenerator::MEMORY) << ".buffer;" << NewLine;
-	if (globalDeps.needAsmJS())
+	if (globalDeps.needAsmJSMemory())
 	{
 		stream << namegen.getBuiltinName(NameGenerator::Builtin::ASSIGN_HEAPS) << "(__heap);" << NewLine;
 	}
@@ -6471,8 +6474,9 @@ void CheerpWriter::compileFileEnd(const OptionsSet& options)
 void CheerpWriter::makeJS()
 {
 	const bool needWasmLoader = !wasmFile.empty();
-	const bool needAssignHeaps = globalDeps.needsBuiltin(BuiltinInstr::BUILTIN::GROW_MEM) ||
-				globalDeps.needAsmJS();
+	const bool needAssignHeaps = globalDeps.needsBuiltin(BuiltinInstr::BUILTIN::GROW_MEM)
+		|| globalDeps.needAsmJSMemory()
+		|| globalDeps.needAsmJSCode();
 
 	auto initializeOptions = [&]() -> OptionsSet
 	{
@@ -6499,25 +6503,33 @@ void CheerpWriter::makeJS()
 		compileWasmLoader();
 	else
 	{
-		if (globalDeps.needAsmJS())
+		if (globalDeps.needAsmJSCode())
 		{
 			compileAsmJSClosure();
+		}
+		if (globalDeps.needAsmJSCode() || globalDeps.needAsmJSMemory())
+		{
 			compileAsmJSTopLevel();
 		}
 
-		if (globalDeps.needAsmJS() && asmJSMem)
+		if (globalDeps.needAsmJSMemory() && asmJSMem)
 			compileAsmJSLoader();
 		else if (makeModule == MODULE_TYPE::COMMONJS || makeModule == MODULE_TYPE::ES6)
 			compileCommonJSModule();
 		else
 			areExtraParenthesisOpen = false;
 
-		if (globalDeps.needAsmJS())
+		if (globalDeps.needAsmJSCode())
 		{
 			stream << "var __asm=asmJS(stdlib, ";
 			compileAsmJSffiObject();
 			stream << ", __heap);" << NewLine;
 		}
+	}
+	if (globalDeps.needAsmJSMemory() && !globalDeps.needAsmJSCode())
+	{
+		stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::STACKPTR) << '=' <<
+			linearHelper.getStackStart() << "|0" << NewLine;
 	}
 
 	compileDefineExports();
