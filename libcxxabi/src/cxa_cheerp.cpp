@@ -34,14 +34,15 @@ struct
 {
 	void* val;
 	int sel;
-	[[cheerp::wasm]]
-	__cheerp_landingpad() noexcept: val(nullptr), sel(0)
+	[[cheerp::genericjs]]
+	__cheerp_landingpad() noexcept: sel(0)
 	{
+		set_val(nullptr);
 	}
-	[[cheerp::wasm]]
+	[[cheerp::genericjs]]
 	__cheerp_landingpad& operator=(const __cheerp_landingpad& o) noexcept
 	{
-		val = o.val;
+		set_val(o.val);
 		sel = o.sel;
 		return *this;
 	}
@@ -49,12 +50,9 @@ struct
 	[[cheerp::genericjs]]
 	void set_val(void* v) noexcept
 	{
-		set_val_inner(__builtin_cheerp_pointer_offset(v));
-	}
-	[[cheerp::wasm]]
-	void set_val_inner(size_t v) noexcept
-	{
-		val = reinterpret_cast<void*>(v);
+		int intval = __builtin_cheerp_pointer_offset(v);
+		__cheerp_landingpad** hack = reinterpret_cast<__cheerp_landingpad**>(this);
+		*hack = reinterpret_cast<__cheerp_landingpad*>(intval);
 	}
 };
 
