@@ -81,7 +81,7 @@ int LandingPadTable::LocalTypeIdMap::getTypeIdFor(Value* V) const
 	return it->second;
 }
 
-void LandingPadTable::populate(Module& M)
+void LandingPadTable::populate(Module& M, GlobalDepsAnalyzer& GDA)
 {
 	Type* Int32Ty = IntegerType::get(M.getContext(), 32);
 	StructType* elemTy = nullptr;
@@ -140,6 +140,11 @@ void LandingPadTable::populate(Module& M)
 	// Also, it is a waste do do the fixups when we can just render this last.
 	table->removeFromParent();
 	M.getGlobalList().push_back(table);
+
+	if (v.size() > 8)
+	{
+		GDA.insertDynAllocArray(elemTy);
+	}
 }
 
 
@@ -294,7 +299,7 @@ bool InvokeWrapping::runOnModule(Module& M)
 	auto& GDA = getAnalysis<cheerp::GlobalDepsAnalyzer>();
 	bool Changed = false;
 
-	table.populate(M);
+	table.populate(M, GDA);
 
 	IndirectStubMap stubs;
 	DenseSet<Instruction*> OldLPs;

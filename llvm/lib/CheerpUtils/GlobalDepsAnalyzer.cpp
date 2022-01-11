@@ -1655,6 +1655,10 @@ void GlobalDepsAnalyzer::removeAsmJSImport(const llvm::Function* F) {
 	asmJSImportedFuncions.erase(F);
 }
 
+void GlobalDepsAnalyzer::insertDynAllocArray(Type* t) {
+	arraysNeeded.insert(t);
+}
+
 void GlobalDepsAnalyzer::eraseFunction(llvm::Function* F) {
 	assert(F && F != entryPoint && "Cound not erase entry point!");
 
