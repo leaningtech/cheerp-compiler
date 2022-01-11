@@ -165,14 +165,14 @@ bool AllocaLowering::runOnFunction(Function& F)
 	nbytes = (nbytes + 7) & -8;
 
 	Function *getStack, *setStack;
-	if (asmjs)
+	cheerp::GlobalDepsAnalyzer& GDA = getAnalysis<cheerp::GlobalDepsAnalyzer>();
+	if (asmjs || !GDA.needAsmJSCode())
 	{
 		getStack = Intrinsic::getDeclaration(M, Intrinsic::stacksave);
 		setStack = Intrinsic::getDeclaration(M, Intrinsic::stackrestore);
 	}
 	else
 	{
-		cheerp::GlobalDepsAnalyzer& GDA = getAnalysis<cheerp::GlobalDepsAnalyzer>();
 		getStack = getOrCreateGetStackWrapper(M, GDA);
 		setStack = getOrCreateSetStackWrapper(M, GDA);
 	}
