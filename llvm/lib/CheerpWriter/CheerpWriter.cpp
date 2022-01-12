@@ -6529,7 +6529,7 @@ void CheerpWriter::makeJS()
 	if (globalDeps.needAsmJSMemory() && !globalDeps.needAsmJSCode())
 	{
 		stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::STACKPTR) << '=' <<
-			linearHelper.getStackStart() << "|0" << NewLine;
+			linearHelper.getStackStart() << "|0;" << NewLine;
 	}
 
 	compileDefineExports();
