@@ -6121,7 +6121,7 @@ void CheerpWriter::compileGenericJS()
 		compileHandleVAArg();
 
 	//Compile CheerpException if needed
-	if(true /* TODO globalDeps.needCheerpException()*/ )
+	if(globalDeps.needCheerpException())
 		compileCheerpException();
 
 	//Compile growLinearMemory if needed

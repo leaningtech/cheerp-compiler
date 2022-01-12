@@ -128,6 +128,10 @@ public:
 	 * Determine if we need to compile the asm.js module
 	 */
 	bool needAsmJSMemory() const { return hasAsmJSMemory; }
+	/**
+	 * Determine if we need to compile the definition of CheerpException
+	 */
+	bool needCheerpException() const { return hasCheerpException; }
 	
 	/**
 	 * Determine if linear memory malloc is ever used
@@ -275,6 +279,7 @@ private:
 	bool hasAsmJSCode;
 	bool hasAsmJSMemory;
 	bool hasAsmJSMalloc;
+	bool hasCheerpException;
 	bool mayNeedAsmJSFree;
 
 	bool llcPass;

@@ -47,8 +47,8 @@ GlobalDepsAnalyzer::GlobalDepsAnalyzer(MATH_MODE mathMode_, bool llcPass, bool w
 	: ModulePass(ID), hasBuiltin{{false}}, mathMode(mathMode_), DL(NULL),
 	  entryPoint(NULL), hasCreateClosureUsers(false), hasVAArgs(false),
 	  hasPointerArrays(false), hasAsmJSCode(false), hasAsmJSMemory(false), hasAsmJSMalloc(false),
-	  mayNeedAsmJSFree(false), llcPass(llcPass), wasmStart(wasmStart), delayPrintf(true),
-	  hasUndefinedSymbolErrors(false), forceTypedArrays(false)
+	  hasCheerpException(false), mayNeedAsmJSFree(false), llcPass(llcPass), wasmStart(wasmStart),
+	  delayPrintf(true), hasUndefinedSymbolErrors(false), forceTypedArrays(false)
 {
 }
 
@@ -1229,6 +1229,7 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 
 	if(F->hasPersonalityFn())
 	{
+		hasCheerpException = true;
 		SubExprVec Newsubexpr;
 		visitConstant(F->getPersonalityFn(), visited, Newsubexpr);
 	}
@@ -1474,6 +1475,8 @@ void GlobalDepsAnalyzer::visitStruct( StructType* ST )
 {
 	if(ST->hasByteLayout() || ST->hasAsmJS())
 		return;
+	if (ST->hasName() && ST->getName() == "class._ZN6client15CheerpExceptionE")
+		hasCheerpException = true;
 	classesNeeded.insert(ST);
 	for(uint32_t i=0;i<ST->getNumElements();i++)
 		visitType(ST->getElementType(i), /*forceTypedArray*/ false);
