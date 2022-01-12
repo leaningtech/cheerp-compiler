@@ -1093,6 +1093,12 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	if (wasmStart)
 		callGlobalConstructorsOnStart(module, *this);
 
+	// If the linear output is wasm, pretend that there is always some code.
+	// This simplify the writer for the logic that doesn't output a module if we only have
+	// asmjs data but not code
+	if (LinearOutput ==  Wasm)
+		hasAsmJSCode = true;
+
 	return true;
 }
 
