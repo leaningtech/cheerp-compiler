@@ -348,7 +348,7 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 	NameHelper nameHelper(GlobalPrefix, reservedNames);
 
 	// Generate HEAP names first to keep them short
-	if(gda.needAsmJSMemory())
+	if(gda.needAsmJSMemory() || gda.needAsmJSCode())
 	{
 		builtins[HEAP8] = nameHelper.makeGlobalName();
 		builtins[HEAP16] = nameHelper.makeGlobalName();
