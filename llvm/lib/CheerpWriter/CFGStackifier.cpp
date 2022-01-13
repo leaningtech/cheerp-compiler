@@ -481,6 +481,8 @@ void TokenListBuilder::processBlockTerminator(Token* BBT, const DomTreeNode* Cur
 			{
 				// TODO: consider merging catch blocks in an opt pass, instead of avoid creating
 				// unnecessary ones here.
+				Token* Prologue = Token::createPrologue(BBT->getBB(), 0);
+				InsertPt = Tokens.insertAfter(InsertPt, Prologue);
 				const DomTreeNode* Dom = DT.getNode(Inv->getNormalDest());
 				bool Nested = CurNode->getBlock() == getUniqueForwardPredecessor(Dom->getBlock(), LI);
 				Scope DirectScope { Scope::Direct, Dom, Tokens.end(), Nested, nullptr };
