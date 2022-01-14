@@ -31,7 +31,22 @@ static CallInst* replaceInvokeWithWrapper(InvokeInst* IV, Function* Wrapper, Arr
 	CallInst *NewCall = CallInst::Create(Wrapper->getFunctionType(), Wrapper, CallArgs, OpBundles, "", IV);
 	NewCall->takeName(IV);
 	NewCall->setCallingConv(IV->getCallingConv());
-	NewCall->setAttributes(IV->getAttributes());
+
+	SmallVector<AttributeSet, 4> NewArgAttrs(IV->arg_size() + 2);
+	AttributeList OldAttrs = IV->getAttributes();
+
+	// Clone any argument attributes
+	int i = 0;
+	for (const llvm::Use &OldArg : IV->args()) {
+		NewArgAttrs[i+2] =
+		OldAttrs.getParamAttrs(i);
+		i++;
+	}
+
+	NewCall->setAttributes(
+		AttributeList::get(Wrapper->getContext(), OldAttrs.getFnAttrs(), OldAttrs.getRetAttrs(), NewArgAttrs)
+		);
+
 	NewCall->setDebugLoc(IV->getDebugLoc());
 	IV->replaceAllUsesWith(NewCall);
 	return NewCall;
