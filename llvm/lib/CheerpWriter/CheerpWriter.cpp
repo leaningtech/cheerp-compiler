@@ -5907,6 +5907,12 @@ void CheerpWriter::compileHelpers()
 	{
 		compileCheckBoundsAsmJSHelper();
 	}
+
+	if (globalDeps.needAsmJSMemory() && !globalDeps.needAsmJSCode())
+	{
+		stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::STACKPTR) << '=' <<
+			linearHelper.getStackStart() << "|0;" << NewLine;
+	}
 }
 
 void CheerpWriter::compileImports()
@@ -6525,11 +6531,6 @@ void CheerpWriter::makeJS()
 			compileAsmJSffiObject();
 			stream << ", __heap);" << NewLine;
 		}
-	}
-	if (globalDeps.needAsmJSMemory() && !globalDeps.needAsmJSCode())
-	{
-		stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::STACKPTR) << '=' <<
-			linearHelper.getStackStart() << "|0;" << NewLine;
 	}
 
 	compileDefineExports();
