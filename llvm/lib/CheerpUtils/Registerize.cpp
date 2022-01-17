@@ -3474,7 +3474,7 @@ Registerize::InstructionSetOrderedByID Registerize::gatherDerivedMemoryAccesses(
 			}
 			default:
 				// Be conservative
-				escapes = true;
+				escapingInsts.insert(I);
 				break;
 		}
 	}
