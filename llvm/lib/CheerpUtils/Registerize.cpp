@@ -3444,6 +3444,7 @@ Registerize::InstructionSetOrderedByID Registerize::gatherDerivedMemoryAccesses(
 				// Loads are fine
 				break;
 			}
+			case Instruction::Invoke:
 			case Instruction::Call:
 			{
 				const CallBase* CI = cast<CallBase>(I);
