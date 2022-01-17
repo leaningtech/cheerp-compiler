@@ -266,10 +266,10 @@ void Registerize::assignInstructionsIds(InstIdMapTy& instIdMap, const Function& 
 			// Take our chance to store away all alloca, they are registerized using non-SSA logic
 			if (isa<AllocaInst>(I))
 				allocaSet.push_back(cast<AllocaInst>(&I));
-			uint32_t thisIndex = nextIndex++;
+			const uint32_t thisIndex = nextIndex++;
 			// SPLIT_REGULAR inst consumes 2 indexes
 			if(PA && I.getType()->isPointerTy() && PA->getPointerKind(&I) == SPLIT_REGULAR)
-				thisIndex = nextIndex++;
+				nextIndex++;
 			instIdMap[&I]=thisIndex;
 		}
 
