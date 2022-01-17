@@ -210,6 +210,11 @@ Registerize::LiveRangesTy Registerize::computeLiveRanges(Function& F, const Inst
 	// Depth first analysis of blocks, starting from the entry block
 	LiveRangesTy liveRanges(instIdMap);
 	dfsLiveRangeInBlock(blocksState, liveRanges, instIdMap, F.getEntryBlock(), PA, 1, 1);
+
+	//Check invariants
+	for(const auto& iter: liveRanges)
+		assert(iter.second.range.invariantsHold());
+
 	return liveRanges;
 }
 
