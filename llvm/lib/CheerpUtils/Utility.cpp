@@ -1235,6 +1235,7 @@ bool replaceCallOfBitCastWithBitCastOfCall(CallBase& callInst, bool mayFail, boo
 	}
 
 	//Add casts for each operand that needs them
+	AttributeList NewAttrs = callInst.getAttributes();
 	for (uint32_t i=0; i<FTy->getNumParams(); i++)
 	{
 		Type* originalTy = callInst.getArgOperand(i)->getType();
@@ -1242,6 +1243,9 @@ bool replaceCallOfBitCastWithBitCastOfCall(CallBase& callInst, bool mayFail, boo
 		if (originalTy != nextTy)
 		{
 			Value* cast = addCast(callInst.getArgOperand(i), originalTy, nextTy, &callInst);
+			if ((originalTy->isPointerTy() && nextTy->isIntegerTy()) || (originalTy->isIntegerTy() && nextTy->isPointerTy())) {
+				NewAttrs = NewAttrs.removeParamAttributes(callInst.getContext(), i);
+			}
 			callInst.setArgOperand(i, cast);
 		}
 	}
@@ -1253,6 +1257,9 @@ bool replaceCallOfBitCastWithBitCastOfCall(CallBase& callInst, bool mayFail, boo
 		callInst.mutateType(newReturnType);
 		//getOrCreateNextInsertPoint might possibly create a forwarding BB for InvokeInst
 		Value* n = addCast(&callInst, newReturnType, oldReturnType, getOrCreateNextInsertPoint(callInst));
+		if ((oldReturnType->isPointerTy() && newReturnType->isIntegerTy()) || (oldReturnType->isIntegerTy() && newReturnType->isPointerTy())) {
+			NewAttrs = NewAttrs.removeAttributesAtIndex(callInst.getContext(), AttributeList::ReturnIndex);
+		}
 		if (n != &callInst)
 		{
 			// Appease 'replaceAllUsesWith'
@@ -1264,6 +1271,7 @@ bool replaceCallOfBitCastWithBitCastOfCall(CallBase& callInst, bool mayFail, boo
 				cast<Instruction>(n)->setOperand(0, &callInst);
 		}
 	}
+	callInst.setAttributes(NewAttrs);
 	// Parameters and returns are fixed, now fix the types and the called functions
 	callInst.mutateFunctionType(FTy);
 	callInst.setCalledFunction(F);
