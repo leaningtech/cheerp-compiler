@@ -212,7 +212,10 @@ bool CheerpTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
   PM.add(createLowerAndOrBranchesPass());
   PM.add(createStructMemFuncLowering());
   PM.add(createFreeAndDeleteRemovalPass());
+  PM.add(createAllocaLoweringPass());
   PM.add(cheerp::createGlobalDepsAnalyzerPass(mathMode,/*resolveAliases*/true, WasmOnly));
+  if (!CheerpNoICF)
+    PM.add(cheerp::createIdenticalCodeFoldingPass());
   PM.add(cheerp::createInvokeWrappingPass());
   PM.add(cheerp::createFFIWrappingPass());
   PM.add(createFixIrreducibleControlFlowPass());
@@ -224,10 +227,6 @@ bool CheerpTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
   // inside not used instructions which are then not rendered.
   PM.add(createDeadCodeEliminationPass());
   PM.add(cheerp::createRegisterizePass(!NoJavaScriptMathFround, LinearOutput == Wasm));
-  PM.add(createAllocaLoweringPass());
-  if (!CheerpNoICF)
-    PM.add(cheerp::createIdenticalCodeFoldingPass());
-
   PM.add(cheerp::createLinearMemoryHelperPass(functionAddressMode, CheerpHeapSize, CheerpStackSize, WasmOnly, growMem));
   PM.add(cheerp::createConstantExprLoweringPass());
   PM.add(cheerp::createPointerAnalyzerPass());
