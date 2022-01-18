@@ -259,6 +259,9 @@ public:
 		{
 			assert(false);
 		}
+		virtual void avoidOffsetOptimization()
+		{
+		}
 		virtual void addConst(int64_t v) = 0;
 		virtual bool isInlineable(const llvm::Value* p) = 0;
 		virtual bool hasSubValue() const
