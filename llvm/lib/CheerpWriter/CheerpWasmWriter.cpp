@@ -4041,7 +4041,7 @@ uint32_t CheerpWasmWriter::WasmGepWriter::compileValues(bool positiveOffsetAllow
 
 	auto initializeYetToBeEncodedOffset = [this, &positiveOffsetAllowed](const std::vector<GroupedValuesToAdd>& V2, bool& first) -> uint32_t
 	{
-		if(constPart != 0 && (!positiveOffsetAllowed || constPart < 0))
+		if(constPart != 0 && (!positiveOffsetAllowed || constPart < 0 || avoidOffsetOpt))
 		{
 			writer.encodeInst(WasmS32Opcode::I32_CONST, constPart, code);
 			first = false;
