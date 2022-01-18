@@ -12,5 +12,6 @@ workflows:
     jobs:
       - test:
           filters:
-            only:
-              - circle-ci
+            branches:
+              only:
+                - circle-ci
