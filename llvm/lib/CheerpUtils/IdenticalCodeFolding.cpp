@@ -921,10 +921,9 @@ void IdenticalCodeFolding::mergeTwoFunctions(Function *F, Function *G) {
 	for (CallBase* CS: directCalls) {
 		// BitCasts in call sites causes spurious indirect call
 		// Avoid this problem by bitcasting parameters and return values as appropriate
-		CallInst* callInst = cast<CallInst>(CS);
-		callInst->setCalledOperand(ConstantExpr::getBitCast(G, callInst->getCalledOperand()->getType()));
+		CS->setCalledOperand(ConstantExpr::getBitCast(G, CS->getCalledOperand()->getType()));
 
-		replaceCallOfBitCastWithBitCastOfCall(*callInst, /*mayFail*/ false, /*performPtrIntConversions*/ true);
+		replaceCallOfBitCastWithBitCastOfCall(*CS, /*mayFail*/ false, /*performPtrIntConversions*/ true);
 	}
 	if(!F->use_empty()){
 		Value* replacement = G;
