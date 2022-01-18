@@ -1,0 +1,16 @@
+version: 2.1
+
+jobs:
+  test:
+    docker:
+      - image: cimg/base:2021.04
+    steps:
+      - run: exit 0
+
+workflows:
+  test_wf:
+    jobs:
+      - test:
+          filters:
+            only:
+              - circle-ci
