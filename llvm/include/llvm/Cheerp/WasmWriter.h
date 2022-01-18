@@ -431,9 +431,14 @@ private:
 		std::vector<std::pair<const llvm::Value*, uint32_t>> addedValues;
 		std::vector<std::pair<const llvm::Value*, uint32_t>> subbedValues;
 		int32_t constPart;
+		bool avoidOffsetOpt;
 		WasmGepWriter(CheerpWasmWriter& writer, WasmBuffer& code)
-			: LinearMemoryHelper::LinearGepListener(writer.PA), writer(writer), code(code), constPart(0)
+			: LinearMemoryHelper::LinearGepListener(writer.PA), writer(writer), code(code), constPart(0), avoidOffsetOpt(false)
 		{
+		}
+		void avoidOffsetOptimization() override
+		{
+			avoidOffsetOpt = true;
 		}
 		void addValue(const llvm::Value* v, uint32_t size) override;
 		void subValue(const llvm::Value* v, uint32_t size) override;
