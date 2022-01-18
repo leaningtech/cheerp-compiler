@@ -99,8 +99,15 @@ bool AllocaMerging::areTypesEquivalent(const cheerp::TypeSupport& types, cheerp:
 					return PA.getPointerKindForMemberPointer(baseAndIndex);
 				};
 
-				if (getPointerKindPA(stA, i) != getPointerKindPA(stB, i))
+				POINTER_KIND kA = getPointerKindPA(stA, i);
+				POINTER_KIND kB = getPointerKindPA(stB, i);
+				if (kA != kB)
 					return false;
+				if (kA == SPLIT_REGULAR || kA == REGULAR)
+				{
+					// The final layout depends on constant offsets, which are not known at this stage. Be conservative.
+					return false;
+				}
 			}
 		}
 		return true;
