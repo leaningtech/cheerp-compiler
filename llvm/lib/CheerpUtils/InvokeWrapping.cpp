@@ -36,11 +36,8 @@ static CallInst* replaceInvokeWithWrapper(InvokeInst* IV, Function* Wrapper, Arr
 	AttributeList OldAttrs = IV->getAttributes();
 
 	// Clone any argument attributes
-	int i = 0;
-	for (const llvm::Use &OldArg : IV->args()) {
-		NewArgAttrs[i+2] =
-		OldAttrs.getParamAttrs(i);
-		i++;
+	for (uint32_t i = 0; i < IV->arg_size(); i++) {
+		NewArgAttrs[i+2] = OldAttrs.getParamAttrs(i).removeAttribute(IV->getContext(), Attribute::StructRet);
 	}
 
 	NewCall->setAttributes(
