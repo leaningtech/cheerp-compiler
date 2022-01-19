@@ -212,8 +212,8 @@ bool CheerpTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
   PM.add(createLowerAndOrBranchesPass());
   PM.add(createStructMemFuncLowering());
   PM.add(createFreeAndDeleteRemovalPass());
-  PM.add(createAllocaLoweringPass());
   PM.add(cheerp::createGlobalDepsAnalyzerPass(mathMode,/*resolveAliases*/true, WasmOnly));
+  PM.add(createAllocaLoweringPass());
   if (!CheerpNoICF)
     PM.add(cheerp::createIdenticalCodeFoldingPass());
   PM.add(cheerp::createInvokeWrappingPass());
