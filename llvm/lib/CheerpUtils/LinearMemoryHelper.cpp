@@ -300,15 +300,20 @@ int64_t LinearMemoryHelper::compileGEPOperand(const llvm::Value* idxVal, uint32_
 			}
 			else if(idxI->getOpcode() == Instruction::Mul)
 			{
-				if(isa<ConstantInt>(idxI->getOperand(0)))
+				const llvm::Value* first = idxI->getOperand(0);
+				const llvm::Value* second = idxI->getOperand(1);
+
+				if(isa<ConstantInt>(first))
+					std::swap(first, second);
+
+				//Now if there is a Constant, it will be in the second operand
+				if(const ConstantInt* C = dyn_cast<ConstantInt>(second))
 				{
-					uint32_t mulAmount = cast<ConstantInt>(idxI->getOperand(0))->getZExtValue();
-					return compileGEPOperand(idxI->getOperand(1), mulAmount*size, listener, invert);
-				}
-				else if(isa<ConstantInt>(idxI->getOperand(1)))
-				{
-					uint32_t mulAmount = cast<ConstantInt>(idxI->getOperand(1))->getZExtValue();
-					return compileGEPOperand(idxI->getOperand(0), mulAmount*size, listener, invert);
+					int32_t mulAmount = C->getZExtValue();
+					if (mulAmount < 0 && listener->hasSubValue())
+						return compileGEPOperand(first, -mulAmount*size, listener, !invert);
+					else
+						return compileGEPOperand(first, mulAmount*size, listener, invert);
 				}
 			}
 		}
