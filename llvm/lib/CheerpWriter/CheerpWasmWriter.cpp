@@ -4024,6 +4024,8 @@ uint32_t CheerpWasmWriter::WasmGepWriter::compileValues(bool positiveOffsetAllow
 
 	for (auto& v: V)
 	{
+		if (v.multiplier == 0)
+			continue;
 		if (V2.empty() || V2.back().multiplier != v.multiplier)
 		{
 			V2.push_back(GroupedValuesToAdd(v.multiplier));
@@ -4087,14 +4089,8 @@ uint32_t CheerpWasmWriter::WasmGepWriter::compileValues(bool positiveOffsetAllow
 
 	for (const GroupedValuesToAdd& p : V2)
 	{
-		const bool hasPositive = p.hasPositive();
+		const bool invertSign = (p.hasPositive() == false) && (first == false);
 		bool is_first = true;
-
-		if (p.constantPart)
-		{
-			writer.encodeInst(WasmS32Opcode::I32_CONST, p.constantPart, code);
-			is_first = false;
-		}
 
 		for (const llvm::Value* v : p.valuesToAdd)
 		{
@@ -4104,15 +4100,28 @@ uint32_t CheerpWasmWriter::WasmGepWriter::compileValues(bool positiveOffsetAllow
 			is_first = false;
 		}
 
+		if (p.constantPart)
+		{
+			writer.encodeInst(WasmS32Opcode::I32_CONST, p.constantPart, code);
+			if (!is_first)
+				writer.encodeInst(WasmOpcode::I32_ADD, code);
+			is_first = false;
+		}
+
 		for (const llvm::Value* v : p.valuesToInvert)
 		{
 			writer.compileOperand(code, v);
 			if (!is_first)
-				writer.encodeInst(WasmOpcode::I32_SUB, code);
+			{
+				if (invertSign)
+					writer.encodeInst(WasmOpcode::I32_ADD, code);
+				else
+					writer.encodeInst(WasmOpcode::I32_SUB, code);
+			}
 			is_first = false;
 		}
 
-		const uint32_t sizeCurr = p.multiplier;
+		const uint32_t sizeCurr = p.multiplier * (invertSign ? -1 : 1);
 		if (sizeCurr > 1)
 		{
 			if (isPowerOf2_32(sizeCurr))
@@ -4129,7 +4138,7 @@ uint32_t CheerpWasmWriter::WasmGepWriter::compileValues(bool positiveOffsetAllow
 
 		if(!first)
 		{
-			if (hasPositive)
+			if (invertSign || p.hasPositive())
 				writer.encodeInst(WasmOpcode::I32_ADD, code);
 			else
 				writer.encodeInst(WasmOpcode::I32_SUB, code);
