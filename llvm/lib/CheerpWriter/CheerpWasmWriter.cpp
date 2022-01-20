@@ -3982,7 +3982,7 @@ uint32_t CheerpWasmWriter::WasmGepWriter::compileValues(bool positiveOffsetAllow
 		{
 			assert(c % multiplier == 0);
 			assert(c > 0);
-			constantPart = c/multiplier;
+			constantPart += c/multiplier;
 		}
 		bool hasPositive() const
 		{
