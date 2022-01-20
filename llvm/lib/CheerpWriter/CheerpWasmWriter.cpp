@@ -4032,13 +4032,6 @@ uint32_t CheerpWasmWriter::WasmGepWriter::compileValues(bool positiveOffsetAllow
 	}
 
 
-	std::sort(V2.begin(), V2.end(), [](const GroupedValuesToAdd& A, const GroupedValuesToAdd& B) -> bool {
-				if (A.hasPositive() != B.hasPositive())
-					return (!A.hasPositive());
-				return false;
-			}
-	    );
-
 	auto initializeYetToBeEncodedOffset = [this, &positiveOffsetAllowed](const std::vector<GroupedValuesToAdd>& V2, bool& first) -> uint32_t
 	{
 		if(constPart != 0 && (!positiveOffsetAllowed || constPart < 0 || avoidOffsetOpt))
@@ -4064,6 +4057,12 @@ uint32_t CheerpWasmWriter::WasmGepWriter::compileValues(bool positiveOffsetAllow
 	//The call to the lambda will properly initialize yetToBeEncodedOffset AND set first to true if something has been written in the stack
 	const uint32_t yetToBeEncodedOffset = initializeYetToBeEncodedOffset(V2, first);
 
+	std::sort(V2.begin(), V2.end(), [](const GroupedValuesToAdd& A, const GroupedValuesToAdd& B) -> bool {
+				if (A.hasPositive() != B.hasPositive())
+					return (!A.hasPositive());
+				return false;
+			}
+	    );
 	for (GroupedValuesToAdd& p : V2)
 	{
 		p.sort(writer);
