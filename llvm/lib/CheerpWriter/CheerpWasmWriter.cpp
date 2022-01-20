@@ -4031,16 +4031,34 @@ uint32_t CheerpWasmWriter::WasmGepWriter::compileValues(bool positiveOffsetAllow
 		V2.back().add(v);
 	}
 
-
-	auto initializeYetToBeEncodedOffset = [this, &positiveOffsetAllowed](const std::vector<GroupedValuesToAdd>& V2, bool& first) -> uint32_t
+	auto initializeYetToBeEncodedOffset = [this, &positiveOffsetAllowed](std::vector<GroupedValuesToAdd>& V2, bool& first) -> uint32_t
 	{
-		if(constPart != 0 && (!positiveOffsetAllowed || constPart < 0 || avoidOffsetOpt))
+		if (!positiveOffsetAllowed || avoidOffsetOpt)
 		{
-			writer.encodeInst(WasmS32Opcode::I32_CONST, constPart, code);
-			first = false;
+			uint32_t toBeHandled = constPart;
+			//In these cases constantPart should not be used, so it has to be merged in the GroupedValuesToAdd's vector
+			if (toBeHandled != 0)
+			{
+				for (auto& grouped : V2)
+				{
+					if (toBeHandled % grouped.multiplier == 0)
+					{
+						grouped.addConstant(toBeHandled);
+						toBeHandled = 0;
+						break;
+					}
+				}
+			}
+			if (toBeHandled != 0)
+			{
+				V2.push_back(GroupedValuesToAdd(1));
+					V2.back().addConstant(toBeHandled);
+				toBeHandled = 0;
+			}
+			assert(toBeHandled == 0);
 			return 0;
 		}
-		else if (V2.empty() || V2.front().hasPositive() == false)
+		else if (std::none_of(V2.begin(), V2.end(), [](const GroupedValuesToAdd& g)->bool{return g.hasPositive();}))
 		{
 			//If we have to put a 0, it's always beneficial to put the maximum value that comes in the single byte encoding
 			writer.encodeInst(WasmS32Opcode::I32_CONST, 0, code);
@@ -4057,12 +4075,11 @@ uint32_t CheerpWasmWriter::WasmGepWriter::compileValues(bool positiveOffsetAllow
 	//The call to the lambda will properly initialize yetToBeEncodedOffset AND set first to true if something has been written in the stack
 	const uint32_t yetToBeEncodedOffset = initializeYetToBeEncodedOffset(V2, first);
 
-	std::sort(V2.begin(), V2.end(), [](const GroupedValuesToAdd& A, const GroupedValuesToAdd& B) -> bool {
-				if (A.hasPositive() != B.hasPositive())
-					return (!A.hasPositive());
-				return false;
-			}
-	    );
+	std::stable_partition(V2.begin(), V2.end(), [](const GroupedValuesToAdd& g) -> bool { return g.hasPositive(); });
+
+	if (first)
+		assert(!V2.empty() && V2.front().hasPositive());
+
 	for (GroupedValuesToAdd& p : V2)
 	{
 		p.sort(writer);
