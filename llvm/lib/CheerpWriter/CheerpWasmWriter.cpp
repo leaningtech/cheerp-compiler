@@ -4062,8 +4062,7 @@ uint32_t CheerpWasmWriter::WasmGepWriter::compileValues(bool positiveOffsetAllow
 
 	bool first = true;
 	//The call to the lambda will properly initialize yetToBeEncodedOffset AND set first to true if something has been written in the stack
-	uint32_t yetToBeEncodedOffset = initializeYetToBeEncodedOffset(V2, first);
-
+	const uint32_t yetToBeEncodedOffset = initializeYetToBeEncodedOffset(V2, first);
 
 	for (GroupedValuesToAdd& p : V2)
 	{
