@@ -1,17 +1,92 @@
 version: 2.1
 
 jobs:
+  build:
+    docker:
+      - image: cimg/base:2021.04
+    resource_class: medium
+    steps:
+      - run: sudo apt-get update && sudo apt-get install -y debhelper cmake python3-distutils nodejs
+      - checkout:
+          path: cheerp-compiler
+      - run: git clone https://github.com/leaningtech/cheerp-utils.git
+      - run: git clone https://github.com/leaningtech/cheerp-newlib.git
+      - run: git clone https://github.com/leaningtech/cheerp-libs.git
+      - run:
+          name: build-cheerp-compiler
+          working_directory: ~/project/cheerp-compiler
+          command: |
+            dpkg-buildpackage -j8 -b
+            mkdir tmp
+            dpkg -x ../cheerp-llvm-clang_*.deb tmp
+            sudo mkdir /opt/cheerp/
+            sudo cp -rv tmp/opt/cheerp/* /opt/cheerp
+            rm -rf tmp
+      - run:
+          name: build-cheerp-utils
+          working_directory: ~/project/cheerp-utils
+          command: |
+            dpkg-buildpackage -d -b
+            mkdir tmp
+            dpkg -x ../cheerp-utils_*.deb tmp
+            sudo cp -rv tmp/opt/cheerp/* /opt/cheerp/
+      - run:
+          name: build-cheerp-newlib
+          working_directory: ~/project/cheerp-newlib
+          command: |
+            cp -rv ../cheerp-compiler/libcxx/ libcxx/
+            dpkg-buildpackage -d -b
+            mkdir tmp
+            dpkg -x ../cheerp-newlib_*.deb tmp
+            sudo cp -rv tmp/opt/cheerp/* /opt/cheerp/
+      - run:
+          name: build-cheerp-libcxx-libcxxabi-monorepo
+          working_directory: ~/project/cheerp-compiler
+          command: |
+            rm -rf build_genericjs/
+            rm -rf build_asmjs/
+            rm -rf debian/
+            cp -rv libcxx/debian/ debian/
+            dpkg-buildpackage -d -b
+            mkdir tmp
+            dpkg -x ../cheerp-libcxx_*.deb tmp
+            sudo cp -rv tmp/opt/cheerp/* /opt/cheerp/
+
+            rm -rf build_genericjs/
+            rm -rf build_asmjs/
+            rm -rf debian/
+            cp -rv libcxxabi/debian/ debian/
+            dpkg-buildpackage -d -b
+            rm -rf tmp
+            mkdir tmp
+            dpkg -x ../cheerp-libcxxabi_*.deb tmp
+            sudo cp -rv tmp/opt/cheerp/* /opt/cheerp/
+            rm -rf tmp
+      - run:
+          name: build-cheerp-libs
+          working_directory: ~/project/cheerp-libs
+          command: |
+            dpkg-buildpackage -d -b
+            mkdir tmp
+            dpkg -x ../cheerp-libs_*.deb tmp
+            sudo cp -rv tmp/opt/cheerp/* /opt/cheerp/
   test:
     docker:
       - image: cimg/base:2021.04
+    resource_class: medium
     steps:
-      - run: exit 0
+      - run:
+          working_directory: ~/project/cheerp-utils/tests
+          command: ./run_tests.py --all --determinism=3 --determinism-probability=0.2 "/opt/cheerp/bin/clang++" "node --experimental-wasm-reftypes" -j4
 
 workflows:
-  test_wf:
+  cheerp-compiler-monorepo:
     jobs:
-      - test:
+      - build:
           filters:
             branches:
               only:
                 - circle-ci
+      - test:
+          requires:
+            - build
