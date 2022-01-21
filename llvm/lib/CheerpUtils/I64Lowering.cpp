@@ -671,6 +671,16 @@ struct I64LoweringVisitor: public InstVisitor<I64LoweringVisitor, HighInt>
 				Res.high = ConstantInt::get(Int32Ty, 0);
 				Res.low = Builder.CreateSelect(Cond, Sum, Call1, "sel.ctlz");
 		};
+		auto ctpop_impl = [&Builder, &Res, intrinsicId, this](Value* firstHalf, Value* secondHalf)
+		{
+				Function* Intr = Intrinsic::getDeclaration(&M, intrinsicId, Int32Ty);
+				Value* Args1[] = { firstHalf };
+				Value* Args2[] = { secondHalf };
+				Value* Call1 = Builder.CreateCall(Intr, Args1);
+				Value* Call2 = Builder.CreateCall(Intr, Args2);
+				Res.high = ConstantInt::get(Int32Ty, 0);
+				Res.low = Builder.CreateAdd(Call1, Call2);
+		};
 		switch (intrinsicId)
 		{
 			case Intrinsic::ctlz:
@@ -683,6 +693,12 @@ struct I64LoweringVisitor: public InstVisitor<I64LoweringVisitor, HighInt>
 			{
 				HighInt Arg = visitValue(I.getOperand(0));
 				ctlz_cttz_impl(Arg.low, Arg.high);
+				break;
+			}
+			case Intrinsic::ctpop:
+			{
+				HighInt Arg = visitValue(I.getOperand(0));
+				ctpop_impl(Arg.low, Arg.high);
 				break;
 			}
 			case Intrinsic::abs:
