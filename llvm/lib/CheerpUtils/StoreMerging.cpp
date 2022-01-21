@@ -210,19 +210,23 @@ void StoreMerging::processBlockOfStores(const uint32_t dim, std::vector<std::pai
 			continue;
 
 		auto& context = groupedSamePointer[a].first->getParent()->getContext();
-		Type* smallType = IntegerType::get(context, dim * 8);
 		Type* bigType = IntegerType::get(context, dim * 16);
+		Type* int32Type = IntegerType::get(context, 32);
 
-		auto convertToBigType = [&builder, &smallType, &bigType](Value* value) -> Value*
+		auto convertToBigType = [&builder, &bigType, &int32Type, &context, this](Value* value) -> Value*
 		{
-			//Convert value to smallType
+			//Convert to integer (either from pointer or other type)
 			if (value->getType()->isPointerTy())
-				value = builder.CreatePtrToInt(value, smallType);
-			else if (value->getType() != smallType)
-				value = builder.CreateBitCast(value, smallType);
+				value = builder.CreatePtrToInt(value, int32Type);
+			else if (!value->getType()->isIntegerTy())
+			{
+				Type* integerEquivalent = IntegerType::get(context, DL->getTypeAllocSize(value->getType()));
+				value = builder.CreateBitCast(value, integerEquivalent);
+			}
 
-			//Extend value from smallType to bigType
-			value = builder.CreateZExt(value, bigType);
+			//Then zero extend
+			if (value->getType() != bigType)
+				value = builder.CreateZExt(value, bigType);
 
 			return value;
 		};
