@@ -4,7 +4,7 @@ jobs:
   build:
     docker:
       - image: cimg/base:2021.04
-    resource_class: medium
+    resource_class: large
     steps:
       - run: sudo apt-get update && sudo apt-get install -y debhelper cmake python3-distutils nodejs
       - checkout:
