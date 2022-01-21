@@ -31,7 +31,7 @@ enum TYPED_BUILTIN { NONE, ABS_F32, ABS_F64, ACOS_F32, ACOS_F64, ASIN_F32, ASIN_
 				CEIL_F32, CEIL_F64, COS_F32, COS_F64, EXP_F32, EXP_F64, FLOOR_F32, FLOOR_F64, LOG_F32, LOG_F64,
 				POW_F32, POW_F64, SIN_F32, SIN_F64, SQRT_F32, SQRT_F64, TAN_F32, TAN_F64, MOD_F32, MOD_F64,
 				TRUNC_F32, TRUNC_F64, ROUND_F32, ROUND_F64, MIN_F32, MIN_F64, MAX_F32, MAX_F64, COPYSIGN_F32, COPYSIGN_F64,
-				CLZ_32, CLZ_64, CTZ_32, CTZ_64, GROW_MEM, MAX_BUILTIN, UNSUPPORTED};
+				CLZ_32, CLZ_64, CTZ_32, CTZ_64, POPCNT_32, POPCNT_64, GROW_MEM, MAX_BUILTIN, UNSUPPORTED};
 }	//close TypedBuiltinInstr
 
 namespace BuiltinInstr
@@ -123,8 +123,10 @@ namespace TypedBuiltinInstr
 	\
 	x(I32_CLZ, "", CLZ_32) \
 	x(I32_CTZ, "", CTZ_32) \
+	x(I32_POPCNT, "", POPCNT_32) \
 	x(I64_CLZ, "", CLZ_64) \
 	x(I64_CTZ, "", CTZ_64) \
+	x(I64_POPCNT, "", POPCNT_64) \
 
 #define TYPED_FUNCTIONS_LIST(x) \
 	x(ACOS_F32, ACOS_F64, "acosf", "acos") \
@@ -306,6 +308,8 @@ WASM_INTRINSIC_LIST_BUILTIN(WASM_INTRINSIC)
 		return i64Type ? CLZ_64 : CLZ_32;
 	case llvm::Intrinsic::cttz:
 		return i64Type ? CTZ_64 : CTZ_32;
+	case llvm::Intrinsic::ctpop:
+		return i64Type ? POPCNT_64 : POPCNT_32;
 	case llvm::Intrinsic::powi:
 	case llvm::Intrinsic::exp2:
 	case llvm::Intrinsic::log10:
@@ -327,7 +331,9 @@ WASM_INTRINSIC_LIST_BUILTIN(WASM_INTRINSIC)
 
 inline bool isAlwaysExactNatively(const TYPED_BUILTIN& b)
 {
-	if (b == CLZ_32 || b == CTZ_32)
+	if (b == CLZ_32 || b == CTZ_32 || b == POPCNT_32)
+		return true;
+	if (b == CLZ_64 || b == CTZ_64 || b == POPCNT_64)
 		return true;
 
 	//Other builtins that returns the same bit-to-bit result as the libc implementation could return true
