@@ -702,6 +702,8 @@ ModRefInfo AAResults::getModRefInfo(const Instruction *I,
     return getModRefInfo((const CatchPadInst *)I, Loc, AAQIP);
   case Instruction::CatchRet:
     return getModRefInfo((const CatchReturnInst *)I, Loc, AAQIP);
+  case Instruction::Resume:
+    return ModRefInfo::MustModRef;
   default:
     assert(!I->mayReadOrWriteMemory() &&
            "Unhandled memory access instruction!");
