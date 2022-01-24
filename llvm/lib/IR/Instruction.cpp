@@ -620,6 +620,7 @@ bool Instruction::mayReadFromMemory() const {
   case Instruction::AtomicRMW:
   case Instruction::CatchPad:
   case Instruction::CatchRet:
+  case Instruction::Resume:
     return true;
   case Instruction::Call:
   case Instruction::Invoke:
