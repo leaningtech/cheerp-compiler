@@ -13,19 +13,7 @@ namespace [[cheerp::genericjs]] client {
 		CheerpException(const String& msg) noexcept;
 	};
 }
-namespace [[cheerp::genericjs]] cheerp {
-	class JSException {
-		client::Object* inner;
-		public:
-			JSException(client::Object* e) noexcept: inner(e)
-			{
-			}
-			client::Object* get() noexcept
-			{
-				return inner;
-			}
-	};
-}
+
 namespace [[cheerp::genericjs]] __cxxabiv1 {
 
 struct
