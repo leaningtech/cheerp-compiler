@@ -801,6 +801,14 @@ DelayInsts::InsertPoint DelayInsts::delayInst(const Instruction* I, const LoopIn
 		}
 	}
 
+	if (finalInsertPoint.source && isa<InvokeInst>(finalInsertPoint.source->getTerminator()))
+		if (isa<LandingPadInst>(finalInsertPoint.target->getFirstNonPHI()))
+	{
+		//Never create blocks between an Invoke and the LandingPad
+		finalInsertPoint.source = nullptr;
+		finalInsertPoint.target = nullptr;
+	}
+
 	//Find the loop our finalInsertPoint is in
 	const Loop* loop;
 	if (finalInsertPoint.source)
