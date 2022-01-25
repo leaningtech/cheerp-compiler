@@ -1545,7 +1545,7 @@ int GlobalDepsAnalyzer::filterModule( const DenseSet<const Function*>& droppedMa
 				if( !isClient && var->getName()!="llvm.global_ctors" )
 					var->setLinkage(GlobalValue::InternalLinkage);
 			}
-			else if( !isClient )
+			else if( !isClient  && var->getName() != "__cxa_cheerp_clause_table")
 				logUndefinedSymbol(var);
 		}
 	}
