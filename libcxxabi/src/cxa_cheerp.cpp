@@ -14,6 +14,29 @@ namespace [[cheerp::genericjs]] client {
 	};
 }
 
+static bool aborting = false;
+[[cheerp::genericjs]]
+__attribute__((noreturn))
+__attribute__((nothrow))
+static void
+__terminate_impl() noexcept
+{
+	aborting = true;
+	asm("throw 'Program called std::terminate()'");
+}
+
+namespace std {
+
+__attribute__((noreturn))
+__attribute__((nothrow))
+void
+terminate() noexcept
+{
+	__terminate_impl();
+}
+
+}
+
 namespace [[cheerp::genericjs]] __cxxabiv1 {
 
 struct
@@ -416,8 +439,11 @@ __gxx_personality_v0
 	[[cheerp::wasm]]
 	static __cheerp_landingpad lp;
 
-	if(reent)
-		__builtin_cheerp_throw(obj);
+	if(reent || aborting)
+	{
+		aborting = true;
+		__terminate_impl();
+	}
 
 	reent = true;
 
