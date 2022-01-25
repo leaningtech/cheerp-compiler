@@ -4451,6 +4451,8 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileCallInstruction(
 		else if(kind == Registerize::FLOAT)
 		{
 			stream << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '(';
+			if (asmjs && !asmjsCallee && !(calledFunc && calledFunc->isIntrinsic()))
+				stream << '+';
 		}
 		else if(kind == Registerize::INTEGER && parentPrio >= BIT_OR)
 		{
