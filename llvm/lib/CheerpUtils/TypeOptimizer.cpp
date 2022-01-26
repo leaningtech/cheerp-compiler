@@ -214,7 +214,9 @@ void TypeOptimizer::gatherAllTypesInfo(const Module& M)
 			{
 				if (Instruction* I = dyn_cast<Instruction>(U.getUser()))
 				{
-					if (I->getParent()->getParent()->getSection() != StringRef("asmjs"))
+					// NOTE: Invokes from wasm mean that we need js wrappers
+					// (see InvokeWrapping), so they count as calls from js
+					if (I->getParent()->getParent()->getSection() != StringRef("asmjs") || isa<InvokeInst>(I))
 					{
 						onlyCalledByWasm = false;
 						break;
