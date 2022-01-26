@@ -136,6 +136,10 @@ enum class WasmOpcode {
 	F64_CONVERT_S_I64 = 0xb9,
 	F64_CONVERT_U_I64 = 0xba,
 	F64_PROMOTE_F32 = 0xbb,
+	I32_REINTERPRET_F32 = 0xbc,
+	I64_REINTERPRET_F64 = 0xbd,
+	F32_REINTERPRET_I32 = 0xbe,
+	F64_REINTERPRET_I64 = 0xbf,
 };
 
 enum class WasmS32Opcode {
