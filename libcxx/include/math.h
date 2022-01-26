@@ -318,7 +318,7 @@ _LIBCPP_INLINE_VISIBILITY
 bool
 __libcpp_signbit(_A1 __lcpp_x) _NOEXCEPT
 {
-#if __has_builtin(__builtin_signbit)
+#if __has_builtin(__builtin_signbit) && !defined(__CHEERP__)
     return __builtin_signbit(__lcpp_x);
 #else
     return signbit(__lcpp_x);
