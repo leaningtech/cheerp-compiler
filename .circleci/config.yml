@@ -4,9 +4,9 @@ jobs:
   build:
     docker:
       - image: cimg/base:2021.04
-    resource_class: large
+    resource_class: medium
     steps:
-      - run: sudo apt-get update && sudo apt-get install -y debhelper cmake python3-distutils nodejs
+      - run: sudo apt-get update && sudo apt-get install -y debhelper cmake python3-distutils nodejs ninja-build
       - checkout:
           path: cheerp-compiler
       - run: git clone https://github.com/leaningtech/cheerp-utils.git

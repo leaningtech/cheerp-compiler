@@ -1,7 +1,7 @@
 #!/usr/bin/make -f
 
 %:
-	dh $@ -Scmake --parallel
+	dh $@ --parallel
 
 override_dh_auto_configure:
 	dh_auto_configure -Bbuild_genericjs -Dlibcxx -- \
@@ -15,7 +15,8 @@ override_dh_auto_configure:
 	    -DLIBCXX_CXX_ABI=libcxxabi \
 	    -DLIBCXX_ENABLE_NEW_DELETE_DEFINITIONS=ON \
 	    -DCMAKE_CXX_FLAGS="-fexceptions" \
-	    -DLIBCXX_INCLUDE_BENCHMARKS=OFF
+	    -DLIBCXX_INCLUDE_BENCHMARKS=OFF \
+		-GNinja
 	dh_auto_configure -Bbuild_asmjs -Dlibcxx -- \
 	    -DCMAKE_BUILD_TYPE=Release \
 	    -DCMAKE_INSTALL_PREFIX=/opt/cheerp \
@@ -27,7 +28,8 @@ override_dh_auto_configure:
 	    -DLIBCXX_ENABLE_NEW_DELETE_DEFINITIONS=ON \
 	    -DLIBCXX_CXX_ABI=libcxxabi \
 	    -DCMAKE_CXX_FLAGS="-fexceptions" \
-	    -DLIBCXX_INCLUDE_BENCHMARKS=OFF
+	    -DLIBCXX_INCLUDE_BENCHMARKS=OFF \
+		-GNinja
 
 override_dh_auto_build:
 	dh_auto_build -Bbuild_genericjs
