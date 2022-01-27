@@ -1,7 +1,7 @@
 #!/usr/bin/make -f
 
 %:
-	dh $@ -Scmake --parallel
+	dh $@ --parallel
 
 override_dh_auto_configure:
 	dh_auto_configure -Bbuild_genericjs -Dlibcxxabi -- \
@@ -14,7 +14,8 @@ override_dh_auto_configure:
 	    -DLIBCXXABI_LIBCXX_PATH=$(CURDIR)/libcxx/ \
 	    -DLIBCXXABI_LIBCXX_INCLUDES=/opt/cheerp/include/c++/v1/ \
 	    -DLIBCXXABI_ENABLE_THREADS=0 \
-	    -DLLVM_CONFIG=/opt/cheerp/bin/llvm-config
+	    -DLLVM_CONFIG=/opt/cheerp/bin/llvm-config \
+		-GNinja
 	dh_auto_configure -Bbuild_asmjs -Dlibcxxabi -- \
 	    -DCMAKE_BUILD_TYPE=Release \
 	    -DCMAKE_INSTALL_PREFIX=/opt/cheerp \
@@ -25,7 +26,8 @@ override_dh_auto_configure:
 	    -DLIBCXXABI_LIBCXX_PATH=$(CURDIR)/libcxx/ \
 	    -DLIBCXXABI_LIBCXX_INCLUDES=/opt/cheerp/include/c++/v1/ \
 	    -DLIBCXXABI_ENABLE_THREADS=0 \
-	    -DLLVM_CONFIG=/opt/cheerp/bin/llvm-config
+	    -DLLVM_CONFIG=/opt/cheerp/bin/llvm-config \
+		-GNinja
 
 override_dh_auto_build:
 	dh_auto_build -Bbuild_genericjs
