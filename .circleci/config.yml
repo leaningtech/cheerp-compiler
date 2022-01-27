@@ -16,7 +16,7 @@ jobs:
           name: build-cheerp-compiler
           working_directory: ~/project/cheerp-compiler
           command: |
-            dpkg-buildpackage -j8 -b
+            dpkg-buildpackage -b
             mkdir tmp
             dpkg -x ../cheerp-llvm-clang_*.deb tmp
             sudo mkdir /opt/cheerp/
