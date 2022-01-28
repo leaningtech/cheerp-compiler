@@ -2,8 +2,8 @@ version: 2.1
 
 jobs:
   build:
-    docker:
-      - image: cimg/base:2021.04
+    machine:
+      - image: ubuntu-2004:202111-02
     resource_class: medium
     steps:
       - run: sudo apt-get update && sudo apt-get install -y debhelper cmake python3-distutils nodejs ninja-build
@@ -16,7 +16,7 @@ jobs:
           name: build-cheerp-compiler
           working_directory: ~/project/cheerp-compiler
           command: |
-            dpkg-buildpackage -b -j4
+            dpkg-buildpackage -b
             mkdir tmp
             dpkg -x ../cheerp-llvm-clang_*.deb tmp
             sudo mkdir /opt/cheerp/
