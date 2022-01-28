@@ -4,7 +4,7 @@ jobs:
   build:
     machine:
       image: ubuntu-2004:202111-02
-    resource_class: medium
+    resource_class: large
     steps:
       - run: sudo apt-get update && sudo apt-get install -y debhelper cmake python3-distutils nodejs ninja-build
       - checkout:
