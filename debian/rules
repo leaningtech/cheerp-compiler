@@ -13,7 +13,12 @@ override_dh_auto_configure:
 		-DCLANG_VENDOR="Cheerp ${deb_version}" \
 		-DLLVM_ENABLE_PROJECTS=clang \
 		../llvm/ \
-		-GNinja
+		-GNinja \
+		-DCMAKE_CXX_COMPILER=clang++ \
+		-DCMAKE_C_COMPILER=clang \
+		-DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=lld \
+		-DCMAKE_SHARED_LINKER_FLAGS=-fuse-ld=lld \
+		-DCMAKE_MODULE_LINKER_FLAGS=-fuse-ld=lld \
 
 override_dh_auto_install:
 	dh_auto_install --builddirectory=build --destdir=debian/tmp
