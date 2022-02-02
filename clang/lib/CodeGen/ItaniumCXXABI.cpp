@@ -1629,7 +1629,7 @@ llvm::Value *ItaniumCXXABI::EmitDynamicCastCall(
       computeOffsetHint(CGF.getContext(), SrcDecl, DestDecl).getQuantity());
 
   llvm::Value *Value = ThisAddr.getPointer();
-  bool asmjs = SrcDecl->hasAttr<AsmJSAttr>();
+  bool asmjs = CGM.getContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly;
   llvm::Value *VTable = CGF.GetVTablePtr(ThisAddr, CGF.getTypes().GetVTableBaseType(asmjs)->getPointerTo(), SrcDecl);
   llvm::Value *DynCastObj = Value;
 
@@ -3463,19 +3463,9 @@ llvm::GlobalVariable *ItaniumRTTIBuilder::GetAddrOfTypeName(
 
   GV->setInitializer(Init);
 
-  // CHEERP: NOTE: For now the TypeInfo Name for built-in and pointer types is 
-  // either in the normal or in the asmjs section based on the Environment component
-  // of the Triple, and not on attributes like record types.
-  // Possible solution: inline namespace.
-  // (see: https://gcc.gnu.org/onlinedocs/libstdc%2B%2B/manual/using_dual_abi.html)
-  if (Ty->isBuiltinType() || Ty->isPointerType() || Ty->isFunctionProtoType()) {
-    if (CGM.getContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly)
-    {
-      GV->setSection("asmjs");
-    }
-  // CHEERP: If the type declaration has the asmjs attribute, put the TypeInfo
-  //         Name in the asmjs section
-  } else if (Ty->isStructureOrClassType() && Ty->getAsTagDecl()->hasAttr<AsmJSAttr>()) {
+  // CHEERP: for the cheerp-wasm target, we put the RTTI in the asmjs section
+  if (CGM.getContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly)
+  {
     GV->setSection("asmjs");
   }
 
@@ -4067,7 +4057,7 @@ llvm::Constant *ItaniumRTTIBuilder::BuildTypeInfo(
   }
   Fields.push_back(TypeNameField);
 
-  // CHEERP: TODO duplicate typeinfo for basic types
+  // CHEERP: for the cheerp-wasm target, we put the RTTI in the asmjs section
   bool asmjs = CGM.getContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly;
 
   switch (Ty->getTypeClass()) {
@@ -4125,7 +4115,6 @@ llvm::Constant *ItaniumRTTIBuilder::BuildTypeInfo(
   case Type::Record: {
     const CXXRecordDecl *RD =
       cast<CXXRecordDecl>(cast<RecordType>(Ty)->getDecl());
-    asmjs = RD->hasAttr<AsmJSAttr>();
     if (!RD->hasDefinition() || !RD->getNumBases()) {
       // We don't need to emit any fields.
       break;
@@ -4185,19 +4174,8 @@ llvm::Constant *ItaniumRTTIBuilder::BuildTypeInfo(
     }
   }
 
-  // CHEERP: NOTE: For now the TypeInfo Name for built-in and pointer types is 
-  // either in the normal or in the asmjs section based on the Environment component
-  // of the Triple, and not on attributes like record types.
-  // Possible solution: inline namespace.
-  // (see: https://gcc.gnu.org/onlinedocs/libstdc%2B%2B/manual/using_dual_abi.html)
-  if (Ty->isBuiltinType() || Ty->isPointerType() || Ty->isFunctionProtoType()) {
-    if (CGM.getContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly) {
-      GV->setSection("asmjs");
-    }
-  }
-  // CHEERP: If the type declaration has the asmjs attribute, put the TypeInfo
-  //         in the asmjs section
-  else if (Ty->isStructureOrClassType() && Ty->getAsTagDecl()->hasAttr<AsmJSAttr>()) {
+  // CHEERP: for the cheerp-wasm target, we put the TypeInfo name in the asmjs section
+  if (CGM.getContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly) {
     GV->setSection("asmjs");
   }
 
@@ -4351,7 +4329,7 @@ static unsigned ComputeVMIClassTypeInfoFlags(const CXXRecordDecl *RD) {
 void ItaniumRTTIBuilder::BuildVMIClassTypeInfo(const CXXRecordDecl *RD) {
   const ASTRecordLayout &Layout = CGM.getContext().getASTRecordLayout(RD);
   const CGRecordLayout &CGLayout = CGM.getTypes().getCGRecordLayout(RD);
-  bool asmjs = RD->hasAttr<AsmJSAttr>();
+  bool asmjs = CGM.getContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly;
 
   llvm::Type *UnsignedIntLTy =
     CGM.getTypes().ConvertType(CGM.getContext().UnsignedIntTy);
