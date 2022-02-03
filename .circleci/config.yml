@@ -18,11 +18,12 @@ jobs:
             dpkg-buildpackage -b
             mkdir tmp
             dpkg -x ../cheerp-llvm-clang_*.deb tmp
+            mv ../cheerp-llvm-clang_*.deb ../cheerp-llvm-clang_latest.deb
             sudo mkdir /opt/cheerp/
             sudo cp -rv tmp/opt/cheerp/* /opt/cheerp
             rm -rf tmp
       - store_artifacts:
-          path: ~/project/cheerp-llvm-clang_*.deb
+          path: ~/project/cheerp-llvm-clang_latest.deb
           destination: cheerp-compiler-artifact
   test_trigger:
     docker:
