@@ -32,7 +32,12 @@ jobs:
     steps:
       - run:
           name: trigger-conditional-job
-          command: echo "triggering conditional job"
+          command: |
+            curl -X POST https://circleci.com/api/v2/project/gh/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME/pipeline \
+            --header 'Content-Type: application/json' \
+            --header 'Accept: application/json' \
+            --header "Circle-Token: $CIRCLE_TOKEN" \
+            -d '{ "branch": "'"$CIRCLE_BRANCH"'", "parameters":{"run_test_trigger":false, "run_conditional_job":true}}'
   conditional_job:
     docker:
       - image: cimg/base:2021.04
@@ -42,19 +47,23 @@ jobs:
       - run: exit 0
 
 parameters:
+  run_test_trigger:
+    type: boolean
+    default: true
   run_conditional_job:
     type: boolean
     default: false
 
 workflows:
-  cheerp-compiler-monorepo:
-    jobs:
-      - build:
-          filters:
-            branches:
-              only:
-                - circle-ci
+  # cheerp-compiler-monorepo:
+  #   jobs:
+  #     - build:
+  #         filters:
+  #           branches:
+  #             only:
+  #               - circle-ci
   trigger-pipeline:
+    when: << pipeline.parameters.run_test_trigger >>
     jobs:
       - test_trigger:
           filters:
