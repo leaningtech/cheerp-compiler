@@ -6,13 +6,14 @@ jobs:
       image: ubuntu-2004:202111-02
     resource_class: large
     steps:
-      - run: sudo apt-get update && sudo apt-get install -y debhelper cmake python3-distutils nodejs ninja-build clang lld
+      - run: sudo apt-get update && sudo apt-get install -y debhelper cmake python3-distutils ninja-build clang lld devscripts
       - checkout:
           path: cheerp-compiler
       - run:
           name: build-cheerp-compiler
           working_directory: ~/project/cheerp-compiler
           command: |
+            dch -b -v 0-latest-1 "Internal build" -m
             dpkg-buildpackage -b
             mkdir tmp
             dpkg -x ../cheerp-llvm-clang_*.deb tmp
