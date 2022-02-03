@@ -13,6 +13,7 @@ jobs:
           name: build-cheerp-compiler
           working_directory: ~/project/cheerp-compiler
           command: |
+            export NINJA_STATUS="[%u/%r/%f] "
             dch -b -v 0-latest-1 "Internal build" -m
             dpkg-buildpackage -b
             mkdir tmp
