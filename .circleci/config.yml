@@ -21,6 +21,29 @@ jobs:
             sudo mkdir /opt/cheerp/
             sudo cp -rv tmp/opt/cheerp/* /opt/cheerp
             rm -rf tmp
+      - store_artifacts:
+          path: ~/project/cheerp-llvm-clang_*.deb
+          destination: cheerp-compiler-artifact
+  test_trigger:
+    docker:
+      - image: cimg/base:2021.04
+    resource_class: medium
+    steps:
+      - run:
+          name: trigger-conditional-job
+          command: echo "triggering conditional job"
+  conditional_job:
+    docker:
+      - image: cimg/base:2021.04
+    resource_class: medium
+    steps:
+      - run: echo "I've ran!"
+      - run: exit 0
+
+parameters:
+  run_conditional_job:
+    type: boolean
+    default: false
 
 workflows:
   cheerp-compiler-monorepo:
@@ -30,3 +53,14 @@ workflows:
             branches:
               only:
                 - circle-ci
+  trigger-pipeline:
+    jobs:
+      - test_trigger:
+          filters:
+            branches:
+              only:
+                - circle-ci
+  conditional_wf:
+    when: << pipeline.parameters.run_conditional_job >>
+    jobs:
+      - conditional_job
