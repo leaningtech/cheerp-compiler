@@ -16,20 +16,11 @@ jobs:
             export NINJA_STATUS="[%u/%r/%f] "
             dch -b -v 0-latest-1 "Internal build" -m
             dpkg-buildpackage -b
-            mkdir tmp
-            dpkg -x ../cheerp-llvm-clang_*.deb tmp
             mv ../cheerp-llvm-clang_*.deb ../cheerp-llvm-clang_latest.deb
-            sudo mkdir /opt/cheerp/
-            sudo cp -rv tmp/opt/cheerp/* /opt/cheerp
             rm -rf tmp
       - store_artifacts:
           path: ~/project/cheerp-llvm-clang_latest.deb
           destination: cheerp-compiler-artifact
-  test_trigger:
-    docker:
-      - image: cimg/base:2021.04
-    resource_class: medium
-    steps:
       - run:
           name: trigger-conditional-job
           command: |
@@ -37,7 +28,7 @@ jobs:
             --header 'Content-Type: application/json' \
             --header 'Accept: application/json' \
             --header "Circle-Token: $CIRCLE_TOKEN" \
-            -d '{ "branch": "'"$CIRCLE_BRANCH"'", "parameters":{"run_test_trigger":false, "run_conditional_job":true}}'
+            -d '{ "branch": "'"$CIRCLE_BRANCH"'", "parameters":{"run_build":false, "run_conditional_job":true}}'
   conditional_job:
     docker:
       - image: cimg/base:2021.04
@@ -47,7 +38,7 @@ jobs:
       - run: exit 0
 
 parameters:
-  run_test_trigger:
+  run_build:
     type: boolean
     default: true
   run_conditional_job:
@@ -55,17 +46,10 @@ parameters:
     default: false
 
 workflows:
-  # cheerp-compiler-monorepo:
-  #   jobs:
-  #     - build:
-  #         filters:
-  #           branches:
-  #             only:
-  #               - circle-ci
-  trigger-pipeline:
-    when: << pipeline.parameters.run_test_trigger >>
+  cheerp-compiler-monorepo:
+    when: << pipeline.parameters.run_build >>
     jobs:
-      - test_trigger:
+      - build:
           filters:
             branches:
               only:
