@@ -9,12 +9,11 @@ override_dh_auto_configure:
 	mkdir -p build
 	cd build && cmake \
 		-C ../llvm/CheerpCmakeConf.cmake \
-		-DCMAKE_BUILD_TYPE=Release \
+		-DCMAKE_BUILD_TYPE=MinSizeRel \
 		-DCLANG_VENDOR="Cheerp ${deb_version}" \
 		-DLLVM_ENABLE_PROJECTS=clang \
 		../llvm/ \
 		-GNinja \
-		-DCMAKE_CXX_FLAGS_RELEASE="-DNDEBUG -O2" \
 		-DCMAKE_CXX_COMPILER=clang++ \
 		-DCMAKE_C_COMPILER=clang \
 		-DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=lld \
