@@ -11709,6 +11709,8 @@ def err_cheerp_wrong_addreof_client_global : Error<
   "Cheerp: Cannot take address of client namespace global variable">;
 def err_cheerp_wrong_addrof_ptr_field : Error<
   "Cheerp: Cannot take address of pointer field %0 of %1 struct %2 in a %3 function">;
+def err_cheerp_wrong_dynamic_cast : Error<
+  "Cheerp: Dynamic cast not allowed on type %0 with attribute %1 with the %2 target">;
 def err_cheerp_asm_in_asmjs : Error<
   "Cheerp: Cannot use inline asm in a %0 function">;
 def err_cheerp_client_top_level_get_set : Error<
