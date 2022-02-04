@@ -13,11 +13,15 @@ jobs:
           name: build-cheerp-compiler
           working_directory: ~/project/cheerp-compiler
           command: |
-            export NINJA_STATUS="[%u/%r/%f] "
-            dch -b -v 0-latest-1 "Internal build" -m
-            dpkg-buildpackage -b
-            mv ../cheerp-llvm-clang_*.deb ../cheerp-llvm-clang_latest.deb
-            rm -rf tmp
+            touch ../cheerp-llvm-clang_latest.deb
+      # - run:
+      #     name: build-cheerp-compiler
+      #     working_directory: ~/project/cheerp-compiler
+      #     command: |
+      #       export NINJA_STATUS="[%u/%r/%f] "
+      #       dch -b -v 0-latest-1 "Internal build" -m
+      #       dpkg-buildpackage -b
+      #       mv ../cheerp-llvm-clang_*.deb ../cheerp-llvm-clang_latest.deb
       - store_artifacts:
           path: ~/project/cheerp-llvm-clang_latest.deb
           destination: cheerp-compiler-artifact
@@ -28,26 +32,36 @@ jobs:
             --header 'Content-Type: application/json' \
             --header 'Accept: application/json' \
             --header "Circle-Token: $CIRCLE_TOKEN" \
-            -d '{ "branch": "'"$CIRCLE_BRANCH"'", "parameters":{"run_build":false, "run_conditional_job":true}}'
+            -d '{ "branch": "'"$CIRCLE_BRANCH"'", "parameters":{"run_build":false, "build_num": "'"$CIRCLE_BUILD_NUM"'"}}'
   conditional_job:
     docker:
       - image: cimg/base:2021.04
     resource_class: medium
     steps:
       - run: echo "I've ran!"
-      - run: exit 0
+      - run:
+          name: get-artifact
+          command: |
+            curl -H "Circle-Token: $CIRCLE_TOKEN" \
+            https://circleci.com/api/v2/project/gh/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME/<< pipeline.parameters.build_num >>/artifacts \
+            | grep -o https://[^"]*' \
+            | wget --verbose --header "Circle-Token: $CIRCLE_TOKEN" --input-file -
+      - run: ls
 
 parameters:
+  build_num:
+    type: string
+    default: ""
   run_build:
     type: boolean
     default: true
-  run_conditional_job:
-    type: boolean
-    default: false
 
 workflows:
   cheerp-compiler-monorepo:
-    when: << pipeline.parameters.run_build >>
+    when:
+      and:
+        - << pipeline.parameters.run_build >>
+        - equal [ << pipeline.parameters.build_num >>, "" ]
     jobs:
       - build:
           filters:
@@ -55,6 +69,7 @@ workflows:
               only:
                 - circle-ci
   conditional_wf:
-    when: << pipeline.parameters.run_conditional_job >>
+    unless:
+      equal: [ << pipeline.parameters.build.num >>, "" ]
     jobs:
       - conditional_job
