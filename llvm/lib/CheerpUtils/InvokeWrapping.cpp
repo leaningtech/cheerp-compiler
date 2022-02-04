@@ -111,6 +111,7 @@ void LandingPadTable::populate(Module& M, GlobalDepsAnalyzer& GDA)
 	};
 
 	std::vector<Constant*> v;
+	Constant* CatchAllOnlySlot = nullptr;
 	for (Function& F: M.functions())
 	{
 		auto& typeIdMap = getLocalTypeIdMap(&F);
@@ -120,6 +121,13 @@ void LandingPadTable::populate(Module& M, GlobalDepsAnalyzer& GDA)
 				continue;
 			initData();
 			auto& LP = cast<LandingPadInst>(I);
+			// Special case: Use the same unique table position if there is only
+			// a catch-all clause
+			if (LP.getNumClauses() == 1 && isa<ConstantPointerNull>(LP.getClause(0)) && CatchAllOnlySlot)
+			{
+				entries.insert(std::make_pair(&LP, Entry{CatchAllOnlySlot, ConstantInt::get(Int32Ty, 1)}));
+				continue;
+			}
 			Constant* start = ConstantInt::get(Int32Ty, v.size());
 			Constant* n = ConstantInt::get(Int32Ty, LP.getNumClauses());
 			entries.insert(std::make_pair(&LP, Entry{start, n}));
@@ -128,9 +136,11 @@ void LandingPadTable::populate(Module& M, GlobalDepsAnalyzer& GDA)
 				Constant* Clause = LP.getClause(i);
 				PointerType* InfoTy = cast<PointerType>(elemTy->getElementType(0));
 				int id = typeIdMap.getTypeIdFor(Clause);
-				Clause = isa<ConstantPointerNull>(Clause)
-					? ConstantPointerNull::get(InfoTy)
-					: Clause;
+				if (isa<ConstantPointerNull>(Clause))
+				{
+					Clause = ConstantPointerNull::get(InfoTy);
+					CatchAllOnlySlot = ConstantInt::get(Int32Ty, v.size());
+				}
 				SmallVector<Constant*, 2> fields {
 					Clause,
 					ConstantInt::get(Int32Ty, id)
