@@ -13,7 +13,7 @@ jobs:
           name: build-cheerp-compiler
           working_directory: ~/project/cheerp-compiler
           command: |
-            touch ../cheerp-llvm-clang_latest.deb
+            echo "hi" >> ../test.txt
       # - run:
       #     name: build-cheerp-compiler
       #     working_directory: ~/project/cheerp-compiler
@@ -23,7 +23,7 @@ jobs:
       #       dpkg-buildpackage -b
       #       mv ../cheerp-llvm-clang_*.deb ../cheerp-llvm-clang_latest.deb
       - store_artifacts:
-          path: ~/project/cheerp-llvm-clang_latest.deb
+          path: ~/project/test.txt
           destination: cheerp-compiler-artifact
       - run:
           name: trigger-conditional-job
