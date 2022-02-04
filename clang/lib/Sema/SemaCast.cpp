@@ -891,6 +891,21 @@ void CastOperation::CheckDynamicCast() {
     return;
   }
 
+  // CHEERP: Forbid dynamic_cast of asmjs structs if the default section is genericjs
+  bool genericjs = Self.getASTContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::GenericJs;
+  if (genericjs) {
+    if (DestRecord && DestRecord->getDecl()->hasAttr<AsmJSAttr>()) {
+      Self.Diag(OpRange.getBegin(), diag::err_cheerp_wrong_dynamic_cast)
+        << DestType << DestRecord->getDecl()->getAttr<AsmJSAttr>() << Self.getASTContext().getTargetInfo().getTriple().getTriple();
+      SrcExpr = ExprError();
+      return;
+    } else if (DestRecord && SrcRecord->getDecl()->hasAttr<AsmJSAttr>()) {
+      Self.Diag(OpRange.getBegin(), diag::err_cheerp_wrong_dynamic_cast)
+        << SrcType << SrcRecord->getDecl()->getAttr<AsmJSAttr>() << Self.getASTContext().getTargetInfo().getTriple().getTriple();
+      SrcExpr = ExprError();
+      return;
+    }
+  }
   // C++ 5.2.7p3: If the type of v is the same as the required result type,
   //   [except for cv].
   if (DestRecord == SrcRecord) {
