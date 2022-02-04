@@ -1,7 +1,7 @@
 version: 2.1
 
 jobs:
-  build:
+  build-cheerp-compiler:
     machine:
       image: ubuntu-2004:202111-02
     resource_class: large
@@ -13,18 +13,12 @@ jobs:
           name: build-cheerp-compiler
           working_directory: ~/project/cheerp-compiler
           command: |
-            echo "hi" >> ../test.txt
-      # - run:
-      #     name: build-cheerp-compiler
-      #     working_directory: ~/project/cheerp-compiler
-      #     command: |
-      #       export NINJA_STATUS="[%u/%r/%f] "
-      #       dch -b -v 0-latest-1 "Internal build" -m
-      #       dpkg-buildpackage -b
-      #       mv ../cheerp-llvm-clang_*.deb ../cheerp-llvm-clang_latest.deb
+            export NINJA_STATUS="[%u/%r/%f] "
+            dch -b -v 0-latest-1 "Internal build" -m
+            dpkg-buildpackage -b
+            mv ../cheerp-llvm-clang_*.deb ../cheerp-llvm-clang_latest.deb
       - store_artifacts:
-          path: ~/project/test.txt
-          destination: cheerp-compiler-artifact
+          path: ~/project/cheerp-llvm-clang_latest.deb
       - run:
           name: trigger-conditional-job
           command: |
@@ -33,43 +27,118 @@ jobs:
             --header 'Accept: application/json' \
             --header "Circle-Token: $CIRCLE_TOKEN" \
             -d '{ "branch": "'"$CIRCLE_BRANCH"'", "parameters":{"run_build":false, "build_num": "'"$CIRCLE_BUILD_NUM"'"}}'
-  conditional_job:
+  build-libraries:
     docker:
       - image: cimg/base:2021.04
-    resource_class: medium
+    resource_class: large
     steps:
-      - run: echo "I've ran!"
+      - run: sudo apt-get update && sudo apt-get install -y debhelper cmake python3-distutils ninja-build clang lld devscripts
       - run:
-          name: get-artifact
+          name: get-cheerp-compiler-artifact
           command: |
             curl -H "Circle-Token: $CIRCLE_TOKEN" \
             https://circleci.com/api/v2/project/gh/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME/<< pipeline.parameters.build_num >>/artifacts \
             | grep -o 'https://[^"]*' \
             | wget --verbose --header "Circle-Token: $CIRCLE_TOKEN" --input-file -
+      - run: mv cheerp-compiler-artifact cheerp-llvm-clang_latest.deb
+      - run:
+          name: depackage-cheerp-compiler
+          command: |
+            mkdir tmp
+            dpkg -x cheerp-llvm-clang_latest.deb tmp
+            sudo mkdir /opt/cheerp/
+            sudo cp -rv tmp/opt/cheerp/* /opt/cheerp
+            rm -rf tmp
+      - checkout:
+          path: cheerp-compiler
+      - run: git clone https://github.com/leaningtech/cheerp-utils.git
+      - run: git clone https://github.com/leaningtech/cheerp-newlib.git
+      - run: git clone https://github.com/leaningtech/cheerp-libs.git
       - run: ls
+      - run:
+          name: build-cheerp-utils
+          working_directory: ~/project/cheerp-utils
+          command: |
+            dpkg-buildpackage -d -b
+            mkdir tmp
+            dpkg -x ../cheerp-utils_*.deb tmp
+            sudo cp -rv tmp/opt/cheerp/* /opt/cheerp/
+      - run:
+          name: build-cheerp-newlib
+          working_directory: ~/project/cheerp-newlib
+          command: |
+            cp -rv ../cheerp-compiler/libcxx/ libcxx/
+            dpkg-buildpackage -d -b
+            mkdir tmp
+            dpkg -x ../cheerp-newlib_*.deb tmp
+            sudo cp -rv tmp/opt/cheerp/* /opt/cheerp/
+      - run:
+          name: build-cheerp-libcxx-libcxxabi-monorepo
+          working_directory: ~/project/cheerp-compiler
+          command: |
+            rm -rf build_genericjs/
+            rm -rf build_asmjs/
+            rm -rf debian/
+            cp -rv libcxx/debian/ debian/
+            dpkg-buildpackage -d -b
+            mkdir tmp
+            dpkg -x ../cheerp-libcxx_*.deb tmp
+            sudo cp -rv tmp/opt/cheerp/* /opt/cheerp/
+            rm -rf build_genericjs/
+            rm -rf build_asmjs/
+            rm -rf debian/
+            cp -rv libcxxabi/debian/ debian/
+            ls /opt/cheerp/include/c++/v1
+            ls /opt/cheerp/bin/llvm-config
+            dpkg-buildpackage -d -b
+            rm -rf tmp
+            mkdir tmp
+            dpkg -x ../cheerp-libcxxabi_*.deb tmp
+            sudo cp -rv tmp/opt/cheerp/* /opt/cheerp/
+            rm -rf tmp
+      - run:
+          name: build-cheerp-libs
+          working_directory: ~/project/cheerp-libs
+          command: |
+            dpkg-buildpackage -d -b
+            mkdir tmp
+            dpkg -x ../cheerp-libs_*.deb tmp
+            sudo cp -rv tmp/opt/cheerp/* /opt/cheerp/
+  test:
+    docker:
+      - image: cimg/base:2021.04
+    resource_class: large
+    steps:
+      - run:
+          working_directory: ~/project/cheerp-utils/tests
+          command: ./run_tests.py --all --determinism=3 --determinism-probability=0.2 "/opt/cheerp/bin/clang++" "node --experimental-wasm-reftypes" -j4
 
 parameters:
   build_num:
     type: string
-    default: ""
+    default: "47"
+    # default: ""
   run_build:
     type: boolean
     default: true
 
 workflows:
-  cheerp-compiler-monorepo:
-    when:
-      and:
-        - << pipeline.parameters.run_build >>
-        - equal [ << pipeline.parameters.build_num >>, "" ]
-    jobs:
-      - build:
-          filters:
-            branches:
-              only:
-                - circle-ci
-  conditional_wf:
+  # build_cheerp_compiler-wf:
+  #   when:
+  #     and:
+  #       - << pipeline.parameters.run_build >>
+  #       - equal [ << pipeline.parameters.build_num >>, "" ]
+  #   jobs:
+  #     - build-cheerp-compiler:
+  #         filters:
+  #           branches:
+  #             only:
+  #               - circle-ci
+  finish-build-wf:
     unless:
       equal: [ << pipeline.parameters.build_num >>, "" ]
     jobs:
-      - conditional_job
+      - build-libraries
+      - test:
+          requires:
+            - build-libraries
