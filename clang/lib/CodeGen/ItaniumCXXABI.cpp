@@ -1404,7 +1404,7 @@ void ItaniumCXXABI::emitThrow(CodeGenFunction &CGF, const CXXThrowExpr *E) {
   CGF.EmitNoreturnRuntimeCallOrInvoke(getThrowFn(CGM, asmjs), args);
 }
 
-static llvm::FunctionCallee getItaniumDynamicCastFn(CodeGenFunction &CGF) {
+static llvm::FunctionCallee getItaniumDynamicCastFn(CodeGenFunction &CGF, bool asmjs) {
   // #ifdef __CHEERP__
   // std::ptrdiff_t __dynamic_cast(std::ptrdiff_t sub,
   //                      struct._ZN10__cxxabiv113__vtable_baseE* vtable,
@@ -1420,14 +1420,16 @@ static llvm::FunctionCallee getItaniumDynamicCastFn(CodeGenFunction &CGF) {
     CGF.ConvertType(CGF.getContext().getPointerDiffType());
 
   llvm::FunctionType *FTy = NULL;
+  llvm::StringRef FName;
   if(!CGF.getTarget().isByteAddressable()) {
-    bool asmjs = CGF.getContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly;
     llvm::Type* classTypeInfoPtr = CGF.getTypes().GetClassTypeInfoType()->getPointerTo();
     llvm::Type *Args[5] = { PtrDiffTy, CGF.getTypes().GetVTableBaseType(asmjs)->getPointerTo(), classTypeInfoPtr, classTypeInfoPtr, PtrDiffTy };
     FTy = llvm::FunctionType::get(PtrDiffTy, Args, false);
+    FName = asmjs? "__dynamic_cast_asmjs" : "__dynamic_cast_genericjs";
   } else {
     llvm::Type *Args[4] = { Int8PtrTy, Int8PtrTy, Int8PtrTy, PtrDiffTy };
     FTy = llvm::FunctionType::get(Int8PtrTy, Args, false);
+    FName = "__dynamic_cast";
   }
 
   // Mark the function as nounwind readonly.
@@ -1436,7 +1438,7 @@ static llvm::FunctionCallee getItaniumDynamicCastFn(CodeGenFunction &CGF) {
   llvm::AttributeList Attrs = llvm::AttributeList::get(
       CGF.getLLVMContext(), llvm::AttributeList::FunctionIndex, FuncAttrs);
 
-  return CGF.CGM.CreateRuntimeFunction(FTy, "__dynamic_cast", Attrs);
+  return CGF.CGM.CreateRuntimeFunction(FTy, FName, Attrs);
 }
 
 static llvm::FunctionCallee getBadCastFn(CodeGenFunction &CGF) {
@@ -1577,7 +1579,11 @@ llvm::Value *ItaniumCXXABI::EmitDynamicCastCall(
       computeOffsetHint(CGF.getContext(), SrcDecl, DestDecl).getQuantity());
 
   llvm::Value *Value = ThisAddr.getPointer();
-  bool asmjs = CGM.getContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly;
+  assert((SrcDecl->hasAttr<AsmJSAttr>() == SrcDecl->hasAttr<AsmJSAttr>())
+      && "Cannot dynamic_cast between genericjs and asmjs types");
+  bool asmjs = SrcDecl->hasAttr<AsmJSAttr>();
+  assert(!(CGF.getContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::GenericJs && asmjs)
+      && "Cannot use dynamic_cast on asmjs types in the genericjs target");
   llvm::Value *VTable = CGF.GetVTablePtr(ThisAddr, CGF.getTypes().GetVTableBaseType(asmjs)->getPointerTo(), SrcDecl);
   llvm::Value *DynCastObj = Value;
 
@@ -1587,11 +1593,11 @@ llvm::Value *ItaniumCXXABI::EmitDynamicCastCall(
     llvm::Function* intrinsic = llvm::Intrinsic::getDeclaration(&CGF.CGM.getModule(), llvm::Intrinsic::cheerp_downcast_current, Tys);
     Value = CGF.Builder.CreateCall(intrinsic, Value);
     llvm::Value *args[] = { Value, VTable, SrcRTTI, DestRTTI, OffsetHint };
-    Value = CGF.EmitNounwindRuntimeCall(getItaniumDynamicCastFn(CGF), args);
+    Value = CGF.EmitNounwindRuntimeCall(getItaniumDynamicCastFn(CGF, asmjs), args);
   } else {
     Value = CGF.EmitCastToVoidPtr(Value);
     llvm::Value *args[] = { Value, SrcRTTI, DestRTTI, OffsetHint };
-    Value = CGF.EmitNounwindRuntimeCall(getItaniumDynamicCastFn(CGF), args);
+    Value = CGF.EmitNounwindRuntimeCall(getItaniumDynamicCastFn(CGF, false), args);
   }
 
   if(!CGF.getTarget().isByteAddressable()) {
