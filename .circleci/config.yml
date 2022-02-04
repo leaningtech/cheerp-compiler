@@ -70,6 +70,6 @@ workflows:
                 - circle-ci
   conditional_wf:
     unless:
-      equal: [ << pipeline.parameters.build.num >>, "" ]
+      equal: [ << pipeline.parameters.build_num >>, "" ]
     jobs:
       - conditional_job
