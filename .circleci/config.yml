@@ -44,7 +44,7 @@ jobs:
           command: |
             curl -H "Circle-Token: $CIRCLE_TOKEN" \
             https://circleci.com/api/v2/project/gh/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME/<< pipeline.parameters.build_num >>/artifacts \
-            | grep -o https://[^"]*' \
+            | grep -o 'https://[^"]*' \
             | wget --verbose --header "Circle-Token: $CIRCLE_TOKEN" --input-file -
       - run: ls
 
