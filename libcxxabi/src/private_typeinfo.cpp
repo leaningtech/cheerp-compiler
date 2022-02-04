@@ -704,25 +704,29 @@ bool __pointer_to_member_type_info::can_catch_nested(
 //    (static_ptr, static_type), then return dynamic_ptr.
 // Else return nullptr.
 
+#ifdef __CHEERP__
+struct
+[[cheerp::genericjs]]
+ __vtable_base
+{
+	const __class_type_info* rtti_info;
+};
 #ifdef __ASMJS__
 struct __vtable_base_asmjs
 {
 	const std::ptrdiff_t offset_to_derived;
 	const __class_type_info* rtti_info;
 };
-typedef __vtable_base_asmjs __vtable_base;
-#else
-struct __vtable_base
-{
-	const __class_type_info* rtti_info;
-};
+#endif
 #endif
 
 extern "C" _LIBCXXABI_FUNC_VIS
 #ifdef __CHEERP__
 std::ptrdiff_t
 __dynamic_cast(std::ptrdiff_t static_downcast_offset,
-               const __vtable_base* vtable,
+               std::ptrdiff_t dynamic_ptr,
+               std::ptrdiff_t static_ptr,
+               const __class_type_info* dynamic_type,
 #else
 void*
 __dynamic_cast(const void *static_ptr,
@@ -749,14 +753,6 @@ __dynamic_cast(const void *static_ptr,
     const __class_type_info* dynamic_type =
         *(reinterpret_cast<const __class_type_info* const*>(ptr_to_ti_proxy));
 #elif defined(__CHEERP__)
-#ifdef __ASMJS__
-    std::ptrdiff_t dynamic_ptr = static_downcast_offset + vtable->offset_to_derived;
-    std::ptrdiff_t static_ptr = static_downcast_offset ;
-#else
-    std::ptrdiff_t dynamic_ptr = 1;
-    std::ptrdiff_t static_ptr = static_downcast_offset + 1;
-#endif
-    const __class_type_info* dynamic_type = vtable->rtti_info;
 #else
     void **vtable = *static_cast<void ** const *>(static_ptr);
     ptrdiff_t offset_to_derived = reinterpret_cast<ptrdiff_t>(vtable[-2]);
@@ -862,6 +858,38 @@ __dynamic_cast(const void *static_ptr,
     return const_cast<void*>(dst_ptr);
 #endif
 }
+
+#ifdef __CHEERP__
+extern "C" _LIBCXXABI_FUNC_VIS
+[[cheerp::genericjs]]
+std::ptrdiff_t
+__dynamic_cast_genericjs(std::ptrdiff_t static_downcast_offset,
+               const __vtable_base* vtable,
+               const __class_type_info* static_type,
+               const __class_type_info* dst_type,
+               std::ptrdiff_t src2dst_offset)
+{
+    std::ptrdiff_t dynamic_ptr = 1;
+    std::ptrdiff_t static_ptr = static_downcast_offset + 1;
+    const __class_type_info* dynamic_type = vtable->rtti_info;
+    return __dynamic_cast(static_downcast_offset, dynamic_ptr, static_ptr, dynamic_type, static_type, dst_type, src2dst_offset);
+}
+#ifdef __ASMJS__
+extern "C" _LIBCXXABI_FUNC_VIS
+std::ptrdiff_t
+__dynamic_cast_asmjs(std::ptrdiff_t static_downcast_offset,
+               const __vtable_base_asmjs* vtable,
+               const __class_type_info* static_type,
+               const __class_type_info* dst_type,
+               std::ptrdiff_t src2dst_offset)
+{
+    std::ptrdiff_t dynamic_ptr = static_downcast_offset + vtable->offset_to_derived;
+    std::ptrdiff_t static_ptr = static_downcast_offset ;
+    const __class_type_info* dynamic_type = vtable->rtti_info;
+    return __dynamic_cast(static_downcast_offset, dynamic_ptr, static_ptr, dynamic_type, static_type, dst_type, src2dst_offset);
+}
+#endif
+#endif
 
 #ifdef __clang__
 #pragma clang diagnostic pop
