@@ -56,7 +56,7 @@ jobs:
             sudo mkdir /opt/cheerp/
             sudo cp -rv tmp/opt/cheerp/* /opt/cheerp
             rm -rf tmp
-        - run:
+      - run:
           name: build-cheerp-utils
           working_directory: ~/project/cheerp-utils
           command: |
