@@ -7,7 +7,7 @@ aliases:
 jobs:
   build-cheerp-compiler:
     machine: *ubuntu
-    resource_class: medium
+    resource_class: large
     steps:
       - run: sudo apt-get update && sudo apt-get install -y debhelper cmake python3-distutils ninja-build clang lld devscripts
       - checkout:
