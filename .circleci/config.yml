@@ -15,11 +15,11 @@ jobs:
       - run:
           name: test-branch-parameters
           command: |
-            echo: cheerp compiler branch << pipeline.parameters.cheerp-compiler-branch >>
-            echo: cheerp utils branch << pipeline.parameters.cheerp-utils-branch >>
-            echo: cheerp newlib branch << pipeline.parameters.cheerp-newlib-branch >>
-            echo: cheerp libs branch << pipeline.parameters.cheerp-libs-branch >>
-            echo: circleci repo branch << pipeline.git.branch >>
+            echo cheerp compiler branch << pipeline.parameters.cheerp-compiler-branch >>
+            echo cheerp utils branch << pipeline.parameters.cheerp-utils-branch >>
+            echo cheerp newlib branch << pipeline.parameters.cheerp-newlib-branch >>
+            echo cheerp libs branch << pipeline.parameters.cheerp-libs-branch >>
+            echo circleci repo branch << pipeline.git.branch >>
       - run:
           name: build-cheerp-compiler
           working_directory: ~/project/cheerp-compiler
@@ -56,11 +56,11 @@ jobs:
       - run:
           name: test-branch-parameters
           command: |
-            echo: cheerp compiler branch << pipeline.parameters.cheerp-compiler-branch >>
-            echo: cheerp utils branch << pipeline.parameters.cheerp-utils-branch >>
-            echo: cheerp newlib branch << pipeline.parameters.cheerp-newlib-branch >>
-            echo: cheerp libs branch << pipeline.parameters.cheerp-libs-branch >>
-            echo: circleci repo branch << pipeline.git.branch >>
+            echo cheerp compiler branch << pipeline.parameters.cheerp-compiler-branch >>
+            echo cheerp utils branch << pipeline.parameters.cheerp-utils-branch >>
+            echo cheerp newlib branch << pipeline.parameters.cheerp-newlib-branch >>
+            echo cheerp libs branch << pipeline.parameters.cheerp-libs-branch >>
+            echo circleci repo branch << pipeline.git.branch >>
       - run:
           name: get-cheerp-compiler-artifact
           command: |
