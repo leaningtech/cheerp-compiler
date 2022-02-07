@@ -34,7 +34,7 @@ jobs:
     machine: *ubuntu
     resource_class: large
     steps:
-      - run: sudo apt-get update && sudo apt-get install -y debhelper cmake python3-distutils ninja-build clang lld devscripts
+      - run: sudo apt-get update && sudo apt-get install -y debhelper cmake python3-distutils ninja-build clang lld devscripts nodejs
       - checkout:
           path: cheerp-compiler
       - run: git clone https://github.com/leaningtech/cheerp-utils.git
@@ -60,6 +60,7 @@ jobs:
           name: build-cheerp-utils
           working_directory: ~/project/cheerp-utils
           command: |
+            dch -b -v 0-latest-1 "Internal build" -m
             dpkg-buildpackage -d -b
             mkdir tmp
             dpkg -x ../cheerp-utils_*.deb tmp
@@ -68,6 +69,7 @@ jobs:
           name: build-cheerp-newlib
           working_directory: ~/project/cheerp-newlib
           command: |
+            dch -b -v 0-latest-1 "Internal build" -m
             cp -rv ../cheerp-compiler/libcxx/ libcxx/
             dpkg-buildpackage -d -b
             mkdir tmp
@@ -81,6 +83,7 @@ jobs:
             rm -rf build_asmjs/
             rm -rf debian/
             cp -rv libcxx/debian/ debian/
+            dch -b -v 0-latest-1 "Internal build" -m
             dpkg-buildpackage -d -b
             mkdir tmp
             dpkg -x ../cheerp-libcxx_*.deb tmp
@@ -91,6 +94,7 @@ jobs:
             cp -rv libcxxabi/debian/ debian/
             ls /opt/cheerp/include/c++/v1
             ls /opt/cheerp/bin/llvm-config
+            dch -b -v 0-latest-1 "Internal build" -m
             dpkg-buildpackage -d -b
             rm -rf tmp
             mkdir tmp
@@ -101,6 +105,7 @@ jobs:
           name: build-cheerp-libs
           working_directory: ~/project/cheerp-libs
           command: |
+            dch -b -v 0-latest-1 "Internal build" -m
             dpkg-buildpackage -d -b
             mkdir tmp
             dpkg -x ../cheerp-libs_*.deb tmp
