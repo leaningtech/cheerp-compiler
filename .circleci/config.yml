@@ -47,7 +47,6 @@ jobs:
             https://circleci.com/api/v2/project/gh/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME/<< pipeline.parameters.build_num >>/artifacts \
             | grep -o 'https://[^"]*' \
             | wget --verbose --header "Circle-Token: $CIRCLE_TOKEN" --input-file -
-      - run: mv cheerp-compiler-artifact cheerp-llvm-clang_latest.deb
       - run:
           name: depackage-cheerp-compiler
           command: |
@@ -118,24 +117,23 @@ jobs:
 parameters:
   build_num:
     type: string
-    default: "47"
-    # default: ""
+    default: ""
   run_build:
     type: boolean
     default: true
 
 workflows:
-  # build_cheerp_compiler-wf:
-  #   when:
-  #     and:
-  #       - << pipeline.parameters.run_build >>
-  #       - equal [ << pipeline.parameters.build_num >>, "" ]
-  #   jobs:
-  #     - build-cheerp-compiler:
-  #         filters:
-  #           branches:
-  #             only:
-  #               - circle-ci
+  build_cheerp_compiler-wf:
+    when:
+      and:
+        - << pipeline.parameters.run_build >>
+        - equal [ << pipeline.parameters.build_num >>, "" ]
+    jobs:
+      - build-cheerp-compiler:
+          filters:
+            branches:
+              only:
+                - circle-ci
   finish-build-wf:
     unless:
       equal: [ << pipeline.parameters.build_num >>, "" ]
