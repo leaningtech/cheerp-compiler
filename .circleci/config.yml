@@ -7,15 +7,24 @@ aliases:
 jobs:
   build-cheerp-compiler:
     machine: *ubuntu
-    resource_class: arm.medium
+    resource_class: medium
     steps:
       - run: sudo apt-get update && sudo apt-get install -y debhelper cmake python3-distutils ninja-build clang lld devscripts
       - checkout:
           path: cheerp-compiler
       - run:
+          name: test-branch-parameters
+          command: |
+            echo: cheerp compiler branch << pipeline.parameters.cheerp-compiler-branch >>
+            echo: cheerp utils branch << pipeline.parameters.cheerp-utils-branch >>
+            echo: cheerp newlib branch << pipeline.parameters.cheerp-newlib-branch >>
+            echo: cheerp libs branch << pipeline.parameters.cheerp-libs-branch >>
+            echo: circleci repo branch << pipeline.git.branch >>
+      - run:
           name: build-cheerp-compiler
           working_directory: ~/project/cheerp-compiler
           command: |
+            git checkout << pipeline.parameters.cheerp-compiler-branch >>
             export NINJA_STATUS="[%u/%r/%f] "
             dch -b -v 0-latest-1 "Internal build" -m
             dpkg-buildpackage -b
@@ -29,7 +38,11 @@ jobs:
             --header 'Content-Type: application/json' \
             --header 'Accept: application/json' \
             --header "Circle-Token: $CIRCLE_TOKEN" \
-            -d '{ "branch": "'"$CIRCLE_BRANCH"'", "parameters":{"run_build":false, "build_num": "'"$CIRCLE_BUILD_NUM"'"}}'
+            -d '{ "branch":"'"<< pipeline.git.branch >>"'", "parameters":{"run_build":false, "build_num":"'"$CIRCLE_BUILD_NUM"'", \
+            "cheerp-compiler-branch":"<< pipeline.parameters.cheerp-compiler-branch >>",
+            "cheerp-utils-branch":"<< pipeline.parameters.cheerp-utils-branch >>",
+            "cheerp-newlib-branch":"<< pipeline.parameters.cheerp-newlib-branch >>",
+            "cheerp-libs-branch":"<< pipeline.parameters.cheerp-libs-branch >>"}}'
   build-libraries:
     machine: *ubuntu
     resource_class: large
@@ -40,6 +53,14 @@ jobs:
       - run: git clone https://github.com/leaningtech/cheerp-utils.git
       - run: git clone https://github.com/leaningtech/cheerp-newlib.git
       - run: git clone https://github.com/leaningtech/cheerp-libs.git
+      - run:
+          name: test-branch-parameters
+          command: |
+            echo: cheerp compiler branch << pipeline.parameters.cheerp-compiler-branch >>
+            echo: cheerp utils branch << pipeline.parameters.cheerp-utils-branch >>
+            echo: cheerp newlib branch << pipeline.parameters.cheerp-newlib-branch >>
+            echo: cheerp libs branch << pipeline.parameters.cheerp-libs-branch >>
+            echo: circleci repo branch << pipeline.git.branch >>
       - run:
           name: get-cheerp-compiler-artifact
           command: |
@@ -59,6 +80,7 @@ jobs:
           name: build-cheerp-utils
           working_directory: ~/project/cheerp-utils
           command: |
+            git checkout << pipeline.parameters.cheerp-utils-branch >>
             dch -b -v 0-latest-1 "Internal build" -m
             dpkg-buildpackage -d -b
             mkdir tmp
@@ -68,6 +90,7 @@ jobs:
           name: build-cheerp-newlib
           working_directory: ~/project/cheerp-newlib
           command: |
+            git checkout << pipeline.parameters.cheerp-newlib-branch >>
             dch -b -v 0-latest-1 "Internal build" -m
             cp -rv ../cheerp-compiler/libcxx/ libcxx/
             dpkg-buildpackage -d -b
@@ -78,6 +101,7 @@ jobs:
           name: build-cheerp-libcxx-libcxxabi-monorepo
           working_directory: ~/project/cheerp-compiler
           command: |
+            git checkout << pipeline.parameters.cheerp-compiler-branch >>
             rm -rf build_genericjs/
             rm -rf build_asmjs/
             rm -rf debian/
@@ -104,6 +128,7 @@ jobs:
           name: build-cheerp-libs
           working_directory: ~/project/cheerp-libs
           command: |
+            git checkout << pipeline.parameters.cheerp-libs-branch >>
             dch -b -v 0-latest-1 "Internal build" -m
             dpkg-buildpackage -d -b
             mkdir tmp
@@ -121,6 +146,18 @@ parameters:
   run_build:
     type: boolean
     default: true
+  cheerp-compiler-branch:
+    type: string
+    default: << pipeline.git.branch >>
+  cheerp-utils-branch:
+    type: string
+    default: "master"
+  cheerp-newlib-branch:
+    type: string
+    default: "master"
+  cheerp-libs-branch:
+    type: string
+    default: "master"
 
 workflows:
   build_cheerp_compiler-wf:
