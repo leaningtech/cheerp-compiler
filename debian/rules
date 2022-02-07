@@ -24,6 +24,6 @@ override_dh_auto_install:
 	dh_auto_install --builddirectory=build --destdir=debian/tmp
 
 override_dh_auto_build:
-	cd build && ninja -v
+	cd build && ninja
 
 override_dh_auto_test:
