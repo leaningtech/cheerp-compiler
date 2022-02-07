@@ -34,15 +34,15 @@ jobs:
       - run:
           name: trigger-conditional-job
           command: |
-            curl -X POST https://circleci.com/api/v2/project/gh/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME/pipeline \
-            --header 'Content-Type: application/json' \
-            --header 'Accept: application/json' \
-            --header "Circle-Token: $CIRCLE_TOKEN" \
-            -d '{ "branch":"<< pipeline.git.branch >>", "parameters":{"run_build":false, \
-            "build_num":"'"$CIRCLE_BUILD_NUM"'", \
-            "cheerp-compiler-branch":"<< pipeline.parameters.cheerp-compiler-branch >>", \
-            "cheerp-utils-branch":"<< pipeline.parameters.cheerp-utils-branch >>", \
-            "cheerp-newlib-branch":"<< pipeline.parameters.cheerp-newlib-branch >>", \
+            curl -X POST https://circleci.com/api/v2/project/gh/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME/pipeline
+            --header 'Content-Type: application/json'
+            --header 'Accept: application/json'
+            --header "Circle-Token: $CIRCLE_TOKEN"
+            -d '{ "branch":"<< pipeline.git.branch >>", "parameters":{"run_build":false,
+            "build_num":"'"$CIRCLE_BUILD_NUM"'",
+            "cheerp-compiler-branch":"<< pipeline.parameters.cheerp-compiler-branch >>",
+            "cheerp-utils-branch":"<< pipeline.parameters.cheerp-utils-branch >>",
+            "cheerp-newlib-branch":"<< pipeline.parameters.cheerp-newlib-branch >>",
             "cheerp-libs-branch":"<< pipeline.parameters.cheerp-libs-branch >>"}}'
   build-libraries:
     machine: *ubuntu
