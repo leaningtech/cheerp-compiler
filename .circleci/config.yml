@@ -13,156 +13,37 @@ jobs:
       - checkout:
           path: cheerp-compiler
       - run:
-          name: test-branch-parameters
+          name: Build cheerp compiler
+          working_directory: ~/project/cheerp-compiler
           command: |
-            echo cheerp compiler branch << pipeline.parameters.cheerp-compiler-branch >>
-            echo cheerp utils branch << pipeline.parameters.cheerp-utils-branch >>
-            echo cheerp newlib branch << pipeline.parameters.cheerp-newlib-branch >>
-            echo cheerp libs branch << pipeline.parameters.cheerp-libs-branch >>
-            echo circleci repo branch << pipeline.git.branch >>
-      # - run:
-      #     name: build-cheerp-compiler
-      #     working_directory: ~/project/cheerp-compiler
-      #     command: |
-      #       git checkout << pipeline.parameters.cheerp-compiler-branch >>
-      #       export NINJA_STATUS="[%u/%r/%f] "
-      #       dch -b -v 0-latest-1 "Internal build" -m
-      #       dpkg-buildpackage -b
-      #       mv ../cheerp-llvm-clang_*.deb ../cheerp-llvm-clang_latest.deb
+            git checkout << pipeline.parameters.cheerp-compiler-branch >>
+            export NINJA_STATUS="[%u/%r/%f] "
+            dch -b -v 0-latest-1 "Internal build" -m
+            dpkg-buildpackage -b
+            mv ../cheerp-llvm-clang_*.deb ../cheerp-llvm-clang_latest.deb
       - store_artifacts:
           path: ~/project/cheerp-llvm-clang_latest.deb
       - run:
-          name: trigger-conditional-job
+          name: Trigger build libs
           command: |
-            curl -X POST https://circleci.com/api/v2/project/gh/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME/pipeline \
+            curl -X POST https://circleci.com/api/v2/project/gh/$CIRCLE_PROJECT_USERNAME/cheerp-utils/pipeline \
             --header 'Content-Type: application/json' \
             --header 'Accept: application/json' \
             --header "Circle-Token: $CIRCLE_TOKEN" \
-            -d '{ "branch":"<< pipeline.git.branch >>", "parameters":{"run_build":false,
+            -d '{ "branch":"circle-ci", "parameters":{
             "build_num":"'"$CIRCLE_BUILD_NUM"'",
             "cheerp-compiler-branch":"<< pipeline.parameters.cheerp-compiler-branch >>",
             "cheerp-utils-branch":"<< pipeline.parameters.cheerp-utils-branch >>",
             "cheerp-newlib-branch":"<< pipeline.parameters.cheerp-newlib-branch >>",
             "cheerp-libs-branch":"<< pipeline.parameters.cheerp-libs-branch >>"}}'
-  build-libraries:
-    machine: *ubuntu
-    resource_class: large
-    steps:
-      - run: sudo apt-get update && sudo apt-get install -y debhelper cmake python3-distutils ninja-build clang lld devscripts nodejs
-      - checkout:
-          path: cheerp-compiler
-      - run: git clone https://github.com/leaningtech/cheerp-utils.git
-      - run: git clone https://github.com/leaningtech/cheerp-newlib.git
-      - run: git clone https://github.com/leaningtech/cheerp-libs.git
-      - run:
-          name: test-branch-parameters
-          command: |
-            echo cheerp compiler branch << pipeline.parameters.cheerp-compiler-branch >>
-            echo cheerp utils branch << pipeline.parameters.cheerp-utils-branch >>
-            echo cheerp newlib branch << pipeline.parameters.cheerp-newlib-branch >>
-            echo cheerp libs branch << pipeline.parameters.cheerp-libs-branch >>
-            echo circleci repo branch << pipeline.git.branch >>
-      - run:
-          name: get-cheerp-compiler-artifact
-          command: |
-            curl -H "Circle-Token: $CIRCLE_TOKEN" \
-            https://circleci.com/api/v2/project/gh/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME/<< pipeline.parameters.build_num >>/artifacts \
-            | grep -o 'https://[^"]*' \
-            | wget --verbose --header "Circle-Token: $CIRCLE_TOKEN" --input-file -
-      - run:
-          name: depackage-cheerp-compiler
-          command: |
-            mkdir tmp
-            dpkg -x cheerp-llvm-clang_latest.deb tmp
-            sudo mkdir /opt/cheerp/
-            sudo cp -rv tmp/opt/cheerp/* /opt/cheerp
-            rm -rf tmp
-      - run:
-          name: build-cheerp-utils
-          working_directory: ~/project/cheerp-utils
-          command: |
-            git checkout << pipeline.parameters.cheerp-utils-branch >>
-            dch -b -v 0-latest-1 "Internal build" -m
-            dpkg-buildpackage -d -b
-            mkdir tmp
-            dpkg -x ../cheerp-utils_*.deb tmp
-            sudo cp -rv tmp/opt/cheerp/* /opt/cheerp/
-      - run:
-          name: build-cheerp-newlib
-          working_directory: ~/project/cheerp-newlib
-          command: |
-            git checkout << pipeline.parameters.cheerp-newlib-branch >>
-            dch -b -v 0-latest-1 "Internal build" -m
-            cp -rv ../cheerp-compiler/libcxx/ libcxx/
-            dpkg-buildpackage -d -b
-            mkdir tmp
-            dpkg -x ../cheerp-newlib_*.deb tmp
-            sudo cp -rv tmp/opt/cheerp/* /opt/cheerp/
-      - run:
-          name: build-cheerp-libcxx-libcxxabi-monorepo
-          working_directory: ~/project/cheerp-compiler
-          command: |
-            git checkout << pipeline.parameters.cheerp-compiler-branch >>
-            rm -rf build_genericjs/
-            rm -rf build_asmjs/
-            rm -rf debian/
-            cp -rv libcxx/debian/ debian/
-            dch -b -v 0-latest-1 "Internal build" -m
-            dpkg-buildpackage -d -b
-            mkdir tmp
-            dpkg -x ../cheerp-libcxx_*.deb tmp
-            sudo cp -rv tmp/opt/cheerp/* /opt/cheerp/
-            rm -rf build_genericjs/
-            rm -rf build_asmjs/
-            rm -rf debian/
-            cp -rv libcxxabi/debian/ debian/
-            ls /opt/cheerp/include/c++/v1
-            ls /opt/cheerp/bin/llvm-config
-            dch -b -v 0-latest-1 "Internal build" -m
-            dpkg-buildpackage -d -b
-            rm -rf tmp
-            mkdir tmp
-            dpkg -x ../cheerp-libcxxabi_*.deb tmp
-            sudo cp -rv tmp/opt/cheerp/* /opt/cheerp/
-            rm -rf tmp
-      - run:
-          name: build-cheerp-libs
-          working_directory: ~/project/cheerp-libs
-          command: |
-            git checkout << pipeline.parameters.cheerp-libs-branch >>
-            dch -b -v 0-latest-1 "Internal build" -m
-            dpkg-buildpackage -d -b
-            mkdir tmp
-            dpkg -x ../cheerp-libs_*.deb tmp
-            sudo cp -rv tmp/opt/cheerp/* /opt/cheerp/
-      - persist_to_workspace:
-          root: /opt/cheerp
-          paths:
-            - project
-  test:
-    machine: *ubuntu
-    resource_class: large
-    steps:
-      - attach_workspace:
-          at: /opt/cheerp
-      - run:
-          name: test
-          working_directory: ~/project/cheerp-utils/tests
-          command: ./run_tests.py --all --determinism=3 --determinism-probability=0.2 "/opt/cheerp/bin/clang++" "node --experimental-wasm-reftypes" -j4
 
 parameters:
-  build_num:
-    type: string
-    default: ""
-  run_build:
-    type: boolean
-    default: true
   cheerp-compiler-branch:
     type: string
     default: << pipeline.git.branch >>
   cheerp-utils-branch:
     type: string
-    default: "master"
+    default: "circle-ci"
   cheerp-newlib-branch:
     type: string
     default: "master"
@@ -171,19 +52,10 @@ parameters:
     default: "master"
 
 workflows:
-  build_cheerp_compiler-wf:
-    when:
-      and:
-        - << pipeline.parameters.run_build >>
-        - equal [ << pipeline.parameters.build_num >>, "" ]
+  build-cheerp-compiler:
     jobs:
       - build-cheerp-compiler:
           filters:
             branches:
               only:
                 - circle-ci
-  finish-build-wf:
-    unless:
-      equal: [ << pipeline.parameters.build_num >>, "" ]
-    jobs:
-      - build-libraries
