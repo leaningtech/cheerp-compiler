@@ -26,7 +26,6 @@
 #include "llvm/Cheerp/LinearMemoryHelper.h"
 #include "llvm/Cheerp/AllocaMerging.h"
 #include "llvm/Cheerp/AllocaLowering.h"
-#include "llvm/Cheerp/PartialExecuter.h"
 #include "llvm/Cheerp/AllocateArrayLowering.h"
 #include "llvm/Cheerp/FixIrreducibleControlFlow.h"
 #include "llvm/Cheerp/IdenticalCodeFolding.h"

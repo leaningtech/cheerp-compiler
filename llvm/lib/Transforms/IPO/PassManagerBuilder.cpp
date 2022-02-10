@@ -24,7 +24,6 @@
 #include "llvm/Analysis/ScopedNoAliasAA.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
-#include "llvm/Cheerp/PartialExecuter.h"
 #include "llvm/Cheerp/StructMemFuncLowering.h"
 #include "llvm/Cheerp/CFGPasses.h"
 #include "llvm/IR/DataLayout.h"
@@ -828,8 +827,6 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createArgumentPromotionPass()); // Scalarize uninlined fn args
 
   addExtensionsToPM(EP_CGSCCOptimizerLate, MPM);
-
-  MPM.add(cheerp::createPartialExecuterPass());
   addFunctionSimplificationPasses(MPM);
 
   // FIXME: This is a HACK! The inliner pass above implicitly creates a CGSCC
@@ -1034,8 +1031,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     // Propage constant function arguments by specializing the functions.
     if (EnableFunctionSpecialization)
       PM.add(createFunctionSpecializationPass());
-
-    PM.add(cheerp::createPartialExecuterPass());
 
     // Propagate constants at call sites into the functions they call.  This
     // opens opportunities for globalopt (and inlining) by substituting function
