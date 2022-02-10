@@ -157,13 +157,18 @@ static bool isValueComputedConstant(const llvm::Value* V)
 		{
 			if (!GVar->hasInitializer() || GVar->isExternallyInitialized())
 				return false;
-		llvm::errs() << "globalVar" << "\n";
+		//llvm::errs() << "globalVar" << "\n";
 		}
 		//TODO: actually in opt we got some problems since we might have to find, given a ConstantExpression, wether it's internal or external
-		llvm::errs() << *V << "\n";
 		if (const ConstantExpr* CE = dyn_cast<ConstantExpr>(V))
 		{
-			llvm::errs() << "is CE\n";
+	//		for (auto op : CE->operands())
+	//		{
+	//			if (!isValueComputedConstant(op))
+	//				return false;
+	//		}
+//		llvm::errs() << *V << "\n";
+//			llvm::errs() << "is CE\n";
 		}
 		return true;
 	}
@@ -576,7 +581,7 @@ if (isa<CallBase>(&I) && sizeStack() == 1)
 
 		if (sizeStack() > 1)
 		{
-	llvm::errs() << I << "\t" << I.getParent()->getParent()->getName() << "\tciccio\n";
+	//llvm::errs() << I << "\t" << I.getParent()->getParent()->getName() << "\tciccio\n";
 	BasicBlock* next = nullptr;
 	if (BranchInst* BI = dyn_cast<BranchInst>(&I))
 	{
@@ -773,7 +778,8 @@ void removeEdgeBetweenBlocks(llvm::BasicBlock* from, llvm::BasicBlock* to)
 	}
 else
 {
-	assert(false);
+	llvm::errs() <<"unhandled...\t" << *I << "\n"; 
+	//assert(false);
 }
 }
 }
@@ -1019,7 +1025,7 @@ public:
 	else
 	{
 		GenericValue value = exe->getOperandValue((llvm::Value*)v, exe->getLastStack());
-		value.print("uela\t");
+//		value.print("uela\t");
 
 		v=nullptr;
 	}
@@ -1051,8 +1057,8 @@ public:
 	void enqueCallEquivalent(const std::vector<const llvm::Value*>& arguments)
 	{
 		//Insert the arguments in the map
-		llvm::errs() << "enque\t" << F.getName();
-			for (uint32_t i=0; i<arguments.size(); i++)
+		//////////////////llvm::errs() << "enque\t" << F.getName();
+		if(false)	for (uint32_t i=0; i<arguments.size(); i++)
 			{
 				const llvm::Value* x = arguments[i];
 				if (x)
@@ -1060,7 +1066,7 @@ public:
 				else
 					llvm::errs() << "\t" << "---";
 			}
-			llvm::errs() << "\n";
+			if (false)llvm::errs() << "\n";
 
 		//Check wether we already visited something similar
 		for (const auto& args : callEquivalentQueue)
@@ -1082,7 +1088,7 @@ public:
 	void visitCallEquivalent(const std::vector<const llvm::Value*>& arguments)
 	{
 		//Insert the arguments in the map
-		llvm::errs() << "visit\t" << F.getName();
+		if (false){llvm::errs() << "visit\t" << F.getName();
 			for (uint32_t i=0; i<arguments.size(); i++)
 			{
 				const llvm::Value* x = arguments[i];
@@ -1092,7 +1098,7 @@ public:
 					llvm::errs() << "\t" << "---";
 			}
 			llvm::errs() << "\n";
-	
+		}
 		{
 			ExecutionContext& executionContext = setUpPartialInterpreter();
 
@@ -1111,7 +1117,7 @@ public:
 			}
 		}
 
-		llvm::errs() << "\n";
+		//llvm::errs() << "\n";
 		//Do the visit
 		actualVisit();
 		
@@ -1160,7 +1166,8 @@ public:
 	}
 	void emitStats()
 	{
-			llvm::errs() <<"\n" << F.getName() << "\n\n";
+		return;
+			//llvm::errs() <<"\n" << F.getName() << "\n\n";
 		int BBs =0;
 		std::set<std::pair<llvm::BasicBlock*, llvm::BasicBlock*>> Edges;
 		for (auto& x : F)
@@ -1222,7 +1229,7 @@ public:
 	{
 		if (lowestOutgoing.count(BB) == 0)
 			return true;
-		llvm::errs() << lowestOutgoing[BB] << "\t" << visitCounter[BB] << "\n";
+		//llvm::errs() << lowestOutgoing[BB] << "\t" << visitCounter[BB] << "\n";
 		return lowestOutgoing[BB] == visitCounter[BB];
 	}
 	bool incrementAndCheckVisitCounter(llvm::BasicBlock* BB)
@@ -1613,8 +1620,8 @@ bool PartialExecuter::runOnModule( llvm::Module & module )
 		for (Function& F : module)
 		{
 			bool R = processFunction(F);
-			if (R)
-				llvm::errs() << "processed\t" << F.getName() << "\n";
+//			if (R)
+//				llvm::errs() << "processed\t" << F.getName() << "\n";
 			changed2 |= R;
 		}
 	}
@@ -1622,11 +1629,11 @@ bool PartialExecuter::runOnModule( llvm::Module & module )
 	bool changed = false;
 	for (Function& F : module)
 	{
-		llvm::errs() << F.getName() << "\taaa\n";
+		//llvm::errs() << F.getName() << "\taaa\n";
 		changed |= runOnFunction(F);
 
 		verifyFunction(F);
-		llvm::errs() << F << "\n";
+		//llvm::errs() << F << "\n";
 		for (BasicBlock& BB : F)
 		{
 			std::set<llvm::BasicBlock*> pred;
@@ -1742,9 +1749,12 @@ bool PartialExecuter::runOnFunction(llvm::Function& F)
 			}
 			if (!bailout && C)
 			{
+				if (C->getType() == F.getArg(i)->getType())
+				{
 				F.getArg(i)->replaceAllUsesWith((llvm::Value*)C);
-				llvm::errs() << "GOOD\t" << F.getName() << "\t" << i << "\t" << *C << "\n";
+		//		llvm::errs() << "GOOD\t" << F.getName() << "\t" << i << "\t" << *C << "\n";
 				changed = true;
+				}
 			}
 		}
 
