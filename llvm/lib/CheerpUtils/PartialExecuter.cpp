@@ -822,6 +822,9 @@ void removeEdgeBetweenBlocks(llvm::BasicBlock* from, llvm::BasicBlock* to)
 		I->eraseFromParent();
 		new UnreachableInst(BB->getParent()->getParent()->getContext(), BB);
 	}
+	else if (isa<UnreachableInst>(I))
+	{
+	}
 else
 {
 	llvm::errs() <<"unhandled...\t" << *I << "\n"; 
