@@ -760,18 +760,18 @@ GenericValue ExecutionEngine::getConstantValue(const Constant *C) {
     }
     case Instruction::PtrToInt: {
       GenericValue GV = getConstantValue(Op0);
-      llvm::errs() << *Op0 << "\n";
+     // llvm::errs() << *Op0 << "\n";
       uint32_t PtrWidth = DL.getTypeSizeInBits(Op0->getType());
       assert(PtrWidth <= 64 && "Bad pointer width");
       GV.IntVal = APInt(PtrWidth, uintptr_t(GV.PointerVal));
-      llvm::errs() << *CE << "\n";
+     // llvm::errs() << *CE << "\n";
       uint32_t IntWidth = DL.getTypeSizeInBits(CE->getType());
       GV.IntVal = GV.IntVal.zextOrTrunc(IntWidth);
       return GV;
     }
     case Instruction::IntToPtr: {
       GenericValue GV = getConstantValue(Op0);
-      llvm::errs() << *Op0 << "\n";
+     // llvm::errs() << *Op0 << "\n";
       uint32_t PtrWidth = DL.getTypeSizeInBits(CE->getType());
       GV.IntVal = GV.IntVal.zextOrTrunc(PtrWidth);
       assert(GV.IntVal.getBitWidth() <= 64 && "Bad pointer width");
@@ -781,7 +781,7 @@ GenericValue ExecutionEngine::getConstantValue(const Constant *C) {
     case Instruction::BitCast: {
       GenericValue GV = getConstantValue(Op0);
       Type* DestTy = CE->getType();
-      llvm::errs() << *CE << "\n";
+     // llvm::errs() << *CE << "\n";
       switch (Op0->getType()->getTypeID()) {
         default: llvm_unreachable("Invalid bitcast operand");
         case Type::IntegerTyID:

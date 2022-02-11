@@ -281,8 +281,30 @@ public:
 		if (isa<ConstantData>(V))
 			return BitMask::ALL;
 
-		if (isa<Constant>(V))
-			return BitMask::ALIGNED8;
+		if (isa<Function>(V))
+			return BitMask::NONE;
+
+		if (GlobalVariable* GV = const_cast<GlobalVariable*>( dyn_cast<GlobalVariable>(V)))
+		{
+			(GV)->setAlignment(Align(8));
+			if (getDataLayout().getPreferredAlign(GV) == 8)
+				return BitMask::ALIGNED8;
+			if (getDataLayout().getPreferredAlign(GV) == 4)
+				return BitMask::ALIGNED4;
+			if (getDataLayout().getPreferredAlign(GV) == 2)
+				return BitMask::ALIGNED2;
+
+		//	llvm::errs() << *GV << "\n";
+		}
+		if (const ConstantExpr* CE = dyn_cast<ConstantExpr>(V))
+		{
+			if (CE->getOpcode() == Instruction::GetElementPtr)
+			{
+				const GEPOperator *GEP = cast<GEPOperator>(CE);
+				if (GEP->hasAllZeroIndices())
+					return getBitMask(CE->getOperand(0));
+			}
+		}
 
 		if (stronglyKnownBits.count(V))
 			return stronglyKnownBits.at(V);
@@ -602,6 +624,17 @@ if (isa<CallBase>(&I) && sizeStack() == 1)
 		else
 			next = BI->getSuccessor(0);
 	}
+	else if (SwitchInst* BI = dyn_cast<SwitchInst>(&I))
+	{
+		{
+			if (isValueComputed(BI->getCondition()))
+			{
+				GenericValue V = getOperandValue(BI->getCondition(), getLastStack());
+				ConstantInt* CI = (ConstantInt*)ConstantInt::get((IntegerType*)(BI->getCondition()->getType()), V.IntVal);
+				next = BI->findCaseValue(CI)->getCaseSuccessor();
+			}
+		}
+	}
 	else if (ReturnInst* RI = dyn_cast<ReturnInst>(&I))
 	{
 		if (RI->getReturnValue())
@@ -806,18 +839,19 @@ llvm::BasicBlock* PartialInterpreter::visitBasicBlock(llvm::BasicBlock* BB, llvm
 
 	//	LocalStateMAP stateMap(state.begin(), state.end());
 
+//	llvm::errs() << *BB << "\n";
 	ExecutionContext& executionContext = getLastStack();
 	//	executionContext.CurFunction = BB->getParent();	
 	executionContext.CurBB = BB;
 	executionContext.CurInst = BB->begin();
-
+//	llvm::errs() << "ciccio\n";
 
 //	executionContext.Caller = nullptr;
 
 	while (getLastStack().CurInst != BB->end())
 	{
-
 		Instruction* zz = &*getLastStack().CurInst;
+//		llvm::errs() << *zz << "\t" << zz->getFunction()->getName() << "\n";
 if (isa<CallBase>(zz))
 {
 	CallBase* CB= dyn_cast<CallBase>(zz);
@@ -1771,7 +1805,7 @@ bool PartialExecuter::runOnFunction(llvm::Function& F)
 				if (C->getType() == F.getArg(i)->getType())
 				{
 				F.getArg(i)->replaceAllUsesWith((llvm::Value*)C);
-			llvm::errs() << "GOOD\t" << F.getName() << "\t" << i << "\t" << *C << "\n";
+			//llvm::errs() << "GOOD\t" << F.getName() << "\t" << i << "\t" << *C << "\n";
 				changed = true;
 				}
 			}

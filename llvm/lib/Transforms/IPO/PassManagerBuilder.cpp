@@ -829,7 +829,7 @@ void PassManagerBuilder::populateModulePassManager(
 
   addExtensionsToPM(EP_CGSCCOptimizerLate, MPM);
 
-  MPM.add(cheerp::createPartialExecuterPass());
+  //MPM.add(cheerp::createPartialExecuterPass());
   addFunctionSimplificationPasses(MPM);
 
   // FIXME: This is a HACK! The inliner pass above implicitly creates a CGSCC
@@ -1035,7 +1035,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     if (EnableFunctionSpecialization)
       PM.add(createFunctionSpecializationPass());
 
-    PM.add(cheerp::createPartialExecuterPass());
+    //PM.add(cheerp::createPartialExecuterPass());
 
     // Propagate constants at call sites into the functions they call.  This
     // opens opportunities for globalopt (and inlining) by substituting function
