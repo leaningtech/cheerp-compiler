@@ -856,6 +856,8 @@ Constant* PreExecute::computeInitializerFromMemory(const DataLayout* DL,
 
 bool PreExecute::runOnConstructor( const llvm::Target* target, const std::string& triple, llvm::Module& m, llvm::Function* func)
 {
+	llvm::errs() << *func->getParent() << "\n";
+	llvm::errs()<< *func << "\n";
     bool Changed = false;
 
     std::string error;

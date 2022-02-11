@@ -157,16 +157,18 @@ static bool isValueComputedConstant(const llvm::Value* V)
 		{
 			if (!GVar->hasInitializer() || GVar->isExternallyInitialized())
 				return false;
+			if (!GVar->hasInternalLinkage())
+				return false;
 		//llvm::errs() << "globalVar" << "\n";
 		}
 		//TODO: actually in opt we got some problems since we might have to find, given a ConstantExpression, wether it's internal or external
 		if (const ConstantExpr* CE = dyn_cast<ConstantExpr>(V))
 		{
-	//		for (auto op : CE->operands())
-	//		{
-	//			if (!isValueComputedConstant(op))
-	//				return false;
-	//		}
+			for (auto& op : CE->operands())
+			{
+				if (!isValueComputedConstant(op))
+					return false;
+			}
 //		llvm::errs() << *V << "\n";
 //			llvm::errs() << "is CE\n";
 		}
@@ -436,6 +438,8 @@ for (auto& gv : I.getFunction()->getParent()->globals())
 		continue;
 	if (GV->isExternallyInitialized())
 		continue;
+	if (!GV->hasName())
+		continue;
   GenericValue SRC = getOperandValue(GV, getLastStack());
   GenericValue *Ptr = (GenericValue*)GVTORP(SRC);
 //llvm ::errs() << GV->getName() << "\t" <<"\t" << (long long)Ptr<<"\t"<< GV->isConstant()<<"\n";
@@ -530,7 +534,6 @@ void visitOuter(llvm::Instruction& I)
 		}
 ///Here PHI have been properly processed
 
-		if (false)
 if (isa<CallBase>(&I) && sizeStack() == 1)
 {
 	CallBase* CB= dyn_cast<CallBase>(&I);
@@ -610,7 +613,9 @@ return;
 	{
 //		visit(I);
 	}
-	assert(next);
+	if (next == nullptr)
+		return;
+	//assert(next);
 	setIncomingBB(I.getParent());
 	getLastStack().CurBB = next;
 	getLastStack().CurInst = next->begin();
@@ -775,6 +780,14 @@ void removeEdgeBetweenBlocks(llvm::BasicBlock* from, llvm::BasicBlock* to)
     }
 
 	
+	}
+	else if (isa<InvokeInst>(I))
+	{
+
+		BasicBlock* BB = I->getParent();
+		I->replaceAllUsesWith(UndefValue::get(I->getType()));
+		I->eraseFromParent();
+		new UnreachableInst(BB->getParent()->getParent()->getContext(), BB);
 	}
 else
 {
@@ -1058,7 +1071,8 @@ public:
 	{
 		//Insert the arguments in the map
 		//////////////////llvm::errs() << "enque\t" << F.getName();
-		if(false)	for (uint32_t i=0; i<arguments.size(); i++)
+		if(false)
+		{	for (uint32_t i=0; i<arguments.size(); i++)
 			{
 				const llvm::Value* x = arguments[i];
 				if (x)
@@ -1066,16 +1080,19 @@ public:
 				else
 					llvm::errs() << "\t" << "---";
 			}
-			if (false)llvm::errs() << "\n";
+		}
 
 		//Check wether we already visited something similar
 		for (const auto& args : callEquivalentQueue)
 		{
 			if (areEquivalent(arguments, args))
 			{
+//		llvm::errs() << "\n";
 				return;
 			}
 		}
+//		llvm::errs() << "\t queueud";
+//		llvm::errs() << "\n";
 		callEquivalentQueue.push_back(arguments);
 	}
 	const std::vector<const llvm::Value*>* getSomethingToVisit()
@@ -1115,23 +1132,23 @@ public:
 				currentEE->computed.insert(ith_arg);
 				currentEE->stronglyKnownBits[ith_arg]= currentEE->getBitMask(x);
 			}
-		}
-
 		//llvm::errs() << "\n";
 		//Do the visit
 		actualVisit();
 		
 		//Cleanup
 		doneVisitCallBase();
+		}
+
 	}
 	void actualVisit();
-/*	void visitCallBase(const llvm::CallBase* callBase)
+	void visitCallBase(const llvm::CallBase* callBase)
 	{
-		const auto& equivalentArgs = getArguments(callBase);
+		const auto& equivalentArgs = getArguments(callBase, nullptr, nullptr);
 
 		enqueCallEquivalent(equivalentArgs);
   		// Handle varargs arguments...
-	}*/
+	}
 	void visitNoInfo()
 	{
 		const auto& equivalentArgs = getArguments(nullptr, nullptr, nullptr);
@@ -1332,10 +1349,10 @@ template <> struct GraphTraits<SubGraph*> {
 namespace cheerp{
 void PartialInterpreter::DO_STUFF(Function* pippo, CallBase* CB, CallBase* parent, PartialInterpreter& exe)
 {
+return ;
 		auto& FunData = cheerp::MODULE_DATA->getFunctionData(*pippo);
 		
 		const auto& equivalentArgs = FunData.getArguments(CB, parent, &exe);	
-
 		FunData.enqueCallEquivalent(equivalentArgs);
 }
 
@@ -1606,6 +1623,7 @@ void FunctionData::actualVisit()
 
 bool PartialExecuter::runOnModule( llvm::Module & module )
 {
+//	llvm::errs() << module << "\n";
 	using namespace llvm;
 	//TODO: classifyFunctions(module) ?? possibly to precompute where to recurse;
 	
@@ -1683,8 +1701,9 @@ bool PartialExecuter::processFunction(llvm::Function& F)
 		if (CS->isCallee(&U))
 		{
 			X++;
-			
-//			data.visitCallBase(CS);	
+		
+	//		llvm::errs() << *CS << "\n";	
+			data.visitCallBase(CS);	
 		}
 		else
 		{
@@ -1739,7 +1758,7 @@ bool PartialExecuter::runOnFunction(llvm::Function& F)
 			for (int j=0; j<data.callEquivalentQueue.size(); j++)
 			{
 				const llvm::Value* v = data.callEquivalentQueue[j][i];
-				if (!C)
+				if (j==0)
 					C = v;
 				if (C != v)
 				{
@@ -1752,7 +1771,7 @@ bool PartialExecuter::runOnFunction(llvm::Function& F)
 				if (C->getType() == F.getArg(i)->getType())
 				{
 				F.getArg(i)->replaceAllUsesWith((llvm::Value*)C);
-		//		llvm::errs() << "GOOD\t" << F.getName() << "\t" << i << "\t" << *C << "\n";
+			llvm::errs() << "GOOD\t" << F.getName() << "\t" << i << "\t" << *C << "\n";
 				changed = true;
 				}
 			}

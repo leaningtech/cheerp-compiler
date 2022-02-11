@@ -1758,6 +1758,7 @@ GenericValue Interpreter::executeBitCastInst(Value *SrcVal, Type *DstTy,
         Dest.DoubleVal = Src.DoubleVal;
       }
     } else {
+	    llvm::errs() << *SrcVal << "\t" << *SrcTy << "\t" << *DstTy <<"\n";
       llvm_unreachable("Invalid Bitcast");
     }
   }
