@@ -381,8 +381,8 @@ public:
 			//ADD THAT RANDOM INSTRUCTIONS ARE NOT EXECUTABLE
 		if (isa<CallBase>(I))
 		{
-//			if (isa<InvokeInst>(I)) //Invokes are not handled by Interpreter
-//				return true;
+			if (isa<InvokeInst>(I)) //Invokes are not handled by Interpreter
+				return true;
 		//	return true;
 			CallBase& CB = cast<CallBase>(I);
 			if (!CB.getCalledFunction())
