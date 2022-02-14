@@ -48,7 +48,7 @@ GlobalDepsAnalyzer::GlobalDepsAnalyzer(MATH_MODE mathMode_, bool llcPass, bool w
 	  entryPoint(NULL), hasCreateClosureUsers(false), hasVAArgs(false),
 	  hasPointerArrays(false), hasAsmJSCode(false), hasAsmJSMemory(false), hasAsmJSMalloc(false),
 	  hasCheerpException(false), mayNeedAsmJSFree(false), llcPass(llcPass), wasmStart(wasmStart),
-	  delayPrintf(true), hasUndefinedSymbolErrors(false), forceTypedArrays(false)
+	  hasUndefinedSymbolErrors(false), forceTypedArrays(false)
 {
 }
 
@@ -611,29 +611,6 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 
 	processEnqueuedFunctions();
 
-	// Detect if the code actually uses printf_float
-	delayPrintf = false;
-	bool usesFloatPrintf = false;
-	for (const GlobalValue* v: printfLikeQueue)
-	{
-		StringRef n = v->getName();
-		if(!usesFloatPrintf && isPrintfFamily(n))
-			usesFloatPrintf = true;
-		SubExprVec vec;
-		visitGlobal(v, visited, vec);
-		assert(visited.empty());
-	}
-	// Erase printf_float body if it is not used
-	if(!usesFloatPrintf)
-	{
-		llvm::Function* printfFloat = module.getFunction("_printf_float");
-		if(printfFloat)
-		{
-			printfFloat->deleteBody();
-			printfFloat->replaceAllUsesWith(UndefValue::get(printfFloat->getType()));
-		}
-	}
-
 	// Flush out all functions
 	processEnqueuedFunctions();
 
@@ -1104,13 +1081,6 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 
 void GlobalDepsAnalyzer::visitGlobal( const GlobalValue * C, VisitedSet & visited, const SubExprVec & subexpr )
 {
-	// Delay visiting all printf-like globals, we need to dectect if printf_float is actually used
-	if ( delayPrintf && C->hasName() && C->getName().endswith("printf") )
-	{
-		printfLikeQueue.insert(C);
-		return;
-	}
-
 	// Cycle detector
 	if ( !visited.insert(C).second )
 	{
@@ -1516,16 +1486,6 @@ bool GlobalDepsAnalyzer::isMathIntrinsic(const llvm::Function* F)
 		(builtinID == BuiltinInstr::MOD_F);
 }
 
-bool GlobalDepsAnalyzer::isPrintfFamily(const llvm::StringRef& n)
-{
-	// In this list only keep non-wide and non-i-prefixed printf functions
-	// NOTE: Wide char versions do not have a separate printf_float method
-	return n == "asnprintf" || n == "asprintf" || n == "dprintf" || n == "fprintf" ||
-			n == "vfprintf" || n == "printf" || n == "snprintf" || n == "sprintf" ||
-			n == "vasnprintf" || n == "vasprintf" || n == "vdprintf" || n == "vprintf" ||
-			n == "vsnprintf" || n == "vsprintf";
-}
-
 int GlobalDepsAnalyzer::filterModule( const DenseSet<const Function*>& droppedMathBuiltins, Module & module )
 {
 	std::vector< llvm::GlobalValue * > eraseQueue;
@@ -1564,8 +1524,7 @@ int GlobalDepsAnalyzer::filterModule( const DenseSet<const Function*>& droppedMa
 			// We need to modify code to enforce correctness
 			f->removeFnAttr(Attribute::OptimizeNone);
 			// Never internalize functions that may have a better native implementation
-			// Also, make sure printf like methods do not disappear, we need them to identify if printf_float is needed
-			if(TypedBuiltinInstr::isWasmIntrinsic(f) || isMathIntrinsic(f) || isPrintfFamily(f->getName()))
+			if(TypedBuiltinInstr::isWasmIntrinsic(f) || isMathIntrinsic(f))
 				f->setLinkage(GlobalValue::WeakAnyLinkage);
 			else
 				f->setLinkage(GlobalValue::InternalLinkage);
@@ -1584,10 +1543,9 @@ int GlobalDepsAnalyzer::filterModule( const DenseSet<const Function*>& droppedMa
 	{
 		GlobalAlias * GA = &*it++;
 
-		//Internalize all but print-family
-		if(!GA->getName().endswith("printf"))
-			GA->setLinkage(GlobalValue::InternalLinkage);
-		
+		//Internalize all
+		GA->setLinkage(GlobalValue::InternalLinkage);
+
 		if ( isReachable(GA) )
 		{
 			//If we are in opt (perfoming lto) we process only InternalLinkage aliases
