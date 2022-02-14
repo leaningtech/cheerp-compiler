@@ -109,6 +109,7 @@ void Registerize::InstructionLiveRange::addUse(uint32_t curCodePath, uint32_t th
 		range.back().end=thisIndex;
 	else
 	{
+		assert(curCodePath <= thisIndex);
 		range.extendOrPush(LiveRangeChunk(curCodePath, thisIndex));
 		codePathId=curCodePath;
 	}
@@ -363,6 +364,8 @@ uint32_t Registerize::dfsLiveRangeInBlock(BlocksState& blocksState, LiveRangesTy
 void Registerize::extendRangeForUsedOperands(Instruction& I, LiveRangesTy& liveRanges, cheerp::PointerAnalyzer& PA,
 						uint32_t thisIndex, uint32_t codePathId, bool splitRegularDest)
 {
+	assert(codePathId <= thisIndex);
+
 	for(Value* op: I.operands())
 	{
 		Instruction* usedI = dyn_cast<Instruction>(op);
