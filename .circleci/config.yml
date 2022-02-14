@@ -1,12 +1,12 @@
 version: 2.1
 
 aliases:
-  - &docker
-    - image: cimg/base:2021.04
+  - &ubuntu
+    image: ubuntu-2004:202111-02
 
 jobs:
   build-cheerp-compiler:
-    docker: *docker
+    machine: *ubuntu
     resource_class: large
     environment:
       - NINJA_STATUS: "[%u/%r/%f]"
