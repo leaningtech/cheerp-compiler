@@ -87,6 +87,37 @@ class Interpreter : public ExecutionEngine, public InstVisitor<Interpreter> {
 
   bool CleanAbort;
 
+protected:
+  // Those function will be used through PartialInterpreter interface
+  // to manipulate the call frame stack
+  bool isAlreadyInCallStack(const llvm::Function* F) const
+  {
+    for (auto& x : ECStack)
+      if (x.CurFunction == F)
+        return true;
+    return false;
+  }
+  bool isInitialCallFrame() const
+  {
+    return ECStack.size() == 1;
+  }
+  ExecutionContext& getTopCallFrame()
+  {
+    assert(!ECStack.empty());
+    return ECStack.back();
+  }
+  ExecutionContext& createStartingCallFrame()
+  {
+    assert(ECStack.empty());
+    ECStack.push_back(ExecutionContext());
+    assert(ECStack.size() == 1);
+    return ECStack.front();
+  }
+  void popCallFrame()
+  {
+    ECStack.pop_back();
+  }
+
 public:
   explicit Interpreter(std::unique_ptr<Module> M, bool preExecute);
   ~Interpreter() override;
@@ -213,6 +244,11 @@ public:
     if (ECStack.size() < 2)
       return nullptr;
     return ECStack[ECStack.size()-2].Caller->getCaller();
+  }
+  CallBase* getCurrentCallSite() {
+    if (ECStack.size() < 2)
+      return nullptr;
+    return ECStack[ECStack.size()-2].Caller;
   }
   Function* getCurrentFunction() override {
     if (ECStack.size() < 1)
