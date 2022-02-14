@@ -53,9 +53,10 @@ ExecutionEngine *Interpreter::create(std::unique_ptr<Module> M,
 // Interpreter ctor - Initialize stuff
 //
 Interpreter::Interpreter(std::unique_ptr<Module> M, bool preExecute)
-    : ExecutionEngine(std::move(M)), ForPreExecute(preExecute), CleanAbort(false) {
+    : ExecutionEngine(std::move(M)), CleanAbort(false) {
 
-  if (ForPreExecute) {
+  if (preExecute) {
+    ForPreExecute = true;
     ValueAddresses = std::unique_ptr<AddressMapBase>(new VirtualAddressMap());
     FunctionAddresses = std::unique_ptr<FunctionMapBase>(new VirtualFunctionMap());
   }

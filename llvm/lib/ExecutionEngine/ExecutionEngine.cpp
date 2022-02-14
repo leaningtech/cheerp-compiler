@@ -1355,6 +1355,12 @@ void ExecutionEngine::emitGlobalVariable(const GlobalVariable *GV) {
   // Don't initialize if it's thread local, let the client do it.
   if (!GV->isThreadLocal()) {
     if (!GV->hasInitializer()) {
+      if (!ForPreExecute) {
+	//While NOT in PreExecute it's fine to return since:
+	//   * it's valid NOT to have intializers
+	//   * it's valid to fail to allocate memory
+        return;
+      }
       llvm::errs() << "error: No initializer for global " << *GV << "\n";
       llvm::report_fatal_error("Missing global initializer", false);
     }
