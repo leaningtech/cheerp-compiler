@@ -23,6 +23,7 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 #include <cxxabi.h>
+#include <deque>
 
 namespace llvm {
 
@@ -78,7 +79,7 @@ class Interpreter : public ExecutionEngine, public InstVisitor<Interpreter> {
 
   // The runtime stack of executing code.  The top of the stack is the current
   // function record.
-  std::vector<ExecutionContext> ECStack;
+  std::deque<ExecutionContext> ECStack;
 
   // AtExitHandlers - List of functions to call when the program exits,
   // registered with the atexit() library function.
