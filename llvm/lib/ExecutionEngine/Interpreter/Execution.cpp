@@ -336,6 +336,16 @@ void Interpreter::visitICmpInst(ICmpInst &I) {
   Type *Ty    = I.getOperand(0)->getType();
   GenericValue Src1 = getOperandValue(I.getOperand(0), SF);
   GenericValue Src2 = getOperandValue(I.getOperand(1), SF);
+
+  if (Src1.IntVal.getBitWidth() < Src2.IntVal.getBitWidth())
+  {
+	  Src1.IntVal = Src1.IntVal.zext(Src2.IntVal.getBitWidth());
+  }
+  else if (Src1.IntVal.getBitWidth() > Src2.IntVal.getBitWidth())
+  {
+	  Src2.IntVal = Src2.IntVal.zext(Src1.IntVal.getBitWidth());
+  }
+
   GenericValue R;   // Result
 
   switch (I.getPredicate()) {
