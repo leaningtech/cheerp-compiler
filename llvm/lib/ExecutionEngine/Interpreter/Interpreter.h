@@ -273,7 +273,9 @@ private:  // Helper functions
   void initializeExecutionEngine() { }
   void initializeExternalFunctions();
   GenericValue getConstantExprValue(ConstantExpr *CE, ExecutionContext &SF);
+protected:
   GenericValue getOperandValue(Value *V, ExecutionContext &SF);
+private:
   GenericValue executeTruncInst(Value *SrcVal, Type *DstTy,
                                 ExecutionContext &SF);
   GenericValue executeSExtInst(Value *SrcVal, Type *DstTy,
