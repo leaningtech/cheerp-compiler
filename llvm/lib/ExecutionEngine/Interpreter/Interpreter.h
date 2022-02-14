@@ -84,12 +84,6 @@ class Interpreter : public ExecutionEngine, public InstVisitor<Interpreter> {
   // registered with the atexit() library function.
   std::vector<Function*> AtExitHandlers;
 
-  // ForPreExecute - This Interpreter is used to tentatively execute
-  // initialization code at compile time. It implies several things:
-  // 1) When an error happens, it returns cleanly
-  // 2) Stores are notified using callbacks
-  bool ForPreExecute;
-
   bool CleanAbort;
 
 public:

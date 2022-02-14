@@ -132,6 +132,12 @@ class ExecutionEngine {
   friend class EngineBuilder;  // To allow access to JITCtor and InterpCtor.
 
 public:
+  // ForPreExecute - This Engine is used to tentatively execute
+  // initialization code at compile time. It implies several things:
+  // 1) When an error happens, it returns cleanly
+  // 2) Stores are notified using callbacks
+  bool ForPreExecute{false};
+
   /// Allocator used for emulating the execution of code in a 32-bit
   /// environment (e.g. JavaScript code in browsers).
   std::unique_ptr<AddressMapBase> ValueAddresses;
