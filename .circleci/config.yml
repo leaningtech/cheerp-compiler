@@ -1,13 +1,15 @@
 version: 2.1
 
 aliases:
-  - &ubuntu
-    image: ubuntu-2004:202111-02
+  - &docker
+    - image: cimg/base:2021.04
 
 jobs:
   build-cheerp-compiler:
-    machine: *ubuntu
+    docker: *docker
     resource_class: large
+    environment:
+      - NINJA_STATUS: [%u/%r/%f]
     steps:
       - run: sudo apt-get update && sudo apt-get install -y debhelper cmake python3-distutils ninja-build clang lld devscripts
       - checkout:
@@ -17,7 +19,6 @@ jobs:
           working_directory: ~/project/cheerp-compiler
           command: |
             git checkout << pipeline.parameters.cheerp-compiler-branch >>
-            export NINJA_STATUS="[%u/%r/%f] "
             dch -b -v 0-latest-1 "Internal build" -m
             dpkg-buildpackage -b
             mv ../cheerp-llvm-clang_*.deb ../cheerp-llvm-clang_latest.deb
@@ -30,7 +31,7 @@ jobs:
             --header 'Content-Type: application/json' \
             --header 'Accept: application/json' \
             --header "Circle-Token: $CIRCLE_TOKEN" \
-            -d '{ "branch":"circle-ci", "parameters":{
+            -d '{ "branch":"<< pipeline.parameters.cheerp-utils-branch >>", "parameters":{
             "build_num":"'"$CIRCLE_BUILD_NUM"'",
             "cheerp-compiler-branch":"<< pipeline.parameters.cheerp-compiler-branch >>",
             "cheerp-utils-branch":"<< pipeline.parameters.cheerp-utils-branch >>",
@@ -43,7 +44,7 @@ parameters:
     default: << pipeline.git.branch >>
   cheerp-utils-branch:
     type: string
-    default: "circle-ci"
+    default: "master"
   cheerp-newlib-branch:
     type: string
     default: "master"
@@ -55,7 +56,3 @@ workflows:
   build-cheerp-compiler:
     jobs:
       - build-cheerp-compiler:
-          filters:
-            branches:
-              only:
-                - circle-ci
