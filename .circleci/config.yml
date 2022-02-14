@@ -9,7 +9,7 @@ jobs:
     docker: *docker
     resource_class: large
     environment:
-      - NINJA_STATUS: [%u/%r/%f]
+      - NINJA_STATUS: "[%u/%r/%f]"
     steps:
       - run: sudo apt-get update && sudo apt-get install -y debhelper cmake python3-distutils ninja-build clang lld devscripts
       - checkout:
@@ -55,4 +55,4 @@ parameters:
 workflows:
   build-cheerp-compiler:
     jobs:
-      - build-cheerp-compiler:
+      - build-cheerp-compiler
