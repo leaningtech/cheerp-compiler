@@ -231,8 +231,6 @@ private:
 	 */
 	int filterModule( const llvm::DenseSet<const llvm::Function*>&, llvm::Module & );
 
-	static bool isPrintfFamily(const llvm::StringRef& n);
-
 	static bool isMathIntrinsic(const llvm::Function* F);
 
 	//Insert Function on execution queue
@@ -261,7 +259,6 @@ private:
 	std::vector< const llvm::GlobalVariable * > varsOrder;
 	std::vector< llvm::GlobalValue * > externals;
 	std::vector< const llvm::Function* > functionsQueue;
-	std::set< const llvm::GlobalValue * > printfLikeQueue;
 
 	std::unordered_map<llvm::StructType*, uint32_t> basesInfo;
 
@@ -284,7 +281,6 @@ private:
 
 	bool llcPass;
 	bool wasmStart;
-	bool delayPrintf;
 	bool hasUndefinedSymbolErrors;
 public:
 	bool forceTypedArrays;
