@@ -954,6 +954,7 @@ Function *CodeExtractor::constructFunction(const ValueSet &inputs,
       case Attribute::StackProtect:
       case Attribute::StackProtectReq:
       case Attribute::StackProtectStrong:
+      case Attribute::Static:
       case Attribute::StrictFP:
       case Attribute::UWTable:
       case Attribute::VScaleRange:
