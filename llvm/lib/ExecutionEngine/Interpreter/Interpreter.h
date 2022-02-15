@@ -23,6 +23,7 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 #include <cxxabi.h>
+#include <deque>
 
 namespace llvm {
 
@@ -78,7 +79,7 @@ class Interpreter : public ExecutionEngine, public InstVisitor<Interpreter> {
 
   // The runtime stack of executing code.  The top of the stack is the current
   // function record.
-  std::vector<ExecutionContext> ECStack;
+  std::deque<ExecutionContext> ECStack;
 
   // AtExitHandlers - List of functions to call when the program exits,
   // registered with the atexit() library function.
@@ -93,6 +94,31 @@ class Interpreter : public ExecutionEngine, public InstVisitor<Interpreter> {
   bool CleanAbort;
 
 public:
+  unsigned int sizeStack()
+  {
+	  return ECStack.size();
+  }
+  ExecutionContext& getLastStack()
+  {
+	  assert(!ECStack.empty());
+	  return ECStack.back();
+  }
+  ExecutionContext& getFirstStack()
+  {
+	  assert(!ECStack.empty());
+	  return ECStack.front();
+  }
+  ExecutionContext& getSingleStack()
+  {
+	  assert(ECStack.empty());
+	ECStack.push_back(ExecutionContext());
+	  assert(ECStack.size() == 1);
+return ECStack.front();
+  }
+  void popSingleStack()
+  {
+	  ECStack.pop_back();
+  }
   explicit Interpreter(std::unique_ptr<Module> M, bool preExecute);
   ~Interpreter() override;
 
@@ -201,6 +227,11 @@ public:
     llvm_unreachable("Instruction not interpretable yet!");
   }
 
+/*  virtual void visitOuter(Instruction& I)
+  {
+	  visit(I);
+  }
+*/
   GenericValue callExternalFunction(Function *F,
                                     ArrayRef<GenericValue> ArgVals);
   void exitCalled(GenericValue GV);
@@ -242,7 +273,9 @@ private:  // Helper functions
   void initializeExecutionEngine() { }
   void initializeExternalFunctions();
   GenericValue getConstantExprValue(ConstantExpr *CE, ExecutionContext &SF);
+public:
   GenericValue getOperandValue(Value *V, ExecutionContext &SF);
+private:
   GenericValue executeTruncInst(Value *SrcVal, Type *DstTy,
                                 ExecutionContext &SF);
   GenericValue executeSExtInst(Value *SrcVal, Type *DstTy,

@@ -336,6 +336,16 @@ void Interpreter::visitICmpInst(ICmpInst &I) {
   Type *Ty    = I.getOperand(0)->getType();
   GenericValue Src1 = getOperandValue(I.getOperand(0), SF);
   GenericValue Src2 = getOperandValue(I.getOperand(1), SF);
+
+  if (Src1.IntVal.getBitWidth() < Src2.IntVal.getBitWidth())
+  {
+	  Src1.IntVal = Src1.IntVal.zext(Src2.IntVal.getBitWidth());
+  }
+  else if (Src1.IntVal.getBitWidth() > Src2.IntVal.getBitWidth())
+  {
+	  Src2.IntVal = Src2.IntVal.zext(Src1.IntVal.getBitWidth());
+  }
+
   GenericValue R;   // Result
 
   switch (I.getPredicate()) {
@@ -893,7 +903,7 @@ void Interpreter::exitCalled(GenericValue GV) {
 ///
 void Interpreter::popStackAndReturnValueToCaller(Type *RetTy,
                                                  GenericValue Result) {
-  // Clear virtual address mapping for allocas
+      	// Clear virtual address mapping for allocas
   for (const auto& a: ECStack.back().Allocas.Allocations) {
     ValueAddresses->unmap(a.get());
   }
@@ -925,7 +935,7 @@ void Interpreter::popStackAndReturnValueToCaller(Type *RetTy,
 }
 
 void Interpreter::visitReturnInst(ReturnInst &I) {
-  ExecutionContext &SF = ECStack.back();
+      	ExecutionContext &SF = ECStack.back();
   Type *RetTy = Type::getVoidTy(I.getContext());
   GenericValue Result;
 
@@ -1090,15 +1100,18 @@ GenericValue Interpreter::executeGEPOperation(Value *Ptr, gep_type_iterator I,
       Total += getDataLayout().getTypeAllocSize(I.getIndexedType()) * Idx;
     }
   }
-
   GenericValue Result;
+//  llvm::errs() << *Ptr << "\t" << Total << "\n";
+  //getOperandValue(Ptr, SF).print("executeGEPOperation temp");
   Result.PointerVal = ((char*)getOperandValue(Ptr, SF).PointerVal) + Total;
+//Result.print("executeGEPOperation");
   LLVM_DEBUG(dbgs() << "GEP Index " << Total << " bytes.\n");
   return Result;
 }
 
 void Interpreter::visitGetElementPtrInst(GetElementPtrInst &I) {
   ExecutionContext &SF = ECStack.back();
+ // llvm::errs() << "GEP\t" << *I.getPointerOperand() << "\n";
   SetValue(&I, executeGEPOperation(I.getPointerOperand(),
                                    gep_type_begin(I), gep_type_end(I), SF), SF);
 }
@@ -1106,8 +1119,11 @@ void Interpreter::visitGetElementPtrInst(GetElementPtrInst &I) {
 void Interpreter::visitLoadInst(LoadInst &I) {
   ExecutionContext &SF = ECStack.back();
   GenericValue SRC = getOperandValue(I.getPointerOperand(), SF);
+ // SRC.print("I.getPointerOperand()" );
   GenericValue *Ptr = (GenericValue*)GVTORP(SRC);
   GenericValue Result;
+ // llvm::errs() << (long long)Ptr << "\n";
+ // Ptr->print("asd");
   LoadValueFromMemory(Result, Ptr, I.getType());
   SetValue(&I, Result, SF);
   if (I.isVolatile() && PrintVolatile)
@@ -1194,7 +1210,6 @@ void Interpreter::visitIntrinsicInst(IntrinsicInst &I) {
 
 void Interpreter::visitCallBase(CallBase &I) {
   ExecutionContext &SF = ECStack.back();
-
   SF.Caller = &I;
   std::vector<GenericValue> ArgVals;
   const unsigned NumArgs = SF.Caller->arg_size();
@@ -1753,6 +1768,7 @@ GenericValue Interpreter::executeBitCastInst(Value *SrcVal, Type *DstTy,
         Dest.DoubleVal = Src.DoubleVal;
       }
     } else {
+	    llvm::errs() << *SrcVal << "\t" << *SrcTy << "\t" << *DstTy <<"\n";
       llvm_unreachable("Invalid Bitcast");
     }
   }
@@ -2204,7 +2220,6 @@ void Interpreter::callFunction(Function *F, ArrayRef<GenericValue> ArgVals) {
   ECStack.emplace_back();
   ExecutionContext &StackFrame = ECStack.back();
   StackFrame.CurFunction = F;
-
   // Special handling for external functions.
   if (F->isDeclaration()) {
     GenericValue Result = callExternalFunction (F, ArgVals);
@@ -2212,6 +2227,8 @@ void Interpreter::callFunction(Function *F, ArrayRef<GenericValue> ArgVals) {
     popStackAndReturnValueToCaller (F->getReturnType (), Result);
     return;
   }
+
+// assert(ECStack.size() == 2);
 
   // Get pointers to first LLVM BB & Instruction in function.
   StackFrame.CurBB     = &F->front();
@@ -2254,5 +2271,6 @@ void Interpreter::run() {
 
     LLVM_DEBUG(dbgs() << "About to interpret: " << I << "\n");
     visit(I);   // Dispatch to one of the visit* methods...
+//TODO: ??
   }
 }
