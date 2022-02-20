@@ -8,6 +8,10 @@ add_llvm_component_library(LLVMCheerpWriter
   Opcodes.cpp
   PreExecute.cpp
   CFGStackifier.cpp
+  PartialExecuter.cpp
+
+  ADDITIONAL_HEADER_DIRS
+  ${LLVM_MAIN_SRC_DIR}/ExecutionEngine/
   )
 
 add_dependencies(LLVMCheerpWriter intrinsics_gen LLVMExecutionEngine LLVMInterpreter)
