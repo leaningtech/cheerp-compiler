@@ -371,6 +371,7 @@ int main(int argc, char **argv) {
   initializeTLSVariableHoistLegacyPassPass(*Registry);
   initializeCheerpOpts(*Registry);
   initializePreExecutePass(*Registry);
+  initializePartialExecuterPass(*Registry);
   initializeReplaceNopCastsAndByteSwapsPass(*Registry);
 
   // Initialize debugging passes.
