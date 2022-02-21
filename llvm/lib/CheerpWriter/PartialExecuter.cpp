@@ -57,10 +57,12 @@
 
 STATISTIC(NumRemovedEdges, "Number of edges in the CFG that have been removed");
 STATISTIC(NumModifyiedFunctions, "Number of functions modyified by PartialExecuter");
+STATISTIC(NumTimesBumbedGlobals, "Number of times a GlobalVariable alignment has been increased");
 
 using namespace llvm;
 
 typedef cheerp::DeterministicUnorderedSet<BasicBlock *, cheerp::RestrictionsLifted::NoErasure> DeterministicBBSet;
+typedef llvm::DenseSet<std::pair<GlobalVariable*, uint32_t> > NewAlignmentData;
 
 namespace cheerp {
 
@@ -140,6 +142,7 @@ class PartialInterpreter : public llvm::Interpreter {
 	// Example: main function can assume that any GlobalVariable (even mutable one) will still have the initial state as long as it can be proven
 	// 	that no store to those GlobalVariable have been performed
 	std::vector<std::pair<long long,long long>> immutableLoadIntervals;
+	NewAlignmentData newAlignmentData;
 public:
 	// While visiting PHINodes of a BasicBlock, incomingBB will hold the incoming (if uniquely identified) or nullptr
 	const llvm::BasicBlock* incomingBB{nullptr};
@@ -164,7 +167,7 @@ public:
 	{
 		assignToMaps(V, getBitMask(toAssign), getOperandValue(toAssign));
 	}
-	void assignToMapsIfComputed(const Value* V, const Value* toAssign)
+	void assignToMapsIfComputed(const Value* V, Value* toAssign)
 	{
 		if (isValueComputed(toAssign))
 		{
@@ -252,7 +255,7 @@ public:
 		: llvm::Interpreter(std::move(M), /*preExecute*/false)
 	{
 	}
-	BitMask getBitMask(const llvm::Value* V) const
+	BitMask getBitMask(llvm::Value* V)
 	{
 		if (!V)
 			return BitMask::NONE;
@@ -263,20 +266,28 @@ public:
 		if (isa<Function>(V))
 			return BitMask::NONE;
 
-		if (const GlobalVariable* GV = dyn_cast<GlobalVariable>(V))
+		if (GlobalVariable* GV = dyn_cast<GlobalVariable>(V))
 		{
-			if (getDataLayout().getPreferredAlign(GV) == 8)
+			if (getDataLayout().getPreferredAlign(GV) >= 8)
 				return BitMask::ALIGNED8;
 			if (getDataLayout().getPreferredAlign(GV) == 4)
 				return BitMask::ALIGNED4;
-			if (getDataLayout().getPreferredAlign(GV) == 2)
-				return BitMask::ALIGNED2;
+
+			// Interpreter will alrady align everything to 4, here we take note that we have to
+			// align GlobalVariables (at least the one it's queried on) to 4.
+			// This will allow further optimizations like executing loops like:
+			// while (addr % 4) {
+			//      doStuff(*addr);
+			// 	addr++;
+			// }
+			newAlignmentData.insert({GV, 4});
+			return BitMask::ALIGNED4;
 		}
-		if (const ConstantExpr* CE = dyn_cast<ConstantExpr>(V))
+		if (ConstantExpr* CE = dyn_cast<ConstantExpr>(V))
 		{
 			if (CE->getOpcode() == Instruction::GetElementPtr)
 			{
-				const GEPOperator *GEP = cast<GEPOperator>(CE);
+				GEPOperator *GEP = cast<GEPOperator>(CE);
 				if (GEP->hasAllZeroIndices())
 					return getBitMask(CE->getOperand(0));
 			}
@@ -335,7 +346,11 @@ public:
 		}
 		return true;
 	}
-
+	void addAlignmentRequirement(NewAlignmentData& moduleAlignmentData)
+	{
+		for (auto& pair : newAlignmentData)
+			moduleAlignmentData.insert(pair);
+	}
 	//We are going to interpret a CallInst, we need to add a stack frame and forward the known arguments
 	void forwardArgumentsToNextFrame(CallInst& CI)
 	{
@@ -765,6 +780,7 @@ class ModuleData
 
 	void initFunctionData();
 public:
+	NewAlignmentData alignmentToBeBumped;
 	llvm::Module* getModulePtr()
 	{
 		return &module;
@@ -869,6 +885,8 @@ class FunctionData
 	{
 		assert(currentEE->getSizeStackFrame() == 1);
 		currentEE->popStackFrame();
+
+		currentEE->addAlignmentRequirement(moduleData.alignmentToBeBumped);
 
 		bool removed = currentEE->removeModule(moduleData.getModulePtr());
 		(void)removed;
@@ -1438,6 +1456,25 @@ bool PartialExecuter::runOnModule( llvm::Module & module )
 		{
 			NumModifyiedFunctions++;
 			changed = true;
+		}
+	}
+
+	if (changed)
+	{
+		// Third part (dependent on any change having already already being made):
+		// 	modify alignment of GlobalVariables alignment that has been queried
+		for (const auto& p : data.alignmentToBeBumped)
+		{
+			GlobalVariable* GV = p.first;
+			const uint32_t requiredAlign = p.second;
+			if (module.getDataLayout().getPreferredAlign(GV) < requiredAlign)
+			{
+				GV->setAlignment(Align(requiredAlign));
+				NumTimesBumbedGlobals++;
+				// Note that multiple globals could be bumped multiple times (eg. 2->4->8)
+				// so this will not be necessary equal to the number of GlobalVariables whose
+				// alignment has changed.
+			}
 		}
 	}
 
