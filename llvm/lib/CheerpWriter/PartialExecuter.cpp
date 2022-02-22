@@ -1140,7 +1140,7 @@ class BasicBlockGroupNode
 {
 	// Implicit tree structure
 	BasicBlockGroupNode* parentNode;
-	std::deque<BasicBlockGroupNode> childrenNodes;
+	std::list<BasicBlockGroupNode> childrenNodes;
 
 	// Other metadata
 	FunctionData& data;
@@ -1152,11 +1152,11 @@ class BasicBlockGroupNode
 	// TODO(carlo): an optmization might be having from be a set<BasicBlock>, conserving the phi that are equals
 
 	//Note that here also DenseMap would have worked, but for the fact that it does miss operator .at()
-	typedef std::unordered_map<const llvm::BasicBlock*, uint32_t> ReverseMapBBToIndex;
+	typedef std::unordered_map<const llvm::BasicBlock*, BasicBlockGroupNode*> ReverseMapBBToGroup;
 
-	// reverseMappingBBToIndex will be populated alongside childrenNodes, and for each BasicBlock reverseMappingBBToIndex[BB]
-	//	will be the index of the SCC component BB is part of
-	ReverseMapBBToIndex reverseMappingBBToIndex;
+	// reverseMappingBBToGroup will be populated alongside childrenNodes, and for each BasicBlock reverseMappingBBToGroup[BB]
+	//	will be the pointer of the SCC component BB is part of
+	ReverseMapBBToGroup reverseMappingBBToGroup;
 	bool visitingAll;
 	static const DeterministicBBSet getAllBasicBlocks(llvm::Function& F)
 	{
@@ -1167,7 +1167,7 @@ class BasicBlockGroupNode
 		}
 		return set;
 	}
-	void splitIntoSCCs(std::deque<BasicBlockGroupNode>& queueToBePopulated, ReverseMapBBToIndex& blockToIndexMap);
+	void splitIntoSCCs(std::list<BasicBlockGroupNode>& queueToBePopulated, ReverseMapBBToGroup& blockToGroupMap);
 public:
 	BasicBlockGroupNode(FunctionData& data, BasicBlockGroupNode* parentBBGNode, const DeterministicBBSet& blocks, llvm::BasicBlock* start = nullptr)
 		: parentNode(parentBBGNode), data(data), blocks(blocks), isMultiHead(false), isReachable(parentNode == nullptr), start(start), from(nullptr), visitingAll(false)
@@ -1249,9 +1249,9 @@ public:
 		}
 		else
 		{
-			uint32_t X = reverseMappingBBToIndex.at(succ);
-			assert( X < childrenNodes.size());
-			childrenNodes.at(X).addIncomingEdge(from, succ);
+			BasicBlockGroupNode* ptr = reverseMappingBBToGroup.at(succ);
+			assert( ptr );
+			ptr->addIncomingEdge(from, succ);
 		}
 	}
 	void visitAll()
@@ -1301,7 +1301,7 @@ public:
 			return;
 		}
 
-		splitIntoSCCs(childrenNodes, reverseMappingBBToIndex);	//These should be partially ordered with the last one possibly being the replica of the current one
+		splitIntoSCCs(childrenNodes, reverseMappingBBToGroup);	//These should be partially ordered with the last one possibly being the replica of the current one
 
 		std::vector<llvm::BasicBlock*> visitNext;
 
@@ -1321,10 +1321,10 @@ public:
 	}
 };
 
-void BasicBlockGroupNode::splitIntoSCCs(std::deque<BasicBlockGroupNode>& queueToBePopulated, ReverseMapBBToIndex& blockToIndexMap)
+void BasicBlockGroupNode::splitIntoSCCs(std::list<BasicBlockGroupNode>& queueToBePopulated, ReverseMapBBToGroup& blockToGroupMap)
 {
 	assert(queueToBePopulated.empty());
-	assert(blockToIndexMap.empty());
+	assert(blockToGroupMap.empty());
 	// We begin with N nodes, remove 'start', and we find the SCCs of the remaining N-1 nodes.
 	//
 	// For N = 1, it means 0 nodes remaining -> no SCCs
@@ -1342,7 +1342,6 @@ void BasicBlockGroupNode::splitIntoSCCs(std::deque<BasicBlockGroupNode>& queueTo
 	SubGraph SG(start, std::move(Group));
 	queueToBePopulated.emplace_back(*this);
 
-	uint32_t increasing_index = 1;
 	for (auto& SCC: make_range(scc_begin(&SG), scc_end(&SG)))
 	{
 		DeterministicBBSet subset;
@@ -1350,12 +1349,15 @@ void BasicBlockGroupNode::splitIntoSCCs(std::deque<BasicBlockGroupNode>& queueTo
 		{
 			BasicBlock* bb = GN->BB;
 			subset.insert(bb);
-			blockToIndexMap[bb] = increasing_index;
 		}
 		queueToBePopulated.emplace_back(data, this, subset);
-		increasing_index++;
+		for (auto& GN : SCC)
+		{
+			BasicBlock* bb = GN->BB;
+			blockToGroupMap[bb] = &queueToBePopulated.back();
+		}
 	}
-	blockToIndexMap[start] = 0;
+	blockToGroupMap[start] = &queueToBePopulated.front();
 }
 
 void FunctionData::actualVisit(bool skipVisit = false)
