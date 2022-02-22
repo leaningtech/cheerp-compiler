@@ -8,8 +8,8 @@ optimizers, and run-time environments.
 Useful links
 ------------
 
-Documentation and tutorials available on github:
-https://github.com/leaningtech/cheerp-meta/wiki
+Documentation and Tutorials:
+https://docs.leaningtech.com/cheerp/
 
 Please report bugs on the cheerp-meta repository:
 https://github.com/leaningtech/cheerp-meta/issues
@@ -25,7 +25,7 @@ Cheerp compiler build instructions
 
 We advise doing an out of tree build, but it's not necessary
 
-This is only one of the components of Cheerp. Please see https://github.com/leaningtech/cheerp-meta/wiki/Linux-build-instructions for instructions on how to build the whole suite.
+This is only one of the components of Cheerp. Please see https://docs.leaningtech.com/cheerp/Linux-build-instructions for instructions on how to build the whole suite.
 
 
 ### Build LLVM
