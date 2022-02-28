@@ -2975,7 +2975,7 @@ std::map<const llvm::BasicBlock*, const llvm::PHINode*> CheerpWasmWriter::select
 	return phiNodesHandledAsResult;
 }
 
-void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F, uint32_t& lenLocals)
+void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F)
 {
 	assert(code.tell() == 0);
 
@@ -3035,8 +3035,6 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F, uint32
 	}
 
 	compileMethodLocals(code, locals);
-
-	lenLocals = code.tell();
 
 	teeLocals.performInitialization(code);
 
@@ -3650,7 +3648,7 @@ void CheerpWasmWriter::compileElementSection()
 void CheerpWasmWriter::compileCodeSection()
 {
 	Section codeSection(0x0a, "Code", this);
-	Section branchHintsSection(0x0, "branchHints", this);
+	Section branchHintsSection(0x0, "metadata.code.branch_hint", this);
 
 	uint32_t count = linearHelper.functions().size();
 	count = std::min(count, COMPILE_METHOD_LIMIT);
@@ -3668,8 +3666,7 @@ void CheerpWasmWriter::compileCodeSection()
 #if WASM_DUMP_METHODS
 		llvm::errs() << i << " method name: " << F->getName() << '\n';
 #endif
-		uint32_t lenLocals = 0;
-		compileMethod(method, *F, lenLocals);
+		compileMethod(method, *F);
 
 		encodeULEB128(i+numberOfImportedFunctions, branchHintsSection);		//Encode the ID of the current function
 		encodeULEB128(0x0, branchHintsSection);					//Encode single 0 byte
@@ -3684,9 +3681,9 @@ void CheerpWasmWriter::compileCodeSection()
 		encodeULEB128(branchHintsVec.size(), branchHintsSection);		//Encode number of hints (possibly 0)
 		for (auto x : branchHintsVec)
 		{
-			encodeULEB128(x.second ? 0x01 : 0x00, branchHintsSection);	//Encode direction
-			encodeULEB128(x.first - lenLocals, branchHintsSection);		//Encode Instruction offset (in bytes)
-											//    from first instruction of the function
+			encodeULEB128(x.first, branchHintsSection);			//Encode Instruction offset (in bytes, from the start of the function)
+			encodeULEB128(0x01, branchHintsSection);			//Encode length code annotation (that has to be the ULEB 1, possibly padded)
+			encodeULEB128(x.second ? 0x01 : 0x00, branchHintsSection);	//Encode direction of hint (that has to be the byte 1, with NO padding)
 		}
 
 #if WASM_DUMP_METHOD_DATA
