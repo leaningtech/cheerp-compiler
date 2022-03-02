@@ -565,8 +565,9 @@ void cheerp::Link::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back(Args.MakeArgString(getToolChain().GetFilePath("libstdlibs.bc")));
     } else {
       CmdArgs.push_back(Args.MakeArgString(getToolChain().GetFilePath("libc.bc")));
-      CmdArgs.push_back(Args.MakeArgString(getToolChain().GetFilePath("libm.bc")));
+      CmdArgs.push_back(Args.MakeArgString(getToolChain().GetFilePath("crt1.bc")));
     }
+    CmdArgs.push_back(Args.MakeArgString(getToolChain().GetFilePath("libsystem.bc")));
 
     // Add wasm helper if needed
     Arg *CheerpLinearOutput = Args.getLastArg(options::OPT_cheerp_linear_output_EQ);
