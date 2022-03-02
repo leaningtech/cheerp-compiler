@@ -2191,6 +2191,9 @@ static Instruction *foldSelectFunnelShift(const DataLayout& DL, SelectInst &Sel,
       Pred != ICmpInst::ICMP_EQ)
     return nullptr;
 
+  if (!DL.isByteAddressable())
+    return nullptr;
+
   // If this is not a rotate then the select was blocking poison from the
   // 'shift-by-zero' non-TVal, but a funnel shift won't - so freeze it.
   if (SV0 != SV1) {
@@ -2199,9 +2202,6 @@ static Instruction *foldSelectFunnelShift(const DataLayout& DL, SelectInst &Sel,
     else if (!IsFshl && !llvm::isGuaranteedNotToBePoison(SV0))
       SV0 = Builder.CreateFreeze(SV0);
   }
-
-  if (!DL.isByteAddressable())
-    return nullptr;
 
   // This is a funnel/rotate that avoids shift-by-bitwidth UB in a suboptimal way.
   // Convert to funnel shift intrinsic.
