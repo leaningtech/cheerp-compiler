@@ -36,6 +36,10 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 
 #ifdef __linux__
 
+#ifdef __CHEERP__
+#define syscall(n,...) n(__VA_ARGS__)
+long __syscall_futex(int* n, ...);
+#endif
 static void __libcpp_platform_wait_on_address(__cxx_atomic_contention_t const volatile* __ptr,
                                               __cxx_contention_t __val)
 {
