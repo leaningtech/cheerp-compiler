@@ -408,6 +408,10 @@ private:
 //===----------------------------------------------------------------------===//
 
 #if defined(SYS_futex)
+#ifdef __CHEERP__
+#define syscall(n,...) n(__VA_ARGS__)
+long __syscall_futex(int* n, ...);
+#endif
 void PlatformFutexWait(int* addr, int expect) {
   constexpr int WAIT = 0;
   syscall(SYS_futex, addr, WAIT, expect, 0);
