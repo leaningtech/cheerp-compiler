@@ -715,11 +715,15 @@ path __canonical(path const& orig_p, error_code* ec) {
 
   path p = __do_absolute(orig_p, &cwd, ec);
 #if (defined(_POSIX_VERSION) && _POSIX_VERSION >= 200112) || defined(_LIBCPP_WIN32API)
+#ifdef __CHEERP__
+  return {nullptr};
+#else
   std::unique_ptr<path::value_type, decltype(&::free)>
     hold(detail::realpath(p.c_str(), nullptr), &::free);
   if (hold.get() == nullptr)
     return err.report(capture_errno());
   return {hold.get()};
+#endif
 #else
   #if defined(__MVS__) && !defined(PATH_MAX)
     path::value_type buff[ _XOPEN_PATH_MAX + 1 ];
@@ -727,12 +731,8 @@ path __canonical(path const& orig_p, error_code* ec) {
     path::value_type buff[PATH_MAX + 1];
   #endif
   path::value_type* ret;
-#ifdef __CHEERP__
-  ret = nullptr;
-#else
   if ((ret = detail::realpath(p.c_str(), buff)) == nullptr)
     return err.report(capture_errno());
-#endif
   return {ret};
 #endif
 }
