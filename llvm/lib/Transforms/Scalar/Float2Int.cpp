@@ -352,6 +352,8 @@ void Float2IntPass::walkForwards() {
 bool Float2IntPass::validateAndTransform() {
   bool MadeChange = false;
 
+  DenseMap<Instruction*, Type*> toBeConverted;
+
   // Iterate over every disjoint partition of the def-use graph.
   for (auto It = ECs.begin(), E = ECs.end(); It != E; ++It) {
     ConstantRange R(MaxIntegerBW + 1, false);
@@ -425,8 +427,23 @@ bool Float2IntPass::validateAndTransform() {
 
     for (auto MI = ECs.member_begin(It), ME = ECs.member_end();
          MI != ME; ++MI)
-      convert(*MI, Ty);
+      toBeConverted[*MI] = Ty;
     MadeChange = true;
+  }
+
+  if (MadeChange) {
+    // Collect {Instruction*, Type*}-pairs to be processed
+    std::vector<std::pair<Instruction*, Type*>> toProcess;
+    Function* F = toBeConverted.begin()->first->getFunction();
+    for (auto& I : instructions(F)) {
+      auto it = toBeConverted.find(&I);
+      if (it != toBeConverted.end())
+        toProcess.push_back(*it);
+    }
+
+    // Actually process them (after iteration has completed)
+    for (auto& p : toProcess)
+      convert(p.first, p.second);
   }
 
   return MadeChange;
