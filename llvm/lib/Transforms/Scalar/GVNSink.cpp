@@ -228,19 +228,26 @@ raw_ostream &operator<<(raw_ostream &OS, const SinkingInstructionCandidate &C) {
 class ModelledPHI {
   SmallVector<Value *, 4> Values;
   SmallVector<BasicBlock *, 4> Blocks;
+  static DenseMap<const BasicBlock*, unsigned>* BasicBlockOrder;
 
 public:
+  static void setBasicBlockOrder(DenseMap<const BasicBlock*, unsigned>& bbOrder) {
+    BasicBlockOrder = &bbOrder;
+  }
   ModelledPHI() = default;
 
   ModelledPHI(const PHINode *PN) {
     // BasicBlock comes first so we sort by basic block pointer order, then by value pointer order.
-    SmallVector<std::pair<BasicBlock *, Value *>, 4> Ops;
-    for (unsigned I = 0, E = PN->getNumIncomingValues(); I != E; ++I)
-      Ops.push_back({PN->getIncomingBlock(I), PN->getIncomingValue(I)});
+    SmallVector<std::pair<int, std::pair<BasicBlock *, Value *>>, 4> Ops;
+    for (unsigned I = 0, E = PN->getNumIncomingValues(); I != E; ++I) {
+      BasicBlock* incomingBlock = PN->getIncomingBlock(I);
+      Ops.push_back({BasicBlockOrder->operator[](incomingBlock), {incomingBlock, PN->getIncomingValue(I)}});
+    }
+
     llvm::sort(Ops);
     for (auto &P : Ops) {
-      Blocks.push_back(P.first);
-      Values.push_back(P.second);
+      Blocks.push_back(P.second.first);
+      Values.push_back(P.second.second);
     }
   }
 
@@ -311,6 +318,8 @@ public:
   }
 };
 
+DenseMap<const BasicBlock*, unsigned>* ModelledPHI::BasicBlockOrder;
+
 template <typename ModelledPHI> struct DenseMapInfo {
   static inline ModelledPHI &getEmptyKey() {
     static ModelledPHI Dummy = ModelledPHI::createDummy(0);
@@ -362,7 +371,6 @@ public:
 
     for (auto &U : I->uses())
       op_push_back(U.getUser());
-    llvm::sort(op_begin(), op_end());
   }
 
   void setMemoryUseOrder(unsigned MUO) { MemoryUseOrder = MUO; }
@@ -569,6 +577,7 @@ public:
 
     //BBorder keeps the original ordering of BasicBlocks
     BBorder.clear();
+    ModelledPHI::setBasicBlockOrder(BBorder);
     for (const auto& bb : F)
 	    BBorder[&bb] = BBorder.size();
 
@@ -794,17 +803,22 @@ Optional<SinkingInstructionCandidate> GVNSink::analyzeInstructionForSinking(
 unsigned GVNSink::sinkBB(BasicBlock *BBEnd) {
   LLVM_DEBUG(dbgs() << "GVNSink: running on basic block ";
              BBEnd->printAsOperand(dbgs()); dbgs() << "\n");
-  SmallVector<BasicBlock *, 4> Preds;
+  SmallVector<std::pair<int, BasicBlock *>, 4> PredsWithOrder;
   for (auto *B : predecessors(BBEnd)) {
     auto *T = B->getTerminator();
     if (isa<BranchInst>(T) || isa<SwitchInst>(T))
-      Preds.push_back(B);
+      PredsWithOrder.push_back({BBorder[B], B});
     else
       return 0;
   }
-  if (Preds.size() < 2)
+  if (PredsWithOrder.size() < 2)
     return 0;
-  llvm::sort(Preds);
+
+  llvm::sort(PredsWithOrder);
+
+  SmallVector<BasicBlock *, 4> Preds;
+  for (auto & p : PredsWithOrder)
+    Preds.push_back(p.second);
 
   unsigned NumOrigPreds = Preds.size();
   // We can only sink instructions through unconditional branches.
