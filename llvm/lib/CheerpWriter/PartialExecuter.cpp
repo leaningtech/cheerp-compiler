@@ -442,6 +442,10 @@ public:
 	}
 	void computeValidLoadIntervals(Module& _module)
 	{
+		// immutableLoadIntervals is populated as a first thing after PartialExecuter instantiation
+
+		// create a 'virtual' call frame, since it might be needed by getOperandValue
+		createStartingCallFrame();
 		assert(immutableLoadIntervals.empty());
 
 		for (auto& global : _module.globals())
@@ -464,7 +468,8 @@ public:
 			immutableLoadIntervals.push_back({(long long)Ptr, ((long long)Ptr)+getDataLayout().getTypeAllocSize(GV->getInitializer()->getType())});
 		}
 
-		// immutableLoadIntervals is populated by this function and then not modifyed during partial-execution
+		// detach the 'virtual' call frame
+		popCallFrame();
 	}
 	// Given a Terminator, find (if there is enough information do to so) what will be the next visited BB
 	// nullptr means failure to determine the next BB, and have to be handled by the caller
@@ -776,6 +781,7 @@ class ModuleData
 	//  that might report some recoverable error via the string.
 	std::string error;
 	llvm::Module& module;
+	PartialInterpreter* currentEE;
 	std::map<const llvm::Function*, FunctionData> functionData;
 
 	void initFunctionData();
@@ -789,21 +795,33 @@ public:
 		: module(_module)
 	{
 		initFunctionData();
-	}
-        FunctionData& getFunctionData(const llvm::Function& F);
-	void setUpPartialInterpreter(llvm::Function& F, PartialInterpreter*& currentEE)
-	{
-		assert(currentEE == nullptr);
+
 		std::unique_ptr<Module> uniqM(getModulePtr());
 		currentEE = (PartialInterpreter*)(PartialInterpreter::create(std::move(uniqM), &error));
 		assert(currentEE);
 
+		// Add 'virtual' frame, since it might be needed deep into computeValidLoadIntervals
+		// Then compute the valid intervals
+		currentEE->computeValidLoadIntervals(*getModulePtr());
+
+		assert(currentEE->getSizeStackFrame() == 0);
+	}
+	FunctionData& getFunctionData(const llvm::Function& F);
+	PartialInterpreter* setUpPartialInterpreter(llvm::Function& F)
+	{
 		assert(currentEE->getSizeStackFrame() == 0);
 		currentEE->addStackFrame();
 		ExecutionContext& executionContext = currentEE->createStartingCallFrame();
 		executionContext.CurFunction = &F;
 
-		currentEE->computeValidLoadIntervals(*getModulePtr());
+		return currentEE;
+	}
+	~ModuleData()
+	{
+		bool removed = currentEE->removeModule(getModulePtr());
+		(void)removed;
+		assert(removed);
+		delete currentEE;
 	}
 };
 
@@ -890,11 +908,6 @@ class FunctionData
 
 		currentEE->addAlignmentRequirement(moduleData.alignmentToBeBumped);
 
-		bool removed = currentEE->removeModule(moduleData.getModulePtr());
-		(void)removed;
-		assert(removed);
-		delete currentEE;
-		currentEE = nullptr;
 	}
 public:
 	explicit FunctionData(llvm::Function& F, ModuleData& moduleData)
@@ -935,7 +948,7 @@ public:
 	}
 	void visitCallEquivalent(const VectorOfArgs& arguments)
 	{
-		moduleData.setUpPartialInterpreter(F, currentEE);
+		currentEE = moduleData.setUpPartialInterpreter(F);
 
 		// Insert the arguments in the map
 		for (uint32_t i=0; i<arguments.size(); i++)
