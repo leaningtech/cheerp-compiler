@@ -838,8 +838,6 @@ class FunctionData
 	std::vector<VectorOfArgs> callEquivalentQueue;
 	PartialInterpreter* currentEE;
 
-	bool skipThisFunction;
-
 	VectorOfArgs getArguments(const llvm::CallBase* callBase)
 	{
 		VectorOfArgs args(F.getFunctionType()->getNumParams(), nullptr);
@@ -911,7 +909,7 @@ class FunctionData
 	}
 public:
 	explicit FunctionData(llvm::Function& F, ModuleData& moduleData)
-		: F(F), moduleData(moduleData), currentEE(nullptr), skipThisFunction(false)
+		: F(F), moduleData(moduleData), currentEE(nullptr)
 	{
 	}
 	llvm::Function* getFunction()
@@ -942,10 +940,6 @@ public:
 		}
 		return true;
 	}
-	bool shouldBeSkipped() const
-	{
-		return skipThisFunction;
-	}
 	void visitCallEquivalent(const VectorOfArgs& arguments)
 	{
 		currentEE = moduleData.setUpPartialInterpreter(F);
@@ -968,15 +962,21 @@ public:
 	}
 	void visitAllCallSites()
 	{
+		bool needsNoInfoCallSite = false;
+
 		for (const FunctionData::VectorOfArgs& toBeVisited : callEquivalentQueue)
 			if (hasNoInfo(toBeVisited))
-				skipThisFunction = true;
+				needsNoInfoCallSite = true;
 
 		if (callEquivalentQueue.size() >= MAX_NUMBER_OF_VISITS_PER_BB)
-			skipThisFunction = true;
+			needsNoInfoCallSite = true;
 
-		if (shouldBeSkipped())
-			return;
+		if (needsNoInfoCallSite)
+		{
+			// Remove all call-sites and substitute them with one with no information at all
+			callEquivalentQueue.clear();
+			callEquivalentQueue.push_back(VectorOfArgs());
+		}
 
 		// Visit all collected callEquivalent
 		// Note that currently callEquivalentQueue is immutable during this loop (basically CallEquivalents are know beforehand)
@@ -1457,8 +1457,6 @@ static bool modifyFunction(llvm::Function& F, ModuleData& moduleData)
 		return false;
 
 	FunctionData& data = moduleData.getFunctionData(F);
-	if (data.shouldBeSkipped())
-		return false;
 
 	data.buildSetOfEdges(F);
 
