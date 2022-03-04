@@ -818,7 +818,9 @@ class FunctionData
 	ModuleData& moduleData;
 
 	std::vector<VectorOfArgs> callEquivalentQueue;
-	PartialInterpreter* currentEE{nullptr};
+	PartialInterpreter* currentEE;
+
+	bool skipThisFunction;
 
 	VectorOfArgs getArguments(const llvm::CallBase* callBase)
 	{
@@ -880,7 +882,7 @@ class FunctionData
 
 		callEquivalentQueue.push_back(arguments);
 	}
-	void actualVisit(bool skipVisit);
+	void actualVisit();
 	void doneVisitCallBase()
 	{
 		assert(currentEE->getSizeStackFrame() == 1);
@@ -896,7 +898,7 @@ class FunctionData
 	}
 public:
 	explicit FunctionData(llvm::Function& F, ModuleData& moduleData)
-		: F(F), moduleData(moduleData)
+		: F(F), moduleData(moduleData), currentEE(nullptr), skipThisFunction(false)
 	{
 	}
 	llvm::Function* getFunction()
@@ -917,31 +919,50 @@ public:
 	{
 		visitedEdges.insert({from, to});
 	}
+	bool hasNoInfo(const VectorOfArgs& arguments) const
+	{
+		for (const llvm::Value* arg : arguments)
+		{
+			if (arg)
+				// Found a non-null argument!
+				return false;
+		}
+		return true;
+	}
+	bool shouldBeSkipped() const
+	{
+		return skipThisFunction;
+	}
 	void visitCallEquivalent(const VectorOfArgs& arguments)
 	{
 		moduleData.setUpPartialInterpreter(F, currentEE);
 
 		// Insert the arguments in the map
-		bool areAllArgsNullptr = true;
-
 		for (uint32_t i=0; i<arguments.size(); i++)
 		{
 			llvm::Value* x = arguments[i];
 			if (!x)
 				continue;
-			areAllArgsNullptr = false;
 			llvm::Argument* ith_arg = F.getArg(i);
 			currentEE->assignToMaps(ith_arg, x);
 		}
 
 		// Do the visit
-		actualVisit(/*skipVisit*/areAllArgsNullptr);
+		actualVisit();
 
 		// Cleanup
 		doneVisitCallBase();
 	}
 	void visitAllCallSites()
 	{
+		for (const FunctionData::VectorOfArgs& toBeVisited : callEquivalentQueue)
+			if (hasNoInfo(toBeVisited))
+				skipThisFunction = true;
+
+
+		if (shouldBeSkipped())
+			return;
+
 		// Visit all collected callEquivalent
 		// Note that currently callEquivalentQueue is immutable during this loop (basically CallEquivalents are know beforehand)
 		for (const FunctionData::VectorOfArgs& toBeVisited : callEquivalentQueue)
@@ -1360,13 +1381,10 @@ void BasicBlockGroupNode::splitIntoSCCs(std::list<BasicBlockGroupNode>& queueToB
 	blockToGroupMap[start] = &queueToBePopulated.front();
 }
 
-void FunctionData::actualVisit(bool skipVisit = false)
+void FunctionData::actualVisit()
 {
 	BasicBlockGroupNode groupData(*this);
-	if (skipVisit)
-		groupData.visitAll();
-	else
-		groupData.recursiveVisit();
+	groupData.recursiveVisit();
 }
 
 static void processFunction(const llvm::Function& F, ModuleData& moduleData)
@@ -1423,11 +1441,13 @@ static bool modifyFunction(llvm::Function& F, ModuleData& moduleData)
 	if (F.isDeclaration())
 		return false;
 
-	bool changed = false;
-
 	FunctionData& data = moduleData.getFunctionData(F);
+	if (data.shouldBeSkipped())
+		return false;
+
 	data.buildSetOfEdges(F);
 
+	bool changed = false;
 	if (data.hasModifications(/*emitStats*/ false))
 	{
 		// Remove the edges that have never been taken
