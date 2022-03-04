@@ -959,6 +959,8 @@ public:
 			if (hasNoInfo(toBeVisited))
 				skipThisFunction = true;
 
+		if (callEquivalentQueue.size() >= MAX_NUMBER_OF_VISITS_PER_BB)
+			skipThisFunction = true;
 
 		if (shouldBeSkipped())
 			return;
