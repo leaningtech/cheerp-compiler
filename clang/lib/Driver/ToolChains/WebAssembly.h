@@ -150,7 +150,7 @@ public:
          const llvm::opt::ArgList &Args);
 
   bool isPICDefault() const override;
-  bool isPIEDefault() const override;
+  bool isPIEDefault(const llvm::opt::ArgList &Args) const override;
   bool isPICDefaultForced() const override;
 
   void
