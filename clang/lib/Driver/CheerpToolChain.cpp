@@ -85,7 +85,7 @@ bool Cheerp::isPICDefault() const {
   return false;
 }
 
-bool Cheerp::isPIEDefault() const {
+bool Cheerp::isPIEDefault(const llvm::opt::ArgList &Args) const {
   return false;
 }
 
