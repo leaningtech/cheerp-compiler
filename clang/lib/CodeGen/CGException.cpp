@@ -894,7 +894,7 @@ llvm::BasicBlock *CodeGenFunction::EmitLandingPad() {
     llvm::Type* HackTy = LPadTy->getPointerTo();
     llvm::Type* HackPtrTy = HackTy->getPointerTo();
 
-    llvm::Value *LPadExn = Builder.CreateStructGEP(LPadInst, 0);
+    llvm::Value *LPadExn = Builder.CreateStructGEP(LPadTy, LPadInst, 0);
     LPadExn = Builder.CreateLoad(Address(LPadExn, getPointerAlign()));
     llvm::Value* LPadExnHack = Builder.CreateBitCast(LPadExn, HackTy);
     Address Exn = Builder.CreateStructGEP(EHObj, 0, "eh.exn");
@@ -903,7 +903,7 @@ llvm::BasicBlock *CodeGenFunction::EmitLandingPad() {
     Builder.CreateStore(LPadExnHack, Exn);
     Builder.CreateStore(LPadExn, getExceptionSlot());
 
-    llvm::Value *LPadSel = Builder.CreateStructGEP(LPadInst, 1);
+    llvm::Value *LPadSel = Builder.CreateStructGEP(LPadTy, LPadInst, 1);
     LPadSel = Builder.CreateLoad(Address(LPadSel, getIntAlign()));
     Address Sel = Builder.CreateStructGEP(EHObj, 1, "eh.sel");
     Builder.CreateStore(LPadSel, Sel);
@@ -1611,7 +1611,7 @@ llvm::BasicBlock *CodeGenFunction::getTerminateLandingPad() {
     if (getTarget().isByteAddressable()) {
       Exn = Builder.CreateExtractValue(LPadInst, 0);
     } else {
-      Exn = Builder.CreateStructGEP(LPadInst, 0);
+      Exn = Builder.CreateStructGEP(GetLandingPadTy(), LPadInst, 0);
       Exn = Builder.CreateLoad(Address(Exn,getPointerAlign()));
     }
   }
