@@ -28,4 +28,4 @@ override_dh_auto_build:
 	cd build && ninja distribution
 
 override_dh_auto_test:
-	cd build && ninja check
+	if [ -z ${CIRCLECI} ]; then cd build && ninja check ; fi
