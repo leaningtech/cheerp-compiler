@@ -11,16 +11,20 @@ jobs:
     environment:
       - NINJA_STATUS: "[%u/%r/%f]"
     steps:
-      - run: sudo apt-get update && sudo apt-get install -y debhelper cmake python3-distutils ninja-build clang lld devscripts
-      - checkout:
-          path: cheerp-compiler
+      - run: sudo apt-get update && sudo apt-get install -y debhelper cmake ninja-build clang lld devscripts
+      - run:
+          name: Checkout
+          command: |
+            git clone --depth=1 --no-single-branch https://github.com/leaningtech/cheerp-compiler cheerp-compiler
+            cd cheerp-compiler
+            git checkout << pipeline.parameters.cheerp-compiler-branch >>
       - run:
           name: Build cheerp compiler
           working_directory: ~/project/cheerp-compiler
           command: |
             git checkout << pipeline.parameters.cheerp-compiler-branch >>
             dch -b -v 0-latest-1 "Internal build" -m
-            dpkg-buildpackage -b
+            dpkg-buildpackage -b -d
             mv ../cheerp-llvm-clang_*.deb ../cheerp-llvm-clang_latest.deb
       - store_artifacts:
           path: ~/project/cheerp-llvm-clang_latest.deb
