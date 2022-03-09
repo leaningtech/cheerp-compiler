@@ -10,6 +10,7 @@ override_dh_auto_configure:
 	cd build && cmake \
 		-C ../llvm/CheerpCmakeConf.cmake \
 		-DCMAKE_BUILD_TYPE=Release \
+		-DCMAKE_CXX_FLAGS_RELEASE="-DNDEBUG -O2" \
 		-DCLANG_VENDOR="Cheerp ${deb_version}" \
 		-DLLVM_ENABLE_PROJECTS=clang \
 		../llvm/ \
@@ -21,10 +22,10 @@ override_dh_auto_configure:
 		-DCMAKE_MODULE_LINKER_FLAGS=-fuse-ld=lld \
 
 override_dh_auto_install:
-	dh_auto_install --builddirectory=build --destdir=debian/tmp
+	cd build && DESTDIR=${PWD}/debian/tmp ninja install-distribution
 
 override_dh_auto_build:
-	cd build && ninja
+	cd build && ninja distribution
 
 override_dh_auto_test:
 	cd build && ninja check
