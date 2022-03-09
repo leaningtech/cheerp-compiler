@@ -11,24 +11,8 @@ SET(LLVM_ENABLE_NEW_PASS_MANAGER OFF CACHE BOOL "")
 # setup toolchain
 set(LLVM_INSTALL_TOOLCHAIN_ONLY ON CACHE BOOL "")
 set(LLVM_TOOLCHAIN_TOOLS
-  llvm-nm
-  llvm-as
-  llvm-bcanalyzer
-  llvm-extract
-  llvm-diff
-  llvm-rtdyld
-  llvm-symbolizer
-  llvm-dwarfdump
-  llvm-mc
-  llvm-profdata
-  llvm-size
-  llvm-objdump
-  llvm-stress
-  llvm-readobj
   llvm-dis
   llvm-ar
-  llvm-config
-  llvm-cov
   llvm-link
   opt
   llc
