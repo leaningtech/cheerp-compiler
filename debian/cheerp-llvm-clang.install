@@ -49,7 +49,6 @@ opt/cheerp/lib/clang/14.0.0/include/__wmmintrin_pclmul.h
 opt/cheerp/lib/clang/14.0.0/include/mm3dnow.h
 opt/cheerp/lib/clang/14.0.0/include/ia32intrin.h
 opt/cheerp/lib/clang/14.0.0/include/stdarg.h
-opt/cheerp/lib/libclang.so*
 opt/cheerp/bin/
 opt/cheerp/bin/clang-14
 opt/cheerp/bin/llvm-nm
@@ -57,7 +56,6 @@ opt/cheerp/bin/llvm-as
 opt/cheerp/bin/llvm-bcanalyzer
 opt/cheerp/bin/llvm-extract
 opt/cheerp/bin/llvm-diff
-opt/cheerp/bin/clang-format
 opt/cheerp/bin/llvm-rtdyld
 opt/cheerp/bin/llvm-symbolizer
 opt/cheerp/bin/llvm-dwarfdump
