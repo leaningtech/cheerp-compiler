@@ -12,7 +12,6 @@ SET(LLVM_ENABLE_NEW_PASS_MANAGER OFF CACHE BOOL "")
 set(LLVM_INSTALL_TOOLCHAIN_ONLY ON CACHE BOOL "")
 set(LLVM_TOOLCHAIN_TOOLS
   llvm-dis
-  llvm-ar
   llvm-link
   opt
   llc
