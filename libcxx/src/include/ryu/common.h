@@ -90,15 +90,21 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 }
 
 [[nodiscard]] _LIBCPP_HIDE_FROM_ABI inline uint32_t __float_to_bits(const float __f) {
-  uint32_t __bits = 0;
-  _VSTD::memcpy(&__bits, &__f, sizeof(float));
-  return __bits;
+  union {
+    uint32_t __bits;
+    float __f;
+  } u;
+  u.__f = __f;
+  return u.__bits;
 }
 
 [[nodiscard]] _LIBCPP_HIDE_FROM_ABI inline uint64_t __double_to_bits(const double __d) {
-  uint64_t __bits = 0;
-  _VSTD::memcpy(&__bits, &__d, sizeof(double));
-  return __bits;
+  union {
+    uint64_t __bits;
+    double __d;
+  } u;
+  u.__d = __d;
+  return u.__bits;
 }
 
 _LIBCPP_END_NAMESPACE_STD
