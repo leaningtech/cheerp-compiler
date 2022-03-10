@@ -1377,7 +1377,7 @@ void ItaniumCXXABI::emitThrow(CodeGenFunction &CGF, const CXXThrowExpr *E) {
 	CGF.EmitTypedPtrExprToExn(E->getSubExpr(), Address(ExceptionPtr, ExnAlign));
   else
     CGF.EmitAnyExprToExn(
-      E->getSubExpr(), Address(ExceptionPtr, CGM.Int8Ty, ExnAlign));
+      E->getSubExpr(), Address(ExceptionPtr, CGM.getTarget().isByteAddressable() ? CGM.Int8Ty : CGM.getTypes().ConvertType(ThrowType), ExnAlign));
 
   // Now throw the exception.
   llvm::Value *TypeInfo = CGM.GetAddrOfRTTIDescriptor(ThrowType,

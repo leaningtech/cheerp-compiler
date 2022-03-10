@@ -1762,7 +1762,7 @@ llvm::Value *CodeGenFunction::EmitCXXNewExpr(const CXXNewExpr *E) {
           allocationAlign, getContext().toCharUnitsFromBits(AllocatorAlign));
     }
 
-    allocation = Address(RV.getScalarVal(), Int8Ty, allocationAlign);
+    allocation = Address(RV.getScalarVal(), !llvm::isa<llvm::IntrinsicInst>(RV.getScalarVal()) ? Int8Ty : ConvertTypeForMem(allocType), allocationAlign);
   }
 
   // Emit a null check on the allocation result if the allocation

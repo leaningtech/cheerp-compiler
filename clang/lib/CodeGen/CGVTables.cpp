@@ -309,7 +309,7 @@ void CodeGenFunction::StartThunk(llvm::Function *Fn, GlobalDecl GD,
   CGM.getCXXABI().EmitInstanceFunctionProlog(*this);
   CXXThisValue = CXXABIThisValue;
   CurCodeDecl = MD;
-  CurFuncDecl = MD;
+  CurFuncDecl = OriginalMethod;
 }
 
 void CodeGenFunction::FinishThunk() {
