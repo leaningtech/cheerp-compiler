@@ -2248,7 +2248,7 @@ void CodeGenFunction::EmitCXXAggrConstructorCall(const CXXConstructorDecl *ctor,
     CharUnits eltAlignment =
       arrayBase.getAlignment()
              .alignmentOfArrayElement(getContext().getTypeSizeInChars(type));
-    Address curAddr = Address(cur, elementType, eltAlignment);
+    Address curAddr = Address(cur, elementTypeLlvm, eltAlignment);
 
     // Zero initialize the storage, if requested.
     if (zeroInitialize)
