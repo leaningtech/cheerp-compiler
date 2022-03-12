@@ -101,26 +101,6 @@ public:
   }
 };
 
-/// This node represents a NBA GEP
-class SCEVGEPPointer : public SCEVNAryExpr {
-  friend class ScalarEvolution;
-
-  SCEVGEPPointer(const FoldingSetNodeIDRef ID,
-              const SCEV *const *O, size_t N)
-    : SCEVNAryExpr(ID, scGEPPointer, O, N) {
-  }
-
-public:
-  Type *getType() const {
-    return getOperand(0)->getType();
-  }
-
-  /// Methods for support type inquiry through isa, cast, and dyn_cast:
-  static inline bool classof(const SCEV *S) {
-    return S->getSCEVType() == scGEPPointer;
-  }
-};
-
 /// This is the base class for unary cast operator classes.
 class SCEVCastExpr : public SCEV {
 protected:
@@ -271,6 +251,26 @@ public:
            S->getSCEVType() == scSequentialUMinExpr ||
            S->getSCEVType() == scGEPPointer ||
            S->getSCEVType() == scAddRecExpr;
+  }
+};
+
+/// This node represents a NBA GEP
+class SCEVGEPPointer : public SCEVNAryExpr {
+  friend class ScalarEvolution;
+
+  SCEVGEPPointer(const FoldingSetNodeIDRef ID,
+              const SCEV *const *O, size_t N)
+    : SCEVNAryExpr(ID, scGEPPointer, O, N) {
+  }
+
+public:
+  Type *getType() const {
+    return getOperand(0)->getType();
+  }
+
+  /// Methods for support type inquiry through isa, cast, and dyn_cast:
+  static inline bool classof(const SCEV *S) {
+    return S->getSCEVType() == scGEPPointer;
   }
 };
 
