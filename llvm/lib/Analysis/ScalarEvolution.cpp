@@ -4128,6 +4128,10 @@ public:
 
   RetVal visitAddRecExpr(const SCEVAddRecExpr *Expr) { return Expr; }
 
+  RetVal visitNegPointer(const SCEVNegPointer *Expr) { return Expr; }
+
+  RetVal visitGEPPointer(const SCEVGEPPointer *Expr) { return Expr; }
+
   RetVal visitSMaxExpr(const SCEVSMaxExpr *Expr) {
     return visitAnyMinMaxExpr(Expr);
   }
