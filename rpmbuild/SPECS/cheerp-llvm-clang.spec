@@ -7,7 +7,7 @@ License:  NCSA and MIT
 URL: https://leaningtech.com/cheerp
 Source0: %{NAME}_%{VERSION}.orig.tar.gz
 
-BuildRequires: clang lld cmake make python3
+BuildRequires: clang lld cmake ninja-build python3
 
 %description
 Cheerp is a tool to bring C++ programming to the Web. It can generate a seamless
@@ -25,21 +25,22 @@ cmake -C ../llvm/CheerpCmakeConf.cmake \
   -DCMAKE_CXX_COMPILER=clang++ \
   -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld" \
   -DCMAKE_SHARED_LINKER_FLAGS="-fuse-ld=lld" \
+  -DCMAKE_MODULE_LINKER_FLAGS="-fuse-ld=lld" \
   -DCLANG_VENDOR="Cheerp %{VERSION}" \
   -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_CXX_FLAGS_RELEASE="-DNDEBUG -O2" \
   -DLLVM_ENABLE_PROJECTS=clang \
+  -GNinja \
   ../llvm/
 
 
 %build
-%make_build -C build
+ninja -C build distribution
 
 %check
-%make_build -C build check
-%make_build -C build check-clang-cheerp
 
 %install
-/usr/bin/make -C build install-distribution DESTDIR=%{buildroot} INSTALL="/usr/bin/install -p"
+DESTDIR=%{buildroot} INSTALL="/usr/bin/install -p" ninja -C build install-distribution
 
 %clean
 rm -rf $RPM_BUILD_ROOT
