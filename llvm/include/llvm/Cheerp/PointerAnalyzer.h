@@ -22,6 +22,7 @@
 #include "llvm/Cheerp/DeterministicUnorderedSet.h"
 #include "llvm/Cheerp/DeterministicUnorderedMap.h"
 #include "llvm/Cheerp/TypeAndIndex.h"
+#include <map>
 #include <unordered_map>
 #include <unordered_set>
 
