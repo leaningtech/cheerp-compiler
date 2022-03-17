@@ -40,8 +40,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#define DEBUG_TYPE "PartialExecuter"
-
 #include "../ExecutionEngine/Interpreter/Interpreter.h"
 #include "llvm/ADT/SCCIterator.h"
 #include "llvm/ADT/Statistic.h"
@@ -55,6 +53,7 @@
 #include <unordered_map>
 #include <vector>
 
+#define DEBUG_TYPE "PartialExecuter"
 STATISTIC(NumRemovedEdges, "Number of edges in the CFG that have been removed");
 STATISTIC(NumModifyiedFunctions, "Number of functions modyified by PartialExecuter");
 STATISTIC(NumTimesBumbedGlobals, "Number of times a GlobalVariable alignment has been increased");

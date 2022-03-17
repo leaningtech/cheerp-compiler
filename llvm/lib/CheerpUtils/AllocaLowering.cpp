@@ -9,7 +9,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#define DEBUG_TYPE "CheerpAllocaLowering"
 #include "llvm/Cheerp/AllocaLowering.h"
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
 #include "llvm/Cheerp/InvokeWrapping.h"
@@ -22,6 +21,7 @@
 #include "llvm/Transforms/Utils/PromoteMemToReg.h"
 #include "llvm/Support/raw_ostream.h"
 
+#define DEBUG_TYPE "CheerpAllocaLowering"
 STATISTIC(NumAllocasTransformedToGEPs, "Number of allocas of values transformed to GEPs in the stack");
 
 namespace llvm {

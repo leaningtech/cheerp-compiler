@@ -9,7 +9,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#define DEBUG_TYPE "GlobalDepsAnalyzer"
 #include <algorithm>
 #include <llvm/Analysis/OptimizationRemarkEmitter.h>
 #include "llvm/InitializePasses.h"
@@ -26,6 +25,8 @@
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/SimplifyLibCalls.h"
+
+#define DEBUG_TYPE "GlobalDepsAnalyzer"
 
 using namespace llvm;
 

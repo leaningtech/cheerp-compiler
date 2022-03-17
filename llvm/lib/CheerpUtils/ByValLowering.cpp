@@ -9,7 +9,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#define DEBUG_TYPE "CheerpByValLowering"
 #include "llvm/InitializePasses.h"
 #include "llvm/Cheerp/ByValLowering.h"
 #include "llvm/ADT/Statistic.h"
@@ -20,6 +19,7 @@
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Support/raw_ostream.h"
 
+#define DEBUG_TYPE "CheerpByValLowering"
 STATISTIC(NumNewAllocas, "Number of new allocas created");
 
 namespace llvm {

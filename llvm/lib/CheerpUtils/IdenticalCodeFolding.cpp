@@ -9,7 +9,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#define DEBUG_TYPE "IdenticalCodeFolding"
 #include "llvm/InitializePasses.h"
 #include "llvm/Cheerp/IdenticalCodeFolding.h"
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
@@ -22,6 +21,7 @@
 
 #include <unordered_map>
 
+#define DEBUG_TYPE "IdenticalCodeFolding"
 //#define DEBUG_VERBOSE 1
 
 using namespace llvm;

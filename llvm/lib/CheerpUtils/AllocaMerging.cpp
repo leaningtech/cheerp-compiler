@@ -9,7 +9,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#define DEBUG_TYPE "CheerpAllocaMerging"
 #include <algorithm>
 #include "llvm/InitializePasses.h"
 #include "llvm/ADT/Statistic.h"
@@ -25,6 +24,8 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/Local.h"
+
+#define DEBUG_TYPE "CheerpAllocaMerging"
 
 using namespace llvm;
 
