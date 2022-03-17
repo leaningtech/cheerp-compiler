@@ -9,7 +9,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#define DEBUG_TYPE "CheerpPointerPasses"
 #include "llvm/InitializePasses.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/LoopInfo.h"
@@ -32,6 +31,8 @@
 #include "llvm/Support/raw_ostream.h"
 #include <set>
 #include <map>
+
+#define DEBUG_TYPE "CheerpPointerPasses"
 
 STATISTIC(NumAllocasTransformedToArrays, "Number of allocas of values transformed to allocas of arrays");
 
