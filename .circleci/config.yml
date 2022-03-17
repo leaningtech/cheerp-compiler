@@ -13,11 +13,9 @@ jobs:
     steps:
       - run: sudo apt-get update && sudo apt-get install -y debhelper cmake ninja-build clang lld devscripts
       - run:
-          name: Checkout
+          name: Clone Cheerp
           command: |
-            git clone --depth=1 --no-single-branch https://github.com/leaningtech/cheerp-compiler cheerp-compiler
-            cd cheerp-compiler
-            git checkout << pipeline.parameters.cheerp-compiler-branch >>
+            git clone --depth=1 --no-single-branch https://github.com/leaningtech/cheerp-compiler
       - run:
           name: Set up environment
           working_directory: ~/project/cheerp-compiler
