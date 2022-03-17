@@ -50,7 +50,7 @@ jobs:
           name: Build cheerp compiler
           working_directory: ~/project/cheerp-compiler
           command: |
-            dch -b -v 0-latest-1 "Internal build" -m
+            dch -b -v ${VERSION_NO}-1 "Internal build" -m
             dpkg-buildpackage -b -d
       - run:
           name: Store package
