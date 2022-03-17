@@ -1571,10 +1571,12 @@ void TypeOptimizer::rewriteFunction(Function* F)
 				case Instruction::Invoke:
 				{
 					CallBase* CI=cast<CallBase>(&I);
+					Function* calledFunction = dyn_cast<Function>(CI->getCalledOperand());
+					bool isIntrinsic = calledFunction && calledFunction->isIntrinsic();
 					// We need to handle special intrinsics here
-					if(IntrinsicInst* II=dyn_cast<IntrinsicInst>(&I))
+					if(isIntrinsic)
 					{
-						if(II->getIntrinsicID() == Intrinsic::cheerp_upcast_collapsed)
+						if(calledFunction->getIntrinsicID() == Intrinsic::cheerp_upcast_collapsed)
 						{
 							// If the return type is not a struct anymore while the source type is still a
 							// struct replace the upcast with a GEP
@@ -1585,7 +1587,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 							if(TypeMappingInfo::isCollapsedStruct(newRetInfo.elementMappingKind) &&
 								!TypeMappingInfo::isCollapsedStruct(newOpInfo.elementMappingKind))
 							{
-								Type* Int32 = IntegerType::get(II->getContext(), 32);
+								Type* Int32 = IntegerType::get(I.getContext(), 32);
 								Value* Zero = ConstantInt::get(Int32, 0);
 								Value* Indexes[] = { Zero, Zero };
 								auto rewrittenOperand = localInstMapping.getMappedOperand(ptrOperand);
@@ -1615,7 +1617,6 @@ void TypeOptimizer::rewriteFunction(Function* F)
 							// Get the original type of the called function
 							AttributeList newAttrs=CI->getAttributes();
 							bool attributesChanged=false;
-							Function* calledFunction = CI->getCalledFunction();
 							for(uint32_t i=0;i<CI->arg_size();i++)
 							{
 								if(newAttrs.hasParamAttr(i, Attribute::ByVal))
@@ -1673,8 +1674,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 						}
 					}
 					Type* oldType = CI->getType();
-					bool isIntrinsic = CI->getCalledFunction() && CI->getCalledFunction()->isIntrinsic();
-					bool calleeOnlyCalledByWasm = onlyCalledByWasmFuncs.count(CI->getCalledFunction());
+					bool calleeOnlyCalledByWasm = onlyCalledByWasmFuncs.count(calledFunction);
 					// NOTE: if the function is vararg, we can never keep i64s in the signature
 					// for the vararg part. For now, we don't keep them entirely
 					bool keepI64 = (isIntrinsic || calleeOnlyCalledByWasm) && !CI->getFunctionType()->isVarArg();
