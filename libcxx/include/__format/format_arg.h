@@ -267,6 +267,12 @@ private:
   const void* __ptr_;
   void (*__format_)(basic_format_parse_context<char_type>&, _Context&, const void*);
 
+#ifdef __CHEERP__
+  _LIBCPP_HIDE_FROM_ABI handle() noexcept
+      : __ptr_(nullptr),
+        __format_(nullptr) {}
+#endif
+
   template <class _Tp>
   _LIBCPP_HIDE_FROM_ABI explicit handle(const _Tp& __v) noexcept
       : __ptr_(_VSTD::addressof(__v)),

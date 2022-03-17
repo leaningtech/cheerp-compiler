@@ -557,7 +557,7 @@ public:
     _LIBCPP_INLINE_VISIBILITY ctype_base() {}
 
 // TODO: Remove the ifndef when the assert no longer fails on AIX.
-#ifndef _AIX
+#if !defined(_AIX) && !defined(__CHEERP__)
     static_assert((__regex_word & ~(space | print | cntrl | upper | lower | alpha | digit | punct | xdigit | blank)) == __regex_word,
                   "__regex_word can't overlap other bits");
 #endif
