@@ -9,7 +9,7 @@ jobs:
     machine: *ubuntu
     resource_class: large
     environment:
-      - NINJA_STATUS: "[%u/%r/%f]"
+      - NINJA_STATUS: "[%u/%r/%f] "
     steps:
       - run: sudo apt-get update && sudo apt-get install -y debhelper cmake ninja-build clang lld devscripts
       - run:
@@ -19,30 +19,27 @@ jobs:
             cd cheerp-compiler
             git checkout << pipeline.parameters.cheerp-compiler-branch >>
       - run:
+          name: Set up environment
+          working_directory: ~/project/cheerp-compiler
+          command: |
+            if [ << pipeline.parameters.tag >> != master ]; then
+              git checkout << pipeline.parameters.tag >>
+              echo "export VERSION_NO=`echo << pipeline.parameters.tag >> | cut --complement -c1-7`" >> $BASH_ENV
+            else
+              git checkout << pipeline.parameters.cheerp-compiler-branch >>
+              echo "export VERSION_NO='0-latest'" >> $BASH_ENV
+            fi
+      - run:
           name: Build cheerp compiler
           working_directory: ~/project/cheerp-compiler
           command: |
-            git checkout << pipeline.parameters.cheerp-compiler-branch >>
             dch -b -v 0-latest-1 "Internal build" -m
             dpkg-buildpackage -b -d
-            mv ../cheerp-llvm-clang_*.deb ../cheerp-llvm-clang_latest.deb
-      - store_artifacts:
-          path: ~/project/cheerp-llvm-clang_latest.deb
-      - run:
-          name: Trigger build libs
-          command: |
-            curl -X POST https://circleci.com/api/v2/project/gh/$CIRCLE_PROJECT_USERNAME/cheerp-utils/pipeline \
-            --header 'Content-Type: application/json' \
-            --header 'Accept: application/json' \
-            --header "Circle-Token: $CIRCLE_TOKEN" \
-            -d '{ "branch":"<< pipeline.parameters.cheerp-utils-branch >>", "parameters":{
-            "build_num":"'"$CIRCLE_BUILD_NUM"'",
-            "cheerp-compiler-branch":"<< pipeline.parameters.cheerp-compiler-branch >>",
-            "cheerp-utils-branch":"<< pipeline.parameters.cheerp-utils-branch >>",
-            "cheerp-newlib-branch":"<< pipeline.parameters.cheerp-newlib-branch >>",
-            "cheerp-libs-branch":"<< pipeline.parameters.cheerp-libs-branch >>"}}'
 
 parameters:
+  tag:
+    type: string
+    default: "master"
   cheerp-compiler-branch:
     type: string
     default: << pipeline.git.branch >>
