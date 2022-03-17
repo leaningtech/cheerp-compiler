@@ -162,6 +162,75 @@ jobs:
             dpkg-buildpackage -d -b
 
             mv ../cheerp-libs_*.deb ../packages/
+      - persist_to_workspace:
+          root: packages
+          paths:
+            - cheerp-*.deb
+  test:
+    machine: *ubuntu
+    resource_class: large
+    steps:
+      - run: sudo apt-get update && sudo apt-get install -y nodejs
+      - attach_workspace:
+          at: packages
+      - checkout:
+          path: cheerp-utils
+      - run:
+          name: Set up cheerp compiler
+          working_directory: ~/project/packages
+          command: |
+            mkdir tmp
+            dpkg -x cheerp-llvm-clang_*.deb tmp
+            sudo mkdir /opt/cheerp/
+            sudo cp -rv tmp/opt/cheerp/* /opt/cheerp
+            rm -rf tmp
+      - run:
+          name: Set up utils
+          working_directory: ~/project/packages
+          command: |
+            mkdir tmp
+            dpkg -x cheerp-utils_*.deb tmp
+            sudo cp -rv tmp/opt/cheerp/* /opt/cheerp/
+            rm -rf tmp      - persist_to_workspace:
+          root: packages
+          paths:
+            - cheerp-*.deb
+      - run:
+          name: Set up newlib
+          working_directory: ~/project/packages
+          command: |
+            mkdir tmp
+            dpkg -x cheerp-newlib_*.deb tmp
+            sudo cp -rv tmp/opt/cheerp/* /opt/cheerp/
+            rm -rf tmp
+      - run:
+          name: Set up libcxxi
+          working_directory: ~/project/packages
+          command: |
+            mkdir tmp
+            dpkg -x cheerp-libcxx_*.deb tmp
+            sudo cp -rv tmp/opt/cheerp/* /opt/cheerp/
+            rm -rf tmp
+      - run:
+          name: Set up libcxxabi
+          working_directory: ~/project/packages
+          command: |
+            mkdir tmp
+            dpkg -x cheerp-libcxx_*.deb tmp
+            sudo cp -rv tmp/opt/cheerp/* /opt/cheerp/
+            rm -rf tmp
+      - run:
+          name: Set up libs
+          working_directory: ~/project/packages
+          command: |
+            mkdir tmp
+            dpkg -x cheerp-libs_*.deb tmp
+            sudo cp -rv tmp/opt/cheerp/* /opt/cheerp/
+            rm -rf tmp
+      - run:
+          name: test
+          working_directory: ~/project/cheerp-utils/tests
+          command: ./run_tests.py --all --determinism=3 --determinism-probability=0.2 "/opt/cheerp/bin/clang++" "node --experimental-wasm-reftypes" -j4
       - store_artifacts:
           path: ~/project/packages
 
@@ -193,3 +262,7 @@ workflows:
           requires:
             - define-version-no
             - build-cheerp-compiler
+      - test:
+          requires:
+            - build-cheerp-compiler
+            - build-libraries
