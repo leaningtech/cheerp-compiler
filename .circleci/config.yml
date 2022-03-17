@@ -5,12 +5,32 @@ aliases:
     image: ubuntu-2004:202111-02
 
 jobs:
+  define-version-no:
+    machine: *ubuntu
+    resource_class: medium
+    steps:
+      - run: mkdir -p ~/project/packages
+      - run:
+          name: Define version
+          command: |
+            if [ << pipeline.parameters.tag >> != 'master' ]; then
+              export VERSION_NO=`echo ${VERSION} | cut --complement -c1-7 | sed "s/rc/~rc/"`
+            else
+              export VERSION_NO=`date +%s`
+            fi
+            echo "export VERSION_NO=$VERSION_NO" >> packages/version
+      - persist_to_workspace:
+          root: ~/project/packages
+          paths:
+              - version
   build-cheerp-compiler:
     machine: *ubuntu
     resource_class: large
     environment:
       - NINJA_STATUS: "[%u/%r/%f] "
     steps:
+      - attach_workspace:
+          at: packages
       - run: sudo apt-get update && sudo apt-get install -y debhelper cmake ninja-build clang lld devscripts
       - run:
           name: Clone Cheerp
@@ -22,17 +42,128 @@ jobs:
           command: |
             if [ << pipeline.parameters.tag >> != master ]; then
               git checkout << pipeline.parameters.tag >>
-              echo "export VERSION_NO=`echo << pipeline.parameters.tag >> | cut --complement -c1-7`" >> $BASH_ENV
             else
               git checkout << pipeline.parameters.cheerp-compiler-branch >>
-              echo "export VERSION_NO='0-latest'" >> $BASH_ENV
             fi
+            cat ~/project/packages/version >> $BASH_ENV
       - run:
           name: Build cheerp compiler
           working_directory: ~/project/cheerp-compiler
           command: |
             dch -b -v 0-latest-1 "Internal build" -m
             dpkg-buildpackage -b -d
+      - run:
+          name: Store package
+          working_directory: ~/project
+          command: |
+            mv cheerp-llvm-clang_*.deb packages/
+      - persist_to_workspace:
+          root: ~/project/packages
+          paths:
+            - cheerp-llvm-clang_*.deb
+  build-libraries:
+    machine: *ubuntu
+    resource_class: medium
+    environment:
+      - NINJA_STATUS: "[%u/%r/%f] "
+    steps:
+      - run: sudo apt-get update && sudo apt-get install -y debhelper cmake python3-distutils ninja-build clang lld devscripts
+      - attach_workspace:
+          at: packages
+      - run:
+          name: Get repos
+          command: |
+            git clone --depth=1 --no-single-branch https://github.com/leaningtech/cheerp-compiler.git
+            git clone https://github.com/leaningtech/cheerp-newlib.git
+            git clone https://github.com/leaningtech/cheerp-libs.git
+            git clone https://github.com/leaningtech/cheerp-utils.git
+      - run:
+          name: Set up workspace
+          command: |
+            if [ << pipeline.parameters.tag >> != master ]; then
+              cd cheerp-utils && git checkout << pipeline.parameters.tag >>
+              cd ../cheerp-compiler && git checkout << pipeline.parameters.tag >>
+              cd ../cheerp-newlib && git checkout << pipeline.parameters.tag >>
+              cd ../cheerp-libs && git checkout << pipeline.parameters.tag >>
+            else
+              cd cheerp-utils && git checkout << pipeline.parameters.cheerp-utils-branch >>
+              cd ../cheerp-compiler && git checkout << pipeline.parameters.cheerp-compiler-branch >>
+              cd ../cheerp-newlib && git checkout << pipeline.parameters.cheerp-newlib-branch >>
+              cd ../cheerp-libs && git checkout << pipeline.parameters.cheerp-libs-branch >>
+            fi
+            cat ~/project/packages/version >> $BASH_ENV
+      - run:
+          name: Set up cheerp compiler
+          working_directory: ~/project/packages
+          command: |
+            mkdir tmp
+            dpkg -x cheerp-llvm-clang_*.deb tmp
+            sudo mkdir /opt/cheerp/
+            sudo cp -rv tmp/opt/cheerp/* /opt/cheerp
+            rm -rf tmp
+      - run:
+          name: Build utils
+          working_directory: ~/project/cheerp-utils
+          command: |
+            dch -b -v ${VERSION_NO}-1 "Internal build" -m
+            dpkg-buildpackage -d -b
+            mkdir tmp
+            dpkg -x ../cheerp-utils_*.deb tmp
+            sudo cp -rv tmp/opt/cheerp/* /opt/cheerp/
+
+            mv ../cheerp-utils_*.deb ../packages/
+      - run:
+          name: Build newlib
+          working_directory: ~/project/cheerp-newlib
+          command: |
+            dch -b -v ${VERSION_NO}-1 "Internal build" -m
+            cp -rv ../cheerp-compiler/libcxx/ libcxx/
+            dpkg-buildpackage -d -b
+            mkdir tmp
+            dpkg -x ../cheerp-newlib_*.deb tmp
+            sudo cp -rv tmp/opt/cheerp/* /opt/cheerp/
+
+            mv ../cheerp-newlib_*.deb ../packages/
+      - run:
+          name: Build libcxx
+          working_directory: ~/project/cheerp-compiler
+          command: |
+            rm -rf debian/
+            cp -rv libcxx/debian/ debian/
+            dch -b -v ${VERSION_NO}-1 "Internal build" -m
+            dpkg-buildpackage -d -b
+            mkdir tmp
+            dpkg -x ../cheerp-libcxx_*.deb tmp
+            sudo cp -rv tmp/opt/cheerp/* /opt/cheerp/
+            rm -rf build_genericjs/
+            rm -rf build_asmjs/
+            rm -rf debian/
+            rm -rf tmp
+
+            mv ../cheerp-libcxx_*.deb ../packages/
+      - run:
+          name: Build libcxxabi
+          working_directory: ~/project/cheerp-compiler
+          command: |
+            cp -rv libcxxabi/debian/ debian/
+            dch -b -v ${VERSION_NO}-1 "Internal build" -m
+            dpkg-buildpackage -d -b
+            mkdir tmp
+            dpkg -x ../cheerp-libcxxabi_*.deb tmp
+            sudo cp -rv tmp/opt/cheerp/* /opt/cheerp/
+            rm -rf tmp
+
+            mv ../cheerp-libcxxabi_*.deb ../packages/
+      - run:
+          name: Build libs
+          working_directory: ~/project/cheerp-libs
+          command: |
+            dch -b -v ${VERSION_NO}-1 "Internal build" -m
+            dpkg-buildpackage -d -b
+
+            mv ../cheerp-libs_*.deb ../packages/
+      - store_artifacts:
+          path: ~/project/packages
 
 parameters:
   tag:
@@ -54,4 +185,11 @@ parameters:
 workflows:
   build-cheerp-compiler:
     jobs:
-      - build-cheerp-compiler
+      - define-version-no
+      - build-cheerp-compiler:
+          requires:
+            - define-version-no
+      - build-libraries:
+          requires:
+            - define-version-no
+            - build-cheerp-compiler
