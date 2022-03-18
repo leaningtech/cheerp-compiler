@@ -1752,6 +1752,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 						ArgAttrVec.clear();
 				
 						Value* Ret = NewCall;
+						NewCall->copyMetadata(*CI);
 						if (isI64ToRewrite(CI->getType()) && !keepI64)
 						{
 							GlobalVariable* Sret = cast<GlobalVariable>(module->getOrInsertGlobal("cheerpSretSlot", Int32Ty));
@@ -1775,10 +1776,11 @@ void TypeOptimizer::rewriteFunction(Function* F)
 							F->removeFnAttr(Attribute::ReadNone);
 							F->removeFnAttr(Attribute::InaccessibleMemOnly);
 							F->removeFnAttr(Attribute::InaccessibleMemOrArgMemOnly);
+							// We have alreaded the return type, drop range info
+							NewCall->setMetadata(LLVMContext::MD_range, nullptr);
 						}
 						localInstMapping.setMappedOperand(CI, Ret, 0);
 						NewCall->takeName(CI);
-						NewCall->copyMetadata(*CI);
 						CI = NewCall;
 					}
 					if(CI->getType() != oldType)
