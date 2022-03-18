@@ -750,10 +750,21 @@ Optional<SinkingInstructionCandidate> GVNSink::analyzeInstructionForSinking(
       continue;
     if (!PHI.areAllIncomingValuesSameType())
       return None;
-    // Don't create indirect calls! The called value is the final operand.
-    if ((isa<CallInst>(I0) || isa<InvokeInst>(I0)) && OpNum == E - 1 &&
-        PHI.areAnyIncomingValuesConstant())
-      return None;
+    if ((isa<CallInst>(I0) || isa<InvokeInst>(I0))) {
+      // Don't create indirect calls! The called value is the final operand.
+      if (OpNum != E - 1) {
+        // Make sure attributes are consistent
+        AttributeSet Attr0 = cast<CallBase>(I0)->getAttributes().getParamAttrs(OpNum);
+        for(uint32_t i=1; i < NewInsts.size(); i++) {
+          AttributeSet Attr = cast<CallBase>(NewInsts[i])->getAttributes().getParamAttrs(OpNum);
+          if(Attr0 != Attr) {
+            return None;
+          }
+        }
+      } else if (PHI.areAnyIncomingValuesConstant()) {
+        return None;
+      }
+    }
 
     // Cheerp: Do not sink instructions if that causes a struct member pointer to escape
     const DataLayout& DL = I0->getModule()->getDataLayout();
