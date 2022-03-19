@@ -834,10 +834,6 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
       }
     }
 
-    // Cheerp: we don't yet support i64 values parameters, so don't create one here
-    if(!DL.isByteAddressable() && AgTy->isIntegerTy(64))
-      continue;
-
     // If this is a byval argument, and if the aggregate type is small, just
     // pass the elements, which is always safe, if the passed value is densely
     // packed or if we can prove the padding bytes are never accessed.
@@ -850,6 +846,10 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
         (ArgumentPromotionPass::isDenselyPacked(ByValTy, DL) ||
          !canPaddingBeAccessed(PtrArg));
     if (isSafeToPromote) {
+      // Cheerp: we don't yet support i64 values parameters, so don't create one here
+      if(!DL.isByteAddressable() && ByValTy->isIntegerTy(64))
+        continue;
+
       if (StructType *STy = dyn_cast<StructType>(ByValTy)) {
         if (MaxElements > 0 && STy->getNumElements() > MaxElements) {
           LLVM_DEBUG(dbgs() << "argpromotion disable promoting argument '"
