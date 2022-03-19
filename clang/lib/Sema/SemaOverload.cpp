@@ -14191,7 +14191,7 @@ ExprResult Sema::CreateOverloadedArraySubscriptExpr(SourceLocation LLoc,
         if (S && S->getFnParent())
         {
           if (FunctionDecl* Parent = dyn_cast<FunctionDecl>(S->getFnParent()->getEntity()))
-            CheckCheerpFFICall(Parent, FnDecl, RLoc, ArrayRef<Expr*>(Args, 2));
+            CheckCheerpFFICall(Parent, FnDecl, RLoc, Args);
         }
         CheckMemberOperatorAccess(LLoc, Args[0], ArgExpr, Best->FoundDecl);
 
