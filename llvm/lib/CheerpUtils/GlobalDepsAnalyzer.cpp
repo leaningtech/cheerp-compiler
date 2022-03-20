@@ -1238,11 +1238,11 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 					else if ( ai.useCreateArrayFunc() )
 					{
 						if ( ai.getAllocType() == DynamicAllocInfo::cheerp_reallocate )
-							arrayResizesNeeded.insert( ai.getCastedType()->getElementType() );
+							arrayResizesNeeded.insert( ai.getCastedType()->getPointerElementType() );
 						else
-							arraysNeeded.insert( ai.getCastedType()->getElementType() );
+							arraysNeeded.insert( ai.getCastedType()->getPointerElementType() );
 					}
-					if ( StructType* ST = dyn_cast<StructType>(ai.getCastedType()->getElementType()) )
+					if ( StructType* ST = dyn_cast<StructType>(ai.getCastedType()->getPointerElementType()) )
 						visitStruct(ST);
 				}
 			}

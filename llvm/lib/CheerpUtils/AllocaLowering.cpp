@@ -139,7 +139,7 @@ bool AllocaLowering::runOnFunction(Function& F)
 				if (!asmjs && (!calledFunc || calledFunc->getSection() != StringRef("asmjs")))
 					continue;
 				const PointerType* pTy = cast<PointerType>(ci->getCalledOperand()->getType());
-				const FunctionType* fTy = cast<FunctionType>(pTy->getElementType());
+				const FunctionType* fTy = cast<FunctionType>(pTy->getPointerElementType());
 				if (fTy->isVarArg())
 				{
 					varargCalls.push_back(ci);
@@ -256,7 +256,7 @@ bool AllocaLowering::runOnFunction(Function& F)
 	for (const auto& ci: varargCalls)
 	{
 		const PointerType* pTy = cast<PointerType>(ci->getCalledOperand()->getType());
-		const FunctionType* fTy = cast<FunctionType>(pTy->getElementType());
+		const FunctionType* fTy = cast<FunctionType>(pTy->getPointerElementType());
 
 		size_t totalParamNum = ci->arg_size();
 		size_t fixedParamsNum = fTy->getNumParams();

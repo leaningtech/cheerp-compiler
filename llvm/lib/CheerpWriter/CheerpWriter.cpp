@@ -342,7 +342,7 @@ void CheerpWriter::compileVirtualcast( const CallBase& callV )
 void CheerpWriter::compileMemFunc(const Value* dest, const Value* src, const Value* size)
 {
 	Type* destType=dest->getType();
-	Type* pointedType = cast<PointerType>(destType)->getElementType();
+	Type* pointedType = cast<PointerType>(destType)->getPointerElementType();
 	if(!(TypeSupport::isTypedArrayType(pointedType, /* forceTypedArray*/ true) || TypeSupport::hasByteLayout(pointedType)))
 		llvm::report_fatal_error("Unsupported memory intrinsic, please rebuild the code using an updated version of Cheerp", false);
 
@@ -418,7 +418,7 @@ void CheerpWriter::compileMemFunc(const Value* dest, const Value* src, const Val
 uint32_t CheerpWriter::compileArraySize(const DynamicAllocInfo & info, bool shouldPrint, bool inBytes)
 {
 	// We assume parenthesis around this code
-	Type * t = info.getCastedType()->getElementType();
+	Type * t = info.getCastedType()->getPointerElementType();
 	uint32_t typeSize = targetData.getTypeAllocSize(t);
 	if(inBytes)
 		typeSize = 1;
@@ -479,7 +479,7 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 {
 	assert (info.isValidAlloc());
 
-	Type * t = info.getCastedType()->getElementType();
+	Type * t = info.getCastedType()->getPointerElementType();
 
 	POINTER_KIND result = PA.getPointerKindAssert(info.getInstruction());
 	const ConstantInt* constantOffset = PA.getConstantOffsetForPointer(info.getInstruction());
@@ -1782,7 +1782,7 @@ void CheerpWriter::compileHeapAccess(const Value* p, Type* t)
 		return;
 	}
 	PointerType* pt=cast<PointerType>(p->getType());
-	Type* et = (t==nullptr) ? pt->getElementType() : t;
+	Type* et = (t==nullptr) ? pt->getPointerElementType() : t;
 	uint32_t shift = compileHeapForType(et);
 	stream << '[';
 	if(!symbolicGlobalsAsmJS && isa<GlobalVariable>(p))
@@ -2837,7 +2837,7 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 		{
 			PARENT_PRIORITY prio = LOWEST;
 			const PointerType* pTy = cast<PointerType>(callV.getCalledOperand()->getType());
-			const FunctionType* fTy = cast<FunctionType>(pTy->getElementType());
+			const FunctionType* fTy = cast<FunctionType>(pTy->getPointerElementType());
 			if (asmjs && (TypeSupport::isRawPointer(tp, true) || (tp->isIntegerTy() &&
 				(isImport ||
 				(!F && !linearHelper.getFunctionTables().count(fTy))))))
@@ -3694,7 +3694,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			assert(t->isPointerTy());
 			PointerType* ptrT=cast<PointerType>(t);
 
-			if(TypeSupport::isClientType(ptrT->getElementType()))
+			if(TypeSupport::isClientType(ptrT->getPointerElementType()))
 			{
 				//Client objects are just passed through
 				compileOperand(gep.getOperand(0), parentPrio);
@@ -4415,7 +4415,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileCallInstruction(
 	const Function * calledFunc = ci.getCalledFunction();
 	const Value * calledValue = ci.getCalledOperand();
 	const PointerType* pTy = cast<PointerType>(calledValue->getType());
-	const FunctionType* fTy = cast<FunctionType>(pTy->getElementType());
+	const FunctionType* fTy = cast<FunctionType>(pTy->getPointerElementType());
 	// Skip over bitcasts of function
 	if(isBitCast(calledValue))
 	{

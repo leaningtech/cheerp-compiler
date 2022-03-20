@@ -661,13 +661,13 @@ void LinearMemoryHelper::addHeapStartAndEnd()
 		// Align to 8 bytes
 		heapStart = (heapStart + 7) & ~7;
 		ConstantInt* startAddr = ConstantInt::get(IntegerType::getInt32Ty(module->getContext()), heapStart, false);
-		Constant* startInit = ConstantExpr::getIntToPtr(startAddr, heapStartVar->getType()->getElementType(), false);
+		Constant* startInit = ConstantExpr::getIntToPtr(startAddr, heapStartVar->getType()->getPointerElementType(), false);
 		heapStartVar->setInitializer(startInit);
 		heapStartVar->setSection("asmjs");
 
 		uint32_t heapEnd = growMem ? heapStart : memorySize;
 		ConstantInt* endAddr = ConstantInt::get(IntegerType::getInt32Ty(module->getContext()), heapEnd, false);
-		Constant* endInit = ConstantExpr::getIntToPtr(endAddr, heapEndVar->getType()->getElementType(), false);
+		Constant* endInit = ConstantExpr::getIntToPtr(endAddr, heapEndVar->getType()->getPointerElementType(), false);
 		heapEndVar->setInitializer(endInit);
 		heapEndVar->setSection("asmjs");
 	}

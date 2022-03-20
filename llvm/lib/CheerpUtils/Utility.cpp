@@ -979,7 +979,7 @@ bool DynamicAllocInfo::sizeIsRuntime() const
 
 bool DynamicAllocInfo::useCreateArrayFunc() const
 {
-	if( !TypeSupport::isTypedArrayType( getCastedType()->getElementType(), forceTypedArrays ) )
+	if( !TypeSupport::isTypedArrayType( getCastedType()->getPointerElementType(), forceTypedArrays ) )
 	{
 		if( sizeIsRuntime() || type == cheerp_reallocate)
 			return true;
@@ -992,9 +992,9 @@ bool DynamicAllocInfo::useCreateArrayFunc() const
 
 bool DynamicAllocInfo::useCreatePointerArrayFunc() const
 {
-	if (getCastedType()->getElementType()->isPointerTy() )
+	if (getCastedType()->getPointerElementType()->isPointerTy() )
 	{
-		assert( !TypeSupport::isTypedArrayType( getCastedType()->getElementType(), forceTypedArrays) );
+		assert( !TypeSupport::isTypedArrayType( getCastedType()->getPointerElementType(), forceTypedArrays) );
 		if( sizeIsRuntime() || type == cheerp_reallocate)
 			return true;
 		// Should also use createPointerArray if allocating many elements
@@ -1006,7 +1006,7 @@ bool DynamicAllocInfo::useCreatePointerArrayFunc() const
 
 bool DynamicAllocInfo::useTypedArray() const
 {
-	return TypeSupport::isTypedArrayType( getCastedType()->getElementType(), forceTypedArrays);
+	return TypeSupport::isTypedArrayType( getCastedType()->getPointerElementType(), forceTypedArrays);
 }
 
 const ConstantArray* ModuleGlobalConstructors(Module& M)
