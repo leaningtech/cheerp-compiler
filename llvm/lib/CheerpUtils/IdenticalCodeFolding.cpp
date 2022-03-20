@@ -309,7 +309,7 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 			const Function * calledFunc = ci->getCalledFunction();
 			const Value * calledValue = ci->getCalledOperand();
 			const PointerType* pTy = cast<PointerType>(calledValue->getType());
-			const FunctionType* fTy = cast<FunctionType>(pTy->getElementType());
+			const FunctionType* fTy = cast<FunctionType>(pTy->getPointerElementType());
 			assert(!ci->isInlineAsm());
 
 			if (calledFunc)
@@ -359,7 +359,7 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 
 			const Value* calledValueB = cast<CallInst>(B)->getCalledOperand();
 			const PointerType* pTyB = cast<PointerType>(calledValueB->getType());
-			const FunctionType* fTyB = cast<FunctionType>(pTyB->getElementType());
+			const FunctionType* fTyB = cast<FunctionType>(pTyB->getPointerElementType());
 
 			if (fTy->getNumParams() != fTyB->getNumParams())
 				return CacheAndReturn(false);
@@ -598,7 +598,7 @@ bool IdenticalCodeFolding::equivalentConstant(const llvm::Constant* A, const llv
 		if (!GA->isConstant() || !GB->isConstant())
 			return false;
 
-		if (!equivalentType(GA->getType()->getElementType(), GB->getType()->getElementType()))
+		if (!equivalentType(GA->getType()->getPointerElementType(), GB->getType()->getPointerElementType()))
 			return false;
 
 		// Without an initializer, the global variable is equivalent when the

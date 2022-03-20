@@ -620,7 +620,7 @@ llvm::Type* getTypeSafeGepForAddress(SmallVector<Constant*, 4>& Indices, Type* I
     assert(isa<PointerType>(curType));
     if (PointerType* PT=dyn_cast<PointerType>(curType))
     {
-        Type* ET = PT->getElementType();
+        Type* ET = PT->getPointerElementType();
         uint32_t elementSize = DL->getTypeAllocSize(ET);
         uint32_t elementOffset = Offset/elementSize;
         Indices.push_back(ConstantInt::get(Int32Ty, elementOffset));
@@ -809,7 +809,7 @@ Constant* PreExecute::computeInitializerFromMemory(const DataLayout* DL,
             return ConstantPointerNull::get(PT);
         }
 
-        if(PT->getElementType()->isFunctionTy())
+        if(PT->getPointerElementType()->isFunctionTy())
         {
             Value* castedVal = currentEE->FunctionAddresses->getFunction(StoredAddr);
             assert(isa<Function>(castedVal));

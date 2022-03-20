@@ -690,7 +690,7 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 	}
 	if(PointerType* pt=dyn_cast<PointerType>(t))
 	{
-		Type* elementType = pt->getElementType();
+		Type* elementType = pt->getPointerElementType();
 		Type* newType = rewriteType(elementType);
 		if(newType->isArrayTy())
 		{
