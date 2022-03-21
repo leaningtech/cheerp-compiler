@@ -438,14 +438,13 @@ void CodeGenFunction::EmitTypedPtrExprToExn(const Expr *e, Address addr) {
   pushFullExprCleanup<FreeException>(EHCleanup, addr.getPointer());
   EHScopeStack::stable_iterator cleanup = EHStack.stable_begin();
 
-  llvm::Type *ty = ConvertTypeForMem(e->getType())->getPointerTo();
-  llvm::Type *storedTy = ty;
+  llvm::Type *storedTy = ConvertTypeForMem(e->getType());
   llvm::Value* scalar = EmitScalarExpr(e, /*Ignore*/ false);
-  if (storedTy->getPointerElementType()->isPointerTy()) {
-    storedTy = CGM.VoidPtrPtrTy;
-    scalar = Builder.CreateBitCast(scalar, storedTy->getPointerElementType());
+  if (storedTy->isPointerTy()) {
+    storedTy = CGM.VoidPtrTy;
+    scalar = Builder.CreateBitCast(scalar, storedTy->getPointerTo());
   }
-  Address typedAddr = Builder.CreateBitCast(addr, storedTy);
+  Address typedAddr = Builder.CreateElementBitCast(addr, storedTy);
 
   RValue RV = RValue::get(scalar);
   LValue LV = MakeAddrLValue(typedAddr, e->getType());
@@ -892,13 +891,12 @@ llvm::BasicBlock *CodeGenFunction::EmitLandingPad() {
     Address EHObj = getEHObjectSlot();
 
     llvm::Type* HackTy = LPadTy->getPointerTo();
-    llvm::Type* HackPtrTy = HackTy->getPointerTo();
 
     llvm::Value *LPadExn = Builder.CreateStructGEP(LPadTy, LPadInst, 0);
     LPadExn = Builder.CreateLoad(Address(LPadExn, getPointerAlign()));
     llvm::Value* LPadExnHack = Builder.CreateBitCast(LPadExn, HackTy);
     Address Exn = Builder.CreateStructGEP(EHObj, 0, "eh.exn");
-    Exn = Builder.CreateBitCast(Exn, HackPtrTy);
+    Exn = Builder.CreateElementBitCast(Exn, HackTy);
     //Address EHSlot = Builder.CreateBitCast(getExceptionSlot(), HackPtrTy);
     Builder.CreateStore(LPadExnHack, Exn);
     Builder.CreateStore(LPadExn, getExceptionSlot());

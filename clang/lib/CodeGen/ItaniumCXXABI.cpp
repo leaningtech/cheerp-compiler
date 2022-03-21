@@ -2288,8 +2288,8 @@ static llvm::Value *performTypeAdjustment(CodeGenFunction &CGF,
     {
       // Ptr has the wrong type here, as the signature comes from the overridden function
       QualType SourceTy = CGF.getContext().getCanonicalType(CGF.getContext().getTagDeclType(AdjustmentSource));
-      llvm::Type *SourcePtrTy = CGF.ConvertType(SourceTy)->getPointerTo();
-      Ptr = CGF.Builder.CreateBitCast(Ptr, SourcePtrTy);
+      llvm::Type *SourcePtrTy = CGF.ConvertType(SourceTy);
+      Ptr = CGF.Builder.CreateElementBitCast(Ptr, SourcePtrTy);
       // Do a reverse downcast with a negative offset
       if (!asmjs)
         NonVirtualAdjustment = -NonVirtualAdjustment;
@@ -2431,7 +2431,7 @@ Address ItaniumCXXABI::InitializeArrayCookie(CodeGenFunction &CGF,
   CharUnits CookieSize = getArrayCookieSizeImpl(ElementType);
 
   // Compute an offset to the cookie.
-  Address CookiePtr = CGF.Builder.CreateBitCast(NewPtr, CGM.Int8PtrTy);
+  Address CookiePtr = CGF.Builder.CreateElementBitCast(NewPtr, CGM.Int8Ty);
   CharUnits CookieOffset = CookieSize - SizeSize;
   if (!CookieOffset.isZero())
     CookiePtr = CGF.Builder.CreateConstInBoundsByteGEP(CookiePtr, CookieOffset);
@@ -2457,7 +2457,7 @@ Address ItaniumCXXABI::InitializeArrayCookie(CodeGenFunction &CGF,
   // Finally, compute a pointer to the actual data buffer by skipping
   // over the cookie completely.
   if (!CGF.getTarget().isByteAddressable()) {
-      Address ptr = CGF.Builder.CreateBitCast(NewPtr, CGM.Int8PtrTy);
+      Address ptr = CGF.Builder.CreateElementBitCast(NewPtr, CGM.Int8Ty);
       return CGF.Builder.CreateConstInBoundsByteGEP(ptr, CookieSize);
   } else {
       return CGF.Builder.CreateConstInBoundsByteGEP(NewPtr, CookieSize);
