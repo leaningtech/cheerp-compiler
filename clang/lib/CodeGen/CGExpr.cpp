@@ -4915,7 +4915,8 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
 		      getContext().getPointerType(E->getSubExpr()->getType()),
 		      CE->getTypeAsWritten(),
 		      asmjs);
-      V = Address(Builder.CreateCall(intrinsic, V.getPointer()), V.getAlignment());
+      V = Address(Builder.CreateCall(intrinsic, V.getPointer()),
+		      ConvertTypeForMem(CE->getTypeAsWritten()->getPointeeType()), V.getAlignment());
     }
     return MakeAddrLValue(V, E->getType(), LV.getBaseInfo(),
                           CGM.getTBAAInfoForSubobject(LV, E->getType()));
