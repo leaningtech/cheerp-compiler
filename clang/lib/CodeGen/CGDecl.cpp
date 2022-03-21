@@ -1596,7 +1596,7 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
     llvm::Value* Args[1] = { sizeInBytes };
     // Allocate memory for the array.
     llvm::Value* Ret = Builder.CreateCall(F, Args);
-    address = Address(Ret, CharUnits::One());
+    address = Address(Ret, llvmTy, CharUnits::One());
   } else {
     EnsureInsertPoint();
 
@@ -2290,7 +2290,7 @@ void CodeGenFunction::emitArrayDestroy(llvm::Value *begin,
       llvmElementType, elementPast, negativeOne, "arraydestroy.element");
 
   if(elementType->isArrayType()) {
-    emitDestroy(Address(element, elementAlign), elementType, destroyer, useEHCleanup);
+    emitDestroy(Address(element, llvmElementType, elementAlign), elementType, destroyer, useEHCleanup);
   } else {
     if (useEHCleanup)
       pushRegularPartialArrayCleanup(begin, element, elementType, elementAlign,

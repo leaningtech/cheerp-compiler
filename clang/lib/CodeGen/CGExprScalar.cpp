@@ -2028,7 +2028,7 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
 		      CGF.getContext().getPointerType(E->getType()),
 		      CGF.getContext().getPointerType(DestTy),
 		      asmjs);
-      Addr = Address(Builder.CreateCall(intrinsic, Addr.getPointer()), Addr.getAlignment());
+      Addr = Address(Builder.CreateCall(intrinsic, Addr.getPointer()), CGF.ConvertTypeForMem(DestTy), Addr.getAlignment());
     }
     LValue LV = CGF.MakeAddrLValue(Addr, DestTy);
     return EmitLoadOfLValue(LV, CE->getExprLoc());

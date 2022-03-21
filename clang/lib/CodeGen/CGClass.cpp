@@ -503,7 +503,7 @@ CodeGenFunction::GenerateUpcastCollapsed(Address Value,
   llvm::Function* intrinsic = llvm::Intrinsic::getDeclaration(&CGM.getModule(),
                               llvm::Intrinsic::cheerp_upcast_collapsed, types);
 
-  return Address(Builder.CreateCall(intrinsic, Value.getPointer()), Value.getAlignment());
+  return Address(Builder.CreateCall(intrinsic, Value.getPointer()), BasePtrTy->getPointerElementType(), Value.getAlignment());
 }
 
 Address
@@ -524,12 +524,14 @@ CodeGenFunction::GenerateUpcast(Address Value,
     BasePath.push_back(BaseDecl);
   }
   ComputeNonVirtualBaseClassGepPath(CGM, GEPConstantIndexes, Derived, BasePath);
-  if(GEPConstantIndexes.size()>1)
-    Value = Address(Builder.CreateGEP(Value.getElementType(), Value.getPointer(), GEPConstantIndexes), Value.getAlignment());
-
   // Get the base pointer type.
   llvm::Type *BasePtrTy = 
-    ConvertType((PathEnd[-1])->getType())->getPointerTo();
+    ConvertType((PathEnd[-1])->getType());
+
+  if(GEPConstantIndexes.size()>1)
+    Value = Address(Builder.CreateGEP(Value.getElementType(), Value.getPointer(), GEPConstantIndexes), BasePtrTy, Value.getAlignment());
+
+  BasePtrTy = BasePtrTy->getPointerTo();
 
   //Cheerp: Check if the type is the expected one. If not create a builtin to handle this.
   //This may happen when empty base classes are used
@@ -554,14 +556,14 @@ CodeGenFunction::GenerateDowncast(Address Value,
 {
   QualType DerivedTy =
     getContext().getCanonicalType(getContext().getTagDeclType(Derived));
-  llvm::Type *DerivedPtrTy = ConvertType(DerivedTy)->getPointerTo();
+  llvm::Type *DerivedPtrTy = ConvertType(DerivedTy);
 
-  llvm::Type* types[] = { DerivedPtrTy, Value.getType() };
+  llvm::Type* types[] = { DerivedPtrTy->getPointerTo(), Value.getType() };
 
   llvm::Function* intrinsic = llvm::Intrinsic::getDeclaration(&CGM.getModule(),
                               llvm::Intrinsic::cheerp_downcast, types);
 
-  return Address(Builder.CreateCall(intrinsic, {Value.getPointer(), BaseIdOffset}), Value.getAlignment());
+  return Address(Builder.CreateCall(intrinsic, {Value.getPointer(), BaseIdOffset}), DerivedPtrTy, Value.getAlignment());
 }
 
 llvm::Value *
@@ -584,9 +586,9 @@ CodeGenFunction::GenerateVirtualcast(Address Value,
 {
   QualType VBaseTy =
     getContext().getCanonicalType(getContext().getTagDeclType(VBase));
-  llvm::Type *VBasePtrTy = ConvertType(VBaseTy)->getPointerTo();
+  llvm::Type *VBasePtrTy = ConvertType(VBaseTy);
 
-  return Address(GenerateVirtualcast(Value.getPointer(), VBasePtrTy, VirtualOffset), Value.getAlignment());
+  return Address(GenerateVirtualcast(Value.getPointer(), VBasePtrTy->getPointerTo(), VirtualOffset), VBasePtrTy, Value.getAlignment());
 }
 
 Address
@@ -2235,7 +2237,7 @@ void CodeGenFunction::EmitCXXAggrConstructorCall(const CXXConstructorDecl *ctor,
 
   // Inside the loop body, emit the constructor call on the array element.
   if(const ConstantArrayType* CAT = dyn_cast_or_null<ConstantArrayType>(getContext().getAsArrayType(elementType))) {
-    EmitCXXAggrConstructorCall(ctor, CAT, Address(cur, arrayBase.getAlignment()), E, zeroInitialize);
+    EmitCXXAggrConstructorCall(ctor, CAT, Address(cur, elementTypeLlvm, arrayBase.getAlignment()), E, zeroInitialize);
   } else {
     // The alignment of the base, adjusted by the size of a single element,
     // provides a conservative estimate of the alignment of every element.
@@ -2777,7 +2779,8 @@ void CodeGenFunction::InitializeVTablePointer(const VPtr &Vptr) {
     ComputeNonVirtualBaseClassGepPath(CGM, GEPConstantIndexes,
                                     Vptr.NearestVBase ? Vptr.NearestVBase : Vptr.VTableClass, Vptr.Bases);
     GEPConstantIndexes.push_back(llvm::ConstantInt::get(Int32Ty, 0));
-    VTableField = Address(Builder.CreateGEP(VTableField.getElementType(), VTableField.getPointer(), GEPConstantIndexes), VTableField.getAlignment());
+    bool asmjs = cast<CXXMethodDecl>(CurFuncDecl)->getParent()->hasAttr<AsmJSAttr>();
+    VTableField = Address(Builder.CreateGEP(VTableField.getElementType(), VTableField.getPointer(), GEPConstantIndexes), CGM.getTypes().GetVTableBaseType(asmjs), VTableField.getAlignment());
     VTablePtrTy = VTableField.getElementType();
     VTableAddressPoint = Builder.CreateBitCast(VTableAddressPoint, VTablePtrTy);
   } else {

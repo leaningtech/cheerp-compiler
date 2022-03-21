@@ -1374,7 +1374,7 @@ void ItaniumCXXABI::emitThrow(CodeGenFunction &CGF, const CXXThrowExpr *E) {
 
   CharUnits ExnAlign = CGF.getContext().getExnObjectAlignment();
   if(!CGM.getTarget().isByteAddressable() && ThrowType->isPointerType())
-	CGF.EmitTypedPtrExprToExn(E->getSubExpr(), Address(ExceptionPtr, ExnAlign));
+	CGF.EmitTypedPtrExprToExn(E->getSubExpr(), Address(ExceptionPtr, CGM.getTypes().ConvertType(ThrowType), ExnAlign));
   else
     CGF.EmitAnyExprToExn(
       E->getSubExpr(), Address(ExceptionPtr, CGM.getTarget().isByteAddressable() ? CGM.Int8Ty : CGM.getTypes().ConvertType(ThrowType), ExnAlign));
@@ -1660,8 +1660,8 @@ llvm::Value *ItaniumCXXABI::EmitDynamicCastToVoid(CodeGenFunction &CGF,
     bool asmjs = SrcDecl->hasAttr<AsmJSAttr>();
     llvm::Value* OffsetToTop = nullptr;
     if (asmjs) {
-      llvm::Type* VTableType = CGM.getTypes().GetSecondaryVTableType(SrcDecl)->getPointerTo();
-      Address VTable = Address(CGF.GetVTablePtr(ThisAddr, VTableType, ClassDecl), ThisAddr.getAlignment());
+      llvm::Type* VTableType = CGM.getTypes().GetSecondaryVTableType(SrcDecl);
+      Address VTable = Address(CGF.GetVTablePtr(ThisAddr, VTableType->getPointerTo(), ClassDecl), VTableType, ThisAddr.getAlignment());
       Address Tmp = CGF.Builder.CreateStructGEP(VTable, 0);
       OffsetToTop = CGF.Builder.CreateLoad(Tmp, "offset.to.top");
     } else {

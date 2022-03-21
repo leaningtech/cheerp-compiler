@@ -415,7 +415,7 @@ void CodeGenFunction::EmitAnyExprToExn(const Expr *e, Address addr) {
 	  // CHEERP: We insert a dummy downcast to signal that this type needs the downcast array
     llvm::Type* Tys[] = { ty->getPointerTo(), ty->getPointerTo() };
     llvm::Function* intrinsic = llvm::Intrinsic::getDeclaration(&CGM.getModule(), llvm::Intrinsic::cheerp_downcast, Tys);
-    typedAddr = Address(Builder.CreateCall(intrinsic, {typedAddr.getPointer(), llvm::ConstantInt::get(CGM.Int32Ty, 0)}), typedAddr.getAlignment());
+    typedAddr = Address(Builder.CreateCall(intrinsic, {typedAddr.getPointer(), llvm::ConstantInt::get(CGM.Int32Ty, 0)}), ty, typedAddr.getAlignment());
   }
 
   // FIXME: this isn't quite right!  If there's a final unelided call
@@ -472,7 +472,7 @@ Address CodeGenFunction::getEHObjectSlot() {
   if (!EHObjectSlot) {
     EHObjectSlot = CreateTempAlloca(GetLandingPadTy(), "ehobject.slot");
   }
-  return Address(EHObjectSlot, CharUnits::fromQuantity(4));
+  return Address(EHObjectSlot, GetLandingPadTy(), CharUnits::fromQuantity(4));
 }
 
 llvm::Value *CodeGenFunction::getExceptionFromSlot() {
@@ -893,7 +893,7 @@ llvm::BasicBlock *CodeGenFunction::EmitLandingPad() {
     llvm::Type* HackTy = LPadTy->getPointerTo();
 
     llvm::Value *LPadExn = Builder.CreateStructGEP(LPadTy, LPadInst, 0);
-    LPadExn = Builder.CreateLoad(Address(LPadExn, getPointerAlign()));
+    LPadExn = Builder.CreateLoad(Address(LPadExn, CGM.Int8PtrTy, getPointerAlign()));
     llvm::Value* LPadExnHack = Builder.CreateBitCast(LPadExn, HackTy);
     Address Exn = Builder.CreateStructGEP(EHObj, 0, "eh.exn");
     Exn = Builder.CreateElementBitCast(Exn, HackTy);
@@ -902,7 +902,7 @@ llvm::BasicBlock *CodeGenFunction::EmitLandingPad() {
     Builder.CreateStore(LPadExn, getExceptionSlot());
 
     llvm::Value *LPadSel = Builder.CreateStructGEP(LPadTy, LPadInst, 1);
-    LPadSel = Builder.CreateLoad(Address(LPadSel, getIntAlign()));
+    LPadSel = Builder.CreateLoad(Address(LPadSel, CGM.Int32Ty, getIntAlign()));
     Address Sel = Builder.CreateStructGEP(EHObj, 1, "eh.sel");
     Builder.CreateStore(LPadSel, Sel);
     Builder.CreateStore(LPadSel, getEHSelectorSlot());
@@ -1610,7 +1610,7 @@ llvm::BasicBlock *CodeGenFunction::getTerminateLandingPad() {
       Exn = Builder.CreateExtractValue(LPadInst, 0);
     } else {
       Exn = Builder.CreateStructGEP(GetLandingPadTy(), LPadInst, 0);
-      Exn = Builder.CreateLoad(Address(Exn,getPointerAlign()));
+      Exn = Builder.CreateLoad(Address(Exn, CGM.Int8PtrTy, getPointerAlign()));
     }
   }
   llvm::CallInst *terminateCall =
