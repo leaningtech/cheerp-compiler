@@ -14,6 +14,7 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Utils/LowerSwitch.h"
 #include "llvm/Cheerp/CFGPasses.h"
+#include "llvm/IR/Constants.h"
 #include <unordered_map>
 #include <unordered_set>
 
