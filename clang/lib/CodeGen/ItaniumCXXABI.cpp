@@ -1374,7 +1374,7 @@ void ItaniumCXXABI::emitThrow(CodeGenFunction &CGF, const CXXThrowExpr *E) {
 
   CharUnits ExnAlign = CGF.getContext().getExnObjectAlignment();
   if(!CGM.getTarget().isByteAddressable() && ThrowType->isPointerType())
-	CGF.EmitTypedPtrExprToExn(E->getSubExpr(), Address(ExceptionPtr, CGM.getTypes().ConvertType(ThrowType), ExnAlign));
+	CGF.EmitTypedPtrExprToExn(E->getSubExpr(), Address(ExceptionPtr, CGM.Int8PtrTy, ExnAlign));
   else
     CGF.EmitAnyExprToExn(
       E->getSubExpr(), Address(ExceptionPtr, CGM.getTarget().isByteAddressable() ? CGM.Int8Ty : CGM.getTypes().ConvertType(ThrowType), ExnAlign));

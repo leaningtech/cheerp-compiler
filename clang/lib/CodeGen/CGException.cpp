@@ -442,7 +442,7 @@ void CodeGenFunction::EmitTypedPtrExprToExn(const Expr *e, Address addr) {
   llvm::Value* scalar = EmitScalarExpr(e, /*Ignore*/ false);
   if (storedTy->isPointerTy()) {
     storedTy = CGM.VoidPtrTy;
-    scalar = Builder.CreateBitCast(scalar, storedTy->getPointerTo());
+    scalar = Builder.CreateBitCast(scalar, storedTy);
   }
   Address typedAddr = Builder.CreateElementBitCast(addr, storedTy);
 
