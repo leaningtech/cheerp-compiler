@@ -2780,7 +2780,7 @@ void CodeGenFunction::InitializeVTablePointer(const VPtr &Vptr) {
                                     Vptr.NearestVBase ? Vptr.NearestVBase : Vptr.VTableClass, Vptr.Bases);
     GEPConstantIndexes.push_back(llvm::ConstantInt::get(Int32Ty, 0));
     bool asmjs = cast<CXXMethodDecl>(CurFuncDecl)->getParent()->hasAttr<AsmJSAttr>();
-    VTableField = Address(Builder.CreateGEP(VTableField.getElementType(), VTableField.getPointer(), GEPConstantIndexes), CGM.getTypes().GetVTableBaseType(asmjs), VTableField.getAlignment());
+    VTableField = Address(Builder.CreateGEP(VTableField.getElementType(), VTableField.getPointer(), GEPConstantIndexes), CGM.getTypes().GetVTableBaseType(asmjs)->getPointerTo(), VTableField.getAlignment());
     VTablePtrTy = VTableField.getElementType();
     VTableAddressPoint = Builder.CreateBitCast(VTableAddressPoint, VTablePtrTy);
   } else {
