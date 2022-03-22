@@ -35,7 +35,7 @@ cmake -C ../llvm/CheerpCmakeConf.cmake \
 
 
 %build
-ninja -C build distribution
+NINJA_STATUS="[%u/%r/%f] " ninja -C build distribution
 
 %check
 
