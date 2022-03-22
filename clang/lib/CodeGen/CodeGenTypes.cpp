@@ -668,7 +668,9 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
     llvm::raw_svector_ostream OS(TypeName);
     OS << "complex.";
     getCXXABI().getMangleContext().mangleTypeName(cast<ComplexType>(Ty)->getElementType(), OS);
-
+    ResultType = llvm::StructType::getTypeByName(getLLVMContext(), OS.str());
+    if (ResultType)
+      return ResultType;
 
     llvm::Type *elts[] = {
       EltTy, EltTy
