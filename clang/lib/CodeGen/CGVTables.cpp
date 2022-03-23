@@ -479,7 +479,8 @@ void CodeGenFunction::generateThunk(llvm::Function *Fn,
                                     bool IsUnprototyped) {
   const CXXMethodDecl* OriginalMethod = getTarget().isByteAddressable() ? cast<CXXMethodDecl>(GD.getDecl()) :
                                                                           Thunk.Method;
-  StartThunk(Fn, GD, FnInfo, IsUnprototyped, OriginalMethod);
+  const CGFunctionInfo &ThunkFnInfo = CGM.getTypes().arrangeGlobalDeclaration(GD);
+  StartThunk(Fn, GD, ThunkFnInfo, IsUnprototyped, OriginalMethod);
   // Create a scope with an artificial location for the body of this function.
   auto AL = ApplyDebugLocation::CreateArtificial(*this);
 
@@ -488,8 +489,9 @@ void CodeGenFunction::generateThunk(llvm::Function *Fn,
   llvm::Type *Ty;
   if (IsUnprototyped)
     Ty = llvm::StructType::get(getLLVMContext());
-  else
-    Ty = CGM.getTypes().GetFunctionType(FnInfo);
+  else {
+    Ty = CGM.getTypes().GetFunctionType(ThunkFnInfo);
+  }
 
   llvm::Value *Callee = nullptr;
   if(Thunk.isMemberPointerThunk && OriginalMethod->isVirtual())
@@ -504,7 +506,7 @@ void CodeGenFunction::generateThunk(llvm::Function *Fn,
   }
 
   // Make the call and return the result.
-  EmitCallAndReturnForThunk(llvm::FunctionCallee(Fn->getFunctionType(), Callee),
+  EmitCallAndReturnForThunk(llvm::FunctionCallee(cast<llvm::FunctionType>(Ty), Callee),
                             &Thunk, IsUnprototyped);
 }
 
