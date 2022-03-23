@@ -14,6 +14,7 @@ Cheerp is a tool to bring C++ programming to the Web. It can generate a seamless
 combination of JavaScript, WebAssembly and Asm.js from a single C++ codebase.
 
 %define debug_package %{nil}
+%define circleci %{getenv:CIRCLECI}
 
 %prep
 %autosetup
@@ -35,7 +36,11 @@ cmake -C ../llvm/CheerpCmakeConf.cmake \
 
 
 %build
+%if "%{circleci}" == "true"
+NINJA_STATUS="[%u/%r/%f] " ninja -j${THREADS} -C build distribution
+%else
 NINJA_STATUS="[%u/%r/%f] " ninja -C build distribution
+%endif
 
 %check
 
