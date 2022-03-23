@@ -166,13 +166,6 @@ public:
 	{
 		assignToMaps(V, getBitMask(toAssign), getOperandValue(toAssign));
 	}
-	void assignToMapsIfComputed(const Value* V, Value* toAssign)
-	{
-		if (isValueComputed(toAssign))
-		{
-			assignToMaps(V, getBitMask(toAssign));
-		}
-	}
 	void removeFromMaps(Value* V)
 	{
 		stronglyKnownBits.back().erase(V);
