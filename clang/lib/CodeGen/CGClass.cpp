@@ -424,7 +424,11 @@ Address CodeGenFunction::GetAddressOfBaseClass(
       Value = GenerateVirtualcast(Value, VBase, VirtualOffset);
       Derived = VBase;
     }
-    Value = GenerateUpcast(Value, Derived, Start, PathEnd);
+    if (NonVirtualOffset.isZero()) {
+      Value = GenerateUpcastCollapsed(Value, BasePtrTy);
+    } else {
+      Value = GenerateUpcast(Value, Derived, Start, PathEnd);
+    }
   }
   else
   {
@@ -523,10 +527,11 @@ CodeGenFunction::GenerateUpcast(Address Value,
 
     BasePath.push_back(BaseDecl);
   }
+  assert(!BasePath.empty());
   ComputeNonVirtualBaseClassGepPath(CGM, GEPConstantIndexes, Derived, BasePath);
   // Get the base pointer type.
-  llvm::Type *BasePtrTy = 
-    ConvertType((PathEnd[-1])->getType());
+  const CGRecordLayout &layout = CGM.getTypes().getCGRecordLayout(BasePath.back());
+  llvm::Type *BasePtrTy = layout.getBaseSubobjectLLVMType();
 
   if(GEPConstantIndexes.size()>1)
     Value = Address(Builder.CreateGEP(Value.getElementType(), Value.getPointer(), GEPConstantIndexes), BasePtrTy, Value.getAlignment());
