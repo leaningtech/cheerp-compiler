@@ -565,14 +565,15 @@ Optional<FreeFnsTy> getFreeFunctionDataForFunction(const Function *Callee,
 Optional<StringRef> llvm::getAllocationFamily(const Value *I,
                                               const TargetLibraryInfo *TLI) {
   bool IsNoBuiltin;
-  const Function *Callee = getCalledFunction(I, IsNoBuiltin);
+  const Function *Caller = nullptr;
+  const Function *Callee = getCalledFunction(I, IsNoBuiltin, Caller);
   if (Callee == nullptr || IsNoBuiltin)
     return None;
   LibFunc TLIFn;
 
   if (TLI && TLI->getLibFunc(*Callee, TLIFn) && TLI->has(TLIFn)) {
     // Callee is some known library function.
-    const auto AllocData = getAllocationDataForFunction(Callee, AnyAlloc, TLI);
+    const auto AllocData = getAllocationDataForFunction(Callee, AnyAlloc, TLI, Caller);
     if (AllocData)
       return mangledNameForMallocFamily(AllocData.value().Family);
     const auto FreeData = getFreeFunctionDataForFunction(Callee, TLIFn);
