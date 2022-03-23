@@ -193,12 +193,6 @@ public:
 			min = BitMask(min & getBitMask(op));
 		}
 
-		if (min == BitMask::ALL)
-		{
-			//All operands fully known
-			return BitMask::ALL;
-		}
-
 		switch (I.getOpcode())
 		{
 			case Instruction::Load:
@@ -238,9 +232,49 @@ public:
 			default:
 			{
 				//Some operands NOT fully known, means in general no information is conserved
-				return BitMask::NONE;
+				break;
 			}
 		}
+
+		if (min == BitMask::ALL)
+		{
+			switch (I.getOpcode())
+			{
+				case Instruction::ICmp:
+				case Instruction::FCmp:
+				case Instruction::And:
+				case Instruction::SExt:
+				case Instruction::ZExt:
+				case Instruction::Trunc:
+				case Instruction::LShr:
+				case Instruction::AShr:
+				case Instruction::Shl:
+				case Instruction::SRem:
+				case Instruction::FPToSI:
+				case Instruction::FPTrunc:
+				case Instruction::SIToFP:
+				case Instruction::URem:
+				case Instruction::FMul:
+				case Instruction::FAdd:
+				case Instruction::FSub:
+				case Instruction::FDiv:
+				case Instruction::UDiv:
+				case Instruction::SDiv:
+				case Instruction::FPExt:
+				case Instruction::UIToFP:
+				{
+					return BitMask::ALL;
+				}
+				case Instruction::IntToPtr:
+				case Instruction::Alloca:
+				default:
+				{
+					break;
+				}
+			}
+		}
+
+		return BitMask::NONE;
 	}
 	llvm::BasicBlock* visitBasicBlock(llvm::BasicBlock& BB);
 	explicit PartialInterpreter(std::unique_ptr<llvm::Module> M)
