@@ -33,12 +33,14 @@
 using namespace clang;
 using namespace CodeGen;
 
-static void
+static llvm::Type*
 ComputeNonVirtualBaseClassGepPath(CodeGenModule& CGM,
                                   SmallVector<llvm::Value*, 4>& GEPIndexes,
                                   const CXXRecordDecl *DerivedClass,
                                   llvm::ArrayRef<const CXXRecordDecl*> BasePath) {
   const CXXRecordDecl *RD = DerivedClass;
+  // Compute the expected type of the GEP expression
+  llvm::Type* ret = nullptr;
 
   for (const CXXRecordDecl* BaseDecl: BasePath) {
     const ASTRecordLayout &ASTLayout = CGM.getContext().getASTRecordLayout(RD);
@@ -49,9 +51,11 @@ ComputeNonVirtualBaseClassGepPath(CodeGenModule& CGM,
       uint32_t index=Layout.getNonVirtualBaseLLVMFieldNo(BaseDecl);
 
       GEPIndexes.push_back(llvm::ConstantInt::get(CGM.Int32Ty, index));
+      ret = Layout.getLLVMType()->getElementType(index);
     }
     RD = BaseDecl;
   }
+  return ret;
 }
 
 /// Return the best known alignment for an unknown pointer to a
@@ -528,13 +532,16 @@ CodeGenFunction::GenerateUpcast(Address Value,
     BasePath.push_back(BaseDecl);
   }
   assert(!BasePath.empty());
-  ComputeNonVirtualBaseClassGepPath(CGM, GEPConstantIndexes, Derived, BasePath);
+  llvm::Type* expectedGepType = ComputeNonVirtualBaseClassGepPath(CGM, GEPConstantIndexes, Derived, BasePath);
   // Get the base pointer type.
   const CGRecordLayout &layout = CGM.getTypes().getCGRecordLayout(BasePath.back());
   llvm::Type *BasePtrTy = layout.getBaseSubobjectLLVMType();
 
-  if(GEPConstantIndexes.size()>1)
-    Value = Address(Builder.CreateGEP(Value.getElementType(), Value.getPointer(), GEPConstantIndexes), BasePtrTy, Value.getAlignment());
+  if(GEPConstantIndexes.size()>1) {
+    assert(expectedGepType);
+    llvm::Value* Ptr = Builder.CreateGEP(Value.getElementType(), Value.getPointer(), GEPConstantIndexes);
+    Value = Address(Ptr, expectedGepType, Value.getAlignment());
+  }
 
   BasePtrTy = BasePtrTy->getPointerTo();
 
