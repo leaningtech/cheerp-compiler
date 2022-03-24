@@ -3007,6 +3007,12 @@ private:
 
     MaybeAlign SliceAlign = getSliceAlign();
 
+    Value *OtherPtr = IsDest ? II.getRawSource() : II.getRawDest();
+    Type *OtherPtrTy = OtherPtr->getType();
+    unsigned OtherAS = OtherPtrTy->getPointerAddressSpace();
+    unsigned OffsetWidth = DL.getIndexSizeInBits(OtherAS);
+    APInt OtherOffset(OffsetWidth, NewBeginOffset - BeginOffset);
+
     // For unsplit intrinsics, we simply modify the source and destination
     // pointers in place. This isn't just an optimization, it is a matter of
     // correctness. With unsplit intrinsics we may be dealing with transfers
@@ -3016,17 +3022,30 @@ private:
     // update both source and dest of a single call.
     if (!IsSplittable) {
       Value *AdjustedPtr = getNewAllocaSlicePtr(IRB, RealPtrTy);
-      if (AdjustedPtr->getType() != OldPtr->getType())
-        AdjustedPtr = IRB.CreateBitCast(AdjustedPtr, OldPtr->getType());
+      if (!AdjustedPtr) {
+        // It's not possible to get the right type from the alloca.
+        // This means that we need to look the other way around.
+        OtherPtr = getAllocaCompatiblePtr(IRB, OtherPtr, OtherOffset, NewAI.getAllocatedType());
+        AdjustedPtr = getNewAllocaSlicePtr(IRB, OtherPtr->getType());
+        assert(AdjustedPtr);
+      } else {
+        OtherPtr = getAdjustedPtr(IRB, DL, OtherPtr, OtherOffset, OtherPtrTy,
+                                  OtherPtr->getName() + ".");
+      }
+      if (AdjustedPtr->getType() != RealPtrTy)
+        AdjustedPtr = IRB.CreateBitCast(AdjustedPtr, RealPtrTy);
+      if (OtherPtr->getType() != OtherPtrTy)
+        OtherPtr = IRB.CreateBitCast(OtherPtr, OtherPtrTy);
       if (IsDest) {
         II.setDest(AdjustedPtr);
         II.setDestAlignment(SliceAlign);
+        II.setSource(OtherPtr);
       }
       else {
         II.setSource(AdjustedPtr);
         II.setSourceAlignment(SliceAlign);
+        II.setDest(OtherPtr);
       }
-
       LLVM_DEBUG(dbgs() << "          to: " << II << "\n");
       deleteIfTriviallyDead(OldPtr);
       return false;
@@ -3064,7 +3083,6 @@ private:
 
     // Strip all inbounds GEPs and pointer casts to try to dig out any root
     // alloca that should be re-examined after rewriting this instruction.
-    Value *OtherPtr = IsDest ? II.getRawSource() : II.getRawDest();
     if (AllocaInst *AI =
             dyn_cast<AllocaInst>(OtherPtr->stripInBoundsOffsets())) {
       assert(AI != &OldAI && AI != &NewAI &&
@@ -3072,12 +3090,7 @@ private:
       Pass.Worklist.insert(AI);
     }
 
-    Type *OtherPtrTy = OtherPtr->getType();
-    unsigned OtherAS = OtherPtrTy->getPointerAddressSpace();
-
     // Compute the relative offset for the other pointer within the transfer.
-    unsigned OffsetWidth = DL.getIndexSizeInBits(OtherAS);
-    APInt OtherOffset(OffsetWidth, NewBeginOffset - BeginOffset);
     Align OtherAlign =
         (IsDest ? II.getSourceAlign() : II.getDestAlign()).valueOrOne();
     OtherAlign =
