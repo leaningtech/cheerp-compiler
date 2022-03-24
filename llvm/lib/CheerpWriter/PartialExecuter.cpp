@@ -441,6 +441,9 @@ public:
 				if (calledFunc->isDeclaration())
 					return true;
 
+				if (calledFunc->hasWeakLinkage())
+					return true;
+
 				return false;
 			}
 			case Instruction::Load:
@@ -597,8 +600,8 @@ public:
 		else if (const ReturnInst* RI = dyn_cast<ReturnInst>(&I))
 		{
 			const Value* retVal = RI->getReturnValue();
-			const BitMask BITMASK = retVal ? getBitMask(RI->getReturnValue()) : NONE;
-			const Value* caller = getCurrentCallSite();
+			const BitMask BITMASK = (retVal && !skip) ? getBitMask(RI->getReturnValue()) : NONE;
+			Value* caller = getCurrentCallSite();
 
 			Interpreter::visit(I);
 
@@ -606,6 +609,8 @@ public:
 			if (retVal)
 				stronglyKnownBits.back()[caller] = BITMASK;
 
+			if (skip)
+				removeFromMaps(caller);
 			//Note that here we return
 			return;
 		}
@@ -651,8 +656,11 @@ public:
 		//Dispatch to the Interpreter's visitor for the given Instructon
 		Interpreter::visit(I);
 
-		//Add  knownBits information
-		assignToMaps(&I, computeStronglyKnownBits(I));
+		if (!isa<CallInst>(I))
+		{
+			//Add  knownBits information
+			assignToMaps(&I, computeStronglyKnownBits(I));
+		}
 	}
 
 	/// Create a new interpreter object.
