@@ -1226,7 +1226,8 @@ class BasicBlockGroupNode
 
 	// Other metadata
 	FunctionData& data;
-	const DeterministicBBSet blocks;
+	const DeterministicBBSet ownedBlocks;
+	const DeterministicBBSet& blocks;
 	bool isMultiHead;
 	bool isReachable;
 	llvm::BasicBlock* start;
@@ -1256,8 +1257,8 @@ class BasicBlockGroupNode
 	}
 	void splitIntoSCCs(std::list<BasicBlockGroupNode>& queueToBePopulated, ReverseMapBBToGroup& blockToGroupMap);
 public:
-	BasicBlockGroupNode(FunctionData& data, BasicBlockGroupNode* parentBBGNode, const DeterministicBBSet& blocks, llvm::BasicBlock* start = nullptr)
-		: parentNode(parentBBGNode), data(data), blocks(blocks), isMultiHead(false), isReachable(parentNode == nullptr), start(start), from(nullptr), visitingAll(false)
+	BasicBlockGroupNode(FunctionData& data, BasicBlockGroupNode* parentBBGNode, const DeterministicBBSet& OWNEDblocks, llvm::BasicBlock* start = nullptr)
+		: parentNode(parentBBGNode), data(data), ownedBlocks(OWNEDblocks), blocks(ownedBlocks), isMultiHead(false), isReachable(parentNode == nullptr), start(start), from(nullptr), visitingAll(false)
 	{
 		if (start)
 			assert(start->getParent() == data.getFunction());
