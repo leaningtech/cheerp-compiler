@@ -959,9 +959,13 @@ public:
 	{
 		return &F;
 	}
-	uint32_t getAndIncrementVisitCounter(const llvm::BasicBlock* BB)
+	uint32_t getVisitCounter(const llvm::BasicBlock* BB)
 	{
-		return visitCounter[BB]++;
+		return visitCounter[BB];
+	}
+	void incrementVisitCounter(const llvm::BasicBlock* BB)
+	{
+		visitCounter[BB]++;
 	}
 	PartialInterpreter& getInterpreter()
 	{
@@ -1228,6 +1232,8 @@ class BasicBlockGroupNode
 	bool isReachable;
 	llvm::BasicBlock* start;
 	llvm::BasicBlock* from;
+	uint32_t currIter;
+	llvm::DenseMap<llvm::BasicBlock*, uint32_t> minVisitIndex;
 	// TODO(carlo): an optmization might be having from be a set<BasicBlock>, conserving the phi that are equals
 
 	//Note that here also DenseMap would have worked, but for the fact that it does miss operator .at()
@@ -1236,6 +1242,9 @@ class BasicBlockGroupNode
 	// reverseMappingBBToGroup will be populated alongside childrenNodes, and for each BasicBlock reverseMappingBBToGroup[BB]
 	//	will be the pointer of the SCC component BB is part of
 	ReverseMapBBToGroup reverseMappingBBToGroup;
+	llvm::DenseMap<const llvm::BasicBlock*, uint32_t> subsetIndex;
+	std::vector<DeterministicBBSet> subsets;
+
 	bool visitingAll;
 	static const DeterministicBBSet getAllBasicBlocks(llvm::Function& F)
 	{
@@ -1262,7 +1271,7 @@ public:
 		: parentNode(&BBGNode), data(BBGNode.data), blocks(BBGNode.blocks), isMultiHead(false), isReachable(false), start(nullptr), from(nullptr), visitingAll(false)
 	{
 	}
-	void addIncomingEdge(llvm::BasicBlock* comingFrom, llvm::BasicBlock* target)
+	void addIncomingEdge(llvm::BasicBlock* comingFrom, uint32_t currIter, llvm::BasicBlock* target)
 	{
 		isReachable = true;
 		assert(blocks.count(target));
@@ -1279,6 +1288,12 @@ public:
 		if (comingFrom != from)
 		{
 			from = nullptr;
+		}
+		auto it = minVisitIndex.find(comingFrom);
+		if (it == minVisitIndex.end() ||
+			it->second > currIter)
+		{
+			minVisitIndex[comingFrom] = currIter;
 		}
 	}
 	// Do the visit of the BB, with 'from' (possibly nullptr if unknown) as predecessor
@@ -1313,14 +1328,14 @@ public:
 	//
 	// when visitingAll is set, childrens data structure is not in place since we don't have enough information to proceed
 	// 	(but we need still to propagate to parent)
-	void notifySuccessor(llvm::BasicBlock* from, llvm::BasicBlock* succ)
+	void notifySuccessor(llvm::BasicBlock* from, const uint32_t iter, llvm::BasicBlock* succ)
 	{
 		if (blocks.count(succ) == 0)
 		{
 			assert(parentNode);
 			//It should handled by the parent SCC
 
-			parentNode->notifySuccessor(from, succ);
+			parentNode->notifySuccessor(from, iter, succ);
 		}
 		else if (visitingAll)
 		{
@@ -1330,7 +1345,7 @@ public:
 		{
 			BasicBlockGroupNode* ptr = reverseMappingBBToGroup.at(succ);
 			assert( ptr );
-			ptr->addIncomingEdge(from, succ);
+			ptr->addIncomingEdge(from, iter, succ);
 		}
 	}
 	void visitAll()
@@ -1350,8 +1365,17 @@ public:
 	void registerEdge(llvm::BasicBlock* from, llvm::BasicBlock* to)
 	{
 		data.registerEdge(from, to);
-
-		notifySuccessor(from, to);
+		notifySuccessor(from, currIter, to);
+	}
+	void cleanUp(llvm::BasicBlock* block)
+	{
+		const DeterministicBBSet& subset = subsets[subsetIndex[block]];
+		PartialInterpreter& interpreter = data.getInterpreter();
+		for (llvm::BasicBlock* bb : subset)
+		{
+			for (llvm::Instruction& I : *bb)
+				interpreter.removeFromMaps(&I);
+		}
 	}
 	// Visit the tree of BasicBlockGroupNodes, starting from the root and visiting children depth-first
 	void recursiveVisit()
@@ -1369,9 +1393,10 @@ public:
 			visitAll();
 			return;
 		}
-
 		assert(start);	//isReachable && !isMultiHead implies start being defined
-		if (data.getAndIncrementVisitCounter(start) >= MAX_NUMBER_OF_VISITS_PER_BB)
+		currIter = data.getVisitCounter(start);
+
+		if (currIter >= MAX_NUMBER_OF_VISITS_PER_BB)
 		{
 			// We are visiting a given BasicBlock many times
 			// Since terminability is basically unprovable in general, we give up with the visit
@@ -1379,6 +1404,15 @@ public:
 			visitAll();
 			return;
 		}
+		if (parentNode)
+		{
+			for (auto& p : minVisitIndex)
+			{
+				if (data.getVisitCounter(p.first) > p.second+1)
+					parentNode->cleanUp(p.first);
+			}
+		}
+		data.incrementVisitCounter(start);
 
 		splitIntoSCCs(childrenNodes, reverseMappingBBToGroup);	//These should be partially ordered with the last one possibly being the replica of the current one
 
@@ -1404,6 +1438,8 @@ void BasicBlockGroupNode::splitIntoSCCs(std::list<BasicBlockGroupNode>& queueToB
 {
 	assert(queueToBePopulated.empty());
 	assert(blockToGroupMap.empty());
+	assert(subsetIndex.empty());
+	assert(subsets.empty());
 	// We begin with N nodes, remove 'start', and we find the SCCs of the remaining N-1 nodes.
 	//
 	// For N = 1, it means 0 nodes remaining -> no SCCs
@@ -1421,6 +1457,7 @@ void BasicBlockGroupNode::splitIntoSCCs(std::list<BasicBlockGroupNode>& queueToB
 	SubGraph SG(start, std::move(Group));
 	queueToBePopulated.emplace_back(*this);
 
+	uint32_t nextId = 0;
 	for (auto& SCC: make_range(scc_begin(&SG), scc_end(&SG)))
 	{
 		DeterministicBBSet subset;
@@ -1428,7 +1465,10 @@ void BasicBlockGroupNode::splitIntoSCCs(std::list<BasicBlockGroupNode>& queueToB
 		{
 			BasicBlock* bb = GN->BB;
 			subset.insert(bb);
+			subsetIndex[bb] = nextId;
 		}
+		subsets.push_back(subset);
+		nextId++;
 		queueToBePopulated.emplace_back(data, this, subset);
 		for (auto& GN : SCC)
 		{
@@ -1437,6 +1477,8 @@ void BasicBlockGroupNode::splitIntoSCCs(std::list<BasicBlockGroupNode>& queueToB
 		}
 	}
 	blockToGroupMap[start] = &queueToBePopulated.front();
+	subsetIndex[start] = nextId;
+	subsets.push_back(blocks);
 }
 
 void FunctionData::actualVisit()
