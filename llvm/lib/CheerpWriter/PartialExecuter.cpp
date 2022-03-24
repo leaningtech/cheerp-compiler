@@ -1130,7 +1130,7 @@ public:
 	typedef DeterministicBBSet BlockSet;
 	typedef std::unordered_map<BasicBlock*, GraphNode> NodeMap;
 	explicit SubGraph(llvm::BasicBlock* Entry, BlockSet Blocks):
-		Entry(Entry), Blocks(std::move(Blocks))
+		Entry(Entry), Blocks(Blocks)
 	{
 	}
 	const BasicBlock* getEntry() const
@@ -1419,7 +1419,6 @@ public:
 
 		// Do the actual visit for start, while populating visitNext
 		runVisitBasicBlock(*start, visitNext);
-
 		for (llvm::BasicBlock* succ : visitNext)
 			registerEdge(start, succ);
 
@@ -1453,7 +1452,7 @@ void BasicBlockGroupNode::splitIntoSCCs(std::list<BasicBlockGroupNode>& queueToB
 	{
 		Group.insert(bb);
 	}
-	SubGraph SG(start, std::move(Group));
+	SubGraph SG(start, Group);
 	queueToBePopulated.emplace_back(*this);
 
 	uint32_t nextId = 0;
