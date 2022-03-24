@@ -85,31 +85,37 @@ struct I64LoweringVisitor: public InstVisitor<I64LoweringVisitor, HighInt>
 		DelayedPHIs.push_back(&I);
 		return Self;
 	}
-
 	HighInt visitICmpInst(ICmpInst& cmpI)
 	{
 		if(!cmpI.getOperand(0)->getType()->isIntegerTy(64))
 			return HighInt();
 
-		Value* result = nullptr;
-		IRBuilder<> Builder(&cmpI);
-		Value *LHS = cmpI.getOperand(0);
-		Value *RHS = cmpI.getOperand(1);
+		HighInt HL = visitValue(cmpI.getOperand(0));
+		HighInt HR = visitValue(cmpI.getOperand(1));
 
-		HighInt HL = visitValue(LHS);
-		HighInt HR = visitValue(RHS);
+		Value* result =  computeResultICmpInst(HL, HR, cmpI.getPredicate(), cmpI);
+
+		cmpI.replaceAllUsesWith(result);
+		ToDelete.push_back(&cmpI);
+		Changed = true;
+		return HighInt();
+	}
+	Value* computeResultICmpInst(HighInt& HL, HighInt& HR, CmpInst::Predicate pred, Instruction& insertPoint)
+	{
+		Value* result = nullptr;
+		IRBuilder<> Builder(&insertPoint);
 
 		llvm::Value *lhsHigh = HL.high;
 		llvm::Value *lhsLow = HL.low;
 		llvm::Value *rhsHigh = HR.high;
 		llvm::Value *rhsLow = HR.low;
 
-		switch(cmpI.getPredicate())
+		switch(pred)
 		{
 			case ICmpInst::ICMP_SLT:
 			case ICmpInst::ICMP_ULT:
 				result = Builder.CreateOr(
-					Builder.CreateICmp(cmpI.getPredicate(), lhsHigh, rhsHigh),
+					Builder.CreateICmp(pred, lhsHigh, rhsHigh),
 					Builder.CreateAnd(
 						Builder.CreateICmp(llvm::ICmpInst::ICMP_EQ, lhsHigh, rhsHigh),
 						Builder.CreateICmp(llvm::ICmpInst::ICMP_ULT, lhsLow, rhsLow)
@@ -118,7 +124,7 @@ struct I64LoweringVisitor: public InstVisitor<I64LoweringVisitor, HighInt>
 			case ICmpInst::ICMP_SLE:
 			case ICmpInst::ICMP_ULE:
 				result = Builder.CreateOr(
-					Builder.CreateICmp(cmpI.getPredicate() == ICmpInst::ICMP_ULE ? ICmpInst::ICMP_ULT : ICmpInst::ICMP_SLT, lhsHigh, rhsHigh),
+					Builder.CreateICmp(pred == ICmpInst::ICMP_ULE ? ICmpInst::ICMP_ULT : ICmpInst::ICMP_SLT, lhsHigh, rhsHigh),
 					Builder.CreateAnd(
 						Builder.CreateICmp(llvm::ICmpInst::ICMP_EQ, lhsHigh, rhsHigh),
 						Builder.CreateICmp(llvm::ICmpInst::ICMP_ULE, lhsLow, rhsLow)
@@ -127,7 +133,7 @@ struct I64LoweringVisitor: public InstVisitor<I64LoweringVisitor, HighInt>
 			case ICmpInst::ICMP_SGT:
 			case ICmpInst::ICMP_UGT:
 				result = Builder.CreateOr(
-					Builder.CreateICmp(cmpI.getPredicate(), lhsHigh, rhsHigh),
+					Builder.CreateICmp(pred, lhsHigh, rhsHigh),
 					Builder.CreateAnd(
 						Builder.CreateICmp(llvm::ICmpInst::ICMP_EQ, lhsHigh, rhsHigh),
 						Builder.CreateICmp(llvm::ICmpInst::ICMP_UGT, lhsLow, rhsLow)
@@ -136,7 +142,7 @@ struct I64LoweringVisitor: public InstVisitor<I64LoweringVisitor, HighInt>
 			case ICmpInst::ICMP_SGE:
 			case ICmpInst::ICMP_UGE:
 				result = Builder.CreateOr(
-					Builder.CreateICmp(cmpI.getPredicate() == ICmpInst::ICMP_UGE ? ICmpInst::ICMP_UGT : ICmpInst::ICMP_SGT, lhsHigh, rhsHigh),
+					Builder.CreateICmp(pred == ICmpInst::ICMP_UGE ? ICmpInst::ICMP_UGT : ICmpInst::ICMP_SGT, lhsHigh, rhsHigh),
 					Builder.CreateAnd(
 						Builder.CreateICmp(llvm::ICmpInst::ICMP_EQ, lhsHigh, rhsHigh),
 						Builder.CreateICmp(llvm::ICmpInst::ICMP_UGE, lhsLow, rhsLow)
@@ -157,10 +163,7 @@ struct I64LoweringVisitor: public InstVisitor<I64LoweringVisitor, HighInt>
 			default: llvm_unreachable("unexpected comparison type");
 		}
 
-		cmpI.replaceAllUsesWith(result);
-		ToDelete.push_back(&cmpI);
-		Changed = true;
-		return HighInt();
+		return result;
 	}
 	HighInt visitSIToFPInst(SIToFPInst& I)
 	{
@@ -645,7 +648,6 @@ struct I64LoweringVisitor: public InstVisitor<I64LoweringVisitor, HighInt>
 		Changed = true;
 		return Res;
 	}
-
 	HighInt visitCallInst(CallInst& I)
 	{
 		if(!I.getType()->isIntegerTy(64))
@@ -721,6 +723,43 @@ struct I64LoweringVisitor: public InstVisitor<I64LoweringVisitor, HighInt>
 				Res.high = High;
 				Res.low = Low;
 				break;
+			}
+			case Intrinsic::umin:
+			case Intrinsic::umax:
+			case Intrinsic::smin:
+			case Intrinsic::smax:
+			{
+				HighInt LHS = visitValue(I.getOperand(0));
+				HighInt RHS = visitValue(I.getOperand(1));
+
+				CmpInst::Predicate pred;
+				switch (intrinsicId)
+				{
+					case Intrinsic::umin:
+						pred = CmpInst::ICMP_ULT;
+						break;
+					case Intrinsic::umax:
+						pred = CmpInst::ICMP_UGT;
+						break;
+					case Intrinsic::smin:
+						pred = CmpInst::ICMP_SLT;
+						break;
+					case Intrinsic::smax:
+						pred = CmpInst::ICMP_SGT;
+						break;
+				}
+
+				Value* resCmp = computeResultICmpInst(LHS, RHS, pred, I);
+
+				IRBuilder<> Builder(&I);
+
+				Value* high = Builder.CreateSelect(resCmp, LHS.high, RHS.high);
+				Value* low = Builder.CreateSelect(resCmp, LHS.low, RHS.low);
+				HighInt Res(high, low);
+
+				ToDelete.push_back(&I);
+				Changed = true;
+				return Res;
 			}
 			default:
 			{
