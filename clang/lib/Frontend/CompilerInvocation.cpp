@@ -3408,6 +3408,15 @@ static StringRef GetInputKindName(InputKind IK) {
   llvm_unreachable("unknown input language");
 }
 
+static void GenerateCheerpArgs(const LangOptions &Opts, SmallVectorImpl<const char *> &Args, CompilerInvocation::StringAllocator SA) {
+  if (Opts.getCheerpLinearOutput() == LangOptions::CHEERP_LINEAR_OUTPUT_Wasm)
+    GenerateArg(Args, OPT_cheerp_linear_output_EQ, "wasm", SA);
+  else
+    GenerateArg(Args, OPT_cheerp_linear_output_EQ, "asmjs", SA);
+  if (Opts.CheerpAnyref)
+    GenerateArg(Args, OPT_cheerp_wasm_anyref, SA);
+}
+
 static void ParseCheerpArgs(LangOptions &Opts, ArgList &Args,
                           DiagnosticsEngine &Diags) {
   // Allow parsing of preexecuter args
@@ -4780,6 +4789,7 @@ void CompilerInvocation::generateCC1CommandLine(
   GenerateTargetArgs(*TargetOpts, Args, SA);
   GenerateHeaderSearchArgs(*HeaderSearchOpts, Args, SA);
   GenerateLangArgs(*LangOpts, Args, SA, T, FrontendOpts.DashX);
+  GenerateCheerpArgs(*LangOpts, Args, SA);
   GenerateCodeGenArgs(CodeGenOpts, Args, SA, T, FrontendOpts.OutputFile,
                       &*LangOpts);
   GeneratePreprocessorArgs(*PreprocessorOpts, Args, SA, *LangOpts, FrontendOpts,
