@@ -665,10 +665,10 @@ public:
 
 	/// Create a new interpreter object.
 	///
-	static ExecutionEngine* create(std::unique_ptr<Module> M, std::string *ErrStr)
+	static ExecutionEngine* create(Module& M, std::string *ErrStr)
 	{
 		// Tell this Module to materialize everything and release the GVMaterializer.
-		if (Error Err = M->materializeAll()) {
+		if (Error Err = M.materializeAll()) {
 			std::string Msg;
 			handleAllErrors(std::move(Err), [&](ErrorInfoBase &EIB) {
 					Msg = EIB.message();
@@ -679,7 +679,8 @@ public:
 			return nullptr;
 		}
 
-		return new PartialInterpreter(std::move(M));
+		std::unique_ptr<Module> uniq(&M);
+		return new PartialInterpreter(std::move(uniq));
 	}
 };
 
@@ -822,6 +823,7 @@ class ModuleData
 	void initFunctionData();
 public:
 	NewAlignmentData alignmentToBeBumped;
+	bool fail {false};
 	llvm::Module* getModulePtr()
 	{
 		return &module;
@@ -831,8 +833,12 @@ public:
 	{
 		initFunctionData();
 
-		std::unique_ptr<Module> uniqM(getModulePtr());
-		currentEE = (PartialInterpreter*)(PartialInterpreter::create(std::move(uniqM), &error));
+		currentEE = (PartialInterpreter*)(PartialInterpreter::create(_module, &error));
+		if (currentEE == nullptr)
+		{
+			fail = true;
+			return;
+		}
 		assert(currentEE);
 
 		// Add 'virtual' frame, since it might be needed deep into computeValidLoadIntervals
@@ -853,6 +859,8 @@ public:
 	}
 	~ModuleData()
 	{
+		if (fail)
+			return;
 		bool removed = currentEE->removeModule(getModulePtr());
 		(void)removed;
 		assert(removed);
@@ -1509,6 +1517,8 @@ static bool modifyFunction(llvm::Function& F, ModuleData& moduleData)
 bool PartialExecuter::runOnModule( llvm::Module & module )
 {
 	ModuleData data(module);
+	if (data.fail)
+		return false;
 
 	// First part: analysis for determining which Edges are never taken
 	for (const Function& F : module)
