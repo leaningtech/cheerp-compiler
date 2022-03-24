@@ -111,7 +111,7 @@ static GlobalValue* dependentGlobalVariable(Instruction* I)
     Value* currOp = I->getOperand(1);
     while (!isa<GlobalValue>(currOp)) {
       if (isa<ConstantExpr>(currOp) && (dyn_cast<ConstantExpr>(currOp)->isCast() ||
-                dyn_cast<ConstantExpr>(currOp)->isGEPWithNoNotionalOverIndexing()))
+        (isa<GEPOperator>(currOp) && cast<GEPOperator>(currOp)->isInBounds() && cast<GEPOperator>(currOp)->hasAllConstantIndices())))
         currOp = dyn_cast<ConstantExpr>(currOp)->getOperand(0);
       else if (isa<GetElementPtrInst>(currOp) && dyn_cast<GetElementPtrInst>(currOp)->isInBounds())
         currOp = dyn_cast<GetElementPtrInst>(currOp)->getOperand(0);
