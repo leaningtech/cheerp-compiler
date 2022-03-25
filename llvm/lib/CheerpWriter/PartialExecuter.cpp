@@ -876,6 +876,7 @@ class FunctionData
 
 	llvm::DenseMap<const llvm::BasicBlock*, int> visitCounter;
 	llvm::DenseSet<std::pair<const llvm::BasicBlock*, const llvm::BasicBlock*> > visitedEdges;
+	llvm::DenseMap<const llvm::BasicBlock*, uint32_t> missingOutgoing;
 	ModuleData& moduleData;
 
 	std::vector<VectorOfArgs> callEquivalentQueue;
@@ -954,6 +955,13 @@ public:
 	explicit FunctionData(llvm::Function& F, ModuleData& moduleData)
 		: F(F), moduleData(moduleData), currentEE(nullptr)
 	{
+		for (BasicBlock& BB : F)
+		{
+			std::set<const BasicBlock*> out;
+			for (auto* succ : successors(&BB))
+				out.insert(succ);
+			missingOutgoing[&BB] = out.size();
+		}
 	}
 	llvm::Function* getFunction()
 	{
@@ -973,9 +981,21 @@ public:
 		assert(currentEE);
 		return *currentEE;
 	}
+	bool anyOutgoingMissing(const llvm::BasicBlock* from)
+	{
+		return missingOutgoing[from] > 0;
+	}
+	bool anyOutgoingMissing(const DeterministicBBSet& set)
+	{
+		for (auto& bb : set)
+			if (anyOutgoingMissing(bb))
+				return true;
+		return false;
+	}
 	void registerEdge(const llvm::BasicBlock* from, const llvm::BasicBlock* to)
 	{
-		visitedEdges.insert({from, to});
+		if (visitedEdges.insert({from, to}).second)
+			missingOutgoing[from]--;
 	}
 	bool hasNoInfo(const VectorOfArgs& arguments) const
 	{
@@ -1228,6 +1248,7 @@ class BasicBlockGroupNode
 	// Other metadata
 	FunctionData& data;
 	const DeterministicBBSet ownedBlocks;
+	public:
 	const DeterministicBBSet& blocks;
 	bool isMultiHead;
 	bool isReachable;
@@ -1405,10 +1426,24 @@ public:
 			visitAll();
 			return;
 		}
+		if (false) if (data.anyOutgoingMissing(blocks) == false)
+		{
+			visitAll();
+			return;
+		}
+
 		if (parentNode)
 		{
 			for (auto& p : minVisitIndex)
 			{
+				if (p.first == parentNode->start)
+				{
+					if (data.anyOutgoingMissing(parentNode->blocks) == false)
+					{
+						visitAll();
+						return;
+					}
+				}
 				if (data.getVisitCounter(p.first) > p.second+1)
 					parentNode->cleanUp(p.first);
 			}
