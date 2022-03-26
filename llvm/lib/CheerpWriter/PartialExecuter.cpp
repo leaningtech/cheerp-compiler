@@ -594,7 +594,10 @@ public:
 
 			//Skip Instructions we don't have enough information to execute
 			if (skip)
+			{
+				removeFromMaps(&I);
 				return;
+			}
 		}
 		else if (const ReturnInst* RI = dyn_cast<ReturnInst>(&I))
 		{
