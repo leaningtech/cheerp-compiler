@@ -572,6 +572,8 @@ static bool findArgParts(Argument *Arg, const DataLayout &DL, AAResults &AAR,
   while (!Worklist.empty()) {
     Value *V = Worklist.pop_back_val();
     if (isa<BitCastInst>(V)) {
+      if (!DL.isByteAddressable())
+        return false;
       AppendUsers(V);
       continue;
     }
