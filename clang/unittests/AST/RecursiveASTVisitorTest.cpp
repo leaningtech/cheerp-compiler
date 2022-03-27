@@ -139,7 +139,7 @@ std::vector<VisitEvent> collectEvents(llvm::StringRef Code,
   clang::tooling::runToolOnCodeWithArgs(
       std::make_unique<ProcessASTAction>(
           [&](clang::ASTContext &Ctx) { Visitor.TraverseAST(Ctx); }),
-      Code, FileName, {"-target", "x86_64-unknown-gnu"});
+      Code, {"-target", "x86_64-unknown-gnu"}, FileName);
   return std::move(Visitor).takeEvents();
 }
 } // namespace
