@@ -1954,7 +1954,7 @@ Error BitcodeReader::parseTypeTableBody() {
       StructType* directBase = hasDirectBase ? cast<StructType>(getTypeByID(Record.back())) : NULL;
       if (EltTys.size() != (hasDirectBase ? Record.size()-5 : Record.size()-4))
         return error("Invalid type");
-      ContainedIDs.append(Record.begin() + 1, Record.end());
+      ContainedIDs.append(Record.begin() + 4, Record.end());
       StructType* Res = StructType::get(Context, EltTys, Record[0], directBase, hasByteLayout, hasAsmJS);
       ResultTy = Res;
       break;
@@ -1994,7 +1994,7 @@ Error BitcodeReader::parseTypeTableBody() {
       if (EltTys.size() != (hasDirectBase ? Record.size()-5 : Record.size()-4))
         return error("Invalid named struct record");
       Res->setBody(EltTys, Record[0], directBase, hasByteLayout, hasAsmJS);
-      ContainedIDs.append(Record.begin() + 1, Record.end());
+      ContainedIDs.append(Record.begin() + 4, Record.end());
       ResultTy = Res;
       break;
     }
