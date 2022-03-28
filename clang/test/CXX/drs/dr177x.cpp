@@ -1,8 +1,8 @@
-// RUN: %clang_cc1 -std=c++98 %s -fexceptions -fcxx-exceptions -pedantic-errors -ast-dump | FileCheck %s
-// RUN: %clang_cc1 -std=c++11 %s -fexceptions -fcxx-exceptions -pedantic-errors -ast-dump | FileCheck %s --check-prefixes=CHECK,CXX11
-// RUN: %clang_cc1 -std=c++14 %s -fexceptions -fcxx-exceptions -pedantic-errors -ast-dump | FileCheck %s --check-prefixes=CHECK,CXX11,CXX14
-// RUN: %clang_cc1 -std=c++1z %s -fexceptions -fcxx-exceptions -pedantic-errors -ast-dump | FileCheck %s --check-prefixes=CHECK,CXX11,CXX14
-// RUN: %clang_cc1 -std=c++1z %s -fexceptions -fcxx-exceptions -pedantic-errors -triple i386-windows-pc -ast-dump | FileCheck %s --check-prefixes=CHECK,CXX11,CXX14
+// RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++98 %s -fexceptions -fcxx-exceptions -pedantic-errors -ast-dump | FileCheck %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++11 %s -fexceptions -fcxx-exceptions -pedantic-errors -ast-dump | FileCheck %s --check-prefixes=CHECK,CXX11
+// RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++14 %s -fexceptions -fcxx-exceptions -pedantic-errors -ast-dump | FileCheck %s --check-prefixes=CHECK,CXX11,CXX14
+// RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++1z %s -fexceptions -fcxx-exceptions -pedantic-errors -ast-dump | FileCheck %s --check-prefixes=CHECK,CXX11,CXX14
+// RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++1z %s -fexceptions -fcxx-exceptions -pedantic-errors -triple i386-windows-pc -ast-dump | FileCheck %s --check-prefixes=CHECK,CXX11,CXX14
 
 namespace dr1772 { // dr1772: 14
   // __func__ in a lambda should name operator(), not the containing function.

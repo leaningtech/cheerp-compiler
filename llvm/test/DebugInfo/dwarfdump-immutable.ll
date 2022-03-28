@@ -3,6 +3,7 @@
 ; REQUIRES: object-emission
 ; RUN: %llc_dwarf %s -filetype=obj -o - | llvm-dwarfdump - | FileCheck %s
 
+target triple = "x86_64-apple-macosx10.12.0"
 ;; Test whether DW_TAG_immutable_type is accepted.
 
 ; CHECK: DW_TAG_immutable_type

@@ -6,7 +6,7 @@
 define signext i32 @f() local_unnamed_addr {
 ; CHECK-LABEL: @f(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    call void @llvm.memset.p0i8.i64(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @g.body, i32 0, i32 0), i8 0, i64 4, i1 false)
+; CHECK-NEXT:    call void @llvm.memset.p0i8.i32(i8* bitcast ([4 x i8]* @g.body to i8*), i8 0, i32 4, i1 false)
 ; CHECK-NEXT:    store i16 -1, i16* bitcast ([4 x i8]* @g.body to i16*), align 2
 ; CHECK-NEXT:    ret i32 0
 ;
@@ -26,7 +26,7 @@ define signext i32 @main() {
 ; CHECK-NEXT:    call void @f1()
 ; CHECK-NEXT:    store i32 1, i32* bitcast ([4 x i8]* @g.body to i32*), align 4
 ; CHECK-NEXT:    call void @f1()
-; CHECK-NEXT:    store i8 2, i8* getelementptr inbounds ([4 x i8], [4 x i8]* @g.body, i32 0, i32 0), align 4
+; CHECK-NEXT:    store i8 2, i8* bitcast ([4 x i8]* @g.body to i8*), align 4
 ; CHECK-NEXT:    call void @f1()
 ; CHECK-NEXT:    [[RES:%.*]] = load i32, i32* bitcast ([4 x i8]* @g.body to i32*), align 4
 ; CHECK-NEXT:    ret i32 [[RES]]

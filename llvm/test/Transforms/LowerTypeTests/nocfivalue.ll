@@ -3,7 +3,7 @@
 target datalayout = "e-p:64:64"
 target triple = "x86_64-unknown-linux-gnu"
 
-; CHECK: @a = global [6 x void ()*] [void ()* no_cfi @f1, void ()* @.cfi.jumptable, void ()* bitcast ([8 x i8]* getelementptr inbounds ([3 x [8 x i8]], [3 x [8 x i8]]* bitcast (void ()* @.cfi.jumptable to [3 x [8 x i8]]*), i64 0, i64 1) to void ()*), void ()* no_cfi @f2, void ()* @f3, void ()* no_cfi @f3.cfi]
+; CHECK: @a = global [6 x void ()*] [void ()* no_cfi @f1, void ()* bitcast ([8 x i8]* getelementptr inbounds ([3 x [8 x i8]], [3 x [8 x i8]]* bitcast (void ()* @.cfi.jumptable to [3 x [8 x i8]]*), i64 0, i64 0) to void ()*), void ()* bitcast ([8 x i8]* getelementptr inbounds ([3 x [8 x i8]], [3 x [8 x i8]]* bitcast (void ()* @.cfi.jumptable to [3 x [8 x i8]]*), i64 0, i64 1) to void ()*), void ()* no_cfi @f2, void ()* @f3, void ()* no_cfi @f3.cfi]
 @a = global [6 x void ()*] [void ()* no_cfi @f1, void ()* @f1, void ()* @f2, void ()* no_cfi @f2, void ()* @f3, void ()* no_cfi @f3]
 
 ; CHECK: define void @f1()

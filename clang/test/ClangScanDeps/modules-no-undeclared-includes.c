@@ -24,7 +24,7 @@ module User [no_undeclared_includes] { header "user.h" }
 //--- cdb.json.template
 [{
   "directory": "DIR",
-  "command": "clang -fmodules -gmodules -fimplicit-module-maps -fmodules-cache-path=DIR/cache -IDIR/undeclared -c DIR/test.c -o DIR/test.o",
+  "command": "clang -fmodules -gmodules -target x86_64 -fimplicit-module-maps -fmodules-cache-path=DIR/cache -IDIR/undeclared -c DIR/test.c -o DIR/test.o",
   "file": "DIR/test.c"
 }]
 

@@ -77,4 +77,4 @@ C n{};
 // CHECK: call void @_ZN1BC1Ev({{.*}} @x)
 
 // CHECK: call noundef i32 @_ZN1B1fEv({{.*}} @y)
-// CHECK: store i32 %{{.*}}, i32* getelementptr inbounds ({{.*}} @y, i32 0, i32 0)
+// CHECK: store i32 %{{.*}}, i32* bitcast ({{.*}} @y to i32*)

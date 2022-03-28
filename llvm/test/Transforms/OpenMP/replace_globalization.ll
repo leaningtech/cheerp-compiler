@@ -212,7 +212,7 @@ declare void @unknown_no_openmp() "llvm.assume"="omp_no_openmp"
 ; CHECK-LABEL: define {{[^@]+}}@__kmpc_alloc_shared
 ; CHECK-SAME: (i64 [[TMP0:%.*]]) #[[ATTR2:[0-9]+]] {
 ; CHECK-NEXT:    [[L:%.*]] = load i32, i32* @offset, align 4
-; CHECK-NEXT:    [[GEP:%.*]] = getelementptr i8, i8* addrspacecast (i8 addrspace(3)* getelementptr inbounds ([1024 x i8], [1024 x i8] addrspace(3)* @stack, i32 0, i32 0) to i8*), i32 [[L]]
+; CHECK-NEXT:    [[GEP:%.*]] = getelementptr i8, i8* addrspacecast (i8 addrspace(3)* bitcast ([1024 x i8] addrspace(3)* @stack to i8 addrspace(3)*) to i8*), i32 [[L]]
 ; CHECK-NEXT:    ret i8* [[GEP]]
 ;
 ;.

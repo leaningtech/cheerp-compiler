@@ -238,7 +238,7 @@ void test13(int x) {
 
 // CHECK-LABEL: @PR20473(
 void PR20473(void) {
-  // CHECK: memcpy{{.*}}getelementptr inbounds ([2 x i8], [2 x i8]* @
+  // CHECK: memcpy{{.*}}bitcast ([2 x i8]* @
   bar((char[2]) {""});
   // CHECK: memcpy{{.*}}bitcast ([3 x i8]* @
   bar((char[3]) {""});

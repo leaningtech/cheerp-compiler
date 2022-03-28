@@ -91,10 +91,10 @@ Task bar() {
 // CHECK:         br i1 %{{.+}}, label %[[CASE1_AWAIT_READY:.+]], label %[[CASE1_AWAIT_SUSPEND:.+]]
 // CHECK:       [[CASE1_AWAIT_SUSPEND]]:
 // CHECK-NEXT:    %{{.+}} = call token @llvm.coro.save(i8* null)
-// CHECK-NEXT:    %[[HANDLE11:.+]] = bitcast %"struct.std::experimental::coroutines_v1::coroutine_handle"* %[[TMP1:.+]] to i8*
+// CHECK-NEXT:    %[[HANDLE11:.+]] = bitcast %"struct.std::experimental::coroutine_handle"* %[[TMP1:.+]] to i8*
 // CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 8, i8* %[[HANDLE11]])
 
-// CHECK:         %[[HANDLE12:.+]] = bitcast %"struct.std::experimental::coroutines_v1::coroutine_handle"* %[[TMP1]] to i8*
+// CHECK:         %[[HANDLE12:.+]] = bitcast %"struct.std::experimental::coroutine_handle"* %[[TMP1]] to i8*
 // CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 8, i8* %[[HANDLE12]])
 // CHECK-NEXT:    call void @llvm.coro.resume
 // CHECK-NEXT:    %{{.+}} = call i8 @llvm.coro.suspend
@@ -110,10 +110,10 @@ Task bar() {
 // CHECK:         br i1 %{{.+}}, label %[[CASE2_AWAIT_READY:.+]], label %[[CASE2_AWAIT_SUSPEND:.+]]
 // CHECK:       [[CASE2_AWAIT_SUSPEND]]:
 // CHECK-NEXT:    %{{.+}} = call token @llvm.coro.save(i8* null)
-// CHECK-NEXT:    %[[HANDLE21:.+]] = bitcast %"struct.std::experimental::coroutines_v1::coroutine_handle"* %[[TMP2:.+]] to i8*
+// CHECK-NEXT:    %[[HANDLE21:.+]] = bitcast %"struct.std::experimental::coroutine_handle"* %[[TMP2:.+]] to i8*
 // CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 8, i8* %[[HANDLE21]])
 
-// CHECK:         %[[HANDLE22:.+]] = bitcast %"struct.std::experimental::coroutines_v1::coroutine_handle"* %[[TMP2]] to i8*
+// CHECK:         %[[HANDLE22:.+]] = bitcast %"struct.std::experimental::coroutine_handle"* %[[TMP2]] to i8*
 // CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 8, i8* %[[HANDLE22]])
 // CHECK-NEXT:    call void @llvm.coro.resume
 // CHECK-NEXT:    %{{.+}} = call i8 @llvm.coro.suspend

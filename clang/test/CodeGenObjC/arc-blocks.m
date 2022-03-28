@@ -10,7 +10,7 @@
 
 // Check that no copy/dispose helpers are emitted for this block.
 
-// CHECK-COMMON: @[[BLOCK_DESCRIPTOR_TMP10:.*]] = linkonce_odr hidden unnamed_addr constant { i64, i64, i8*, i8* } { i64 0, i64 40, i8* getelementptr inbounds ([6 x i8], [6 x i8]* @{{.*}}, i32 0, i32 0), i8* getelementptr inbounds ([1 x i8], [1 x i8]* @{{.*}}, i32 0, i32 0) }, align 8
+// CHECK-COMMON: @[[BLOCK_DESCRIPTOR_TMP10:.*]] = linkonce_odr hidden unnamed_addr constant { i64, i64, i8*, i8* } { i64 0, i64 40, i8* bitcast ([6 x i8]* @{{.*}} to i8*), i8* getelementptr inbounds ([1 x i8], [1 x i8]* @{{.*}}, i32 0, i32 0) }, align 8
 
 // This shouldn't crash.
 void test0(id (^maker)(void)) {

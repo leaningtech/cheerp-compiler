@@ -44,12 +44,12 @@ define internal i32 @t32(i32) #0 {
 ; CHECK: 7:
 ; CHECK-NEXT: store i32 0, i32* %1, align 4
 ; CHECK-NEXT: br label %t32.exit
-; CHECK: 8:
+; CHECK: 6:
 ; CHECK-NEXT: store i32 1, i32* %1, align 4
 ; CHECK-NEXT: br label %t32.exit
-; CHECK: 9:
+; CHECK: 7:
 ; CHECK-NEXT: store i32 2, i32* %1, align 4
 ; CHECK-NEXT: br label %t32.exit
 ; CHECK: t32.exit:
-; CHECK-NEXT: %10 = load i32, i32* %1, align 4
-; CHECK: ret i32 %10
+; CHECK-NEXT: %8 = load i32, i32* %1, align 4
+; CHECK: ret i32 %8

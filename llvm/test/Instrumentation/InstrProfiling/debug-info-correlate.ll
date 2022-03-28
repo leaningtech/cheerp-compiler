@@ -3,6 +3,7 @@
 ; RUN: %llc_dwarf -O0 -filetype=obj < %t.ll | llvm-dwarfdump - | FileCheck --implicit-check-not "{{DW_TAG|NULL}}" %s --check-prefix CHECK-DWARF
 
 ; REQUIRES: system-linux, object-emission
+target triple = "x86_64-apple-macosx10.12.0"
 
 @__profn_foo = private constant [3 x i8] c"foo"
 ; CHECK:      @__profc_foo =

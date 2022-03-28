@@ -1,5 +1,5 @@
-// RUN: %clang_cc1 -std=gnu++11 -fsyntax-only -verify %s
-// RUN: not %clang_cc1 -std=gnu++11 -ast-dump %s | FileCheck %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -std=gnu++11 -fsyntax-only -verify %s
+// RUN: not %clang_cc1 -triple %itanium_abi_triple -std=gnu++11 -ast-dump %s | FileCheck %s
 
 namespace attribute_aligned {
   template<int N>

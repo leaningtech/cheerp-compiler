@@ -44,10 +44,6 @@ bb:
 }
 
 define internal i1 @eggs(i8* %arg) {
-; ARGPROMOTION-LABEL: define {{[^@]+}}@eggs() {
-; ARGPROMOTION-NEXT:  bb:
-; ARGPROMOTION-NEXT:    unreachable
-;
 bb:
   %temp = call zeroext i1 @barney(i8* %arg)
   unreachable

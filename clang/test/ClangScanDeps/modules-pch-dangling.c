@@ -74,14 +74,14 @@ module mod    { header "mod.h"    }
 [{
   "file": "DIR/pch.h",
   "directory": "DIR",
-  "command": "clang -x c-header DIR/pch.h -fmodules -gmodules -fimplicit-module-maps -fmodules-cache-path=DIR/cache -o DIR/pch.h.gch"
+  "command": "clang -x c-header DIR/pch.h -target x86_64 -fmodules -gmodules -fimplicit-module-maps -fmodules-cache-path=DIR/cache -o DIR/pch.h.gch"
 }]
 
 //--- cdb_tu.json.template
 [{
   "file": "DIR/tu.c",
   "directory": "DIR",
-  "command": "clang -fsyntax-only DIR/tu.c -fmodules -gmodules -fimplicit-module-maps -fmodules-cache-path=DIR/cache -include DIR/pch.h -o DIR/tu.o"
+  "command": "clang -fsyntax-only DIR/tu.c -target x86_64 -fmodules -gmodules -fimplicit-module-maps -fmodules-cache-path=DIR/cache -include DIR/pch.h -o DIR/tu.o"
 }]
 
 // Scan dependencies of the PCH:

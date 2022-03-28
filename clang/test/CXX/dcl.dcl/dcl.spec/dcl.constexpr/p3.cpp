@@ -1,7 +1,7 @@
-// RUN: %clang_cc1 -fcxx-exceptions -verify=expected,beforecxx14,beforecxx20,beforecxx2b -std=c++11 %s
-// RUN: %clang_cc1 -fcxx-exceptions -verify=expected,aftercxx14,beforecxx20,beforecxx2b -std=c++14 %s
-// RUN: %clang_cc1 -fcxx-exceptions -verify=expected,aftercxx14,aftercxx20,beforecxx2b -std=c++20  %s
-// RUN: %clang_cc1 -fcxx-exceptions -verify=expected,aftercxx14,aftercxx20 -std=c++2b %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -fcxx-exceptions -verify=expected,beforecxx14,beforecxx20,beforecxx2b -std=c++11 %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -fcxx-exceptions -verify=expected,aftercxx14,beforecxx20,beforecxx2b -std=c++14 %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -fcxx-exceptions -verify=expected,aftercxx14,aftercxx20,beforecxx2b -std=c++20  %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -fcxx-exceptions -verify=expected,aftercxx14,aftercxx20 -std=c++2b %s
 
 namespace N {
   typedef char C;
