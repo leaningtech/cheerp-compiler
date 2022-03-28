@@ -132,6 +132,7 @@ MODULE_PASS("TypeOptimizer", cheerp::TypeOptimizerPass())
 MODULE_PASS("PartialExecuter", cheerp::PartialExecuterPass())
 MODULE_PASS("PreExecute", cheerp::PreExecutePass())
 MODULE_PASS("FreeAndDeleteRemoval", cheerp::FreeAndDeleteRemovalPass())
+MODULE_PASS("CallConstructors", cheerp::CallConstructorsPass())
 #undef MODULE_PASS
 
 #ifndef MODULE_PASS_WITH_PARAMS

@@ -773,7 +773,7 @@ private:
 	void compileDeclareExports();
 	void compileDefineExports();
 	void compileCommonJSExports();
-	void compileConstructors();
+	void compileEntryPoint();
 	void compileDummies();
 	void compileNamespaces();
 	void compileRootIfNeeded();
