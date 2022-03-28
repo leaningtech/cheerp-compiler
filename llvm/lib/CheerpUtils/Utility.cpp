@@ -1296,24 +1296,6 @@ void replaceSomeUsesWith(std::vector<Use*> uses, Value* toSubstitute)
 	}
 }
 
-Function* getMainFunction(Module& module)
-{
-	if (llvm::Function* webMainOrMain = module.getFunction("_Z7webMainv"))
-		return webMainOrMain;
-	if (llvm::Function* webMainOrMain = module.getFunction("webMain"))
-		return webMainOrMain;
-	if (llvm::Function* webMainOrMain = module.getFunction("main"))
-		return webMainOrMain;
-
-	return nullptr;
-}
-
-const Function* getMainFunction(const Module& module)
-{
-	return getMainFunction(const_cast<Module&>(module));
-}
-
-
 void setForceRawAttribute(Module& M, Function* Wrapper)
 {
 	// Force PA to treat pointers of basic types coming in and out of this wrapper as RAW.

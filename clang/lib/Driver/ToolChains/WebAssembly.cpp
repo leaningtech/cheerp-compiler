@@ -567,6 +567,7 @@ void cheerp::Link::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back(Args.MakeArgString(getToolChain().GetFilePath("libc.bc")));
     }
     CmdArgs.push_back(Args.MakeArgString(getToolChain().GetFilePath("libsystem.bc")));
+    CmdArgs.push_back(Args.MakeArgString(getToolChain().GetFilePath("crt1.bc")));
 
     // Add wasm helper if needed
     Arg *CheerpLinearOutput = Args.getLastArg(options::OPT_cheerp_linear_output_EQ);
@@ -653,11 +654,13 @@ void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("-cheerp-keep-invokes");
   addPass("function(simplifycfg)");
 
+  addPass("CallConstructors");
   addPass("GlobalDepsAnalyzer");
   addPass("TypeOptimizer");
   addPass("function(CheerpLowerSwitch)");
   addPass("I64Lowering");
   addPass("function(ReplaceNopCastsAndByteSwaps)");
+
   if(!Args.hasArg(options::OPT_cheerp_no_lto))
   {
     addPass("FreeAndDeleteRemoval");
