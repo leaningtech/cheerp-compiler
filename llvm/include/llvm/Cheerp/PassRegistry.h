@@ -38,6 +38,7 @@
 #include "llvm/Cheerp/InvokeWrapping.h"
 #include "llvm/Cheerp/FFIWrapping.h"
 #include "llvm/Cheerp/StoreMerging.h"
+#include "llvm/Cheerp/CallConstructors.h"
 #include "llvm/Cheerp/CommandLine.h"
 
 namespace cheerp {
