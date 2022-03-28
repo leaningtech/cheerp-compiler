@@ -389,8 +389,7 @@ define void @test4(i8* %dst, i8* %src) {
 ; CHECK-NEXT:    [[A_SROA_34_SROA_5:%.*]] = alloca [7 x i8], align 1
 ; CHECK-NEXT:    [[A_SROA_6_SROA_4:%.*]] = alloca [7 x i8], align 1
 ; CHECK-NEXT:    [[A_SROA_7:%.*]] = alloca [40 x i8], align 1
-; CHECK-NEXT:    [[A_SROA_0_0_B_SROA_IDX:%.*]] = getelementptr inbounds [20 x i8], [20 x i8]* [[A_SROA_0]], i64 0, i64 0
-; CHECK-NEXT:    call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 1 [[A_SROA_0_0_B_SROA_IDX]], i8* align 1 [[SRC:%.*]], i32 20, i1 false), !tbaa [[TBAA0]]
+; CHECK:    call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 1 [[A_SROA_0_0_B_SROA_IDX]], i8* align 1 [[SRC:%.*]], i32 20, i1 false), !tbaa [[TBAA0]]
 ; CHECK-NEXT:    [[A_SROA_2_SROA_0_0_A_SROA_2_0_SRC_SROA_RAW_IDX_SROA_IDX:%.*]] = getelementptr inbounds i8, i8* [[SRC]], i64 20
 ; CHECK-NEXT:    [[A_SROA_2_SROA_0_0_A_SROA_2_0_SRC_SROA_RAW_IDX_SROA_CAST:%.*]] = bitcast i8* [[A_SROA_2_SROA_0_0_A_SROA_2_0_SRC_SROA_RAW_IDX_SROA_IDX]] to i16*
 ; CHECK-NEXT:    [[A_SROA_2_SROA_0_0_COPYLOAD:%.*]] = load i16, i16* [[A_SROA_2_SROA_0_0_A_SROA_2_0_SRC_SROA_RAW_IDX_SROA_CAST]], align 1, !tbaa [[TBAA0]]
@@ -424,7 +423,7 @@ define void @test4(i8* %dst, i8* %src) {
 ; CHECK-NEXT:    [[A_SROA_2_SROA_4_3_A_SRC_1_SROA_IDX:%.*]] = getelementptr inbounds [7 x i8], [7 x i8]* [[A_SROA_2_SROA_4]], i64 0, i64 0
 ; CHECK-NEXT:    [[A_SROA_2_SROA_4_3_A_SROA_34_SROA_5_0_A_DST_1_SROA_IDX_SROA_IDX:%.*]] = getelementptr inbounds [7 x i8], [7 x i8]* [[A_SROA_34_SROA_5]], i64 0, i64 0
 ; CHECK-NEXT:    call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 1 [[A_SROA_2_SROA_4_3_A_SROA_34_SROA_5_0_A_DST_1_SROA_IDX_SROA_IDX]], i8* align 1 [[A_SROA_2_SROA_4_3_A_SRC_1_SROA_IDX]], i32 7, i1 false), !tbaa [[TBAA3]]
-; CHECK-NEXT:    [[A_SROA_6_SROA_4_3_A_SRC_2_SROA_IDX:%.*]] = getelementptr inbounds [7 x i8], [7 x i8]* [[A_SROA_6_SROA_4]], i64 0, i64 0
+; CHECK:    [[A_SROA_6_SROA_4_3_A_SRC_2_SROA_IDX:%.*]] = getelementptr inbounds [7 x i8], [7 x i8]* [[A_SROA_6_SROA_4]], i64 0, i64 0
 ; CHECK-NEXT:    [[A_SROA_6_SROA_4_3_A_SROA_34_SROA_5_0_A_DST_1_SROA_IDX16_SROA_IDX:%.*]] = getelementptr inbounds [7 x i8], [7 x i8]* [[A_SROA_34_SROA_5]], i64 0, i64 0
 ; CHECK-NEXT:    call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 1 [[A_SROA_6_SROA_4_3_A_SROA_34_SROA_5_0_A_DST_1_SROA_IDX16_SROA_IDX]], i8* align 1 [[A_SROA_6_SROA_4_3_A_SRC_2_SROA_IDX]], i32 7, i1 false), !tbaa [[TBAA5]]
 ; CHECK-NEXT:    [[A_SROA_0_0_B_SROA_IDX1:%.*]] = getelementptr inbounds [20 x i8], [20 x i8]* [[A_SROA_0]], i64 0, i64 0

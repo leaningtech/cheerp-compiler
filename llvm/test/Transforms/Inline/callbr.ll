@@ -39,17 +39,17 @@ define internal i32 @t32(i32) #0 {
 
 ; CHECK-NOT: @t32
 ; CHECK: define dso_local i32 @main
-; CHECK: callbr void asm sideeffect "testl $0, $0; jne ${1:l};", "r,i,i,~{dirflag},~{fpsr},~{flags}"(i32 %6, i8* blockaddress(@main, %9), i8* blockaddress(@main, %8))
-; CHECK: to label %7 [label %9, label %8]
-; CHECK: 7:
+; CHECK: callbr void asm sideeffect "testl $0, $0; jne ${1:l};", "r,i,i,~{dirflag},~{fpsr},~{flags}"(i32 %4, i8* blockaddress(@main, %7), i8* blockaddress(@main, %6))
+; CHECK: to label %5 [label %7, label %6]
+; CHECK: 5:
 ; CHECK-NEXT: store i32 0, i32* %1, align 4
 ; CHECK-NEXT: br label %t32.exit
-; CHECK: 8:
+; CHECK: 6:
 ; CHECK-NEXT: store i32 1, i32* %1, align 4
 ; CHECK-NEXT: br label %t32.exit
-; CHECK: 9:
+; CHECK: 7:
 ; CHECK-NEXT: store i32 2, i32* %1, align 4
 ; CHECK-NEXT: br label %t32.exit
 ; CHECK: t32.exit:
-; CHECK-NEXT: %10 = load i32, i32* %1, align 4
-; CHECK: ret i32 %10
+; CHECK-NEXT: %8 = load i32, i32* %1, align 4
+; CHECK: ret i32 %8

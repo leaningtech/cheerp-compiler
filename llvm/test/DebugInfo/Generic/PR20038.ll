@@ -3,6 +3,7 @@
 
 ; RUN: %llc_dwarf -O0 -filetype=obj -dwarf-linkage-names=All < %s | llvm-dwarfdump -debug-info - | FileCheck %s --implicit-check-not=DW_TAG
 
+target triple = "x86_64-apple-macosx10.12.0"
 ; IR generated from clang -O0 with:
 ; struct C {
 ;   ~C();

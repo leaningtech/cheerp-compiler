@@ -4,8 +4,8 @@
 //CHECK: @[[STR2:.*]] = private unnamed_addr constant [4 x i8] c"abc\00", align 1
 //CHECK: @[[STR:.*]] = private unnamed_addr constant [5 x i8] c"test\00", section "llvm.metadata"
 //CHECK: @[[ARGS:.*]] = private unnamed_addr constant { i32, i8*, i32 } { i32 9, i8* getelementptr inbounds ([4 x i8], [4 x i8]* @[[STR2:.*]], i32 0, i32 0), i32 8 }, section "llvm.metadata"
-//CHECK: @[[ARGS2:.*]] = private unnamed_addr constant { %struct.Struct } { %struct.Struct { i32* getelementptr inbounds ([2 x i32], [2 x i32]* @_ZN1AIjLj9EE2SVE, i32 0, i32 0), i32* bitcast (i8* getelementptr (i8, i8* bitcast ([2 x i32]* @_ZN1AIjLj9EE2SVE to i8*), i64 4) to i32*) } }, section "llvm.metadata"
-//CHECK: @llvm.global.annotations = appending global [2 x { i8*, i8*, i8*, i32, i8* }] [{ i8*, i8*, i8*, i32, i8* } { i8* bitcast (void (%struct.A*)* @_ZN1AIjLj9EE4testILi8EEEvv to i8*), i8* getelementptr inbounds ([5 x i8], [5 x i8]* @[[STR:.*]], i32 0, i32 0), i8* getelementptr inbounds ([{{.*}} x i8], [{{.*}} x i8]* @[[STR1:.*]], i32 0, i32 0), i32 {{.*}}, i8* bitcast ({ i32, i8*, i32 }* @[[ARGS:.*]] to i8*) }, { i8*, i8*, i8*, i32, i8* } { i8* bitcast (void (%struct.A*)* @_ZN1AIjLj9EE5test2Ev to i8*), i8* getelementptr inbounds ([5 x i8], [5 x i8]* @.str.6, i32 0, i32 0), i8* getelementptr inbounds ([{{.*}} x i8], [{{.*}} x i8]* @.str.1, i32 0, i32 0), i32 24, i8* bitcast ({ %struct.Struct }* @[[ARGS2]] to i8*) }]
+//CHECK: @[[ARGS2:.*]] = private unnamed_addr constant { %struct.Struct } { %struct.Struct { i32* getelementptr inbounds ([2 x i32], [2 x i32]* @_ZN1AIjLj9EE2SVE, i32 0, i32 0), i32* getelementptr inbounds ([2 x i32], [2 x i32]* @_ZN1AIjLj9EE2SVE, i32 0, i32 1) } }, section "llvm.metadata"
+//CHECK: @llvm.global.annotations = appending global [2 x { i8*, i8*, i8*, i32, i8* }] [{ i8*, i8*, i8*, i32, i8* } { i8* bitcast (void (%struct.A*)* @_ZN1AIjLj9EE4testILi8EEEvv to i8*), i8* bitcast ([5 x i8]* @[[STR:.*]] to i8*), i8* bitcast ([{{.*}} x i8]* @[[STR1:.*]] to i8*), i32 {{.*}}, i8* bitcast ({ i32, i8*, i32 }* @[[ARGS:.*]] to i8*) }, { i8*, i8*, i8*, i32, i8* } { i8* bitcast (void (%struct.A*)* @_ZN1AIjLj9EE5test2Ev to i8*), i8* bitcast ([5 x i8]* @.str.6 to i8*), i8* bitcast ([{{.*}} x i8]* @.str.1 to i8*), i32 24, i8* bitcast ({ %struct.Struct }* @[[ARGS2]] to i8*) }]
 
 constexpr const char* str() {
   return "abc";
@@ -52,17 +52,17 @@ static B<int long, -1>::foo<unsigned, 9> gf;
 // CHECK-NEXT:    [[TMP0:%.*]] = load i32, i32* [[ARGC_ADDR]], align 4
 // CHECK-NEXT:    [[V:%.*]] = getelementptr inbounds %"struct.B<int, 7>::foo", %"struct.B<int, 7>::foo"* [[F]], i32 0, i32 0
 // CHECK-NEXT:    [[TMP1:%.*]] = bitcast i32* [[V]] to i8*
-// CHECK-NEXT:    [[TMP2:%.*]] = call i8* @llvm.ptr.annotation.p0i8(i8* [[TMP1]], i8* getelementptr inbounds ([8 x i8], [8 x i8]* @.str, i32 0, i32 0), i8* getelementptr inbounds ([{{.*}} x i8], [{{.*}} x i8]* @.str.1, i32 0, i32 0), i32 {{.*}}, i8* bitcast ({ i8*, i32, i32 }* @.args to i8*))
+// CHECK-NEXT:    [[TMP2:%.*]] = call i8* @llvm.ptr.annotation.p0i8(i8* [[TMP1]], i8* bitcast ([8 x i8]* @.str to i8*), i8* bitcast ([{{.*}} x i8]* @.str.1 to i8*), i32 {{.*}}, i8* bitcast ({ i8*, i32, i32 }* @.args to i8*))
 // CHECK-NEXT:    [[TMP3:%.*]] = bitcast i8* [[TMP2]] to i32*
 // CHECK-NEXT:    [[TMP4:%.*]] = bitcast i32* [[TMP3]] to i8*
-// CHECK-NEXT:    [[TMP5:%.*]] = call i8* @llvm.ptr.annotation.p0i8(i8* [[TMP4]], i8* getelementptr inbounds ([8 x i8], [8 x i8]* @.str.3, i32 0, i32 0), i8* getelementptr inbounds ([{{.*}} x i8], [{{.*}} x i8]* @.str.1, i32 0, i32 0), i32 {{.*}}, i8* bitcast ({ i32 }* @.args.4 to i8*))
+// CHECK-NEXT:    [[TMP5:%.*]] = call i8* @llvm.ptr.annotation.p0i8(i8* [[TMP4]], i8* bitcast ([8 x i8]* @.str.3 to i8*), i8* bitcast ([{{.*}} x i8]* @.str.1 to i8*), i32 {{.*}}, i8* bitcast ({ i32 }* @.args.4 to i8*))
 // CHECK-NEXT:    [[TMP6:%.*]] = bitcast i8* [[TMP5]] to i32*
 // CHECK-NEXT:    store i32 [[TMP0]], i32* [[TMP6]], align 4
 // CHECK-NEXT:    [[TMP7:%.*]] = load i32, i32* [[ARGC_ADDR]], align 4
-// CHECK-NEXT:    [[TMP8:%.*]] = call i8* @llvm.ptr.annotation.p0i8(i8* bitcast (%"struct.B<long, -1>::foo"* @_ZL2gf to i8*), i8* getelementptr inbounds ([8 x i8], [8 x i8]* @.str, i32 0, i32 0), i8* getelementptr inbounds ([{{.*}} x i8], [{{.*}} x i8]* @.str.1, i32 0, i32 0), i32 {{.*}}, i8* bitcast ({ i8*, i32, i64 }* @.args.5 to i8*))
+// CHECK-NEXT:    [[TMP8:%.*]] = call i8* @llvm.ptr.annotation.p0i8(i8* bitcast (i32* getelementptr inbounds (%"struct.B<long, -1>::foo", %"struct.B<long, -1>::foo"* @_ZL2gf, i32 0, i32 0) to i8*), i8* bitcast ([8 x i8]* @.str to i8*), i8* bitcast ([{{.*}} x i8]* @.str.1 to i8*), i32 {{.*}}, i8* bitcast ({ i8*, i32, i64 }* @.args.5 to i8*))
 // CHECK-NEXT:    [[TMP9:%.*]] = bitcast i8* [[TMP8]] to i32*
 // CHECK-NEXT:    [[TMP10:%.*]] = bitcast i32* [[TMP9]] to i8*
-// CHECK-NEXT:    [[TMP11:%.*]] = call i8* @llvm.ptr.annotation.p0i8(i8* [[TMP10]], i8* getelementptr inbounds ([8 x i8], [8 x i8]* @.str.3, i32 0, i32 0), i8* getelementptr inbounds ([{{.*}} x i8], [{{.*}} x i8]* @.str.1, i32 0, i32 0), i32 {{.*}}, i8* bitcast ({ i32 }* @.args.4 to i8*))
+// CHECK-NEXT:    [[TMP11:%.*]] = call i8* @llvm.ptr.annotation.p0i8(i8* [[TMP10]], i8* bitcast ([8 x i8]* @.str.3 to i8*), i8* bitcast ([{{.*}} x i8]* @.str.1 to i8*), i32 {{.*}}, i8* bitcast ({ i32 }* @.args.4 to i8*))
 // CHECK-NEXT:    [[TMP12:%.*]] = bitcast i8* [[TMP11]] to i32*
 // CHECK-NEXT:    store i32 [[TMP7]], i32* [[TMP12]], align 4
 // CHECK-NEXT:    ret i32 0

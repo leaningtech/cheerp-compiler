@@ -254,8 +254,8 @@ void foo(signed char sc, unsigned char uc, signed long long sll,
   // CHECK-NEXT: %[[VAR103:[A-Za-z0-9.]+]] = add i[[ARSIZE]] 0, %[[VAR101]]
   // CHECK-NEXT: %[[VAR104:[A-Za-z0-9.]+]] = trunc i[[ARSIZE]] %[[VAR102]] to i[[CHSIZE]]
   // CHECK-NEXT: %[[VAR105:[A-Za-z0-9.]+]] = trunc i[[ARSIZE]] %[[VAR103]] to i[[CHSIZE]]
-  // CHECK-NEXT: %[[VAR106:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[CHSIZE]], i[[CHSIZE]] }, { i[[CHSIZE]], i[[CHSIZE]] }* %[[CSC1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
-  // CHECK-NEXT: %[[VAR107:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[CHSIZE]], i[[CHSIZE]] }, { i[[CHSIZE]], i[[CHSIZE]] }* %[[CSC1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
+  // CHECK-NEXT: %[[VAR106:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSa, %complex._ZTSa* %[[CSC1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
+  // CHECK-NEXT: %[[VAR107:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSa, %complex._ZTSa* %[[CSC1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
   // CHECK-NEXT: store i[[CHSIZE]] %[[VAR104]], i[[CHSIZE]]* %[[VAR106]]
   // CHECK-NEXT: store i[[CHSIZE]] %[[VAR105]], i[[CHSIZE]]* %[[VAR107]]
 
@@ -272,8 +272,8 @@ void foo(signed char sc, unsigned char uc, signed long long sll,
   // CHECK-NEXT: %[[VAR117:[A-Za-z0-9.]+]] = add i[[ARSIZE]] 0, %[[VAR115]]
   // CHECK-NEXT: %[[VAR118:[A-Za-z0-9.]+]] = trunc i[[ARSIZE]] %[[VAR116]] to i[[CHSIZE]]
   // CHECK-NEXT: %[[VAR119:[A-Za-z0-9.]+]] = trunc i[[ARSIZE]] %[[VAR117]] to i[[CHSIZE]]
-  // CHECK-NEXT: %[[VAR120:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[CHSIZE]], i[[CHSIZE]] }, { i[[CHSIZE]], i[[CHSIZE]] }* %[[CUC1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
-  // CHECK-NEXT: %[[VAR121:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[CHSIZE]], i[[CHSIZE]] }, { i[[CHSIZE]], i[[CHSIZE]] }* %[[CUC1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
+  // CHECK-NEXT: %[[VAR120:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSh, %complex._ZTSh* %[[CUC1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
+  // CHECK-NEXT: %[[VAR121:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSh, %complex._ZTSh* %[[CUC1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
   // CHECK-NEXT: store i[[CHSIZE]] %[[VAR118]], i[[CHSIZE]]* %[[VAR120]]
   // CHECK-NEXT: store i[[CHSIZE]] %[[VAR119]], i[[CHSIZE]]* %[[VAR121]]
 
@@ -286,8 +286,8 @@ void foo(signed char sc, unsigned char uc, signed long long sll,
   // CHECK-NEXT: %[[VAR127:[A-Za-z0-9.]+]] = load i[[LLSIZE]], i[[LLSIZE]]* %[[VAR126]]
   // CHECK-NEXT: %[[VAR128:[A-Za-z0-9.]+]] = add i[[LLSIZE]] %[[VAR123]], %[[VAR125]]
   // CHECK-NEXT: %[[VAR129:[A-Za-z0-9.]+]] = add i[[LLSIZE]] 0, %[[VAR127]]
-  // CHECK-NEXT: %[[VAR130:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[LLSIZE]], i[[LLSIZE]] }, { i[[LLSIZE]], i[[LLSIZE]] }* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
-  // CHECK-NEXT: %[[VAR131:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[LLSIZE]], i[[LLSIZE]] }, { i[[LLSIZE]], i[[LLSIZE]] }* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
+  // CHECK-NEXT: %[[VAR130:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSx, %complex._ZTSx* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
+  // CHECK-NEXT: %[[VAR131:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSx, %complex._ZTSx* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
   // CHECK-NEXT: store i[[LLSIZE]] %[[VAR128]], i[[LLSIZE]]* %[[VAR130]]
   // CHECK-NEXT: store i[[LLSIZE]] %[[VAR129]], i[[LLSIZE]]* %[[VAR131]]
 
@@ -300,8 +300,8 @@ void foo(signed char sc, unsigned char uc, signed long long sll,
   // CHECK-NEXT: %[[VAR137:[A-Za-z0-9.]+]] = load i[[LLSIZE]], i[[LLSIZE]]* %[[VAR136]]
   // CHECK-NEXT: %[[VAR138:[A-Za-z0-9.]+]] = add i[[LLSIZE]] %[[VAR133]], %[[VAR135]]
   // CHECK-NEXT: %[[VAR139:[A-Za-z0-9.]+]] = add i[[LLSIZE]] 0, %[[VAR137]]
-  // CHECK-NEXT: %[[VAR140:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[LLSIZE]], i[[LLSIZE]] }, { i[[LLSIZE]], i[[LLSIZE]] }* %[[CULL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
-  // CHECK-NEXT: %[[VAR141:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[LLSIZE]], i[[LLSIZE]] }, { i[[LLSIZE]], i[[LLSIZE]] }* %[[CULL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
+  // CHECK-NEXT: %[[VAR140:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSy, %complex._ZTSy* %[[CULL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
+  // CHECK-NEXT: %[[VAR141:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSy, %complex._ZTSy* %[[CULL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
   // CHECK-NEXT: store i[[LLSIZE]] %[[VAR138]], i[[LLSIZE]]* %[[VAR140]]
   // CHECK-NEXT: store i[[LLSIZE]] %[[VAR139]], i[[LLSIZE]]* %[[VAR141]]
   
@@ -318,8 +318,8 @@ void foo(signed char sc, unsigned char uc, signed long long sll,
   // CHECK-NEXT: %[[VAR151:[A-Za-z0-9.]+]] = add i[[ARSIZE]] 0, %[[VAR149]]
   // CHECK-NEXT: %[[VAR152:[A-Za-z0-9.]+]] = trunc i[[ARSIZE]] %[[VAR150]] to i[[CHSIZE]]
   // CHECK-NEXT: %[[VAR153:[A-Za-z0-9.]+]] = trunc i[[ARSIZE]] %[[VAR151]] to i[[CHSIZE]]
-  // CHECK-NEXT: %[[VAR154:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[CHSIZE]], i[[CHSIZE]] }, { i[[CHSIZE]], i[[CHSIZE]] }* %[[CSC1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
-  // CHECK-NEXT: %[[VAR155:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[CHSIZE]], i[[CHSIZE]] }, { i[[CHSIZE]], i[[CHSIZE]] }* %[[CSC1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
+  // CHECK-NEXT: %[[VAR154:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSa, %complex._ZTSa* %[[CSC1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
+  // CHECK-NEXT: %[[VAR155:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSa, %complex._ZTSa* %[[CSC1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
   // CHECK-NEXT: store i[[CHSIZE]] %[[VAR152]], i[[CHSIZE]]* %[[VAR154]]
   // CHECK-NEXT: store i[[CHSIZE]] %[[VAR153]], i[[CHSIZE]]* %[[VAR155]]
 
@@ -336,8 +336,8 @@ void foo(signed char sc, unsigned char uc, signed long long sll,
   // CHECK-NEXT: %[[VAR165:[A-Za-z0-9.]+]] = add i[[ARSIZE]] 0, %[[VAR163]]
   // CHECK-NEXT: %[[VAR166:[A-Za-z0-9.]+]] = trunc i[[ARSIZE]] %[[VAR164]] to i[[CHSIZE]]
   // CHECK-NEXT: %[[VAR167:[A-Za-z0-9.]+]] = trunc i[[ARSIZE]] %[[VAR165]] to i[[CHSIZE]]
-  // CHECK-NEXT: %[[VAR168:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[CHSIZE]], i[[CHSIZE]] }, { i[[CHSIZE]], i[[CHSIZE]] }* %[[CUC1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
-  // CHECK-NEXT: %[[VAR169:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[CHSIZE]], i[[CHSIZE]] }, { i[[CHSIZE]], i[[CHSIZE]] }* %[[CUC1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
+  // CHECK-NEXT: %[[VAR168:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSh, %complex._ZTSh* %[[CUC1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
+  // CHECK-NEXT: %[[VAR169:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSh, %complex._ZTSh* %[[CUC1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
   // CHECK-NEXT: store i[[CHSIZE]] %[[VAR166]], i[[CHSIZE]]* %[[VAR168]]
   // CHECK-NEXT: store i[[CHSIZE]] %[[VAR167]], i[[CHSIZE]]* %[[VAR169]]
 
@@ -350,8 +350,8 @@ void foo(signed char sc, unsigned char uc, signed long long sll,
   // CHECK-NEXT: %[[VAR175:[A-Za-z0-9.]+]] = load i[[LLSIZE]], i[[LLSIZE]]* %[[VAR174]]
   // CHECK-NEXT: %[[VAR176:[A-Za-z0-9.]+]] = add i[[LLSIZE]] %[[VAR171]], %[[VAR173]]
   // CHECK-NEXT: %[[VAR177:[A-Za-z0-9.]+]] = add i[[LLSIZE]] 0, %[[VAR175]]
-  // CHECK-NEXT: %[[VAR178:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[LLSIZE]], i[[LLSIZE]] }, { i[[LLSIZE]], i[[LLSIZE]] }* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
-  // CHECK-NEXT: %[[VAR179:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[LLSIZE]], i[[LLSIZE]] }, { i[[LLSIZE]], i[[LLSIZE]] }* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
+  // CHECK-NEXT: %[[VAR178:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSx, %complex._ZTSx* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
+  // CHECK-NEXT: %[[VAR179:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSx, %complex._ZTSx* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
   // CHECK-NEXT: store i[[LLSIZE]] %[[VAR176]], i[[LLSIZE]]* %[[VAR178]]
   // CHECK-NEXT: store i[[LLSIZE]] %[[VAR177]], i[[LLSIZE]]* %[[VAR179]]
 
@@ -364,8 +364,8 @@ void foo(signed char sc, unsigned char uc, signed long long sll,
   // CHECK-NEXT: %[[VAR185:[A-Za-z0-9.]+]] = load i[[LLSIZE]], i[[LLSIZE]]* %[[VAR184]]
   // CHECK-NEXT: %[[VAR186:[A-Za-z0-9.]+]] = add i[[LLSIZE]] %[[VAR181]], %[[VAR183]]
   // CHECK-NEXT: %[[VAR187:[A-Za-z0-9.]+]] = add i[[LLSIZE]] 0, %[[VAR185]]
-  // CHECK-NEXT: %[[VAR188:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[LLSIZE]], i[[LLSIZE]] }, { i[[LLSIZE]], i[[LLSIZE]] }* %[[CULL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
-  // CHECK-NEXT: %[[VAR189:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[LLSIZE]], i[[LLSIZE]] }, { i[[LLSIZE]], i[[LLSIZE]] }* %[[CULL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
+  // CHECK-NEXT: %[[VAR188:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSy, %complex._ZTSy* %[[CULL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
+  // CHECK-NEXT: %[[VAR189:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSy, %complex._ZTSy* %[[CULL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
   // CHECK-NEXT: store i[[LLSIZE]] %[[VAR186]], i[[LLSIZE]]* %[[VAR188]]
   // CHECK-NEXT: store i[[LLSIZE]] %[[VAR187]], i[[LLSIZE]]* %[[VAR189]]
 
@@ -379,8 +379,8 @@ void foo(signed char sc, unsigned char uc, signed long long sll,
   // CHECK-NEXT: %[[VAR196:[A-Za-z0-9.]+]] = sext i[[CHSIZE]] %[[VAR194]] to i[[LLSIZE]]
   // CHECK-NEXT: %[[VAR197:[A-Za-z0-9.]+]] = add i[[LLSIZE]] %[[VAR190]], %[[VAR195]]
   // CHECK-NEXT: %[[VAR198:[A-Za-z0-9.]+]] = add i[[LLSIZE]] 0, %[[VAR196]]
-  // CHECK-NEXT: %[[VAR199:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[LLSIZE]], i[[LLSIZE]] }, { i[[LLSIZE]], i[[LLSIZE]] }* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
-  // CHECK-NEXT: %[[VAR200:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[LLSIZE]], i[[LLSIZE]] }, { i[[LLSIZE]], i[[LLSIZE]] }* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
+  // CHECK-NEXT: %[[VAR199:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSx, %complex._ZTSx* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
+  // CHECK-NEXT: %[[VAR200:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSx, %complex._ZTSx* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
   // CHECK-NEXT: store i[[LLSIZE]] %[[VAR197]], i[[LLSIZE]]* %[[VAR199]]
   // CHECK-NEXT: store i[[LLSIZE]] %[[VAR198]], i[[LLSIZE]]* %[[VAR200]]
 
@@ -394,8 +394,8 @@ void foo(signed char sc, unsigned char uc, signed long long sll,
   // CHECK-NEXT: %[[VAR207:[A-Za-z0-9.]+]] = zext i[[CHSIZE]] %[[VAR205]] to i[[LLSIZE]]
   // CHECK-NEXT: %[[VAR208:[A-Za-z0-9.]+]] = add i[[LLSIZE]] %[[VAR201]], %[[VAR206]]
   // CHECK-NEXT: %[[VAR209:[A-Za-z0-9.]+]] = add i[[LLSIZE]] 0, %[[VAR207]]
-  // CHECK-NEXT: %[[VAR210:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[LLSIZE]], i[[LLSIZE]] }, { i[[LLSIZE]], i[[LLSIZE]] }* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
-  // CHECK-NEXT: %[[VAR211:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[LLSIZE]], i[[LLSIZE]] }, { i[[LLSIZE]], i[[LLSIZE]] }* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
+  // CHECK-NEXT: %[[VAR210:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSx, %complex._ZTSx* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
+  // CHECK-NEXT: %[[VAR211:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSx, %complex._ZTSx* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
   // CHECK-NEXT: store i[[LLSIZE]] %[[VAR208]], i[[LLSIZE]]* %[[VAR210]]
   // CHECK-NEXT: store i[[LLSIZE]] %[[VAR209]], i[[LLSIZE]]* %[[VAR211]]
 
@@ -407,8 +407,8 @@ void foo(signed char sc, unsigned char uc, signed long long sll,
   // CHECK-NEXT: %[[VAR216:[A-Za-z0-9.]+]] = load i[[LLSIZE]], i[[LLSIZE]]* %[[VAR215]]
   // CHECK-NEXT: %[[VAR217:[A-Za-z0-9.]+]] = add i[[LLSIZE]] %[[VAR212]], %[[VAR214]]
   // CHECK-NEXT: %[[VAR218:[A-Za-z0-9.]+]] = add i[[LLSIZE]] 0, %[[VAR216]]
-  // CHECK-NEXT: %[[VAR219:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[LLSIZE]], i[[LLSIZE]] }, { i[[LLSIZE]], i[[LLSIZE]] }* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
-  // CHECK-NEXT: %[[VAR220:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[LLSIZE]], i[[LLSIZE]] }, { i[[LLSIZE]], i[[LLSIZE]] }* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
+  // CHECK-NEXT: %[[VAR219:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSx, %complex._ZTSx* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
+  // CHECK-NEXT: %[[VAR220:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSx, %complex._ZTSx* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
   // CHECK-NEXT: store i[[LLSIZE]] %[[VAR217]], i[[LLSIZE]]* %[[VAR219]]
   // CHECK-NEXT: store i[[LLSIZE]] %[[VAR218]], i[[LLSIZE]]* %[[VAR220]]
 
@@ -420,8 +420,8 @@ void foo(signed char sc, unsigned char uc, signed long long sll,
   // CHECK-NEXT: %[[VAR225:[A-Za-z0-9.]+]] = load i[[LLSIZE]], i[[LLSIZE]]* %[[VAR224]]
   // CHECK-NEXT: %[[VAR226:[A-Za-z0-9.]+]] = add i[[LLSIZE]] %[[VAR221]], %[[VAR223]]
   // CHECK-NEXT: %[[VAR227:[A-Za-z0-9.]+]] = add i[[LLSIZE]] 0, %[[VAR225]]
-  // CHECK-NEXT: %[[VAR228:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[LLSIZE]], i[[LLSIZE]] }, { i[[LLSIZE]], i[[LLSIZE]] }* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
-  // CHECK-NEXT: %[[VAR229:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[LLSIZE]], i[[LLSIZE]] }, { i[[LLSIZE]], i[[LLSIZE]] }* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
+  // CHECK-NEXT: %[[VAR228:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSx, %complex._ZTSx* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
+  // CHECK-NEXT: %[[VAR229:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSx, %complex._ZTSx* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
   // CHECK-NEXT: store i[[LLSIZE]] %[[VAR226]], i[[LLSIZE]]* %[[VAR228]]
   // CHECK-NEXT: store i[[LLSIZE]] %[[VAR227]], i[[LLSIZE]]* %[[VAR229]]
   
@@ -435,8 +435,8 @@ void foo(signed char sc, unsigned char uc, signed long long sll,
   // CHECK-NEXT: %[[VAR236:[A-Za-z0-9.]+]] = sext i[[CHSIZE]] %[[VAR234]] to i[[LLSIZE]]
   // CHECK-NEXT: %[[VAR237:[A-Za-z0-9.]+]] = add i[[LLSIZE]] %[[VAR230]], %[[VAR235]]
   // CHECK-NEXT: %[[VAR238:[A-Za-z0-9.]+]] = add i[[LLSIZE]] 0, %[[VAR236]]
-  // CHECK-NEXT: %[[VAR239:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[LLSIZE]], i[[LLSIZE]] }, { i[[LLSIZE]], i[[LLSIZE]] }* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
-  // CHECK-NEXT: %[[VAR240:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[LLSIZE]], i[[LLSIZE]] }, { i[[LLSIZE]], i[[LLSIZE]] }* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
+  // CHECK-NEXT: %[[VAR239:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSx, %complex._ZTSx* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
+  // CHECK-NEXT: %[[VAR240:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSx, %complex._ZTSx* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
   // CHECK-NEXT: store i[[LLSIZE]] %[[VAR237]], i[[LLSIZE]]* %[[VAR239]]
   // CHECK-NEXT: store i[[LLSIZE]] %[[VAR238]], i[[LLSIZE]]* %[[VAR240]]
 
@@ -450,8 +450,8 @@ void foo(signed char sc, unsigned char uc, signed long long sll,
   // CHECK-NEXT: %[[VAR247:[A-Za-z0-9.]+]] = zext i[[CHSIZE]] %[[VAR245]] to i[[LLSIZE]]
   // CHECK-NEXT: %[[VAR248:[A-Za-z0-9.]+]] = add i[[LLSIZE]] %[[VAR241]], %[[VAR246]]
   // CHECK-NEXT: %[[VAR249:[A-Za-z0-9.]+]] = add i[[LLSIZE]] 0, %[[VAR247]]
-  // CHECK-NEXT: %[[VAR250:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[LLSIZE]], i[[LLSIZE]] }, { i[[LLSIZE]], i[[LLSIZE]] }* %[[CULL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
-  // CHECK-NEXT: %[[VAR251:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[LLSIZE]], i[[LLSIZE]] }, { i[[LLSIZE]], i[[LLSIZE]] }* %[[CULL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
+  // CHECK-NEXT: %[[VAR250:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSy, %complex._ZTSy* %[[CULL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
+  // CHECK-NEXT: %[[VAR251:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSy, %complex._ZTSy* %[[CULL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
   // CHECK-NEXT: store i[[LLSIZE]] %[[VAR248]], i[[LLSIZE]]* %[[VAR250]]
   // CHECK-NEXT: store i[[LLSIZE]] %[[VAR249]], i[[LLSIZE]]* %[[VAR251]]
 
@@ -463,8 +463,8 @@ void foo(signed char sc, unsigned char uc, signed long long sll,
   // CHECK-NEXT: %[[VAR256:[A-Za-z0-9.]+]] = load i[[LLSIZE]], i[[LLSIZE]]* %[[VAR255]]
   // CHECK-NEXT: %[[VAR257:[A-Za-z0-9.]+]] = add i[[LLSIZE]] %[[VAR252]], %[[VAR254]]
   // CHECK-NEXT: %[[VAR258:[A-Za-z0-9.]+]] = add i[[LLSIZE]] 0, %[[VAR256]]
-  // CHECK-NEXT: %[[VAR259:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[LLSIZE]], i[[LLSIZE]] }, { i[[LLSIZE]], i[[LLSIZE]] }* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
-  // CHECK-NEXT: %[[VAR260:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[LLSIZE]], i[[LLSIZE]] }, { i[[LLSIZE]], i[[LLSIZE]] }* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
+  // CHECK-NEXT: %[[VAR259:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSx, %complex._ZTSx* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
+  // CHECK-NEXT: %[[VAR260:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSx, %complex._ZTSx* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
   // CHECK-NEXT: store i[[LLSIZE]] %[[VAR257]], i[[LLSIZE]]* %[[VAR259]]
   // CHECK-NEXT: store i[[LLSIZE]] %[[VAR258]], i[[LLSIZE]]* %[[VAR260]]
 
@@ -476,8 +476,8 @@ void foo(signed char sc, unsigned char uc, signed long long sll,
   // CHECK-NEXT: %[[VAR265:[A-Za-z0-9.]+]] = load i[[LLSIZE]], i[[LLSIZE]]* %[[VAR264]]
   // CHECK-NEXT: %[[VAR266:[A-Za-z0-9.]+]] = add i[[LLSIZE]] %[[VAR261]], %[[VAR263]]
   // CHECK-NEXT: %[[VAR267:[A-Za-z0-9.]+]] = add i[[LLSIZE]] 0, %[[VAR265]]
-  // CHECK-NEXT: %[[VAR268:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[LLSIZE]], i[[LLSIZE]] }, { i[[LLSIZE]], i[[LLSIZE]] }* %[[CULL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
-  // CHECK-NEXT: %[[VAR269:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[LLSIZE]], i[[LLSIZE]] }, { i[[LLSIZE]], i[[LLSIZE]] }* %[[CULL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
+  // CHECK-NEXT: %[[VAR268:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSy, %complex._ZTSy* %[[CULL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
+  // CHECK-NEXT: %[[VAR269:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSy, %complex._ZTSy* %[[CULL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
   // CHECK-NEXT: store i[[LLSIZE]] %[[VAR266]], i[[LLSIZE]]* %[[VAR268]]
   // CHECK-NEXT: store i[[LLSIZE]] %[[VAR267]], i[[LLSIZE]]* %[[VAR269]]
 
@@ -494,8 +494,8 @@ void foo(signed char sc, unsigned char uc, signed long long sll,
   // CHECK-NEXT: %[[VAR279:[A-Za-z0-9.]+]] = add i[[ARSIZE]] %[[VAR275]], 0
   // CHECK-NEXT: %[[VAR280:[A-Za-z0-9.]+]] = trunc i[[ARSIZE]] %[[VAR278]] to i[[CHSIZE]]
   // CHECK-NEXT: %[[VAR281:[A-Za-z0-9.]+]] = trunc i[[ARSIZE]] %[[VAR279]] to i[[CHSIZE]]
-  // CHECK-NEXT: %[[VAR282:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[CHSIZE]], i[[CHSIZE]] }, { i[[CHSIZE]], i[[CHSIZE]] }* %[[CSC1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
-  // CHECK-NEXT: %[[VAR283:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[CHSIZE]], i[[CHSIZE]] }, { i[[CHSIZE]], i[[CHSIZE]] }* %[[CSC1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
+  // CHECK-NEXT: %[[VAR282:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSa, %complex._ZTSa* %[[CSC1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
+  // CHECK-NEXT: %[[VAR283:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSa, %complex._ZTSa* %[[CSC1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
   // CHECK-NEXT: store i[[CHSIZE]] %[[VAR280]], i[[CHSIZE]]* %[[VAR282]]
   // CHECK-NEXT: store i[[CHSIZE]] %[[VAR281]], i[[CHSIZE]]* %[[VAR283]]
 
@@ -512,8 +512,8 @@ void foo(signed char sc, unsigned char uc, signed long long sll,
   // CHECK-NEXT: %[[VAR293:[A-Za-z0-9.]+]] = add i[[ARSIZE]] %[[VAR289]], 0
   // CHECK-NEXT: %[[VAR294:[A-Za-z0-9.]+]] = trunc i[[ARSIZE]] %[[VAR292]] to i[[CHSIZE]]
   // CHECK-NEXT: %[[VAR295:[A-Za-z0-9.]+]] = trunc i[[ARSIZE]] %[[VAR293]] to i[[CHSIZE]]
-  // CHECK-NEXT: %[[VAR296:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[CHSIZE]], i[[CHSIZE]] }, { i[[CHSIZE]], i[[CHSIZE]] }* %[[CSC1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
-  // CHECK-NEXT: %[[VAR297:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[CHSIZE]], i[[CHSIZE]] }, { i[[CHSIZE]], i[[CHSIZE]] }* %[[CSC1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
+  // CHECK-NEXT: %[[VAR296:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSa, %complex._ZTSa* %[[CSC1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
+  // CHECK-NEXT: %[[VAR297:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSa, %complex._ZTSa* %[[CSC1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
   // CHECK-NEXT: store i[[CHSIZE]] %[[VAR294]], i[[CHSIZE]]* %[[VAR296]]
   // CHECK-NEXT: store i[[CHSIZE]] %[[VAR295]], i[[CHSIZE]]* %[[VAR297]]
 
@@ -527,8 +527,8 @@ void foo(signed char sc, unsigned char uc, signed long long sll,
   // CHECK-NEXT: %[[VAR304:[A-Za-z0-9.]+]] = load i[[LLSIZE]], i[[LLSIZE]]* %[[SLLADDR]], align [[LLALIGN]]
   // CHECK-NEXT: %[[VAR305:[A-Za-z0-9.]+]] = add i[[LLSIZE]] %[[VAR302]], %[[VAR304]]
   // CHECK-NEXT: %[[VAR306:[A-Za-z0-9.]+]] = add i[[LLSIZE]] %[[VAR303]], 0
-  // CHECK-NEXT: %[[VAR307:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[LLSIZE]], i[[LLSIZE]] }, { i[[LLSIZE]], i[[LLSIZE]] }* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
-  // CHECK-NEXT: %[[VAR308:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[LLSIZE]], i[[LLSIZE]] }, { i[[LLSIZE]], i[[LLSIZE]] }* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
+  // CHECK-NEXT: %[[VAR307:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSx, %complex._ZTSx* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
+  // CHECK-NEXT: %[[VAR308:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSx, %complex._ZTSx* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
   // CHECK-NEXT: store i[[LLSIZE]] %[[VAR305]], i[[LLSIZE]]* %[[VAR307]]
   // CHECK-NEXT: store i[[LLSIZE]] %[[VAR306]], i[[LLSIZE]]* %[[VAR308]]
 
@@ -542,8 +542,8 @@ void foo(signed char sc, unsigned char uc, signed long long sll,
   // CHECK-NEXT: %[[VAR315:[A-Za-z0-9.]+]] = load i[[LLSIZE]], i[[LLSIZE]]* %[[ULLADDR]], align [[LLALIGN]]
   // CHECK-NEXT: %[[VAR316:[A-Za-z0-9.]+]] = add i[[LLSIZE]] %[[VAR313]], %[[VAR315]]
   // CHECK-NEXT: %[[VAR317:[A-Za-z0-9.]+]] = add i[[LLSIZE]] %[[VAR314]], 0
-  // CHECK-NEXT: %[[VAR318:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[LLSIZE]], i[[LLSIZE]] }, { i[[LLSIZE]], i[[LLSIZE]] }* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
-  // CHECK-NEXT: %[[VAR319:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[LLSIZE]], i[[LLSIZE]] }, { i[[LLSIZE]], i[[LLSIZE]] }* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
+  // CHECK-NEXT: %[[VAR318:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSx, %complex._ZTSx* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
+  // CHECK-NEXT: %[[VAR319:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSx, %complex._ZTSx* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
   // CHECK-NEXT: store i[[LLSIZE]] %[[VAR316]], i[[LLSIZE]]* %[[VAR318]]
   // CHECK-NEXT: store i[[LLSIZE]] %[[VAR317]], i[[LLSIZE]]* %[[VAR319]]
   
@@ -560,8 +560,8 @@ void foo(signed char sc, unsigned char uc, signed long long sll,
   // CHECK-NEXT: %[[VAR329:[A-Za-z0-9.]+]] = add i[[ARSIZE]] %[[VAR325]], 0
   // CHECK-NEXT: %[[VAR330:[A-Za-z0-9.]+]] = trunc i[[ARSIZE]] %[[VAR328]] to i[[CHSIZE]]
   // CHECK-NEXT: %[[VAR331:[A-Za-z0-9.]+]] = trunc i[[ARSIZE]] %[[VAR329]] to i[[CHSIZE]]
-  // CHECK-NEXT: %[[VAR332:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[CHSIZE]], i[[CHSIZE]] }, { i[[CHSIZE]], i[[CHSIZE]] }* %[[CSC1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
-  // CHECK-NEXT: %[[VAR333:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[CHSIZE]], i[[CHSIZE]] }, { i[[CHSIZE]], i[[CHSIZE]] }* %[[CSC1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
+  // CHECK-NEXT: %[[VAR332:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSa, %complex._ZTSa* %[[CSC1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
+  // CHECK-NEXT: %[[VAR333:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSa, %complex._ZTSa* %[[CSC1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
   // CHECK-NEXT: store i[[CHSIZE]] %[[VAR330]], i[[CHSIZE]]* %[[VAR332]]
   // CHECK-NEXT: store i[[CHSIZE]] %[[VAR331]], i[[CHSIZE]]* %[[VAR333]]
 
@@ -578,8 +578,8 @@ void foo(signed char sc, unsigned char uc, signed long long sll,
   // CHECK-NEXT: %[[VAR343:[A-Za-z0-9.]+]] = add i[[ARSIZE]] %[[VAR339]], 0
   // CHECK-NEXT: %[[VAR344:[A-Za-z0-9.]+]] = trunc i[[ARSIZE]] %[[VAR342]] to i[[CHSIZE]]
   // CHECK-NEXT: %[[VAR345:[A-Za-z0-9.]+]] = trunc i[[ARSIZE]] %[[VAR343]] to i[[CHSIZE]]
-  // CHECK-NEXT: %[[VAR346:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[CHSIZE]], i[[CHSIZE]] }, { i[[CHSIZE]], i[[CHSIZE]] }* %[[CUC1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
-  // CHECK-NEXT: %[[VAR347:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[CHSIZE]], i[[CHSIZE]] }, { i[[CHSIZE]], i[[CHSIZE]] }* %[[CUC1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
+  // CHECK-NEXT: %[[VAR346:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSh, %complex._ZTSh* %[[CUC1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
+  // CHECK-NEXT: %[[VAR347:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSh, %complex._ZTSh* %[[CUC1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
   // CHECK-NEXT: store i[[CHSIZE]] %[[VAR344]], i[[CHSIZE]]* %[[VAR346]]
   // CHECK-NEXT: store i[[CHSIZE]] %[[VAR345]], i[[CHSIZE]]* %[[VAR347]]
 
@@ -593,8 +593,8 @@ void foo(signed char sc, unsigned char uc, signed long long sll,
   // CHECK-NEXT: %[[VAR354:[A-Za-z0-9.]+]] = load i[[LLSIZE]], i[[LLSIZE]]* %[[SLLADDR]], align [[LLALIGN]]
   // CHECK-NEXT: %[[VAR355:[A-Za-z0-9.]+]] = add i[[LLSIZE]] %[[VAR352]], %[[VAR354]]
   // CHECK-NEXT: %[[VAR356:[A-Za-z0-9.]+]] = add i[[LLSIZE]] %[[VAR353]], 0
-  // CHECK-NEXT: %[[VAR357:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[LLSIZE]], i[[LLSIZE]] }, { i[[LLSIZE]], i[[LLSIZE]] }* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
-  // CHECK-NEXT: %[[VAR358:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[LLSIZE]], i[[LLSIZE]] }, { i[[LLSIZE]], i[[LLSIZE]] }* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
+  // CHECK-NEXT: %[[VAR357:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSx, %complex._ZTSx* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
+  // CHECK-NEXT: %[[VAR358:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSx, %complex._ZTSx* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
   // CHECK-NEXT: store i[[LLSIZE]] %[[VAR355]], i[[LLSIZE]]* %[[VAR357]]
   // CHECK-NEXT: store i[[LLSIZE]] %[[VAR356]], i[[LLSIZE]]* %[[VAR358]]
 
@@ -608,8 +608,8 @@ void foo(signed char sc, unsigned char uc, signed long long sll,
   // CHECK-NEXT: %[[VAR363:[A-Za-z0-9.]+]] = load i[[LLSIZE]], i[[LLSIZE]]* %[[ULLADDR]], align [[LLALIGN]]
   // CHECK-NEXT: %[[VAR364:[A-Za-z0-9.]+]] = add i[[LLSIZE]] %[[VAR361]], %[[VAR363]]
   // CHECK-NEXT: %[[VAR365:[A-Za-z0-9.]+]] = add i[[LLSIZE]] %[[VAR362]], 0
-  // CHECK-NEXT: %[[VAR366:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[LLSIZE]], i[[LLSIZE]] }, { i[[LLSIZE]], i[[LLSIZE]] }* %[[CULL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
-  // CHECK-NEXT: %[[VAR367:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[LLSIZE]], i[[LLSIZE]] }, { i[[LLSIZE]], i[[LLSIZE]] }* %[[CULL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
+  // CHECK-NEXT: %[[VAR366:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSy, %complex._ZTSy* %[[CULL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
+  // CHECK-NEXT: %[[VAR367:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSy, %complex._ZTSy* %[[CULL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
   // CHECK-NEXT: store i[[LLSIZE]] %[[VAR364]], i[[LLSIZE]]* %[[VAR366]]
   // CHECK-NEXT: store i[[LLSIZE]] %[[VAR365]], i[[LLSIZE]]* %[[VAR367]]
 
@@ -622,8 +622,8 @@ void foo(signed char sc, unsigned char uc, signed long long sll,
   // CHECK-NEXT: %[[VAR373:[A-Za-z0-9.]+]] = sext i[[CHSIZE]] %[[VAR372]] to i[[LLSIZE]]
   // CHECK-NEXT: %[[VAR374:[A-Za-z0-9.]+]] = add i[[LLSIZE]] %[[VAR369]], %[[VAR373]]
   // CHECK-NEXT: %[[VAR375:[A-Za-z0-9.]+]] = add i[[LLSIZE]] %[[VAR371]], 0
-  // CHECK-NEXT: %[[VAR376:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[LLSIZE]], i[[LLSIZE]] }, { i[[LLSIZE]], i[[LLSIZE]] }* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
-  // CHECK-NEXT: %[[VAR377:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[LLSIZE]], i[[LLSIZE]] }, { i[[LLSIZE]], i[[LLSIZE]] }* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
+  // CHECK-NEXT: %[[VAR376:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSx, %complex._ZTSx* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
+  // CHECK-NEXT: %[[VAR377:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSx, %complex._ZTSx* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
   // CHECK-NEXT: store i[[LLSIZE]] %[[VAR374]], i[[LLSIZE]]* %[[VAR376]]
   // CHECK-NEXT: store i[[LLSIZE]] %[[VAR375]], i[[LLSIZE]]* %[[VAR377]]
 
@@ -636,8 +636,8 @@ void foo(signed char sc, unsigned char uc, signed long long sll,
   // CHECK-NEXT: %[[VAR383:[A-Za-z0-9.]+]] = zext i[[CHSIZE]] %[[VAR382]] to i[[LLSIZE]]
   // CHECK-NEXT: %[[VAR384:[A-Za-z0-9.]+]] = add i[[LLSIZE]] %[[VAR379]], %[[VAR383]]
   // CHECK-NEXT: %[[VAR385:[A-Za-z0-9.]+]] = add i[[LLSIZE]] %[[VAR381]], 0
-  // CHECK-NEXT: %[[VAR386:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[LLSIZE]], i[[LLSIZE]] }, { i[[LLSIZE]], i[[LLSIZE]] }* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
-  // CHECK-NEXT: %[[VAR387:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[LLSIZE]], i[[LLSIZE]] }, { i[[LLSIZE]], i[[LLSIZE]] }* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
+  // CHECK-NEXT: %[[VAR386:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSx, %complex._ZTSx* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
+  // CHECK-NEXT: %[[VAR387:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSx, %complex._ZTSx* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
   // CHECK-NEXT: store i[[LLSIZE]] %[[VAR384]], i[[LLSIZE]]* %[[VAR386]]
   // CHECK-NEXT: store i[[LLSIZE]] %[[VAR385]], i[[LLSIZE]]* %[[VAR387]]
 
@@ -649,8 +649,8 @@ void foo(signed char sc, unsigned char uc, signed long long sll,
   // CHECK-NEXT: %[[VAR392:[A-Za-z0-9.]+]] = load i[[LLSIZE]], i[[LLSIZE]]* %[[SLLADDR]], align [[LLALIGN]]
   // CHECK-NEXT: %[[VAR393:[A-Za-z0-9.]+]] = add i[[LLSIZE]] %[[VAR389]], %[[VAR392]]
   // CHECK-NEXT: %[[VAR394:[A-Za-z0-9.]+]] = add i[[LLSIZE]] %[[VAR391]], 0
-  // CHECK-NEXT: %[[VAR395:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[LLSIZE]], i[[LLSIZE]] }, { i[[LLSIZE]], i[[LLSIZE]] }* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
-  // CHECK-NEXT: %[[VAR396:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[LLSIZE]], i[[LLSIZE]] }, { i[[LLSIZE]], i[[LLSIZE]] }* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
+  // CHECK-NEXT: %[[VAR395:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSx, %complex._ZTSx* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
+  // CHECK-NEXT: %[[VAR396:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSx, %complex._ZTSx* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
   // CHECK-NEXT: store i[[LLSIZE]] %[[VAR393]], i[[LLSIZE]]* %[[VAR395]]
   // CHECK-NEXT: store i[[LLSIZE]] %[[VAR394]], i[[LLSIZE]]* %[[VAR396]]
 
@@ -662,8 +662,8 @@ void foo(signed char sc, unsigned char uc, signed long long sll,
   // CHECK-NEXT: %[[VAR401:[A-Za-z0-9.]+]] = load i[[LLSIZE]], i[[LLSIZE]]* %[[ULLADDR]], align [[LLALIGN]]
   // CHECK-NEXT: %[[VAR402:[A-Za-z0-9.]+]] = add i[[LLSIZE]] %[[VAR398]], %[[VAR401]]
   // CHECK-NEXT: %[[VAR403:[A-Za-z0-9.]+]] = add i[[LLSIZE]] %[[VAR400]], 0
-  // CHECK-NEXT: %[[VAR404:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[LLSIZE]], i[[LLSIZE]] }, { i[[LLSIZE]], i[[LLSIZE]] }* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
-  // CHECK-NEXT: %[[VAR405:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[LLSIZE]], i[[LLSIZE]] }, { i[[LLSIZE]], i[[LLSIZE]] }* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
+  // CHECK-NEXT: %[[VAR404:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSx, %complex._ZTSx* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
+  // CHECK-NEXT: %[[VAR405:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSx, %complex._ZTSx* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
   // CHECK-NEXT: store i[[LLSIZE]] %[[VAR402]], i[[LLSIZE]]* %[[VAR404]]
   // CHECK-NEXT: store i[[LLSIZE]] %[[VAR403]], i[[LLSIZE]]* %[[VAR405]]
   
@@ -676,8 +676,8 @@ void foo(signed char sc, unsigned char uc, signed long long sll,
   // CHECK-NEXT: %[[VAR411:[A-Za-z0-9.]+]] = sext i[[CHSIZE]] %[[VAR410]] to i[[LLSIZE]]
   // CHECK-NEXT: %[[VAR412:[A-Za-z0-9.]+]] = add i[[LLSIZE]] %[[VAR407]], %[[VAR411]]
   // CHECK-NEXT: %[[VAR413:[A-Za-z0-9.]+]] = add i[[LLSIZE]] %[[VAR409]], 0
-  // CHECK-NEXT: %[[VAR414:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[LLSIZE]], i[[LLSIZE]] }, { i[[LLSIZE]], i[[LLSIZE]] }* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
-  // CHECK-NEXT: %[[VAR415:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[LLSIZE]], i[[LLSIZE]] }, { i[[LLSIZE]], i[[LLSIZE]] }* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
+  // CHECK-NEXT: %[[VAR414:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSx, %complex._ZTSx* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
+  // CHECK-NEXT: %[[VAR415:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSx, %complex._ZTSx* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
   // CHECK-NEXT: store i[[LLSIZE]] %[[VAR412]], i[[LLSIZE]]* %[[VAR414]]
   // CHECK-NEXT: store i[[LLSIZE]] %[[VAR413]], i[[LLSIZE]]* %[[VAR415]]
 
@@ -690,8 +690,8 @@ void foo(signed char sc, unsigned char uc, signed long long sll,
   // CHECK-NEXT: %[[VAR421:[A-Za-z0-9.]+]] = zext i[[CHSIZE]] %[[VAR420]] to i[[LLSIZE]]
   // CHECK-NEXT: %[[VAR422:[A-Za-z0-9.]+]] = add i[[LLSIZE]] %[[VAR417]], %[[VAR421]]
   // CHECK-NEXT: %[[VAR423:[A-Za-z0-9.]+]] = add i[[LLSIZE]] %[[VAR419]], 0
-  // CHECK-NEXT: %[[VAR424:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[LLSIZE]], i[[LLSIZE]] }, { i[[LLSIZE]], i[[LLSIZE]] }* %[[CULL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
-  // CHECK-NEXT: %[[VAR425:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[LLSIZE]], i[[LLSIZE]] }, { i[[LLSIZE]], i[[LLSIZE]] }* %[[CULL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
+  // CHECK-NEXT: %[[VAR424:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSy, %complex._ZTSy* %[[CULL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
+  // CHECK-NEXT: %[[VAR425:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSy, %complex._ZTSy* %[[CULL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
   // CHECK-NEXT: store i[[LLSIZE]] %[[VAR422]], i[[LLSIZE]]* %[[VAR424]]
   // CHECK-NEXT: store i[[LLSIZE]] %[[VAR423]], i[[LLSIZE]]* %[[VAR425]]
 
@@ -703,8 +703,8 @@ void foo(signed char sc, unsigned char uc, signed long long sll,
   // CHECK-NEXT: %[[VAR430:[A-Za-z0-9.]+]] = load i[[LLSIZE]], i[[LLSIZE]]* %[[SLLADDR]], align [[LLALIGN]]
   // CHECK-NEXT: %[[VAR431:[A-Za-z0-9.]+]] = add i[[LLSIZE]] %[[VAR427]], %[[VAR430]]
   // CHECK-NEXT: %[[VAR432:[A-Za-z0-9.]+]] = add i[[LLSIZE]] %[[VAR429]], 0
-  // CHECK-NEXT: %[[VAR433:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[LLSIZE]], i[[LLSIZE]] }, { i[[LLSIZE]], i[[LLSIZE]] }* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
-  // CHECK-NEXT: %[[VAR434:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[LLSIZE]], i[[LLSIZE]] }, { i[[LLSIZE]], i[[LLSIZE]] }* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
+  // CHECK-NEXT: %[[VAR433:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSx, %complex._ZTSx* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
+  // CHECK-NEXT: %[[VAR434:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSx, %complex._ZTSx* %[[CSLL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
   // CHECK-NEXT: store i[[LLSIZE]] %[[VAR431]], i[[LLSIZE]]* %[[VAR433]]
   // CHECK-NEXT: store i[[LLSIZE]] %[[VAR432]], i[[LLSIZE]]* %[[VAR434]]
 
@@ -716,8 +716,8 @@ void foo(signed char sc, unsigned char uc, signed long long sll,
   // CHECK-NEXT: %[[VAR439:[A-Za-z0-9.]+]] = load i[[LLSIZE]], i[[LLSIZE]]* %[[ULLADDR]], align [[LLALIGN]]
   // CHECK-NEXT: %[[VAR440:[A-Za-z0-9.]+]] = add i[[LLSIZE]] %[[VAR436]], %[[VAR439]]
   // CHECK-NEXT: %[[VAR441:[A-Za-z0-9.]+]] = add i[[LLSIZE]] %[[VAR438]], 0
-  // CHECK-NEXT: %[[VAR442:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[LLSIZE]], i[[LLSIZE]] }, { i[[LLSIZE]], i[[LLSIZE]] }* %[[CULL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
-  // CHECK-NEXT: %[[VAR443:[A-Za-z0-9.]+]] = getelementptr inbounds { i[[LLSIZE]], i[[LLSIZE]] }, { i[[LLSIZE]], i[[LLSIZE]] }* %[[CULL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
+  // CHECK-NEXT: %[[VAR442:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSy, %complex._ZTSy* %[[CULL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
+  // CHECK-NEXT: %[[VAR443:[A-Za-z0-9.]+]] = getelementptr inbounds %complex._ZTSy, %complex._ZTSy* %[[CULL1]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
   // CHECK-NEXT: store i[[LLSIZE]] %[[VAR440]], i[[LLSIZE]]* %[[VAR442]]
   // CHECK-NEXT: store i[[LLSIZE]] %[[VAR441]], i[[LLSIZE]]* %[[VAR443]]
 }

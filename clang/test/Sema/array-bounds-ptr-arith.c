@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -verify -Warray-bounds-pointer-arithmetic %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -verify -Warray-bounds-pointer-arithmetic %s
 
 // Test case from PR10615
 struct ext2_super_block{

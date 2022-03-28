@@ -1,9 +1,9 @@
 // UNSUPPORTED: -aix
 // RUN: rm -rf %t
 // RUN: split-file %s %t
-// RUN: %clang_cc1 -emit-llvm -o %t/test.bc -F%t/Frameworks %t/test.m -Werror=objc-method-access -DHIDDEN_FIRST=1 \
+// RUN: %clang_cc1 -triple %itanium_abi_triple -emit-llvm -o %t/test.bc -F%t/Frameworks %t/test.m -Werror=objc-method-access -DHIDDEN_FIRST=1 \
 // RUN:            -fmodules -fimplicit-module-maps -fmodules-cache-path=%t/modules.cache
-// RUN: %clang_cc1 -emit-llvm -o %t/test.bc -F%t/Frameworks %t/test.m -Werror=objc-method-access -DHIDDEN_FIRST=0 \
+// RUN: %clang_cc1 -triple %itanium_abi_triple -emit-llvm -o %t/test.bc -F%t/Frameworks %t/test.m -Werror=objc-method-access -DHIDDEN_FIRST=0 \
 // RUN:            -fmodules -fimplicit-module-maps -fmodules-cache-path=%t/modules.cache
 
 // Test a case when Objective-C protocol is imported both as hidden and as visible.

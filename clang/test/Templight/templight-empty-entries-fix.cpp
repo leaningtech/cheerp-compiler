@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -templight-dump -Wno-unused-value %s 2>&1 | FileCheck %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -templight-dump -Wno-unused-value %s 2>&1 | FileCheck %s
 
 void a() {
   [] {};

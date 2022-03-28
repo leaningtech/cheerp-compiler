@@ -45,8 +45,8 @@ void test1(void) {
 // ARM: call{{.*}} void @__atomic_store_4(i8* noundef bitcast (i32* @i1 to i8*), i32 noundef
 // ARM: = call{{.*}} i64 @__atomic_load_8(i8* noundef bitcast (i64* @ll1 to i8*)
 // ARM: call{{.*}} void @__atomic_store_8(i8* noundef bitcast (i64* @ll1 to i8*), i64 noundef
-// ARM: call{{.*}} void @__atomic_load(i32 noundef 100, i8* noundef getelementptr inbounds ([100 x i8], [100 x i8]* @a1, i32 0, i32 0), i8* noundef getelementptr inbounds ([100 x i8], [100 x i8]* @a2, i32 0, i32 0)
-// ARM: call{{.*}} void @__atomic_store(i32 noundef 100, i8* noundef getelementptr inbounds ([100 x i8], [100 x i8]* @a1, i32 0, i32 0), i8* noundef getelementptr inbounds ([100 x i8], [100 x i8]* @a2, i32 0, i32 0)
+// ARM: call{{.*}} void @__atomic_load(i32 noundef 100, i8* noundef bitcast ([100 x i8]* @a1 to i8*), i8* noundef bitcast ([100 x i8]* @a2 to i8*)
+// ARM: call{{.*}} void @__atomic_store(i32 noundef 100, i8* noundef bitcast ([100 x i8]* @a1 to i8*), i8* noundef bitcast ([100 x i8]* @a2 to i8*)
 
 // PPC32-LABEL: define{{.*}} void @test1
 // PPC32: = load atomic i8, i8* @c1 seq_cst, align 1
@@ -57,8 +57,8 @@ void test1(void) {
 // PPC32: store atomic i32 {{.*}}, i32* @i1 seq_cst, align 4
 // PPC32: = call i64 @__atomic_load_8(i8* noundef bitcast (i64* @ll1 to i8*)
 // PPC32: call void @__atomic_store_8(i8* noundef bitcast (i64* @ll1 to i8*), i64
-// PPC32: call void @__atomic_load(i32 noundef 100, i8* noundef getelementptr inbounds ([100 x i8], [100 x i8]* @a1, i32 0, i32 0), i8* noundef getelementptr inbounds ([100 x i8], [100 x i8]* @a2, i32 0, i32 0)
-// PPC32: call void @__atomic_store(i32 noundef 100, i8* noundef getelementptr inbounds ([100 x i8], [100 x i8]* @a1, i32 0, i32 0), i8* noundef getelementptr inbounds ([100 x i8], [100 x i8]* @a2, i32 0, i32 0)
+// PPC32: call void @__atomic_load(i32 noundef 100, i8* noundef bitcast ([100 x i8]* @a1 to i8*), i8* noundef bitcast ([100 x i8]* @a2 to i8*)
+// PPC32: call void @__atomic_store(i32 noundef 100, i8* noundef bitcast ([100 x i8]* @a1 to i8*), i8* noundef bitcast ([100 x i8]* @a2 to i8*)
 
 // PPC64-LABEL: define{{.*}} void @test1
 // PPC64: = load atomic i8, i8* @c1 seq_cst, align 1
@@ -69,8 +69,8 @@ void test1(void) {
 // PPC64: store atomic i32 {{.*}}, i32* @i1 seq_cst, align 4
 // PPC64: = load atomic i64, i64* @ll1 seq_cst, align 8
 // PPC64: store atomic i64 {{.*}}, i64* @ll1 seq_cst, align 8
-// PPC64: call void @__atomic_load(i64 noundef 100, i8* noundef getelementptr inbounds ([100 x i8], [100 x i8]* @a1, i32 0, i32 0), i8* noundef getelementptr inbounds ([100 x i8], [100 x i8]* @a2, i32 0, i32 0)
-// PPC64: call void @__atomic_store(i64 noundef 100, i8* noundef getelementptr inbounds ([100 x i8], [100 x i8]* @a1, i32 0, i32 0), i8* noundef getelementptr inbounds ([100 x i8], [100 x i8]* @a2, i32 0, i32 0)
+// PPC64: call void @__atomic_load(i64 noundef 100, i8* noundef bitcast ([100 x i8]* @a1 to i8*), i8* noundef bitcast ([100 x i8]* @a2 to i8*)
+// PPC64: call void @__atomic_store(i64 noundef 100, i8* noundef bitcast ([100 x i8]* @a1 to i8*), i8* noundef bitcast ([100 x i8]* @a2 to i8*)
 
 // MIPS32-LABEL: define{{.*}} void @test1
 // MIPS32: = load atomic i8, i8* @c1 seq_cst, align 1
@@ -81,8 +81,8 @@ void test1(void) {
 // MIPS32: store atomic i32 {{.*}}, i32* @i1 seq_cst, align 4
 // MIPS32: call i64 @__atomic_load_8(i8* noundef bitcast (i64* @ll1 to i8*)
 // MIPS32: call void @__atomic_store_8(i8* noundef bitcast (i64* @ll1 to i8*), i64
-// MIPS32: call void @__atomic_load(i32 noundef signext 100, i8* noundef getelementptr inbounds ([100 x i8], [100 x i8]* @a1, i32 0, i32 0), i8* noundef getelementptr inbounds ([100 x i8], [100 x i8]* @a2, i32 0, i32 0)
-// MIPS32: call void @__atomic_store(i32 noundef signext 100, i8* noundef getelementptr inbounds ([100 x i8], [100 x i8]* @a1, i32 0, i32 0), i8* noundef getelementptr inbounds ([100 x i8], [100 x i8]* @a2, i32 0, i32 0)
+// MIPS32: call void @__atomic_load(i32 noundef signext 100, i8* noundef bitcast ([100 x i8]* @a1 to i8*), i8* noundef bitcast ([100 x i8]* @a2 to i8*)
+// MIPS32: call void @__atomic_store(i32 noundef signext 100, i8* noundef bitcast ([100 x i8]* @a1 to i8*), i8* noundef bitcast ([100 x i8]* @a2 to i8*)
 
 // MIPS64-LABEL: define{{.*}} void @test1
 // MIPS64: = load atomic i8, i8* @c1 seq_cst, align 1
@@ -93,8 +93,8 @@ void test1(void) {
 // MIPS64: store atomic i32 {{.*}}, i32* @i1 seq_cst, align 4
 // MIPS64: = load atomic i64, i64* @ll1 seq_cst, align 8
 // MIPS64: store atomic i64 {{.*}}, i64* @ll1 seq_cst, align 8
-// MIPS64: call void @__atomic_load(i64 noundef zeroext 100, i8* noundef getelementptr inbounds ([100 x i8], [100 x i8]* @a1, i32 0, i32 0)
-// MIPS64: call void @__atomic_store(i64 noundef zeroext 100, i8* noundef getelementptr inbounds ([100 x i8], [100 x i8]* @a1, i32 0, i32 0), i8* noundef getelementptr inbounds ([100 x i8], [100 x i8]* @a2, i32 0, i32 0)
+// MIPS64: call void @__atomic_load(i64 noundef zeroext 100, i8* noundef bitcast ([100 x i8]* @a1 to i8*)
+// MIPS64: call void @__atomic_store(i64 noundef zeroext 100, i8* noundef bitcast ([100 x i8]* @a1 to i8*), i8* noundef bitcast ([100 x i8]* @a2 to i8*)
 
 // SPARC-LABEL: define{{.*}} void @test1
 // SPARC: = load atomic i8, i8* @c1 seq_cst, align 1
@@ -107,6 +107,6 @@ void test1(void) {
 // SPARCV8: call void @__atomic_store_8(i8* noundef bitcast (i64* @ll1 to i8*), i64
 // SPARCV9: load atomic i64, i64* @ll1 seq_cst, align 8
 // SPARCV9: store atomic i64 {{.*}}, i64* @ll1 seq_cst, align 8
-// SPARCV8: call void @__atomic_load(i32 noundef 100, i8* noundef getelementptr inbounds ([100 x i8], [100 x i8]* @a1, i32 0, i32 0), i8* noundef getelementptr inbounds ([100 x i8], [100 x i8]* @a2, i32 0, i32 0)
-// SPARCV8: call void @__atomic_store(i32 noundef 100, i8* noundef getelementptr inbounds ([100 x i8], [100 x i8]* @a1, i32 0, i32 0), i8* noundef getelementptr inbounds ([100 x i8], [100 x i8]* @a2, i32 0, i32 0)
+// SPARCV8: call void @__atomic_load(i32 noundef 100, i8* noundef bitcast ([100 x i8]* @a1 to i8*), i8* noundef bitcast ([100 x i8]* @a2 to i8*)
+// SPARCV8: call void @__atomic_store(i32 noundef 100, i8* noundef bitcast ([100 x i8]* @a1 to i8*), i8* noundef bitcast ([100 x i8]* @a2 to i8*)
 }

@@ -141,9 +141,9 @@ namespace test4 {
     // CHECK-NEXT: [[ALLOCATED:%.*]] = getelementptr inbounds i8, i8* [[T0]], i64 [[OFFSET]]
     //   Load the complete-object destructor (not the deleting destructor)
     //   and call noundef it.
-    // CHECK-NEXT: [[T0:%.*]] = bitcast [[X:%.*]]* [[XP:%.*]] to void ([[X]]*)***
-    // CHECK-NEXT: [[VTABLE:%.*]] = load void ([[X]]*)**, void ([[X]]*)*** [[T0]]
-    // CHECK-NEXT: [[T0:%.*]] = getelementptr inbounds void ([[X]]*)*, void ([[X]]*)** [[VTABLE]], i64 0
+    // CHECK: [[VTABLE:%.*]] = load i32
+    // CHECK-NEXT: [[T0:%.*]] = bitcast {{.*}} to void ([[X]]*)**
+    // CHECK-NEXT: [[T0:%.*]] = getelementptr inbounds void ([[X]]*)*, void ([[X]]*)** {{.*}}, i64 0
     // CHECK-NEXT: [[DTOR:%.*]] = load void ([[X]]*)*, void ([[X]]*)** [[T0]]
     // CHECK-NEXT: call void [[DTOR]]([[X]]* {{[^,]*}} [[OBJ:%.*]])
     //   Call the global operator delete.

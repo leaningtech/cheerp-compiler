@@ -1,5 +1,6 @@
 ; RUN: %llc_dwarf -O0 -filetype=obj -dwarf-linkage-names=All < %s | llvm-dwarfdump - | FileCheck %s --implicit-check-not "{{DW_TAG|NULL}}"
 
+target triple = "x86_64-apple-macosx10.12.0"
 ; CHECK: debug_info contents
 ; CHECK:DW_TAG_compile_unit
 

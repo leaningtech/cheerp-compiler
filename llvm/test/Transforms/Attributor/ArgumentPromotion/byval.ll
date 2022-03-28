@@ -13,7 +13,7 @@ define internal i32 @f(%struct.ss* byval(%struct.ss)  %b) nounwind  {
 ; IS________OPM-LABEL: define {{[^@]+}}@f
 ; IS________OPM-SAME: (%struct.ss* noalias nocapture nofree noundef nonnull byval([[STRUCT_SS:%.*]]) align 8 dereferenceable(12) [[B:%.*]]) #[[ATTR0:[0-9]+]] {
 ; IS________OPM-NEXT:  entry:
-; IS________OPM-NEXT:    [[TMP:%.*]] = getelementptr [[STRUCT_SS]], %struct.ss* [[B]], i32 0, i32 0
+; IS________OPM-NEXT:    [[TMP:%.*]] = bitcast [[STRUCT_SS]]* [[B]] to i32*
 ; IS________OPM-NEXT:    [[TMP1:%.*]] = load i32, i32* [[TMP]], align 8
 ; IS________OPM-NEXT:    [[TMP2:%.*]] = add i32 [[TMP1]], 1
 ; IS________OPM-NEXT:    store i32 [[TMP2]], i32* [[TMP]], align 8
@@ -28,7 +28,7 @@ define internal i32 @f(%struct.ss* byval(%struct.ss)  %b) nounwind  {
 ; IS________NPM-NEXT:    store i32 [[TMP0]], i32* [[B_PRIV_CAST]], align 4
 ; IS________NPM-NEXT:    [[B_PRIV_0_1:%.*]] = getelementptr [[STRUCT_SS]], %struct.ss* [[B_PRIV]], i64 0, i32 1
 ; IS________NPM-NEXT:    store i64 [[TMP1]], i64* [[B_PRIV_0_1]], align 4
-; IS________NPM-NEXT:    [[TMP:%.*]] = getelementptr [[STRUCT_SS]], %struct.ss* [[B_PRIV]], i32 0, i32 0
+; IS________NPM-NEXT:    [[TMP:%.*]] = bitcast [[STRUCT_SS]]* [[B_PRIV]] to i32*
 ; IS________NPM-NEXT:    [[TMP1:%.*]] = load i32, i32* [[TMP]], align 8
 ; IS________NPM-NEXT:    [[TMP2:%.*]] = add i32 [[TMP1]], 1
 ; IS________NPM-NEXT:    store i32 [[TMP2]], i32* [[TMP]], align 8
@@ -48,7 +48,7 @@ define internal i32 @g(%struct.ss* byval(%struct.ss) align 32 %b) nounwind {
 ; IS________OPM-LABEL: define {{[^@]+}}@g
 ; IS________OPM-SAME: (%struct.ss* noalias nocapture nofree noundef nonnull byval([[STRUCT_SS:%.*]]) align 32 dereferenceable(12) [[B:%.*]]) #[[ATTR0]] {
 ; IS________OPM-NEXT:  entry:
-; IS________OPM-NEXT:    [[TMP:%.*]] = getelementptr [[STRUCT_SS]], %struct.ss* [[B]], i32 0, i32 0
+; IS________OPM-NEXT:    [[TMP:%.*]] = bitcast [[STRUCT_SS]]* [[B]] to i32*
 ; IS________OPM-NEXT:    [[TMP1:%.*]] = load i32, i32* [[TMP]], align 32
 ; IS________OPM-NEXT:    [[TMP2:%.*]] = add i32 [[TMP1]], 1
 ; IS________OPM-NEXT:    store i32 [[TMP2]], i32* [[TMP]], align 32
@@ -63,7 +63,7 @@ define internal i32 @g(%struct.ss* byval(%struct.ss) align 32 %b) nounwind {
 ; IS________NPM-NEXT:    store i32 [[TMP0]], i32* [[B_PRIV_CAST]], align 4
 ; IS________NPM-NEXT:    [[B_PRIV_0_1:%.*]] = getelementptr [[STRUCT_SS]], %struct.ss* [[B_PRIV]], i64 0, i32 1
 ; IS________NPM-NEXT:    store i64 [[TMP1]], i64* [[B_PRIV_0_1]], align 4
-; IS________NPM-NEXT:    [[TMP:%.*]] = getelementptr [[STRUCT_SS]], %struct.ss* [[B_PRIV]], i32 0, i32 0
+; IS________NPM-NEXT:    [[TMP:%.*]] = bitcast [[STRUCT_SS]]* [[B_PRIV]] to i32*
 ; IS________NPM-NEXT:    [[TMP1:%.*]] = load i32, i32* [[TMP]], align 32
 ; IS________NPM-NEXT:    [[TMP2:%.*]] = add i32 [[TMP1]], 1
 ; IS________NPM-NEXT:    store i32 [[TMP2]], i32* [[TMP]], align 32

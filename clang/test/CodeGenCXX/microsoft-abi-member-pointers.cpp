@@ -791,7 +791,7 @@ void (C::*getmp())() {
 //
 
 // CHECK-LABEL: define linkonce_odr x86_thiscallcc void @"??_9C@Test4@@$BA@AE"(%"struct.Test4::C"* noundef %this, ...) {{.*}} comdat
-// CHECK-NOT:  getelementptr
+// CHECK:  getelementptr
 // CHECK:  load void (%"struct.Test4::C"*, ...)**, void (%"struct.Test4::C"*, ...)*** %{{.*}}
 // CHECK:  getelementptr inbounds void (%"struct.Test4::C"*, ...)*, void (%"struct.Test4::C"*, ...)** %{{.*}}, i64 0
 // CHECK-NOT:  getelementptr

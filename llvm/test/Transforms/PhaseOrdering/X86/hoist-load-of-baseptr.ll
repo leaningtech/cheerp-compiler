@@ -75,7 +75,7 @@ define dso_local void @_Z7computeRSt6vectorIiSaIiEEy(%"class.std::vector"* nound
 ; OLDPM_O2-NEXT:    br i1 [[TMP9]], label [[MIDDLE_BLOCK:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP4:![0-9]+]]
 ; OLDPM_O2:       middle.block:
 ; OLDPM_O2-NEXT:    br i1 [[CMP_N]], label [[FOR_COND_CLEANUP3]], label [[FOR_BODY4_PREHEADER11]]
-; OLDPM_O2:       for.body4.preheader11:
+; OLDPM_O2:       for.body4.preheader9:
 ; OLDPM_O2-NEXT:    [[J_07_PH:%.*]] = phi i64 [ 0, [[FOR_BODY4_PREHEADER]] ], [ [[N_VEC]], [[MIDDLE_BLOCK]] ]
 ; OLDPM_O2-NEXT:    br label [[FOR_BODY4:%.*]]
 ; OLDPM_O2:       for.cond.cleanup:
@@ -207,7 +207,7 @@ define dso_local void @_Z7computeRSt6vectorIiSaIiEEy(%"class.std::vector"* nound
 ; NEWPM_O2-NEXT:    br i1 [[TMP9]], label [[MIDDLE_BLOCK:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP4:![0-9]+]]
 ; NEWPM_O2:       middle.block:
 ; NEWPM_O2-NEXT:    br i1 [[CMP_N]], label [[FOR_COND_CLEANUP3]], label [[FOR_BODY4_PREHEADER11]]
-; NEWPM_O2:       for.body4.preheader11:
+; NEWPM_O2:       for.body4.preheader9:
 ; NEWPM_O2-NEXT:    [[J_07_PH:%.*]] = phi i64 [ 0, [[FOR_BODY4_PREHEADER]] ], [ [[N_VEC]], [[MIDDLE_BLOCK]] ]
 ; NEWPM_O2-NEXT:    br label [[FOR_BODY4:%.*]]
 ; NEWPM_O2:       for.cond.cleanup:

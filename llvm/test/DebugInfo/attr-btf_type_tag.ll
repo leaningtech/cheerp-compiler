@@ -9,6 +9,7 @@
 ; Compilation flag:
 ;   clang -target x86_64 -g -S -emit-llvm t.c
 
+target triple = "x86_64-apple-macosx10.12.0"
 @g = dso_local global i32*** null, align 8, !dbg !0
 
 !llvm.dbg.cu = !{!2}

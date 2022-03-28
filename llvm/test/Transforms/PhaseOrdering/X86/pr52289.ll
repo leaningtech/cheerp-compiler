@@ -6,7 +6,7 @@ target datalayout = "n8:16:32:64"
 define i32 @main(i32 %a) {
 ; CHECK-LABEL: @main(
 ; CHECK-NEXT:  if.end:
-; CHECK-NEXT:    ret i32 0
+; CHECK:    ret i32 0
 ;
   %inc = add nsw i32 %a, 1
   %and = and i32 %inc, 8

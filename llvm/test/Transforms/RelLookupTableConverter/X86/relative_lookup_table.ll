@@ -109,15 +109,15 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Relative lookup table for the loop hoist check test
 ; CHECK: @reltable.loop_hoist = internal unnamed_addr constant [2 x i32]
 ; CHECK-SAME: [
-; CHECK-SAME: i32 trunc (i64 sub (i64 ptrtoint ([2 x i8]* @.str.8 to i64), i64 ptrtoint ([2 x i32]* @reltable.loop_hoist to i64)) to i32),
-; CHECK-SAME: i32 trunc (i64 sub (i64 ptrtoint ([2 x i8]* @.str.9 to i64), i64 ptrtoint ([2 x i32]* @reltable.loop_hoist to i64)) to i32)
+; CHECK-SAME: i32 trunc (i64 sub (i64 ptrtoint (i8* getelementptr inbounds ([2 x i8], [2 x i8]* @.str.8, i32 0, i32 0) to i64), i64 ptrtoint ([2 x i32]* @reltable.loop_hoist to i64)) to i32),
+; CHECK-SAME: i32 trunc (i64 sub (i64 ptrtoint (i8* getelementptr inbounds ([2 x i8], [2 x i8]* @.str.9, i32 0, i32 0) to i64), i64 ptrtoint ([2 x i32]* @reltable.loop_hoist to i64)) to i32)
 ; CHECK-SAME: ], align 4
 
 ; Relative look up table for the test where gep is not immediately followed by a load check
 ; CHECK: @reltable.gep_is_not_imm_followed_by_load = internal unnamed_addr constant [2 x i32]
 ; CHECK-SAME: [
-; CHECK-SAME: i32 trunc (i64 sub (i64 ptrtoint ([2 x i8]* @.str.8 to i64), i64 ptrtoint ([2 x i32]* @reltable.gep_is_not_imm_followed_by_load to i64)) to i32),
-; CHECK-SAME: i32 trunc (i64 sub (i64 ptrtoint ([2 x i8]* @.str.9 to i64), i64 ptrtoint ([2 x i32]* @reltable.gep_is_not_imm_followed_by_load to i64)) to i32)
+; CHECK-SAME: i32 trunc (i64 sub (i64 ptrtoint (i8* getelementptr inbounds ([2 x i8], [2 x i8]* @.str.8, i32 0, i32 0) to i64), i64 ptrtoint ([2 x i32]* @reltable.gep_is_not_imm_followed_by_load to i64)) to i32),
+; CHECK-SAME: i32 trunc (i64 sub (i64 ptrtoint (i8* getelementptr inbounds ([2 x i8], [2 x i8]* @.str.9, i32 0, i32 0) to i64), i64 ptrtoint ([2 x i32]* @reltable.gep_is_not_imm_followed_by_load to i64)) to i32)
 ; CHECK-SAME: ], align 4
 
 ; Lookup table check for integer pointers that have external linkage

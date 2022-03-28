@@ -16,6 +16,8 @@
 ; this subprogram.
 ; CHECK-NOT: DW_AT_specification ([[FOO_INL]]
 
+target triple = "x86_64-apple-macosx10.12.0"
+
 %class.A = type { i8 }
 %class.B = type { i8 }
 

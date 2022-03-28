@@ -18,6 +18,6 @@ entry:
   ; CHECK-NEXT: load i32, i32* %x.hwasan
   %y = load i32, i32* %x
   ; CHECK: {{[0-9]+}} = MemoryDef([[A]])
-  ; CHECK-NEXT: call void @llvm.memset.p0i8.i64
+  ; CHECK-NEXT: call void @llvm.memset.p0i8.i32
   ret i32 %y
 }

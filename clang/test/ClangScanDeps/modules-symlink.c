@@ -8,7 +8,7 @@
 [
   {
     "directory": "DIR",
-    "command": "clang -x c-header DIR/pch.h -fmodules -gmodules -fimplicit-module-maps -fmodules-cache-path=DIR/cache -o DIR/pch.h.gch",
+    "command": "clang -x c-header DIR/pch.h -target x86_64 -fmodules -gmodules -fimplicit-module-maps -fmodules-cache-path=DIR/cache -o DIR/pch.h.gch",
     "file": "DIR/pch.h"
   }
 ]
@@ -17,7 +17,7 @@
 [
   {
     "directory": "DIR",
-    "command": "clang -c DIR/tu.c -fmodules -gmodules -fimplicit-module-maps -fmodules-cache-path=DIR/cache -include DIR/pch.h -o DIR/tu.o",
+    "command": "clang -c DIR/tu.c -target x86_64 -fmodules -gmodules -fimplicit-module-maps -fmodules-cache-path=DIR/cache -include DIR/pch.h -o DIR/tu.o",
     "file": "DIR/tu.c"
   }
 ]

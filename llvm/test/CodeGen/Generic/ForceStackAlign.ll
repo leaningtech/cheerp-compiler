@@ -8,6 +8,8 @@
 ; Stack realignment not supported.
 ; XFAIL: sparc
 
+target triple = "x86_64-apple-macosx10.12.0"
+
 define i32 @f(i8* %p) nounwind {
 entry:
   %0 = load i8, i8* %p

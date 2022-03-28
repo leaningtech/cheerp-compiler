@@ -22,9 +22,9 @@ define dso_local noundef i32 @_Z3fooi(i32 noundef %0) sanitize_hwaddress {
   %5 = load volatile i32, i32* %3, align 4
   %6 = add nsw i32 %4, %5
   ; Check we untag before the musttail.
-  ; CHECK: call void @llvm.memset.p0i8.i64
+  ; CHECK: call void @llvm.memset.p0i8.i32
   ; CHECK: musttail call
-  ; CHECK-NOT: call void @llvm.memset.p0i8.i64
+  ; CHECK-NOT: call void @llvm.memset.p0i8.i32
   %7 = musttail call noundef i32 @_Z3bari(i32 noundef %6)
   ret i32 %7
 }

@@ -553,11 +553,6 @@ define void @arg_nonnull_violation1_2() {
 
 ; A case that depends on value simplification
 define void @arg_nonnull_violation2_1(i1 %c) {
-; CHECK: Function Attrs: nofree norecurse nosync nounwind readnone willreturn
-; CHECK-LABEL: define {{[^@]+}}@arg_nonnull_violation2_1
-; CHECK-SAME: (i1 [[C:%.*]]) #[[ATTR0]] {
-; CHECK-NEXT:    unreachable
-;
   %null = getelementptr i32, i32* null, i32 0
   %mustnull = select i1 %c, i32* null, i32* %null
   call void @arg_nonnull_1(i32* %mustnull)
@@ -565,11 +560,6 @@ define void @arg_nonnull_violation2_1(i1 %c) {
 }
 
 define void @arg_nonnull_violation2_2(i1 %c) {
-; CHECK: Function Attrs: nofree norecurse nosync nounwind readnone willreturn
-; CHECK-LABEL: define {{[^@]+}}@arg_nonnull_violation2_2
-; CHECK-SAME: (i1 [[C:%.*]]) #[[ATTR0]] {
-; CHECK-NEXT:    unreachable
-;
   %null = getelementptr i32, i32* null, i32 0
   %mustnull = select i1 %c, i32* null, i32* %null
   call void @arg_nonnull_1_noundef_1(i32* %mustnull)

@@ -1,11 +1,11 @@
 // RUN: echo "int extra_global;" > %t.extra-source.cpp
 // RUN: echo "global:*ignorelisted_global*" > %t.ignorelist
-// RUN: %clang_cc1 -include %t.extra-source.cpp -fsanitize=address -fsanitize-ignorelist=%t.ignorelist -emit-llvm -o - %s | FileCheck %s --check-prefixes=CHECK,ASAN
-// RUN: %clang_cc1 -include %t.extra-source.cpp -fsanitize=kernel-address -fsanitize-ignorelist=%t.ignorelist -emit-llvm -o - %s | FileCheck %s --check-prefixes=CHECK,KASAN
+// RUN: %clang_cc1 -triple %itanium_abi_triple -include %t.extra-source.cpp -fsanitize=address -fsanitize-ignorelist=%t.ignorelist -emit-llvm -o - %s | FileCheck %s --check-prefixes=CHECK,ASAN
+// RUN: %clang_cc1 -triple %itanium_abi_triple -include %t.extra-source.cpp -fsanitize=kernel-address -fsanitize-ignorelist=%t.ignorelist -emit-llvm -o - %s | FileCheck %s --check-prefixes=CHECK,KASAN
 // The ignorelist file uses regexps, so Windows path backslashes.
 // RUN: echo "src:%s" | sed -e 's/\\/\\\\/g' > %t.ignorelist-src
-// RUN: %clang_cc1 -include %t.extra-source.cpp -fsanitize=address -fsanitize-ignorelist=%t.ignorelist-src -emit-llvm -o - %s | FileCheck %s --check-prefix=IGNORELIST-SRC
-// RUN: %clang_cc1 -include %t.extra-source.cpp -fsanitize=kernel-address -fsanitize-ignorelist=%t.ignorelist-src -emit-llvm -o - %s | FileCheck %s --check-prefix=IGNORELIST-SRC
+// RUN: %clang_cc1 -triple %itanium_abi_triple -include %t.extra-source.cpp -fsanitize=address -fsanitize-ignorelist=%t.ignorelist-src -emit-llvm -o - %s | FileCheck %s --check-prefix=IGNORELIST-SRC
+// RUN: %clang_cc1 -triple %itanium_abi_triple -include %t.extra-source.cpp -fsanitize=kernel-address -fsanitize-ignorelist=%t.ignorelist-src -emit-llvm -o - %s | FileCheck %s --check-prefix=IGNORELIST-SRC
 
 int global;
 int dyn_init_global = global;

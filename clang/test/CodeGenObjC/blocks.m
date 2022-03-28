@@ -5,7 +5,7 @@
 // Check that there is only one capture (20o) in the copy/dispose function
 // names.
 
-// CHECK: @[[BLOCK_DESCRIPTOR0:.*]] = linkonce_odr hidden unnamed_addr constant { i32, i32, i8*, i8*, i8*, i32 } { i32 0, i32 28, i8* bitcast (void (i8*, i8*)* @__copy_helper_block_4_20o to i8*), i8* bitcast (void (i8*)* @__destroy_helper_block_4_20o to i8*), i8* getelementptr inbounds ([6 x i8], [6 x i8]* @{{.*}}, i32 0, i32 0), i32 512 },
+// CHECK: @[[BLOCK_DESCRIPTOR0:.*]] = linkonce_odr hidden unnamed_addr constant { i32, i32, i8*, i8*, i8*, i32 } { i32 0, i32 28, i8* bitcast (void (i8*, i8*)* @__copy_helper_block_4_20o to i8*), i8* bitcast (void (i8*)* @__destroy_helper_block_4_20o to i8*), i8* bitcast ([6 x i8]* @{{.*}} to i8*), i32 512 },
 
 void (^gb0)(void);
 

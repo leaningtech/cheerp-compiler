@@ -162,7 +162,7 @@ declare void @unknown_no_openmp() "llvm.assume"="omp_no_openmp"
 ; CHECK-NEXT:    [[CMP:%.*]] = icmp eq i32 [[C]], -1
 ; CHECK-NEXT:    br i1 [[CMP]], label [[MASTER1:%.*]], label [[EXIT:%.*]]
 ; CHECK:       master1:
-; CHECK-NEXT:    [[X_ON_STACK:%.*]] = bitcast i8* addrspacecast (i8 addrspace(3)* getelementptr inbounds ([16 x i8], [16 x i8] addrspace(3)* @x_shared, i32 0, i32 0) to i8*) to [4 x i32]*
+; CHECK-NEXT:    [[X_ON_STACK:%.*]] = bitcast i8* addrspacecast (i8 addrspace(3)* bitcast ([16 x i8] addrspace(3)* @x_shared to i8 addrspace(3)*) to i8*) to [4 x i32]*
 ; CHECK-NEXT:    [[A0:%.*]] = bitcast [4 x i32]* [[X_ON_STACK]] to i8*
 ; CHECK-NEXT:    call void @use.internalized(i8* nofree [[A0]]) #[[ATTR8]]
 ; CHECK-NEXT:    br label [[NEXT:%.*]]
@@ -170,7 +170,7 @@ declare void @unknown_no_openmp() "llvm.assume"="omp_no_openmp"
 ; CHECK-NEXT:    call void @unknown_no_openmp() #[[ATTR6]]
 ; CHECK-NEXT:    br label [[MASTER2:%.*]]
 ; CHECK:       master2:
-; CHECK-NEXT:    [[Y_ON_STACK:%.*]] = bitcast i8* addrspacecast (i8 addrspace(3)* getelementptr inbounds ([4 x i8], [4 x i8] addrspace(3)* @y_shared, i32 0, i32 0) to i8*) to [4 x i32]*
+; CHECK-NEXT:    [[Y_ON_STACK:%.*]] = bitcast i8* addrspacecast (i8 addrspace(3)* bitcast ([4 x i8] addrspace(3)* @y_shared to i8 addrspace(3)*) to i8*) to [4 x i32]*
 ; CHECK-NEXT:    [[B1:%.*]] = bitcast [4 x i32]* [[Y_ON_STACK]] to i8*
 ; CHECK-NEXT:    call void @use.internalized(i8* nofree [[B1]]) #[[ATTR8]]
 ; CHECK-NEXT:    br label [[EXIT]]
@@ -215,7 +215,7 @@ declare void @unknown_no_openmp() "llvm.assume"="omp_no_openmp"
 ; CHECK-LABEL: define {{[^@]+}}@__kmpc_alloc_shared
 ; CHECK-SAME: (i64 [[TMP0:%.*]]) #[[ATTR2:[0-9]+]] {
 ; CHECK-NEXT:    [[L:%.*]] = load i32, i32* @offset, align 4
-; CHECK-NEXT:    [[GEP:%.*]] = getelementptr i8, i8* addrspacecast (i8 addrspace(3)* getelementptr inbounds ([1024 x i8], [1024 x i8] addrspace(3)* @stack, i32 0, i32 0) to i8*), i32 [[L]]
+; CHECK-NEXT:    [[GEP:%.*]] = getelementptr i8, i8* addrspacecast (i8 addrspace(3)* bitcast ([1024 x i8] addrspace(3)* @stack to i8 addrspace(3)*) to i8*), i32 [[L]]
 ; CHECK-NEXT:    ret i8* [[GEP]]
 ;
 ;.

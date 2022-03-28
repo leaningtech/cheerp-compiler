@@ -10,8 +10,8 @@ declare void @Fn(i128* %p);
 define i128 @ByValArgument(i32, i128* byval(i128) %p) sanitize_memory {
 ; CHECK-LABEL: @ByValArgument(
 ; CHECK-NEXT:  entry:
-; CHECK:         call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 8 %[[#]], i8* align 8 inttoptr (i64 add (i64 ptrtoint ([100 x i64]* @__msan_param_tls to i64), i64 8) to i8*), i64 16, i1 false)
-; CHECK:         call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 4 %[[#]], i8* align 4 inttoptr (i64 add (i64 ptrtoint ([200 x i32]* @__msan_param_origin_tls to i64), i64 8) to i8*), i64 16, i1 false)
+; CHECK:         call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 8 %[[#]], i8* align 8 inttoptr (i64 add (i64 ptrtoint ([100 x i64]* @__msan_param_tls to i64), i64 8) to i8*), i32 16, i1 false)
+; CHECK:         call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 4 %[[#]], i8* align 4 inttoptr (i64 add (i64 ptrtoint ([200 x i32]* @__msan_param_origin_tls to i64), i64 8) to i8*), i32 16, i1 false)
 ; CHECK:         [[X:%.*]] = load i128, i128* %p, align 8
 ; CHECK:         [[_MSLD:%.*]] = load i128, i128* %[[#]], align 8
 ; CHECK:         %[[#]] = load i32, i32* %[[#]], align 8
@@ -27,7 +27,7 @@ entry:
 define i128 @ByValArgumentNoSanitize(i32, i128* byval(i128) %p) {
 ; CHECK-LABEL: @ByValArgumentNoSanitize(
 ; CHECK-NEXT:  entry:
-; CHECK:         call void @llvm.memset.p0i8.i64(i8* align 8 %[[#]], i8 0, i64 16, i1 false)
+; CHECK:         call void @llvm.memset.p0i8.i32(i8* align 8 %[[#]], i8 0, i32 16, i1 false)
 ; CHECK:         [[X:%.*]] = load i128, i128* %p, align 8
 ; CHECK:         store i128 0, i128* bitcast ([100 x i64]* @__msan_retval_tls to i128*), align 8
 ; CHECK:         store i32 0, i32* @__msan_retval_origin_tls, align 4
@@ -41,9 +41,9 @@ entry:
 define void @ByValForward(i32, i128* byval(i128) %p) sanitize_memory {
 ; CHECK-LABEL: @ByValForward(
 ; CHECK-NEXT:  entry:
-; CHECK:         call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 8 %[[#]], i8* align 8 inttoptr (i64 add (i64 ptrtoint ([100 x i64]* @__msan_param_tls to i64), i64 8) to i8*), i64 16, i1 false)
-; CHECK:         call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 4 %[[#]], i8* align 4 inttoptr (i64 add (i64 ptrtoint ([200 x i32]* @__msan_param_origin_tls to i64), i64 8) to i8*), i64 16, i1 false)
-; CHECK:         store i64 0, i64* getelementptr inbounds ([100 x i64], [100 x i64]* @__msan_param_tls, i32 0, i32 0), align 8
+; CHECK:         call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 8 %[[#]], i8* align 8 inttoptr (i64 add (i64 ptrtoint ([100 x i64]* @__msan_param_tls to i64), i64 8) to i8*), i32 16, i1 false)
+; CHECK:         call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 4 %[[#]], i8* align 4 inttoptr (i64 add (i64 ptrtoint ([200 x i32]* @__msan_param_origin_tls to i64), i64 8) to i8*), i32 16, i1 false)
+; CHECK:         store i64 0, i64* bitcast ([100 x i64]* @__msan_param_tls to i64*), align 8
 ; CHECK:         call void @Fn(i128* %p)
 ; CHECK:         ret void
 ;
@@ -55,8 +55,8 @@ entry:
 define void @ByValForwardNoSanitize(i32, i128* byval(i128) %p) {
 ; CHECK-LABEL: @ByValForwardNoSanitize(
 ; CHECK-NEXT:  entry:
-; CHECK:         call void @llvm.memset.p0i8.i64(i8* align 8 %[[#]], i8 0, i64 16, i1 false)
-; CHECK:         store i64 0, i64* getelementptr inbounds ([100 x i64], [100 x i64]* @__msan_param_tls, i32 0, i32 0), align 8
+; CHECK:         call void @llvm.memset.p0i8.i32(i8* align 8 %[[#]], i8 0, i32 16, i1 false)
+; CHECK:         store i64 0, i64* bitcast ([100 x i64]* @__msan_param_tls to i64*), align 8
 ; CHECK:         call void @Fn(i128* %p)
 ; CHECK:         ret void
 ;
@@ -68,10 +68,10 @@ entry:
 define void @ByValForwardByVal(i32, i128* byval(i128) %p) sanitize_memory {
 ; CHECK-LABEL: @ByValForwardByVal(
 ; CHECK-NEXT:  entry:
-; CHECK:         call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 8 %[[#]], i8* align 8 inttoptr (i64 add (i64 ptrtoint ([100 x i64]* @__msan_param_tls to i64), i64 8) to i8*), i64 16, i1 false)
-; CHECK:         call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 4 %[[#]], i8* align 4 inttoptr (i64 add (i64 ptrtoint ([200 x i32]* @__msan_param_origin_tls to i64), i64 8) to i8*), i64 16, i1 false)
-; CHECK:         call void @llvm.memcpy.p0i8.p0i8.i64(i8* bitcast ([100 x i64]* @__msan_param_tls to i8*), i8* %[[#]], i64 16, i1 false)
-; CHECK:         call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 4 bitcast ([200 x i32]* @__msan_param_origin_tls to i8*), i8* align 4 %[[#]], i64 16, i1 false)
+; CHECK:         call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 8 %[[#]], i8* align 8 inttoptr (i64 add (i64 ptrtoint ([100 x i64]* @__msan_param_tls to i64), i64 8) to i8*), i32 16, i1 false)
+; CHECK:         call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 4 %[[#]], i8* align 4 inttoptr (i64 add (i64 ptrtoint ([200 x i32]* @__msan_param_origin_tls to i64), i64 8) to i8*), i32 16, i1 false)
+; CHECK:         call void @llvm.memcpy.p0i8.p0i8.i32(i8* bitcast ([100 x i64]* @__msan_param_tls to i8*), i8* %[[#]], i32 16, i1 false)
+; CHECK:         call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 4 bitcast ([200 x i32]* @__msan_param_origin_tls to i8*), i8* align 4 %[[#]], i32 16, i1 false)
 ; CHECK:         call void @FnByVal(i128* byval(i128) %p)
 ; CHECK:         ret void
 ;
@@ -83,8 +83,8 @@ entry:
 define void @ByValForwardByValNoSanitize(i32, i128* byval(i128) %p) {
 ; CHECK-LABEL: @ByValForwardByValNoSanitize(
 ; CHECK-NEXT:  entry:
-; CHECK:         call void @llvm.memset.p0i8.i64(i8* align 8 %[[#]], i8 0, i64 16, i1 false)
-; CHECK:         call void @llvm.memset.p0i8.i64(i8* bitcast ([100 x i64]* @__msan_param_tls to i8*), i8 0, i64 16, i1 false)
+; CHECK:         call void @llvm.memset.p0i8.i32(i8* align 8 %[[#]], i8 0, i32 16, i1 false)
+; CHECK:         call void @llvm.memset.p0i8.i32(i8* bitcast ([100 x i64]* @__msan_param_tls to i8*), i8 0, i32 16, i1 false)
 ; CHECK:         call void @FnByVal(i128* byval(i128) %p)
 ; CHECK:         ret void
 ;
@@ -99,8 +99,8 @@ declare void @Fn8(i8* %p);
 define i8 @ByValArgument8(i32, i8* byval(i8) %p) sanitize_memory {
 ; CHECK-LABEL: @ByValArgument8(
 ; CHECK-NEXT:  entry:
-; CHECK:         call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 1 %[[#]], i8* align 1 inttoptr (i64 add (i64 ptrtoint ([100 x i64]* @__msan_param_tls to i64), i64 8) to i8*), i64 1, i1 false)
-; CHECK:         call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 4 %[[#]], i8* align 4 inttoptr (i64 add (i64 ptrtoint ([200 x i32]* @__msan_param_origin_tls to i64), i64 8) to i8*), i64 4, i1 false)
+; CHECK:         call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 1 %[[#]], i8* align 1 inttoptr (i64 add (i64 ptrtoint ([100 x i64]* @__msan_param_tls to i64), i64 8) to i8*), i32 1, i1 false)
+; CHECK:         call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 4 %[[#]], i8* align 4 inttoptr (i64 add (i64 ptrtoint ([200 x i32]* @__msan_param_origin_tls to i64), i64 8) to i8*), i32 4, i1 false)
 ; CHECK:         [[X:%.*]] = load i8, i8* %p, align 1
 ; CHECK:         [[_MSLD:%.*]] = load i8, i8* %[[#]], align 1
 ; CHECK:         %[[#]] = load i32, i32* %[[#]], align 4
@@ -116,7 +116,7 @@ entry:
 define i8 @ByValArgumentNoSanitize8(i32, i8* byval(i8) %p) {
 ; CHECK-LABEL: @ByValArgumentNoSanitize8(
 ; CHECK-NEXT:  entry:
-; CHECK:         call void @llvm.memset.p0i8.i64(i8* align 1 %[[#]], i8 0, i64 1, i1 false)
+; CHECK:         call void @llvm.memset.p0i8.i32(i8* align 1 %[[#]], i8 0, i32 1, i1 false)
 ; CHECK:         [[X:%.*]] = load i8, i8* %p, align 1
 ; CHECK:         store i8 0, i8* bitcast ([100 x i64]* @__msan_retval_tls to i8*), align 8
 ; CHECK:         store i32 0, i32* @__msan_retval_origin_tls, align 4
@@ -130,9 +130,9 @@ entry:
 define void @ByValForward8(i32, i8* byval(i8) %p) sanitize_memory {
 ; CHECK-LABEL: @ByValForward8(
 ; CHECK-NEXT:  entry:
-; CHECK:         call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 1 %[[#]], i8* align 1 inttoptr (i64 add (i64 ptrtoint ([100 x i64]* @__msan_param_tls to i64), i64 8) to i8*), i64 1, i1 false)
-; CHECK:         call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 4 %[[#]], i8* align 4 inttoptr (i64 add (i64 ptrtoint ([200 x i32]* @__msan_param_origin_tls to i64), i64 8) to i8*), i64 4, i1 false)
-; CHECK:         store i64 0, i64* getelementptr inbounds ([100 x i64], [100 x i64]* @__msan_param_tls, i32 0, i32 0), align 8
+; CHECK:         call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 1 %[[#]], i8* align 1 inttoptr (i64 add (i64 ptrtoint ([100 x i64]* @__msan_param_tls to i64), i64 8) to i8*), i32 1, i1 false)
+; CHECK:         call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 4 %[[#]], i8* align 4 inttoptr (i64 add (i64 ptrtoint ([200 x i32]* @__msan_param_origin_tls to i64), i64 8) to i8*), i32 4, i1 false)
+; CHECK:         store i64 0, i64* bitcast ([100 x i64]* @__msan_param_tls to i64*), align 8
 ; CHECK:         call void @Fn8(i8* %p)
 ; CHECK:         ret void
 ;
@@ -144,8 +144,8 @@ entry:
 define void @ByValForwardNoSanitize8(i32, i8* byval(i8) %p) {
 ; CHECK-LABEL: @ByValForwardNoSanitize8(
 ; CHECK-NEXT:  entry:
-; CHECK:         call void @llvm.memset.p0i8.i64(i8* align 1 %[[#]], i8 0, i64 1, i1 false)
-; CHECK:         store i64 0, i64* getelementptr inbounds ([100 x i64], [100 x i64]* @__msan_param_tls, i32 0, i32 0), align 8
+; CHECK:         call void @llvm.memset.p0i8.i32(i8* align 1 %[[#]], i8 0, i32 1, i1 false)
+; CHECK:         store i64 0, i64* bitcast ([100 x i64]* @__msan_param_tls to i64*), align 8
 ; CHECK:         call void @Fn8(i8* %p)
 ; CHECK:         ret void
 ;
@@ -157,10 +157,10 @@ entry:
 define void @ByValForwardByVal8(i32, i8* byval(i8) %p) sanitize_memory {
 ; CHECK-LABEL: @ByValForwardByVal8(
 ; CHECK-NEXT:  entry:
-; CHECK:         call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 1 %[[#]], i8* align 1 inttoptr (i64 add (i64 ptrtoint ([100 x i64]* @__msan_param_tls to i64), i64 8) to i8*), i64 1, i1 false)
-; CHECK:         call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 4 %[[#]], i8* align 4 inttoptr (i64 add (i64 ptrtoint ([200 x i32]* @__msan_param_origin_tls to i64), i64 8) to i8*), i64 4, i1 false)
-; CHECK:         call void @llvm.memcpy.p0i8.p0i8.i64(i8* bitcast ([100 x i64]* @__msan_param_tls to i8*), i8* %[[#]], i64 1, i1 false)
-; CHECK:         call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 4 bitcast ([200 x i32]* @__msan_param_origin_tls to i8*), i8* align 4 %[[#]], i64 4, i1 false)
+; CHECK:         call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 1 %[[#]], i8* align 1 inttoptr (i64 add (i64 ptrtoint ([100 x i64]* @__msan_param_tls to i64), i64 8) to i8*), i32 1, i1 false)
+; CHECK:         call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 4 %[[#]], i8* align 4 inttoptr (i64 add (i64 ptrtoint ([200 x i32]* @__msan_param_origin_tls to i64), i64 8) to i8*), i32 4, i1 false)
+; CHECK:         call void @llvm.memcpy.p0i8.p0i8.i32(i8* bitcast ([100 x i64]* @__msan_param_tls to i8*), i8* %[[#]], i32 1, i1 false)
+; CHECK:         call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 4 bitcast ([200 x i32]* @__msan_param_origin_tls to i8*), i8* align 4 %[[#]], i32 4, i1 false)
 ; CHECK:         call void @FnByVal8(i8* byval(i8) %p)
 ; CHECK:         ret void
 ;
@@ -172,8 +172,8 @@ entry:
 define void @ByValForwardByValNoSanitize8(i32, i8* byval(i8) %p) {
 ; CHECK-LABEL: @ByValForwardByValNoSanitize8(
 ; CHECK-NEXT:  entry:
-; CHECK:         call void @llvm.memset.p0i8.i64(i8* align 1 %[[#]], i8 0, i64 1, i1 false)
-; CHECK:         call void @llvm.memset.p0i8.i64(i8* bitcast ([100 x i64]* @__msan_param_tls to i8*), i8 0, i64 1, i1 false)
+; CHECK:         call void @llvm.memset.p0i8.i32(i8* align 1 %[[#]], i8 0, i32 1, i1 false)
+; CHECK:         call void @llvm.memset.p0i8.i32(i8* bitcast ([100 x i64]* @__msan_param_tls to i8*), i8 0, i32 1, i1 false)
 ; CHECK:         call void @FnByVal8(i8* byval(i8) %p)
 ; CHECK:         ret void
 ;

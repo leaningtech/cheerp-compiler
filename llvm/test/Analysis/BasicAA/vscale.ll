@@ -46,9 +46,9 @@ define void @gep_alloca_const_offset_3() {
 }
 
 ; CHECK-LABEL: gep_alloca_const_offset_4
-; CHECK-DAG:  MustAlias:    <vscale x 4 x i32>* %alloc, <vscale x 4 x i32>* %gep1
-; CHECK-DAG:  MustAlias:    <vscale x 4 x i32>* %alloc, i32* %gep2
-; CHECK-DAG:  MustAlias:    <vscale x 4 x i32>* %gep1, i32* %gep2
+; CHECK-DAG:  MayAlias:    <vscale x 4 x i32>* %alloc, <vscale x 4 x i32>* %gep1
+; CHECK-DAG:  MayAlias:    <vscale x 4 x i32>* %alloc, i32* %gep2
+; CHECK-DAG:  MayAlias:    <vscale x 4 x i32>* %gep1, i32* %gep2
 define void @gep_alloca_const_offset_4() {
   %alloc = alloca <vscale x 4 x i32>
   %gep1 = getelementptr <vscale x 4 x i32>, <vscale x 4 x i32>* %alloc, i64 0

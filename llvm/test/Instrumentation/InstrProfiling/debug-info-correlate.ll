@@ -3,6 +3,7 @@
 ; RUN: %llc_dwarf -O0 -filetype=obj < %t.ll | llvm-dwarfdump - | FileCheck --implicit-check-not "{{DW_TAG|NULL}}" %s --check-prefix CHECK-DWARF
 
 ; REQUIRES: system-linux, object-emission
+target triple = "x86_64-apple-macosx10.12.0"
 
 @__profn_foo = private constant [3 x i8] c"foo"
 ; CHECK:      @__profc_foo =
@@ -19,7 +20,7 @@
 ; CHECK:      ![[COUNTERS]] = !{!"Num Counters", i32 2}
 
 define void @_Z3foov() !dbg !12 {
-  call void @llvm.instrprof.increment(i8* getelementptr inbounds ([3 x i8], [3 x i8]* @__profn_foo, i32 0, i32 0), i64 12345678, i32 2, i32 0)
+  call void @llvm.instrprof.increment(i8* bitcast ([3 x i8]* @__profn_foo to i8*), i64 12345678, i32 2, i32 0)
   ret void
 }
 

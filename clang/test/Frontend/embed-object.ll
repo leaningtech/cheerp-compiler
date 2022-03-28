@@ -5,7 +5,7 @@
 
 ; CHECK: @[[OBJECT1:.+]] = hidden constant [0 x i8] zeroinitializer, section ".llvm.offloading.section1"
 ; CHECK: @[[OBJECT2:.+]] = hidden constant [0 x i8] zeroinitializer, section ".llvm.offloading.section2"
-; CHECK: @llvm.compiler.used = appending global [3 x i8*] [i8* @x, i8* getelementptr inbounds ([0 x i8], [0 x i8]* @[[OBJECT1]], i32 0, i32 0), i8* getelementptr inbounds ([0 x i8], [0 x i8]* @[[OBJECT2]], i32 0, i32 0)], section "llvm.metadata"
+; CHECK: @llvm.compiler.used = appending global [3 x i8*] [i8* @x, i8* bitcast ([0 x i8]* @[[OBJECT1]] to i8*), i8* bitcast ([0 x i8]* @[[OBJECT2]] to i8*)], section "llvm.metadata"
 
 @x = private constant i8 1
 @llvm.compiler.used = appending global [1 x i8*] [i8* @x], section "llvm.metadata"

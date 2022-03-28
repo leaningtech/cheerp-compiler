@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -ast-dump %s 2>&1 | FileCheck %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -ast-dump %s 2>&1 | FileCheck %s
 
 [[clang::nomerge]] void func();
 [[clang::nomerge]] void func();

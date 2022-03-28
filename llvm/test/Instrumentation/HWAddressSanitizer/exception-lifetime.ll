@@ -26,7 +26,7 @@ entry:
 
 invoke.cont:                                      ; preds = %entry
 ; CHECK: invoke.cont:
-; CHECK:  call void @llvm.memset.p0i8.i64(i8* align 1 %{{.*}}, i8 0, i64 1, i1 false)
+; CHECK:  call void @llvm.memset.p0i8.i32(i8* align 1 %{{.*}}, i8 0, i32 1, i1 false)
 ; CHECK:  call void @llvm.lifetime.end.p0i8(i64 16, i8* {{.*}}[[TMP1]])
 ; CHECK:  ret void
 
@@ -36,7 +36,7 @@ invoke.cont:                                      ; preds = %entry
 
 lpad:                                             ; preds = %entry
 ; CHECK: lpad
-; CHECK:  call void @llvm.memset.p0i8.i64(i8* align 1 %{{.*}}, i8 0, i64 1, i1 false)
+; CHECK:  call void @llvm.memset.p0i8.i32(i8* align 1 %{{.*}}, i8 0, i32 1, i1 false)
 ; CHECK:  call void @llvm.lifetime.end.p0i8(i64 16, i8* {{.*}}[[TMP1]])
 ; CHECK:  br label %eh.resume
 

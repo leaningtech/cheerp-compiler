@@ -193,7 +193,7 @@ entry:
 define i32 @test5(<4 x i32> %x, <4 x i32> %y, <4 x i32>* %z) {
 ; CHECK-LABEL: @test5(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[A_SROA_0_8_A_SROA_0_8_Z_TMP1_CAST_SROA_CAST_SROA_IDX:%.*]] = getelementptr inbounds <4 x i32>, <4 x i32>* [[Z:%.*]], i64 0, i64 2
+; CHECK:    [[A_SROA_0_8_A_SROA_0_8_Z_TMP1_CAST_SROA_CAST_SROA_IDX:%.*]] = getelementptr inbounds <4 x i32>, <4 x i32>* [[Z:%.*]], i64 0, i64 2
 ; CHECK-NEXT:    [[A_SROA_0_8_VEC_EXTRACT2:%.*]] = extractelement <4 x i32> [[Y:%.*]], i32 2
 ; CHECK-NEXT:    store i32 [[A_SROA_0_8_VEC_EXTRACT2]], i32* [[A_SROA_0_8_A_SROA_0_8_Z_TMP1_CAST_SROA_CAST_SROA_IDX]], align 1
 ; CHECK-NEXT:    [[A_SROA_0_8_VEC_EXTRACT:%.*]] = extractelement <4 x i32> [[Y]], i32 2

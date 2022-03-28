@@ -103,8 +103,8 @@ define float @bazz() {
 ; CHECK-NEXT:    [[CONV:%.*]] = sitofp i32 [[MUL]] to float
 ; CHECK-NEXT:    [[MUL5:%.*]] = shl nsw i32 [[TMP0]], 2
 ; CHECK-NEXT:    [[CONV6:%.*]] = sitofp i32 [[MUL5]] to float
-; CHECK-NEXT:    [[TMP1:%.*]] = load <8 x float>, <8 x float>* bitcast ([20 x float]* @arr to <8 x float>*), align 16
-; CHECK-NEXT:    [[TMP2:%.*]] = load <8 x float>, <8 x float>* bitcast ([20 x float]* @arr1 to <8 x float>*), align 16
+; CHECK-NEXT:    [[TMP1:%.*]] = load <8 x float>, <8 x float>* bitcast (float* getelementptr inbounds ([20 x float], [20 x float]* @arr, i64 0, i64 0) to <8 x float>*), align 16
+; CHECK-NEXT:    [[TMP2:%.*]] = load <8 x float>, <8 x float>* bitcast (float* getelementptr inbounds ([20 x float], [20 x float]* @arr1, i64 0, i64 0) to <8 x float>*), align 16
 ; CHECK-NEXT:    [[TMP3:%.*]] = fmul fast <8 x float> [[TMP2]], [[TMP1]]
 ; CHECK-NEXT:    [[TMP4:%.*]] = call fast float @llvm.vector.reduce.fadd.v8f32(float -0.000000e+00, <8 x float> [[TMP3]])
 ; CHECK-NEXT:    [[OP_EXTRA:%.*]] = fadd fast float [[TMP4]], [[CONV]]
@@ -119,8 +119,8 @@ define float @bazz() {
 ; THRESHOLD-NEXT:    [[CONV:%.*]] = sitofp i32 [[MUL]] to float
 ; THRESHOLD-NEXT:    [[MUL5:%.*]] = shl nsw i32 [[TMP0]], 2
 ; THRESHOLD-NEXT:    [[CONV6:%.*]] = sitofp i32 [[MUL5]] to float
-; THRESHOLD-NEXT:    [[TMP1:%.*]] = load <8 x float>, <8 x float>* bitcast ([20 x float]* @arr to <8 x float>*), align 16
-; THRESHOLD-NEXT:    [[TMP2:%.*]] = load <8 x float>, <8 x float>* bitcast ([20 x float]* @arr1 to <8 x float>*), align 16
+; THRESHOLD-NEXT:    [[TMP1:%.*]] = load <8 x float>, <8 x float>* bitcast (float* getelementptr inbounds ([20 x float], [20 x float]* @arr, i64 0, i64 0) to <8 x float>*), align 16
+; THRESHOLD-NEXT:    [[TMP2:%.*]] = load <8 x float>, <8 x float>* bitcast (float* getelementptr inbounds ([20 x float], [20 x float]* @arr1, i64 0, i64 0) to <8 x float>*), align 16
 ; THRESHOLD-NEXT:    [[TMP3:%.*]] = fmul fast <8 x float> [[TMP2]], [[TMP1]]
 ; THRESHOLD-NEXT:    [[TMP4:%.*]] = call fast float @llvm.vector.reduce.fadd.v8f32(float -0.000000e+00, <8 x float> [[TMP3]])
 ; THRESHOLD-NEXT:    [[OP_EXTRA:%.*]] = fadd fast float [[TMP4]], [[CONV]]

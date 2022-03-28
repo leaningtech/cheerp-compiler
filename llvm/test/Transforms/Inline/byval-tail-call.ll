@@ -23,13 +23,11 @@ define void @bar(i32* byval(i32) %x) {
 define void @foo(i32* %x) {
 ; CHECK-LABEL: @foo(
 ; CHECK-NEXT:    [[X1:%.*]] = alloca i32, align 4
-; CHECK-NEXT:    [[TMP1:%.*]] = bitcast i32* [[X1]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull [[TMP1]])
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i32(i64 4, i32* nonnull {{.*}})
 ; CHECK-NEXT:    [[TMP2:%.*]] = load i32, i32* [[X:%.*]], align 1
 ; CHECK-NEXT:    store i32 [[TMP2]], i32* [[X1]], align 4
 ; CHECK-NEXT:    call void @ext(i32* nonnull [[X1]])
-; CHECK-NEXT:    [[TMP3:%.*]] = bitcast i32* [[X1]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull [[TMP3]])
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0i32(i64 4, i32* nonnull {{.*}})
 ; CHECK-NEXT:    ret void
 ;
   call void @bar(i32* byval(i32) %x)
@@ -45,14 +43,12 @@ define internal void @qux(i32* byval(i32) %x) {
 define void @frob(i32* %x) {
 ; CHECK-LABEL: @frob(
 ; CHECK-NEXT:    [[X1:%.*]] = alloca i32, align 4
-; CHECK-NEXT:    [[TMP1:%.*]] = bitcast i32* [[X1]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull [[TMP1]])
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i32(i64 4, i32* nonnull {{.*}})
 ; CHECK-NEXT:    [[TMP2:%.*]] = load i32, i32* [[X:%.*]], align 1
 ; CHECK-NEXT:    store i32 [[TMP2]], i32* [[X1]], align 4
 ; CHECK-NEXT:    call void @ext(i32* nonnull [[X1]])
 ; CHECK-NEXT:    tail call void @ext(i32* null)
-; CHECK-NEXT:    [[TMP3:%.*]] = bitcast i32* [[X1]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull [[TMP3]])
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0i32(i64 4, i32* nonnull {{.*}})
 ; CHECK-NEXT:    ret void
 ;
   tail call void @qux(i32* byval(i32) %x)
@@ -76,13 +72,11 @@ define void @bar2(i32* byval(i32) %x) {
 define void @foobar(i32* %x) {
 ; CHECK-LABEL: @foobar(
 ; CHECK-NEXT:    [[X1:%.*]] = alloca i32, align 4
-; CHECK-NEXT:    [[TMP1:%.*]] = bitcast i32* [[X1]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull [[TMP1]])
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i32(i64 4, i32* nonnull
 ; CHECK-NEXT:    [[TMP2:%.*]] = load i32, i32* [[X:%.*]], align 1
 ; CHECK-NEXT:    store i32 [[TMP2]], i32* [[X1]], align 4
 ; CHECK-NEXT:    tail call void @ext2(i32* nonnull byval(i32) [[X1]])
-; CHECK-NEXT:    [[TMP3:%.*]] = bitcast i32* [[X1]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull [[TMP3]])
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0i32(i64 4, i32* nonnull
 ; CHECK-NEXT:    ret void
 ;
   tail call void @bar2(i32* byval(i32) %x)
@@ -92,11 +86,9 @@ define void @foobar(i32* %x) {
 define void @barfoo() {
 ; CHECK-LABEL: @barfoo(
 ; CHECK-NEXT:    [[X1:%.*]] = alloca i32, align 4
-; CHECK-NEXT:    [[TMP1:%.*]] = bitcast i32* [[X1]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull [[TMP1]])
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i32(i64 4, i32* nonnull
 ; CHECK-NEXT:    tail call void @ext2(i32* nonnull byval(i32) [[X1]])
-; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[X1]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull [[TMP2]])
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0i32(i64 4, i32* nonnull
 ; CHECK-NEXT:    ret void
 ;
   %x = alloca i32

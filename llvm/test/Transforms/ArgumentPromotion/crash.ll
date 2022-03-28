@@ -45,20 +45,12 @@ bb:
 }
 
 define internal i1 @eggs(i8* %arg) {
-; ARGPROMOTION-LABEL: define {{[^@]+}}@eggs() {
-; ARGPROMOTION-NEXT:  bb:
-; ARGPROMOTION-NEXT:    unreachable
-;
 bb:
   %temp = call zeroext i1 @barney(i8* %arg)
   unreachable
 }
 
 define internal i1 @barney(i8* %arg) {
-; ALL_OLDPM-LABEL: define {{[^@]+}}@barney() {
-; ALL_OLDPM-NEXT:  bb:
-; ALL_OLDPM-NEXT:    ret i1 undef
-;
 bb:
   ret i1 undef
 }

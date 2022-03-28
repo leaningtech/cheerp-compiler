@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -verify -fsyntax-only %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -verify -fsyntax-only %s
 
 int bar();
 

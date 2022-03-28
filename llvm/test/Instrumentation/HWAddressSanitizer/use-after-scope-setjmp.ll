@@ -31,7 +31,7 @@ while.body:                                       ; preds = %entry
   br label %return
 
 ; CHECK-LABEL: return:
-; CHECK: void @llvm.memset.p0i8.i64({{.*}}, i8 0, i64 256, i1 false)
+; CHECK: void @llvm.memset.p0i8.i32({{.*}}, i8 0, i32 256, i1 false)
 return:                                           ; preds = %entry, %while.body, %sw.bb1
   %retval.0 = phi i1 [ true, %while.body ], [ true, %sw.bb1 ], [ false, %entry ]
   ret i1 %retval.0

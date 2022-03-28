@@ -55,7 +55,7 @@ define internal void @callee(i32* noalias %arg) {
 ; IS________NPM-NEXT:    [[ARG_PRIV_0_2:%.*]] = getelementptr [3 x i32], [3 x i32]* [[ARG_PRIV]], i64 0, i64 2
 ; IS________NPM-NEXT:    store i32 [[TMP2]], i32* [[ARG_PRIV_0_2]], align 4
 ; IS________NPM-NEXT:    [[TMP3:%.*]] = bitcast [3 x i32]* [[ARG_PRIV]] to i32*
-; IS________NPM-NEXT:    call void @use(i32* noalias nocapture noundef nonnull readonly align 4 dereferenceable(12) [[TMP3]])
+; IS________NPM:    call void @use(i32* noalias nocapture nonnull readonly align 4 dereferenceable(12) [[TMP3]])
 ; IS________NPM-NEXT:    ret void
 ;
 entry:

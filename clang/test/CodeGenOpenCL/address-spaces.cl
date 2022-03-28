@@ -1,7 +1,7 @@
-// RUN: %clang_cc1 %s -O0 -ffake-address-space-map -emit-llvm -o - | FileCheck %s --check-prefixes=CHECK,SPIR
-// RUN: %clang_cc1 %s -O0 -cl-std=CL3.0 -cl-ext=-all -ffake-address-space-map -emit-llvm -o - | FileCheck %s --check-prefixes=CHECK,SPIR
-// RUN: %clang_cc1 %s -O0 -cl-std=clc++2021 -cl-ext=-all -ffake-address-space-map -emit-llvm -o - | FileCheck %s --check-prefixes=CHECK,SPIR
-// RUN: %clang_cc1 %s -O0 -DCL20 -cl-std=CL2.0 -ffake-address-space-map -emit-llvm -o - | FileCheck %s --check-prefixes=CL20,CL20SPIR
+// RUN: %clang_cc1 %s -O0 -triple %itanium_abi_triple -ffake-address-space-map -emit-llvm -o - | FileCheck %s --check-prefixes=CHECK,SPIR
+// RUN: %clang_cc1 %s -O0 -triple %itanium_abi_triple -cl-std=CL3.0 -cl-ext=-all -ffake-address-space-map -emit-llvm -o - | FileCheck %s --check-prefixes=CHECK,SPIR
+// RUN: %clang_cc1 %s -O0 -triple %itanium_abi_triple -cl-std=clc++2021 -cl-ext=-all -ffake-address-space-map -emit-llvm -o - | FileCheck %s --check-prefixes=CHECK,SPIR
+// RUN: %clang_cc1 %s -O0 -triple %itanium_abi_triple -DCL20 -cl-std=CL2.0 -ffake-address-space-map -emit-llvm -o - | FileCheck %s --check-prefixes=CL20,CL20SPIR
 // RUN: %clang_cc1 %s -O0 -triple amdgcn-amd-amdhsa -emit-llvm -o - | FileCheck --check-prefixes=CHECK,AMDGCN %s
 // RUN: %clang_cc1 %s -O0 -triple amdgcn-amd-amdhsa -cl-std=CL3.0 -emit-llvm -o - | FileCheck --check-prefixes=CHECK,AMDGCN %s
 // RUN: %clang_cc1 %s -O0 -triple amdgcn-amd-amdhsa -DCL20 -cl-std=CL2.0 -emit-llvm -o - | FileCheck %s --check-prefixes=CL20,CL20AMDGCN

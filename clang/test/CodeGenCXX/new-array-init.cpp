@@ -50,7 +50,7 @@ void string_nonconst(int n) {
   // FIXME: Conditionally throw an exception rather than passing -1 to alloc function
   // CHECK: select
   // CHECK: %[[PTR:.*]] = call noalias noundef nonnull i8* @_Zna{{.}}(i{{32|64}}
-  // CHECK: call void @llvm.memcpy{{.*}}(i8* align {{[0-9]+}} %[[PTR]], i8* align {{[0-9]+}} getelementptr inbounds ([4 x i8], [4 x i8]* @[[ABC4]], i32 0, i32 0), i32 4,
+  // CHECK: call void @llvm.memcpy{{.*}}(i8* align {{[0-9]+}} %[[PTR]], i8* align {{[0-9]+}} bitcast ([4 x i8]* @[[ABC4]] to i8*), i32 4,
   // CHECK: %[[REST:.*]] = getelementptr inbounds i8, i8* %[[PTR]], i32 4
   // CHECK: %[[RESTSIZE:.*]] = sub {{.*}}, 4
   // CHECK: call void @llvm.memset{{.*}}(i8* align {{[0-9]+}} %[[REST]], i8 0, i{{32|64}} %[[RESTSIZE]],
@@ -61,7 +61,7 @@ void string_nonconst(int n) {
 void string_exact() {
   // CHECK-NOT: icmp
   // CHECK: %[[PTR:.*]] = call noalias noundef nonnull i8* @_Zna{{.}}(i{{32|64}} noundef 4)
-  // CHECK: call void @llvm.memcpy{{.*}}(i8* align {{[0-9]+}} %[[PTR]], i8* align {{[0-9]+}} getelementptr inbounds ([4 x i8], [4 x i8]* @[[ABC4]], i32 0, i32 0), i32 4,
+  // CHECK: call void @llvm.memcpy{{.*}}(i8* align {{[0-9]+}} %[[PTR]], i8* align {{[0-9]+}} bitcast ([4 x i8]* @[[ABC4]] to i8*), i32 4,
   // CHECK-NOT: memset
   new char[4] { "abc" };
 }

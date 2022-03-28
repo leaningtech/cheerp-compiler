@@ -18,7 +18,7 @@ coro1 f() {
 }
 
 // CHECK-LABEL: define{{.*}} void @_Z1fv(
-// CHECK: call void @_ZNSt12experimental13coroutines_v113suspend_never12await_resumeEv(%"struct.std::experimental::coroutines_v1::suspend_never"*
+// CHECK: call void @_ZNSt12experimental13coroutines_v113suspend_never12await_resumeEv(%"struct.std::experimental::suspend_never"*
 // CHECK: call void @_ZN5coro112promise_type11return_voidEv(%"struct.coro1::promise_type"* {{[^,]*}} %__promise)
 
 struct A {
@@ -49,5 +49,5 @@ coro2 g() {
 }
 
 // CHECK-LABEL: define{{.*}} void @_Z1gv(
-// CHECK: call void @_ZNSt12experimental13coroutines_v113suspend_never12await_resumeEv(%"struct.std::experimental::coroutines_v1::suspend_never"*
+// CHECK: call void @_ZNSt12experimental13coroutines_v113suspend_never12await_resumeEv(%"struct.std::experimental::suspend_never"*
 // CHECK: call void @_ZN5coro212promise_type12return_valueEi(%"struct.coro2::promise_type"* {{[^,]*}} %__promise, i32 noundef 42)

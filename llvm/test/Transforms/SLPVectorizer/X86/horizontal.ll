@@ -1260,7 +1260,7 @@ declare i32 @foobar(i32)
 define void @i32_red_call(i32 %val) {
 ; ALL-LABEL: @i32_red_call(
 ; ALL-NEXT:  entry:
-; ALL-NEXT:    [[TMP0:%.*]] = load <8 x i32>, <8 x i32>* bitcast ([32 x i32]* @arr_i32 to <8 x i32>*), align 16
+; ALL-NEXT:    [[TMP0:%.*]] = load <8 x i32>, <8 x i32>* bitcast (i32* getelementptr inbounds ([32 x i32], [32 x i32]* @arr_i32, i64 0, i64 0) to <8 x i32>*), align 16
 ; ALL-NEXT:    [[TMP1:%.*]] = call i32 @llvm.vector.reduce.add.v8i32(<8 x i32> [[TMP0]])
 ; ALL-NEXT:    [[RES:%.*]] = call i32 @foobar(i32 [[TMP1]])
 ; ALL-NEXT:    ret void
@@ -1288,7 +1288,7 @@ entry:
 define void @i32_red_invoke(i32 %val) personality i32 (...)* @__gxx_personality_v0 {
 ; ALL-LABEL: @i32_red_invoke(
 ; ALL-NEXT:  entry:
-; ALL-NEXT:    [[TMP0:%.*]] = load <8 x i32>, <8 x i32>* bitcast ([32 x i32]* @arr_i32 to <8 x i32>*), align 16
+; ALL-NEXT:    [[TMP0:%.*]] = load <8 x i32>, <8 x i32>* bitcast (i32* getelementptr inbounds ([32 x i32], [32 x i32]* @arr_i32, i64 0, i64 0) to <8 x i32>*), align 16
 ; ALL-NEXT:    [[TMP1:%.*]] = call i32 @llvm.vector.reduce.add.v8i32(<8 x i32> [[TMP0]])
 ; ALL-NEXT:    [[RES:%.*]] = invoke i32 @foobar(i32 [[TMP1]])
 ; ALL-NEXT:    to label [[NORMAL:%.*]] unwind label [[EXCEPTION:%.*]]

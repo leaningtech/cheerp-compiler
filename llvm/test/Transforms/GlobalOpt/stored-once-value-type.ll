@@ -10,7 +10,7 @@
 
 define void @a() {
 ; CHECK-LABEL: @a(
-; CHECK-NEXT:    ret void
+; CHECK:    ret void
 ;
   %1 = tail call i8* @_Znwm(i64 8)
   %2 = bitcast i8* %1 to %T*
