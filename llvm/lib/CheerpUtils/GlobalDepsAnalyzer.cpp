@@ -166,6 +166,13 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	assert(DL);
 	VisitedSet visited;
 
+	// Replace the aliases with the actual values
+	for (auto& a: make_early_inc_range(module.aliases()))
+	{
+		a.replaceAllUsesWith( a.getAliasee() );
+		a.eraseFromParent();
+	}
+
 	simplifyCalls(module);
 
 	if (!llcPass)
@@ -1522,26 +1529,6 @@ int GlobalDepsAnalyzer::filterModule( const DenseSet<const Function*>& droppedMa
 		{
 			logUndefinedSymbol(f);
 		}
-	}
-
-	// Detach only the unreachable aliases
-	for (Module::alias_iterator it = module.alias_begin(); it != module.alias_end(); )
-	{
-		GlobalAlias * GA = &*it++;
-
-		//Internalize all
-		GA->setLinkage(GlobalValue::InternalLinkage);
-
-		if ( isReachable(GA) )
-		{
-			//If we are in opt (perfoming lto) we process only InternalLinkage aliases
-			if (!llcPass && GA->getLinkage() != GlobalValue::InternalLinkage)
-				continue;
-			// Replace the alias with the actual value
-			GA->replaceAllUsesWith( GA->getAliasee() );
-		}
-		GA->removeFromParent();
-		eraseQueue.push_back(GA);
 	}
 
 	// Put back all the global variables, in the right order
