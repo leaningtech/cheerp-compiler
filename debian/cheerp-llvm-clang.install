@@ -9,7 +9,6 @@ opt/cheerp/lib/clang/15.0.0/include/avxintrin.h
 opt/cheerp/lib/clang/15.0.0/include/wmmintrin.h
 opt/cheerp/lib/clang/15.0.0/include/rtmintrin.h
 opt/cheerp/lib/clang/15.0.0/include/cheerpintrin.h
-opt/cheerp/lib/clang/15.0.0/include/arm_neon.h
 opt/cheerp/lib/clang/15.0.0/include/ammintrin.h
 opt/cheerp/lib/clang/15.0.0/include/xmmintrin.h
 opt/cheerp/lib/clang/15.0.0/include/xopintrin.h
