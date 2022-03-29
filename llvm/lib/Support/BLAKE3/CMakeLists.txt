@@ -4,7 +4,7 @@ set(LLVM_BLAKE3_FILES
   blake3_portable.c
 )
 
-set(CAN_USE_ASSEMBLER TRUE)
+set(CAN_USE_ASSEMBLER FALSE)
 # Some LLVM builders set "CC=ccache /path/to/clang" as environment variable,
 # which confuses CMake thinking the assembler to use is the 'ccache' binary.
 # These builders need to also set "ASM=/path/to/clang" in environment, but until
