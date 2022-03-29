@@ -1476,34 +1476,6 @@ namespace fs {
 std::error_code copy_file(const Twine &From, const Twine &To) {
   std::string FromS = From.str();
   std::string ToS = To.str();
-#if __has_builtin(__builtin_available)
-  if (__builtin_available(macos 10.12, *)) {
-    // Optimistically try to use clonefile() and handle errors, rather than
-    // calling stat() to see if it'll work.
-    //
-    // Note: It's okay if From is a symlink. In contrast to the behaviour of
-    // copyfile() with COPYFILE_CLONE, clonefile() clones targets (not the
-    // symlink itself) unless the flag CLONE_NOFOLLOW is passed.
-    if (!clonefile(FromS.c_str(), ToS.c_str(), 0))
-      return std::error_code();
-
-    auto Errno = errno;
-    switch (Errno) {
-      case EEXIST:  // To already exists.
-      case ENOTSUP: // Device does not support cloning.
-      case EXDEV:   // From and To are on different devices.
-        break;
-      default:
-        // Anything else will also break copyfile().
-        return std::error_code(Errno, std::generic_category());
-    }
-
-    // TODO: For EEXIST, profile calling fs::generateUniqueName() and
-    // clonefile() in a retry loop (then rename() on success) before falling
-    // back to copyfile(). Depending on the size of the file this could be
-    // cheaper.
-  }
-#endif
   if (!copyfile(FromS.c_str(), ToS.c_str(), /*State=*/NULL, COPYFILE_DATA))
     return std::error_code();
   return std::error_code(errno, std::generic_category());
