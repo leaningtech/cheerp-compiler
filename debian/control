@@ -3,7 +3,7 @@ Maintainer: Alessandro Pignotti <alessandro@leaningtech.com>
 Section: devel
 Priority: optional
 Standards-Version: 3.9.2
-Build-Depends: debhelper (>=8), cmake, python3, python3-distutils, ninja-build, clang, lld
+Build-Depends: debhelper (>=8), cmake, python3, python3-distutils, ninja-build, clang, lld, git
 
 Package: cheerp-llvm-clang
 Architecture: i386 amd64
