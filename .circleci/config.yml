@@ -173,8 +173,9 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y nodejs
       - attach_workspace:
           at: packages
-      - checkout:
-          path: cheerp-utils
+      - run:
+          name: Get tests
+          command: git clone https://github.com/leaningtech/cheerp-utils.git
       - run:
           name: Set up cheerp compiler
           working_directory: ~/project/packages
