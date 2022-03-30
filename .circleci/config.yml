@@ -231,6 +231,7 @@ jobs:
           name: test
           working_directory: ~/project/cheerp-utils/tests
           command: ./run_tests.py --all --determinism=3 --determinism-probability=0.2 "/opt/cheerp/bin/clang++" "node --experimental-wasm-reftypes" -j4
+          no_output_timeout: 30m
       - store_artifacts:
           path: ~/project/packages
 
