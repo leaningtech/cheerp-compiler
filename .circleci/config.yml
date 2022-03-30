@@ -14,7 +14,7 @@ jobs:
           name: Define version
           command: |
             if [ << pipeline.parameters.tag >> != 'master' ]; then
-              export VERSION_NO=`echo ${VERSION} | cut --complement -c1-7 | sed "s/rc/~rc/"`
+              export VERSION_NO=`echo << pipeline.parameters.tag >> | cut --complement -c1-7 | sed "s/rc/~rc/"`
             else
               export VERSION_NO=`date +%s`
             fi
@@ -35,16 +35,15 @@ jobs:
       - run:
           name: Clone Cheerp
           command: |
-            git clone --depth=1 --no-single-branch https://github.com/leaningtech/cheerp-compiler
+            if [ << pipeline.parameters.tag >> != 'master' ]; then
+              git clone --depth=1 --branch << pipeline.parameters.tag >> https://github.com/leaningtech/cheerp-compiler
+            else
+              git clone --depth=1 --branch << pipeline.parameters.cheerp-compiler-branch >> https://github.com/leaningtech/cheerp-compiler
+            fi
       - run:
           name: Set up environment
           working_directory: ~/project/cheerp-compiler
           command: |
-            if [ << pipeline.parameters.tag >> != master ]; then
-              git checkout << pipeline.parameters.tag >>
-            else
-              git checkout << pipeline.parameters.cheerp-compiler-branch >>
-            fi
             cat ~/project/packages/version >> $BASH_ENV
       - run:
           name: Build cheerp compiler
@@ -73,24 +72,20 @@ jobs:
       - run:
           name: Get repos
           command: |
-            git clone --depth=1 --no-single-branch https://github.com/leaningtech/cheerp-compiler.git
-            git clone https://github.com/leaningtech/cheerp-newlib.git
-            git clone https://github.com/leaningtech/cheerp-libs.git
-            git clone https://github.com/leaningtech/cheerp-utils.git
+            if [ << pipeline.parameters.tag >> != master ]; then
+              git clone --depth=1 --branch << pipeline.parameters.tag >> https://github.com/leaningtech/cheerp-compiler.git
+              git clone --depth=1 --branch << pipeline.parameters.tag >> https://github.com/leaningtech/cheerp-newlib.git
+              git clone --depth=1 --branch << pipeline.parameters.tag >> https://github.com/leaningtech/cheerp-libs.git
+              git clone --depth=1 --branch << pipeline.parameters.tag >> https://github.com/leaningtech/cheerp-utils.git
+            else
+              git clone --depth=1 --branch << pipeline.parameters.cheerp-compiler-branch >> https://github.com/leaningtech/cheerp-compiler.git
+              git clone --depth=1 --branch << pipeline.parameters.cheerp-newlib-branch >> https://github.com/leaningtech/cheerp-newlib.git
+              git clone --depth=1 --branch << pipeline.parameters.cheerp-libs-branch >> https://github.com/leaningtech/cheerp-libs.git
+              git clone --depth=1 --branch << pipeline.parameters.cheerp-utils-branch >> https://github.com/leaningtech/cheerp-utils.git
+            fi
       - run:
           name: Set up workspace
           command: |
-            if [ << pipeline.parameters.tag >> != master ]; then
-              cd cheerp-utils && git checkout << pipeline.parameters.tag >>
-              cd ../cheerp-compiler && git checkout << pipeline.parameters.tag >>
-              cd ../cheerp-newlib && git checkout << pipeline.parameters.tag >>
-              cd ../cheerp-libs && git checkout << pipeline.parameters.tag >>
-            else
-              cd cheerp-utils && git checkout << pipeline.parameters.cheerp-utils-branch >>
-              cd ../cheerp-compiler && git checkout << pipeline.parameters.cheerp-compiler-branch >>
-              cd ../cheerp-newlib && git checkout << pipeline.parameters.cheerp-newlib-branch >>
-              cd ../cheerp-libs && git checkout << pipeline.parameters.cheerp-libs-branch >>
-            fi
             cat ~/project/packages/version >> $BASH_ENV
       - run:
           name: Set up cheerp compiler
