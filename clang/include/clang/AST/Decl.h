@@ -2348,6 +2348,10 @@ public:
   /// entry point into an executable program.
   bool isMain() const;
 
+  /// CHEERP: Determines whether this function is "webMain", which is the
+  /// entry point into an executable program.
+  bool isWebMain() const;
+
   /// Determines whether this function is a MSVCRT user defined entry
   /// point.
   bool isMSVCRTEntryPoint() const;
