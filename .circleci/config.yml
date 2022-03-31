@@ -328,6 +328,268 @@ jobs:
               python2 ../cheerp-internal/tools/releasing/github_upload.py << pipeline.parameters.tag >> "Cheerp ${VERSION_NO}" cheerp-newlib-${VERSION_NO}.tar.gz cheerp-newlib-${VERSION_NO}.tar.gz
               python2 ../cheerp-internal/tools/releasing/github_upload.py << pipeline.parameters.tag >> "Cheerp ${VERSION_NO}" cheerp-libs-${VERSION_NO}.tar.gz cheerp-libs-${VERSION_NO}.tar.gz
             fi
+  RPM-cheerp-compiler:
+    docker:
+      - image: leaningtech/cheerp_rpm_base:8
+    resource_class: large
+    environment:
+      - THREADS: 6
+    steps:
+      - attach_workspace:
+          at: ~/
+      - run: cat ~/version >> $BASH_ENV
+      - add_ssh_keys:
+          fingerprints:
+            - "8f:3f:25:98:2e:d5:1e:9f:0f:e9:dc:8a:fc:46:90:50"
+      - run:
+          name: Add known hosts
+          command: |
+            echo $RPM_HOST >> ~/.ssh/known_hosts
+            echo $GH_HOST >> ~/.ssh/known_hosts
+      - run:
+          name: Set up environment
+          working_directory: ~/
+          command: |
+            if [ << pipeline.parameters.tag >> != master ]; then
+              echo "export CHAN=stable" >> $BASH_ENV
+            else
+              echo "export CHAN=nightly" >> $BASH_ENV
+            fi
+            export REPO_DIR=${PWD}/REPO
+            echo "export REPO_DIR=$REPO_DIR" >> $BASH_ENV
+            mkdir -p $REPO_DIR
+      - run:
+          name: Persist environment variables
+          command: |
+           echo "export CHAN=$CHAN" >> ~/version
+           echo "export REPO_DIR=$REPO_DIR" >> ~/version
+      - add-yum-configuration
+      - get-rpm-repo
+      - run:
+          name: Get sources
+          command: |
+            git clone git@github.com:leaningtech/cheerp-internal.git
+            if [ << pipeline.parameters.tag >> != master ]; then
+              git clone --depth=1 --branch << pipeline.parameters.tag >> https://github.com/leaningtech/cheerp-compiler.git cheerp-llvm-clang
+            else
+              git clone --depth=1 --branch << pipeline.parameters.cheerp-compiler-branch >> https://github.com/leaningtech/cheerp-compiler.git cheerp-llvm-clang
+            fi
+      - set-up-rpm-workspace
+      - add-rpm-sources:
+          directory: cheerp-llvm-clang
+          package-name: llvm-clang
+          branch-name: << pipeline.parameters.cheerp-compiler-branch >>
+      - build-deploy-rpm:
+          directory: cheerp-llvm-clang
+          package-name: llvm-clang
+      - persist_to_workspace:
+          root: ~/
+          paths:
+            - version/
+  RPM-libraries:
+    docker:
+      - image: leaningtech/cheerp_rpm_base:8
+    resource_class: large
+    steps:
+      - attach_workspace:
+          at: ~/
+      - run: cat ~/version >> $BASH_ENV
+      - add_ssh_keys:
+          fingerprints:
+            - "8f:3f:25:98:2e:d5:1e:9f:0f:e9:dc:8a:fc:46:90:50"
+      - run:
+          name: Add known hosts
+          command: |
+            echo $GH_HOST >> ~/.ssh/known_hosts
+            echo $RPM_HOST >> ~/.ssh/known_hosts
+      - run:
+          name: Get repos
+          command: |
+            git clone git@github.com:leaningtech/cheerp-internal.git
+            if [ << pipeline.parameters.tag >> != master ]; then
+              git clone --depth=1 --branch << pipeline.parameters.tag >> https://github.com/leaningtech/cheerp-compiler.git
+              git clone --depth=1 --branch << pipeline.parameters.tag >> https://github.com/leaningtech/cheerp-newlib.git
+              git clone --depth=1 --branch << pipeline.parameters.tag >> https://github.com/leaningtech/cheerp-libs.git
+              git clone --depth=1 --branch << pipeline.parameters.tag >> https://github.com/leaningtech/cheerp-utils.git
+            else
+              git clone --depth=1 --branch << pipeline.parameters.cheerp-compiler-branch >> https://github.com/leaningtech/cheerp-compiler.git
+              git clone --depth=1 --branch << pipeline.parameters.cheerp-newlib-branch >> https://github.com/leaningtech/cheerp-newlib.git
+              git clone --depth=1 --branch << pipeline.parameters.cheerp-libs-branch >> https://github.com/leaningtech/cheerp-libs.git
+              git clone --depth=1 --branch << pipeline.parameters.cheerp-utils-branch >> https://github.com/leaningtech/cheerp-utils.git
+            fi
+      - get-rpm-repo
+      - add-yum-configuration
+      - set-up-rpm-workspace
+      - run: dnf install -y cheerp-llvm-clang-${VERSION_NO}-1.el8
+      - create-rpm-package:
+          directory: cheerp-utils
+          package-name: utils
+          branch-name: << pipeline.parameters.cheerp-utils-branch >>
+      - create-rpm-package:
+          directory: cheerp-newlib
+          package-name: newlib
+          branch-name: << pipeline.parameters.cheerp-newlib-branch >>
+      - run:
+          name: Set up for libcxx
+          working_directory: ~/project/cheerp-compiler
+          command: |
+            rm -rf rpmbuild
+            cp -r libcxx/rpmbuild .
+      - create-rpm-package:
+          directory: cheerp-compiler
+          package-name: libcxx
+          branch-name: << pipeline.parameters.cheerp-compiler-branch >>
+      - run:
+          name: Set up for libcxxabi
+          working_directory: ~/project/cheerp-compiler
+          command: |
+            rm -rf rpmbuild
+            cp -r libcxxabi/rpmbuild .
+      - create-rpm-package:
+          directory: cheerp-compiler
+          package-name: libcxxabi
+          branch-name: << pipeline.parameters.cheerp-compiler-branch >>
+      - create-rpm-package:
+          directory: cheerp-libs
+          package-name: libs
+          branch-name: << pipeline.parameters.cheerp-libs-branch >>
+      - build-deploy-rpm:
+          directory: cheerp-internal/tools/releasing/cheerp-core
+          package-name: core
+      - when:
+          condition:
+            equal: [ master, << pipeline.parameters.tag >> ]
+          steps:
+            - run:
+                name: Remove old packages
+                working_directory: ~/
+                command: |
+                  if [ ${CHAN} == 'nightly' ]; then
+                    . ~/project/cheerp-internal/tools/releasing/rpm_utils.sh
+                    repo_remove_old llvm-clang
+                    repo_remove_old utils
+                    repo_remove_old newlib
+                    repo_remove_old libcxx
+                    repo_remove_old libcxxabi
+                    repo_remove_old libs
+                    repo_remove_old core
+                    repo_update
+                  fi
+
+commands:
+  add-yum-configuration:
+    steps:
+      - run:
+          name: Add yum configuration
+          command: |
+            if [ << pipeline.parameters.tag >> != "master" ]; then
+
+            cat \<< EOF > /etc/yum.repos.d/cheerp.repo
+            [Cheerp-Stable]
+            name=Cheerp Stable
+            gpgcheck=1
+            gpgkey=https://rpm.leaningtech.com/RPM-GPG-KEY-leaningtech
+            enabled=1
+            baseurl=https://rpm.leaningtech.com/stable
+            EOF
+
+            else
+
+            cat \<< EOF > /etc/yum.repos.d/cheerp.repo
+            [Cheerp-Nightly]
+            name=Cheerp Nightly
+            gpgcheck=1
+            gpgkey=https://rpm.leaningtech.com/RPM-GPG-KEY-leaningtech
+            enabled=1
+            baseurl=https://rpm.leaningtech.com/nightly
+            EOF
+
+            fi
+  set-up-rpm-workspace:
+    steps:
+      - run:
+          name: Set up workspace
+          command: |
+            mkdir pkg
+            echo -e $GPG_KEY | gpg --import
+            echo -e $PUBLIC_GPG_KEY > public
+            rpm --import public
+            rm public
+            echo "%_signature gpg" >> ~/.rpmmacros
+            echo "%_gpg_name Alessandro Pignotti" >> ~/.rpmmacros
+  get-rpm-repo:
+    steps:
+     - run:
+          name: Get RPM repo
+          working_directory: ~/
+          command: |
+              rsync -a --delete-after -e 'ssh -p 2223' leaningtech@136.243.170.209:/srv/web/rpm/$CHAN ${REPO_DIR}/
+  create-rpm-package:
+    parameters:
+      directory:
+        type: string
+      package-name:
+        type: string
+      branch-name:
+        type: string
+        default: master
+    steps:
+      - add-rpm-sources:
+          directory: << parameters.directory >>
+          package-name: << parameters.package-name >>
+          branch-name: << parameters.branch-name >>
+      - build-deploy-rpm:
+          directory: << parameters.directory >>
+          package-name: << parameters.package-name >>
+  add-rpm-sources:
+    parameters:
+      directory:
+        type: string
+      package-name:
+        type: string
+      branch-name:
+        type: string
+        default: master
+    steps:
+      - run:
+          name: Add cheerp-<< parameters.package-name >> sources
+          working_directory: ~/project/<< parameters.directory >>
+          command: |
+            if [ << pipeline.parameters.tag >> != master ]; then
+              ../cheerp-internal/tools/releasing/<< parameters.package-name >>_debian_archives.sh ${VERSION_NO} << pipeline.parameters.tag >>
+            else
+              ../cheerp-internal/tools/releasing/<< parameters.package-name >>_debian_archives.sh ${VERSION_NO} << parameters.branch-name >>
+            fi
+            rm -rf rpmbuild/SOURCES
+            mkdir rpmbuild/SOURCES
+            mv ../pkg/* rpmbuild/SOURCES
+  build-deploy-rpm:
+    parameters:
+      directory:
+        type: string
+      package-name:
+        type: string
+    steps:
+      - run:
+          name: Build cheerp-<< parameters.package-name >>
+          working_directory: ~/project/<< parameters.directory >>
+          command: |
+            sed -i "s/Version: .*/Version: ${VERSION_NO}/" rpmbuild/SPECS/cheerp-<< parameters.package-name >>.spec
+            rpmbuild -ba rpmbuild/SPECS/cheerp-<< parameters.package-name >>.spec --define "_topdir ${PWD}/rpmbuild"
+            rpm --addsign rpmbuild/RPMS/x86_64/cheerp-<< parameters.package-name >>-${VERSION_NO}-1.el8.x86_64.rpm
+      - run:
+          name: Deploy cheerp-<< parameters.package-name >>
+          working_directory: ~/
+          command: |
+            cp ~/project/<< parameters.directory >>/rpmbuild/RPMS/x86_64/cheerp-<< parameters.package-name >>-${VERSION_NO}-1.el8.x86_64.rpm ${REPO_DIR}/${CHAN}
+            . ~/project/cheerp-internal/tools/releasing/rpm_utils.sh
+            repo_update
+      - run:
+          name: Install cheerp-<< parameters.package-name >>-${VERSION_NO}-1.el8
+          working_directory: ~/
+          command: |
+            dnf clean all
+            dnf install -y cheerp-<< parameters.package-name >>-${VERSION_NO}-1.el8
 
 commands:
   create-deb:
@@ -406,3 +668,10 @@ workflows:
           requires:
             - define-version-no
             - test
+      - RPM-cheerp-compiler:
+          requires:
+            - define-version-no
+            - test
+      - RPM-libraries:
+          requires:
+            - RPM-cheerp-compiler
