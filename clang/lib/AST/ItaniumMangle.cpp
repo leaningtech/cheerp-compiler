@@ -699,6 +699,10 @@ bool ItaniumMangleContextImpl::shouldMangleCXXName(const NamedDecl *D) {
     if (FD->isMain())
       return false;
 
+    // CHEERP: "webMain" is not mangled.
+    if (FD->isWebMain())
+      return false;
+
     // The Windows ABI expects that we would never mangle "typical"
     // user-defined entry points regardless of visibility or freestanding-ness.
     //

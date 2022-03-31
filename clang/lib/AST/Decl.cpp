@@ -3085,6 +3085,14 @@ bool FunctionDecl::isMain() const {
          isNamed(this, "main");
 }
 
+bool FunctionDecl::isWebMain() const {
+  const TranslationUnitDecl *tunit =
+    dyn_cast<TranslationUnitDecl>(getDeclContext()->getRedeclContext());
+  return tunit &&
+         !tunit->getASTContext().getLangOpts().Freestanding &&
+         isNamed(this, "webMain");
+}
+
 bool FunctionDecl::isMSVCRTEntryPoint() const {
   const TranslationUnitDecl *TUnit =
       dyn_cast<TranslationUnitDecl>(getDeclContext()->getRedeclContext());
