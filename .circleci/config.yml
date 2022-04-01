@@ -425,10 +425,31 @@ jobs:
           directory: cheerp-utils
           package-name: utils
           branch-name: << pipeline.parameters.cheerp-utils-branch >>
-      - create-rpm-package:
+      - run:
+          name: Add cheerp-newlib sources
+          working_directory: ~/project/cheerp-newlib
+          command: |
+            if [ << pipeline.parameters.tag >> != master ]; then
+              export NEWLIB_TAG=<< pipeline.parameters.tag >>
+              export CHEERP_COMPILER_TAG=<< pipeline.parameters.tag >>
+            else
+              export NEWLIB_TAG=<< pipeline.parameters.cheerp-newlib-branch >>
+              export CHEERP_COMPILER_TAG=<< pipeline.parameters.cheerp-compiler-branch >>
+            fi
+
+            MAIN_ARCHIVE=../pkg/cheerp-newlib_${VERSION_NO}.orig.tar.gz
+            LIBCXX_ARCHIVE=../pkg/cheerp-newlib_${VERSION_NO}.orig-libcxx.tar.gz
+            PREFIX=cheerp-newlib-${VERSION_NO}
+
+            git archive --format=tar.gz --prefix=$PREFIX/ ${NEWLIB_TAG} -o $MAIN_ARCHIVE
+            git -C ../cheerp-compiler/ archive --format=tar.gz ${CHEERP_COMPILER_TAG} libcxx/ -o $LIBCXX_ARCHIVE
+
+            rm -rf rpmbuild/SOURCES
+            mkdir rpmbuild/SOURCES
+            mv ../pkg/* rpmbuild/SOURCES
+      - build-deploy-rpm:
           directory: cheerp-newlib
           package-name: newlib
-          branch-name: << pipeline.parameters.cheerp-newlib-branch >>
       - run:
           name: Set up for libcxx
           working_directory: ~/project/cheerp-compiler
