@@ -170,7 +170,12 @@ jobs:
           at: packages
       - run:
           name: Get tests
-          command: git clone https://github.com/leaningtech/cheerp-utils.git
+          command: |
+            if [ << pipeline.parameters.tag >> != master ]; then
+              git clone --depth=1 --branch << pipeline.parameters.tag >> https://github.com/leaningtech/cheerp-utils.git
+            else
+              git clone --depth=1 --branch << pipeline.parameters.cheerp-utils-branch >> https://github.com/leaningtech/cheerp-utils.git
+            fi
       - run:
           name: Set up cheerp compiler
           working_directory: ~/project/packages
