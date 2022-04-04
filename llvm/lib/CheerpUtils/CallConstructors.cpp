@@ -29,7 +29,7 @@ namespace cheerp
 PreservedAnalyses CallConstructorsPass::run(llvm::Module &M, llvm::ModuleAnalysisManager &MPA)
 {
 	FunctionType* Ty = FunctionType::get(Type::getVoidTy(M.getContext()), false);
-	Function* Ctors = cast<Function>(M.getOrInsertFunction("__cheerp_constructors", Ty).getCallee());
+	Function* Ctors = cast<Function>(M.getOrInsertFunction("_start", Ty).getCallee());
 	if (!Ctors->empty())
 		return PreservedAnalyses::all();
 
@@ -40,6 +40,11 @@ PreservedAnalyses CallConstructorsPass::run(llvm::Module &M, llvm::ModuleAnalysi
 	{
 		Builder.CreateCall(Ty, cast<Function>(C->getAggregateElement(1)));
 	}
+	Function* entry = M.getFunction("webMain");
+	if (!entry)
+		entry = M.getFunction("main");
+	if (entry)
+		Builder.CreateCall(entry->getFunctionType(), entry);
 	Builder.CreateRetVoid();
 
 	PreservedAnalyses PA = PreservedAnalyses::none();
