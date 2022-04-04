@@ -498,6 +498,45 @@ jobs:
                   fi
 
 commands:
+  create-deb:
+    parameters:
+      directory:
+        type: string
+      package-name:
+        type: string
+    steps:
+      - build-internal:
+          directory: << parameters.directory >>
+          package-name: << parameters.package-name >>
+      - install-deb:
+          package-name: << parameters.package-name >>
+  build-internal:
+    parameters:
+      directory:
+        type: string
+      package-name:
+        type: string
+    steps:
+      - run:
+          name: Build cheerp-<< parameters.package-name >>
+          working_directory: ~/project/<< parameters.directory >>
+          command: |
+            dch -b -v ${VERSION_NO}-1 "Internal build" -m
+            dpkg-buildpackage -d -b
+            mv ../cheerp-<< parameters.package-name >>_*.deb ../packages/
+  install-deb:
+    parameters:
+      package-name:
+        type: string
+    steps:
+     - run:
+          name: Set up cheerp-<< parameters.package-name >>
+          working_directory: ~/project/packages
+          command: |
+            mkdir tmp
+            dpkg -x cheerp-<< parameters.package-name >>_*.deb tmp
+            sudo cp -rv tmp/opt/cheerp/* /opt/cheerp
+            rm -rf tmp
   add-yum-configuration:
     steps:
       - run:
@@ -611,47 +650,6 @@ commands:
           command: |
             dnf clean all
             dnf install -y cheerp-<< parameters.package-name >>-${VERSION_NO}-1.el8
-
-commands:
-  create-deb:
-    parameters:
-      directory:
-        type: string
-      package-name:
-        type: string
-    steps:
-      - build-internal:
-          directory: << parameters.directory >>
-          package-name: << parameters.package-name >>
-      - install-deb:
-          package-name: << parameters.package-name >>
-  build-internal:
-    parameters:
-      directory:
-        type: string
-      package-name:
-        type: string
-    steps:
-      - run:
-          name: Build cheerp-<< parameters.package-name >>
-          working_directory: ~/project/<< parameters.directory >>
-          command: |
-            dch -b -v ${VERSION_NO}-1 "Internal build" -m
-            dpkg-buildpackage -d -b
-            mv ../cheerp-<< parameters.package-name >>_*.deb ../packages/
-  install-deb:
-    parameters:
-      package-name:
-        type: string
-    steps:
-     - run:
-          name: Set up cheerp-<< parameters.package-name >>
-          working_directory: ~/project/packages
-          command: |
-            mkdir tmp
-            dpkg -x cheerp-<< parameters.package-name >>_*.deb tmp
-            sudo cp -rv tmp/opt/cheerp/* /opt/cheerp
-            rm -rf tmp
 
 parameters:
   tag:
