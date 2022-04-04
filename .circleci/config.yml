@@ -155,6 +155,179 @@ jobs:
           no_output_timeout: 30m
       - store_artifacts:
           path: ~/project/packages
+  PPA:
+    machine: *ubuntu
+    resource_class: medium
+    environment:
+      - LC_ALL: en_US.UTF-8
+      - LANG: en_US.UTF-8
+      - LANGUAGE: en_US.UTF-8
+      - DISTRO: focal
+    steps:
+      - attach_workspace:
+          at: packages
+      - run:
+          name: Add environment
+          command: |
+            cat packages/version >> $BASH_ENV
+      - run:
+          name: Add known hosts
+          command: |
+            echo $GH_HOST >> ~/.ssh/known_hosts
+      - run: sudo apt-get update && sudo apt-get install -y debhelper cmake python3-distutils devscripts ninja-build clang lld
+      - run:
+          name: Get repos
+          command: |
+            git clone git@github.com:leaningtech/cheerp-internal.git
+            git clone --depth=1 --no-single-branch https://github.com/leaningtech/cheerp-compiler cheerp-compiler
+            git clone https://github.com/leaningtech/cheerp-utils.git
+            git clone https://github.com/leaningtech/cheerp-newlib.git
+            git clone https://github.com/leaningtech/cheerp-libs.git
+      - run:
+          name: Set up workspace
+          command: |
+            mkdir pkg
+            echo -e $GPG_KEY | gpg --import
+            locale
+            if [ << pipeline.parameters.tag >> != 'master' ]; then
+              echo "export CHANGELOG_MESSAGE="Release ${VERSION_NO}"" >> $BASH_ENV
+              echo 'export PPA="ppa:leaningtech-dev/cheerp-ppa"' >> $BASH_ENV
+              cd cheerp-compiler && git checkout << pipeline.parameters.tag >>
+              cd ../cheerp-utils && git checkout << pipeline.parameters.tag >>
+              cd ../cheerp-newlib && git checkout << pipeline.parameters.tag >>
+              cd ../cheerp-libs && git checkout << pipeline.parameters.tag >>
+            else
+              echo 'export CHANGELOG_MESSAGE="Nightly build"' >> $BASH_ENV
+              echo 'export PPA="ppa:leaningtech-dev/cheerp-nightly-ppa"' >> $BASH_ENV
+              cd cheerp-compiler && git checkout << pipeline.parameters.cheerp-compiler-branch >>
+              cd ../cheerp-utils && git checkout << pipeline.parameters.cheerp-utils-branch >>
+              cd ../cheerp-newlib && git checkout << pipeline.parameters.cheerp-newlib-branch >>
+              cd ../cheerp-libs && git checkout << pipeline.parameters.cheerp-libs-branch >>
+            fi
+      - run:
+          name: Package cheerp-compiler
+          working_directory: cheerp-compiler
+          command: |
+            if [ << pipeline.parameters.tag >> != 'master' ]; then
+              ../cheerp-internal/tools/releasing/llvm-clang_debian_archives.sh ${VERSION_NO} << pipeline.parameters.tag >>
+            else
+              ../cheerp-internal/tools/releasing/llvm-clang_debian_archives.sh ${VERSION_NO} << pipeline.parameters.cheerp-compiler-branch >>
+            fi
+            cd ../pkg
+            tar -xvf cheerp-llvm-clang_${VERSION_NO}.orig.tar.gz > /dev/null
+            cd cheerp-llvm-clang-${VERSION_NO}
+            dch -D ${DISTRO} -b -v ${VERSION_NO}-1~${DISTRO} "${CHANGELOG_MESSAGE}" -m
+            env -i HOME="$HOME" LC_CTYPE="${LC_ALL:-${LC_CTYPE:-$LANG}}" PATH="$PATH" USER="$USER" debuild -sa -S -k88C3C876D1AE3E3C --lintian-opts -v
+      - run:
+          name: Prepare cheerp-utils sources
+          working_directory: cheerp-utils
+          command: |
+            if [ << pipeline.parameters.tag >> != 'master' ]; then
+              ../cheerp-internal/tools/releasing/utils_debian_archives.sh $VERSION_NO << pipeline.parameters.tag >>
+            else
+              ../cheerp-internal/tools/releasing/utils_debian_archives.sh $VERSION_NO << pipeline.parameters.cheerp-utils-branch >>
+            fi
+            cd ../pkg
+            tar -xf cheerp-utils_${VERSION_NO}.orig.tar.gz
+            cd cheerp-utils-${VERSION_NO}
+            dch -b -v ${VERSION_NO}-1~${DISTRO} "${CHANGELOG_MESSAGE}" -D ${DISTRO} -m
+            sed -i "s/\${source:Version}/${VERSION_NO}/g" debian/control
+            debuild -sa -S -k88C3C876D1AE3E3C -d
+      - run:
+          name: Prepare cheerp-newlib sources
+          working_directory: cheerp-newlib
+          command: |
+            if [ << pipeline.parameters.tag >> != 'master' ]; then
+              ../cheerp-internal/tools/releasing/newlib_debian_archives.sh $VERSION_NO << pipeline.parameters.tag >>
+            else
+              ../cheerp-internal/tools/releasing/newlib_debian_archives.sh $VERSION_NO << pipeline.parameters.cheerp-newlib-branch >>
+            fi
+            cd ../pkg
+            tar -xf cheerp-newlib_${VERSION_NO}.orig.tar.gz
+            cd cheerp-newlib-${VERSION_NO}
+            tar -xf ../cheerp-newlib_${VERSION_NO}.orig-libcxx.tar.gz
+            dch -b -v ${VERSION_NO}-1~${DISTRO} "${CHANGELOG_MESSAGE}" -D ${DISTRO} -m
+            sed -i "s/\${source:Version}/${VERSION_NO}/g" debian/control
+            debuild -sa -S -k88C3C876D1AE3E3C -d
+      - run:
+          name: Prepare libcxx sources
+          working_directory: cheerp-compiler
+          command: |
+            if [ << pipeline.parameters.tag >> != 'master' ]; then
+              ../cheerp-internal/tools/releasing/libcxx_debian_archives.sh $VERSION_NO << pipeline.parameters.tag >>
+            else
+              ../cheerp-internal/tools/releasing/libcxx_debian_archives.sh $VERSION_NO << pipeline.parameters.cheerp-compiler-branch >>
+            fi
+            cd ../pkg
+            tar -xf cheerp-libcxx_${VERSION_NO}.orig.tar.gz
+            cd cheerp-libcxx-${VERSION_NO}
+            rm -rf debian/
+            cp -rv libcxx/debian/ debian/
+            dch -b -v ${VERSION_NO}-1~${DISTRO} "${CHANGELOG_MESSAGE}" -D ${DISTRO} -m
+            sed -i "s/\${source:Version}/${VERSION_NO}/g" debian/control
+            debuild -sa -S -k88C3C876D1AE3E3C -d
+      - run:
+          name: Prepare libcxxabi sources
+          working_directory: cheerp-compiler
+          command: |
+            if [ << pipeline.parameters.tag >> != 'master' ]; then
+              ../cheerp-internal/tools/releasing/libcxxabi_debian_archives.sh ${VERSION_NO} << pipeline.parameters.tag >>
+            else
+              ../cheerp-internal/tools/releasing/libcxxabi_debian_archives.sh ${VERSION_NO} << pipeline.parameters.cheerp-compiler-branch >>
+            fi
+            cd ../pkg
+            tar -xf cheerp-libcxxabi_${VERSION_NO}.orig.tar.gz
+            cd cheerp-libcxxabi-${VERSION_NO}
+            rm -rf debian/
+            cp -rv libcxxabi/debian/ debian/
+            dch -b -v ${VERSION_NO}-1~${DISTRO} "${CHANGELOG_MESSAGE}" -D ${DISTRO} -m
+            sed -i "s/\${source:Version}/${VERSION_NO}/g" debian/control
+            debuild -sa -S -k88C3C876D1AE3E3C -d
+      - run:
+          name: Prepare cheerp-libs sources
+          working_directory: cheerp-libs
+          command: |
+            if [ << pipeline.parameters.tag >> != 'master' ]; then
+              ../cheerp-internal/tools/releasing/libs_debian_archives.sh ${VERSION_NO} << pipeline.parameters.tag >>
+            else
+              ../cheerp-internal/tools/releasing/libs_debian_archives.sh ${VERSION_NO} << pipeline.parameters.cheerp-libs-branch >>
+            fi
+            cd ../pkg
+            tar -xf cheerp-libs_${VERSION_NO}.orig.tar.gz
+            cd cheerp-libs-${VERSION_NO}
+            dch -b -v ${VERSION_NO}-1~${DISTRO} "${CHANGELOG_MESSAGE}" -D ${DISTRO} -m
+            sed -i "s/\${source:Version}/${VERSION_NO}/g" debian/control
+            debuild -sa -S -k88C3C876D1AE3E3C -d
+      - run:
+          name: Prepare cheerp metapackage sources
+          working_directory: cheerp-internal/tools/releasing
+          command: |
+            GZIP="-n" tar -czf cheerp-core_${VERSION_NO}.orig.tar.gz cheerp-core
+            cd cheerp-core
+            dch -b -v ${VERSION_NO}-1~${DISTRO} "${CHANGELOG_MESSAGE}" -D ${DISTRO} -m
+            sed -i "s/\${source:Version}/${VERSION_NO}/g" debian/control
+            debuild -sa -S -k88C3C876D1AE3E3C -d
+      - run:
+          name: Publish
+          working_directory: pkg
+          command: |
+            dput ${PPA} cheerp-llvm-clang*_source.changes
+            dput ${PPA} cheerp-utils*_source.changes
+            dput ${PPA} cheerp-newlib*_source.changes
+            dput ${PPA} cheerp-libcxx*_source.changes
+            dput ${PPA} cheerp-libcxxabi*_source.changes
+            dput ${PPA} cheerp-libs*_source.changes
+            dput ${PPA} ../cheerp-internal/tools/releasing/cheerp-core*_source.changes
+            if [ << pipeline.parameters.tag >> != 'master' ]; then
+              cp cheerp-llvm-clang_${VERSION_NO}.orig.tar.gz cheerp-llvm-clang-${VERSION_NO}.tar.gz
+              python2 ../cheerp-internal/tools/releasing/github_upload.py ${VERSION} "Cheerp ${VERSION_NO}" cheerp-llvm-clang-${VERSION_NO}.tar.gz cheerp-llvm-clang-${VERSION_NO}.tar.gz
+              cp cheerp-utils_${VERSION_NO}.orig.tar.gz cheerp-utils-${VERSION_NO}.tar.gz
+              cp cheerp-newlib_${VERSION_NO}.orig.tar.gz cheerp-newlib-${VERSION_NO}.tar.gz
+              cp cheerp-libs_${VERSION_NO}.orig.tar.gz cheerp-libs-${VERSION_NO}.tar.gz
+              python2 ../cheerp-internal/tools/releasing/github_upload.py << pipeline.parameters.tag >> "Cheerp ${VERSION_NO}" cheerp-utils-${VERSION_NO}.tar.gz cheerp-utils-${VERSION_NO}.tar.gz
+              python2 ../cheerp-internal/tools/releasing/github_upload.py << pipeline.parameters.tag >> "Cheerp ${VERSION_NO}" cheerp-newlib-${VERSION_NO}.tar.gz cheerp-newlib-${VERSION_NO}.tar.gz
+              python2 ../cheerp-internal/tools/releasing/github_upload.py << pipeline.parameters.tag >> "Cheerp ${VERSION_NO}" cheerp-libs-${VERSION_NO}.tar.gz cheerp-libs-${VERSION_NO}.tar.gz
+            fi
 
 commands:
   create-deb:
@@ -229,3 +402,7 @@ workflows:
           requires:
             - build-cheerp-compiler
             - build-libraries
+      - PPA:
+          requires:
+            - define-version-no
+            - test
