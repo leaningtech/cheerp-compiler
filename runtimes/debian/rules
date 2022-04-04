@@ -1,0 +1,23 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@ --parallel
+
+override_dh_auto_configure:
+	cmake -S runtimes -B build_runtimes_genericjs \
+		-GNinja -C runtimes/CheerpCmakeConf.cmake \
+		-DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER_TARGET="cheerp"
+	cmake -S runtimes -B build_runtimes_wasm \
+		-GNinja -C runtimes/CheerpCmakeConf.cmake \
+		-DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER_TARGET="cheerp-wasm"
+
+override_dh_auto_build:
+	dh_auto_build -Bbuild_runtimes_genericjs
+	dh_auto_build -Bbuild_runtimes_wasm
+
+override_dh_auto_test:
+
+
+override_dh_auto_install:
+	dh_auto_install -Bbuild_runtimes_genericjs
+	dh_auto_install -Bbuild_runtimes_wasm

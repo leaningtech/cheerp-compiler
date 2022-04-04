@@ -94,25 +94,14 @@ jobs:
           directory: cheerp-newlib
           package-name: newlib
       - run:
-          name: Set up for libcxx
+          name: Set up for libcxx-libcxxabi
           working_directory: ~/project/cheerp-compiler
           command: |
             rm -rf debian/
-            cp -rv libcxx/debian/ debian/
+            cp -rv runtimes/debian/ debian/
       - create-deb:
           directory: cheerp-compiler
-          package-name: libcxx
-      - run:
-          name: Set up for libcxxabi
-          working_directory: ~/project/cheerp-compiler
-          command: |
-            rm -rf build_genericjs/
-            rm -rf build_asmjs/
-            rm -rf debian/
-            cp -rv libcxxabi/debian/ debian/
-      - create-deb:
-          directory: cheerp-compiler
-          package-name: libcxxabi
+          package-name: libcxx-libcxxabi
       - build-internal:
           directory: cheerp-libs
           package-name: libs
@@ -143,9 +132,7 @@ jobs:
       - install-deb:
           package-name: newlib
       - install-deb:
-          package-name: libcxx
-      - install-deb:
-          package-name: libcxxabi
+          package-name: libcxx-libcxxabi
       - install-deb:
           package-name: libs
       - run:
@@ -250,36 +237,19 @@ jobs:
             sed -i "s/\${source:Version}/${VERSION_NO}/g" debian/control
             debuild -sa -S -k88C3C876D1AE3E3C -d
       - run:
-          name: Prepare libcxx sources
+          name: Prepare libcxx-libcxxabi sources
           working_directory: cheerp-compiler
           command: |
             if [ << pipeline.parameters.tag >> != 'master' ]; then
-              ../cheerp-internal/tools/releasing/libcxx_debian_archives.sh $VERSION_NO << pipeline.parameters.tag >>
+              ../cheerp-internal/tools/releasing/libcxx-libcxxabi_debian_archives.sh $VERSION_NO << pipeline.parameters.tag >>
             else
-              ../cheerp-internal/tools/releasing/libcxx_debian_archives.sh $VERSION_NO << pipeline.parameters.cheerp-compiler-branch >>
+              ../cheerp-internal/tools/releasing/libcxx-libcxxabi_debian_archives.sh $VERSION_NO << pipeline.parameters.cheerp-compiler-branch >>
             fi
             cd ../pkg
-            tar -xf cheerp-libcxx_${VERSION_NO}.orig.tar.gz
-            cd cheerp-libcxx-${VERSION_NO}
+            tar -xf cheerp-libcxx-libcxxabi_${VERSION_NO}.orig.tar.gz
+            cd cheerp-libcxx-libcxxabi-${VERSION_NO}
             rm -rf debian/
-            cp -rv libcxx/debian/ debian/
-            dch -b -v ${VERSION_NO}-1~${DISTRO} "${CHANGELOG_MESSAGE}" -D ${DISTRO} -m
-            sed -i "s/\${source:Version}/${VERSION_NO}/g" debian/control
-            debuild -sa -S -k88C3C876D1AE3E3C -d
-      - run:
-          name: Prepare libcxxabi sources
-          working_directory: cheerp-compiler
-          command: |
-            if [ << pipeline.parameters.tag >> != 'master' ]; then
-              ../cheerp-internal/tools/releasing/libcxxabi_debian_archives.sh ${VERSION_NO} << pipeline.parameters.tag >>
-            else
-              ../cheerp-internal/tools/releasing/libcxxabi_debian_archives.sh ${VERSION_NO} << pipeline.parameters.cheerp-compiler-branch >>
-            fi
-            cd ../pkg
-            tar -xf cheerp-libcxxabi_${VERSION_NO}.orig.tar.gz
-            cd cheerp-libcxxabi-${VERSION_NO}
-            rm -rf debian/
-            cp -rv libcxxabi/debian/ debian/
+            cp -rv runtimes/debian/ debian/
             dch -b -v ${VERSION_NO}-1~${DISTRO} "${CHANGELOG_MESSAGE}" -D ${DISTRO} -m
             sed -i "s/\${source:Version}/${VERSION_NO}/g" debian/control
             debuild -sa -S -k88C3C876D1AE3E3C -d
@@ -451,24 +421,14 @@ jobs:
           directory: cheerp-newlib
           package-name: newlib
       - run:
-          name: Set up for libcxx
+          name: Set up for libcxx-libcxxabi
           working_directory: ~/project/cheerp-compiler
           command: |
             rm -rf rpmbuild
-            cp -r libcxx/rpmbuild .
+            cp -r runtimes/rpmbuild .
       - create-rpm-package:
           directory: cheerp-compiler
-          package-name: libcxx
-          branch-name: << pipeline.parameters.cheerp-compiler-branch >>
-      - run:
-          name: Set up for libcxxabi
-          working_directory: ~/project/cheerp-compiler
-          command: |
-            rm -rf rpmbuild
-            cp -r libcxxabi/rpmbuild .
-      - create-rpm-package:
-          directory: cheerp-compiler
-          package-name: libcxxabi
+          package-name: libcxx-libcxxabi
           branch-name: << pipeline.parameters.cheerp-compiler-branch >>
       - create-rpm-package:
           directory: cheerp-libs
@@ -490,8 +450,7 @@ jobs:
                     repo_remove_old llvm-clang
                     repo_remove_old utils
                     repo_remove_old newlib
-                    repo_remove_old libcxx
-                    repo_remove_old libcxxabi
+                    repo_remove_old libcxx-libcxxabi
                     repo_remove_old libs
                     repo_remove_old core
                     repo_update
