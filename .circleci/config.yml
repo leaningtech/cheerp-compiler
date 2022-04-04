@@ -45,17 +45,9 @@ jobs:
           working_directory: ~/project/cheerp-compiler
           command: |
             cat ~/project/packages/version >> $BASH_ENV
-      - run:
-          name: Build cheerp compiler
-          working_directory: ~/project/cheerp-compiler
-          command: |
-            dch -b -v ${VERSION_NO}-1 "Internal build" -m
-            dpkg-buildpackage -b -d
-      - run:
-          name: Store package
-          working_directory: ~/project
-          command: |
-            mv cheerp-llvm-clang_*.deb packages/
+      - build-internal:
+          directory: cheerp-compiler
+          package-name: llvm-clang
       - persist_to_workspace:
           root: ~/project/packages
           paths:
@@ -87,76 +79,43 @@ jobs:
           name: Set up workspace
           command: |
             cat ~/project/packages/version >> $BASH_ENV
-      - run:
-          name: Set up cheerp compiler
-          working_directory: ~/project/packages
-          command: |
-            mkdir tmp
-            dpkg -x cheerp-llvm-clang_*.deb tmp
             sudo mkdir /opt/cheerp/
-            sudo cp -rv tmp/opt/cheerp/* /opt/cheerp
-            rm -rf tmp
+      - install-deb:
+          package-name: llvm-clang
+      - create-deb:
+          directory: cheerp-utils
+          package-name: utils
       - run:
-          name: Build utils
-          working_directory: ~/project/cheerp-utils
+          name: Set up for newlib
+          working_directory: ~/project
           command: |
-            dch -b -v ${VERSION_NO}-1 "Internal build" -m
-            dpkg-buildpackage -d -b
-            mkdir tmp
-            dpkg -x ../cheerp-utils_*.deb tmp
-            sudo cp -rv tmp/opt/cheerp/* /opt/cheerp/
-
-            mv ../cheerp-utils_*.deb ../packages/
+            cp -rv cheerp-compiler/libcxx cheerp-newlib
+      - create-deb:
+          directory: cheerp-newlib
+          package-name: newlib
       - run:
-          name: Build newlib
-          working_directory: ~/project/cheerp-newlib
-          command: |
-            dch -b -v ${VERSION_NO}-1 "Internal build" -m
-            cp -rv ../cheerp-compiler/libcxx/ libcxx/
-            dpkg-buildpackage -d -b
-            mkdir tmp
-            dpkg -x ../cheerp-newlib_*.deb tmp
-            sudo cp -rv tmp/opt/cheerp/* /opt/cheerp/
-
-            mv ../cheerp-newlib_*.deb ../packages/
-      - run:
-          name: Build libcxx
+          name: Set up for libcxx
           working_directory: ~/project/cheerp-compiler
           command: |
             rm -rf debian/
             cp -rv libcxx/debian/ debian/
-            dch -b -v ${VERSION_NO}-1 "Internal build" -m
-            dpkg-buildpackage -d -b
-            mkdir tmp
-            dpkg -x ../cheerp-libcxx_*.deb tmp
-            sudo cp -rv tmp/opt/cheerp/* /opt/cheerp/
+      - create-deb:
+          directory: cheerp-compiler
+          package-name: libcxx
+      - run:
+          name: Set up for libcxxabi
+          working_directory: ~/project/cheerp-compiler
+          command: |
             rm -rf build_genericjs/
             rm -rf build_asmjs/
             rm -rf debian/
-            rm -rf tmp
-
-            mv ../cheerp-libcxx_*.deb ../packages/
-      - run:
-          name: Build libcxxabi
-          working_directory: ~/project/cheerp-compiler
-          command: |
             cp -rv libcxxabi/debian/ debian/
-            dch -b -v ${VERSION_NO}-1 "Internal build" -m
-            dpkg-buildpackage -d -b
-            mkdir tmp
-            dpkg -x ../cheerp-libcxxabi_*.deb tmp
-            sudo cp -rv tmp/opt/cheerp/* /opt/cheerp/
-            rm -rf tmp
-
-            mv ../cheerp-libcxxabi_*.deb ../packages/
-      - run:
-          name: Build libs
-          working_directory: ~/project/cheerp-libs
-          command: |
-            dch -b -v ${VERSION_NO}-1 "Internal build" -m
-            dpkg-buildpackage -d -b
-
-            mv ../cheerp-libs_*.deb ../packages/
+      - create-deb:
+          directory: cheerp-compiler
+          package-name: libcxxabi
+      - build-internal:
+          directory: cheerp-libs
+          package-name: libs
       - persist_to_workspace:
           root: packages
           paths:
@@ -176,58 +135,19 @@ jobs:
             else
               git clone --depth=1 --branch << pipeline.parameters.cheerp-utils-branch >> https://github.com/leaningtech/cheerp-utils.git
             fi
-      - run:
-          name: Set up cheerp compiler
-          working_directory: ~/project/packages
-          command: |
-            mkdir tmp
-            dpkg -x cheerp-llvm-clang_*.deb tmp
-            sudo mkdir /opt/cheerp/
-            sudo cp -rv tmp/opt/cheerp/* /opt/cheerp
-            rm -rf tmp
-      - run:
-          name: Set up utils
-          working_directory: ~/project/packages
-          command: |
-            mkdir tmp
-            dpkg -x cheerp-utils_*.deb tmp
-            sudo cp -rv tmp/opt/cheerp/* /opt/cheerp/
-            rm -rf tmp      - persist_to_workspace:
-          root: packages
-          paths:
-            - cheerp-*.deb
-      - run:
-          name: Set up newlib
-          working_directory: ~/project/packages
-          command: |
-            mkdir tmp
-            dpkg -x cheerp-newlib_*.deb tmp
-            sudo cp -rv tmp/opt/cheerp/* /opt/cheerp/
-            rm -rf tmp
-      - run:
-          name: Set up libcxxi
-          working_directory: ~/project/packages
-          command: |
-            mkdir tmp
-            dpkg -x cheerp-libcxx_*.deb tmp
-            sudo cp -rv tmp/opt/cheerp/* /opt/cheerp/
-            rm -rf tmp
-      - run:
-          name: Set up libcxxabi
-          working_directory: ~/project/packages
-          command: |
-            mkdir tmp
-            dpkg -x cheerp-libcxx_*.deb tmp
-            sudo cp -rv tmp/opt/cheerp/* /opt/cheerp/
-            rm -rf tmp
-      - run:
-          name: Set up libs
-          working_directory: ~/project/packages
-          command: |
-            mkdir tmp
-            dpkg -x cheerp-libs_*.deb tmp
-            sudo cp -rv tmp/opt/cheerp/* /opt/cheerp/
-            rm -rf tmp
+      - run: sudo mkdir -p /opt/cheerp
+      - install-deb:
+          package-name: llvm-clang
+      - install-deb:
+          package-name: utils
+      - install-deb:
+          package-name: newlib
+      - install-deb:
+          package-name: libcxx
+      - install-deb:
+          package-name: libcxxabi
+      - install-deb:
+          package-name: libs
       - run:
           name: test
           working_directory: ~/project/cheerp-utils/tests
@@ -235,6 +155,47 @@ jobs:
           no_output_timeout: 30m
       - store_artifacts:
           path: ~/project/packages
+
+commands:
+  create-deb:
+    parameters:
+      directory:
+        type: string
+      package-name:
+        type: string
+    steps:
+      - build-internal:
+          directory: << parameters.directory >>
+          package-name: << parameters.package-name >>
+      - install-deb:
+          package-name: << parameters.package-name >>
+  build-internal:
+    parameters:
+      directory:
+        type: string
+      package-name:
+        type: string
+    steps:
+      - run:
+          name: Build cheerp-<< parameters.package-name >>
+          working_directory: ~/project/<< parameters.directory >>
+          command: |
+            dch -b -v ${VERSION_NO}-1 "Internal build" -m
+            dpkg-buildpackage -d -b
+            mv ../cheerp-<< parameters.package-name >>_*.deb ../packages/
+  install-deb:
+    parameters:
+      package-name:
+        type: string
+    steps:
+     - run:
+          name: Set up cheerp-<< parameters.package-name >>
+          working_directory: ~/project/packages
+          command: |
+            mkdir tmp
+            dpkg -x cheerp-<< parameters.package-name >>_*.deb tmp
+            sudo cp -rv tmp/opt/cheerp/* /opt/cheerp
+            rm -rf tmp
 
 parameters:
   tag:
