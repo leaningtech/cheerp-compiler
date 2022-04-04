@@ -29,7 +29,7 @@ namespace cheerp
 PreservedAnalyses CallConstructorsPass::run(llvm::Module &M, llvm::ModuleAnalysisManager &MPA)
 {
 	FunctionType* Ty = FunctionType::get(Type::getVoidTy(M.getContext()), false);
-	Function* Ctors = cast<Function>(M.getOrInsertFunction("__cheerp_constructors", Ty).getCallee());
+	Function* Ctors = cast<Function>(M.getOrInsertFunction("_start", Ty).getCallee());
 	if (!Ctors->empty())
 		return PreservedAnalyses::all();
 
@@ -40,6 +40,23 @@ PreservedAnalyses CallConstructorsPass::run(llvm::Module &M, llvm::ModuleAnalysi
 	{
 		Builder.CreateCall(Ty, cast<Function>(C->getAggregateElement(1)));
 	}
+	Function* entry = getMainFunction(M);
+	if (entry)
+	{
+		SmallVector<Value*, 4> Args;
+		for (auto& a: entry->args())
+		{
+			auto* ArgTy = a.getType();
+			if (auto* PTy = dyn_cast<PointerType>(ArgTy))
+				Args.push_back(ConstantPointerNull::get(PTy));
+			else if (auto* ITy = dyn_cast<IntegerType>(ArgTy))
+				Args.push_back(ConstantInt::get(ITy, 0));
+			else
+				llvm::report_fatal_error("main function has a strange signature");
+		}
+		Builder.CreateCall(entry->getFunctionType(), entry, Args);
+	}
+
 	Builder.CreateRetVoid();
 
 	PreservedAnalyses PA = PreservedAnalyses::none();
