@@ -1,4 +1,4 @@
-Name: cheerp-libcxx
+Name: cheerp-libcxx-libcxxabi
 Version: 2.5
 Release:        1%{?dist}
 Summary: A C++ compiler for the Web, C++ library implementation
