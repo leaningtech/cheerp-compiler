@@ -280,26 +280,26 @@ jobs:
             dch -b -v ${VERSION_NO}-1~${DISTRO} "${CHANGELOG_MESSAGE}" -D ${DISTRO} -m
             sed -i "s/\${source:Version}/${VERSION_NO}/g" debian/control
             debuild -sa -S -k88C3C876D1AE3E3C -d
-      # - run:
-      #     name: Publish
-      #     working_directory: pkg
-      #     command: |
-      #       dput ${PPA} cheerp-llvm-clang*_source.changes
-      #       dput ${PPA} cheerp-utils*_source.changes
-      #       dput ${PPA} cheerp-newlib*_source.changes
-      #       dput ${PPA} cheerp-libcxx-libcxxabi*_source.changes
-      #       dput ${PPA} cheerp-libs*_source.changes
-      #       dput ${PPA} ../cheerp-internal/tools/releasing/cheerp-core*_source.changes
-      #       if [ << pipeline.parameters.tag >> != 'master' ]; then
-      #         cp cheerp-llvm-clang_${VERSION_NO}.orig.tar.gz cheerp-llvm-clang-${VERSION_NO}.tar.gz
-      #         python2 ../cheerp-internal/tools/releasing/github_upload.py ${VERSION} "Cheerp ${VERSION_NO}" cheerp-llvm-clang-${VERSION_NO}.tar.gz cheerp-llvm-clang-${VERSION_NO}.tar.gz
-      #         cp cheerp-utils_${VERSION_NO}.orig.tar.gz cheerp-utils-${VERSION_NO}.tar.gz
-      #         cp cheerp-newlib_${VERSION_NO}.orig.tar.gz cheerp-newlib-${VERSION_NO}.tar.gz
-      #         cp cheerp-libs_${VERSION_NO}.orig.tar.gz cheerp-libs-${VERSION_NO}.tar.gz
-      #         python2 ../cheerp-internal/tools/releasing/github_upload.py << pipeline.parameters.tag >> "Cheerp ${VERSION_NO}" cheerp-utils-${VERSION_NO}.tar.gz cheerp-utils-${VERSION_NO}.tar.gz
-      #         python2 ../cheerp-internal/tools/releasing/github_upload.py << pipeline.parameters.tag >> "Cheerp ${VERSION_NO}" cheerp-newlib-${VERSION_NO}.tar.gz cheerp-newlib-${VERSION_NO}.tar.gz
-      #         python2 ../cheerp-internal/tools/releasing/github_upload.py << pipeline.parameters.tag >> "Cheerp ${VERSION_NO}" cheerp-libs-${VERSION_NO}.tar.gz cheerp-libs-${VERSION_NO}.tar.gz
-      #       fi
+      - run:
+          name: Publish
+          working_directory: pkg
+          command: |
+            dput ${PPA} cheerp-llvm-clang*_source.changes
+            dput ${PPA} cheerp-utils*_source.changes
+            dput ${PPA} cheerp-newlib*_source.changes
+            dput ${PPA} cheerp-libcxx-libcxxabi*_source.changes
+            dput ${PPA} cheerp-libs*_source.changes
+            dput ${PPA} ../cheerp-internal/tools/releasing/cheerp-core*_source.changes
+            if [ << pipeline.parameters.tag >> != 'master' ]; then
+              cp cheerp-llvm-clang_${VERSION_NO}.orig.tar.gz cheerp-llvm-clang-${VERSION_NO}.tar.gz
+              python2 ../cheerp-internal/tools/releasing/github_upload.py ${VERSION} "Cheerp ${VERSION_NO}" cheerp-llvm-clang-${VERSION_NO}.tar.gz cheerp-llvm-clang-${VERSION_NO}.tar.gz
+              cp cheerp-utils_${VERSION_NO}.orig.tar.gz cheerp-utils-${VERSION_NO}.tar.gz
+              cp cheerp-newlib_${VERSION_NO}.orig.tar.gz cheerp-newlib-${VERSION_NO}.tar.gz
+              cp cheerp-libs_${VERSION_NO}.orig.tar.gz cheerp-libs-${VERSION_NO}.tar.gz
+              python2 ../cheerp-internal/tools/releasing/github_upload.py << pipeline.parameters.tag >> "Cheerp ${VERSION_NO}" cheerp-utils-${VERSION_NO}.tar.gz cheerp-utils-${VERSION_NO}.tar.gz
+              python2 ../cheerp-internal/tools/releasing/github_upload.py << pipeline.parameters.tag >> "Cheerp ${VERSION_NO}" cheerp-newlib-${VERSION_NO}.tar.gz cheerp-newlib-${VERSION_NO}.tar.gz
+              python2 ../cheerp-internal/tools/releasing/github_upload.py << pipeline.parameters.tag >> "Cheerp ${VERSION_NO}" cheerp-libs-${VERSION_NO}.tar.gz cheerp-libs-${VERSION_NO}.tar.gz
+            fi
   RPM-cheerp-compiler:
     docker:
       - image: leaningtech/cheerp_rpm_base:8

@@ -24,12 +24,12 @@ cmake -S runtimes -B build_runtimes_genericjs -GNinja -C runtimes/CheerpCmakeCon
 cmake -S runtimes -B build_runtimes_wasm -GNinja -C runtimes/CheerpCmakeConf.cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER_TARGET="cheerp-wasm"
 
 %build
-ninja -C build_runtimes_genericjs 
+ninja -C build_runtimes_genericjs
 ninja -C build_runtimes_wasm
 
 %install
-ninja -C build_runtimes_genericjs install
-ninja -C build_runtimes_wasm install
+DESTDIR=%{buildroot} INSTALL="/usr/bin/install -p" ninja -C build_runtimes_genericjs install
+DESTDIR=%{buildroot} INSTALL="/usr/bin/install -p" ninja -C build_runtimes_wasm install
 
 %clean
 rm -rf $RPM_BUILD_ROOT
