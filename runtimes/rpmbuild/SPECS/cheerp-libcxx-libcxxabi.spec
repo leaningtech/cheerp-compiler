@@ -7,7 +7,7 @@ License:  GPLv2
 URL: https://leaningtech.com/cheerp
 Source0: %{NAME}_%{VERSION}.orig.tar.gz
 
-BuildRequires: cmake make cheerp-llvm-clang = %{VERSION} cheerp-utils = %{VERSION} cheerp-newlib = %{VERSION} python3
+BuildRequires: cmake make ninja-build cheerp-llvm-clang = %{VERSION} cheerp-utils = %{VERSION} cheerp-newlib = %{VERSION} python3
 Requires: cheerp-llvm-clang = %{VERSION} cheerp-utils = %{VERSION} cheerp-newlib = %{VERSION}
 
 %description
@@ -24,12 +24,12 @@ cmake -S runtimes -B build_runtimes_genericjs -GNinja -C runtimes/CheerpCmakeCon
 cmake -S runtimes -B build_runtimes_wasm -GNinja -C runtimes/CheerpCmakeConf.cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER_TARGET="cheerp-wasm"
 
 %build
-%make_build -Bbuild_runtimes_genericjs
-%make_build -Bbuild_runtimes_wasm
+ninja -C build_runtimes_genericjs 
+ninja -C build_runtimes_wasm
 
 %install
-%make_install -Bbuild_runtimes_genericjs
-%make_install -Bbuild_runtimes_wasm
+ninja -C build_runtimes_genericjs install
+ninja -C build_runtimes_wasm install
 
 %clean
 rm -rf $RPM_BUILD_ROOT
