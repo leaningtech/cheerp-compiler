@@ -1,4 +1,4 @@
-// RUN: %clang %s -g -gcolumn-info -S -emit-llvm -o - | FileCheck %s
+// RUN: %clang %s -target x86_64 -g -gcolumn-info -S -emit-llvm -o - | FileCheck %s
 // Checks that clang emits column information when -gcolumn-info is passed.
 
 int foo(int a, int b) { int c = a + b;

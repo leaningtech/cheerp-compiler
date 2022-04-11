@@ -1,6 +1,6 @@
 // REQUIRES: x86-registered-target
 // RUN: %clang -S -emit-llvm -ffp-model=fast -emit-llvm %s -o - \
-// RUN: | FileCheck %s --check-prefixes=CHECK,CHECK-FAST
+// RUN: -target x86_64 | FileCheck %s --check-prefixes=CHECK,CHECK-FAST
 
 // RUN: %clang -S -emit-llvm -ffp-model=precise %s -o - \
 // RUN: -target x86_64 | FileCheck %s --check-prefixes=CHECK,CHECK-PRECISE
@@ -13,7 +13,7 @@
 // RUN: --check-prefixes CHECK,CHECK-STRICT-FAST
 
 // RUN: %clang -S -emit-llvm -ffp-model=precise -ffast-math \
-// RUN: %s -o - | FileCheck %s --check-prefixes CHECK,CHECK-FAST1
+// RUN: -target x86_64 %s -o - | FileCheck %s --check-prefixes CHECK,CHECK-FAST1
 
 float mymuladd(float x, float y, float z) {
   // CHECK: define{{.*}} float @mymuladd

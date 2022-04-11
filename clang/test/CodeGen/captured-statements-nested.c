@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fblocks -emit-llvm %s -o %t
+// RUN: %clang_cc1 -triple %itanium_abi_triple -fblocks -emit-llvm %s -o %t
 // RUN: FileCheck %s -input-file=%t -check-prefix=CHECK1
 // RUN: FileCheck %s -input-file=%t -check-prefix=CHECK2
 
@@ -11,9 +11,9 @@ struct A {
 void test_nest_captured_stmt(int param, int size, int param_arr[size]) {
   int w;
   int arr[param][size];
-  // CHECK1: %"struct._ZZ23test_nest_captured_stmtE3$_0" = type { [[INT:i.+]]*, [[INT]]*, [[SIZE_TYPE:i.+]], [[INT]]**, [[INT]]*, [[SIZE_TYPE]], [[SIZE_TYPE]], [[INT]]* }
-  // CHECK1: %"struct._ZZ23test_nest_captured_stmtE3$_1" = type { [[INT]]*, [[INT]]*, [[INT]]**, [[INT]]*, [[SIZE_TYPE]], [[INT]]**, [[INT]]*, [[SIZE_TYPE]], [[SIZE_TYPE]], [[INT]]* }
-  // CHECK1: [[T:%"struct._ZZ23test_nest_captured_stmtE3\$_2"]] = type { [[INT]]*, [[INT]]*, %struct._Z1A*, [[INT]]**, [[INT]]*, [[SIZE_TYPE]], [[INT]]**, [[INT]]*, [[SIZE_TYPE]], [[SIZE_TYPE]], [[INT]]* }
+  // CHECK1: %struct{{.*}} = type { [[INT:i.+]]*, [[INT]]*, [[SIZE_TYPE:i.+]], [[INT]]**, [[INT]]*, [[SIZE_TYPE]], [[SIZE_TYPE]], [[INT]]* }
+  // CHECK1: %struct{{.*}} = type { [[INT]]*, [[INT]]*, [[INT]]**, [[INT]]*, [[SIZE_TYPE]], [[INT]]**, [[INT]]*, [[SIZE_TYPE]], [[SIZE_TYPE]], [[INT]]* }
+  // CHECK1: [[T:%"struct.anon.1"]] = type { [[INT]]*, [[INT]]*, %struct.A*, [[INT]]**, [[INT]]*, [[SIZE_TYPE]], [[INT]]**, [[INT]]*, [[SIZE_TYPE]], [[SIZE_TYPE]], [[INT]]* }
   #pragma clang __debug captured
   {
     int x;
@@ -142,7 +142,7 @@ void test_nest_block(void) {
   //
   // CHECK2: [[CapA:%[0-9a-z_.]*]] = getelementptr inbounds {{.*}}, i{{[0-9]+}} 0, i{{[0-9]+}} 7
   //
-  // CHECK2: getelementptr inbounds %"struct._ZZ15test_nest_blockE3$_4"{{.*}}, i{{[0-9]+}} 0, i{{[0-9]+}} 0
+  // CHECK2: getelementptr inbounds %"struct "{{.*}}, i{{[0-9]+}} 0, i{{[0-9]+}} 0
   // CHECK2: load i{{[0-9]+}}*, i{{[0-9]+}}**
   // CHECK2: load i{{[0-9]+}}, i{{[0-9]+}}*
   // CHECK2: store i{{[0-9]+}} {{.*}}, i{{[0-9]+}}* [[CapA]]

@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 %s -emit-llvm -o - -O0 | FileCheck %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple %s -emit-llvm -o - -O0 | FileCheck %s
 
 void foo(event_t evt);
 

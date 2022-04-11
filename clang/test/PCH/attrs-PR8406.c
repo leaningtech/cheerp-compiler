@@ -1,9 +1,9 @@
 // Test this without pch.
-// RUN: %clang_cc1 -include %s -emit-llvm -o - %s | FileCheck %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -include %s -emit-llvm -o - %s | FileCheck %s
 
 // Test with pch.
-// RUN: %clang_cc1 -emit-pch -o %t %s
-// RUN: %clang_cc1 -include-pch %t -emit-llvm -o - %s | FileCheck %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -emit-pch -o %t %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -include-pch %t -emit-llvm -o - %s | FileCheck %s
 
 #ifndef HEADER
 #define HEADER

@@ -41,7 +41,7 @@
 // RUN: -target x86_64 %s -o - | FileCheck %s --check-prefixes=CHECK,CHECK-FPC-ON
 
 // RUN: %clang -S -emit-llvm -ffp-contract=off -fno-fast-math \
-// RUN: %s -o - | FileCheck %s --check-prefixes=CHECK,CHECK-FPC-OFF
+// RUN: -target x86_64 %s -o - | FileCheck %s --check-prefixes=CHECK,CHECK-FPC-OFF
 
 // RUN: %clang -S -emit-llvm -ffp-model=fast -fno-fast-math \
 // RUN: -target x86_64 %s -o - | FileCheck %s --check-prefixes=CHECK,CHECK-FPC-ON
