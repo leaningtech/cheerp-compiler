@@ -23,7 +23,6 @@
 #include "llvm/Cheerp/I64Lowering.h"
 #include "llvm/Cheerp/AllocaMerging.h"
 #include "llvm/Cheerp/AllocaLowering.h"
-#include "llvm/Cheerp/AllocateArrayLowering.h"
 #include "llvm/Cheerp/FixIrreducibleControlFlow.h"
 #include "llvm/Cheerp/IdenticalCodeFolding.h"
 #include "llvm/Cheerp/ByValLowering.h"
