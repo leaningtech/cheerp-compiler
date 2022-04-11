@@ -29,6 +29,7 @@
 #include "llvm/Cheerp/CFGPasses.h"
 #include "llvm/Cheerp/ExpandStructRegs.h"
 #include "llvm/Cheerp/ByValLowering.h"
+#include "llvm/Cheerp/PassUtility.h"
 #include "llvm/CodeGen/RegAllocRegistry.h"
 #include "llvm/CodeGen/SchedulerRegistry.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
@@ -1389,7 +1390,7 @@ void EmitAssemblyHelper::RunOptimizationPipeline(
           [](ModulePassManager &MPM, OptimizationLevel Level) {
             //Run mem2reg first, to remove load/stores for the this argument
             //We need this to track this in custom constructors for DOM types, such as String::String(const char*)
-            MPM.addPass(createModuleToFunctionPassAdaptor(PromotePass()));
+            MPM.addPass(createModuleToFunctionPassAdaptor(RequiredPassWrapper<PromotePass>()));
             MPM.addPass(createModuleToFunctionPassAdaptor(CheerpNativeRewriterPass()));
             //Cheerp is single threaded, convert atomic instructions to regular ones
             MPM.addPass(createModuleToFunctionPassAdaptor(LowerAtomicPass()));
