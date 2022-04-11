@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -emit-llvm -O0 %s -o - | FileCheck %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -emit-llvm -O0 %s -o - | FileCheck %s
 
 // The shuffle vector mask must always be of i32 vector type
 // See http://reviews.llvm.org/D10838 and https://llvm.org/bugs/show_bug.cgi?id=23800#c2

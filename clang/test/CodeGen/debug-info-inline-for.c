@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -debug-info-kind=limited -emit-llvm -o - %s | FileCheck %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -debug-info-kind=limited -emit-llvm -o - %s | FileCheck %s
 // Check that clang emits Debug location in the phi instruction
 
 int func(int n) {

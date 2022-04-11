@@ -1,13 +1,13 @@
-// RUN: %clang_cc1 -debug-info-kind=standalone -fdebug-prefix-map=%p=%{fs-src-root}UNLIKELY_PATH%{fs-sep}empty %s -emit-llvm -o - | FileCheck %s -check-prefix CHECK-NO-MAIN-FILE-NAME
-// RUN: %clang_cc1 -debug-info-kind=standalone -fdebug-prefix-map=%p=%{fs-src-root}UNLIKELY_PATH=empty %s -emit-llvm -o - | FileCheck %s -check-prefix CHECK-EVIL
-// RUN: %clang_cc1 -debug-info-kind=standalone -fdebug-prefix-map=%p=%{fs-src-root}UNLIKELY_PATH%{fs-sep}empty %s -emit-llvm -o - -main-file-name debug-prefix-map.c | FileCheck %s
-// RUN: %clang_cc1 -debug-info-kind=standalone -fdebug-prefix-map=%p=%{fs-src-root}UNLIKELY_PATH%{fs-sep}empty %s -emit-llvm -o - -fdebug-compilation-dir %p | FileCheck %s -check-prefix CHECK-COMPILATION-DIR
-// RUN: %clang_cc1 -debug-info-kind=standalone -fdebug-prefix-map=%p=%{fs-src-root}UNLIKELY_PATH%{fs-sep}empty %s -emit-llvm -o - -isysroot %p -debugger-tuning=lldb | FileCheck %s -check-prefix CHECK-SYSROOT
-// RUN: %clang -g -fdebug-prefix-map=%p=%{fs-src-root}UNLIKELY_PATH%{fs-sep}empty -S -c %s -emit-llvm -o - | FileCheck %s
-// RUN: %clang -g -ffile-prefix-map=%p=%{fs-src-root}UNLIKELY_PATH%{fs-sep}empty -S -c %s -emit-llvm -o - | FileCheck %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -debug-info-kind=standalone -fdebug-prefix-map=%p=%{fs-src-root}UNLIKELY_PATH%{fs-sep}empty %s -emit-llvm -o - | FileCheck %s -check-prefix CHECK-NO-MAIN-FILE-NAME
+// RUN: %clang_cc1 -triple %itanium_abi_triple -debug-info-kind=standalone -fdebug-prefix-map=%p=%{fs-src-root}UNLIKELY_PATH=empty %s -emit-llvm -o - | FileCheck %s -check-prefix CHECK-EVIL
+// RUN: %clang_cc1 -triple %itanium_abi_triple -debug-info-kind=standalone -fdebug-prefix-map=%p=%{fs-src-root}UNLIKELY_PATH%{fs-sep}empty %s -emit-llvm -o - -main-file-name debug-prefix-map.c | FileCheck %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -debug-info-kind=standalone -fdebug-prefix-map=%p=%{fs-src-root}UNLIKELY_PATH%{fs-sep}empty %s -emit-llvm -o - -fdebug-compilation-dir %p | FileCheck %s -check-prefix CHECK-COMPILATION-DIR
+// RUN: %clang_cc1 -triple %itanium_abi_triple -debug-info-kind=standalone -fdebug-prefix-map=%p=%{fs-src-root}UNLIKELY_PATH%{fs-sep}empty %s -emit-llvm -o - -isysroot %p -debugger-tuning=lldb | FileCheck %s -check-prefix CHECK-SYSROOT
+// RUN: %clang -target x86_64 -g -fdebug-prefix-map=%p=%{fs-src-root}UNLIKELY_PATH%{fs-sep}empty -S -c %s -emit-llvm -o - | FileCheck %s
+// RUN: %clang -target x86_64 -g -ffile-prefix-map=%p=%{fs-src-root}UNLIKELY_PATH%{fs-sep}empty -S -c %s -emit-llvm -o - | FileCheck %s
 
-// RUN: %clang -g -fdebug-prefix-map=%p=./UNLIKELY_PATH/empty -S -c %s -emit-llvm -o - | FileCheck %s --check-prefix=CHECK-REL
-// RUN: %clang -g -ffile-prefix-map=%p=./UNLIKELY_PATH/empty -S -c %s -emit-llvm -o - | FileCheck %s --check-prefix=CHECK-REL
+// RUN: %clang -target x86_64 -g -fdebug-prefix-map=%p=./UNLIKELY_PATH/empty -S -c %s -emit-llvm -o - | FileCheck %s --check-prefix=CHECK-REL
+// RUN: %clang -target x86_64 -g -ffile-prefix-map=%p=./UNLIKELY_PATH/empty -S -c %s -emit-llvm -o - | FileCheck %s --check-prefix=CHECK-REL
 
 #include "Inputs/stdio.h"
 

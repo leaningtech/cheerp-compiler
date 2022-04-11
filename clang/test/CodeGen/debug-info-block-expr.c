@@ -1,5 +1,5 @@
-// RUN: %clang_cc1 -fblocks -debug-info-kind=limited -emit-llvm -o - %s | FileCheck %s
-// RUN: %clang_cc1 -DDEAD_CODE -fblocks -debug-info-kind=limited -emit-llvm -o - %s | FileCheck %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -fblocks -debug-info-kind=limited -emit-llvm -o - %s | FileCheck %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -DDEAD_CODE -fblocks -debug-info-kind=limited -emit-llvm -o - %s | FileCheck %s
 
 typedef void (^BlockTy)(void);
 void escapeFunc(BlockTy);
