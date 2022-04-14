@@ -126,7 +126,7 @@ private:
 	std::unordered_map<llvm::GlobalValue*, llvm::Type*> globalTypeMapping;
 	std::unordered_map<const llvm::StructType*, llvm::Type*> baseTypesForByteLayout;
 	std::unordered_map<const llvm::Type*, TypeMappingInfo> typesMapping;
-	std::unordered_set<llvm::Function*> pendingFunctions;
+	cheerp::DeterministicUnorderedSet<llvm::Function*> pendingFunctions;
 	std::vector<llvm::Function*> emptiedFunctions;
 	// In this context a field "escapes" if it has any use which is not just a load/store
 	std::set<TypeAndIndex> escapingFields;
