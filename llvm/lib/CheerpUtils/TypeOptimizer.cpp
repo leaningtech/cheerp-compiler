@@ -1797,10 +1797,11 @@ void TypeOptimizer::rewriteFunction(Function* F)
 					{
 						IRBuilder<> Builder(&I);
 						Value* Base = mappedOperand.first;
+						StoreInst* orig = cast<StoreInst>(&I);
 						if (wasm)
 						{
 							Value* BC = Builder.CreateBitCast(Base, Int64Ty->getPointerTo());
-							Builder.CreateStore(mappedValue, BC, isVolatile);
+							Builder.CreateAlignedStore(mappedValue, BC, orig->getAlign(), isVolatile);
 						}
 						else
 						{
@@ -1809,8 +1810,8 @@ void TypeOptimizer::rewriteFunction(Function* F)
 							Value* High = V.second;
 							Value* LowPtr = Builder.CreateConstInBoundsGEP1_32(Int32Ty, Base, 0);
 							Value* HighPtr = Builder.CreateConstInBoundsGEP1_32(Int32Ty, Base, 1);
-							Builder.CreateStore(Low, LowPtr, isVolatile);
-							Builder.CreateStore(High, HighPtr, isVolatile);
+							Builder.CreateAlignedStore(Low, LowPtr, orig->getAlign(), isVolatile);
+							Builder.CreateAlignedStore(High, HighPtr, std::min(orig->getAlign(), Align(4)), isVolatile);
 						}
 						InstsToDelete.push_back(&I);
 						needsDefaultHandling = false;
@@ -1848,17 +1849,18 @@ void TypeOptimizer::rewriteFunction(Function* F)
 						IRBuilder<> Builder(&I);
 						Value* Base = mappedOperand.first;
 						Value* V = nullptr;
+						LoadInst* orig = cast<LoadInst>(&I);
 						if (wasm)
 						{
 							Value* BC = Builder.CreateBitCast(Base, Int64Ty->getPointerTo());
-							V = Builder.CreateLoad(Int64Ty, BC, isVolatile);
+							V = Builder.CreateAlignedLoad(Int64Ty, BC, orig->getAlign(), isVolatile);
 						}
 						else
 						{
 							Value* LowPtr = Builder.CreateConstInBoundsGEP1_32(Int32Ty, Base, 0);
 							Value* HighPtr = Builder.CreateConstInBoundsGEP1_32(Int32Ty, Base, 1);
-							Value* Low = Builder.CreateLoad(Int32Ty, LowPtr, isVolatile);
-							Value* High = Builder.CreateLoad(Int32Ty, HighPtr, isVolatile);
+							Value* Low = Builder.CreateAlignedLoad(Int32Ty, LowPtr, orig->getAlign(), isVolatile);
+							Value* High = Builder.CreateAlignedLoad(Int32Ty, HighPtr, std::min(orig->getAlign(), Align(4)), isVolatile);
 							V = AssembleI64(Low, High, Builder);
 						}
 						I.replaceAllUsesWith(V);
