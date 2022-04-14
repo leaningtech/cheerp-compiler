@@ -860,7 +860,7 @@ bool PreExecute::runOnConstructor( const llvm::Target* target, const std::string
 
     std::string error;
     std::unique_ptr<Module> uniqM(&m);
-    TargetMachine* machine = target->createTargetMachine(triple, "", "", TargetOptions(), None);
+    // TargetMachine* machine = target->createTargetMachine(triple, "", "", TargetOptions(), None);
 
     EngineBuilder builder(std::move(uniqM));
     builder.setEngineKind(llvm::EngineKind::PreExecuteInterpreter);
@@ -868,7 +868,7 @@ bool PreExecute::runOnConstructor( const llvm::Target* target, const std::string
     builder.setErrorStr(&error);
     builder.setVerifyModules(true);
 
-    currentEE = builder.create(machine);
+    currentEE = builder.create();
     assert(currentEE && "failed to create execution engine!");
     currentEE->InstallStoreListener(StoreListener);
     currentEE->InstallAllocaListener(AllocaListener);
