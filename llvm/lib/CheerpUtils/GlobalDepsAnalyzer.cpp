@@ -79,8 +79,6 @@ void GlobalDepsAnalyzer::simplifyCalls(llvm::Module & module) const
 		assert(TLI);
 		LibCallSimplifier callSimplifier(*DL, TLI, ORE, nullptr, nullptr, LibCallReplacer);
 
-		const bool isAsmJS = (F.getSection() == StringRef("asmjs"));
-
 		for (BasicBlock& bb : F)
 		{
 			for (Instruction& I : bb)
@@ -90,8 +88,7 @@ void GlobalDepsAnalyzer::simplifyCalls(llvm::Module & module) const
 
 					//Replace call(bitcast) with bitcast(call)
 					//Might fail and leave the CI calling to a bitcast if the prerequisite are not met (eg. the number of paramethers differ)
-					if (isAsmJS && !FixWrongFuncCasts)
-						replaceCallOfBitCastWithBitCastOfCall(ci, /*mayFail*/ true);
+					replaceCallOfBitCastWithBitCastOfCall(ci, /*mayFail*/ true);
 
 					Function* calledFunc = ci.getCalledFunction();
 
