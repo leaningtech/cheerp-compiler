@@ -6073,8 +6073,6 @@ void CheerpWriter::compileAsmJSTopLevel()
 		}
 		if (!isFirst)
 			stream << ";" << NewLine;
-		else
-			llvm_unreachable("We expect to have at least HEAP8");
 	}
 	stream << namegen.getBuiltinName(NameGenerator::Builtin::ASSIGN_HEAPS) << "(__heap);" << NewLine;
 	if (globalDeps.needAsmJSCode())
