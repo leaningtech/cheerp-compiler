@@ -159,9 +159,9 @@ static const std::pair<LibFunc, AllocFnsTy> AllocationFnData[] = {
 // clang-format on
 
 static AllocFnsTy AllocDataCheerpMalloc =
-  {MallocLike,  1, 0,  -1};
+  {MallocLike, 1, 0, -1, -1, MallocFamily::Malloc};
 static AllocFnsTy AllocDataCheerpCalloc =
-  {CallocLike,  1, 0,  -1};
+  {CallocLike, 1, 0, -1, -1, MallocFamily::Malloc};
 
 static const Function *getCalledFunction(const Value *V,
                                          bool &IsNoBuiltin, const Function *&Caller) {
