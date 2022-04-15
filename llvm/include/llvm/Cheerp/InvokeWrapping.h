@@ -5,14 +5,13 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2021 Leaning Technologies
+// Copyright 2021-2022 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
 #ifndef _CHEERP_INVOKE_WRAPPING_H
 #define _CHEERP_INVOKE_WRAPPING_H
 
-#include "llvm/Pass.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/ADT/DenseMap.h"
@@ -68,31 +67,79 @@ private:
 	llvm::DenseMap<const llvm::Function*, LocalTypeIdMap> localTypeIdMaps;
 };
 
-class InvokeWrapping: public llvm::ModulePass
+class InvokeWrappingAnalysis;
+
+class InvokeWrapping
 {
 public:
-	static char ID;
-
 	explicit InvokeWrapping()
-		: ModulePass(ID)
 	{ }
 
-	virtual bool runOnModule(llvm::Module &M) override;
-	virtual void getAnalysisUsage(llvm::AnalysisUsage & AU) const override;
-	virtual llvm::StringRef getPassName() const override
-	{
-		return "InvokeWrapping";
-	}
+	bool runOnModule(llvm::Module &M, cheerp::GlobalDepsAnalyzer& GDA);
 	const LandingPadTable& getLandingPadTable() const
 	{
 		return table;
+	}
+	bool invalidate(llvm::Module& M, const llvm::PreservedAnalyses& PA, llvm::ModuleAnalysisManager::Invalidator&)
+	{
+		auto PAC = PA.getChecker<InvokeWrappingAnalysis>();
+		if (PAC.preserved())
+		{
+			return false;
+		}
+		llvm::errs() << "-------\tinvalidate on InvokeWrapping\n";
+		//SHOULD NEVER BE CALLED!
+		return true;
 	}
 
 private:
 	LandingPadTable table;
 };
 
-llvm::ModulePass *createInvokeWrappingPass();
+class InvokeWrappingAnalysis;
+
+class InvokeWrappingWrapper {
+	static InvokeWrapping* innerPtr;
+public:
+	static InvokeWrapping& getInner()
+	{
+		if (innerPtr)
+			delete innerPtr;
+		innerPtr = new InvokeWrapping();
+		return *innerPtr;
+	}
+	operator InvokeWrapping&()
+	{
+		assert(innerPtr);
+		return *innerPtr;
+	}
+	bool invalidate(llvm::Module& M, const llvm::PreservedAnalyses& PA, llvm::ModuleAnalysisManager::Invalidator&)
+	{
+		auto PAC = PA.getChecker<InvokeWrappingAnalysis>();
+		return !PAC.preserved();
+	}
+};
+
+class InvokeWrappingPass : public llvm::PassInfoMixin<InvokeWrappingPass> {
+public:
+	llvm::PreservedAnalyses run(llvm::Module& M, llvm::ModuleAnalysisManager& MAM);
+	static bool isRequired() { return true;}
+};
+
+class InvokeWrappingAnalysis : public llvm::AnalysisInfoMixin<InvokeWrappingAnalysis> {
+	friend llvm::AnalysisInfoMixin<InvokeWrappingAnalysis>;
+	static llvm::AnalysisKey Key;
+public:
+	using Result = InvokeWrappingWrapper;
+	static Result run(llvm::Module& M, llvm::ModuleAnalysisManager&)
+	{
+		static llvm::Module* modulePtr = nullptr;
+		assert(modulePtr != &M);
+		modulePtr = &M;
+		return InvokeWrappingWrapper();
+	}
+};
+
 }
 
 #endif //_CHEERP_INVOKE_WRAPPING_H

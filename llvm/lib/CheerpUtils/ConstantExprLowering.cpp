@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2020 Leaning Technologies
+// Copyright 2020-2022 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -24,10 +24,6 @@ using namespace llvm;
 
 namespace cheerp
 {
-
-StringRef ConstantExprLowering::getPassName() const {
-	return "ConstantExprLowering";
-}
 
 Constant* ConstantExprLowering::visitConstantExpr(const ConstantExpr *CE, SmallDenseMap<Constant *, Constant *> &FoldedOps)
 {
@@ -182,12 +178,11 @@ bool ConstantExprLowering::runOnInstruction(Instruction* I, bool& hasI64)
 	}
 	return Changed;
 }
-bool ConstantExprLowering::runOnFunction(Function& F)
+bool ConstantExprLowering::runOnFunction(Function& F, bool& hasI64)
 {
 	bool Changed = false;
-	bool hasI64 = false;
+	hasI64 = false;
 
-	LH = &getAnalysis<cheerp::LinearMemoryHelper>();
 	DL = &F.getParent()->getDataLayout();
 
 	for (BasicBlock& BB: F)
@@ -197,35 +192,51 @@ bool ConstantExprLowering::runOnFunction(Function& F)
 			Changed = runOnInstruction(&I, hasI64);
 		}
 	}
-	if (hasI64)
-	{
-		I64Lowering I64Low;
-		Changed |= I64Low.runOnFunction(F);
-	}
-
 	return Changed;
 }
 
-void ConstantExprLowering::getAnalysisUsage(llvm::AnalysisUsage & AU) const
+llvm::PreservedAnalyses ConstantExprLoweringPass::run(llvm::Module& M, llvm::ModuleAnalysisManager& MAM)
 {
-	AU.addRequired<cheerp::LinearMemoryHelper>();
-	AU.addPreserved<cheerp::LinearMemoryHelper>();
-	AU.addPreserved<Registerize>();
-	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
-	AU.addPreserved<cheerp::InvokeWrapping>();
-	AU.setPreservesCFG();
-	llvm::Pass::getAnalysisUsage(AU);
+const LinearMemoryHelper& AR = MAM.getResult<LinearMemoryAnalysis>(M);
+FunctionAnalysisManager& FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+	ConstantExprLowering inner(&AR);
+
+		FunctionPassManager FPM;
+		FPM.addPass(I64LoweringPass());
+bool moduleChanged = false;
+
+		for (Function& F : M)
+		{
+			if (F.isDeclaration())
+				continue;
+
+			bool hasI64 = false;
+			bool Changed = inner.runOnFunction(F, hasI64);
+			if (Changed)
+			{
+				FAM.invalidate(F, PreservedAnalyses::none());
+				moduleChanged = true;
+			}
+			if (hasI64)
+			{
+				PreservedAnalyses PA = FPM.run(F, FAM);
+				if (!PA.areAllPreserved())
+					moduleChanged = true;
+				FAM.invalidate(F, PA);
+			}
+		}
+
+		if (!moduleChanged)
+			return PreservedAnalyses::all();
+
+	PreservedAnalyses PA;
+	PA.preserve<LinearMemoryAnalysis>();
+	PA.preserve<RegisterizeAnalysis>();
+	PA.preserve<GlobalDepsAnalysis>();
+	PA.preserve<RegisterizeAnalysis>();
+	PA.preserve<InvokeWrappingAnalysis>();
+	PA.preserveSet<CFGAnalyses>();
+	return PA;
 }
 
-char ConstantExprLowering::ID = 0;
-
-FunctionPass *createConstantExprLoweringPass() { return new ConstantExprLowering(); }
-
 }
-
-using namespace cheerp;
-
-INITIALIZE_PASS_BEGIN(ConstantExprLowering, "ConstantExprLowering", "Converts ConstExpr into regular instructions",
-                      false, false)
-INITIALIZE_PASS_END(ConstantExprLowering, "ConstantExprLowering", "Converts ConstExpr into regular instructions",
-                    false, false)

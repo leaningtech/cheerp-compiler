@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2017-2020 Leaning Technologies
+// Copyright 2017-2022 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -78,7 +78,8 @@ public:
 
 private:
 	llvm::Module& module;
-	llvm::Pass& pass;
+	llvm::ModuleAnalysisManager& MAM;
+	llvm::FunctionAnalysisManager& FAM;
 	llvm::DataLayout targetData;
 	const llvm::Function* currentFun;
 	Registerize & registerize;
@@ -460,7 +461,7 @@ private:
 	uint32_t numberOfImportedFunctions{0};
 public:
 	llvm::raw_ostream& stream;
-	CheerpWasmWriter(llvm::Module& m, llvm::Pass& p, llvm::raw_ostream& s, const cheerp::PointerAnalyzer & PA,
+	CheerpWasmWriter(llvm::Module& m, llvm::ModuleAnalysisManager& MAM, llvm::raw_ostream& s, const cheerp::PointerAnalyzer & PA,
 			cheerp::Registerize & registerize,
 			cheerp::GlobalDepsAnalyzer & gda,
 			const LinearMemoryHelper& linearHelper,
@@ -473,7 +474,8 @@ public:
 			bool sharedMemory,
 			bool exportedTable):
 		module(m),
-		pass(p),
+		MAM(MAM),
+		FAM(MAM.getResult<llvm::FunctionAnalysisManagerModuleProxy>(m).getManager()),
 		targetData(&m),
 		currentFun(NULL),
 		registerize(registerize),

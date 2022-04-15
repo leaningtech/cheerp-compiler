@@ -13,29 +13,26 @@
 #define _CHEERP_PARTIAL_EXECUTER_H
 
 #include "llvm/IR/Module.h"
-#include "llvm/Cheerp/Utility.h"
-#include "llvm/Cheerp/BuiltinInstructions.h"
+#include "llvm/IR/PassManager.h"
 
 namespace cheerp
 {
 
 /**
  */
-class PartialExecuter : public llvm::ModulePass
+class PartialExecuter
 {
 public:
-	static char ID;
-	PartialExecuter();
-	bool runOnModule(llvm::Module& module) override;
-private:
-	void getAnalysisUsage(llvm::AnalysisUsage& AU) const override;
-	llvm::StringRef getPassName() const override;
+	PartialExecuter() {}
+	bool runOnModule(llvm::Module& module);
 };
 
-inline llvm::Pass * createPartialExecuterPass()
-{
-	return new PartialExecuter();
-}
+class PartialExecuterPass : public llvm::PassInfoMixin<PartialExecuterPass> {
+public:
+	llvm::PreservedAnalyses run(llvm::Module& M, llvm::ModuleAnalysisManager& MAM);
+	static bool isRequired() { return true;}
+};
+
 
 }
 

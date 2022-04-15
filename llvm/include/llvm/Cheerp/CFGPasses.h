@@ -5,33 +5,29 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2017-2021 Leaning Technologies
+// Copyright 2017-2022 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
 #ifndef _CHEERP_CFG_PASSES_H
 #define _CHEERP_CFG_PASSES_H
 
-#include "llvm/Pass.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/PassManager.h"
 #include "llvm/IR/Module.h"
 
-namespace llvm
+namespace cheerp
 {
 /*
  * This pass removes useless blocks consisting only of an unconditional
  * branch, and whose successor does not contain PHIs referencing them.
  * This avoid the generation of empty if/else statements in Relooper.
  */
-class RemoveFwdBlocks: public FunctionPass
+class RemoveFwdBlocks
 {
 public:
-	static char ID;
-	explicit RemoveFwdBlocks() : FunctionPass(ID) { }
-	bool runOnFunction(Function &F) override;
-	StringRef getPassName() const override;
-
-	virtual void getAnalysisUsage(AnalysisUsage&) const override;
+	explicit RemoveFwdBlocks() { }
+	bool runOnFunction(llvm::Function &F);
 };
 
 /*
@@ -40,15 +36,13 @@ public:
  * of flag values to compute the and/or result, so it's more efficient
  * to simply branch twice.
  */
-class LowerAndOrBranches: public FunctionPass
+class LowerAndOrBranches
 {
 private:
 	void fixTargetPhis(llvm::BasicBlock* originalPred, llvm::BasicBlock* newBlock, llvm::BasicBlock* singleBlock, llvm::BasicBlock* doubleBlock);
 public:
-	static char ID;
-	explicit LowerAndOrBranches() : FunctionPass(ID) { }
-	bool runOnFunction(Function &F) override;
-	StringRef getPassName() const override;
+	explicit LowerAndOrBranches() { }
+	bool runOnFunction(llvm::Function &F);
 };
 }//llvm
 
@@ -61,7 +55,7 @@ using namespace llvm;
  * that in some metric are similar enough so that sinking logic (either GVNSink or
  * SimplifyCFG::Sink) are able to sink common instruction in the generated block.
  */
-class SinkGenerator: public FunctionPass
+class SinkGenerator
 {
 private:
 	typedef std::vector<std::vector<BasicBlock*> > VectorGroupOfBlocks;
@@ -71,41 +65,62 @@ private:
 	void addSinkTargets(BasicBlock& BB, const VectorGroupOfBlocks& groups);
 	void addSingleSinkTarget(BasicBlock& BB, const std::vector<BasicBlock*>& incomings);
 public:
-	static char ID;
-	explicit SinkGenerator() : FunctionPass(ID) { }
-	bool runOnFunction(Function &F) override;
-	StringRef getPassName() const override;
+	explicit SinkGenerator() { }
+	bool runOnFunction(llvm::Function &F);
+};
 
-	virtual void getAnalysisUsage(AnalysisUsage&) const override;
+class SinkGeneratorPass : public llvm::PassInfoMixin<SinkGeneratorPass> {
+public:
+	PreservedAnalyses run(llvm::Function& F, FunctionAnalysisManager& FAM);
+	static bool isRequired() { return true;}
 };
 } //cheerp
 
-namespace llvm{
+namespace cheerp{
 //===----------------------------------------------------------------------===//
 //
 // RemoveFwdBlocks
 //
-FunctionPass *createRemoveFwdBlocksPass();
+class RemoveFwdBlocksPass : public llvm::PassInfoMixin<RemoveFwdBlocksPass> {
+public:
+	PreservedAnalyses run(llvm::Function& F, FunctionAnalysisManager& FAM);
+	static bool isRequired() { return true;}
+};
+
 //===----------------------------------------------------------------------===//
 //
 // LowerAndOrBranches
 //
-FunctionPass *createLowerAndOrBranchesPass();
+class LowerAndOrBranchesPass : public llvm::PassInfoMixin<LowerAndOrBranchesPass> {
+public:
+	PreservedAnalyses run(llvm::Function& F, llvm::FunctionAnalysisManager& FAM);
+	static bool isRequired() { return true;}
+};
+
 //===----------------------------------------------------------------------===//
 //
 // CheerpLowerSwitch
 //
-FunctionPass* createCheerpLowerSwitchPass(bool onlyLowerI64);
+class CheerpLowerSwitchPass : public llvm::PassInfoMixin<CheerpLowerSwitchPass> {
+	const bool onlyLowerI64;
+public:
+	explicit CheerpLowerSwitchPass(bool onlyLowerI64 = true) :
+		onlyLowerI64(onlyLowerI64)
+	{
+	}
+	PreservedAnalyses run(llvm::Function& F, llvm::FunctionAnalysisManager& FAM);
+	static bool isRequired() { return true;}
+};
+
 //===----------------------------------------------------------------------===//
 //
 // FixFunctionCasts
 //
-ModulePass* createFixFunctionCastsPass();
-//===----------------------------------------------------------------------===//
-//
-// CheerpLowerInvoke
-//
-FunctionPass* createCheerpLowerInvokePass();
+class FixFunctionCastsPass : public llvm::PassInfoMixin<FixFunctionCastsPass> {
+public:
+	PreservedAnalyses run(Module& F, ModuleAnalysisManager& FAM);
+	static bool isRequired() { return true;}
+};
 
 }// llvm
 
@@ -115,6 +130,5 @@ namespace cheerp
 //
 // RemoveFwdBlocks
 //
-	llvm::FunctionPass *createSinkGeneratorPass();
 }//cheerp
 #endif

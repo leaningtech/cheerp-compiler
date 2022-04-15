@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2014-2019 Leaning Technologies
+// Copyright 2014-2022 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -1171,10 +1171,18 @@ private:
 void reportRegisterizeStatistics();
 #endif
 
+struct RegisterizeInitializer
+{
+	bool froundAvailable;
+	bool wasm;
+};
+
+class RegisterizeWrapper;
+
 /**
  * Registerize - Map not-inlineable instructions to the minimal number of local variables
  */
-class Registerize : public llvm::ModulePass
+class Registerize 
 {
 public:
 	struct LiveRangeChunk
@@ -1221,20 +1229,14 @@ public:
 		}
 	};
 
-	static char ID;
-	
-	explicit Registerize(bool froundAvailable = false, bool wasm = false) : ModulePass(ID), froundAvailable(froundAvailable), wasm(wasm)
+	explicit Registerize(const RegisterizeInitializer& data) : froundAvailable(data.froundAvailable), wasm(data.wasm)
 #ifndef NDEBUG
 			, RegistersAssigned(false)
 #endif
 	{ }
 	
-	void getAnalysisUsage(llvm::AnalysisUsage & AU) const override;
-
-	bool runOnModule(llvm::Module& M) override;
+	bool runOnModule(llvm::Module& M);
 	
-	llvm::StringRef getPassName() const override;
-
 	bool hasRegister(const llvm::Instruction* I) const;
 	uint32_t getRegisterId(const llvm::Instruction* I, const EdgeContext& edgeContext) const;
 	uint32_t getSelfRefTmpReg(const llvm::Instruction* I, const llvm::BasicBlock* fromBB, const llvm::BasicBlock* toBB) const;
@@ -1767,10 +1769,63 @@ private:
 	InstructionSetOrderedByID gatherDerivedMemoryAccesses(const llvm::AllocaInst* rootI, const InstIdMapTy& instIdMap, FloodFillState& floodFillState);
 
 	void assignRegistersToInstructions(llvm::Function& F, cheerp::PointerAnalyzer& PA);
+	llvm::ModuleAnalysisManager* MAM;
+	friend RegisterizeWrapper;
 };
 
-llvm::ModulePass *createRegisterizePass(bool froundAvailable, bool wasm = false);
+class RegisterizeAnalysis;
+
+class RegisterizeWrapper {
+	static Registerize* innerPtr;
+public:
+	static Registerize& getInner(llvm::ModuleAnalysisManager& MAM, RegisterizeInitializer& data)
+	{
+		if (innerPtr)
+			delete innerPtr;
+		innerPtr = new Registerize(data);
+		innerPtr->MAM = &MAM;
+		return *innerPtr;
+	}
+	operator Registerize&()
+	{
+		assert(innerPtr);
+		return *innerPtr;
+	}
+	bool invalidate(llvm::Module& M, const llvm::PreservedAnalyses& PA, llvm::ModuleAnalysisManager::Invalidator&)
+	{
+		auto PAC = PA.getChecker<RegisterizeAnalysis>();
+		return !PAC.preserved();
+	}
+};
+
+class RegisterizePass : public llvm::PassInfoMixin<RegisterizePass> {
+	RegisterizeInitializer data;
+public:
+	llvm::PreservedAnalyses run(llvm::Module &M, llvm::ModuleAnalysisManager&);
+	RegisterizePass(bool froundAvailable = false, bool wasm = false) : data({froundAvailable, wasm})
+	{
+	}
+	static bool isRequired() { return true; }
+};
+
+class RegisterizeAnalysis : public llvm::AnalysisInfoMixin<RegisterizeAnalysis> {
+  friend llvm::AnalysisInfoMixin<RegisterizeAnalysis>;
+  static llvm::AnalysisKey Key;
+
+public:
+  using Result = RegisterizeWrapper;
+
+  RegisterizeWrapper run(llvm::Module &M, llvm::ModuleAnalysisManager &MAM)
+  {
+	static llvm::Module* modulePtr = nullptr;
+	assert(modulePtr != &M);
+	modulePtr = &M;
+	return RegisterizeWrapper();
+  }
+};
+
 
 }
+
 
 #endif

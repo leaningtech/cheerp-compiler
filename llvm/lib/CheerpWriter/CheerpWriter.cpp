@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2011-2021 Leaning Technologies
+// Copyright 2011-2022 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -28,6 +28,20 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/IR/Verifier.h"
 
+#include "llvm/Cheerp/GlobalDepsAnalyzer.h"
+#include "llvm/Cheerp/LinearMemoryHelper.h"
+#include "llvm/Cheerp/NameGenerator.h"
+#include "llvm/Cheerp/PointerAnalyzer.h"
+#include "llvm/Cheerp/Registerize.h"
+#include "llvm/Cheerp/InvokeWrapping.h"
+#include "llvm/Cheerp/TokenList.h"
+#include "llvm/Cheerp/DeterministicUnorderedSet.h"
+#include "llvm/Cheerp/WasmOpcodes.h"
+#include "llvm/ADT/DenseSet.h"
+#include "llvm/IR/DebugLoc.h"
+#include "llvm/IR/Metadata.h"
+#include "llvm/IR/DebugInfo.h"
+#include "llvm/Support/FormattedStream.h"
 using namespace llvm;
 using namespace std;
 using namespace cheerp;
@@ -5241,8 +5255,8 @@ void CheerpWriter::compileMethod(const Function& F)
 		{
 			compileMethodLocals(F);
 
-			DominatorTree &DT = pass.getAnalysis<DominatorTreeWrapperPass>(const_cast<Function&>(F)).getDomTree();
-			LoopInfo &LI = pass.getAnalysis<LoopInfoWrapperPass>(const_cast<Function&>(F)).getLoopInfo();
+			DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(const_cast<Function&>(F));
+			LoopInfo &LI = FAM.getResult<LoopAnalysis>(const_cast<Function&>(F));
 			CFGStackifier::Mode Mode = asmjs ? CFGStackifier::AsmJS : CFGStackifier::GenericJS;
 			CFGStackifier CN(F, LI, DT, registerize, PA, Mode);
 			compileTokens(CN.Tokens);

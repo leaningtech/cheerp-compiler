@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2015-2021 Leaning Technologies
+// Copyright 2015-2022 Leaning Technologies
 //
 //===---------------------------------------------------------------------===//
 
@@ -16,7 +16,6 @@
 #include "llvm/ExecutionEngine/Interpreter.h"
 #include "llvm/ExecutionEngine/FunctionMap.h"
 #include "llvm/IR/Constants.h"
-#include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Host.h"
 #include "llvm/Support/raw_ostream.h"
@@ -32,13 +31,6 @@ static cl::opt<bool> PreExecuteMain("cheerp-preexecute-main", cl::desc("Run main
 namespace cheerp {
 
 PreExecute* PreExecute::currentPreExecutePass = NULL;
-
-StringRef PreExecute::getPassName() const
-{
-    return "CheerpPreExecute";
-}
-
-char PreExecute::ID = 0;
 
 static void StoreListener(void* Addr)
 {
@@ -1048,10 +1040,3 @@ bool PreExecute::runOnModule(Module& m)
 }
 
 }
-
-using namespace cheerp;
-
-INITIALIZE_PASS_BEGIN(PreExecute, "PreExecute",
-        "Execute run-time init at compile time (linux only)", false, false)
-INITIALIZE_PASS_END(PreExecute, "PreExecute",
-        "Execute run-time init at compile time (linux only)", false, false)

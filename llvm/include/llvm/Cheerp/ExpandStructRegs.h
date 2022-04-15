@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2014-2021 Leaning Technologies
+// Copyright 2014-2022 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -14,19 +14,16 @@
 
 #include "llvm/IR/Module.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/PassManager.h"
 
 namespace llvm
 {
 
-class ExpandStructRegs: public FunctionPass
+class ExpandStructRegs
 {
-private:
-	const DataLayout* DL;
 public:
-	static char ID;
-	explicit ExpandStructRegs() : FunctionPass(ID), DL(NULL) { }
-	bool runOnFunction(Function &F) override;
-	StringRef getPassName() const override;
+	explicit ExpandStructRegs() { }
+	bool runOnFunction(Function &F);
 };
 
 //===----------------------------------------------------------------------===//
@@ -34,7 +31,14 @@ public:
 // ExpandStructRegs - This pass converts load/store/insertelement/extractelement/select
 // operations on structs to the equivalent operation on the struct fields.
 //
-FunctionPass *createExpandStructRegs();
+class ExpandStructRegsPass: public PassInfoMixin<ExpandStructRegsPass>
+{
+	static bool runOnFunction(Function& Func);
+public:
+	PreservedAnalyses run(Function &F, FunctionAnalysisManager&);
+	static bool isRequired() { return true; }
+	friend ExpandStructRegs;
+};
 
 }
 

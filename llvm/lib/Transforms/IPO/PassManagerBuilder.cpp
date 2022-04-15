@@ -46,7 +46,7 @@
 using namespace llvm;
 
 
-static cl::opt<bool> CheerpLTO("cheerp-lto", cl::init(false), cl::Hidden,
+cl::opt<bool> CheerpLTO("cheerp-lto", cl::init(false), cl::Hidden,
                                cl::desc("Run passes needed for Cheerp LTO phase"));
 
 PassManagerBuilder::PassManagerBuilder() {
@@ -194,12 +194,6 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   MPM.add(createAggressiveDCEPass()); // Delete dead instructions
 
   MPM.add(createMemCpyOptPass());               // Remove memcpy / form memset
-  if (CheerpLTO) {
-    MPM.add(createStructMemFuncLowering());
-    // The newly expanded loop may have redundancies that can be removed
-    MPM.add(NewGVN ? createNewGVNPass()
-                   : createGVNPass(DisableGVNLoadPRE));
-  }
   // TODO: Investigate if this is too expensive at O1.
   if (OptLevel > 1) {
     MPM.add(createDeadStoreEliminationPass());  // Delete dead stores

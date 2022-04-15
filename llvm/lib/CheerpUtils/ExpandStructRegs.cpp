@@ -45,7 +45,6 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
-#include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Cheerp/ExpandStructRegs.h"
@@ -58,10 +57,6 @@ using namespace llvm;
 template <typename T> T *CopyDebug(T *New, Instruction *Original) {
   New->setDebugLoc(Original->getDebugLoc());
   return New;
-}
-
-StringRef ExpandStructRegs::getPassName() const {
-	return "ExpandStructRegs";
 }
 
 static bool DoAnotherPass(Type *Ty) { return isa<StructType>(Ty); }
@@ -500,8 +495,12 @@ static bool ExpandExtractValues(Function &Func, bool Finalize) {
 }
 
 bool ExpandStructRegs::runOnFunction(Function &Func) {
+  return ExpandStructRegsPass::runOnFunction(Func);
+}
+
+bool ExpandStructRegsPass::runOnFunction(Function &Func) {
   bool Changed = false;
-  DL = &Func.getParent()->getDataLayout();
+  const DataLayout* DL = &Func.getParent()->getDataLayout();
 
   auto SplitUpInstructions = [&]() {
     bool NeedsAnotherPass;
@@ -559,11 +558,9 @@ bool ExpandStructRegs::runOnFunction(Function &Func) {
   return Changed;
 }
 
-char ExpandStructRegs::ID = 0;
-
-FunctionPass *llvm::createExpandStructRegs() {
-  return new ExpandStructRegs();
+PreservedAnalyses ExpandStructRegsPass::run(Function& F, FunctionAnalysisManager&)
+{
+  if (runOnFunction(F))
+    return PreservedAnalyses::none();
+  return PreservedAnalyses::all();
 }
-
-INITIALIZE_PASS(ExpandStructRegs, "ExpandStructRegs",
-              "Expand out variables with struct types", false, false)

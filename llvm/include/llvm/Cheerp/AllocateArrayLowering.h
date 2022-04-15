@@ -12,7 +12,6 @@
 #ifndef _CHEERP_ALLOCATE_ARRAY_LOWERING_H
 #define _CHEERP_ALLOCATE_ARRAY_LOWERING_H
 
-#include "llvm/Pass.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 

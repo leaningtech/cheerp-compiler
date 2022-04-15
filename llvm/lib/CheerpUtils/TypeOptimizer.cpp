@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2015-2021 Leaning Technologies
+// Copyright 2015-2022 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -24,10 +24,6 @@ using namespace llvm;
 
 namespace cheerp
 {
-
-StringRef TypeOptimizer::getPassName() const {
-	return "TypeOptimizer";
-}
 
 bool TypeOptimizer::isI64ToRewrite(const Type* t)
 {
@@ -2107,13 +2103,12 @@ bool TypeOptimizer::runOnModule(Module& M)
 	return true;
 }
 
-char TypeOptimizer::ID = 0;
-
+PreservedAnalyses TypeOptimizerPass::run(Module &M, ModuleAnalysisManager&)
+{
+	TypeOptimizer TO;
+	if (TO.runOnModule(M))
+		return PreservedAnalyses::none();
+	return PreservedAnalyses::all();
 }
 
-using namespace cheerp;
-
-INITIALIZE_PASS_BEGIN(TypeOptimizer, "TypeOptimizer", "Optimize struct and array types",
-                      false, false)
-INITIALIZE_PASS_END(TypeOptimizer, "TypeOptimizer", "Optimize struct and array types",
-                    false, false)
+}

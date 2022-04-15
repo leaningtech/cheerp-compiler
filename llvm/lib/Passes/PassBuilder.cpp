@@ -254,6 +254,7 @@
 #include "llvm/Transforms/Vectorize/SLPVectorizer.h"
 #include "llvm/Transforms/Vectorize/VectorCombine.h"
 #include <optional>
+#include "llvm/Cheerp/PassRegistry.h"
 
 using namespace llvm;
 

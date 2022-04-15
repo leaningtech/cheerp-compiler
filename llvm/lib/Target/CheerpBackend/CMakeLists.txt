@@ -9,6 +9,7 @@ add_llvm_target(CheerpBackendCodeGen
 	ExecutionEngine
 	Interpreter
 	SelectionDAG
+	Passes
 
 	ADD_TO_COMPONENT
 	CheerpBackend

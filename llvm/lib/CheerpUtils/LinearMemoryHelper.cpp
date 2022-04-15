@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2017-2020 Leaning Technologies
+// Copyright 2017-2022 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -18,6 +18,7 @@
 
 using namespace cheerp;
 using namespace llvm;
+typedef LinearMemoryHelperInitializer::FunctionAddressMode FunctionAddressMode;
 
 void LinearMemoryHelper::compileConstantAsBytes(const Constant* c, bool asmjs, ByteListener* listener, int32_t offset) const
 {
@@ -720,17 +721,5 @@ bool LinearMemoryHelper::LinearGepListener::isInlineable(const llvm::Value* p)
 	return true;
 }
 
-void LinearMemoryHelper::getAnalysisUsage(llvm::AnalysisUsage & AU) const
-{
-	AU.addRequired<cheerp::GlobalDepsAnalyzer>();
-	AU.setPreservesAll();
-	llvm::Pass::getAnalysisUsage(AU);
-}
-
-llvm::ModulePass *cheerp::createLinearMemoryHelperPass(LinearMemoryHelper::FunctionAddressMode mode,
-		uint32_t memorySize,uint32_t stackSize, bool wasmOnly, bool growMem)
-{
-	return new LinearMemoryHelper(mode, memorySize, stackSize, wasmOnly, growMem);
-}
-
-char LinearMemoryHelper::ID = 0;
+AnalysisKey LinearMemoryAnalysis::Key;
+LinearMemoryHelper* LinearMemoryHelperWrapper::innerPtr{nullptr};

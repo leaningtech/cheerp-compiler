@@ -5,24 +5,29 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2011-2021 Leaning Technologies
+// Copyright 2011-2022 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
 #ifndef CHEERP_NATIVE_REWRITER_H
 #define CHEERP_NATIVE_REWRITER_H
 
-#include "llvm/Pass.h"
-#include "llvm/IR/Module.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/IR/Instructions.h"
-#include <string>
+#include "llvm/IR/Module.h"
+#include "llvm/IR/PassManager.h"
 
 namespace llvm
 {
 
-class CheerpNativeRewriter: public FunctionPass
+//===----------------------------------------------------------------------===//
+//
+// CheerpNativeRewriter - This pass converts constructors of classes implemented
+// on the browser to returning constructors
+//
+class CheerpNativeRewriterPass: public PassInfoMixin<CheerpNativeRewriterPass>
 {
-private:
+	static bool runOnFunction(Function& Func, DominatorTree& DT);
 	static std::string getClassName(const char* s);
 	static bool isBuiltinConstructor(const char* s);
 	static bool isBuiltinConstructor(const char* s, const char*& startOfType, const char*& endOfType);
@@ -31,8 +36,8 @@ private:
 	static void baseSubstitutionForBuiltin(llvm::User* i, llvm::Instruction* old, llvm::AllocaInst* source);
 	static bool findMangledClassName(const char* const s, std::string& name);
 	static llvm::Function* getReturningConstructor(llvm::Module& M, llvm::Function* called);
-	void rewriteConstructorImplementation(llvm::Module& M, llvm::Function& F);
-	bool rewriteNativeObjectsConstructors(llvm::Module& M, llvm::Function& F);
+	static void rewriteConstructorImplementation(llvm::Module& M, llvm::Function& F, DominatorTree& DT);
+	static bool rewriteNativeObjectsConstructors(llvm::Module& M, llvm::Function& F, DominatorTree& DT);
 	/*
 	 * Return true if callInst has been rewritten and it must be deleted
 	 */
@@ -44,20 +49,10 @@ private:
 							llvm::Instruction* allocation, llvm::Type* t,
 							const std::string& builtinTypeName);
 public:
-	static char ID;
-	explicit CheerpNativeRewriter() : FunctionPass(ID) { }
-	bool runOnFunction(Function &F) override;
-	void getAnalysisUsage(AnalysisUsage & AU) const override;
-	StringRef getPassName() const override;
+	PreservedAnalyses run(Function &F, FunctionAnalysisManager&);
+	static bool isRequired() { return true; }
 };
 
-//===----------------------------------------------------------------------===//
-//
-// CheerpNativeRewriter - This pass converts constructors of classes implemented
-// on the browser to returning constructors
-//
-FunctionPass *createCheerpNativeRewriterPass();
 
 }
-
 #endif

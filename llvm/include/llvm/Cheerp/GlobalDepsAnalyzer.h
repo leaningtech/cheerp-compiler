@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2011-2020 Leaning Technologies
+// Copyright 2011-2022 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -15,6 +15,7 @@
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/PassManager.h"
 #include "llvm/Cheerp/Utility.h"
 #include "llvm/Cheerp/DeterministicUnorderedSet.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
@@ -37,14 +38,17 @@ extern const char* wasmNullptrName;
  * 
  * It also computes a proper ordering between variables and functions to satisfy dependencies
  */
-class GlobalDepsAnalyzer : public llvm::ModulePass
+class GlobalDepsAnalyzerWrapper;
+
+class GlobalDepsAnalyzer 
 {
+	llvm::ModuleAnalysisManager* MAM;
+	friend GlobalDepsAnalyzerWrapper;
 public:
 	/**
 	 * Select how to deal with math functions which are provided natively by JS or Wasm
 	 */
 	enum MATH_MODE { NO_BUILTINS = 0, JS_BUILTINS, WASM_BUILTINS };
-	static char ID;
 	typedef llvm::SmallVector<const llvm::Use *, 8> SubExprVec;
 	typedef std::unordered_multimap< const llvm::GlobalVariable *, SubExprVec > FixupMap;
 
@@ -138,9 +142,7 @@ public:
 	 */
 	bool usesAsmJSMalloc() const { return hasAsmJSMalloc; }
 
-	bool runOnModule( llvm::Module & ) override;
-
-	void getAnalysisUsage( llvm::AnalysisUsage& ) const override;
+	bool runOnModule( llvm::Module & );
 
 	void visitType( llvm::Type* t, bool forceTypedArray );
 
@@ -184,8 +186,6 @@ public:
 private:
 	typedef llvm::SmallSet<const llvm::GlobalValue*, 8> VisitedSet;
 	
-	llvm::StringRef getPassName() const override;
-
 	void logUndefinedSymbol(const llvm::GlobalValue* GV);
 
 	/**
@@ -299,11 +299,54 @@ public:
 	void visitDynSizedAlloca( llvm::Type* pointedType );
 };
 
-inline llvm::Pass * createGlobalDepsAnalyzerPass(GlobalDepsAnalyzer::MATH_MODE mathMode, bool llcPass, bool wasmStart)
+class GlobalDepsAnalysis;
+
+struct GlobalDepsInitializer
 {
-	return new GlobalDepsAnalyzer(mathMode, llcPass, wasmStart);
-}
+	cheerp::GlobalDepsAnalyzer::MATH_MODE mathMode;
+	bool resolveAliases;
+	bool WasmOnly;
+};
 
-}
 
+class GlobalDepsAnalyzerWrapper {
+	static GlobalDepsAnalyzer* innerPtr;
+public:
+	static GlobalDepsAnalyzer& getInner(llvm::ModuleAnalysisManager& MAM, GlobalDepsInitializer& data)
+	{
+		if (innerPtr)
+			delete innerPtr;
+		innerPtr = new GlobalDepsAnalyzer(data.mathMode, data.resolveAliases, data.WasmOnly);
+		innerPtr->MAM = &MAM;
+		return *innerPtr;
+	}
+	operator GlobalDepsAnalyzer&()
+	{
+		assert(innerPtr);
+		return *innerPtr;
+	}
+	bool invalidate(llvm::Module& M, const llvm::PreservedAnalyses& PA, llvm::ModuleAnalysisManager::Invalidator&)
+	{
+		auto PAC = PA.getChecker<GlobalDepsAnalysis>();
+		return !PAC.preserved();
+	}
+};
+
+class GlobalDepsAnalyzerPass : public llvm::PassInfoMixin<GlobalDepsAnalyzerPass> {
+	GlobalDepsInitializer data;
+public:
+	llvm::PreservedAnalyses run(llvm::Module &M, llvm::ModuleAnalysisManager&);
+	GlobalDepsAnalyzerPass(GlobalDepsAnalyzer::MATH_MODE mathMode=GlobalDepsAnalyzer::MATH_MODE::NO_BUILTINS, bool llcPass = false, bool wasmStart = false) : data({mathMode, llcPass, wasmStart}) {}
+	static bool isRequired() { return true; }
+};
+
+class GlobalDepsAnalysis : public llvm::AnalysisInfoMixin<GlobalDepsAnalysis> {
+	friend llvm::AnalysisInfoMixin<GlobalDepsAnalysis>;
+	static llvm::AnalysisKey Key;
+public:
+	using Result = GlobalDepsAnalyzerWrapper;
+	GlobalDepsAnalyzerWrapper run(llvm::Module& M, llvm::ModuleAnalysisManager&);
+};
+
+} //cheerp
 #endif

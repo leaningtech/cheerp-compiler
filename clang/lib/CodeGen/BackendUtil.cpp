@@ -87,12 +87,14 @@
 #include "llvm/Transforms/Scalar/EarlyCSE.h"
 #include "llvm/Transforms/Scalar/GVN.h"
 #include "llvm/Transforms/Scalar/JumpThreading.h"
+#include "llvm/Transforms/Scalar/LowerAtomic.h"
 #include "llvm/Transforms/Scalar/LowerMatrixIntrinsics.h"
 #include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Utils/CanonicalizeAliases.h"
 #include "llvm/Transforms/Utils/Debugify.h"
 #include "llvm/Transforms/Utils/EntryExitInstrumenter.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
+#include "llvm/Transforms/Utils/Mem2Reg.h"
 #include "llvm/Transforms/Utils/NameAnonGlobals.h"
 #include "llvm/Transforms/Utils/SymbolRewriter.h"
 #include <memory>
@@ -542,27 +544,6 @@ getInstrProfOptions(const CodeGenOptions &CodeGenOpts,
   return Options;
 }
 
-static void addCheerpPasses(const PassManagerBuilder &Builder,
-                            legacy::PassManagerBase &PM) {
-  //Run mem2reg first, to remove load/stores for the this argument
-  //We need this to track this in custom constructors for DOM types, such as String::String(const char*)
-  PM.add(createPromoteMemoryToRegisterPass());
-  PM.add(createCheerpNativeRewriterPass());
-  //Cheerp is single threaded, convert atomic instructions to regular ones
-  PM.add(createLowerAtomicPass());
-}
-
-static void addPostInlineCheerpPasses(const PassManagerBuilder &Builder,
-                                      legacy::PassManagerBase &PM) {
-  PM.add(createExpandStructRegs());
-}
-
-static void addModuleCheerpPasses(const PassManagerBuilder &Builder,
-                            legacy::PassManagerBase &PM) {
-  // Lower byval parameters
-  PM.add(createByValLoweringPass());
-}
-
 static void setCommandLineOpts(const CodeGenOptions &CodeGenOpts) {
   SmallVector<const char *, 16> BackendArgs;
   BackendArgs.push_back("clang"); // Fake program name.
@@ -956,6 +937,27 @@ void EmitAssemblyHelper::RunOptimizationPipeline(
           [](FunctionPassManager &FPM, OptimizationLevel Level) {
             if (Level != OptimizationLevel::O0)
               FPM.addPass(ObjCARCOptPass());
+          });
+    }
+
+    if (TargetTriple.getArch() == llvm::Triple::cheerp) {
+      PB.registerPipelineStartEPCallback(
+          [](ModulePassManager &MPM, OptimizationLevel Level) {
+            //Run mem2reg first, to remove load/stores for the this argument
+            //We need this to track this in custom constructors for DOM types, such as String::String(const char*)
+            MPM.addPass(createModuleToFunctionPassAdaptor(PromotePass()));
+            MPM.addPass(createModuleToFunctionPassAdaptor(CheerpNativeRewriterPass()));
+            //Cheerp is single threaded, convert atomic instructions to regular ones
+            MPM.addPass(createModuleToFunctionPassAdaptor(LowerAtomicPass()));
+          });
+      PB.registerOptimizerLastEPCallback(
+          [](ModulePassManager &MPM, OptimizationLevel Level) {
+            // Lower byval parameters
+            MPM.addPass(ByValLoweringPass());
+          });
+      PB.registerScalarOptimizerLateEPCallback(
+          [](FunctionPassManager &FPM, OptimizationLevel Level) {
+            FPM.addPass(ExpandStructRegsPass());
           });
     }
 

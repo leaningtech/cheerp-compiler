@@ -5,14 +5,13 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2011-2019 Leaning Technologies
+// Copyright 2011-2022 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
 #ifndef _CHEERP_POINTER_ANALYZER_H
 #define _CHEERP_POINTER_ANALYZER_H
 
-#include "llvm/Pass.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/IR/Value.h"
@@ -22,6 +21,7 @@
 #include "llvm/Cheerp/DeterministicUnorderedSet.h"
 #include "llvm/Cheerp/DeterministicUnorderedMap.h"
 #include "llvm/Cheerp/TypeAndIndex.h"
+#include "llvm/IR/PassManager.h"
 #include <map>
 #include <unordered_map>
 #include <unordered_set>
@@ -256,11 +256,14 @@ public:
 	static PointerConstantOffsetWrapper staticDefaultValue;
 };
 
-class PointerAnalyzer : public llvm::ModulePass
+class PointerAnalysis;
+
+class PointerAnalyzer 
 {
+	llvm::ModuleAnalysisManager* MAM;
 public:
 	PointerAnalyzer() :
-		ModulePass(ID), status(MODIFIABLE), PACache(status)
+		status(MODIFIABLE), PACache(status)
 	{
 	}
 	PointerAnalyzer(const PointerAnalyzer& other) : PointerAnalyzer()
@@ -270,13 +273,7 @@ public:
 	}
 
 	void prefetchFunc( const llvm::Function & ) const;
-	static char ID;
-
-	void getAnalysisUsage(llvm::AnalysisUsage & AU) const override;
-
-	bool runOnModule( llvm::Module & ) override;
-
-	llvm::StringRef getPassName() const override;
+	bool runOnModule( llvm::Module & );
 
 	POINTER_KIND getPointerKindAssert(const llvm::Value* v) const;
 	POINTER_KIND getPointerKind(const llvm::Value* v) const;
@@ -386,10 +383,58 @@ void writePointerDumpHeader();
 
 #endif //NDEBUG
 
-inline llvm::Pass * createPointerAnalyzerPass()
-{
-	return new PointerAnalyzer;
-}
+class PointerAnalysis;
+
+class PointerAnalysisWrapper {
+	static PointerAnalyzer* innerPtr;
+public:
+	static PointerAnalyzer& getInner()
+	{
+		if (innerPtr)
+			delete innerPtr;
+		innerPtr = new PointerAnalyzer();
+		return *innerPtr;
+	}
+	operator PointerAnalyzer&()
+	{
+		assert(innerPtr);
+		return *innerPtr;
+	}
+	bool invalidate(llvm::Module& M, const llvm::PreservedAnalyses& PA, llvm::ModuleAnalysisManager::Invalidator &)
+	{
+		auto PAC = PA.getChecker<PointerAnalysis>();
+		if (PAC.preserved() || PAC.preservedSet<llvm::AllAnalysesOn<llvm::Module>>())
+		{
+			return false;
+		}
+		return true;
+	}
+};
+
+class PointerAnalyzerPass : public llvm::PassInfoMixin<PointerAnalyzerPass> {
+public:
+	llvm::PreservedAnalyses run(llvm::Module& M, llvm::ModuleAnalysisManager& MAM);
+	static bool isRequired() { return true;}
+};
+
+class PointerAnalysis : public llvm::AnalysisInfoMixin<PointerAnalysis> {
+  friend llvm::AnalysisInfoMixin<PointerAnalysis>;
+  static llvm::AnalysisKey Key;
+
+public:
+  /// Provide the result typedef for this analysis pass.
+  using Result = PointerAnalysisWrapper;
+
+  /// Run the analysis pass over a function and produce a dominator tree.
+  Result run(llvm::Module &M, llvm::ModuleAnalysisManager &MAM)
+  {
+	static llvm::Module* modulePtr = nullptr;
+	assert(modulePtr != &M);
+	modulePtr = &M;
+	  return PointerAnalysisWrapper();
+  }
+};
+
 
 }
 

@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2017-2021 Leaning Technologies
+// Copyright 2017-2022 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -14,7 +14,6 @@
 
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
-#include "llvm/Pass.h"
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
 #include "llvm/Cheerp/BuiltinInstructions.h"
 #include "llvm/Cheerp/PointerAnalyzer.h"
@@ -23,7 +22,25 @@
 
 namespace cheerp
 {
-class LinearMemoryHelper: public llvm::ModulePass
+
+	class LinearMemoryAnalysis;
+
+struct LinearMemoryHelperInitializer
+{
+	enum FunctionAddressMode {
+		AsmJS = 0,
+		Wasm
+	};
+	FunctionAddressMode mode;
+	uint32_t memorySize;
+	uint32_t stackSize;
+	bool wasmOnly;
+	bool growMem;
+};
+
+class LinearMemoryHelperWrapper;
+
+class LinearMemoryHelper
 {
 public:
 	/**
@@ -35,10 +52,6 @@ public:
 	 * the table number. This effectively limits the maximum number of tables
 	 * and functions per table to 2^16 in asmjs.
 	 */
-	enum FunctionAddressMode {
-		AsmJS = 0,
-		Wasm
-	};
 	/**
 	 * Used to compile asm.js indirect function calls
 	 */
@@ -149,19 +162,16 @@ public:
 	typedef std::unordered_map<const llvm::FunctionType*, size_t,
 		FunctionSignatureHash<>,FunctionSignatureCmp<>> FunctionTypeIndicesMap;
 
-	static char ID;
-
-	LinearMemoryHelper(FunctionAddressMode mode, uint32_t memorySize,
-		uint32_t stackSize, bool wasmOnly, bool growMem):
-		llvm::ModulePass(ID), module(nullptr), globalDeps(nullptr),
-		mode(mode), maxFunctionId(0), memorySize(memorySize*1024*1024),
-		stackSize(stackSize*1024*1024), wasmOnly(wasmOnly), growMem(growMem)
+	LinearMemoryHelper(const LinearMemoryHelperInitializer& data) :
+			module(nullptr), globalDeps(nullptr),
+		mode(data.mode), maxFunctionId(0), memorySize(data.memorySize*1024*1024),
+		stackSize(data.stackSize*1024*1024), wasmOnly(data.wasmOnly), growMem(data.growMem)
 	{
 	}
-	virtual bool runOnModule(llvm::Module& module) override
+	bool runOnModule(llvm::Module& module, GlobalDepsAnalyzer* GDA)
 	{
 		this->module = &module;
-		globalDeps = &getAnalysis<GlobalDepsAnalyzer>();
+		globalDeps = GDA;
 		builtinIds.fill(std::numeric_limits<uint32_t>::max());
 		addFunctions();
 		addStack();
@@ -171,8 +181,6 @@ public:
 
 		return false;
 	}
-
-	void getAnalysisUsage(llvm::AnalysisUsage & AU) const override;
 
 	uint32_t getGlobalVariableAddress(const llvm::GlobalVariable* G) const;
 	uint32_t getFunctionAddress(const llvm::Function* F) const;
@@ -336,7 +344,7 @@ private:
 	llvm::Module* module;
 	GlobalDepsAnalyzer* globalDeps;
 
-	FunctionAddressMode mode;
+	LinearMemoryHelperInitializer::FunctionAddressMode mode;
 
 	FunctionTableInfoMap functionTables;
 	FunctionTableOrder functionTableOrder;
@@ -368,10 +376,67 @@ private:
 	bool wasmOnly;
 	// Whether memory can grow at runtime or not
 	bool growMem;
+	llvm::ModuleAnalysisManager* MAM;
+	friend LinearMemoryHelperWrapper;
 };
 
-llvm::ModulePass *createLinearMemoryHelperPass(LinearMemoryHelper::FunctionAddressMode mode,
-		uint32_t memorySize,uint32_t stackSize, bool wasmOnly, bool growMem);
+
+class LinearMemoryHelperWrapper {
+	static LinearMemoryHelper* innerPtr;
+public:
+	static LinearMemoryHelper& getInner(llvm::ModuleAnalysisManager& MAM, LinearMemoryHelperInitializer& data)
+	{
+		if (innerPtr)
+			delete innerPtr;
+		innerPtr = new LinearMemoryHelper(data);
+		innerPtr->MAM = &MAM;
+		return *innerPtr;
+	}
+	operator LinearMemoryHelper&()
+	{
+		assert(innerPtr);
+		return *innerPtr;
+	}
+  bool invalidate(llvm::Module& M, const llvm::PreservedAnalyses& PA, llvm::ModuleAnalysisManager::Invalidator &)
+  {
+		auto PAC = PA.getChecker<LinearMemoryAnalysis>();
+		return !(PAC.preserved() || PAC.preservedSet<llvm::AllAnalysesOn<llvm::Module>>());
+  }
+};
+
+/// Analysis pass which computes a \c DominatorTree.
+class LinearMemoryAnalysis : public llvm::AnalysisInfoMixin<LinearMemoryAnalysis> {
+  friend llvm::AnalysisInfoMixin<LinearMemoryAnalysis>;
+  static llvm::AnalysisKey Key;
+  
+public:
+  /// Provide the result typedef for this analysis pass.
+  using Result = LinearMemoryHelperWrapper;
+
+  /// Run the analysis pass over a function and produce a dominator tree.
+  Result run(llvm::Module &M, llvm::ModuleAnalysisManager &MAM)
+  {
+	static llvm::Module* modulePtr = nullptr;
+	assert(modulePtr != &M);
+	modulePtr = &M;
+	return LinearMemoryHelperWrapper();
+  }
+};
+
+class LinearMemoryHelperPass : public llvm::PassInfoMixin<LinearMemoryHelperPass> {
+	LinearMemoryHelperInitializer data;
+public:
+	llvm::PreservedAnalyses run(llvm::Module &M, llvm::ModuleAnalysisManager& MAM)
+	{
+		LinearMemoryHelper& LMH = MAM.getResult<LinearMemoryAnalysis>(M).getInner(MAM, data);
+		GlobalDepsAnalyzer& GDA = MAM.getResult<GlobalDepsAnalysis>(M);
+		LMH.runOnModule(M, &GDA);
+
+		return llvm::PreservedAnalyses::all();
+	}
+	LinearMemoryHelperPass(const LinearMemoryHelperInitializer& data) : data(data) {}
+	static bool isRequired() { return true; }
+};
 
 }
 

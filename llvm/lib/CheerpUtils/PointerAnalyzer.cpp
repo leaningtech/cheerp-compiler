@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2011-2019 Leaning Technologies
+// Copyright 2011-2022 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -274,20 +274,6 @@ void PointerConstantOffsetWrapper::dump() const
 	}
 	for(const IndirectPointerKindConstraint* c: constraints)
 		c->dump();
-}
-
-char PointerAnalyzer::ID = 0;
-
-StringRef PointerAnalyzer::getPassName() const
-{
-	return "CheerpPointerAnalyzer";
-}
-
-void PointerAnalyzer::getAnalysisUsage(AnalysisUsage& AU) const
-{
-	AU.setPreservesAll();
-
-	llvm::Pass::getAnalysisUsage(AU);
 }
 
 bool PointerAnalyzer::runOnModule(Module& M)
@@ -2000,12 +1986,16 @@ void writePointerDumpHeader()
 }
 
 #endif //NDEBUG
-
+PreservedAnalyses PointerAnalyzerPass::run(Module& M, ModuleAnalysisManager& MAM)
+{
+	PointerAnalyzer& inner = MAM.getResult<PointerAnalysis>(M).getInner();
+	bool res = inner.runOnModule(M);
+	(void)res;
+	assert(!res);
+	return PreservedAnalyses::all();
 }
 
-using namespace cheerp;
+AnalysisKey PointerAnalysis::Key;
+PointerAnalyzer* PointerAnalysisWrapper::innerPtr{nullptr};
 
-INITIALIZE_PASS_BEGIN(PointerAnalyzer, "PointerAnalyzer", "Analyze the requirements of each pointers in the module",
-			false, false)
-INITIALIZE_PASS_END(PointerAnalyzer, "PointerAnalyzer", "Analyze the requirements of each pointers in the module",
-			false, false)
+}

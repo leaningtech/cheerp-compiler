@@ -5,11 +5,10 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2021 Leaning Technologies
+// Copyright 2021-2022 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Pass.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Cheerp/CFGPasses.h"
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
@@ -288,25 +287,15 @@ bool SinkGenerator::runOnFunction(Function& F)
 
 	return changed;
 }
-StringRef SinkGenerator::getPassName() const
+
+llvm::PreservedAnalyses SinkGeneratorPass::run(Function& F, FunctionAnalysisManager& FAM)
 {
-	return "SinkGenerator";
+	SinkGenerator inner;
+	if (!inner.runOnFunction(F))
+		return PreservedAnalyses::all();
+	PreservedAnalyses PA;
+	PA.preserve<cheerp::GlobalDepsAnalysis>();
+	PA.preserve<cheerp::LinearMemoryAnalysis>();
+	return PA;
 }
-
-char SinkGenerator::ID = 0;
-
-void SinkGenerator::getAnalysisUsage(AnalysisUsage & AU) const
-{
-	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
-	AU.addPreserved<cheerp::LinearMemoryHelper>();
-	llvm::Pass::getAnalysisUsage(AU);
 }
-
-FunctionPass *createSinkGeneratorPass() { return new SinkGenerator(); }
-}
-using namespace cheerp;
-
-INITIALIZE_PASS_BEGIN(SinkGenerator, "SinkGenerator", "Converts 64-bit integer operations into 32-bit ones",
-                      false, false)
-INITIALIZE_PASS_END(SinkGenerator, "SinkGenerator", "Converts 64-bit integer operations into 32-bit ones",
-                    false, false)
