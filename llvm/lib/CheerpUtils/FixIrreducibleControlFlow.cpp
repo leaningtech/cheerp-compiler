@@ -9,7 +9,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#define DEBUG_TYPE "CheerpFixIrreducibleControlFlow"
 #include "llvm/InitializePasses.h"
 #include "llvm/Cheerp/FixIrreducibleControlFlow.h"
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
@@ -23,6 +22,8 @@
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/IR/Verifier.h"
+
+#define DEBUG_TYPE "CheerpFixIrreducibleControlFlow"
 
 using namespace llvm;
 namespace cheerp
