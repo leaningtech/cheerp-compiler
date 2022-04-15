@@ -9,7 +9,6 @@
 //
 //===---------------------------------------------------------------------===//
 
-#define DEBUG_TYPE "pre-execute"
 #include "llvm/InitializePasses.h"
 #include "llvm/Cheerp/PreExecute.h"
 #include "llvm/ExecutionEngine/GenericValue.h"
@@ -23,6 +22,7 @@
 #include <algorithm>
 
 //#define DEBUG_PRE_EXECUTE 1
+#define DEBUG_TYPE "pre-execute"
 
 using namespace llvm;
 

@@ -9,8 +9,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#define DEBUG_TYPE "CheerpGEPOptimizer"
-
 #include "llvm/InitializePasses.h"
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
 #include "llvm/Cheerp/InvokeWrapping.h"
@@ -24,6 +22,8 @@
 //#define DEBUG_GEP_OPT_VERBOSE 1
 
 namespace llvm {
+
+#define DEBUG_TYPE "CheerpGEPOptimizer"
 
 ValidBasicBlockForestGraph* ValidBasicBlockForestGraph::current_VBBFGraph = NULL;
 
