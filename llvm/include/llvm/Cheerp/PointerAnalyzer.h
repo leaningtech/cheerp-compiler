@@ -260,7 +260,6 @@ class PointerAnalysis;
 
 class PointerAnalyzer 
 {
-	llvm::ModuleAnalysisManager* MAM;
 public:
 	PointerAnalyzer() :
 		status(MODIFIABLE), PACache(status)
