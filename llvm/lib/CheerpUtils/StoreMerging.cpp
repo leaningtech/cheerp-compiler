@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2014-2020 Leaning Technologies
+// Copyright 2014-2022 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -21,10 +21,6 @@
 using namespace llvm;
 
 using namespace cheerp;
-
-StringRef StoreMerging::getPassName() const {
-	return "StoreMerging";
-}
 
 bool StoreMerging::runOnFunction(Function& F)
 {
@@ -300,17 +296,14 @@ std::pair<const llvm::Value*, int> StoreMerging::findBasePointerAndOffset(const 
 	return {pointer, totalOffset};
 }
 
-void StoreMerging::getAnalysisUsage(AnalysisUsage &AU) const
+llvm::PreservedAnalyses StoreMergingPass::run(Function& F, FunctionAnalysisManager& FAM)
 {
-	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
-	AU.addPreserved<cheerp::InvokeWrapping>();
+	StoreMerging inner(isWasm);
+	if (!inner.runOnFunction(F))
+		return PreservedAnalyses::all();
+
+	PreservedAnalyses PA;
+	PA.preserve<InvokeWrappingAnalysis>();
+	PA.preserve<GlobalDepsAnalysis>();
+	return PA;
 }
-
-char StoreMerging::ID = 0;
-
-FunctionPass *cheerp::createStoreMergingPass(const bool isWasm) { return new StoreMerging(isWasm); }
-
-INITIALIZE_PASS_BEGIN(StoreMerging, "StoreMerging", "Merge adjacent stores",
-                      false, false)
-INITIALIZE_PASS_END(StoreMerging, "StoreMerging", "Merge adjacent stores",
-                    false, false)

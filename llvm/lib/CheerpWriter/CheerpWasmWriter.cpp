@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2017-2021 Leaning Technologies
+// Copyright 2017-2022 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -3046,8 +3046,8 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F)
 	else
 	{
 		{
-			DominatorTree &DT = pass.getAnalysis<DominatorTreeWrapperPass>(const_cast<Function&>(F)).getDomTree();
-			LoopInfo &LI = pass.getAnalysis<LoopInfoWrapperPass>(const_cast<Function&>(F)).getLoopInfo();
+			DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(const_cast<Function&>(F));
+			LoopInfo &LI = FAM.getResult<LoopAnalysis>(const_cast<Function&>(F));
 			CFGStackifier CN(F, LI, DT, registerize, PA, CFGStackifier::Wasm);
 
 			const auto possibleBBs = CN.selectBasicBlocksWithPossibleIncomingResult();

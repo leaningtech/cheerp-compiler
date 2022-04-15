@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2015-2019 Leaning Technologies
+// Copyright 2015-2022 Leaning Technologies
 //
 //===---------------------------------------------------------------------===//
 
@@ -16,7 +16,7 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
-#include "llvm/Pass.h"
+#include "llvm/IR/PassManager.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Cheerp/DeterministicUnorderedMap.h"
 #include "llvm/Cheerp/Utility.h"
@@ -68,11 +68,10 @@ public:
     }
 };
 
-class PreExecute : public llvm::ModulePass
+class PreExecute
 {
 public:
     static PreExecute *currentPreExecutePass;
-    static char ID;
 
     llvm::ExecutionEngine *currentEE;
     llvm::Module *currentModule;
@@ -81,11 +80,10 @@ public:
     DeterministicUnorderedMap<llvm::GlobalVariable *, llvm::Constant *, RestrictionsLifted::NoErasure>  modifiedGlobals;
     std::map<char *, AllocData> typedAllocations;
 
-    explicit PreExecute() : llvm::ModulePass(ID) {
+    explicit PreExecute(){
     }
-
-    llvm::StringRef getPassName() const override;
-    bool runOnModule(llvm::Module& m) override;
+    
+    bool runOnModule(llvm::Module& m);
     bool runOnConstructor(llvm::Module& m, llvm::Function* c);
 
     void recordStore(void* Addr);
@@ -114,10 +112,17 @@ private:
             llvm::Type* memType, char* Addr, bool asmjs);
 };
 
-inline llvm::ModulePass* createPreExecutePass() {
-    return new PreExecute();
-}
-
+class PreExecutePass : public llvm::PassInfoMixin<PreExecutePass> {
+public:
+	llvm::PreservedAnalyses run(llvm::Module& M, llvm::ModuleAnalysisManager& MAM)
+	{
+		cheerp::PreExecute inner;
+		if (!inner.runOnModule(M))
+			return llvm::PreservedAnalyses::all();
+		return llvm::PreservedAnalyses::none();
+	}
+	static bool isRequired() { return true;}
+};
 }
 
 #endif // _CHEERP_PREEXECUTE_H

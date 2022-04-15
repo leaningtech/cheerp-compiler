@@ -83,12 +83,14 @@
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/EarlyCSE.h"
 #include "llvm/Transforms/Scalar/GVN.h"
+#include "llvm/Transforms/Scalar/LowerAtomic.h"
 #include "llvm/Transforms/Scalar/LowerMatrixIntrinsics.h"
 #include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Utils/CanonicalizeAliases.h"
 #include "llvm/Transforms/Utils/Debugify.h"
 #include "llvm/Transforms/Utils/EntryExitInstrumenter.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
+#include "llvm/Transforms/Utils/Mem2Reg.h"
 #include "llvm/Transforms/Utils/NameAnonGlobals.h"
 #include "llvm/Transforms/Utils/SymbolRewriter.h"
 #include <memory>
@@ -687,27 +689,6 @@ getInstrProfOptions(const CodeGenOptions &CodeGenOpts,
   return Options;
 }
 
-static void addCheerpPasses(const PassManagerBuilder &Builder,
-                            legacy::PassManagerBase &PM) {
-  //Run mem2reg first, to remove load/stores for the this argument
-  //We need this to track this in custom constructors for DOM types, such as String::String(const char*)
-  PM.add(createPromoteMemoryToRegisterPass());
-  PM.add(createCheerpNativeRewriterPass());
-  //Cheerp is single threaded, convert atomic instructions to regular ones
-  PM.add(createLowerAtomicPass());
-}
-
-static void addPostInlineCheerpPasses(const PassManagerBuilder &Builder,
-                                      legacy::PassManagerBase &PM) {
-  PM.add(createExpandStructRegs());
-}
-
-static void addModuleCheerpPasses(const PassManagerBuilder &Builder,
-                            legacy::PassManagerBase &PM) {
-  // Lower byval parameters
-  PM.add(createByValLoweringPass());
-}
-
 void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
                                       legacy::FunctionPassManager &FPM) {
   // Handle disabling of all LLVM passes, where we want to preserve the
@@ -724,21 +705,6 @@ void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
       createTLII(TargetTriple, CodeGenOpts));
 
   PassManagerBuilderWrapper PMBuilder(TargetTriple, CodeGenOpts, LangOpts);
-
-  if (TargetTriple.getArch() == llvm::Triple::cheerp)
-  {
-    PMBuilder.addExtension(PassManagerBuilder::EP_EarlyAsPossible,
-                           addCheerpPasses);
-    PMBuilder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
-                           addPostInlineCheerpPasses);
-    PMBuilder.addExtension(PassManagerBuilder::EP_LoopOptimizerEnd,
-                           addPostInlineCheerpPasses);
-    PMBuilder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
-                           addModuleCheerpPasses);
-    PMBuilder.addExtension(PassManagerBuilder::EP_OptimizerLast,
-                           addModuleCheerpPasses);
-  }
-
 
   // If we reached here with a non-empty index file name, then the index file
   // was empty and we are not performing ThinLTO backend compilation (used in
@@ -1415,6 +1381,27 @@ void EmitAssemblyHelper::RunOptimizationPipeline(
           [](FunctionPassManager &FPM, OptimizationLevel Level) {
             if (Level != OptimizationLevel::O0)
               FPM.addPass(ObjCARCOptPass());
+          });
+    }
+
+    if (TargetTriple.getArch() == llvm::Triple::cheerp) {
+      PB.registerPipelineStartEPCallback(
+          [](ModulePassManager &MPM, OptimizationLevel Level) {
+            //Run mem2reg first, to remove load/stores for the this argument
+            //We need this to track this in custom constructors for DOM types, such as String::String(const char*)
+            MPM.addPass(createModuleToFunctionPassAdaptor(PromotePass()));
+            MPM.addPass(createModuleToFunctionPassAdaptor(CheerpNativeRewriterPass()));
+            //Cheerp is single threaded, convert atomic instructions to regular ones
+            MPM.addPass(createModuleToFunctionPassAdaptor(LowerAtomicPass()));
+          });
+      PB.registerOptimizerLastEPCallback(
+          [](ModulePassManager &MPM, OptimizationLevel Level) {
+            // Lower byval parameters
+            MPM.addPass(ByValLoweringPass());
+          });
+      PB.registerScalarOptimizerLateEPCallback(
+          [](FunctionPassManager &FPM, OptimizationLevel Level) {
+            FPM.addPass(ExpandStructRegsPass());
           });
     }
 

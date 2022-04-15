@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2015-2021 Leaning Technologies
+// Copyright 2015-2022 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -15,7 +15,7 @@
 #include "llvm/Cheerp/TypeAndIndex.h"
 #include "llvm/Cheerp/DeterministicUnorderedMap.h"
 #include "llvm/IR/Module.h"
-#include "llvm/Pass.h"
+#include "llvm/IR/PassManager.h"
 #include <unordered_map>
 #include <unordered_set>
 #include <set>
@@ -23,7 +23,7 @@
 namespace cheerp
 {
 
-class TypeOptimizer: public llvm::ModulePass
+class TypeOptimizer
 {
 private:
 	struct TypeMappingInfo
@@ -163,21 +163,19 @@ private:
 	static void pushAllArrayConstantElements(llvm::SmallVector<llvm::Constant*, 4>& newElements, llvm::Constant* array);
 	static llvm::StructType* isEscapingStructGEP(const llvm::User* GEP);
 public:
-	static char ID;
-	explicit TypeOptimizer() : ModulePass(ID) { }
-	bool runOnModule(llvm::Module &M) override;
-	llvm::StringRef getPassName() const override;
+	explicit TypeOptimizer() { }
+	bool runOnModule(llvm::Module &M);
 };
 
 //===----------------------------------------------------------------------===//
 //
 // TypeOptimizer - Change the layout of structs and arrays to reduce the number of allocated objects at runtime
 //
-inline llvm::ModulePass *createTypeOptimizerPass()
-{
-	return new TypeOptimizer();
-}
+class TypeOptimizerPass : public llvm::PassInfoMixin<TypeOptimizerPass> {
+public:
+	llvm::PreservedAnalyses run(llvm::Module &M, llvm::ModuleAnalysisManager&);
+	static bool isRequired() { return true; }
+};
 
 }
-
 #endif

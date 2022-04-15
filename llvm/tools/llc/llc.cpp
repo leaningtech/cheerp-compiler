@@ -371,10 +371,6 @@ int main(int argc, char **argv) {
   initializeTransformUtils(*Registry);
   initializeReplaceWithVeclibLegacyPass(*Registry);
   initializeTLSVariableHoistLegacyPassPass(*Registry);
-  initializeCheerpOpts(*Registry);
-  initializePreExecutePass(*Registry);
-  initializePartialExecuterPass(*Registry);
-  initializeReplaceNopCastsAndByteSwapsPass(*Registry);
 
   // Initialize debugging passes.
   initializeScavengerTestPass(*Registry);

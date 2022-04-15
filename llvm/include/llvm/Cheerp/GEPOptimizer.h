@@ -5,14 +5,13 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2019 Leaning Technologies
+// Copyright 2019-2022 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
 #ifndef _CHEERP_GEP_OPTIMIZER_H
 #define _CHEERP_GEP_OPTIMIZER_H
 
-#include "llvm/Pass.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/PointerIntPair.h"
 #include "llvm/IR/Instructions.h"
@@ -20,6 +19,8 @@
 #include "llvm/IR/Dominators.h"
 #include "llvm/Cheerp/CommandLine.h"
 #include "llvm/Cheerp/DeterministicUnorderedMap.h"
+#include "llvm/Cheerp/GlobalDepsAnalyzer.h"
+#include "llvm/Cheerp/InvokeWrapping.h"
 
 namespace llvm
 {
@@ -715,7 +716,7 @@ private:
 /**
  * This pass rewrite GEPs in a function to remove redundant object accesses
  */
-class GEPOptimizer: public FunctionPass
+class GEPOptimizer
 {
 	//TODO: move this to llvm::DenseSet<const BasicBlock*> when getNode(const BasicBlock*) will be supported by llvm
 	typedef llvm::DenseSet<BasicBlock*> BlockSet;
@@ -903,19 +904,30 @@ private:
 		std::vector<GetElementPtrInst*> nonTerminalGeps;
 	};
 public:
-	static char ID;
-	explicit GEPOptimizer() : FunctionPass(ID), DT(NULL) { }
-	bool runOnFunction(Function &F) override;
-	StringRef getPassName() const override;
+	explicit GEPOptimizer(): DT(NULL) { }
+	bool runOnFunction(Function &F, llvm::DominatorTree* DT);
 
-	virtual void getAnalysisUsage(AnalysisUsage&) const override;
 };
 
 //===----------------------------------------------------------------------===//
 //
 // GEPOptimizer
 //
-FunctionPass *createGEPOptimizerPass();
+class GEPOptimizerPass : public PassInfoMixin<GEPOptimizerPass> {
+public:
+	PreservedAnalyses run(Function &F, FunctionAnalysisManager& FAM)
+	{
+		GEPOptimizer inner;
+		DominatorTree& DT = FAM.getResult<DominatorTreeAnalysis>(F);
+		if (!inner.runOnFunction(F, &DT))
+			return PreservedAnalyses::all();
+		PreservedAnalyses PA;
+		PA.preserve<cheerp::GlobalDepsAnalysis>();
+		PA.preserve<cheerp::InvokeWrappingAnalysis>();
+		return PA;
+	}
+	static bool isRequired() { return true; }
+};
 
 }
 

@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2014-2021 Leaning Technologies
+// Copyright 2014-2022 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -36,7 +36,33 @@
 
 STATISTIC(NumAllocasTransformedToArrays, "Number of allocas of values transformed to allocas of arrays");
 
-namespace llvm {
+namespace cheerp {
+using namespace llvm;
+
+/**
+ * Collection of passes whose sole purpose is to help
+ * the pointer analyzer generate better code
+ */
+
+// Replace an alloca of a single value with an alloca of an array of size 1 if the 
+// generated pointer would be CO instead of regular
+class AllocaArrays
+{
+	bool replaceAlloca( llvm::AllocaInst * ai, cheerp::GlobalDepsAnalyzer& gda );
+public:
+	explicit AllocaArrays() { }
+	bool runOnFunction(llvm::Function& F, cheerp::PointerAnalyzer& PA, cheerp::Registerize& registerize, cheerp::GlobalDepsAnalyzer& globalDeps);
+};
+
+class FreeAndDeleteRemoval
+{
+private:
+	void deleteInstructionAndUnusedOperands(llvm::Instruction* I);
+	bool isAllGenericJS;
+public:
+	explicit FreeAndDeleteRemoval() : isAllGenericJS(false) { }
+	bool runOnModule(llvm::Module &M); 
+};
 
 bool AllocaArrays::replaceAlloca(AllocaInst* ai, cheerp::GlobalDepsAnalyzer& gda)
 {
@@ -114,15 +140,12 @@ bool AllocaArrays::replaceAlloca(AllocaInst* ai, cheerp::GlobalDepsAnalyzer& gda
 	return true;
 }
 
-bool AllocaArrays::runOnFunction(Function& F)
+bool AllocaArrays::runOnFunction(Function& F, cheerp::PointerAnalyzer& PA, cheerp::Registerize& registerize, cheerp::GlobalDepsAnalyzer& globalDeps)
 {
 	if (F.getSection()==StringRef("asmjs"))
 		return false;
 
 	bool Changed = false;
-	cheerp::PointerAnalyzer & PA = getAnalysis<cheerp::PointerAnalyzer>();
-	cheerp::Registerize & registerize = getAnalysis<cheerp::Registerize>();
-	cheerp::GlobalDepsAnalyzer & globalDeps= getAnalysis<cheerp::GlobalDepsAnalyzer>();
 
 	for ( BasicBlock & BB : F )
 	{
@@ -151,27 +174,38 @@ bool AllocaArrays::runOnFunction(Function& F)
 	return Changed;
 }
 
-StringRef AllocaArrays::getPassName() const
+PreservedAnalyses AllocaArraysPass::run(llvm::Module& M, llvm::ModuleAnalysisManager& MAM)
 {
-	return "AllocaArrays";
+	Registerize& registerize = MAM.getResult<RegisterizeAnalysis>(M);
+	GlobalDepsAnalyzer& GDA = MAM.getResult<GlobalDepsAnalysis>(M);
+	PointerAnalyzer& PA = MAM.getResult<PointerAnalysis>(M);
+
+	bool Changed = false;
+	for (Function& F : M)
+	{
+		if (F.isDeclaration())
+			continue;
+
+		AllocaArrays inner;
+
+		if (inner.runOnFunction(F, PA, registerize, GDA))
+			Changed = true;
+	}
+
+	if (!Changed)
+		return PreservedAnalyses::all();
+	else
+	{
+		PreservedAnalyses PA;
+		PA.preserve<cheerp::PointerAnalysis>();
+		PA.preserve<cheerp::RegisterizeAnalysis>();
+		PA.preserve<cheerp::GlobalDepsAnalysis>();
+		PA.preserve<cheerp::InvokeWrappingAnalysis>();
+		PA.preserve<DominatorTreeAnalysis>();
+		PA.preserve<cheerp::LinearMemoryAnalysis>();
+		return PA;
+	}
 }
-
-char AllocaArrays::ID = 0;
-
-void AllocaArrays::getAnalysisUsage(AnalysisUsage & AU) const
-{
-	AU.addRequired<cheerp::PointerAnalyzer>();
-	AU.addPreserved<cheerp::PointerAnalyzer>();
-	AU.addRequired<cheerp::Registerize>();
-	AU.addPreserved<cheerp::Registerize>();
-	AU.addRequired<cheerp::GlobalDepsAnalyzer>();
-	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
-	AU.addPreserved<cheerp::InvokeWrapping>();
-	AU.addPreserved<cheerp::LinearMemoryHelper>();
-	llvm::Pass::getAnalysisUsage(AU);
-}
-
-FunctionPass *createAllocaArraysPass() { return new AllocaArrays(); }
 
 class PHIVisitor
 {
@@ -365,21 +399,17 @@ bool PointerArithmeticToArrayIndexing::runOnFunction(Function& F)
 	return Changed;
 }
 
-StringRef PointerArithmeticToArrayIndexing::getPassName() const
+llvm::PreservedAnalyses PointerArithmeticToArrayIndexingPass::run(Function& F, FunctionAnalysisManager& FAM)
 {
-	return "PointerArithmeticToArrayIndexing";
+	PointerArithmeticToArrayIndexing inner;
+	if (!inner.runOnFunction(F))
+		return PreservedAnalyses::all();
+
+	PreservedAnalyses PA;
+	PA.preserve<InvokeWrappingAnalysis>();
+	PA.preserve<GlobalDepsAnalysis>();
+	return PA;
 }
-
-char PointerArithmeticToArrayIndexing::ID = 0;
-
-void PointerArithmeticToArrayIndexing::getAnalysisUsage(AnalysisUsage & AU) const
-{
-	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
-	AU.addPreserved<cheerp::InvokeWrapping>();
-	llvm::Pass::getAnalysisUsage(AU);
-}
-
-FunctionPass *createPointerArithmeticToArrayIndexingPass() { return new PointerArithmeticToArrayIndexing(); }
 
 void PointerToImmutablePHIRemoval::hoistBlock(BasicBlock* targetBlock)
 {
@@ -496,21 +526,16 @@ bool PointerToImmutablePHIRemoval::runOnFunction(Function& F)
 	return Changed;
 }
 
-StringRef PointerToImmutablePHIRemoval::getPassName() const
+llvm::PreservedAnalyses PointerToImmutablePHIRemovalPass::run(Function& F, FunctionAnalysisManager& FAM)
 {
-	return "PointerToImmutablePHIRemoval";
+	PointerToImmutablePHIRemoval inner;
+	if (!inner.runOnFunction(F))
+		return PreservedAnalyses::all();
+	PreservedAnalyses PA;
+	PA.preserve<GlobalDepsAnalysis>();
+	PA.preserve<InvokeWrappingAnalysis>();
+	return PA;
 }
-
-char PointerToImmutablePHIRemoval::ID = 0;
-
-void PointerToImmutablePHIRemoval::getAnalysisUsage(AnalysisUsage & AU) const
-{
-	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
-	AU.addPreserved<cheerp::InvokeWrapping>();
-	llvm::Pass::getAnalysisUsage(AU);
-}
-
-FunctionPass *createPointerToImmutablePHIRemovalPass() { return new PointerToImmutablePHIRemoval(); }
 
 void FreeAndDeleteRemoval::deleteInstructionAndUnusedOperands(Instruction* I)
 {
@@ -685,19 +710,13 @@ bool FreeAndDeleteRemoval::runOnModule(Module& M)
 	return Changed;
 }
 
-StringRef FreeAndDeleteRemoval::getPassName() const
+PreservedAnalyses FreeAndDeleteRemovalPass::run(Module& M, ModuleAnalysisManager& MAM)
 {
-	return "FreeAndDeleteRemoval";
+	FreeAndDeleteRemoval inner;
+	if (!inner.runOnModule(M))
+		return PreservedAnalyses::all();
+	return PreservedAnalyses::none();
 }
-
-char FreeAndDeleteRemoval::ID = 0;
-
-void FreeAndDeleteRemoval::getAnalysisUsage(AnalysisUsage & AU) const
-{
-	llvm::Pass::getAnalysisUsage(AU);
-}
-
-ModulePass *createFreeAndDeleteRemovalPass() { return new FreeAndDeleteRemoval(); }
 
 uint32_t DelayInsts::countInputRegisters(const Instruction* I, cheerp::InlineableCache& cache) const
 {
@@ -937,11 +956,9 @@ void DelayInsts::instructionToBeMoved(const Instruction* I, const InsertPoint& i
 	Changed = true;
 }
 
-void DelayInsts::calculatePlacementOfInstructions(const Function& F, cheerp::InlineableCache& inlineableCache)
+void DelayInsts::calculatePlacementOfInstructions(const Function& F, cheerp::InlineableCache& inlineableCache, const LoopInfo* LI, const DominatorTree* DT, const PostDominatorTree* PDT)
 {
-	const LoopInfo* LI = &getAnalysis<LoopInfoWrapperPass>(const_cast<Function &>(F)).getLoopInfo();
-	const DominatorTree* DT = &getAnalysis<DominatorTreeWrapperPass>(const_cast<Function &>(F)).getDomTree();
-	const PostDominatorTree* PDT = &getAnalysis<PostDominatorTreeWrapperPass>(const_cast<Function &>(F)).getPostDomTree();
+
 	const bool moveAllocas = F.getSection()==StringRef("");
 
 	for (const BasicBlock& BB : F )
@@ -955,7 +972,7 @@ void DelayInsts::calculatePlacementOfInstructions(const Function& F, cheerp::Inl
 	visited.clear();
 }
 
-void DelayInsts::calculatePlacementOfInstructions(const Module& M)
+void DelayInsts::calculatePlacementOfInstructions(const Module& M, cheerp::PointerAnalyzer& PApassed, FunctionAnalysisManager& FAM)
 {
 	//Build an exact copy of the current PA state, and call fullResolve on it
 	//This is because all calls to calculatePlacementOfInstructions will not change the topology of the PA graph,
@@ -963,7 +980,9 @@ void DelayInsts::calculatePlacementOfInstructions(const Module& M)
 	//
 	//TODO: this method could be generalized by using the PassManager, and having a PointerAnalyzerBase and a PointerAnalyzerFullResolved
 	//		then PointerAnalyzerFullResolved could be saved between passes if not invalidated
-	cheerp::PointerAnalyzer PA(getAnalysis<cheerp::PointerAnalyzer>());
+	cheerp::PointerAnalyzer PA(PApassed);
+
+
 	PA.fullResolve();
 	cheerp::InlineableCache inlineableCache(PA);
 	Changed = false;
@@ -971,9 +990,14 @@ void DelayInsts::calculatePlacementOfInstructions(const Module& M)
 	{
 		if (F.isDeclaration())
 			continue;
+		Function& FF = const_cast<Function&>(F);
+		const LoopInfo& LI = FAM.getResult<LoopAnalysis>(FF);
+		const DominatorTree& DT = FAM.getResult<DominatorTreeAnalysis>(FF);
+		const PostDominatorTree& PDT = FAM.getResult<PostDominatorTreeAnalysis>(FF);
 
 		// Calculate where all the function should be placed
-		calculatePlacementOfInstructions(F, inlineableCache);
+		// TODO: this should become a function pass!!
+		calculatePlacementOfInstructions(F, inlineableCache, &LI, &DT, &PDT);
 	}
 
 	//The PointerAnalyzer instance that we created may become invalid if we add/delete Instructions.
@@ -982,12 +1006,10 @@ void DelayInsts::calculatePlacementOfInstructions(const Module& M)
 	//PA (it could either be slow or entirely wrong) by forbidding it's use, since it will be destructed now
 }
 
-bool DelayInsts::runOnModule(Module& M)
+bool DelayInsts::runOnModule(Module& M, cheerp::Registerize& registerize, cheerp::PointerAnalyzer& PA, FunctionAnalysisManager& FAM)
 {
 	//This function calculates what and where instruction should be moved. It store it's calculations in DelayInsts members
-	calculatePlacementOfInstructions(M);
-
-	cheerp::Registerize& registerize = getAnalysis<cheerp::Registerize>();
+	calculatePlacementOfInstructions(M, PA, FAM);
 
 	//Break Registerize invariants
 	for (const Function* F : movedAllocaOnFunction)
@@ -1061,46 +1083,22 @@ void DelayInsts::moveOnFunction(Function& F, StackInstructionsLocations& stackIn
 	}
 }
 
-StringRef DelayInsts::getPassName() const
+PreservedAnalyses DelayInstsPass::run(Module& M, ModuleAnalysisManager& MAM)
 {
-	return "DelayInsts";
+	FunctionAnalysisManager& FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+	cheerp::Registerize& registerize = MAM.getResult<cheerp::RegisterizeAnalysis>(M);
+	cheerp::PointerAnalyzer& PA = MAM.getResult<cheerp::PointerAnalysis>(M);
+	DelayInsts inner;
+	if (!inner.runOnModule(M, registerize, PA, FAM))
+		return PreservedAnalyses::all();
+	{
+	PreservedAnalyses PA;
+	PA.preserve<cheerp::PointerAnalysis>();
+	PA.preserve<cheerp::GlobalDepsAnalysis>();
+	PA.preserve<cheerp::RegisterizeAnalysis>();
+	PA.preserve<cheerp::LinearMemoryAnalysis>();
+	PA.preserve<cheerp::InvokeWrappingAnalysis>();
+	return PA;
+	}
 }
-
-char DelayInsts::ID = 0;
-
-void DelayInsts::getAnalysisUsage(AnalysisUsage & AU) const
-{
-	AU.addPreserved<cheerp::PointerAnalyzer>();
-	AU.addPreserved<cheerp::Registerize>();
-	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
-	AU.addPreserved<cheerp::InvokeWrapping>();
-	AU.addPreserved<cheerp::LinearMemoryHelper>();
-	AU.addRequired<DominatorTreeWrapperPass>();
-	AU.addRequired<PostDominatorTreeWrapperPass>();
-	AU.addRequired<cheerp::PointerAnalyzer>();
-	AU.addRequired<cheerp::Registerize>();
-	AU.addRequired<LoopInfoWrapperPass>();
-	llvm::Pass::getAnalysisUsage(AU);
 }
-
-ModulePass *createDelayInstsPass() { return new DelayInsts(); }
-
-}
-
-using namespace llvm;
-
-INITIALIZE_PASS_BEGIN(AllocaArrays, "AllocaArrays", "Transform allocas of REGULAR type to arrays of 1 element",
-			false, false)
-INITIALIZE_PASS_END(AllocaArrays, "AllocaArrays", "Transform allocas of REGULAR type to arrays of 1 element",
-			false, false)
-
-INITIALIZE_PASS_BEGIN(DelayInsts, "DelayInsts", "Moves instructions as close as possible to the actual users",
-			false, false)
-INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
-INITIALIZE_PASS_END(DelayInsts, "DelayInsts", "Moves instrucitions as close as possible to the actual users",
-			false, false)
-
-INITIALIZE_PASS_BEGIN(FreeAndDeleteRemoval, "FreeAndDeleteRemoval", "Remove free and delete calls of genericjs objects",
-			false, false)
-INITIALIZE_PASS_END(FreeAndDeleteRemoval, "FreeAndDeleteRemoval", "Remove free and delete calls of genericjs objects",
-			false, false)

@@ -610,9 +610,16 @@ void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
   ArgStringList CmdArgs;
   const Driver &D = getToolChain().getDriver();
 
+  std::string optPasses = "";
+  auto addPass = [&optPasses](const std::string& passInvocation)->void{
+	  if (optPasses.size())
+		  optPasses += ",";
+	  optPasses += passInvocation;
+  };
+
   CmdArgs.push_back("-march=cheerp");
   if(Args.hasArg(options::OPT_cheerp_preexecute))
-    CmdArgs.push_back("-PreExecute");
+    addPass("PreExecute");
   if(Args.hasArg(options::OPT_cheerp_preexecute_main))
     CmdArgs.push_back("-cheerp-preexecute-main");
   if(Arg* cheerpFixFuncCasts = Args.getLastArg(options::OPT_cheerp_fix_wrong_func_casts))
@@ -641,25 +648,26 @@ void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
   if(std::find(features.begin(), features.end(), EXPORTEDTABLE) != features.end())
     CmdArgs.push_back("-cheerp-wasm-exported-table");
 
-  CmdArgs.push_back("-CheerpLowerInvoke");
+  addPass("function(CheerpLowerInvoke)");
   if (Args.hasArg(options::OPT_fexceptions))
     CmdArgs.push_back("-cheerp-keep-invokes");
-  CmdArgs.push_back("-simplifycfg");
+  addPass("function(simplifycfg)");
 
-  CmdArgs.push_back("-GlobalDepsAnalyzer");
-  CmdArgs.push_back("-TypeOptimizer");
-  CmdArgs.push_back("-CheerpLowerSwitch");
-  CmdArgs.push_back("-I64Lowering");
-  CmdArgs.push_back("-ReplaceNopCastsAndByteSwaps");
+  addPass("GlobalDepsAnalyzer");
+  addPass("TypeOptimizer");
+  addPass("function(CheerpLowerSwitch)");
+  addPass("I64Lowering");
+  addPass("function(ReplaceNopCastsAndByteSwaps)");
   if(!Args.hasArg(options::OPT_cheerp_no_lto))
   {
-    CmdArgs.push_back("-FreeAndDeleteRemoval");
+    addPass("FreeAndDeleteRemoval");
     CmdArgs.push_back("-cheerp-lto");
-    CmdArgs.push_back("-Os");
-    CmdArgs.push_back("-PartialExecuter");
+    addPass("default<Os>");
+    addPass("PartialExecuter");
     // -Os converts loops to canonical form, which may causes empty forwarding branches, remove those
-    CmdArgs.push_back("-simplifycfg");
+    addPass("function(simplifycfg)");
   }
+  CmdArgs.push_back(Args.MakeArgString(std::string("-passes=")+optPasses));
   CmdArgs.push_back("-o");
   CmdArgs.push_back(Output.getFilename());
 

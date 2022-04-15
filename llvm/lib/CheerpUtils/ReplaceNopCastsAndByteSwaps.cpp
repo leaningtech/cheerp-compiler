@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2014-2016 Leaning Technologies
+// Copyright 2014-2022 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -107,19 +107,4 @@ bool ReplaceNopCastsAndByteSwaps::processBasicBlock(BasicBlock& BB)
 	return Changed;
 }
 
-StringRef ReplaceNopCastsAndByteSwaps::getPassName() const {
-	return "ReplaceNopCastsAndByteSwaps";
 }
-
-char ReplaceNopCastsAndByteSwaps::ID = 0;
-
-FunctionPass *createReplaceNopCastsAndByteSwapsPass() { return new ReplaceNopCastsAndByteSwaps(); }
-
-}
-
-using namespace cheerp;
-
-INITIALIZE_PASS_BEGIN(ReplaceNopCastsAndByteSwaps, "ReplaceNopCasts", "Replace type safe cast intrinsics with bitcasts and bswap intrinsics with logical operations",
-                      false, false)
-INITIALIZE_PASS_END(ReplaceNopCastsAndByteSwaps, "ReplaceNopCastsAndByteSwaps", "Replace type safe cast intrinsics with bitcasts and bswap intrinsics with logical operations",
-                    false, false)

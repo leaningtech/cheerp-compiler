@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2014-2019 Leaning Technologies
+// Copyright 2014-2022 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -36,21 +36,6 @@ STATISTIC(NumRegisters, "Total number of registers allocated to functions");
 
 namespace cheerp {
 
-char Registerize::ID = 0;
-
-void Registerize::getAnalysisUsage(AnalysisUsage & AU) const
-{
-	AU.addRequired<LoopInfoWrapperPass>();
-	AU.addRequired<DominatorTreeWrapperPass>();
-	AU.addRequired<PostDominatorTreeWrapperPass>();
-	AU.addPreserved<LoopInfoWrapperPass>();
-	AU.addPreserved<DominatorTreeWrapperPass>();
-	AU.addPreserved<PostDominatorTreeWrapperPass>();
-	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
-    AU.addPreserved<cheerp::InvokeWrapping>();
-	llvm::Pass::getAnalysisUsage(AU);
-}
-
 bool Registerize::runOnModule(Module & M)
 {
 	for (Function& F: M)
@@ -69,11 +54,6 @@ void Registerize::assignRegisters(Module & M, cheerp::PointerAnalyzer& PA)
 #ifndef NDEBUG
 	RegistersAssigned = true;
 #endif
-}
-
-StringRef Registerize::getPassName() const
-{
-	return "CheerpRegisterize";
 }
 
 bool Registerize::hasRegister(const llvm::Instruction* I) const
@@ -153,8 +133,10 @@ void Registerize::computeLiveRangeForAllocas(const Function& F)
 	if (F.empty())
 		return;
 	//We need to cast away the cast since data will be memoized by the (post-)dominator tree builder
-	DT = &getAnalysis<DominatorTreeWrapperPass>(const_cast<Function&>(F)).getDomTree();
-	PDT = &getAnalysis<PostDominatorTreeWrapperPass>(const_cast<Function&>(F)).getPostDomTree();
+	FunctionAnalysisManager& FAM = MAM->getResult<FunctionAnalysisManagerModuleProxy>(*const_cast<llvm::Module*>(F.getParent())).getManager();
+	Function& FF = const_cast<Function&>(F);
+	DT = &FAM.getResult<DominatorTreeAnalysis>(FF);
+	PDT = &FAM.getResult<PostDominatorTreeAnalysis>(FF);
 	AllocaSetTy allocaSet;
 	InstIdMapTy instIdMap;
 	// Assign sequential identifiers to all instructions
@@ -390,7 +372,8 @@ void Registerize::extendRangeForUsedOperands(Instruction& I, LiveRangesTy& liveR
 
 uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMap, const LiveRangesTy& liveRanges, const PointerAnalyzer& PA)
 {
-	LI = &(getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo());
+	FunctionAnalysisManager& FAM = MAM->getResult<FunctionAnalysisManagerModuleProxy>(*(F.getParent())).getManager();
+	LI = &FAM.getResult<LoopAnalysis>(F);
 
 	llvm::SmallVector<RegisterRange, 4> registers;
 
@@ -3575,19 +3558,22 @@ void Registerize::invalidateLiveRangeForAllocas(const llvm::Function& F)
 	}
 }
 
-ModulePass* createRegisterizePass(bool froundAvailable, bool wasm)
+llvm::PreservedAnalyses RegisterizePass::run(Module& M, ModuleAnalysisManager& MAM)
 {
-	return new Registerize(froundAvailable, wasm);
+	Registerize& registerize = MAM.getResult<RegisterizeAnalysis>(M).getInner(MAM, data);
+	registerize.runOnModule(M);
+
+	PreservedAnalyses PA;
+	PA.preserve<GlobalDepsAnalysis>();
+	PA.preserve<LoopAnalysis>();
+	PA.preserve<DominatorTreeAnalysis>();
+	PA.preserve<PostDominatorTreeAnalysis>();
+	PA.preserve<RegisterizeAnalysis>();
+	PA.preserve<InvokeWrappingAnalysis>();
+	return PA;
 }
 
+AnalysisKey RegisterizeAnalysis::Key;
+Registerize* RegisterizeWrapper::innerPtr{nullptr};
+
 }
-
-using namespace cheerp;
-
-INITIALIZE_PASS_BEGIN(Registerize, "Registerize", "Allocate stack registers for each virtual register",
-			false, false)
-INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
-INITIALIZE_PASS_END(Registerize, "Registerize", "Allocate stack registers for each virtual register",
-			false, false)

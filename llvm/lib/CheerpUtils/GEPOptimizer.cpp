@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2019 Leaning Technologies
+// Copyright 2019-2022 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -439,10 +439,9 @@ void GEPOptimizer::GEPRecursionData::sortGEPs()
 	assert(checkInvariantsOnOrderedGEPs(orderedGeps));
 }
 
-bool GEPOptimizer::runOnFunction(Function& F)
+bool GEPOptimizer::runOnFunction(Function& F, llvm::DominatorTree* DTA)
 {
-	DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-
+	DT = DTA;
 	//Collect all the data (where GEP are located) and do some precomputations (which blocks are valid for a certain GEPRange)
 	GEPRecursionData data(F, this);
 
@@ -578,28 +577,4 @@ void GEPOptimizer::GEPRecursionData::compressGEPTree(const ShortGEPPolicy shortG
 	}
 }
 
-StringRef GEPOptimizer::getPassName() const
-{
-	return "GEPOptimizer";
 }
-
-char GEPOptimizer::ID = 0;
-
-void GEPOptimizer::getAnalysisUsage(AnalysisUsage & AU) const
-{
-	AU.addRequired<DominatorTreeWrapperPass>();
-	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
-	AU.addPreserved<cheerp::InvokeWrapping>();
-	llvm::Pass::getAnalysisUsage(AU);
-}
-
-FunctionPass *createGEPOptimizerPass() { return new GEPOptimizer(); }
-
-}
-
-using namespace llvm;
-
-INITIALIZE_PASS_BEGIN(GEPOptimizer, "GEPOptimizer", "Rewrite GEPs in a function to remove redundant object accesses",
-			false, false)
-INITIALIZE_PASS_END(GEPOptimizer, "GEPOptimizer", "Rewrite GEPs in a function to remove redundant object accesses",
-			false, false)

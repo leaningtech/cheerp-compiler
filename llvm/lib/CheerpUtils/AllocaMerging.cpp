@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2014-2020 Leaning Technologies
+// Copyright 2014-2022 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -118,11 +118,8 @@ bool AllocaMerging::areTypesEquivalent(const cheerp::TypeSupport& types, cheerp:
 }
 
 
-bool AllocaMerging::runOnFunctionLegacy(Function& F)
+bool AllocaMerging::runOnFunctionLegacy(Function& F, cheerp::PointerAnalyzer& PA, DominatorTree* DT, cheerp::Registerize& registerize)
 {
-	cheerp::PointerAnalyzer & PA = getAnalysis<cheerp::PointerAnalyzer>();
-	DominatorTree* DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-	cheerp::Registerize & registerize = getAnalysis<cheerp::Registerize>();
 	cheerp::TypeSupport types(*F.getParent());
 	bool asmjs = F.getSection()==StringRef("asmjs");
 	typedef std::list<AllocaInfo> AllocaInfos;
@@ -205,15 +202,12 @@ bool AllocaMerging::runOnFunctionLegacy(Function& F)
 	return Changed;
 }
 
-bool AllocaMerging::runOnFunction(Function& F)
+bool AllocaMerging::runOnFunction(Function& F, cheerp::PointerAnalyzer& PA, DominatorTree* DT, cheerp::Registerize& registerize)
 {
 	if (RegisterizeLegacy)
 	{
-		return runOnFunctionLegacy(F);
+		return runOnFunctionLegacy(F, PA, DT, registerize);
 	}
-	cheerp::PointerAnalyzer & PA = getAnalysis<cheerp::PointerAnalyzer>();
-	DominatorTree* DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-	cheerp::Registerize & registerize = getAnalysis<cheerp::Registerize>();
 	cheerp::TypeSupport types(*F.getParent());
 	bool asmjs = F.getSection()==StringRef("asmjs");
 	std::vector<AllocaInfo> allocaInfos;
@@ -342,30 +336,6 @@ bool AllocaMerging::runOnFunction(Function& F)
 	return true;
 }
 
-StringRef AllocaMerging::getPassName() const {
-	return "AllocaMerging";
-}
-
-void AllocaMerging::getAnalysisUsage(AnalysisUsage & AU) const
-{
-	AU.addRequired<cheerp::Registerize>();
-	AU.addPreserved<cheerp::Registerize>();
-	AU.addRequired<cheerp::PointerAnalyzer>();
-	AU.addPreserved<cheerp::PointerAnalyzer>();
-	AU.addRequired<cheerp::GlobalDepsAnalyzer>();
-	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
-	AU.addPreserved<cheerp::InvokeWrapping>();
-	AU.addRequired<DominatorTreeWrapperPass>();
-	AU.addPreserved<DominatorTreeWrapperPass>();
-	AU.addPreserved<LinearMemoryHelper>();
-
-	llvm::FunctionPass::getAnalysisUsage(AU);
-}
-
-char AllocaMerging::ID = 0;
-
-FunctionPass *createAllocaMergingPass() { return new AllocaMerging(); }
-
 bool AllocaArraysMerging::checkUsesForArrayMerging(AllocaInst* alloca) const
 {
 	for(User* user: alloca->users())
@@ -455,7 +425,7 @@ llvm::Type* AllocaArraysMerging::collectUniformAlloca(std::vector<AllocaInst*>& 
 	return elementType;
 }
 
-bool AllocaArraysMerging::runOnFunction(Function& F)
+bool AllocaArraysMerging::runOnFunction(Function& F, cheerp::PointerAnalyzer& PA, DominatorTree* DT, cheerp::Registerize& registerize, cheerp::GlobalDepsAnalyzer & GDA)
 {
 	if (F.getSection()==StringRef("asmjs"))
 		return false;
@@ -496,10 +466,6 @@ bool AllocaArraysMerging::runOnFunction(Function& F)
 		}
 	};
 
-	cheerp::PointerAnalyzer & PA = getAnalysis<cheerp::PointerAnalyzer>();
-	DominatorTree* DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-	cheerp::Registerize & registerize = getAnalysis<cheerp::Registerize>();
-	cheerp::GlobalDepsAnalyzer & GDA = getAnalysis<cheerp::GlobalDepsAnalyzer>();
 	std::list<AllocaInfo> allocaInfos;
 	// Gather all the allocas
 	for(BasicBlock& BB: F)
@@ -620,29 +586,70 @@ bool AllocaArraysMerging::runOnFunction(Function& F)
 	return Changed;
 }
 
-StringRef AllocaArraysMerging::getPassName() const {
-	return "AllocaArraysMerging";
-}
-
-void AllocaArraysMerging::getAnalysisUsage(AnalysisUsage & AU) const
+PreservedAnalyses AllocaMergingPass::run(llvm::Module& M, llvm::ModuleAnalysisManager& MAM)
 {
-	AU.addRequired<cheerp::PointerAnalyzer>();
-	AU.addPreserved<cheerp::PointerAnalyzer>();
-	AU.addRequired<cheerp::Registerize>();
-	AU.addPreserved<cheerp::Registerize>();
-	AU.addRequired<cheerp::GlobalDepsAnalyzer>();
-	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
-	AU.addPreserved<cheerp::InvokeWrapping>();
-	AU.addRequired<DominatorTreeWrapperPass>();
-	AU.addPreserved<DominatorTreeWrapperPass>();
-	AU.addPreserved<LinearMemoryHelper>();
+	Registerize& registerize = MAM.getResult<RegisterizeAnalysis>(M);
+	PointerAnalyzer& PA = MAM.getResult<PointerAnalysis>(M);
+FunctionAnalysisManager& FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
 
-	llvm::FunctionPass::getAnalysisUsage(AU);
+	bool Changed = false;
+	for (Function& F : M)
+	{
+		if (F.isDeclaration())
+			continue;
+
+	   	DominatorTree& DT = FAM.getResult<DominatorTreeAnalysis>(F);
+		AllocaMerging inner;
+		if (inner.runOnFunction(F, PA, &DT, registerize))
+			Changed = true;
+	}
+
+	if (!Changed)
+		return PreservedAnalyses::all();
+	{
+		PreservedAnalyses PA;
+		PA.preserve<cheerp::PointerAnalysis>();
+		PA.preserve<cheerp::RegisterizeAnalysis>();
+		PA.preserve<cheerp::GlobalDepsAnalysis>();
+		PA.preserve<cheerp::InvokeWrappingAnalysis>();
+		PA.preserve<DominatorTreeAnalysis>();
+		PA.preserve<cheerp::LinearMemoryAnalysis>();
+		return PA;
+	}
 }
 
-char AllocaArraysMerging::ID = 0;
+PreservedAnalyses AllocaArraysMergingPass::run(llvm::Module& M, llvm::ModuleAnalysisManager& MAM)
+{
+	Registerize& registerize = MAM.getResult<RegisterizeAnalysis>(M);
+	GlobalDepsAnalyzer& GDA = MAM.getResult<GlobalDepsAnalysis>(M);
+	PointerAnalyzer& PA = MAM.getResult<PointerAnalysis>(M);
+FunctionAnalysisManager& FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
 
-FunctionPass *createAllocaArraysMergingPass() { return new AllocaArraysMerging(); }
+	bool Changed = false;
+	for (Function& F : M)
+	{
+		if (F.isDeclaration())
+			continue;
+
+	   	DominatorTree& DT = FAM.getResult<DominatorTreeAnalysis>(F);
+		AllocaArraysMerging inner;
+		if (inner.runOnFunction(F, PA, &DT, registerize, GDA))
+			Changed = true;
+	}
+
+	if (!Changed)
+		return PreservedAnalyses::all();
+	{
+		PreservedAnalyses PA;
+		PA.preserve<cheerp::PointerAnalysis>();
+		PA.preserve<cheerp::RegisterizeAnalysis>();
+		PA.preserve<cheerp::GlobalDepsAnalysis>();
+		PA.preserve<cheerp::InvokeWrappingAnalysis>();
+		PA.preserve<DominatorTreeAnalysis>();
+		PA.preserve<cheerp::LinearMemoryAnalysis>();
+		return PA;
+	}
+}
 
 bool AllocaStoresExtractor::validType(llvm::Type* t, const Module& module)
 {
@@ -882,8 +889,6 @@ void AllocaStoresExtractor::unlinkStores()
 	// Go over insts in the blocks backward to remove all insts without uses
 	for(BasicBlock* BB: modifiedBlocks)
 	{
-		auto *TLIP = getAnalysisIfAvailable<TargetLibraryInfoWrapperPass>();
-		const llvm::TargetLibraryInfo* TLI = TLIP ? &TLIP->getTLI(*BB->getParent()) : nullptr;
 		assert(TLI);
 		auto it = BB->end();
 		--it;
@@ -910,8 +915,10 @@ void AllocaStoresExtractor::destroyStores()
 bool AllocaStoresExtractor::runOnModule(Module& M)
 {
 	bool Changed = false;
+	FunctionAnalysisManager& FAM = MAM->getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
 	for(Function& F: M)
 	{
+		TLI = &FAM.getResult<TargetLibraryAnalysis>(F);
 		for(BasicBlock& BB: F)
 			Changed |= runOnBasicBlock(BB, M);
 	}
@@ -927,33 +934,25 @@ const AllocaStoresExtractor::OffsetToValueMap* AllocaStoresExtractor::getValuesF
 		return &it->second;
 }
 
-StringRef AllocaStoresExtractor::getPassName() const {
-	return "AllocaStoresExtractor";
-}
-
-void AllocaStoresExtractor::getAnalysisUsage(AnalysisUsage & AU) const
+PreservedAnalyses AllocaStoresExtractorPass::run(Module& M, ModuleAnalysisManager& MAM)
 {
-	AU.addPreserved<cheerp::PointerAnalyzer>();
-	AU.addPreserved<cheerp::Registerize>();
-	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
-	AU.addPreserved<cheerp::InvokeWrapping>();
-	AU.addPreserved<LinearMemoryHelper>();
-	llvm::ModulePass::getAnalysisUsage(AU);
+	AllocaStoresExtractor& inner = MAM.getResult<AllocaStoresExtractorAnalysis>(M);
+	inner.MAM = &MAM;
+	if (!inner.runOnModule(M))
+		return PreservedAnalyses::all();
+	return PreservedAnalyses::none();
 }
 
-char AllocaStoresExtractor::ID = 0;
+AllocaStoresExtractorWrapper AllocaStoresExtractorAnalysis::run(Module& M, ModuleAnalysisManager& MAM)
+{
+	static llvm::Module* modulePtr = nullptr;
+	assert(modulePtr != &M);
+	modulePtr = &M;
+	return AllocaStoresExtractorWrapper();
+}
 
-ModulePass *createAllocaStoresExtractor() { return new AllocaStoresExtractor(); }
+llvm::AnalysisKey AllocaStoresExtractorAnalysis::Key;
+
 }
 
 using namespace cheerp;
-
-INITIALIZE_PASS_BEGIN(AllocaMerging, "AllocaMerging", "Merge alloca instructions used on non-overlapping ranges",
-			false, false)
-INITIALIZE_PASS_END(AllocaMerging, "AllocaMerging", "Merge alloca instructions used on non-overlapping ranges",
-			false, false)
-INITIALIZE_PASS_BEGIN(AllocaStoresExtractor, "AllocaStoresExtractor", "Removes stores to just allocated memory and keeps track of the values separately",
-			false, false)
-INITIALIZE_PASS_END(AllocaStoresExtractor, "AllocaStoresExtractor", "Removes stores to just allocated memory and keeps track of the values separately",
-			false, false)
-

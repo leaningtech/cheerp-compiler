@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2017-2020 Leaning Technologies
+// Copyright 2017-2022 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -30,25 +30,8 @@ namespace cheerp {
 
 using namespace std;
 
-char IdenticalCodeFolding::ID = 0;
-
-StringRef IdenticalCodeFolding::getPassName() const
+IdenticalCodeFolding::IdenticalCodeFolding()
 {
-	return "IdenticalCodeFolding";
-}
-
-IdenticalCodeFolding::IdenticalCodeFolding() : ModulePass(ID)
-{
-}
-
-void IdenticalCodeFolding::getAnalysisUsage(AnalysisUsage& AU) const
-{
-	AU.addPreserved<Registerize>();
-	AU.addPreserved<GlobalDepsAnalyzer>();
-	AU.addPreserved<InvokeWrapping>();
-	AU.addRequired<cheerp::GlobalDepsAnalyzer>();
-
-	ModulePass::getAnalysisUsage(AU);
 }
 
 // This function is based on
@@ -784,9 +767,8 @@ bool IdenticalCodeFolding::isStaticIndirectFunction(const llvm::Value* A)
 	return ce && ce->isCast() && isa<Function>(ce->getOperand(0));
 }
 
-bool IdenticalCodeFolding::runOnModule(llvm::Module& module)
+bool IdenticalCodeFolding::runOnModule(llvm::Module& module, cheerp::GlobalDepsAnalyzer& GDA)
 {
-	cheerp::GlobalDepsAnalyzer &GDA = getAnalysis<cheerp::GlobalDepsAnalyzer>();
 	DL = &module.getDataLayout();
 
 	// First, compute an hash of each function.
@@ -939,12 +921,18 @@ void IdenticalCodeFolding::mergeTwoFunctions(Function *F, Function *G) {
 	F->removeFromParent();
 }
 
+PreservedAnalyses IdenticalCodeFoldingPass::run(Module& M, ModuleAnalysisManager& MAM)
+{
+	cheerp::GlobalDepsAnalyzer& GDA = MAM.getResult<cheerp::GlobalDepsAnalysis>(M);
+	IdenticalCodeFolding inner;
+	if (!inner.runOnModule(M, GDA))
+		return PreservedAnalyses::all();
+	PreservedAnalyses PA;
+	PA.preserve<InvokeWrappingAnalysis>();
+	PA.preserve<RegisterizeAnalysis>();
+	PA.preserve<GlobalDepsAnalysis>();
+	return PA;
 }
 
-using namespace cheerp;
-
-INITIALIZE_PASS_BEGIN(IdenticalCodeFolding, "IdenticalCodeFolding", "Remove duplicate functions/globals from the module",
-                      false, false)
-INITIALIZE_PASS_END(IdenticalCodeFolding, "IdenticalCodeFolding", "Remove duplicate functions/globals from the module",
-                    false, false)
+}
 

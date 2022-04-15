@@ -18,6 +18,9 @@ add_llvm_component_library(LLVMPasses
   Analysis
   Core
   Coroutines
+  CheerpUtils
+  CheerpWriter
+  Interpreter
   IPO
   InstCombine
   ObjCARC

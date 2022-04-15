@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2017 Leaning Technologies
+// Copyright 2017-2022 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -13,6 +13,7 @@
 
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/PassManager.h"
 #include "llvm/Cheerp/LinearMemoryHelper.h"
 #include "llvm/ADT/Hashing.h"
 #include "llvm/ADT/SmallSet.h"
@@ -21,6 +22,7 @@
 
 namespace cheerp
 {
+class GlobalDepsAnalyzer;
 
 struct pair_hash {
 	template <class T1, class T2>
@@ -35,20 +37,15 @@ struct pair_hash {
  * Determine which globals (variables and functions) can be folded since they
  * are identical.
  */
-class IdenticalCodeFolding : public llvm::ModulePass
+class IdenticalCodeFolding
 {
 public:
-	static char ID;
-
 	IdenticalCodeFolding();
 
-	bool runOnModule(llvm::Module& ) override;
-
-	void getAnalysisUsage(llvm::AnalysisUsage& ) const override;
+	bool runOnModule(llvm::Module&, cheerp::GlobalDepsAnalyzer& GDA);
 
 private:
 	std::unordered_map<std::pair<const llvm::Instruction*, const llvm::Instruction*>, bool, pair_hash> equivalenceCache;
-	llvm::StringRef getPassName() const override;
 	uint64_t hashFunction(llvm::Function& F);
 
 	bool equivalentFunction(const llvm::Function* A, const llvm::Function* B);
@@ -70,11 +67,6 @@ private:
 	std::unordered_map<std::pair<const llvm::Function*, const llvm::Function*>, bool, pair_hash> functionEquivalence;
 };
 
-inline llvm::Pass* createIdenticalCodeFoldingPass()
-{
-	return new IdenticalCodeFolding;
-}
-
 class HashAccumulator64 {
 	uint64_t hash;
 public:
@@ -89,5 +81,12 @@ public:
 		return hash;
 	}
 };
+
+class IdenticalCodeFoldingPass : public llvm::PassInfoMixin<IdenticalCodeFoldingPass> {
+public:
+	llvm::PreservedAnalyses run(llvm::Module& M, llvm::ModuleAnalysisManager& MAM);
+	static bool isRequired() { return true;}
+};
+
 
 }

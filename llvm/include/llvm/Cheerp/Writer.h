@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2011-2021 Leaning Technologies
+// Copyright 2011-2022 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -178,7 +178,8 @@ private:
 	enum COMPILE_INSTRUCTION_FEEDBACK { COMPILE_OK = 0, COMPILE_UNSUPPORTED, COMPILE_EMPTY };
 
 	llvm::Module& module;
-	llvm::Pass& pass;
+	llvm::ModuleAnalysisManager& MAM;
+	llvm::FunctionAnalysisManager& FAM;
 	llvm::DataLayout targetData;
 	const llvm::Function* currentFun;
 	// function-local map of type_info* to typeid, for exception handling
@@ -614,7 +615,7 @@ public:
 	uint32_t blockDepth;
 	const llvm::BasicBlock* lastDepth0Block;
 	ostream_proxy stream;
-	CheerpWriter(llvm::Module& m, llvm::Pass& p, llvm::raw_ostream& s, cheerp::PointerAnalyzer & PA,
+	CheerpWriter(llvm::Module& m, llvm::ModuleAnalysisManager& MAM, llvm::raw_ostream& s, cheerp::PointerAnalyzer & PA,
 			cheerp::Registerize & registerize,
 			cheerp::GlobalDepsAnalyzer & gda,
 			const cheerp::LinearMemoryHelper & linearHelper,
@@ -637,7 +638,8 @@ public:
 			const std::string& wasmFile,
 			bool forceTypedArrays):
 		module(m),
-		pass(p),
+		MAM(MAM),
+		FAM(MAM.getResult<llvm::FunctionAnalysisManagerModuleProxy>(m).getManager()),
 		targetData(&m),
 		currentFun(NULL),
 		PA(PA),

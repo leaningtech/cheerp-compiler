@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2014-2021 Leaning Technologies
+// Copyright 2014-2022 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -16,16 +16,17 @@
 #include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/Pass.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include <list>
 
 namespace cheerp {
 
-class AllocaMergingBase: public llvm::FunctionPass
+class GlobalDepsAnalyzer;
+
+class AllocaMergingBase
 {
 protected:
-	AllocaMergingBase(char& ID):FunctionPass(ID)
+	AllocaMergingBase()
 	{
 	}
 	typedef std::pair<llvm::AllocaInst*, Registerize::LiveRange> AllocaInfo;
@@ -41,12 +42,9 @@ class AllocaMerging: public AllocaMergingBase
 private:
 	static bool areTypesEquivalent(const TypeSupport& types, PointerAnalyzer& PA, llvm::Type* a, llvm::Type* b, bool asmjs);
 public:
-	static char ID;
-	explicit AllocaMerging() : AllocaMergingBase(ID) { }
-	bool runOnFunctionLegacy(llvm::Function &F);
-	bool runOnFunction(llvm::Function &F) override;
-	llvm::StringRef getPassName() const override;
-	void getAnalysisUsage(llvm::AnalysisUsage & AU) const override;
+	explicit AllocaMerging() : AllocaMergingBase() { }
+	bool runOnFunctionLegacy(llvm::Function& F, cheerp::PointerAnalyzer& PA, llvm::DominatorTree* DT, cheerp::Registerize& registerize);
+	bool runOnFunction(llvm::Function& F, cheerp::PointerAnalyzer& PA, llvm::DominatorTree* DT, cheerp::Registerize& registerize);
 };
 
 class AllocaArraysMerging: public AllocaMergingBase
@@ -55,48 +53,84 @@ private:
 	bool checkUsesForArrayMerging(llvm::AllocaInst* alloca) const;
 	llvm::Type* collectUniformAlloca(std::vector<llvm::AllocaInst*>& uniformAllocaArrays, std::list<AllocaInfo>& allocaInfos) const;
 public:
-	static char ID;
-	explicit AllocaArraysMerging() : AllocaMergingBase(ID) { }
-	bool runOnFunction(llvm::Function &F) override;
-	llvm::StringRef getPassName() const override;
-	void getAnalysisUsage(llvm::AnalysisUsage & AU) const override;
+	explicit AllocaArraysMerging() : AllocaMergingBase() { }
+	bool runOnFunction(llvm::Function& F, cheerp::PointerAnalyzer& PA, llvm::DominatorTree* DT, cheerp::Registerize& registerize, cheerp::GlobalDepsAnalyzer & GDA);
 };
 
 //===----------------------------------------------------------------------===//
 //
 // AllocaMerging - This pass merges allocas which are not used at the same time
 //
-llvm::FunctionPass *createAllocaMergingPass();
-llvm::FunctionPass *createAllocaArraysMergingPass();
+class AllocaMergingPass : public llvm::PassInfoMixin<AllocaMergingPass> {
+public:
+	llvm::PreservedAnalyses run(llvm::Module& M, llvm::ModuleAnalysisManager& MAM);
+	static bool isRequired() { return true;}
+};
+
+class AllocaArraysMergingPass : public llvm::PassInfoMixin<AllocaArraysMergingPass> {
+public:
+	llvm::PreservedAnalyses run(llvm::Module& M, llvm::ModuleAnalysisManager& MAM);
+	static bool isRequired() { return true;}
+};
+
+class AllocaStoresExtractorPass;
 
 // NOTE: This is a ModulePass only to make LLVM happy, it actually only work at the block level
-class AllocaStoresExtractor: public llvm::ModulePass
+class AllocaStoresExtractor
 {
 public:
 	typedef std::unordered_map<uint32_t, llvm::Value*> OffsetToValueMap;
 private:
+	const llvm::TargetLibraryInfo* TLI;
+	llvm::ModuleAnalysisManager* MAM;
 	const llvm::DataLayout* DL;
 	std::unordered_map<const llvm::AllocaInst*, OffsetToValueMap> allocaStores;
 	std::vector<llvm::Instruction*> instsToRemove;
 	bool runOnBasicBlock(llvm::BasicBlock &BB, const llvm::Module& module);
 	static bool validType(llvm::Type* t, const llvm::Module& module);
 public:
-	static char ID;
-	explicit AllocaStoresExtractor() : llvm::ModulePass(ID), DL(nullptr) { }
-	bool runOnModule(llvm::Module& M) override;
-	llvm::StringRef getPassName() const override;
-	void getAnalysisUsage(llvm::AnalysisUsage & AU) const override;
+	explicit AllocaStoresExtractor() : DL(nullptr)
+	{}
+	bool runOnModule(llvm::Module& M);
 	const OffsetToValueMap* getValuesForAlloca(const llvm::AllocaInst* AI) const;
 	// Removes the extracted stores, and clean up instructions which become dead afterwards
 	void unlinkStores();
 	void destroyStores();
+	friend AllocaStoresExtractorPass;
+};
+
+class AllocaStoresExtractorWrapper
+{
+public:
+	operator AllocaStoresExtractor&()
+	{
+		static AllocaStoresExtractor* innerPtr;
+		if (innerPtr)
+			delete innerPtr;
+		innerPtr = new AllocaStoresExtractor();
+		return *innerPtr;
+	}
 };
 
 //===----------------------------------------------------------------------===//
 //
 // AllocaStoresExtractor - This pass removes stores to just allocated memory and keeps track of the values separately
 //
-llvm::ModulePass* createAllocaStoresExtractor();
+//
+class AllocaStoresExtractorPass : public llvm::PassInfoMixin<AllocaStoresExtractorPass> {
+public:
+	llvm::PreservedAnalyses run(llvm::Module& M, llvm::ModuleAnalysisManager& MAM);
+	static bool isRequired() { return true;}
+};
+
+class AllocaStoresExtractorAnalysis : public llvm::AnalysisInfoMixin<AllocaStoresExtractorAnalysis> {
+	friend llvm::AnalysisInfoMixin<AllocaStoresExtractorAnalysis>;
+	static llvm::AnalysisKey Key;
+public:
+	using Result = AllocaStoresExtractorWrapper;
+	static Result run(llvm::Module& M, llvm::ModuleAnalysisManager&);
+};
+
 }
 
 #endif //_CHEERP_ALLOCA_MERGING_H

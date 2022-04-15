@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2017-2021 Leaning Technologies
+// Copyright 2017-2022 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -87,6 +87,11 @@ static bool ExpandCall(const DataLayout& DL, CallBase* Call)
 
 bool ByValLowering::runOnModule(Module& M)
 {
+	return ByValLoweringPass::runOnModule(M);
+}
+
+bool ByValLoweringPass::runOnModule(Module& M)
+{
 	const DataLayout& DL = M.getDataLayout();
 	bool Modified = false;
 	for (auto& Func: M.functions())
@@ -114,24 +119,11 @@ bool ByValLowering::runOnModule(Module& M)
 	return Modified;
 }
 
-StringRef ByValLowering::getPassName() const
+PreservedAnalyses ByValLoweringPass::run(Module& Module, ModuleAnalysisManager&)
 {
-	return "ByValLowering";
+  if (runOnModule(Module))
+    return PreservedAnalyses::none();
+  return PreservedAnalyses::all();
 }
 
-char ByValLowering::ID = 0;
-
-void ByValLowering::getAnalysisUsage(AnalysisUsage & AU) const
-{
-	llvm::Pass::getAnalysisUsage(AU);
 }
-
-ModulePass *createByValLoweringPass() { return new ByValLowering(); }
-
-}
-
-using namespace llvm;
-INITIALIZE_PASS_BEGIN(ByValLowering, "ByValLowering",
-        "Lower byval arguments to alloca and memcpy", false, false)
-INITIALIZE_PASS_END(ByValLowering, "ByValLowering",
-        "Lower byval arguments to alloca and memcpy", false, false)

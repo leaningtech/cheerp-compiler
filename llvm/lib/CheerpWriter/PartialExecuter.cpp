@@ -52,6 +52,8 @@
 #include <map>
 #include <unordered_map>
 #include <vector>
+#include "llvm/Cheerp/Utility.h"
+#include "llvm/Cheerp/BuiltinInstructions.h"
 
 #define DEBUG_TYPE "PartialExecuter"
 STATISTIC(NumRemovedEdges, "Number of edges in the CFG that have been removed");
@@ -66,22 +68,6 @@ typedef llvm::DenseSet<std::pair<GlobalVariable*, uint32_t> > NewAlignmentData;
 namespace cheerp {
 
 const uint32_t MAX_NUMBER_OF_VISITS_PER_BB = 100u;
-
-char PartialExecuter::ID = 0;
-
-StringRef PartialExecuter::getPassName() const
-{
-	return "PartialExecuter";
-}
-
-PartialExecuter::PartialExecuter()
-	: llvm::ModulePass(ID)
-{
-}
-
-void PartialExecuter::getAnalysisUsage(AnalysisUsage& AU) const
-{
-}
 
 static bool isGlobalVariablePartiallyExecutable(const GlobalVariable& GVar)
 {
@@ -1639,11 +1625,13 @@ bool PartialExecuter::runOnModule( llvm::Module & module )
 
 	return changed;
 }
+
+llvm::PreservedAnalyses PartialExecuterPass::run(llvm::Module& M, llvm::ModuleAnalysisManager& MAM)
+{
+	PartialExecuter inner;
+	if (!inner.runOnModule(M))
+		return llvm::PreservedAnalyses::all();
+	return llvm::PreservedAnalyses::none();
 }
 
-using namespace cheerp;
-
-INITIALIZE_PASS_BEGIN(PartialExecuter, "PartialExecuter", "Partially execute functions CFG",
-                      false, false)
-INITIALIZE_PASS_END(PartialExecuter, "PartialExecuter", "Partially execute functions CFG",
-                    false, false)
+}

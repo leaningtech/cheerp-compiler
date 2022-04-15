@@ -29,6 +29,12 @@ MODULE_ANALYSIS("pass-instrumentation", PassInstrumentationAnalysis(PIC))
 MODULE_ANALYSIS("asan-globals-md", ASanGlobalsMetadataAnalysis())
 MODULE_ANALYSIS("inline-advisor", InlineAdvisorAnalysis())
 MODULE_ANALYSIS("ir-similarity", IRSimilarityAnalysis())
+MODULE_ANALYSIS("GlobalDepsAnalysis", cheerp::GlobalDepsAnalysis())
+MODULE_ANALYSIS("RegisterizeAnalysis", cheerp::RegisterizeAnalysis())
+MODULE_ANALYSIS("PointerAnalysis", cheerp::PointerAnalysis())
+MODULE_ANALYSIS("LinearMemoryAnalysis", cheerp::LinearMemoryAnalysis())
+MODULE_ANALYSIS("InvokeWrappingAnalysis", cheerp::InvokeWrappingAnalysis())
+MODULE_ANALYSIS("AllocaStoresExtractorAnalysis", cheerp::AllocaStoresExtractorAnalysis())
 
 #ifndef MODULE_ALIAS_ANALYSIS
 #define MODULE_ALIAS_ANALYSIS(NAME, CREATE_PASS)                               \
@@ -121,6 +127,11 @@ MODULE_PASS("sancov-module", ModuleSanitizerCoveragePass())
 MODULE_PASS("memprof-module", ModuleMemProfilerPass())
 MODULE_PASS("poison-checking", PoisonCheckingPass())
 MODULE_PASS("pseudo-probe-update", PseudoProbeUpdatePass())
+MODULE_PASS("GlobalDepsAnalyzer", cheerp::GlobalDepsAnalyzerPass())
+MODULE_PASS("TypeOptimizer", cheerp::TypeOptimizerPass())
+MODULE_PASS("PartialExecuter", cheerp::PartialExecuterPass())
+MODULE_PASS("PreExecute", cheerp::PreExecutePass())
+MODULE_PASS("FreeAndDeleteRemoval", cheerp::FreeAndDeleteRemovalPass())
 #undef MODULE_PASS
 
 #ifndef MODULE_PASS_WITH_PARAMS
@@ -367,6 +378,11 @@ FUNCTION_PASS("tlshoist", TLSVariableHoistPass())
 FUNCTION_PASS("transform-warning", WarnMissedTransformationsPass())
 FUNCTION_PASS("tsan", ThreadSanitizerPass())
 FUNCTION_PASS("memprof", MemProfilerPass())
+FUNCTION_PASS("CheerpLowerInvoke", cheerp::CheerpLowerInvokePass())
+FUNCTION_PASS("CheerpLowerSwitch", cheerp::CheerpLowerSwitchPass())
+FUNCTION_PASS("GEPOptimizer", cheerp::GEPOptimizerPass())
+FUNCTION_PASS("I64Lowering", cheerp::I64LoweringPass())
+FUNCTION_PASS("ReplaceNopCastsAndByteSwaps", cheerp::ReplaceNopCastsAndByteSwapsPass())
 #undef FUNCTION_PASS
 
 #ifndef FUNCTION_PASS_WITH_PARAMS

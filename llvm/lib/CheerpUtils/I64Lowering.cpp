@@ -5,19 +5,19 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2020-2021 Leaning Technologies
+// Copyright 2020-2022 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
 #include "llvm/InitializePasses.h"
 #include "llvm/Cheerp/I64Lowering.h"
 #include "llvm/Cheerp/CommandLine.h"
+#include "llvm/Cheerp/LinearMemoryHelper.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
-
 
 struct HighInt
 {
@@ -919,14 +919,13 @@ struct I64LoweringVisitor: public InstVisitor<I64LoweringVisitor, HighInt>
 
 namespace cheerp
 {
-
-bool I64Lowering::runOnFunction(Function& F)
+PreservedAnalyses I64LoweringPass::run(Function& F, FunctionAnalysisManager& FAM)
 {
 	bool lowerAsmJSSection = LinearOutput.getValue() == AsmJs;
 	bool lowerGenericJSSection = !UseBigInts;
 	bool asmjs = F.getSection() == StringRef("asmjs");
 	if ((!lowerAsmJSSection && asmjs) || (!lowerGenericJSSection && !asmjs))
-		return false;
+		return PreservedAnalyses::all();
 
 	bool Changed = false;
 
@@ -936,27 +935,12 @@ bool I64Lowering::runOnFunction(Function& F)
 
 	Changed = Visitor.Changed;
 
-	return Changed;
+	if (!Changed)
+		return PreservedAnalyses::all(); 
+	PreservedAnalyses PA;
+	PA.preserve<LinearMemoryAnalysis>();
+	PA.preserveSet<CFGAnalyses>();
+	return PA;
 }
 
-StringRef I64LoweringPass::getPassName() const {
-	return "I64LoweringPass";
 }
-
-bool I64LoweringPass::runOnFunction(Function& F)
-{
-	return Lowerer.runOnFunction(F);
-}
-
-char I64LoweringPass::ID = 0;
-
-FunctionPass *createI64LoweringPass() { return new I64LoweringPass(); }
-
-}
-
-using namespace cheerp;
-
-INITIALIZE_PASS_BEGIN(I64LoweringPass, "I64Lowering", "Converts 64-bit integer operations into 32-bit ones",
-                      false, false)
-INITIALIZE_PASS_END(I64LoweringPass, "I64Lowering", "Converts 64-bit integer operations into 32-bit ones",
-                    false, false)

@@ -60,9 +60,6 @@ void initializeGlobalISel(PassRegistry&);
 /// Initialize all passes linked into the CodeGen library.
 void initializeTarget(PassRegistry&);
 
-/// initializeCheerpOpts - Initialize all passes specific for Cheerp
-void initializeCheerpOpts(PassRegistry&);
-
 void initializeAAEvalLegacyPassPass(PassRegistry&);
 void initializeAAResultsWrapperPassPass(PassRegistry&);
 void initializeADCELegacyPassPass(PassRegistry&);
@@ -469,33 +466,6 @@ void initializeWinEHPreparePass(PassRegistry&);
 void initializeWriteBitcodePassPass(PassRegistry&);
 void initializeWriteThinLTOBitcodePass(PassRegistry&);
 void initializeXRayInstrumentationPass(PassRegistry&);
-void initializeStructMemFuncLoweringPass(PassRegistry&);
-void initializeAllocaMergingPass(PassRegistry&);
-void initializeGlobalDepsAnalyzerPass(PassRegistry&);
-void initializeIdenticalCodeFoldingPass(PassRegistry&);
-void initializePointerAnalyzerPass(PassRegistry&);
-void initializeRegisterizePass(PassRegistry&);
-void initializeStructMemFuncLoweringPass(PassRegistry&);
-void initializeAllocaArraysPass(PassRegistry&);
-void initializeReplaceNopCastsAndByteSwapsPass(PassRegistry&);
-void initializeTypeOptimizerPass(PassRegistry&);
-void initializeDelayInstsPass(PassRegistry&);
-void initializePreExecutePass(PassRegistry&);
-void initializeExpandStructRegsPass(PassRegistry&);
-void initializeFreeAndDeleteRemovalPass(PassRegistry&);
-void initializeGEPOptimizerPass(PassRegistry&);
-void initializeAllocaStoresExtractorPass(PassRegistry&);
-void initializeFixIrreducibleControlFlowPass(PassRegistry&);
-void initializeCheerpLowerSwitchPass(PassRegistry&);
-void initializeCheerpLowerInvokePass(PassRegistry&);
-void initializeFixFunctionCastsPass(PassRegistry&);
-void initializeByValLoweringPass(PassRegistry&);
-void initializeI64LoweringPassPass(PassRegistry&);
-void initializeSinkGeneratorPass(PassRegistry&);
-void initializePartialExecuterPass(PassRegistry&);
-void initializeConstantExprLoweringPass(PassRegistry&);
-void initializeStoreMergingPass(PassRegistry&);
-
 } // end namespace llvm
 
 #endif // LLVM_INITIALIZEPASSES_H

@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2014-2021 Leaning Technologies
+// Copyright 2014-2022 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -21,10 +21,6 @@
 using namespace llvm;
 
 const unsigned INLINE_WRITE_LOOP_MAX = 128;
-
-StringRef StructMemFuncLowering::getPassName() const {
-	return "StructMemFuncLowering";
-}
 
 void StructMemFuncLowering::createMemFunc(IRBuilder<>* IRB, Value* baseDst, Value* baseSrc, size_t size,
 						SmallVector<Value*, 8>& indexes)
@@ -520,11 +516,10 @@ bool StructMemFuncLowering::runOnFunction(Function& F)
 	return true;
 }
 
-char StructMemFuncLowering::ID = 0;
-
-FunctionPass *llvm::createStructMemFuncLowering() { return new StructMemFuncLowering(); }
-
-INITIALIZE_PASS_BEGIN(StructMemFuncLowering, "StructMemFuncLowering", "Lower memory intrinsics for structure types",
-                      false, false)
-INITIALIZE_PASS_END(StructMemFuncLowering, "StructMemFuncLowering", "Lower memory intrinsics for structure types",
-                    false, false)
+PreservedAnalyses StructMemFuncLoweringPass::run(Function& F, FunctionAnalysisManager& FAM)
+{
+	StructMemFuncLowering inner;
+	if (inner.runOnFunction(F))
+		return PreservedAnalyses::none();
+	return PreservedAnalyses::all();
+}

@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2011-2021 Leaning Technologies
+// Copyright 2011-2022 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -36,7 +36,7 @@ static bool isNamespaceClient(const char* s)
 	return true;
 }
 
-bool CheerpNativeRewriter::findMangledClassName(const char* s, std::string& name)
+bool CheerpNativeRewriterPass::findMangledClassName(const char* s, std::string& name)
 {
 	if (!isNamespaceClient(s))
 		return false;
@@ -46,7 +46,7 @@ bool CheerpNativeRewriter::findMangledClassName(const char* s, std::string& name
 	return true;
 }
 
-bool CheerpNativeRewriter::isBuiltinConstructor(const char* s)
+bool CheerpNativeRewriterPass::isBuiltinConstructor(const char* s)
 {
 	if (!isNamespaceClient(s))
 		return false;
@@ -60,7 +60,7 @@ bool CheerpNativeRewriter::isBuiltinConstructor(const char* s)
 			demangler.isConstructor());
 }
 
-std::string CheerpNativeRewriter::getClassName(const char* s)
+std::string CheerpNativeRewriterPass::getClassName(const char* s)
 {
 	cheerp::Demangler demangler(s);
 
@@ -69,7 +69,7 @@ std::string CheerpNativeRewriter::getClassName(const char* s)
 	return demangler.getJSMangling(/*doCleanup*/false);
 }
 
-bool CheerpNativeRewriter::isBuiltinConstructorForType(const char* s, const std::string& typeName)
+bool CheerpNativeRewriterPass::isBuiltinConstructorForType(const char* s, const std::string& typeName)
 {
 	if(!isBuiltinConstructor(s))
 		return false;
@@ -80,7 +80,7 @@ bool CheerpNativeRewriter::isBuiltinConstructorForType(const char* s, const std:
 	return true;
 }
 
-void CheerpNativeRewriter::baseSubstitutionForBuiltin(User* i, Instruction* old, AllocaInst* source)
+void CheerpNativeRewriterPass::baseSubstitutionForBuiltin(User* i, Instruction* old, AllocaInst* source)
 {
 	Instruction* userInst=dyn_cast<Instruction>(i);
 	assert(userInst);
@@ -117,7 +117,7 @@ void CheerpNativeRewriter::baseSubstitutionForBuiltin(User* i, Instruction* old,
 /*
  * Check if a type is builtin and return the type name
  */
-bool CheerpNativeRewriter::isBuiltinType(const char* typeName, std::string& builtinName)
+bool CheerpNativeRewriterPass::isBuiltinType(const char* typeName, std::string& builtinName)
 {
 	if(strncmp(typeName, "class.", 6)==0)
 	{
@@ -138,7 +138,7 @@ bool CheerpNativeRewriter::isBuiltinType(const char* typeName, std::string& buil
 	return true;
 }
 
-Function* CheerpNativeRewriter::getReturningConstructor(Module& M, Function* called)
+Function* CheerpNativeRewriterPass::getReturningConstructor(Module& M, Function* called)
 {
 	FunctionType* initialType=called->getFunctionType();
 	SmallVector<Type*, 4> initialArgsTypes(initialType->param_begin()+1, initialType->param_end());
@@ -159,7 +159,7 @@ static bool redundantStringConstructor(Instruction* ci, SmallVectorImpl<Value*>&
 	return false;
 }
 
-bool CheerpNativeRewriter::rewriteIfNativeConstructorCall(Module& M, Instruction* i, AllocaInst* newI, Instruction* callInst,
+bool CheerpNativeRewriterPass::rewriteIfNativeConstructorCall(Module& M, Instruction* i, AllocaInst* newI, Instruction* callInst,
 						  Function* called, const std::string& builtinTypeName,
 						  SmallVector<Value*, 4>& initialArgs)
 {
@@ -206,7 +206,7 @@ bool CheerpNativeRewriter::rewriteIfNativeConstructorCall(Module& M, Instruction
 	return true;
 }
 
-void CheerpNativeRewriter::rewriteNativeAllocationUsers(Module& M, SmallVector<Instruction*,4>& toRemove,
+void CheerpNativeRewriterPass::rewriteNativeAllocationUsers(Module& M, SmallVector<Instruction*,4>& toRemove,
 						Instruction* i, Type* t,
 						const std::string& builtinTypeName)
 {
@@ -246,7 +246,7 @@ void CheerpNativeRewriter::rewriteNativeAllocationUsers(Module& M, SmallVector<I
 		new StoreInst(i, newI, i->getNextNode());
 }
 
-void CheerpNativeRewriter::rewriteConstructorImplementation(Module& M, Function& F)
+void CheerpNativeRewriterPass::rewriteConstructorImplementation(Module& M, Function& F, DominatorTree& DT)
 {
 	//Copy the code in a function with the right signature
 	Function* newFunc=getReturningConstructor(M, &F);
@@ -273,7 +273,6 @@ void CheerpNativeRewriter::rewriteConstructorImplementation(Module& M, Function&
 		}
 		if(!allocasToPromote.empty())
 		{
-			DominatorTree& DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
 			PromoteMemToReg(allocasToPromote, DT);
 		}
 		for(const auto& I: BB)
@@ -284,7 +283,7 @@ void CheerpNativeRewriter::rewriteConstructorImplementation(Module& M, Function&
 			Function* f=callInst.getCalledFunction();
 			if(!f)
 				continue;
-			if(!CheerpNativeRewriter::isBuiltinConstructor(f->getName().data()))
+			if(!CheerpNativeRewriterPass::isBuiltinConstructor(f->getName().data()))
 				continue;
 			//Check that the constructor is for 'this'
 			Value* firstArg = callInst.getOperand(0);
@@ -392,13 +391,13 @@ void CheerpNativeRewriter::rewriteConstructorImplementation(Module& M, Function&
 	cast<Instruction>(valueMap[oldLowerConstructor])->eraseFromParent();
 }
 
-bool CheerpNativeRewriter::rewriteNativeObjectsConstructors(Module& M, Function& F)
+bool CheerpNativeRewriterPass::rewriteNativeObjectsConstructors(Module& M, Function& F, DominatorTree& DT)
 {
 	if(isBuiltinConstructor(F.getName().data()) &&
 		F.getReturnType()->isVoidTy())
 	{
 		assert(!F.empty());
-		rewriteConstructorImplementation(M, F);
+		rewriteConstructorImplementation(M, F, DT);
 		return true;
 	}
 	//Vector of the instructions to be removed in the second pass
@@ -450,22 +449,16 @@ bool CheerpNativeRewriter::rewriteNativeObjectsConstructors(Module& M, Function&
 	return Changed;
 }
 
-StringRef CheerpNativeRewriter::getPassName() const {
-	return "CheerpNativeRewriter";
-}
-
-bool CheerpNativeRewriter::runOnFunction(Function& F)
+bool CheerpNativeRewriterPass::runOnFunction(Function& F, DominatorTree& DT)
 {
-	rewriteNativeObjectsConstructors(*F.getParent(), F);
+	rewriteNativeObjectsConstructors(*F.getParent(), F, DT);
 	return true;
 }
 
-void CheerpNativeRewriter::getAnalysisUsage(AnalysisUsage & AU) const
+PreservedAnalyses CheerpNativeRewriterPass::run(Function& F, FunctionAnalysisManager& AM)
 {
-	AU.addRequired<DominatorTreeWrapperPass>();
-	llvm::Pass::getAnalysisUsage(AU);
+  auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
+  if (!runOnFunction(F, DT))
+    return PreservedAnalyses::all();
+  return PreservedAnalyses::none();
 }
-
-char CheerpNativeRewriter::ID = 0;
-
-FunctionPass *llvm::createCheerpNativeRewriterPass() { return new CheerpNativeRewriter(); }

@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2011-2021 Leaning Technologies
+// Copyright 2011-2022 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -36,31 +36,16 @@ namespace cheerp {
 
 using namespace std;
 
-char GlobalDepsAnalyzer::ID = 0;
 const char* wasmNullptrName = "__wasm_nullptr";
 
-StringRef GlobalDepsAnalyzer::getPassName() const
-{
-	return "GlobalDepsAnalyzer";
-}
-
 GlobalDepsAnalyzer::GlobalDepsAnalyzer(MATH_MODE mathMode_, bool llcPass, bool wasmStart)
-	: ModulePass(ID), hasBuiltin{{false}}, mathMode(mathMode_), DL(NULL),
+	: hasBuiltin{{false}}, mathMode(mathMode_), DL(NULL),
 	  entryPoint(NULL), hasCreateClosureUsers(false), hasVAArgs(false),
 	  hasPointerArrays(false), hasAsmJSCode(false), hasAsmJSMemory(false), hasAsmJSMalloc(false),
 	  hasCheerpException(false), mayNeedAsmJSFree(false), llcPass(llcPass), wasmStart(wasmStart),
 	  hasUndefinedSymbolErrors(false), forceTypedArrays(false)
 {
 }
-
-void GlobalDepsAnalyzer::getAnalysisUsage(AnalysisUsage& AU) const
-{
-	AU.addPreserved<cheerp::PointerAnalyzer>();
-	AU.addPreserved<cheerp::Registerize>();
-
-	llvm::ModulePass::getAnalysisUsage(AU);
-}
-
 static void createNullptrFunction(llvm::Module& module)
 {
 	llvm::Function* wasmNullptr = module.getFunction(StringRef(wasmNullptrName));
@@ -124,8 +109,8 @@ void GlobalDepsAnalyzer::simplifyCalls(llvm::Module & module) const
 	};
 	OptimizationRemarkEmitter ORE;
 	for (Function& F : module.getFunctionList()) {
-		auto *TLIP = getAnalysisIfAvailable<TargetLibraryInfoWrapperPass>();
-		const llvm::TargetLibraryInfo* TLI = TLIP ? &TLIP->getTLI(F) : nullptr;
+		FunctionAnalysisManager& FAM = MAM->getResult<FunctionAnalysisManagerModuleProxy>(module).getManager();
+		const llvm::TargetLibraryInfo* TLI = &FAM.getResult<TargetLibraryAnalysis>(F);
 		assert(TLI);
 		LibCallSimplifier callSimplifier(*DL, TLI, ORE, nullptr, nullptr, LibCallReplacer);
 
@@ -1643,7 +1628,24 @@ void GlobalDepsAnalyzer::eraseFunction(llvm::Function* F) {
 
 using namespace cheerp;
 
-INITIALIZE_PASS_BEGIN(GlobalDepsAnalyzer, "GlobalDepsAnalyzer", "Remove unused globals from the module",
-                      false, false)
-INITIALIZE_PASS_END(GlobalDepsAnalyzer, "GlobalDepsAnalyzer", "Remove unused globals from the module",
-                    false, false)
+llvm::PreservedAnalyses GlobalDepsAnalyzerPass::run(Module& M, ModuleAnalysisManager& MAM)
+{
+	GlobalDepsAnalyzer& GDA = MAM.getResult<GlobalDepsAnalysis>(M).getInner(MAM, data);
+	GDA.runOnModule(M);
+
+	PreservedAnalyses PA;
+	PA.preserve<GlobalDepsAnalysis>();
+
+	return PA;
+}
+
+AnalysisKey GlobalDepsAnalysis::Key;
+GlobalDepsAnalyzer* GlobalDepsAnalyzerWrapper::innerPtr{nullptr};
+
+GlobalDepsAnalyzerWrapper GlobalDepsAnalysis::run(Module& M, ModuleAnalysisManager& MAM)
+{
+	static llvm::Module* modulePtr = nullptr;
+	assert(modulePtr != &M);
+	modulePtr = &M;
+	return GlobalDepsAnalyzerWrapper();
+}

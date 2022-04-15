@@ -23,6 +23,8 @@
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Analysis/ScopedNoAliasAA.h"
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
+#include "llvm/Cheerp/StructMemFuncLowering.h"
+#include "llvm/Cheerp/CFGPasses.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Passes/OptimizationLevel.h"
 #include "llvm/Passes/PassBuilder.h"
@@ -182,6 +184,8 @@ static cl::opt<bool> EnableNoRerunSimplificationPipeline(
 static cl::opt<bool> EnableMergeFunctions(
     "enable-merge-functions", cl::init(false), cl::Hidden,
     cl::desc("Enable function merging as part of the optimization pipeline"));
+
+extern cl::opt<bool> CheerpLTO;
 
 PipelineTuningOptions::PipelineTuningOptions() {
   LoopInterleaving = true;
@@ -415,6 +419,7 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
 
   // Global value numbering based sinking.
   if (EnableGVNSink) {
+    FPM.addPass(cheerp::SinkGeneratorPass());
     FPM.addPass(GVNSinkPass());
     FPM.addPass(
         SimplifyCFGPass(SimplifyCFGOptions().convertSwitchRangeToICmp(true)));
@@ -581,6 +586,15 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
 
   // Specially optimize memory movement as it doesn't look like dataflow in SSA.
   FPM.addPass(MemCpyOptPass());
+
+  if (CheerpLTO)
+  {
+  FPM.addPass(cheerp::StructMemFuncLoweringPass());
+  if (RunNewGVN)
+    FPM.addPass(NewGVNPass());
+  else
+    FPM.addPass(GVNPass());
+  }
 
   FPM.addPass(DSEPass());
   FPM.addPass(createFunctionToLoopPassAdaptor(

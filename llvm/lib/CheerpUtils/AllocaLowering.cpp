@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2017-2021 Leaning Technologies
+// Copyright 2017-2022 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -24,7 +24,9 @@
 #define DEBUG_TYPE "CheerpAllocaLowering"
 STATISTIC(NumAllocasTransformedToGEPs, "Number of allocas of values transformed to GEPs in the stack");
 
-namespace llvm {
+namespace cheerp {
+
+using namespace llvm;
 
 static Function* getOrCreateGetStackWrapper(Module* M, cheerp::GlobalDepsAnalyzer& GDA)
 {
@@ -65,7 +67,7 @@ static Function* getOrCreateSetStackWrapper(Module* M, cheerp::GlobalDepsAnalyze
 	return wrapper;
 }
 
-bool AllocaLowering::runOnFunction(Function& F)
+bool AllocaLowering::runOnFunction(Function& F, DominatorTree& DT, cheerp::GlobalDepsAnalyzer& GDA)
 {
 	Module* M = F.getParent();
 	DataLayout targetData(M);
@@ -150,7 +152,6 @@ bool AllocaLowering::runOnFunction(Function& F)
 	// Promote stuff
 	if (allocasToPromote.size() != 0)
 	{
-		DominatorTree& DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
 		PromoteMemToReg(allocasToPromote, DT);
 	}
 	// Nothing else to do
@@ -165,7 +166,6 @@ bool AllocaLowering::runOnFunction(Function& F)
 	nbytes = (nbytes + 7) & -8;
 
 	Function *getStack, *setStack;
-	cheerp::GlobalDepsAnalyzer& GDA = getAnalysis<cheerp::GlobalDepsAnalyzer>();
 	if (asmjs || !GDA.needAsmJSCode())
 	{
 		getStack = Intrinsic::getDeclaration(M, Intrinsic::stacksave);
@@ -287,25 +287,35 @@ bool AllocaLowering::runOnFunction(Function& F)
 
 	return true;
 }
+using namespace llvm;
 
-StringRef AllocaLowering::getPassName() const
+PreservedAnalyses cheerp::AllocaLoweringInnerPass::run(Function& F, FunctionAnalysisManager& FAM)
 {
-	return "AllocaLowering";
+	AllocaLowering inner;
+	DominatorTree& DT = FAM.getResult<DominatorTreeAnalysis>(F);
+	if (!inner.runOnFunction(F, DT, GDA))
+		return PreservedAnalyses::all();
+	
+	PreservedAnalyses PA;
+	PA.preserve<PointerAnalysis>();
+	PA.preserve<RegisterizeAnalysis>();
+	PA.preserve<GlobalDepsAnalysis>();
+	PA.preserve<DominatorTreeAnalysis>();
+	return PA;
 }
 
-char AllocaLowering::ID = 0;
-
-void AllocaLowering::getAnalysisUsage(AnalysisUsage & AU) const
+PreservedAnalyses cheerp::AllocaLoweringPass::run(Module& M, ModuleAnalysisManager& MAM)
 {
-	AU.addPreserved<cheerp::PointerAnalyzer>();
-	AU.addPreserved<cheerp::Registerize>();
-	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
-	AU.addPreserved<cheerp::InvokeWrapping>();
-	AU.addRequired<cheerp::GlobalDepsAnalyzer>();
-	AU.addRequired<DominatorTreeWrapperPass>();
-	llvm::Pass::getAnalysisUsage(AU);
-}
+	FunctionPassManager FPM;
 
-FunctionPass *createAllocaLoweringPass() { return new AllocaLowering(); }
+	GlobalDepsAnalyzer& GDA = MAM.getResult<GlobalDepsAnalysis>(M);
+	FPM.addPass(AllocaLoweringInnerPass(GDA));
+
+	ModulePassManager MPM;
+
+	MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
+	PreservedAnalyses PA = MPM.run(M, MAM);
+	return PA;
+}
 
 }

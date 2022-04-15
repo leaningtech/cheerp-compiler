@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2021 Leaning Technologies
+// Copyright 2021-2022 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -316,9 +316,8 @@ static Function* wrapResume(Module& M, ResumeInst* RS)
 }
 
 
-bool InvokeWrapping::runOnModule(Module& M)
+bool InvokeWrapping::runOnModule(Module& M, cheerp::GlobalDepsAnalyzer& GDA)
 {
-	auto& GDA = getAnalysis<cheerp::GlobalDepsAnalyzer>();
 	bool Changed = false;
 
 	table.populate(M, GDA);
@@ -363,14 +362,19 @@ bool InvokeWrapping::runOnModule(Module& M)
 	return Changed;
 }
 
-void InvokeWrapping::getAnalysisUsage(llvm::AnalysisUsage & AU) const
+PreservedAnalyses InvokeWrappingPass::run(Module& M, ModuleAnalysisManager& MAM)
 {
-	AU.addRequired<cheerp::GlobalDepsAnalyzer>();
-	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
-	llvm::Pass::getAnalysisUsage(AU);
+	GlobalDepsAnalyzer& GDA = MAM.getResult<GlobalDepsAnalysis>(M);
+	InvokeWrapping& inner = MAM.getResult<InvokeWrappingAnalysis>(M).getInner();
+	if (!inner.runOnModule(M, GDA))
+		return PreservedAnalyses::all();
+	PreservedAnalyses PA;
+	PA.preserve<GlobalDepsAnalysis>();
+	PA.preserve<InvokeWrappingAnalysis>();
+	return PA;
 }
 
-char InvokeWrapping::ID = 0;
+llvm::AnalysisKey InvokeWrappingAnalysis::Key;
+InvokeWrapping* InvokeWrappingWrapper::innerPtr{nullptr};
 
-ModulePass *createInvokeWrappingPass() { return new InvokeWrapping(); }
 }

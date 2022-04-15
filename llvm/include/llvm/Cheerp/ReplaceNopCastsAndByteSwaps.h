@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2014-2016 Leaning Technologies
+// Copyright 2014-2022 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -14,21 +14,17 @@
 
 #include "llvm/CodeGen/IntrinsicLowering.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/Pass.h"
+#include "llvm/IR/PassManager.h"
 
 namespace cheerp {
 
 // Replace all NopCasts with BitCasts and bswap intrinsics with logical operations
-class ReplaceNopCastsAndByteSwaps: public llvm::FunctionPass
+class ReplaceNopCastsAndByteSwaps
 {
 public:
-	static char ID;
+	explicit ReplaceNopCastsAndByteSwaps() : IL() { }
 
-	explicit ReplaceNopCastsAndByteSwaps() : FunctionPass(ID), IL() { }
-
-	virtual bool runOnFunction(llvm::Function &F) override;
-	
-	virtual llvm::StringRef getPassName() const override;
+	bool runOnFunction(llvm::Function &F);
 	
 private:
 	bool processBasicBlock(llvm::BasicBlock & BB);
@@ -40,7 +36,19 @@ private:
 //
 // ReplaceNopCastsAndByteSwaps
 //
-llvm::FunctionPass *createReplaceNopCastsAndByteSwapsPass();
+class ReplaceNopCastsAndByteSwapsPass : public llvm::PassInfoMixin<ReplaceNopCastsAndByteSwapsPass> {
+public:
+	llvm::PreservedAnalyses run(llvm::Function& F, llvm::FunctionAnalysisManager& FAM)
+	{
+		ReplaceNopCastsAndByteSwaps inner;
+		if (!inner.runOnFunction(F))
+			return llvm::PreservedAnalyses::all();
+		return llvm::PreservedAnalyses::none();
+	}
+	static bool isRequired() { return true;}
+};
+
+
 }
 
 #endif //_CHEERP_REPLACE_NOP_CASTS_AND_BYTE_SWAPS_H

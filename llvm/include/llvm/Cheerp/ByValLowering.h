@@ -5,38 +5,38 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2019 Leaning Technologies
+// Copyright 2019-2022 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
 #ifndef _CHEERP_BYVAL_LOWERING_H
 #define _CHEERP_BYVAL_LOWERING_H
 
-#include "llvm/Pass.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/PassManager.h"
 
 namespace llvm
 {
 
-/**
- * Lower byval arguments by creating a copy of the argument as an alloca
- */
-class ByValLowering: public ModulePass
+class ByValLowering
 {
 public:
-	static char ID;
-	explicit ByValLowering() : ModulePass(ID) { }
-	bool runOnModule(Module &M) override;
-	StringRef getPassName() const override;
-
-	virtual void getAnalysisUsage(AnalysisUsage&) const override;
+	explicit ByValLowering() { }
+	bool runOnModule(Module &M);
 };
 
 //===----------------------------------------------------------------------===//
 //
-// ByValLowering
+// ByValLowering - Lower byval arguments by creating a copy of the argument as an alloca
 //
-ModulePass *createByValLoweringPass();
+class ByValLoweringPass: public PassInfoMixin<ByValLoweringPass>
+{
+	static bool runOnModule(Module& Module);
+public:
+	PreservedAnalyses run(Module &Module, ModuleAnalysisManager&);
+	static bool isRequired() { return true; }
+	friend ByValLowering;
+};
 
 }
 

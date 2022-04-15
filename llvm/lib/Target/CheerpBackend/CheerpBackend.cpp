@@ -15,6 +15,7 @@
 #include "llvm/Support/Path.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/IR/LegacyPassManager.h"
+#include "llvm/IR/PassManager.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/GlobalValue.h"
 #include "llvm/IR/Type.h"
@@ -23,27 +24,17 @@
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Cheerp/Writer.h"
 #include "llvm/Cheerp/WasmWriter.h"
-#include "llvm/Cheerp/LinearMemoryHelper.h"
-#include "llvm/Cheerp/AllocaMerging.h"
-#include "llvm/Cheerp/AllocaLowering.h"
-#include "llvm/Cheerp/AllocateArrayLowering.h"
-#include "llvm/Cheerp/FixIrreducibleControlFlow.h"
-#include "llvm/Cheerp/IdenticalCodeFolding.h"
-#include "llvm/Cheerp/ByValLowering.h"
-#include "llvm/Cheerp/PointerPasses.h"
-#include "llvm/Cheerp/GEPOptimizer.h"
-#include "llvm/Cheerp/CFGPasses.h"
-#include "llvm/Cheerp/Registerize.h"
-#include "llvm/Cheerp/SourceMaps.h"
-#include "llvm/Cheerp/StructMemFuncLowering.h"
-#include "llvm/Cheerp/ConstantExprLowering.h"
-#include "llvm/Cheerp/InvokeWrapping.h"
-#include "llvm/Cheerp/FFIWrapping.h"
-#include "llvm/Cheerp/StoreMerging.h"
-#include "llvm/Cheerp/CommandLine.h"
+#include "llvm/Cheerp/PassRegistry.h"
 #include "llvm/Transforms/Scalar.h"
-
+#include "llvm/Passes/PassBuilder.h"
+#include "llvm/Pass.h"
+#include "llvm/Passes/StandardInstrumentations.h"
+#include "llvm/Support/PrettyStackTrace.h"
+#include "llvm/Transforms/Scalar/DCE.h"
 using namespace llvm;
+
+static cl::opt<bool> VerbosePassManager("cheerp-verbose-pm", cl::init(false), cl::Hidden,
+                               cl::desc("Emit verbose informations"));
 
 extern "C" void LLVMInitializeCheerpBackendTarget() {
   // Register the target.
@@ -56,9 +47,10 @@ namespace {
     raw_ostream &Out;
     static char ID;
     void getAnalysisUsage(AnalysisUsage& AU) const override;
+    TargetMachine* TM;
   public:
-    explicit CheerpWritePass(raw_ostream &o) :
-      ModulePass(ID), Out(o) { }
+    explicit CheerpWritePass(raw_ostream &o, TargetMachine* TM) :
+      ModulePass(ID), Out(o), TM(TM) { }
     bool runOnModule(Module &M) override;
     StringRef getPassName() const override {
 	return "CheerpWritePass";
@@ -68,12 +60,173 @@ namespace {
 
 bool CheerpWritePass::runOnModule(Module& M)
 {
-  cheerp::PointerAnalyzer &PA = getAnalysis<cheerp::PointerAnalyzer>();
-  cheerp::GlobalDepsAnalyzer &GDA = getAnalysis<cheerp::GlobalDepsAnalyzer>();
-  cheerp::InvokeWrapping &IW = getAnalysis<cheerp::InvokeWrapping>();
-  cheerp::Registerize &registerize = getAnalysis<cheerp::Registerize>();
-  cheerp::AllocaStoresExtractor &allocaStoresExtractor = getAnalysis<cheerp::AllocaStoresExtractor>();
-  cheerp::LinearMemoryHelper &linearHelper = getAnalysis<cheerp::LinearMemoryHelper>();
+  LoopAnalysisManager LAM;
+  FunctionAnalysisManager FAM;
+  CGSCCAnalysisManager CGAM;
+  ModuleAnalysisManager MAM;
+  
+  PassInstrumentationCallbacks PIC;
+  PrintPassOptions PrintPassOpts;
+  PrintPassOpts.Indent = VerbosePassManager;
+  PrintPassOpts.SkipAnalyses = false;
+  StandardInstrumentations SI(VerbosePassManager,
+                              /*VerifyEach*/ false, PrintPassOpts);
+  SI.registerCallbacks(PIC, &FAM);
+
+  llvm::PipelineTuningOptions PTO;
+  Optional<PGOOptions> PGOOpt;
+  PassBuilder PB(TM, PTO, PGOOpt, &PIC);
+
+#define HANDLE_EXTENSION(Ext)                                                  \
+  get##Ext##PluginInfo().RegisterPassBuilderCallbacks(PB);
+#include "llvm/Support/Extension.def"
+  
+  Triple TargetTriple(M.getTargetTriple());
+  std::unique_ptr<TargetLibraryInfoImpl> TLII(
+  new TargetLibraryInfoImpl(TargetTriple));
+  FAM.registerPass([&] { return TargetLibraryAnalysis(*TLII); });
+
+  // Register all the basic analyses with the managers.
+  PB.registerModuleAnalyses(MAM);
+  PB.registerCGSCCAnalyses(CGAM);
+  PB.registerFunctionAnalyses(FAM);
+  PB.registerLoopAnalyses(LAM);
+  PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
+
+  ModulePassManager MPM;
+   
+//ADD PASSES HERE
+  cheerp::GlobalDepsAnalyzer::MATH_MODE mathMode;
+  if (NoNativeJavaScriptMath)
+    mathMode = cheerp::GlobalDepsAnalyzer::NO_BUILTINS;
+  else if(Triple(M.getTargetTriple()).getEnvironment() == llvm::Triple::WebAssembly && LinearOutput != AsmJs)
+
+   mathMode = cheerp::GlobalDepsAnalyzer::WASM_BUILTINS;
+  else
+    mathMode = cheerp::GlobalDepsAnalyzer::JS_BUILTINS;
+
+  auto functionAddressMode = LinearOutput == LinearOutputTy::AsmJs
+    ? cheerp::LinearMemoryHelperInitializer::FunctionAddressMode::AsmJS
+    : cheerp::LinearMemoryHelperInitializer::FunctionAddressMode::Wasm;
+  bool growMem = !WasmNoGrowMemory &&
+                 functionAddressMode == cheerp::LinearMemoryHelperInitializer::FunctionAddressMode::Wasm &&
+                 // NOTE: this is not actually required by the spec, but for now chrome
+                 // doesn't like growing shared memory
+                 !WasmSharedMemory;
+
+
+//  if (FixWrongFuncCasts)
+//    PM.add(createFixFunctionCastsPass());
+//  PM.add(createCheerpLowerSwitchPass(/*onlyLowerI64*/false));
+
+//  PM.add(createLowerAndOrBranchesPass());
+//  PM.add(createStructMemFuncLowering());
+//  PM.add(createFreeAndDeleteRemovalPass());
+//  PM.add(cheerp::createGlobalDepsAnalyzerPass(mathMode,/*resolveAliases*/true, WasmOnly));
+//  PM.add(createAllocaLoweringPass());
+//  if (!CheerpNoICF)
+//    PM.add(cheerp::createIdenticalCodeFoldingPass());
+//  PM.add(cheerp::createInvokeWrappingPass());
+//  PM.add(cheerp::createFFIWrappingPass());
+//  PM.add(createFixIrreducibleControlFlowPass());
+//  PM.add(createPointerArithmeticToArrayIndexingPass());
+//  PM.add(createPointerToImmutablePHIRemovalPass());
+// PM.add(createGEPOptimizerPass());
+ // PM.add(cheerp::createStoreMergingPass(LinearOutput == Wasm));
+ // // Remove obviously dead instruction, this avoids problems caused by inlining of effectfull instructions
+//  // inside not used instructions which are then not rendered.
+//  PM.add(createDeadCodeEliminationPass());
+// PM.add(cheerp::createRegisterizePass(!NoJavaScriptMathFround, LinearOutput == Wasm));
+// PM.add(cheerp::createLinearMemoryHelperPass(functionAddressMode, CheerpHeapSize, CheerpStackSize, WasmOnly, growMem));
+ // PM.add(cheerp::createConstantExprLoweringPass());
+/////  PM.add(cheerp::createPointerAnalyzerPass());
+//  PM.add(createDelayInstsPass());
+//  PM.add(cheerp::createAllocaMergingPass());
+//  PM.add(createAllocaArraysPass());
+//  PM.add(cheerp::createAllocaArraysMergingPass());
+//  PM.add(createRemoveFwdBlocksPass());
+//  // Keep this pass last, it is going to remove stores to memory from the LLVM visible code, so further optimizing afterwards will break
+//  PM.add(cheerp::createAllocaStoresExtractor());
+
+
+
+
+
+
+
+//MPM.addPass(cheerp::PartialExecuterPass());
+
+
+
+
+  if (FixWrongFuncCasts)
+    MPM.addPass(cheerp::FixFunctionCastsPass());
+  
+  {
+  FunctionPassManager FPM;
+
+  FPM.addPass(cheerp::CheerpLowerSwitchPass(/*onlyLowerI64*/false));
+  FPM.addPass(cheerp::LowerAndOrBranchesPass());
+  FPM.addPass(cheerp::StructMemFuncLoweringPass());
+
+	MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
+  }
+  MPM.addPass(cheerp::FreeAndDeleteRemovalPass());
+ 
+
+MPM.addPass(cheerp::GlobalDepsAnalyzerPass(mathMode, /*resolveAliases*/true, WasmOnly));
+
+  MPM.addPass(cheerp::AllocaLoweringPass());
+  if (!CheerpNoICF)
+    MPM.addPass(cheerp::IdenticalCodeFoldingPass());
+  MPM.addPass(cheerp::InvokeWrappingPass());
+  MPM.addPass(cheerp::FFIWrappingPass());
+  MPM.addPass(createModuleToFunctionPassAdaptor(cheerp::FixIrreducibleControlFlowPass()));
+  MPM.addPass(createModuleToFunctionPassAdaptor(cheerp::PointerArithmeticToArrayIndexingPass()));
+  MPM.addPass(createModuleToFunctionPassAdaptor(cheerp::PointerToImmutablePHIRemovalPass()));
+MPM.addPass(createModuleToFunctionPassAdaptor(cheerp::GEPOptimizerPass()));
+  MPM.addPass(createModuleToFunctionPassAdaptor(cheerp::StoreMergingPass(LinearOutput == Wasm)));
+  // Remove obviously dead instruction, this avoids problems caused by inlining of effectfull instructions
+  // inside not used instructions which are then not rendered.
+ 
+MPM.addPass(createModuleToFunctionPassAdaptor(DCEPass()));
+MPM.addPass(cheerp::RegisterizePass(!NoJavaScriptMathFround, LinearOutput == Wasm));
+MPM.addPass(cheerp::LinearMemoryHelperPass(cheerp::LinearMemoryHelperInitializer({functionAddressMode, CheerpHeapSize, CheerpStackSize, WasmOnly, growMem})));
+MPM.addPass(cheerp::ConstantExprLoweringPass());
+MPM.addPass(cheerp::PointerAnalyzerPass());
+  MPM.addPass(cheerp::DelayInstsPass());
+if (true)
+{
+  MPM.addPass(cheerp::AllocaMergingPass());
+ MPM.addPass(cheerp::AllocaArraysPass());
+  MPM.addPass(cheerp::AllocaArraysMergingPass());
+}
+  MPM.addPass(createModuleToFunctionPassAdaptor(cheerp::RemoveFwdBlocksPass()));
+ // Keep this pass last, it is going to remove stores to memory from the LLVM visible code, so further optimizing afterwards will break
+  MPM.addPass(cheerp::AllocaStoresExtractorPass());
+
+  MPM.addPass(cheerp::CheerpWritePassImpl(Out, TM));
+
+  // Now that we have all of the passes ready, run them.
+  {
+    PrettyStackTraceString CrashInfo("Optimizer");
+    llvm::TimeTraceScope TimeScope("Optimizer");
+    MPM.run(M, MAM);
+  }
+
+  return false;
+}
+
+PreservedAnalyses cheerp::CheerpWritePassImpl::run(Module& M, ModuleAnalysisManager& MAM)
+{
+
+    cheerp::Registerize &registerize = MAM.getResult<cheerp::RegisterizeAnalysis>(M);
+ 
+  cheerp::GlobalDepsAnalyzer &GDA = MAM.getResult<cheerp::GlobalDepsAnalysis>(M);
+  cheerp::PointerAnalyzer &PA = MAM.getResult<cheerp::PointerAnalysis>(M);
+ cheerp::InvokeWrapping &IW = MAM.getResult<cheerp::InvokeWrappingAnalysis>(M);
+ cheerp::AllocaStoresExtractor &allocaStoresExtractor = MAM.getResult<cheerp::AllocaStoresExtractorAnalysis>(M);
+  cheerp::LinearMemoryHelper &linearHelper = MAM.getResult<LinearMemoryAnalysis>(M);
   std::unique_ptr<cheerp::SourceMapGenerator> sourceMapGenerator;
   GDA.forceTypedArrays = ForceTypedArrays;
   if (!SourceMap.empty())
@@ -84,13 +237,14 @@ bool CheerpWritePass::runOnModule(Module& M)
     {
        // An error occurred opening the source map file, bail out
        llvm::report_fatal_error(StringRef(ErrorCode.message()), false);
-       return false;
+       return PreservedAnalyses::none();
     }
   }
   PA.fullResolve();
   PA.computeConstantOffsets(M);
   // Destroy the stores here, we need them to properly compute the pointer kinds, but we want to optimize them away before registerize
   allocaStoresExtractor.unlinkStores();
+
   registerize.assignRegisters(M, PA);
 #ifdef REGISTERIZE_STATS
   cheerp::reportRegisterizeStatistics();
@@ -136,7 +290,7 @@ bool CheerpWritePass::runOnModule(Module& M)
 
   if (!WasmOnly)
   {
-    cheerp::CheerpWriter writer(M, *this, Out, PA, registerize, GDA, linearHelper, namegen, allocaStoresExtractor, IW.getLandingPadTable(), memOut, asmjsMemFile,
+    cheerp::CheerpWriter writer(M, MAM, Out, PA, registerize, GDA, linearHelper, namegen, allocaStoresExtractor, IW.getLandingPadTable(), memOut, asmjsMemFile,
             sourceMapGenerator.get(), PrettyCode, MakeModule, !NoNativeJavaScriptMath,
             !NoJavaScriptMathImul, !NoJavaScriptMathFround, !NoCredits, MeasureTimeToMain, CheerpHeapSize,
             BoundsCheck, SymbolicGlobalsAsmJS, wasmFile, ForceTypedArrays);
@@ -145,27 +299,31 @@ bool CheerpWritePass::runOnModule(Module& M)
 
   if (LinearOutput != AsmJs && secondaryOut)
   {
-    cheerp::CheerpWasmWriter wasmWriter(M, *this, *secondaryOut, PA, registerize, GDA, linearHelper, IW.getLandingPadTable(), namegen,
+    cheerp::CheerpWasmWriter wasmWriter(M, MAM, *secondaryOut, PA, registerize, GDA, linearHelper, IW.getLandingPadTable(), namegen,
                                     M.getContext(), CheerpHeapSize, !WasmOnly,
                                     PrettyCode, WasmSharedMemory,
                                     WasmExportedTable);
     wasmWriter.makeWasm();
   }
   allocaStoresExtractor.destroyStores();
+ 
   if (!SecondaryOutputFile.empty() && ErrorCode)
   {
     // An error occurred opening the asm.js memory file, bail out
     llvm::report_fatal_error(StringRef(ErrorCode.message()), false);
-    return false;
+    return PreservedAnalyses::none();
   }
   if (!WasmOnly)
     secondaryFile.keep();
-  return false;
+
+
+
+	return PreservedAnalyses::none();
 }
 
 void CheerpWritePass::getAnalysisUsage(AnalysisUsage& AU) const
 {
-  AU.addRequired<cheerp::GlobalDepsAnalyzer>();
+/*  AU.addRequired<cheerp::GlobalDepsAnalyzer>();
   AU.addRequired<cheerp::InvokeWrapping>();
   AU.addRequired<cheerp::PointerAnalyzer>();
   AU.addRequired<cheerp::Registerize>();
@@ -173,6 +331,7 @@ void CheerpWritePass::getAnalysisUsage(AnalysisUsage& AU) const
   AU.addRequired<cheerp::AllocaStoresExtractor>();
   AU.addRequired<DominatorTreeWrapperPass>();
   AU.addRequired<LoopInfoWrapperPass>();
+  */
 }
 
 char CheerpWritePass::ID = 0;
@@ -188,57 +347,8 @@ bool CheerpTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
                                            bool DisableVerify,
                                            MachineModuleInfoWrapperPass *MMIWP) {
 
-  cheerp::GlobalDepsAnalyzer::MATH_MODE mathMode;
-  if (NoNativeJavaScriptMath)
-    mathMode = cheerp::GlobalDepsAnalyzer::NO_BUILTINS;
-  else if(getTargetTriple().getEnvironment() == llvm::Triple::WebAssembly && LinearOutput != AsmJs)
-    mathMode = cheerp::GlobalDepsAnalyzer::WASM_BUILTINS;
-  else
-    mathMode = cheerp::GlobalDepsAnalyzer::JS_BUILTINS;
 
-  auto functionAddressMode = LinearOutput == LinearOutputTy::AsmJs
-    ? cheerp::LinearMemoryHelper::FunctionAddressMode::AsmJS
-    : cheerp::LinearMemoryHelper::FunctionAddressMode::Wasm;
-  bool growMem = !WasmNoGrowMemory &&
-                 functionAddressMode == cheerp::LinearMemoryHelper::FunctionAddressMode::Wasm &&
-                 // NOTE: this is not actually required by the spec, but for now chrome
-                 // doesn't like growing shared memory
-                 !WasmSharedMemory;
-
-
-  if (FixWrongFuncCasts)
-    PM.add(createFixFunctionCastsPass());
-  PM.add(createCheerpLowerSwitchPass(/*onlyLowerI64*/false));
-  PM.add(createLowerAndOrBranchesPass());
-  PM.add(createStructMemFuncLowering());
-  PM.add(createFreeAndDeleteRemovalPass());
-  PM.add(cheerp::createGlobalDepsAnalyzerPass(mathMode,/*resolveAliases*/true, WasmOnly));
-  PM.add(createAllocaLoweringPass());
-  if (!CheerpNoICF)
-    PM.add(cheerp::createIdenticalCodeFoldingPass());
-  PM.add(cheerp::createInvokeWrappingPass());
-  PM.add(cheerp::createFFIWrappingPass());
-  PM.add(createFixIrreducibleControlFlowPass());
-  PM.add(createPointerArithmeticToArrayIndexingPass());
-  PM.add(createPointerToImmutablePHIRemovalPass());
-  PM.add(createGEPOptimizerPass());
-  PM.add(cheerp::createStoreMergingPass(LinearOutput == Wasm));
-  // Remove obviously dead instruction, this avoids problems caused by inlining of effectfull instructions
-  // inside not used instructions which are then not rendered.
-  PM.add(createDeadCodeEliminationPass());
-  PM.add(cheerp::createRegisterizePass(!NoJavaScriptMathFround, LinearOutput == Wasm));
-  PM.add(cheerp::createLinearMemoryHelperPass(functionAddressMode, CheerpHeapSize, CheerpStackSize, WasmOnly, growMem));
-  PM.add(cheerp::createConstantExprLoweringPass());
-  PM.add(cheerp::createPointerAnalyzerPass());
-  PM.add(createDelayInstsPass());
-  PM.add(cheerp::createAllocaMergingPass());
-  PM.add(createAllocaArraysPass());
-  PM.add(cheerp::createAllocaArraysMergingPass());
-  PM.add(createRemoveFwdBlocksPass());
-  // Keep this pass last, it is going to remove stores to memory from the LLVM visible code, so further optimizing afterwards will break
-  PM.add(cheerp::createAllocaStoresExtractor());
-
-  PM.add(new CheerpWritePass(o));
+  PM.add(new CheerpWritePass(o, (TargetMachine*)this));
   return false;
 }
 

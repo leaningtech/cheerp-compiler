@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2019 Leaning Technologies
+// Copyright 2019-2022 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 /// Detect function pointer casts and create a forwarder function with the casted
@@ -23,14 +23,10 @@ using namespace llvm;
 
 namespace {
 
-class FixFunctionCasts: public ModulePass {
+class FixFunctionCasts {
 public:
-	FixFunctionCasts(): ModulePass(ID) {}
-	StringRef getPassName() const override {
-		return "FixFunctionCasts";
-	}
-	bool runOnModule(Module &M) override;
-	static char ID;
+	FixFunctionCasts() {}
+	bool runOnModule(Module &M);
 };
 
 }
@@ -107,18 +103,10 @@ bool FixFunctionCasts::runOnModule(Module& M)
 	return Changed;
 }
 
-char FixFunctionCasts::ID = 0;
-
-namespace llvm {
-
-ModulePass* createFixFunctionCastsPass()
+PreservedAnalyses cheerp::FixFunctionCastsPass::run(Module& M, ModuleAnalysisManager&)
 {
-	return new FixFunctionCasts();
+	FixFunctionCasts inner;
+	if (inner.runOnModule(M))
+		return PreservedAnalyses::none();
+	return PreservedAnalyses::all();
 }
-
-}
-
-INITIALIZE_PASS_BEGIN(FixFunctionCasts, "FixFunctionCasts", "Create wrapper functions for bitcast to function types with more arguments",
-                      false, false)
-INITIALIZE_PASS_END(FixFunctionCasts, "FixFunctionCasts", "Create wrapper functions for bitcast to function types with more arguments",
-                    false, false)

@@ -3419,8 +3419,6 @@ static void GenerateCheerpArgs(const LangOptions &Opts, SmallVectorImpl<const ch
 
 static void ParseCheerpArgs(LangOptions &Opts, ArgList &Args,
                           DiagnosticsEngine &Diags) {
-  // Allow parsing of preexecuter args
-  initializePreExecutePass(*llvm::PassRegistry::getPassRegistry());
   const Arg *CheerpLinearOutput = Args.getLastArg(OPT_cheerp_linear_output_EQ);
   if (CheerpLinearOutput)
   {

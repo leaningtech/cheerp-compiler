@@ -5,21 +5,21 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2014-2021 Leaning Technologies
+// Copyright 2014-2022 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
 #ifndef CHEERP_STRUCT_MEMFUNC_LOWERING_H
 #define CHEERP_STRUCT_MEMFUNC_LOWERING_H
 
-#include "llvm/Pass.h"
+#include "llvm/IR/PassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/IRBuilder.h"
 
 namespace llvm
 {
 
-class StructMemFuncLowering: public FunctionPass
+class StructMemFuncLowering
 {
 private:
 	enum MODE { NONE = 0, MEMCPY, MEMMOVE, MEMSET };
@@ -38,10 +38,8 @@ private:
 	SmallVector<BasicBlock*, 10> basicBlocks;
 	const DataLayout* DL;
 public:
-	static char ID;
-	explicit StructMemFuncLowering() : FunctionPass(ID), DL(NULL) { }
-	bool runOnFunction(Function &F) override;
-	StringRef getPassName() const override;
+	explicit StructMemFuncLowering() : DL(NULL) { }
+	bool runOnFunction(Function &F);
 };
 
 //===----------------------------------------------------------------------===//
@@ -49,7 +47,12 @@ public:
 // StructMemFuncLowering - This pass converts memcpy/memmove/memset to an explicit
 // loop of instructions if the arguments are StructTypes
 //
-FunctionPass *createStructMemFuncLowering();
+class StructMemFuncLoweringPass : public PassInfoMixin<StructMemFuncLoweringPass> {
+public:
+	PreservedAnalyses run(Function& F, FunctionAnalysisManager& FAM);
+	static bool isRequired() { return true;}
+};
+
 
 }
 

@@ -60,7 +60,6 @@ struct RedundantDbgInstElimination : public FunctionPass {
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesCFG();
-    AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
   }
 };
 }
@@ -82,6 +81,7 @@ RedundantDbgInstEliminationPass::run(Function &F, FunctionAnalysisManager &AM) {
     return PreservedAnalyses::all();
   PreservedAnalyses PA;
   PA.preserveSet<CFGAnalyses>();
+  PA.preserve<cheerp::GlobalDepsAnalysis>();
   return PA;
 }
 
@@ -149,6 +149,8 @@ PreservedAnalyses DCEPass::run(Function &F, FunctionAnalysisManager &AM) {
 
   PreservedAnalyses PA;
   PA.preserveSet<CFGAnalyses>();
+  PA.preserve<cheerp::GlobalDepsAnalysis>();
+  PA.preserve<cheerp::InvokeWrappingAnalysis>();
   return PA;
 }
 
@@ -172,8 +174,6 @@ struct DCELegacyPass : public FunctionPass {
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.setPreservesCFG();
-    AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
-    AU.addPreserved<cheerp::InvokeWrapping>();
   }
 };
 }

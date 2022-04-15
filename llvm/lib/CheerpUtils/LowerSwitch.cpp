@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2019-2020 Leaning Technologies
+// Copyright 2019-2022 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -20,24 +20,26 @@
 
 using namespace llvm;
 
-namespace {
+namespace cheerp {
 
-class CheerpLowerSwitch: public FunctionPass {
+class CheerpLowerSwitch {
 public:
-	CheerpLowerSwitch(bool onlyLowerI64 = true):FunctionPass(ID),onlyLowerI64(onlyLowerI64)
+	CheerpLowerSwitch(bool onlyLowerI64):onlyLowerI64(onlyLowerI64)
 	{
 	}
-	StringRef getPassName() const override {
-		return "CheerpLowerSwitch";
-	}
-	static char ID;
+	bool runOnFunction(Function &F, AssumptionCache* AC);
 private:
-	bool onlyLowerI64;
-	bool runOnFunction(Function &F) override;
+	const bool onlyLowerI64;
         bool processSwitchInst(SwitchInst *SI);
 	bool keepSwitch(const SwitchInst* si);
 };
 
+PreservedAnalyses CheerpLowerSwitchPass::run(Function& F, FunctionAnalysisManager& FAM)
+{
+	CheerpLowerSwitch inner(onlyLowerI64);
+	if (inner.runOnFunction(F, nullptr))
+		return PreservedAnalyses::none();
+	return PreservedAnalyses::all();
 }
 
 static int64_t getCaseValue(const ConstantInt* c, uint32_t bitWidth)
@@ -706,10 +708,8 @@ private:
 	double costCalculated{1e9};
 };
 
-bool CheerpLowerSwitch::runOnFunction(Function& F)
+bool CheerpLowerSwitch::runOnFunction(Function& F, AssumptionCache* AC)
 {
-	auto *ACT = getAnalysisIfAvailable<AssumptionCacheTracker>();
-	AssumptionCache *AC = ACT ? &ACT->getAssumptionCache(F) : nullptr;
 	return LowerSwitch(F, nullptr, AC, [this](SwitchInst* SI) { return processSwitchInst(SI); });
 }
 
@@ -734,19 +734,4 @@ bool CheerpLowerSwitch::processSwitchInst(SwitchInst *SI)
 	else
 		return false;
 }
-
-char CheerpLowerSwitch::ID = 0;
-
-namespace llvm {
-
-FunctionPass* createCheerpLowerSwitchPass(bool onlyLowerI64)
-{
-	return new CheerpLowerSwitch(onlyLowerI64);
-}
-
-}
-
-INITIALIZE_PASS_BEGIN(CheerpLowerSwitch, "CheerpLowerSwitch", "Lower switches too sparse or big into if/else branch chains",
-                      false, false)
-INITIALIZE_PASS_END(CheerpLowerSwitch, "CheerpLowerSwitch", "Lower switches too sparse or big into if/else branch chains",
-                    false, false)
+} //cheerp

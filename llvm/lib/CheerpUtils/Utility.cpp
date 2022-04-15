@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2011-2021 Leaning Technologies
+// Copyright 2011-2022 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -1330,35 +1330,6 @@ void setForceRawAttribute(Module& M, Function* Wrapper)
 		Attrs = Attrs.addRetAttribute(M.getContext(), Attribute::get(M.getContext(), "force-raw"));
 	}
 	Wrapper->setAttributes(Attrs);
-}
-
-}
-
-namespace llvm
-{
-
-void initializeCheerpOpts(PassRegistry &Registry)
-{
-	initializeAllocaArraysPass(Registry);
-	initializeAllocaMergingPass(Registry);
-	initializeGlobalDepsAnalyzerPass(Registry);
-	initializeIdenticalCodeFoldingPass(Registry);
-	initializePointerAnalyzerPass(Registry);
-	initializeRegisterizePass(Registry);
-	initializeStructMemFuncLoweringPass(Registry);
-	initializeReplaceNopCastsAndByteSwapsPass(Registry);
-	initializeTypeOptimizerPass(Registry);
-	initializeDelayInstsPass(Registry);
-	initializeExpandStructRegsPass(Registry);
-	initializeFreeAndDeleteRemovalPass(Registry);
-	initializeGEPOptimizerPass(Registry);
-	initializeAllocaStoresExtractorPass(Registry);
-	initializeFixIrreducibleControlFlowPass(Registry);
-	initializeCheerpLowerSwitchPass(Registry);
-	initializeByValLoweringPass(Registry);
-	initializeI64LoweringPassPass(Registry);
-	initializeCheerpLowerInvokePass(Registry);
-	initializeSinkGeneratorPass(Registry);
 }
 
 }

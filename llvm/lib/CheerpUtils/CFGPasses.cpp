@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2017-2020 Leaning Technologies
+// Copyright 2017-2022 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -17,7 +17,7 @@
 #include "llvm/Cheerp/LinearMemoryHelper.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
-namespace llvm {
+namespace cheerp {
 
 bool RemoveFwdBlocks::runOnFunction(Function& F)
 {
@@ -71,24 +71,24 @@ bool RemoveFwdBlocks::runOnFunction(Function& F)
 	}
 	return changed;
 }
-StringRef RemoveFwdBlocks::getPassName() const
+
+PreservedAnalyses RemoveFwdBlocksPass::run(llvm::Function& F, llvm::FunctionAnalysisManager& FAM)
 {
-	return "RemoveFwdBlocks";
+		RemoveFwdBlocks inner;
+
+		if (!inner.runOnFunction(F))
+			return PreservedAnalyses::all();
+		else
+		{
+		PreservedAnalyses PA;
+		PA.preserve<cheerp::PointerAnalysis>();
+		PA.preserve<cheerp::RegisterizeAnalysis>();
+		PA.preserve<cheerp::GlobalDepsAnalysis>();
+		PA.preserve<cheerp::InvokeWrappingAnalysis>();
+		PA.preserve<cheerp::LinearMemoryAnalysis>();
+		return PA;
+		}
 }
-
-char RemoveFwdBlocks::ID = 0;
-
-void RemoveFwdBlocks::getAnalysisUsage(AnalysisUsage & AU) const
-{
-	AU.addPreserved<cheerp::PointerAnalyzer>();
-	AU.addPreserved<cheerp::Registerize>();
-	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
-	AU.addPreserved<cheerp::InvokeWrapping>();
-	AU.addPreserved<cheerp::LinearMemoryHelper>();
-	llvm::Pass::getAnalysisUsage(AU);
-}
-
-FunctionPass *createRemoveFwdBlocksPass() { return new RemoveFwdBlocks(); }
 
 void LowerAndOrBranches::fixTargetPhis(llvm::BasicBlock* originalPred, llvm::BasicBlock* newBlock, llvm::BasicBlock* singleBlock, llvm::BasicBlock* doubleBlock)
 {
@@ -287,13 +287,12 @@ bool LowerAndOrBranches::runOnFunction(Function& F)
 	return Changed;
 }
 
-StringRef LowerAndOrBranches::getPassName() const
+llvm::PreservedAnalyses LowerAndOrBranchesPass::run(Function& F, FunctionAnalysisManager& FAM)
 {
-	return "LowerAndOrBranches";
+	LowerAndOrBranches inner;
+	if (inner.runOnFunction(F))
+		return PreservedAnalyses::none();
+	return PreservedAnalyses::all();
 }
-
-char LowerAndOrBranches::ID = 0;
-
-FunctionPass *createLowerAndOrBranchesPass() { return new LowerAndOrBranches(); }
 
 }
