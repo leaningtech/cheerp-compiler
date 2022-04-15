@@ -16,7 +16,6 @@
 #include "llvm/ExecutionEngine/Interpreter.h"
 #include "llvm/ExecutionEngine/FunctionMap.h"
 #include "llvm/IR/Constants.h"
-#include "llvm/MC/TargetRegistry.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Host.h"
@@ -854,13 +853,12 @@ Constant* PreExecute::computeInitializerFromMemory(const DataLayout* DL,
 }
 
 
-bool PreExecute::runOnConstructor( const llvm::Target* target, const std::string& triple, llvm::Module& m, llvm::Function* func)
+bool PreExecute::runOnConstructor(llvm::Module& m, llvm::Function* func)
 {
     bool Changed = false;
 
     std::string error;
     std::unique_ptr<Module> uniqM(&m);
-    TargetMachine* machine = target->createTargetMachine(triple, "", "", TargetOptions(), None);
 
     EngineBuilder builder(std::move(uniqM));
     builder.setEngineKind(llvm::EngineKind::PreExecuteInterpreter);
@@ -868,7 +866,7 @@ bool PreExecute::runOnConstructor( const llvm::Target* target, const std::string
     builder.setErrorStr(&error);
     builder.setVerifyModules(true);
 
-    currentEE = builder.create(machine);
+    currentEE = builder.create();
     assert(currentEE && "failed to create execution engine!");
     currentEE->InstallStoreListener(StoreListener);
     currentEE->InstallAllocaListener(AllocaListener);
@@ -962,10 +960,6 @@ bool PreExecute::runOnModule(Module& m)
     currentPreExecutePass = this;
     currentModule = &m;
 
-    std::string error;
-    std::string triple = sys::getProcessTriple();
-    const Target *target = TargetRegistry::lookupTarget(triple, error);
-
     GlobalVariable * constructorVar = m.getGlobalVariable("llvm.global_ctors");
     if(constructorVar)
     {
@@ -1000,7 +994,7 @@ bool PreExecute::runOnModule(Module& m)
         {
             Constant *elem = cast<Constant>(*it);
             Function* func = cast<Function>(elem->getAggregateElement(1));
-            if(runOnConstructor(target, triple, m, func))
+            if(runOnConstructor(m, func))
                 Changed |= true;
             else
                 newConstructors.push_back(elem);
@@ -1012,7 +1006,7 @@ bool PreExecute::runOnModule(Module& m)
     {
         Function* mainFunc = getMainFunction(m);
         assert(mainFunc && "unable to find main/webMain in module!");
-        if(runOnConstructor(target, triple, m, mainFunc))
+        if(runOnConstructor(m, mainFunc))
         {
             Changed |= true;
             mainFunc->eraseFromParent();
