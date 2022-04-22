@@ -5747,51 +5747,43 @@ void CheerpWriter::compileMathDeclAsmJS()
 
 void CheerpWriter::compileFetchBuffer()
 {
-	if (makeModule == MODULE_TYPE::ES6)
-		compileES6FetchBuffer();
-	else
-		compileRegularFetchBuffer();
-}
-
-//ES6 modules syntax implies either the presence of fetch or the import() syntax
-//Note that IE is NOT supported by ES6 modules
-void CheerpWriter::compileES6FetchBuffer()
-{
-	assert(makeModule == MODULE_TYPE::ES6);
-
 	stream << "function " << namegen.getBuiltinName(NameGenerator::FETCHBUFFER) <<"(p){" << NewLine;
-	stream << "return (typeof fetch==='function')?" << NewLine;
-	stream << "fetch(p).then(r=>r.arrayBuffer()):" << NewLine;
-	stream << "new Promise((y,n)=>{" << NewLine;
-	stream << "import('fs').then(r=>r.readFile(p,(e,d)=>{" << NewLine;
-	stream << "if(e)n(e);" << NewLine;
-	stream << "else y(d);" << NewLine;
-	stream << "}));" << NewLine;
-	stream << "});" << NewLine;
+	stream << "return new Promise((y,n)=>y(fetch(p)))" << NewLine;
+	stream << ".then(r=>r.arrayBuffer())" << NewLine;
+	stream << ".catch(e=>new Promise((y,n)=>{" << NewLine;
+	if (makeModule == MODULE_TYPE::ES6)
+	{
+		//ES6 modules syntax implies either the presence of fetch or the import() syntax
+		//Note that IE is NOT supported by ES6 modules
+		stream << "import('fs')" << NewLine;
+		stream << ".then(r=>r.readFile(p," << NewLine;
+		stream << "(e,d)=>{if(e)n(e);else y(d);})" << NewLine;
+		stream << ")" << NewLine;
+		stream << "})" << NewLine;
+	}
+	else
+	{
+		//read is a fall back for IE / legacy browsers, require is available in node.js, and fetch is supported by modern browsers
+		stream << "require('fs')." << NewLine;
+		stream << "readFile(require('path')." << NewLine;
+		stream << "join(__dirname, p)," << NewLine;
+		stream << "(e,d)=>{if(e)n(e);else y(d);})" << NewLine;
+		stream << "})" << NewLine;
+		stream << ".catch(e=>new Promise((y,n)=>y(read(p,'binary'))))" << NewLine;
+	}
+	stream << ")" << NewLine;
 	stream << "}" << NewLine;
 }
 
-//read is a fall back for IE / legacy browsers, require is available in node.js, and fetch is supported by modern browsers
+void CheerpWriter::compileES6FetchBuffer()
+{
+	assert(makeModule == MODULE_TYPE::ES6);
+}
+
 void CheerpWriter::compileRegularFetchBuffer()
 {
 	assert(makeModule != MODULE_TYPE::ES6);
 
-	stream << "function " << namegen.getBuiltinName(NameGenerator::FETCHBUFFER) <<"(p){" << NewLine;
-	stream << "var b=null,f='function';" << NewLine;
-	stream << "if(typeof fetch===f)b=fetch(p).then(r=>r.arrayBuffer());" << NewLine;
-	stream << "else if(typeof require===f){" << NewLine;
-	stream << "p=require('path').join(__dirname, p);" << NewLine;
-	stream << "b=new Promise((y,n)=>{" << NewLine;
-	stream << "require('fs').readFile(p,(e,d)=>{" << NewLine;
-	stream << "if(e)n(e);" << NewLine;
-	stream << "else y(d);" << NewLine;
-	stream << "});" << NewLine;
-	stream << "});" << NewLine;
-	stream << "}else b=new Promise((y,n)=>{" << NewLine;
-	stream << "y(read(p,'binary'));" << NewLine;
-	stream << "});" << NewLine;
-	stream << "return b;" << NewLine;
-	stream << "}" << NewLine;
 }
 
 void CheerpWriter::compileFetchBufferCall(const std::string& fileName, const std::string& argumentName)
