@@ -1359,3 +1359,7 @@ def PedanticMacros : DiagGroup<"pedantic-macros",
 
 def BranchProtection : DiagGroup<"branch-protection">;
 
+def CheerpUnsafe : DiagGroup<"cheerp-unsafe">;
+def CheerpMaybeSlow : DiagGroup<"cheerp-maybe-slow">;
+def Cheerp : DiagGroup<"cheerp",
+		[CheerpUnsafe, CheerpMaybeSlow]>;
