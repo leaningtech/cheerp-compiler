@@ -1390,3 +1390,8 @@ def BranchProtection : DiagGroup<"branch-protection">;
 // HLSL diagnostic groups
 // Warnings for HLSL Clang extensions
 def HLSLExtension : DiagGroup<"hlsl-extensions">;
+
+def CheerpUnsafe : DiagGroup<"cheerp-unsafe">;
+def CheerpMaybeSlow : DiagGroup<"cheerp-maybe-slow">;
+def Cheerp : DiagGroup<"cheerp",
+		[CheerpUnsafe, CheerpMaybeSlow]>;
