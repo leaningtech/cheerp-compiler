@@ -11566,15 +11566,20 @@ let CategoryName = "Cheerp Issue" in {
 def note_cheerp_forbidden : Note<
     "candidate unavailable since it breaks Cheerp %0 rules">;
 def warn_cheerp_unsafe_cast : Warning<
-  "Cheerp: Using values cast to unrelated types is undefined behaviour unless the destination type is the actual type of the value">;
+  "Cheerp: Using values cast to unrelated types is undefined behaviour unless the destination type is the actual type of the value">,
+  InGroup<CheerpUnsafe>;
 def warn_cheerp_inefficient_unions : Warning<
-  "Cheerp: Unions are less efficient than on native targets">;
+  "Cheerp: Unions are less efficient than on native targets">,
+  InGroup<CheerpMaybeSlow>;
 def warn_cheerp_deprecated_attribute : Warning<
-  "Cheerp: Unprefixed attribute %0 is deprecated. Add 'cheerp::' namespace">;
+  "Cheerp: Unprefixed attribute %0 is deprecated. Add 'cheerp::' namespace">,
+  InGroup<Cheerp>;
 def warn_cheerp_ptr_to_int : Warning<
-  "Cheerp: Casting genericjs pointers to integers may be slow.">;
+  "Cheerp: Casting genericjs pointers to integers may be slow.">,
+  InGroup<CheerpMaybeSlow>;
 def warn_cheerp_client_layout_ctor : Warning<
-  "Cheerp: This will be constructed in JavaScript with 'new %0'">;
+  "Cheerp: This will be constructed in JavaScript with 'new %0'">,
+  InGroup<Cheerp>;
 def note_cheerp_client_layout_ctor : Note<
   "Cheerp: To construct it with 'new %0', make this a delegating constructor">;
 def note_cheerp_client_layout_ctor2 : Note<
