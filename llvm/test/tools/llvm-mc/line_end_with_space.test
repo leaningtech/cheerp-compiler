@@ -1,1 +1,1 @@
-RUN: llvm-mc -disassemble %s
+RUN: llvm-mc --arch=x86-64 -disassemble %s
