@@ -587,13 +587,12 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   // Specially optimize memory movement as it doesn't look like dataflow in SSA.
   FPM.addPass(MemCpyOptPass());
 
-  if (CheerpLTO)
-  {
-  FPM.addPass(cheerp::StructMemFuncLoweringPass());
-  if (RunNewGVN)
-    FPM.addPass(NewGVNPass());
-  else
-    FPM.addPass(GVNPass());
+  if (CheerpLTO) {
+    FPM.addPass(cheerp::StructMemFuncLoweringPass());
+    if (RunNewGVN)
+      FPM.addPass(NewGVNPass());
+    else
+      FPM.addPass(GVNPass());
   }
 
   FPM.addPass(DSEPass());
