@@ -53,6 +53,7 @@ opt/cheerp/bin/clang-15
 opt/cheerp/bin/opt
 opt/cheerp/bin/llvm-dis
 opt/cheerp/bin/llc
+opt/cheerp/bin/llvm-ar
 opt/cheerp/bin/llvm-link
 opt/cheerp/bin/clang
 opt/cheerp/bin/clang++
