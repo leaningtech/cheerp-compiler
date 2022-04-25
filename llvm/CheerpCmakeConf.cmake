@@ -11,6 +11,7 @@ SET(CLANG_ENABLE_ARCMT OFF CACHE BOOL "")
 set(LLVM_INSTALL_TOOLCHAIN_ONLY ON CACHE BOOL "")
 set(LLVM_TOOLCHAIN_TOOLS
   llvm-dis
+  llvm-ar
   llvm-link
   opt
   llc
