@@ -95,7 +95,6 @@ bool CheerpWritePass::runOnModule(Module& M)
 
   ModulePassManager MPM;
    
-//ADD PASSES HERE
   cheerp::GlobalDepsAnalyzer::MATH_MODE mathMode;
   if (NoNativeJavaScriptMath)
     mathMode = cheerp::GlobalDepsAnalyzer::NO_BUILTINS;
@@ -114,68 +113,22 @@ bool CheerpWritePass::runOnModule(Module& M)
                  // doesn't like growing shared memory
                  !WasmSharedMemory;
 
-
-//  if (FixWrongFuncCasts)
-//    PM.add(createFixFunctionCastsPass());
-//  PM.add(createCheerpLowerSwitchPass(/*onlyLowerI64*/false));
-
-//  PM.add(createLowerAndOrBranchesPass());
-//  PM.add(createStructMemFuncLowering());
-//  PM.add(createFreeAndDeleteRemovalPass());
-//  PM.add(cheerp::createGlobalDepsAnalyzerPass(mathMode,/*resolveAliases*/true, WasmOnly));
-//  PM.add(createAllocaLoweringPass());
-//  if (!CheerpNoICF)
-//    PM.add(cheerp::createIdenticalCodeFoldingPass());
-//  PM.add(cheerp::createInvokeWrappingPass());
-//  PM.add(cheerp::createFFIWrappingPass());
-//  PM.add(createFixIrreducibleControlFlowPass());
-//  PM.add(createPointerArithmeticToArrayIndexingPass());
-//  PM.add(createPointerToImmutablePHIRemovalPass());
-// PM.add(createGEPOptimizerPass());
- // PM.add(cheerp::createStoreMergingPass(LinearOutput == Wasm));
- // // Remove obviously dead instruction, this avoids problems caused by inlining of effectfull instructions
-//  // inside not used instructions which are then not rendered.
-//  PM.add(createDeadCodeEliminationPass());
-// PM.add(cheerp::createRegisterizePass(!NoJavaScriptMathFround, LinearOutput == Wasm));
-// PM.add(cheerp::createLinearMemoryHelperPass(functionAddressMode, CheerpHeapSize, CheerpStackSize, WasmOnly, growMem));
- // PM.add(cheerp::createConstantExprLoweringPass());
-/////  PM.add(cheerp::createPointerAnalyzerPass());
-//  PM.add(createDelayInstsPass());
-//  PM.add(cheerp::createAllocaMergingPass());
-//  PM.add(createAllocaArraysPass());
-//  PM.add(cheerp::createAllocaArraysMergingPass());
-//  PM.add(createRemoveFwdBlocksPass());
-//  // Keep this pass last, it is going to remove stores to memory from the LLVM visible code, so further optimizing afterwards will break
-//  PM.add(cheerp::createAllocaStoresExtractor());
-
-
-
-
-
-
-
-//MPM.addPass(cheerp::PartialExecuterPass());
-
-
-
-
   if (FixWrongFuncCasts)
     MPM.addPass(cheerp::FixFunctionCastsPass());
   
   {
-  FunctionPassManager FPM;
+    //Wrap these in a FunctionPassManager
+    FunctionPassManager FPM;
 
-  FPM.addPass(cheerp::CheerpLowerSwitchPass(/*onlyLowerI64*/false));
-  FPM.addPass(cheerp::LowerAndOrBranchesPass());
-  FPM.addPass(cheerp::StructMemFuncLoweringPass());
+    FPM.addPass(cheerp::CheerpLowerSwitchPass(/*onlyLowerI64*/false));
+    FPM.addPass(cheerp::LowerAndOrBranchesPass());
+    FPM.addPass(cheerp::StructMemFuncLoweringPass());
 
-	MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
+    MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
   }
+
   MPM.addPass(cheerp::FreeAndDeleteRemovalPass());
- 
-
-MPM.addPass(cheerp::GlobalDepsAnalyzerPass(mathMode, /*resolveAliases*/true, WasmOnly));
-
+  MPM.addPass(cheerp::GlobalDepsAnalyzerPass(mathMode, /*resolveAliases*/true, WasmOnly));
   MPM.addPass(cheerp::AllocaLoweringPass());
   if (!CheerpNoICF)
     MPM.addPass(cheerp::IdenticalCodeFoldingPass());
@@ -184,25 +137,23 @@ MPM.addPass(cheerp::GlobalDepsAnalyzerPass(mathMode, /*resolveAliases*/true, Was
   MPM.addPass(createModuleToFunctionPassAdaptor(cheerp::FixIrreducibleControlFlowPass()));
   MPM.addPass(createModuleToFunctionPassAdaptor(cheerp::PointerArithmeticToArrayIndexingPass()));
   MPM.addPass(createModuleToFunctionPassAdaptor(cheerp::PointerToImmutablePHIRemovalPass()));
-MPM.addPass(createModuleToFunctionPassAdaptor(cheerp::GEPOptimizerPass()));
+  MPM.addPass(createModuleToFunctionPassAdaptor(cheerp::GEPOptimizerPass()));
   MPM.addPass(createModuleToFunctionPassAdaptor(cheerp::StoreMergingPass(LinearOutput == Wasm)));
   // Remove obviously dead instruction, this avoids problems caused by inlining of effectfull instructions
   // inside not used instructions which are then not rendered.
- 
-MPM.addPass(createModuleToFunctionPassAdaptor(DCEPass()));
-MPM.addPass(cheerp::RegisterizePass(!NoJavaScriptMathFround, LinearOutput == Wasm));
-MPM.addPass(cheerp::LinearMemoryHelperPass(cheerp::LinearMemoryHelperInitializer({functionAddressMode, CheerpHeapSize, CheerpStackSize, WasmOnly, growMem})));
-MPM.addPass(cheerp::ConstantExprLoweringPass());
-MPM.addPass(cheerp::PointerAnalyzerPass());
+  MPM.addPass(createModuleToFunctionPassAdaptor(DCEPass()));
+  MPM.addPass(cheerp::RegisterizePass(!NoJavaScriptMathFround, LinearOutput == Wasm));
+  MPM.addPass(cheerp::LinearMemoryHelperPass(cheerp::LinearMemoryHelperInitializer({functionAddressMode, CheerpHeapSize, CheerpStackSize, WasmOnly, growMem})));
+  MPM.addPass(cheerp::ConstantExprLoweringPass());
+  MPM.addPass(cheerp::PointerAnalyzerPass());
   MPM.addPass(cheerp::DelayInstsPass());
-if (true)
-{
+
   MPM.addPass(cheerp::AllocaMergingPass());
- MPM.addPass(cheerp::AllocaArraysPass());
+  MPM.addPass(cheerp::AllocaArraysPass());
   MPM.addPass(cheerp::AllocaArraysMergingPass());
-}
+
   MPM.addPass(createModuleToFunctionPassAdaptor(cheerp::RemoveFwdBlocksPass()));
- // Keep this pass last, it is going to remove stores to memory from the LLVM visible code, so further optimizing afterwards will break
+  // Keep this pass last, it is going to remove stores to memory from the LLVM visible code, so further optimizing afterwards will break
   MPM.addPass(cheerp::AllocaStoresExtractorPass());
 
   MPM.addPass(cheerp::CheerpWritePassImpl(Out, TM));
@@ -219,13 +170,11 @@ if (true)
 
 PreservedAnalyses cheerp::CheerpWritePassImpl::run(Module& M, ModuleAnalysisManager& MAM)
 {
-
-    cheerp::Registerize &registerize = MAM.getResult<cheerp::RegisterizeAnalysis>(M);
- 
+  cheerp::Registerize &registerize = MAM.getResult<cheerp::RegisterizeAnalysis>(M);
   cheerp::GlobalDepsAnalyzer &GDA = MAM.getResult<cheerp::GlobalDepsAnalysis>(M);
   cheerp::PointerAnalyzer &PA = MAM.getResult<cheerp::PointerAnalysis>(M);
- cheerp::InvokeWrapping &IW = MAM.getResult<cheerp::InvokeWrappingAnalysis>(M);
- cheerp::AllocaStoresExtractor &allocaStoresExtractor = MAM.getResult<cheerp::AllocaStoresExtractorAnalysis>(M);
+  cheerp::InvokeWrapping &IW = MAM.getResult<cheerp::InvokeWrappingAnalysis>(M);
+  cheerp::AllocaStoresExtractor &allocaStoresExtractor = MAM.getResult<cheerp::AllocaStoresExtractorAnalysis>(M);
   cheerp::LinearMemoryHelper &linearHelper = MAM.getResult<LinearMemoryAnalysis>(M);
   std::unique_ptr<cheerp::SourceMapGenerator> sourceMapGenerator;
   GDA.forceTypedArrays = ForceTypedArrays;
@@ -323,15 +272,6 @@ PreservedAnalyses cheerp::CheerpWritePassImpl::run(Module& M, ModuleAnalysisMana
 
 void CheerpWritePass::getAnalysisUsage(AnalysisUsage& AU) const
 {
-/*  AU.addRequired<cheerp::GlobalDepsAnalyzer>();
-  AU.addRequired<cheerp::InvokeWrapping>();
-  AU.addRequired<cheerp::PointerAnalyzer>();
-  AU.addRequired<cheerp::Registerize>();
-  AU.addRequired<cheerp::LinearMemoryHelper>();
-  AU.addRequired<cheerp::AllocaStoresExtractor>();
-  AU.addRequired<DominatorTreeWrapperPass>();
-  AU.addRequired<LoopInfoWrapperPass>();
-  */
 }
 
 char CheerpWritePass::ID = 0;
