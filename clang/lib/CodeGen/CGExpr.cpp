@@ -1101,6 +1101,18 @@ Address CodeGenFunction::EmitPointerWithAlignment(const Expr *E,
           if (TBAAInfo)
             *TBAAInfo = CGM.mergeTBAAInfoForCast(*TBAAInfo,
                                                  TargetTypeTBAAInfo);
+	  const ExplicitCastExpr *ECE = cast<ExplicitCastExpr>(CE);
+	  if ((CGM.getTarget().isByteAddressable()==false) && ECE->getSubExpr()->getType() != ECE->getType()) {
+            bool asmjs = CurFn->getSection()==StringRef("asmjs");
+            llvm::Function* intrinsic = CGM.GetUserCastIntrinsic(ECE,
+              ECE->getSubExpr()->getType(),
+              ECE->getTypeAsWritten(),
+              asmjs);
+            Addr = Address(Builder.CreateCall(intrinsic, Addr.getPointer()),
+              ConvertTypeForMem(ECE->getTypeAsWritten()->getPointeeType()), Align);
+
+            return Addr;
+	  }
           // If the source l-value is opaque, honor the alignment of the
           // casted-to type.
           if (InnerBaseInfo.getAlignmentSource() != AlignmentSource::Decl) {
