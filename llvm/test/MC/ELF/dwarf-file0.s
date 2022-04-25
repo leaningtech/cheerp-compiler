@@ -1,10 +1,10 @@
 # XFAIL: -aix
 # UNSUPPORTED: -zos
 # REQUIRES: object-emission
-# RUN: llvm-mc -dwarf-version 4 %s -filetype=obj -o - | llvm-dwarfdump -debug-line - | FileCheck %s
-# RUN: llvm-mc -dwarf-version 4 %s --fatal-warnings -o - | FileCheck %s --check-prefix=ASM
-# RUN: llvm-mc -dwarf-version 5 %s -filetype=obj -o - | llvm-dwarfdump -debug-line - | FileCheck %s
-# RUN: llvm-mc -dwarf-version 5 %s -o - | FileCheck %s --check-prefix=ASM
+# RUN: llvm-mc --arch=x86-64 -dwarf-version 4 %s -filetype=obj -o - | llvm-dwarfdump -debug-line - | FileCheck %s
+# RUN: llvm-mc --arch=x86-64 -dwarf-version 4 %s --fatal-warnings -o - | FileCheck %s --check-prefix=ASM
+# RUN: llvm-mc --arch=x86-64 -dwarf-version 5 %s -filetype=obj -o - | llvm-dwarfdump -debug-line - | FileCheck %s
+# RUN: llvm-mc --arch=x86-64 -dwarf-version 5 %s -o - | FileCheck %s --check-prefix=ASM
 
 ## If the DWARF version is less than 5, .file 0 upgrades the version to 5.
         .file 0 "/test" "root.cpp"
