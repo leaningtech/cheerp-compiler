@@ -24,14 +24,15 @@ jobs:
           paths:
               - version
   build-cheerp-compiler:
-    machine: *ubuntu
+    docker:
+      - image: leaningtech/cheerp_ci_base:20.04
     resource_class: large
     environment:
       - NINJA_STATUS: "[%u/%r/%f] "
+      - THREADS: "6"
     steps:
       - attach_workspace:
           at: packages
-      - run: sudo apt-get update && sudo apt-get install -y debhelper cmake ninja-build clang lld devscripts
       - run:
           name: Clone Cheerp
           command: |

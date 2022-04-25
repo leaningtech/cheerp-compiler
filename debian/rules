@@ -25,7 +25,12 @@ override_dh_auto_install:
 	cd build && DESTDIR=${PWD}/debian/tmp ninja install-distribution
 
 override_dh_auto_build:
-	cd build && ninja distribution
+    ifndef CIRCLECI
+		cd build && ninja distribution
+    else
+		cd build && ninja -j${THREADS} distribution
+    endif
+
 
 override_dh_auto_test:
     ifndef CIRCLECI
