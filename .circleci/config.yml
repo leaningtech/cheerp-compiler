@@ -1,13 +1,10 @@
 version: 2.1
 
-aliases:
-  - &ubuntu
-    image: ubuntu-2004:202111-02
-
 jobs:
   define-version-no:
-    machine: *ubuntu
-    resource_class: medium
+    docker:
+      - image: cimg/base:2021.04
+    resource_class: small
     steps:
       - run: mkdir -p ~/project/packages
       - run:
@@ -54,12 +51,12 @@ jobs:
           paths:
             - cheerp-llvm-clang_*.deb
   build-libraries:
-    machine: *ubuntu
+    docker:
+      - image: leaningtech/cheerp_ci_base:20.04
     resource_class: medium
     environment:
       - NINJA_STATUS: "[%u/%r/%f] "
     steps:
-      - run: sudo apt-get update && sudo apt-get install -y debhelper cmake python3-distutils ninja-build clang lld devscripts
       - attach_workspace:
           at: packages
       - run:
@@ -80,7 +77,7 @@ jobs:
           name: Set up workspace
           command: |
             cat ~/project/packages/version >> $BASH_ENV
-            sudo mkdir /opt/cheerp/
+            mkdir /opt/cheerp/
       - install-deb:
           package-name: llvm-clang
       - create-deb:
@@ -122,10 +119,10 @@ jobs:
           paths:
             - cheerp-*.deb
   test:
-    machine: *ubuntu
+    docker:
+      - image: leaningtech/cheerp_ci_base:20.04
     resource_class: large
     steps:
-      - run: sudo apt-get update && sudo apt-get install -y nodejs
       - attach_workspace:
           at: packages
       - run:
@@ -136,7 +133,7 @@ jobs:
             else
               git clone --depth=1 --branch << pipeline.parameters.cheerp-utils-branch >> https://github.com/leaningtech/cheerp-utils.git
             fi
-      - run: sudo mkdir -p /opt/cheerp
+      - run: mkdir -p /opt/cheerp
       - install-deb:
           package-name: llvm-clang
       - install-deb:
@@ -195,7 +192,7 @@ commands:
           command: |
             mkdir tmp
             dpkg -x cheerp-<< parameters.package-name >>_*.deb tmp
-            sudo cp -rv tmp/opt/cheerp/* /opt/cheerp
+            cp -rv tmp/opt/cheerp/* /opt/cheerp
             rm -rf tmp
 
 parameters:
