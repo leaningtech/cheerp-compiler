@@ -202,16 +202,18 @@ jobs:
           name: Get sources
           command: |
             git clone git@github.com:leaningtech/cheerp-internal.git
+            git clone https://github.com/leaningtech/cheerp-compiler.git cheerp-llvm-clang
+            cd cheerp-llvm-clang
             if [ << pipeline.parameters.tag >> != master ]; then
-              git clone --depth=1 --branch << pipeline.parameters.tag >> https://github.com/leaningtech/cheerp-compiler.git cheerp-llvm-clang
+              git checkout << pipeline.parameters.tag >>
             else
-              git clone --depth=1 --branch << pipeline.parameters.cheerp-compiler-branch >> https://github.com/leaningtech/cheerp-compiler.git cheerp-llvm-clang
+              git checkout << pipeline.parameters.cheerp-compiler-commit >>
             fi
       - set-up-rpm-workspace
       - add-rpm-sources:
           directory: cheerp-llvm-clang
           package-name: llvm-clang
-          branch-name: << pipeline.parameters.cheerp-compiler-branch >>
+          branch-name: << pipeline.parameters.cheerp-compiler-commit >>
       - build-deploy-rpm:
           directory: cheerp-llvm-clang
           package-name: llvm-clang
@@ -239,16 +241,20 @@ jobs:
           name: Get repos
           command: |
             git clone git@github.com:leaningtech/cheerp-internal.git
+            git clone https://github.com/leaningtech/cheerp-compiler.git
+            git clone https://github.com/leaningtech/cheerp-utils.git
+            git clone https://github.com/leaningtech/cheerp-libs.git
+            git clone https://github.com/leaningtech/cheerp-newlib.git
             if [ << pipeline.parameters.tag >> != master ]; then
-              git clone --depth=1 --branch << pipeline.parameters.tag >> https://github.com/leaningtech/cheerp-compiler.git
-              git clone --depth=1 --branch << pipeline.parameters.tag >> https://github.com/leaningtech/cheerp-newlib.git
-              git clone --depth=1 --branch << pipeline.parameters.tag >> https://github.com/leaningtech/cheerp-libs.git
-              git clone --depth=1 --branch << pipeline.parameters.tag >> https://github.com/leaningtech/cheerp-utils.git
+              cd cheerp-compiler && git checkout << pipeline.parameters.tag >> && cd ..
+              cd cheerp-utils && git checkout << pipeline.parameters.tag >> && cd ..
+              cd cheerp-libs && git checkout << pipeline.parameters.tag >> && cd ..
+              cd cheerp-newlib && git checkout << pipeline.parameters.tag >>
             else
-              git clone --depth=1 --branch << pipeline.parameters.cheerp-compiler-branch >> https://github.com/leaningtech/cheerp-compiler.git
-              git clone --depth=1 --branch << pipeline.parameters.cheerp-newlib-branch >> https://github.com/leaningtech/cheerp-newlib.git
-              git clone --depth=1 --branch << pipeline.parameters.cheerp-libs-branch >> https://github.com/leaningtech/cheerp-libs.git
-              git clone --depth=1 --branch << pipeline.parameters.cheerp-utils-branch >> https://github.com/leaningtech/cheerp-utils.git
+              cd cheerp-compiler && git checkout << pipeline.parameters.cheerp-compiler-commit >> && cd ..
+              cd cheerp-utils && git checkout << pipeline.parameters.cheerp-utils-commit >> && cd ..
+              cd cheerp-libs && git checkout << pipeline.parameters.cheerp-libs-commit >> && cd ..
+              cd cheerp-newlib && git checkout << pipeline.parameters.cheerp-newlib-commit >>
             fi
       - get-rpm-repo
       - add-yum-configuration
@@ -257,11 +263,11 @@ jobs:
       - create-rpm-package:
           directory: cheerp-utils
           package-name: utils
-          branch-name: << pipeline.parameters.cheerp-utils-branch >>
+          branch-name: << pipeline.parameters.cheerp-utils-commit >>
       - create-rpm-package:
           directory: cheerp-newlib
           package-name: newlib
-          branch-name: << pipeline.parameters.cheerp-newlib-branch >>
+          branch-name: << pipeline.parameters.cheerp-newlib-commit >>
       - run:
           name: Set up for libcxx
           working_directory: ~/project/cheerp-compiler
@@ -271,7 +277,7 @@ jobs:
       - create-rpm-package:
           directory: cheerp-compiler
           package-name: libcxx
-          branch-name: << pipeline.parameters.cheerp-compiler-branch >>
+          branch-name: << pipeline.parameters.cheerp-compiler-commit >>
       - run:
           name: Set up for libcxxabi
           working_directory: ~/project/cheerp-compiler
@@ -281,11 +287,11 @@ jobs:
       - create-rpm-package:
           directory: cheerp-compiler
           package-name: libcxxabi
-          branch-name: << pipeline.parameters.cheerp-compiler-branch >>
+          branch-name: << pipeline.parameters.cheerp-compiler-commit >>
       - create-rpm-package:
           directory: cheerp-libs
           package-name: libs
-          branch-name: << pipeline.parameters.cheerp-libs-branch >>
+          branch-name: << pipeline.parameters.cheerp-libs-commit >>
       - build-deploy-rpm:
           directory: cheerp-internal/tools/releasing/cheerp-core
           package-name: core
