@@ -525,6 +525,11 @@ workflows:
           requires:
             - define-version-no
             - test
+          filters:
+            tags:
+              only: /.*/
+            branches:
+              only: master
       - RPM-libraries:
           requires:
             - RPM-cheerp-compiler
