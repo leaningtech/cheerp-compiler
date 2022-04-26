@@ -33,10 +33,12 @@ jobs:
       - run:
           name: Clone Cheerp
           command: |
+            git clone https://github.com/leaningtech/cheerp-compiler.git
+            cd cheerp-compiler
             if [ << pipeline.parameters.tag >> != 'master' ]; then
-              git clone --depth=1 --branch << pipeline.parameters.tag >> https://github.com/leaningtech/cheerp-compiler
+              git checkout << pipeline.parameters.tag >>
             else
-              git clone --depth=1 --branch << pipeline.parameters.cheerp-compiler-branch >> https://github.com/leaningtech/cheerp-compiler
+              git checkout << pipeline.parameters.cheerp-compiler-commit >>
             fi
       - run:
           name: Set up environment
@@ -62,16 +64,20 @@ jobs:
       - run:
           name: Get repos
           command: |
+            git clone https://github.com/leaningtech/cheerp-compiler.git
+            git clone https://github.com/leaningtech/cheerp-utils.git
+            git clone https://github.com/leaningtech/cheerp-libs.git
+            git clone https://github.com/leaningtech/cheerp-newlib.git
             if [ << pipeline.parameters.tag >> != master ]; then
-              git clone --depth=1 --branch << pipeline.parameters.tag >> https://github.com/leaningtech/cheerp-compiler.git
-              git clone --depth=1 --branch << pipeline.parameters.tag >> https://github.com/leaningtech/cheerp-newlib.git
-              git clone --depth=1 --branch << pipeline.parameters.tag >> https://github.com/leaningtech/cheerp-libs.git
-              git clone --depth=1 --branch << pipeline.parameters.tag >> https://github.com/leaningtech/cheerp-utils.git
+              cd cheerp-compiler && git checkout << pipeline.parameters.tag >> && cd ..
+              cd cheerp-utils && git checkout << pipeline.parameters.tag >> && cd ..
+              cd cheerp-libs && git checkout << pipeline.parameters.tag >> && cd ..
+              cd cheerp-newlib && git checkout << pipeline.parameters.tag >>
             else
-              git clone --depth=1 --branch << pipeline.parameters.cheerp-compiler-branch >> https://github.com/leaningtech/cheerp-compiler.git
-              git clone --depth=1 --branch << pipeline.parameters.cheerp-newlib-branch >> https://github.com/leaningtech/cheerp-newlib.git
-              git clone --depth=1 --branch << pipeline.parameters.cheerp-libs-branch >> https://github.com/leaningtech/cheerp-libs.git
-              git clone --depth=1 --branch << pipeline.parameters.cheerp-utils-branch >> https://github.com/leaningtech/cheerp-utils.git
+              cd cheerp-compiler && git checkout << pipeline.parameters.cheerp-compiler-commit >> && cd ..
+              cd cheerp-utils && git checkout << pipeline.parameters.cheerp-utils-commit >> && cd ..
+              cd cheerp-libs && git checkout << pipeline.parameters.cheerp-libs-commit >> && cd ..
+              cd cheerp-newlib && git checkout << pipeline.parameters.cheerp-newlib-commit >>
             fi
       - run:
           name: Set up workspace
@@ -128,10 +134,12 @@ jobs:
       - run:
           name: Get tests
           command: |
+            git clone https://github.com/leaningtech/cheerp-utils.git
+            cd cheerp-utils
             if [ << pipeline.parameters.tag >> != master ]; then
-              git clone --depth=1 --branch << pipeline.parameters.tag >> https://github.com/leaningtech/cheerp-utils.git
+              git checkout << pipeline.parameters.tag >>
             else
-              git clone --depth=1 --branch << pipeline.parameters.cheerp-utils-branch >> https://github.com/leaningtech/cheerp-utils.git
+              git checkout << pipeline.parameters.cheerp-utils-commit >>
             fi
       - run: mkdir -p /opt/cheerp
       - install-deb:
@@ -199,16 +207,16 @@ parameters:
   tag:
     type: string
     default: "master"
-  cheerp-compiler-branch:
+  cheerp-compiler-commit:
     type: string
-    default: << pipeline.git.branch >>
-  cheerp-utils-branch:
-    type: string
-    default: "master"
-  cheerp-newlib-branch:
+    default: << pipeline.git.revision >>
+  cheerp-utils-commit:
     type: string
     default: "master"
-  cheerp-libs-branch:
+  cheerp-newlib-commit:
+    type: string
+    default: "master"
+  cheerp-libs-commit:
     type: string
     default: "master"
 
