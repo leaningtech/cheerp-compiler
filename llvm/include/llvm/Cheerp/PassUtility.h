@@ -16,15 +16,15 @@
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
 #include "llvm/Cheerp/InvokeWrapping.h"
 
+namespace cheerp
+{
+
 template <class P>
 class RequiredPassWrapper : public P
 {
 	public:
 	static bool isRequired() {return true;}
 };
-
-namespace cheerp
-{
 
 template <class P, class IR, class Manager>
 class PreserveCheerpAnalysisPassWrapper : public P

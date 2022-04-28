@@ -1390,8 +1390,8 @@ void EmitAssemblyHelper::RunOptimizationPipeline(
           [](ModulePassManager &MPM, OptimizationLevel Level) {
             //Run mem2reg first, to remove load/stores for the this argument
             //We need this to track this in custom constructors for DOM types, such as String::String(const char*)
-            MPM.addPass(createModuleToFunctionPassAdaptor(RequiredPassWrapper<PromotePass>()));
-            MPM.addPass(createModuleToFunctionPassAdaptor(CheerpNativeRewriterPass()));
+            MPM.addPass(createModuleToFunctionPassAdaptor(cheerp::RequiredPassWrapper<PromotePass>()));
+            MPM.addPass(createModuleToFunctionPassAdaptor(cheerp::CheerpNativeRewriterPass()));
             //Cheerp is single threaded, convert atomic instructions to regular ones
             MPM.addPass(createModuleToFunctionPassAdaptor(LowerAtomicPass()));
           });
