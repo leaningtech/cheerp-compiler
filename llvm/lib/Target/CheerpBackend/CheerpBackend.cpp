@@ -25,6 +25,7 @@
 #include "llvm/Cheerp/Writer.h"
 #include "llvm/Cheerp/WasmWriter.h"
 #include "llvm/Cheerp/PassRegistry.h"
+#include "llvm/Cheerp/PassUtility.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Pass.h"
@@ -141,7 +142,7 @@ bool CheerpWritePass::runOnModule(Module& M)
   MPM.addPass(createModuleToFunctionPassAdaptor(cheerp::StoreMergingPass(LinearOutput == Wasm)));
   // Remove obviously dead instruction, this avoids problems caused by inlining of effectfull instructions
   // inside not used instructions which are then not rendered.
-  MPM.addPass(createModuleToFunctionPassAdaptor(DCEPass()));
+  MPM.addPass(createModuleToFunctionPassAdaptor(cheerp::PreserveCheerpAnalysisPassWrapper<DCEPass, Function, FunctionAnalysisManager>()));
   MPM.addPass(cheerp::RegisterizePass(!NoJavaScriptMathFround, LinearOutput == Wasm));
   MPM.addPass(cheerp::LinearMemoryHelperPass(cheerp::LinearMemoryHelperInitializer({functionAddressMode, CheerpHeapSize, CheerpStackSize, WasmOnly, growMem})));
   MPM.addPass(cheerp::ConstantExprLoweringPass());
