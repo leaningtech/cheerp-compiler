@@ -28,8 +28,6 @@
 #include "llvm/Transforms/Utils/AssumeBundleBuilder.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Local.h"
-#include "llvm/Cheerp/GlobalDepsAnalyzer.h"
-#include "llvm/Cheerp/InvokeWrapping.h"
 
 using namespace llvm;
 
@@ -81,7 +79,6 @@ RedundantDbgInstEliminationPass::run(Function &F, FunctionAnalysisManager &AM) {
     return PreservedAnalyses::all();
   PreservedAnalyses PA;
   PA.preserveSet<CFGAnalyses>();
-  PA.preserve<cheerp::GlobalDepsAnalysis>();
   return PA;
 }
 
@@ -149,8 +146,6 @@ PreservedAnalyses DCEPass::run(Function &F, FunctionAnalysisManager &AM) {
 
   PreservedAnalyses PA;
   PA.preserveSet<CFGAnalyses>();
-  PA.preserve<cheerp::GlobalDepsAnalysis>();
-  PA.preserve<cheerp::InvokeWrappingAnalysis>();
   return PA;
 }
 
