@@ -755,11 +755,9 @@ struct I64LoweringVisitor: public InstVisitor<I64LoweringVisitor, HighInt>
 
 				Value* high = Builder.CreateSelect(resCmp, LHS.high, RHS.high);
 				Value* low = Builder.CreateSelect(resCmp, LHS.low, RHS.low);
-				HighInt Res(high, low);
-
-				ToDelete.push_back(&I);
-				Changed = true;
-				return Res;
+				Res.high = high;
+				Res.low = low;
+				break;
 			}
 			default:
 			{
