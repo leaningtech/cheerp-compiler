@@ -54,7 +54,7 @@ bool CheerpLowerSwitch::keepSwitch(const SwitchInst* si)
 		return false;
 	uint32_t bitWidth = si->getCondition()->getType()->getIntegerBitWidth();
 	// No 64 bit
-	if (bitWidth == 64)
+	if (bitWidth > 32)
 		return false;
 	if (onlyLowerI64)
 		return true;
