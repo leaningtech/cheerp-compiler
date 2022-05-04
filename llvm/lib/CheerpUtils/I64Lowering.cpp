@@ -764,6 +764,43 @@ struct I64LoweringVisitor: public InstVisitor<I64LoweringVisitor, HighInt>
 				Res.low = low;
 				break;
 			}
+			case Intrinsic::uadd_sat:
+			{
+				// uadd.sat(a, b) -> umin(a, ~b) + b
+				HighInt LHS = visitValue(I.getOperand(0));
+				HighInt RHS = visitValue(I.getOperand(1));
+
+				HighInt negRHS;
+				{
+					IRBuilder<> Builder(&I);
+					negRHS.low = Builder.CreateSub(ConstantInt::get(Int32Ty, -1), RHS.low);
+					negRHS.high = Builder.CreateSub(ConstantInt::get(Int32Ty, -1), RHS.high);
+				}
+
+				Value* resCmp = computeResultICmpInst(LHS, negRHS, CmpInst::ICMP_ULT, I);
+				IRBuilder<> Builder(&I);
+
+				HighInt resMin;
+				resMin.high = Builder.CreateSelect(resCmp, LHS.high, negRHS.high);
+				resMin.low = Builder.CreateSelect(resCmp, LHS.low, negRHS.low);
+
+				Value *highNormal = Builder.CreateAdd(resMin.high, RHS.high, "highNormal");
+				Value *low = Builder.CreateAdd(resMin.low, RHS.low, "low");
+
+				Value *one = Builder.getInt32(1);
+				Value *highPlusOne = Builder.CreateAdd(highNormal, one, "highPlusOne");
+
+				// Check if the low bits of the highint will overflow, and add one to the
+				// high bits if it does overflow.
+				Value *max = Builder.getInt32(0xffffffff);
+				Value *difference = Builder.CreateSub(max, RHS.low);
+				Value *overflow = Builder.CreateICmpUGT(resMin.low, difference);
+				Value *high = Builder.CreateSelect(overflow, highPlusOne, highNormal, "addSel");
+
+				Res.high = high;
+				Res.low = low;
+				break;
+			}
 			default:
 			{
 				report_fatal_error("Unsupported 64 bit intrinsic");
