@@ -591,6 +591,11 @@ struct I64LoweringVisitor: public InstVisitor<I64LoweringVisitor, HighInt>
 
 		IRBuilder<> Builder(&I);
 		HighInt H = visitValue(I.getOperand(0));
+
+		uint32_t resSize = I.getType()->getScalarSizeInBits();
+		if (resSize > 32)
+			return HighInt(Builder.CreateTrunc(H.high, IntegerType::getIntNTy(Ctx, resSize - 32)), H.low);
+
 		Value* Res = H.low;
 		if (Res->getType() != I.getType())
 		{
