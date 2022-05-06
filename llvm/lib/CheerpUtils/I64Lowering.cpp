@@ -801,6 +801,22 @@ struct I64LoweringVisitor: public InstVisitor<I64LoweringVisitor, HighInt>
 				Res.low = low;
 				break;
 			}
+			case Intrinsic::usub_sat:
+			{
+				// usub.sat(a, b) -> umax(a, b) - b
+				HighInt LHS = visitValue(I.getOperand(0));
+				HighInt RHS = visitValue(I.getOperand(1));
+
+				Value* resCmp = computeResultICmpInst(LHS, RHS, CmpInst::ICMP_UGT, I);
+
+				IRBuilder<> Builder(&I);
+				HighInt resMax;
+				resMax.high = Builder.CreateSelect(resCmp, LHS.high, RHS.high);
+				resMax.low = Builder.CreateSelect(resCmp, LHS.low, RHS.low);
+
+				Res = doSub(Builder, resMax, RHS);
+				break;
+			}
 			default:
 			{
 				report_fatal_error("Unsupported 64 bit intrinsic");
