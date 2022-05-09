@@ -44,7 +44,21 @@ PreservedAnalyses CallConstructorsPass::run(llvm::Module &M, llvm::ModuleAnalysi
 	if (!entry)
 		entry = M.getFunction("main");
 	if (entry)
-		Builder.CreateCall(entry->getFunctionType(), entry);
+	{
+		SmallVector<Value*, 4> Args;
+		for (auto& a: entry->args())
+		{
+			auto* ArgTy = a.getType();
+			if (auto* PTy = dyn_cast<PointerType>(ArgTy))
+				Args.push_back(ConstantPointerNull::get(PTy));
+			else if (auto* ITy = dyn_cast<IntegerType>(ArgTy))
+				Args.push_back(ConstantInt::get(ITy, 0));
+			else
+				llvm::report_fatal_error("main function has a strange signature");
+		}
+		Builder.CreateCall(entry->getFunctionType(), entry, Args);
+	}
+
 	Builder.CreateRetVoid();
 
 	PreservedAnalyses PA = PreservedAnalyses::none();
