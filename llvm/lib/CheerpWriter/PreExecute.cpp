@@ -1008,9 +1008,7 @@ bool PreExecute::runOnModule(Module& m)
         if (!mainFunc)
             mainFunc= m.getFunction("main");
         assert(mainFunc && "unable to find webMain in module!");
-        Function* startFunc = m.getFunction("_start");
-        assert(startFunc && "unable to find _start in module!");
-        if(runOnConstructor(m, startFunc))
+        if(runOnConstructor(m, mainFunc))
         {
             Changed |= true;
             mainFunc->eraseFromParent();
