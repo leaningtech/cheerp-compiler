@@ -1064,6 +1064,30 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(const
 		// floats in asm.js, so we need an extra `+` for those
 		PARENT_PRIORITY mathPrio = LOWEST;
 		bool asmjsFloats = asmjs && useMathFround;
+		if(intrinsicId==Intrinsic::copysign)
+		{
+			assert((*it)->getType()->isDoubleTy());
+			stream << "(";
+			Value* mag = *it;
+			Value* sgn = *(it+1);
+			compileOperand(sgn, TERNARY);
+			stream << "<0.?-";
+			if(asmjs)
+				stream << namegen.getBuiltinName(NameGenerator::Builtin::ABS);
+			else
+				stream << Math << "abs";
+			stream << "(";
+			compileOperand(mag, LOWEST);
+			stream << "):";
+			if(asmjs)
+				stream << namegen.getBuiltinName(NameGenerator::Builtin::ABS);
+			else
+				stream << Math << "abs";
+			stream << "(";
+			compileOperand(mag, LOWEST);
+			stream << "))";
+			return COMPILE_OK;
+		}
 		if(ident=="fabs" || ident=="fabsf" || intrinsicId==Intrinsic::fabs)
 		{
 			if(asmjs)
