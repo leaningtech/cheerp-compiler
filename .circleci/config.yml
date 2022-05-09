@@ -29,7 +29,7 @@ jobs:
       - THREADS: "6"
     steps:
       - attach_workspace:
-          at: packages
+          at: ~/project/packages
       - run:
           name: Clone Cheerp
           command: |
@@ -48,10 +48,35 @@ jobs:
       - build-internal:
           directory: cheerp-compiler
           package-name: llvm-clang
+      - run:
+          name: Save build
+          working_directory: ~/project/cheerp-compiler
+          command: tar -cjf ~/project/packages/cheerp-build.tar.bz2 build cmake third-party llvm clang .git/logs/HEAD
       - persist_to_workspace:
           root: ~/project/packages
           paths:
             - cheerp-llvm-clang_*.deb
+            - cheerp-build.tar.bz2
+  llvm-check:
+    docker:
+      - image: leaningtech/cheerp_ci_base:20.04
+    resource_class: large
+    environment:
+      - NINJA_STATUS: "[%u/%r/%f] "
+    steps:
+      - attach_workspace:
+          at: ~/project/packages
+      - run: mkdir ~/project/cheerp-compiler
+      - run:
+          name: Extract archive
+          working_directory: ~/project/cheerp-compiler
+          command: |
+            mv ~/project/packages/cheerp-build.tar.bz2 .
+            tar -xf cheerp-build.tar.bz2
+      - run:
+          name: Run llvm check
+          working_directory: ~/project/cheerp-compiler/build
+          command: ninja -j6 check
   build-libraries:
     docker:
       - image: leaningtech/cheerp_ci_base:20.04
@@ -647,6 +672,9 @@ workflows:
       - build-cheerp-compiler:
           requires:
             - define-version-no
+      - llvm-check:
+          requires:
+            - build-cheerp-compiler
       - build-libraries:
           requires:
             - define-version-no
@@ -659,6 +687,7 @@ workflows:
           requires:
             - define-version-no
             - test
+            - llvm-check
           filters:
             tags:
               only: /.*/
@@ -671,3 +700,4 @@ workflows:
           requires:
             - define-version-no
             - test
+            - llvm-check
