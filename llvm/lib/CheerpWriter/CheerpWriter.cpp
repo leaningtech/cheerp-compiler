@@ -1504,13 +1504,15 @@ void CheerpWriter::compileEqualPointersComparison(const llvm::Value* lhs, const 
 	if(rhsKind == RAW)
 		assert(lhsKind == RAW || lhsKind == CONSTANT);
 
-	if (lhsKind == RAW || rhsKind == RAW)
+	bool asmjs = currentFun && currentFun->getSection() == "asmjs";
+	bool compareRaw = lhsKind == RAW || rhsKind == RAW || (lhsKind == CONSTANT && rhsKind == CONSTANT && asmjs);
+
+	if (compareRaw)
 		compareString = (p == CmpInst::ICMP_NE) ? "!=" : "==";
 	else
 		compareString = (p == CmpInst::ICMP_NE) ? "!==" : "===";
 
-	// in asmjs mode all the pointers are RAW pointers
-	if(lhsKind == RAW || rhsKind == RAW)
+	if(compareRaw)
 	{
 		stream << "(";
 		compileRawPointer(lhs, PARENT_PRIORITY::BIT_OR);
