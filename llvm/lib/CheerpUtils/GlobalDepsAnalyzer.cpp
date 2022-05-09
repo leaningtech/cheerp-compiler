@@ -719,6 +719,10 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 		{
 			hasBuiltin[BuiltinInstr::GROW_MEM] = true;
 		}
+		else if(F.getIntrinsicID() == Intrinsic::copysign && mathMode == JS_BUILTINS)
+		{
+			hasBuiltin[BuiltinInstr::ABS_F] = true;
+		}
 	}
 
 	//Build the map of existing functions types that are called indirectly to their representative (or nullptr if multiple representative exist)
