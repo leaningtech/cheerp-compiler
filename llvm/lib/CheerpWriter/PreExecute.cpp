@@ -997,7 +997,10 @@ bool PreExecute::runOnModule(Module& m)
             if(runOnConstructor(m, func))
                 Changed |= true;
             else
+            {
                 newConstructors.push_back(elem);
+                abortAtNextPrio = true;
+            }
         }
     }
 
