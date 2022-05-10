@@ -51,13 +51,13 @@ Go check the README.md of https://github.com/leaningtech/cheerp-newlib
 ### Build libcxx and libcxxabi
 
 ```
-cmake -S runtimes -B build_runtimes_genericjs -GNinja -C runtimes/CheerpCmakeConf.cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER_TARGET="cheerp"
+cmake -S runtimes -B build_runtimes_genericjs -GNinja -C runtimes/CheerpCmakeConf.cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="/opt/cheerp/share/cmake/Modules/CheerpToolchain.cmake"
 ninja -C build_runtimes_genericjs
-sudo ninja -C build_runtimes_genericjs install
+ninja -C build_runtimes_genericjs install
 
-cmake -S runtimes -B build_runtimes_wasm -GNinja -C runtimes/CheerpCmakeConf.cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER_TARGET="cheerp-wasm"
+cmake -S runtimes -B build_runtimes_wasm -GNinja -C runtimes/CheerpCmakeConf.cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="/opt/cheerp/share/cmake/Modules/CheerpWasmToolchain.cmake"
 ninja -C build_runtimes_wasm
-sudo ninja -C build_runtimes_wasm install
+ninja -C build_runtimes_wasm install
 ```
 
 ### Build libs
