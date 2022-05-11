@@ -10,8 +10,8 @@ jobs:
       - run:
           name: Define version
           command: |
-            if [ << pipeline.parameters.tag >> != 'master' ]; then
-              export VERSION_NO=`echo << pipeline.parameters.tag >> | cut --complement -c1-7 | sed "s/rc/~rc/"`
+            if [ << pipeline.parameters.release-tag >> != 'master' ]; then
+              export VERSION_NO=`echo << pipeline.parameters.release-tag >> | cut --complement -c1-7 | sed "s/rc/~rc/"`
             else
               export VERSION_NO=`date +%s`
             fi
@@ -35,8 +35,8 @@ jobs:
           command: |
             git clone https://github.com/leaningtech/cheerp-compiler.git
             cd cheerp-compiler
-            if [ << pipeline.parameters.tag >> != 'master' ]; then
-              git checkout << pipeline.parameters.tag >>
+            if [ << pipeline.parameters.release-tag >> != 'master' ]; then
+              git checkout << pipeline.parameters.release-tag >>
             else
               git checkout << pipeline.parameters.cheerp-compiler-commit >>
             fi
@@ -93,11 +93,11 @@ jobs:
             git clone https://github.com/leaningtech/cheerp-utils.git
             git clone https://github.com/leaningtech/cheerp-libs.git
             git clone https://github.com/leaningtech/cheerp-newlib.git
-            if [ << pipeline.parameters.tag >> != master ]; then
-              cd cheerp-compiler && git checkout << pipeline.parameters.tag >> && cd ..
-              cd cheerp-utils && git checkout << pipeline.parameters.tag >> && cd ..
-              cd cheerp-libs && git checkout << pipeline.parameters.tag >> && cd ..
-              cd cheerp-newlib && git checkout << pipeline.parameters.tag >>
+            if [ << pipeline.parameters.release-tag >> != master ]; then
+              cd cheerp-compiler && git checkout << pipeline.parameters.release-tag >> && cd ..
+              cd cheerp-utils && git checkout << pipeline.parameters.release-tag >> && cd ..
+              cd cheerp-libs && git checkout << pipeline.parameters.release-tag >> && cd ..
+              cd cheerp-newlib && git checkout << pipeline.parameters.release-tag >>
             else
               cd cheerp-compiler && git checkout << pipeline.parameters.cheerp-compiler-commit >> && cd ..
               cd cheerp-utils && git checkout << pipeline.parameters.cheerp-utils-commit >> && cd ..
@@ -153,8 +153,8 @@ jobs:
           command: |
             git clone https://github.com/leaningtech/cheerp-utils.git
             cd cheerp-utils
-            if [ << pipeline.parameters.tag >> != master ]; then
-              git checkout << pipeline.parameters.tag >>
+            if [ << pipeline.parameters.release-tag >> != master ]; then
+              git checkout << pipeline.parameters.release-tag >>
             else
               git checkout << pipeline.parameters.cheerp-utils-commit >>
             fi
@@ -196,7 +196,7 @@ jobs:
           name: Set up environment
           working_directory: ~/
           command: |
-            if [ << pipeline.parameters.tag >> != master ]; then
+            if [ << pipeline.parameters.release-tag >> != master ]; then
               echo "export CHAN=stable" >> $BASH_ENV
             else
               echo "export CHAN=nightly" >> $BASH_ENV
@@ -217,8 +217,8 @@ jobs:
             git clone git@github.com:leaningtech/cheerp-internal.git
             git clone https://github.com/leaningtech/cheerp-compiler.git cheerp-llvm-clang
             cd cheerp-llvm-clang
-            if [ << pipeline.parameters.tag >> != master ]; then
-              git checkout << pipeline.parameters.tag >>
+            if [ << pipeline.parameters.release-tag >> != master ]; then
+              git checkout << pipeline.parameters.release-tag >>
             else
               git checkout << pipeline.parameters.cheerp-compiler-commit >>
             fi
@@ -258,11 +258,11 @@ jobs:
             git clone https://github.com/leaningtech/cheerp-utils.git
             git clone https://github.com/leaningtech/cheerp-libs.git
             git clone https://github.com/leaningtech/cheerp-newlib.git
-            if [ << pipeline.parameters.tag >> != master ]; then
-              cd cheerp-compiler && git checkout << pipeline.parameters.tag >> && cd ..
-              cd cheerp-utils && git checkout << pipeline.parameters.tag >> && cd ..
-              cd cheerp-libs && git checkout << pipeline.parameters.tag >> && cd ..
-              cd cheerp-newlib && git checkout << pipeline.parameters.tag >>
+            if [ << pipeline.parameters.release-tag >> != master ]; then
+              cd cheerp-compiler && git checkout << pipeline.parameters.release-tag >> && cd ..
+              cd cheerp-utils && git checkout << pipeline.parameters.release-tag >> && cd ..
+              cd cheerp-libs && git checkout << pipeline.parameters.release-tag >> && cd ..
+              cd cheerp-newlib && git checkout << pipeline.parameters.release-tag >>
             else
               cd cheerp-compiler && git checkout << pipeline.parameters.cheerp-compiler-commit >> && cd ..
               cd cheerp-utils && git checkout << pipeline.parameters.cheerp-utils-commit >> && cd ..
@@ -281,9 +281,9 @@ jobs:
           name: Add cheerp-newlib sources
           working_directory: ~/project/cheerp-newlib
           command: |
-            if [ << pipeline.parameters.tag >> != master ]; then
-              export NEWLIB_TAG=<< pipeline.parameters.tag >>
-              export CHEERP_COMPILER_TAG=<< pipeline.parameters.tag >>
+            if [ << pipeline.parameters.release-tag >> != master ]; then
+              export NEWLIB_TAG=<< pipeline.parameters.release-tag >>
+              export CHEERP_COMPILER_TAG=<< pipeline.parameters.release-tag >>
             else
               export NEWLIB_TAG=<< pipeline.parameters.cheerp-newlib-commit >>
               export CHEERP_COMPILER_TAG=<< pipeline.parameters.cheerp-compiler-commit >>
@@ -321,7 +321,7 @@ jobs:
           package-name: core
       - when:
           condition:
-            equal: [ master, << pipeline.parameters.tag >> ]
+            equal: [ master, << pipeline.parameters.release-tag >> ]
           steps:
             - run:
                 name: Remove old packages
@@ -373,13 +373,13 @@ jobs:
             mkdir pkg
             echo -e $GPG_KEY | gpg --import
             locale
-            if [ << pipeline.parameters.tag >> != 'master' ]; then
+            if [ << pipeline.parameters.release-tag >> != 'master' ]; then
               echo "export CHANGELOG_MESSAGE="Release ${VERSION_NO}"" >> $BASH_ENV
               echo 'export PPA="ppa:leaningtech-dev/cheerp-ppa"' >> $BASH_ENV
-              cd cheerp-compiler && git checkout << pipeline.parameters.tag >>
-              cd ../cheerp-utils && git checkout << pipeline.parameters.tag >>
-              cd ../cheerp-newlib && git checkout << pipeline.parameters.tag >>
-              cd ../cheerp-libs && git checkout << pipeline.parameters.tag >>
+              cd cheerp-compiler && git checkout << pipeline.parameters.release-tag >>
+              cd ../cheerp-utils && git checkout << pipeline.parameters.release-tag >>
+              cd ../cheerp-newlib && git checkout << pipeline.parameters.release-tag >>
+              cd ../cheerp-libs && git checkout << pipeline.parameters.release-tag >>
             else
               echo 'export CHANGELOG_MESSAGE="Nightly build"' >> $BASH_ENV
               echo 'export PPA="ppa:leaningtech-dev/cheerp-nightly-ppa"' >> $BASH_ENV
@@ -392,8 +392,8 @@ jobs:
           name: Package cheerp-compiler
           working_directory: cheerp-compiler
           command: |
-            if [ << pipeline.parameters.tag >> != 'master' ]; then
-              ../cheerp-internal/tools/releasing/llvm-clang_debian_archives.sh ${VERSION_NO} << pipeline.parameters.tag >>
+            if [ << pipeline.parameters.release-tag >> != 'master' ]; then
+              ../cheerp-internal/tools/releasing/llvm-clang_debian_archives.sh ${VERSION_NO} << pipeline.parameters.release-tag >>
             else
               ../cheerp-internal/tools/releasing/llvm-clang_debian_archives.sh ${VERSION_NO} << pipeline.parameters.cheerp-compiler-commit >>
             fi
@@ -406,8 +406,8 @@ jobs:
           name: Prepare cheerp-utils sources
           working_directory: cheerp-utils
           command: |
-            if [ << pipeline.parameters.tag >> != 'master' ]; then
-              ../cheerp-internal/tools/releasing/utils_debian_archives.sh $VERSION_NO << pipeline.parameters.tag >>
+            if [ << pipeline.parameters.release-tag >> != 'master' ]; then
+              ../cheerp-internal/tools/releasing/utils_debian_archives.sh $VERSION_NO << pipeline.parameters.release-tag >>
             else
               ../cheerp-internal/tools/releasing/utils_debian_archives.sh $VERSION_NO << pipeline.parameters.cheerp-utils-commit >>
             fi
@@ -421,8 +421,8 @@ jobs:
           name: Prepare cheerp-newlib sources
           working_directory: cheerp-newlib
           command: |
-            if [ << pipeline.parameters.tag >> != 'master' ]; then
-              ../cheerp-internal/tools/releasing/newlib_debian_archives.sh $VERSION_NO << pipeline.parameters.tag >>
+            if [ << pipeline.parameters.release-tag >> != 'master' ]; then
+              ../cheerp-internal/tools/releasing/newlib_debian_archives.sh $VERSION_NO << pipeline.parameters.release-tag >>
             else
               ../cheerp-internal/tools/releasing/newlib_debian_archives.sh $VERSION_NO << pipeline.parameters.cheerp-newlib-commit >>
             fi
@@ -437,8 +437,8 @@ jobs:
           name: Prepare libcxx-libcxxabi sources
           working_directory: cheerp-compiler
           command: |
-            if [ << pipeline.parameters.tag >> != 'master' ]; then
-              ../cheerp-internal/tools/releasing/libcxx-libcxxabi_debian_archives.sh $VERSION_NO << pipeline.parameters.tag >>
+            if [ << pipeline.parameters.release-tag >> != 'master' ]; then
+              ../cheerp-internal/tools/releasing/libcxx-libcxxabi_debian_archives.sh $VERSION_NO << pipeline.parameters.release-tag >>
             else
               ../cheerp-internal/tools/releasing/libcxx-libcxxabi_debian_archives.sh $VERSION_NO << pipeline.parameters.cheerp-compiler-commit >>
             fi
@@ -454,8 +454,8 @@ jobs:
           name: Prepare cheerp-libs sources
           working_directory: cheerp-libs
           command: |
-            if [ << pipeline.parameters.tag >> != 'master' ]; then
-              ../cheerp-internal/tools/releasing/libs_debian_archives.sh ${VERSION_NO} << pipeline.parameters.tag >>
+            if [ << pipeline.parameters.release-tag >> != 'master' ]; then
+              ../cheerp-internal/tools/releasing/libs_debian_archives.sh ${VERSION_NO} << pipeline.parameters.release-tag >>
             else
               ../cheerp-internal/tools/releasing/libs_debian_archives.sh ${VERSION_NO} << pipeline.parameters.cheerp-libs-commit >>
             fi
@@ -484,15 +484,15 @@ jobs:
             dput ${PPA} cheerp-libcxx-libcxxabi*_source.changes
             dput ${PPA} cheerp-libs*_source.changes
             dput ${PPA} ../cheerp-internal/tools/releasing/cheerp-core*_source.changes
-            if [ << pipeline.parameters.tag >> != 'master' ]; then
+            if [ << pipeline.parameters.release-tag >> != 'master' ]; then
               cp cheerp-llvm-clang_${VERSION_NO}.orig.tar.gz cheerp-llvm-clang-${VERSION_NO}.tar.gz
               python2 ../cheerp-internal/tools/releasing/github_upload.py ${VERSION} "Cheerp ${VERSION_NO}" cheerp-llvm-clang-${VERSION_NO}.tar.gz cheerp-llvm-clang-${VERSION_NO}.tar.gz
               cp cheerp-utils_${VERSION_NO}.orig.tar.gz cheerp-utils-${VERSION_NO}.tar.gz
               cp cheerp-newlib_${VERSION_NO}.orig.tar.gz cheerp-newlib-${VERSION_NO}.tar.gz
               cp cheerp-libs_${VERSION_NO}.orig.tar.gz cheerp-libs-${VERSION_NO}.tar.gz
-              python2 ../cheerp-internal/tools/releasing/github_upload.py << pipeline.parameters.tag >> "Cheerp ${VERSION_NO}" cheerp-utils-${VERSION_NO}.tar.gz cheerp-utils-${VERSION_NO}.tar.gz
-              python2 ../cheerp-internal/tools/releasing/github_upload.py << pipeline.parameters.tag >> "Cheerp ${VERSION_NO}" cheerp-newlib-${VERSION_NO}.tar.gz cheerp-newlib-${VERSION_NO}.tar.gz
-              python2 ../cheerp-internal/tools/releasing/github_upload.py << pipeline.parameters.tag >> "Cheerp ${VERSION_NO}" cheerp-libs-${VERSION_NO}.tar.gz cheerp-libs-${VERSION_NO}.tar.gz
+              python2 ../cheerp-internal/tools/releasing/github_upload.py << pipeline.parameters.release-tag >> "Cheerp ${VERSION_NO}" cheerp-utils-${VERSION_NO}.tar.gz cheerp-utils-${VERSION_NO}.tar.gz
+              python2 ../cheerp-internal/tools/releasing/github_upload.py << pipeline.parameters.release-tag >> "Cheerp ${VERSION_NO}" cheerp-newlib-${VERSION_NO}.tar.gz cheerp-newlib-${VERSION_NO}.tar.gz
+              python2 ../cheerp-internal/tools/releasing/github_upload.py << pipeline.parameters.release-tag >> "Cheerp ${VERSION_NO}" cheerp-libs-${VERSION_NO}.tar.gz cheerp-libs-${VERSION_NO}.tar.gz
             fi
 
 commands:
@@ -540,7 +540,7 @@ commands:
       - run:
           name: Add yum configuration
           command: |
-            if [ << pipeline.parameters.tag >> != "master" ]; then
+            if [ << pipeline.parameters.release-tag >> != "master" ]; then
 
             cat \<< EOF > /etc/yum.repos.d/cheerp.repo
             [Cheerp-Stable]
@@ -612,8 +612,8 @@ commands:
           name: Add cheerp-<< parameters.package-name >> sources
           working_directory: ~/project/<< parameters.directory >>
           command: |
-            if [ << pipeline.parameters.tag >> != master ]; then
-              ../cheerp-internal/tools/releasing/<< parameters.package-name >>_debian_archives.sh ${VERSION_NO} << pipeline.parameters.tag >>
+            if [ << pipeline.parameters.release-tag >> != master ]; then
+              ../cheerp-internal/tools/releasing/<< parameters.package-name >>_debian_archives.sh ${VERSION_NO} << pipeline.parameters.release-tag >>
             else
               ../cheerp-internal/tools/releasing/<< parameters.package-name >>_debian_archives.sh ${VERSION_NO} << parameters.branch-name >>
             fi
@@ -649,7 +649,7 @@ commands:
             dnf install -y cheerp-<< parameters.package-name >>-${VERSION_NO}-1.el8
 
 parameters:
-  tag:
+  release-tag:
     type: string
     default: "master"
   cheerp-compiler-commit:
