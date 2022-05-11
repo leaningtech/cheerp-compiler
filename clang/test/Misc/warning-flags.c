@@ -18,7 +18,7 @@ This test serves two purposes:
 
 The list of warnings below should NEVER grow.  It should gradually shrink to 0.
 
-CHECK: Warnings without flags (72):
+CHECK: Warnings without flags (67):
 
 CHECK-NEXT:   ext_expected_semi_decl_list
 CHECK-NEXT:   ext_explicit_specialization_storage_class
@@ -40,11 +40,6 @@ CHECK-NEXT:   warn_c_kext
 CHECK-NEXT:   warn_call_wrong_number_of_arguments
 CHECK-NEXT:   warn_case_empty_range
 CHECK-NEXT:   warn_char_constant_too_large
-CHECK-NEXT:   warn_cheerp_client_layout_ctor
-CHECK-NEXT:   warn_cheerp_deprecated_attribute
-CHECK-NEXT:   warn_cheerp_inefficient_unions
-CHECK-NEXT:   warn_cheerp_ptr_to_int
-CHECK-NEXT:   warn_cheerp_unsafe_cast
 CHECK-NEXT:   warn_collection_expr_type
 CHECK-NEXT:   warn_conflicting_variadic
 CHECK-NEXT:   warn_delete_array_type
