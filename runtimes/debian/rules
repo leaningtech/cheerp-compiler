@@ -6,10 +6,12 @@
 override_dh_auto_configure:
 	cmake -S runtimes -B build_runtimes_genericjs \
 		-GNinja -C runtimes/CheerpCmakeConf.cmake \
-		-DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER_TARGET="cheerp"
+		-DCMAKE_BUILD_TYPE=Release \
+		-DCMAKE_TOOLCHAIN_FILE="/opt/cheerp/share/cmake/Modules/CheerpToolchain.cmake"
 	cmake -S runtimes -B build_runtimes_wasm \
 		-GNinja -C runtimes/CheerpCmakeConf.cmake \
-		-DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER_TARGET="cheerp-wasm"
+		-DCMAKE_BUILD_TYPE=Release \
+		-DCMAKE_TOOLCHAIN_FILE="/opt/cheerp/share/cmake/Modules/CheerpWasmToolchain.cmake"
 
 override_dh_auto_build:
 	dh_auto_build -Bbuild_runtimes_genericjs
