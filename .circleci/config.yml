@@ -701,3 +701,8 @@ workflows:
             - define-version-no
             - test
             - llvm-check
+          filters:
+            tags:
+              only: /.*/
+            branches:
+              only: master
