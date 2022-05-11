@@ -1,5 +1,5 @@
-cheerp-libcxx-libcxxabi (0.9-1) raring; urgency=low
+cheerp-libcxx-libcxxabi (2.7-1~focal) focal; urgency=low
 
-  * Initial release
+  * Initial Release
 
- -- Alessandro Pignotti <alessandro@leaningtech.com>  Tue, 15 Oct 2013 18:10:49 +0200
+ -- Jules Saarikoski <jules@leaningtech.com>  Wed, 11 May 2022 11:27:36 +0200
