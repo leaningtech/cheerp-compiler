@@ -236,6 +236,9 @@ static Exception* thrown_exceptions = nullptr;
 // Global counter of currently uncaught exceptions
 static int uncaughtExceptions = 0;
 
+// current in-flight non-native (e.g. from js) exception
+static client::Object* curNonNativeException = nullptr;
+
 static Exception* find_exception_from_unwind_ptr(void* unwind)
 {
 	return Exception::allocator.get_object(unwind);
@@ -374,6 +377,12 @@ void __cxa_rethrow() {
 [[noreturn]]
 __attribute((noinline))
 void __cxa_resume(__cheerp_landingpad* lp) {
+	if (reinterpret_cast<int>(lp->val) == 0)
+	{
+		auto* e = curNonNativeException;
+		curNonNativeException = nullptr;
+		__builtin_cheerp_throw(e);
+	}
 	Exception* ex = find_exception_from_unwind_ptr(lp->val);
 	__builtin_cheerp_throw(ex->jsObj);
 }
@@ -472,6 +481,7 @@ __gxx_personality_v0
 	if(!native)
 	{
 		lp = __cheerp_landingpad();
+		curNonNativeException = obj;
 		return &lp;
 	}
 
