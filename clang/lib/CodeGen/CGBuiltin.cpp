@@ -12317,14 +12317,16 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
     }
   }
   else if (BuiltinID == Builtin::BIfree) {
+    llvm::Value* origArg = Ops[0];
+    llvm::Type* origType = origArg->getType();
     if (CallInst* CI = dyn_cast<CallInst>(Ops[0])) {
-      Function* callee = CI->getCalledFunction();
-      if (callee && callee->getIntrinsicID() == llvm::Intrinsic::cheerp_cast_user) {
-        llvm::Type* origType = CI->getOperand(0)->getType();
-        Function *F = CGM.getIntrinsic(Intrinsic::cheerp_deallocate, {origType});
-        return Builder.CreateCall(F, CI->getOperand(0));
+      if (auto* c = dyn_cast<CastExpr>(E->getArg(0))) {
+        origArg = CI->getOperand(0);
+        origType = origArg->getType();
       }
     }
+    Function *F = CGM.getIntrinsic(Intrinsic::cheerp_deallocate, {origType});
+    return Builder.CreateCall(F, origArg);
   }
   return 0;
 }
