@@ -3809,7 +3809,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			}
 			if(parentPrio > ADD_SUB) stream << '(';
 			// Optimize negation
-			if(!(isa<ConstantFP>(I.getOperand(0)) && cast<ConstantFP>(I.getOperand(0))->isZero()))
+			if(I.getOperand(0) != ConstantFP::getZeroValueForNegation(I.getOperand(0)->getType()))
 				compileOperand(I.getOperand(0), ADD_SUB);
 			stream << '-';
 			compileOperand(I.getOperand(1), nextPrio(ADD_SUB));
