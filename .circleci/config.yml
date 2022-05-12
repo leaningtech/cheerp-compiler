@@ -114,14 +114,15 @@ jobs:
       - create-deb:
           directory: cheerp-utils
           package-name: utils
-      - run:
-          name: Set up for newlib
-          working_directory: ~/project
-          command: |
-            cp -rv cheerp-compiler/libcxx cheerp-newlib
-      - create-deb:
-          directory: cheerp-newlib
-          package-name: newlib
+      # - run:
+          # name: Set up for newlib
+          # working_directory: ~/project
+          # command: |
+            # cp -rv cheerp-compiler/libcxx cheerp-newlib
+      # - create-deb:
+          # directory: cheerp-newlib
+          # package-name: newlib
+      - build-musl
       - run:
           name: Set up for libcxx-libcxxabi
           working_directory: ~/project/cheerp-compiler
@@ -163,8 +164,9 @@ jobs:
           package-name: llvm-clang
       - install-deb:
           package-name: utils
-      - install-deb:
-          package-name: newlib
+      - build-musl
+      # - install-deb:
+          # package-name: newlib
       - install-deb:
           package-name: libcxx-libcxxabi
       - install-deb:
@@ -647,6 +649,37 @@ commands:
           command: |
             dnf clean all
             dnf install -y cheerp-<< parameters.package-name >>-${VERSION_NO}-1.el8
+  build-musl:
+    steps:
+      - run:
+          name: Build musl
+          command: |
+            git clone https://github.com/leaningtech/cheerp-musl.git
+            cd cheerp-musl
+            CHEERP_PREFIX=/opt/cheerp
+
+            mkdir -p build_genericjs
+            cd build_genericjs
+            RANLIB="${CHEERP_PREFIX}/bin/llvm-ar s" \
+            AR="${CHEERP_PREFIX}/bin/llvm-ar" \
+            CC="${CHEERP_PREFIX}/bin/clang -target cheerp" \
+            LD="${CHEERP_PREFIX}/bin/llvm-link" \
+            CPPFLAGS="-isystem ${CHEERP_PREFIX}/lib/clang/15.0.0/include" \
+            ../configure --target=cheerp --disable-shared --prefix=${CHEERP_PREFIX} --with-malloc=oldmalloc
+            make
+            make install-cheerp
+            cd ..
+
+            mkdir -p build_genericjs
+            cd build_genericjs
+            RANLIB="${CHEERP_PREFIX}/bin/llvm-ar s" \
+            AR="${CHEERP_PREFIX}/bin/llvm-ar" \
+            CC="${CHEERP_PREFIX}/bin/clang -target cheerp-wasm" \
+            LD="${CHEERP_PREFIX}/bin/llvm-link" \
+            CPPFLAGS="-isystem ${CHEERP_PREFIX}/lib/clang/15.0.0/include" \
+            ../configure --target=cheerp --disable-shared --prefix=${CHEERP_PREFIX} --with-malloc=oldmalloc
+            make
+            make install-bc
 
 parameters:
   release-tag:
