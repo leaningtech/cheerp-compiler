@@ -169,8 +169,26 @@ jobs:
           # package-name: newlib
       - install-deb:
           package-name: libcxx-libcxxabi
-      - install-deb:
-          package-name: libs
+      # - install-deb:
+          # package-name: libs
+      - run:
+          name: Build cheerp-libcs from scratch
+          command: |
+            make -C webgles install INSTALL_PREFIX=/opt/cheerp CHEERP_PREFIX=/opt/cheerp
+            make -C wasm install INSTALL_PREFIX=/opt/cheerp CHEERP_PREFIX=/opt/cheerp
+            make -C stdlibs install INSTALL_PREFIX=/opt/cheerp CHEERP_PREFIX=/opt/cheerp
+            make -C stdlibs install_genericjs INSTALL_PREFIX=/opt/cheerp CHEERP_PREFIX=/opt/cheerp
+            make -C stdlibs install_asmjs INSTALL_PREFIX=/opt/cheerp CHEERP_PREFIX=/opt/cheerp
+
+            cd system
+            cmake -B build_genericjs -DCMAKE_INSTALL_PREFIX=/opt/cheerp -DCMAKE_TOOLCHAIN_FILE=/opt/cheerp/share/cmake/Modules/CheerpToolchain.cmake .
+            make -C build_genericjs
+            make install -C build_genericjs
+
+            cmake -B build_asmjs -DCMAKE_INSTALL_PREFIX=/opt/cheerp -DCMAKE_TOOLCHAIN_FILE=/opt/cheerp/share/cmake/Modules/CheerpWasmToolchain.cmake .
+            make -C build_asmjs
+            make install -C build_asmjs
+
       - run:
           name: test
           working_directory: ~/project/cheerp-utils/tests
