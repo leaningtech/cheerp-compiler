@@ -689,8 +689,6 @@ workflows:
             - test
             - llvm-check
           filters:
-            tags:
-              only: /.*/
             branches:
               only: master
       - RPM-libraries:
@@ -702,7 +700,5 @@ workflows:
             - test
             - llvm-check
           filters:
-            tags:
-              only: /.*/
             branches:
               only: master
