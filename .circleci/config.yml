@@ -670,8 +670,8 @@ commands:
             make install-cheerp
             cd ..
 
-            mkdir -p build_genericjs
-            cd build_genericjs
+            mkdir -p build_wasm
+            cd build_wasm
             RANLIB="${CHEERP_PREFIX}/bin/llvm-ar s" \
             AR="${CHEERP_PREFIX}/bin/llvm-ar" \
             CC="${CHEERP_PREFIX}/bin/clang -target cheerp-wasm" \
