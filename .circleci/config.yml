@@ -677,7 +677,7 @@ commands:
             CC="${CHEERP_PREFIX}/bin/clang -target cheerp-wasm" \
             LD="${CHEERP_PREFIX}/bin/llvm-link" \
             CPPFLAGS="-isystem ${CHEERP_PREFIX}/lib/clang/15.0.0/include" \
-            ../configure --target=cheerp --disable-shared --prefix=${CHEERP_PREFIX} --with-malloc=oldmalloc
+            ../configure --target=cheerp-wasm --disable-shared --prefix=${CHEERP_PREFIX} --with-malloc=oldmalloc
             make
             make install-bc
 
