@@ -92,17 +92,17 @@ jobs:
             git clone https://github.com/leaningtech/cheerp-compiler.git
             git clone https://github.com/leaningtech/cheerp-utils.git
             git clone https://github.com/leaningtech/cheerp-libs.git
-            git clone https://github.com/leaningtech/cheerp-newlib.git
+            git clone https://github.com/leaningtech/cheerp-musl.git
             if [ << pipeline.parameters.release-tag >> != master ]; then
               cd cheerp-compiler && git checkout << pipeline.parameters.release-tag >> && cd ..
               cd cheerp-utils && git checkout << pipeline.parameters.release-tag >> && cd ..
               cd cheerp-libs && git checkout << pipeline.parameters.release-tag >> && cd ..
-              cd cheerp-newlib && git checkout << pipeline.parameters.release-tag >>
+              cd cheerp-musl && git checkout << pipeline.parameters.release-tag >>
             else
               cd cheerp-compiler && git checkout << pipeline.parameters.cheerp-compiler-commit >> && cd ..
               cd cheerp-utils && git checkout << pipeline.parameters.cheerp-utils-commit >> && cd ..
               cd cheerp-libs && git checkout << pipeline.parameters.cheerp-libs-commit >> && cd ..
-              cd cheerp-newlib && git checkout << pipeline.parameters.cheerp-newlib-commit >>
+              cd cheerp-musl && git checkout << pipeline.parameters.cheerp-musl-commit >>
             fi
       - run:
           name: Set up workspace
@@ -114,14 +114,9 @@ jobs:
       - create-deb:
           directory: cheerp-utils
           package-name: utils
-      - run:
-          name: Set up for newlib
-          working_directory: ~/project
-          command: |
-            cp -rv cheerp-compiler/libcxx cheerp-newlib
       - create-deb:
-          directory: cheerp-newlib
-          package-name: newlib
+          directory: cheerp-musl
+          package-name: musl
       - run:
           name: Set up for libcxx-libcxxabi
           working_directory: ~/project/cheerp-compiler
@@ -138,7 +133,7 @@ jobs:
           root: packages
           paths:
             - cheerp-utils_*.deb
-            - cheerp-newlib_*.deb
+            - cheerp-musl_*.deb
             - cheerp-libcxx-libcxxabi_*.deb
             - cheerp-libs_*.deb
   test:
@@ -164,7 +159,7 @@ jobs:
       - install-deb:
           package-name: utils
       - install-deb:
-          package-name: newlib
+          package-name: musl
       - install-deb:
           package-name: libcxx-libcxxabi
       - install-deb:
@@ -257,17 +252,17 @@ jobs:
             git clone https://github.com/leaningtech/cheerp-compiler.git
             git clone https://github.com/leaningtech/cheerp-utils.git
             git clone https://github.com/leaningtech/cheerp-libs.git
-            git clone https://github.com/leaningtech/cheerp-newlib.git
+            git clone https://github.com/leaningtech/cheerp-musl.git
             if [ << pipeline.parameters.release-tag >> != master ]; then
               cd cheerp-compiler && git checkout << pipeline.parameters.release-tag >> && cd ..
               cd cheerp-utils && git checkout << pipeline.parameters.release-tag >> && cd ..
               cd cheerp-libs && git checkout << pipeline.parameters.release-tag >> && cd ..
-              cd cheerp-newlib && git checkout << pipeline.parameters.release-tag >>
+              cd cheerp-musl && git checkout << pipeline.parameters.release-tag >>
             else
               cd cheerp-compiler && git checkout << pipeline.parameters.cheerp-compiler-commit >> && cd ..
               cd cheerp-utils && git checkout << pipeline.parameters.cheerp-utils-commit >> && cd ..
               cd cheerp-libs && git checkout << pipeline.parameters.cheerp-libs-commit >> && cd ..
-              cd cheerp-newlib && git checkout << pipeline.parameters.cheerp-newlib-commit >>
+              cd cheerp-musl && git checkout << pipeline.parameters.cheerp-musl-commit >>
             fi
       - get-rpm-repo
       - add-yum-configuration
@@ -277,31 +272,10 @@ jobs:
           directory: cheerp-utils
           package-name: utils
           branch-name: << pipeline.parameters.cheerp-utils-commit >>
-      - run:
-          name: Add cheerp-newlib sources
-          working_directory: ~/project/cheerp-newlib
-          command: |
-            if [ << pipeline.parameters.release-tag >> != master ]; then
-              export NEWLIB_TAG=<< pipeline.parameters.release-tag >>
-              export CHEERP_COMPILER_TAG=<< pipeline.parameters.release-tag >>
-            else
-              export NEWLIB_TAG=<< pipeline.parameters.cheerp-newlib-commit >>
-              export CHEERP_COMPILER_TAG=<< pipeline.parameters.cheerp-compiler-commit >>
-            fi
-
-            MAIN_ARCHIVE=../pkg/cheerp-newlib_${VERSION_NO}.orig.tar.gz
-            LIBCXX_ARCHIVE=../pkg/cheerp-newlib_${VERSION_NO}.orig-libcxx.tar.gz
-            PREFIX=cheerp-newlib-${VERSION_NO}
-
-            git archive --format=tar.gz --prefix=$PREFIX/ ${NEWLIB_TAG} -o $MAIN_ARCHIVE
-            git -C ../cheerp-compiler/ archive --format=tar.gz ${CHEERP_COMPILER_TAG} libcxx/ -o $LIBCXX_ARCHIVE
-
-            rm -rf rpmbuild/SOURCES
-            mkdir rpmbuild/SOURCES
-            mv ../pkg/* rpmbuild/SOURCES
-      - build-deploy-rpm:
-          directory: cheerp-newlib
-          package-name: newlib
+      - create-rpm-package:
+          directory: cheerp-musl
+          package-name: musl
+          branch-name: << pipeline.parameters.cheerp-musl-commit >>
       - run:
           name: Set up for libcxx-libcxxabi
           working_directory: ~/project/cheerp-compiler
@@ -331,7 +305,7 @@ jobs:
                     . ~/project/cheerp-internal/tools/releasing/rpm_utils.sh
                     repo_remove_old llvm-clang
                     repo_remove_old utils
-                    repo_remove_old newlib
+                    repo_remove_old musl
                     repo_remove_old libcxx-libcxxabi
                     repo_remove_old libs
                     repo_remove_old core
@@ -365,7 +339,7 @@ jobs:
             git clone git@github.com:leaningtech/cheerp-internal.git
             git clone --depth=1 --no-single-branch https://github.com/leaningtech/cheerp-compiler cheerp-compiler
             git clone https://github.com/leaningtech/cheerp-utils.git
-            git clone https://github.com/leaningtech/cheerp-newlib.git
+            git clone https://github.com/leaningtech/cheerp-musl.git
             git clone https://github.com/leaningtech/cheerp-libs.git
       - run:
           name: Set up workspace
@@ -378,14 +352,14 @@ jobs:
               echo 'export PPA="ppa:leaningtech-dev/cheerp-ppa"' >> $BASH_ENV
               cd cheerp-compiler && git checkout << pipeline.parameters.release-tag >>
               cd ../cheerp-utils && git checkout << pipeline.parameters.release-tag >>
-              cd ../cheerp-newlib && git checkout << pipeline.parameters.release-tag >>
+              cd ../cheerp-musl && git checkout << pipeline.parameters.release-tag >>
               cd ../cheerp-libs && git checkout << pipeline.parameters.release-tag >>
             else
               echo 'export CHANGELOG_MESSAGE="Nightly build"' >> $BASH_ENV
               echo 'export PPA="ppa:leaningtech-dev/cheerp-nightly-ppa"' >> $BASH_ENV
               cd cheerp-compiler && git checkout << pipeline.parameters.cheerp-compiler-commit >>
               cd ../cheerp-utils && git checkout << pipeline.parameters.cheerp-utils-commit >>
-              cd ../cheerp-newlib && git checkout << pipeline.parameters.cheerp-newlib-commit >>
+              cd ../cheerp-musl && git checkout << pipeline.parameters.cheerp-musl-commit >>
               cd ../cheerp-libs && git checkout << pipeline.parameters.cheerp-libs-commit >>
             fi
       - run:
@@ -418,18 +392,17 @@ jobs:
             sed -i "s/\${source:Version}/${VERSION_NO}/g" debian/control
             debuild -sa -S -k88C3C876D1AE3E3C -d
       - run:
-          name: Prepare cheerp-newlib sources
-          working_directory: cheerp-newlib
+          name: Prepare cheerp-musl sources
+          working_directory: cheerp-musl
           command: |
             if [ << pipeline.parameters.release-tag >> != 'master' ]; then
-              ../cheerp-internal/tools/releasing/newlib_debian_archives.sh $VERSION_NO << pipeline.parameters.release-tag >>
+              ../cheerp-internal/tools/releasing/musl_debian_archives.sh $VERSION_NO << pipeline.parameters.release-tag >>
             else
-              ../cheerp-internal/tools/releasing/newlib_debian_archives.sh $VERSION_NO << pipeline.parameters.cheerp-newlib-commit >>
+              ../cheerp-internal/tools/releasing/musl_debian_archives.sh $VERSION_NO << pipeline.parameters.cheerp-musl-commit >>
             fi
             cd ../pkg
-            tar -xf cheerp-newlib_${VERSION_NO}.orig.tar.gz
-            cd cheerp-newlib-${VERSION_NO}
-            tar -xf ../cheerp-newlib_${VERSION_NO}.orig-libcxx.tar.gz
+            tar -xf cheerp-musl_${VERSION_NO}.orig.tar.gz
+            cd cheerp-musl-${VERSION_NO}
             dch -b -v ${VERSION_NO}-1~${DISTRO} "${CHANGELOG_MESSAGE}" -D ${DISTRO} -m
             sed -i "s/\${source:Version}/${VERSION_NO}/g" debian/control
             debuild -sa -S -k88C3C876D1AE3E3C -d
@@ -480,7 +453,7 @@ jobs:
           command: |
             dput ${PPA} cheerp-llvm-clang*_source.changes
             dput ${PPA} cheerp-utils*_source.changes
-            dput ${PPA} cheerp-newlib*_source.changes
+            dput ${PPA} cheerp-musl*_source.changes
             dput ${PPA} cheerp-libcxx-libcxxabi*_source.changes
             dput ${PPA} cheerp-libs*_source.changes
             dput ${PPA} ../cheerp-internal/tools/releasing/cheerp-core*_source.changes
@@ -488,10 +461,10 @@ jobs:
               cp cheerp-llvm-clang_${VERSION_NO}.orig.tar.gz cheerp-llvm-clang-${VERSION_NO}.tar.gz
               python2 ../cheerp-internal/tools/releasing/github_upload.py ${VERSION} "Cheerp ${VERSION_NO}" cheerp-llvm-clang-${VERSION_NO}.tar.gz cheerp-llvm-clang-${VERSION_NO}.tar.gz
               cp cheerp-utils_${VERSION_NO}.orig.tar.gz cheerp-utils-${VERSION_NO}.tar.gz
-              cp cheerp-newlib_${VERSION_NO}.orig.tar.gz cheerp-newlib-${VERSION_NO}.tar.gz
+              cp cheerp-musl_${VERSION_NO}.orig.tar.gz cheerp-musl-${VERSION_NO}.tar.gz
               cp cheerp-libs_${VERSION_NO}.orig.tar.gz cheerp-libs-${VERSION_NO}.tar.gz
               python2 ../cheerp-internal/tools/releasing/github_upload.py << pipeline.parameters.release-tag >> "Cheerp ${VERSION_NO}" cheerp-utils-${VERSION_NO}.tar.gz cheerp-utils-${VERSION_NO}.tar.gz
-              python2 ../cheerp-internal/tools/releasing/github_upload.py << pipeline.parameters.release-tag >> "Cheerp ${VERSION_NO}" cheerp-newlib-${VERSION_NO}.tar.gz cheerp-newlib-${VERSION_NO}.tar.gz
+              python2 ../cheerp-internal/tools/releasing/github_upload.py << pipeline.parameters.release-tag >> "Cheerp ${VERSION_NO}" cheerp-musl-${VERSION_NO}.tar.gz cheerp-musl-${VERSION_NO}.tar.gz
               python2 ../cheerp-internal/tools/releasing/github_upload.py << pipeline.parameters.release-tag >> "Cheerp ${VERSION_NO}" cheerp-libs-${VERSION_NO}.tar.gz cheerp-libs-${VERSION_NO}.tar.gz
             fi
 
@@ -658,7 +631,7 @@ parameters:
   cheerp-utils-commit:
     type: string
     default: "master"
-  cheerp-newlib-commit:
+  cheerp-musl-commit:
     type: string
     default: "master"
   cheerp-libs-commit:
