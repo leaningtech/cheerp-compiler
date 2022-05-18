@@ -169,6 +169,8 @@ jobs:
           working_directory: ~/project/cheerp-utils/tests
           command: ./run_tests.py --all --determinism=3 --determinism-probability=0.2 "/opt/cheerp/bin/clang++" "node --experimental-wasm-reftypes" -j4
           no_output_timeout: 30m
+      - store_test_results:
+          path: ~/project/cheerp-utils/tests/testReport.test
   RPM-cheerp-compiler:
     docker:
       - image: leaningtech/cheerp_rpm_base:8
