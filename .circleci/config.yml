@@ -339,7 +339,7 @@ jobs:
           name: Get repos
           command: |
             git clone git@github.com:leaningtech/cheerp-internal.git
-            git clone --depth=1 --no-single-branch https://github.com/leaningtech/cheerp-compiler cheerp-compiler
+            git clone https://github.com/leaningtech/cheerp-compiler cheerp-compiler
             git clone https://github.com/leaningtech/cheerp-utils.git
             git clone https://github.com/leaningtech/cheerp-musl.git
             git clone https://github.com/leaningtech/cheerp-libs.git
