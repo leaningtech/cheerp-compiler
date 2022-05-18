@@ -24,3 +24,10 @@ override_dh_auto_install:
 	dh_auto_install -Bbuild_runtimes_genericjs
 	dh_auto_install -Bbuild_runtimes_wasm
 
+override_dh_installdocs:
+	install -d debian/cheerp-libcxx-libcxxabi/usr/share/doc/cheerp-libcxx-libcxxabi/
+	cp --reflink=auto -a ./libcxx/LICENSE.TXT debian/cheerp-libcxx-libcxxabi/usr/share/doc/cheerp-libcxx-libcxxabi/LICENSE.TXT.cheerp-libcxx.gz
+	cp --reflink=auto -a ./libcxx/COPYING debian/cheerp-libcxx-libcxxabi/usr/share/doc/cheerp-libcxx-libcxxabi/COPYING.cheerp-libcxx.gz
+	cp --reflink=auto -a ./libcxxabi/LICENSE.TXT debian/cheerp-libcxx-libcxxabi/usr/share/doc/cheerp-libcxx-libcxxabi/LICENSE.TXT.cheerp-libcxxabi.gz
+	cp --reflink=auto -a ./libcxxabi/COPYING debian/cheerp-libcxx-libcxxabi/usr/share/doc/cheerp-libcxx-libcxxabi/COPYING.cheerp-libcxxabi.gz
+	dh_installdocs
