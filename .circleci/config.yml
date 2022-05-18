@@ -469,6 +469,489 @@ jobs:
               python2 ../cheerp-internal/tools/releasing/github_upload.py << pipeline.parameters.release-tag >> "Cheerp ${VERSION_NO}" cheerp-musl-${VERSION_NO}.tar.gz cheerp-musl-${VERSION_NO}.tar.gz
               python2 ../cheerp-internal/tools/releasing/github_upload.py << pipeline.parameters.release-tag >> "Cheerp ${VERSION_NO}" cheerp-libs-${VERSION_NO}.tar.gz cheerp-libs-${VERSION_NO}.tar.gz
             fi
+  build-cheerp-headers-and-libs:
+    docker:
+      - image: leaningtech/cheerp_ci_base:20.04
+    resource_class: medium
+    steps:
+      - attach_workspace:
+          at: packages
+      - run:
+          name: Set up workspace
+          command: |
+            cat ~/project/packages/version >> $BASH_ENV
+            mkdir -p /opt/cheerp/
+      - add_ssh_keys:
+          fingerprints:
+            - "8f:3f:25:98:2e:d5:1e:9f:0f:e9:dc:8a:fc:46:90:50"
+      - run:
+          name: Add known hosts
+          command: |
+            mkdir -p ~/.ssh
+            echo $RPM_HOST >> ~/.ssh/known_hosts
+            echo $GH_HOST >> ~/.ssh/known_hosts
+      - run:
+          name: Clone dependencies
+          command: |
+            git clone git@github.com:leaningtech/cheerp-libs-addon.git
+            git clone git@github.com:leaningtech/cheerp-internal.git
+      - install-deb:
+          package-name: llvm-clang
+      - install-deb:
+          package-name: utils
+      - install-deb:
+          package-name: musl
+      - install-deb:
+          package-name: libcxx-libcxxabi
+      - install-deb:
+          package-name: libs
+      - run:
+          name: get cheerp dependencies
+          working_directory: ~/project
+          command: |
+            dpkg -x ~/project/packages/cheerp-utils_${VERSION_NO}-*.deb .
+            dpkg -x ~/project/packages/cheerp-musl_${VERSION_NO}-*.deb .
+            dpkg -x ~/project/packages/cheerp-libcxx-libcxxabi_${VERSION_NO}-*.deb .
+            dpkg -x ~/project/packages/cheerp-libs_${VERSION_NO}-*.deb .
+            cp -v usr/share/doc/cheerp-libcxx-libcxxabi/LICENSE.TXT.cheerp-libcxx.gz opt/cheerp/LICENSE.TXT.cheerp-libcxx
+            cp -v usr/share/doc/cheerp-libcxx-libcxxabi/LICENSE.TXT.cheerp-libcxxabi.gz opt/cheerp/LICENSE.TXT.cheerp-libcxxabi
+            cp -v usr/share/doc/cheerp-musl/COPYRIGHT.gz opt/cheerp/COPYRIGHT.musl.gz
+      - run:
+          name: build cheerp-libs-addon
+          working_directory: ~/project/cheerp-libs-addon
+          command: |
+            mkdir build_genericjs
+            cd build_genericjs
+            cmake -DCMAKE_INSTALL_PREFIX="$PWD/../../opt/cheerp/" -DCMAKE_BUILD_TYPE=Release -DCHEERP_LINEAR_OUTPUT="" -DCMAKE_TOOLCHAIN_FILE=/opt/cheerp/share/cmake/Modules/CheerpToolchain.cmake -DCHEERP_MODE=genericjs ..
+            make
+            make install
+            cd ..
+            mkdir build_asmjs
+            cd build_asmjs
+            cmake -DCMAKE_INSTALL_PREFIX="$PWD/../../opt/cheerp/" -DCMAKE_BUILD_TYPE=Release -DCHEERP_LINEAR_OUTPUT="" -DCMAKE_TOOLCHAIN_FILE=/opt/cheerp/share/cmake/Modules/CheerpToolchain.cmake -DCHEERP_MODE=asmjs ..
+            make
+            make install
+      - when:
+          condition:
+            not:
+              equal: [ master, << pipeline.parameters.release-tag >> ]
+          steps:
+            - run:
+                name: Upload memprofui.js
+                working_directory: ~/project/cheerp-libs-addon/build_asmjs
+                command: scp -P 2223 build_asmjs/memprofui.js leaningtech@136.243.170.209:/srv/web/cheerp/
+      - run:
+          name: Generate libs packages
+          working_directory: ~/project
+          command: |
+            tar -cvjf packages/cheerp-headers-and-libs-${VERSION_NO}.tar.bz2 -C opt/cheerp .
+
+            cheerp-internal/tools/releasing/header_switch.sh opt/cheerp/include/c++/v1/__functional_03 19 cheerp-internal/tools/releasing/Cheerp_header_proprietary.txt
+            cheerp-internal/tools/releasing/header_switch.sh opt/cheerp/include/c++/v1/string 19 cheerp-internal/tools/releasing/Cheerp_header_proprietary.txt
+            cheerp-internal/tools/releasing/header_switch.sh opt/cheerp/include/c++/v1/random 19 cheerp-internal/tools/releasing/Cheerp_header_proprietary.txt
+            cheerp-internal/tools/releasing/header_switch.sh opt/cheerp/include/c++/v1/functional 19 cheerp-internal/tools/releasing/Cheerp_header_proprietary.txt
+
+            cheerp-internal/tools/releasing/header_switch.sh opt/cheerp/include/GLES2/webgles.h 20 cheerp-internal/tools/releasing/Cheerp_header_proprietary.txt
+            cheerp-internal/tools/releasing/header_switch.sh opt/cheerp/include/GLES2/gl2.h 20 cheerp-internal/tools/releasing/Cheerp_header_proprietary.txt
+
+            cheerp-internal/tools/releasing/header_switch.sh opt/cheerp/include/client/cheerp/client.h 20 cheerp-internal/tools/releasing/Cheerp_header_proprietary.txt
+            cheerp-internal/tools/releasing/header_switch.sh opt/cheerp/include/client/cheerp/clientlib.h 20 cheerp-internal/tools/releasing/Cheerp_header_proprietary.txt
+            cheerp-internal/tools/releasing/header_switch.sh opt/cheerp/include/client/cheerp/jsobject.h 20 cheerp-internal/tools/releasing/Cheerp_header_proprietary.txt
+            cheerp-internal/tools/releasing/header_switch.sh opt/cheerp/include/client/cheerp/memory.h 20 cheerp-internal/tools/releasing/Cheerp_header_proprietary.txt
+            cheerp-internal/tools/releasing/header_switch.sh opt/cheerp/include/client/cheerp/types.h 20 cheerp-internal/tools/releasing/Cheerp_header_proprietary.txt
+            cheerp-internal/tools/releasing/header_switch.sh opt/cheerp/include/client/cheerp/webgl.h 20 cheerp-internal/tools/releasing/Cheerp_header_proprietary.txt
+            cheerp-internal/tools/releasing/header_switch.sh opt/cheerp/include/sys/dirent.h 20 cheerp-internal/tools/releasing/Cheerp_header_proprietary.txt
+
+            rm opt/cheerp/COPYING
+
+            cp cheerp-internal/tools/releasing/LICENSE.TXT.cheerp-libcxx.proprietary opt/cheerp/LICENSE.TXT.cheerp-libcxx
+            cp cheerp-internal/tools/releasing/LICENSE.TXT.cheerp-libcxxabi.proprietary opt/cheerp/LICENSE.TXT.cheerp-libcxxabi
+
+            tar -cvjf packages/cheerp-headers-and-libs-${VERSION_NO}-proprietary.tar.bz2 -C opt/cheerp .
+      - persist_to_workspace:
+          root: packages
+          paths:
+            - cheerp-headers-and-libs-*.tar.bz2
+            - cheerp-headers-and-libs-*-proprietary.tar.bz2
+  build-macos:
+    docker:
+      - image: leaningtech/cheerp_macos_base:20.04
+    environment:
+      - NINJA_STATUS: "[%u/%r/%f] "
+    resource_class: large
+    steps:
+      - attach_workspace:
+          at: packages
+      - run:
+          name: Set up workspace
+          command: |
+            mkdir /opt/cheerp/
+            mkdir -p ~/project/Applications
+            cat ~/project/packages/version >> $BASH_ENV
+      - run:
+          name: Add known hosts
+          command: |
+            mkdir -p ~/.ssh
+            echo $GH_HOST >> ~/.ssh/known_hosts
+      - run:
+          name: Clone dependencies
+          command: |
+            git clone https://github.com/leaningtech/cheerp-compiler
+            git clone https://github.com/leaningtech/cheerp-utils
+            git clone git@github.com:leaningtech/cheerp-internal.git
+            if [ << pipeline.parameters.release-tag >> != 'master' ]; then
+              cd cheerp-compiler && git checkout << pipeline.parameters.release-tag >> && cd ..
+              cd cheerp-utils && git checkout << pipeline.parameters.release-tag >> && cd ..
+            else
+              cd cheerp-compiler && git checkout << pipeline.parameters.cheerp-compiler-commit >> && cd ..
+              cd cheerp-utils && git checkout << pipeline.parameters.cheerp-utils-commit >>
+            fi
+      - run:
+          name: Build osxcross
+          working_directory: /osxcross
+          command: |
+            cp ~/project/cheerp-internal/tools/circleci/macos/MacOSX11.3.sdk.tar.xz tarballs/
+            UNATTENDED=1 ./build.sh
+      - build-tblgen
+      - run:
+          name: Build cheerp-compiler
+          working_directory: ~/project/cheerp-compiler
+          command: |
+            mkdir build
+            cd build
+            cmake -C ../llvm/CheerpCmakeConf.cmake \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_TOOLCHAIN_FILE=../../cheerp-internal/tools/circleci/macos/MacCrossToolchain.cmake \
+              -DLLVM_HOST_TRIPLE=x86_64-apple-darwin \
+              -DLLVM_ENABLE_THREADS=OFF \
+              -DCMAKE_CROSSCOMPILING=True \
+              -DCLANG_VENDOR="Cheerp ${VERSION_NO}" \
+              -DCMAKE_INSTALL_PREFIX=/Applications/cheerp/ \
+              -DLLVM_ENABLE_LIBCXX=ON \
+              -DLLVM_ENABLE_PROJECTS=clang \
+              ../llvm/ \
+              -GNinja \
+              -DLLVM_TABLEGEN=../build-tblgen/bin/llvm-tblgen \
+              -DCLANG_TABLEGEN=../build-tblgen/bin/clang-tblgen
+            ninja -j6 distribution
+            DESTDIR=~/project ninja install-distribution
+      - run:
+          name: Create macos package
+          working_directory: ~/project/cheerp-compiler/build
+          command: |
+            cp -v ../llvm/LICENSE.TXT ~/project/Applications/cheerp/LICENSE.TXT.cheerp-llvm-clang
+            tar -xf ~/project/packages/cheerp-headers-and-libs-${VERSION_NO}.tar.bz2 -C ~/project/Applications/cheerp
+
+            rm -rf cheerp-utils-build
+            mkdir cheerp-utils-build
+            cd cheerp-utils-build
+            cmake -DCMAKE_INSTALL_PREFIX=/Applications/cheerp/ ~/project/cheerp-utils/
+            cd ..
+            make -C cheerp-utils-build
+            cp cheerp-utils-build/CheerpCommon.cmake ~/project/Applications/cheerp/share/cmake/Modules/
+            cp cheerp-utils-build/CheerpToolchain.cmake ~/project/Applications/cheerp/share/cmake/Modules/
+            cp cheerp-utils-build/CheerpWasmToolchain.cmake ~/project/Applications/cheerp/share/cmake/Modules/
+            cp cheerp-utils-build/cheerpwrap ~/project/Applications/cheerp/bin/
+            tar -cvjf ~/project/packages/cheerp-macosx-${VERSION_NO}.tar.bz2 -C ~/project/Applications/ cheerp
+      - persist_to_workspace:
+          root: packages
+          paths:
+            - cheerp-macosx-*.tar.bz2
+  build-windows:
+    docker:
+      - image: leaningtech/cheerp_win_base:20.04
+    environment:
+      - NINJA_STATUS: "[%u/%r/%f] "
+    resource_class: large
+    steps:
+      - attach_workspace:
+          at: packages
+      - run:
+          name: Set up workspace
+          command: |
+            cat ~/project/packages/version >> $BASH_ENV
+      - run:
+          name: Add known hosts
+          command: |
+            mkdir -p ~/.ssh
+            echo $GH_HOST >> ~/.ssh/known_hosts
+      - run:
+          name: Clone dependencies
+          command: |
+            git clone https://github.com/leaningtech/cheerp-compiler
+            git clone https://github.com/leaningtech/cheerp-utils
+            git clone git@github.com:leaningtech/cheerp-internal.git
+            if [ << pipeline.parameters.release-tag >> != 'master' ]; then
+              cd cheerp-compiler && git checkout << pipeline.parameters.release-tag >> && cd ..
+              cd cheerp-utils && git checkout << pipeline.parameters.release-tag >> && cd ..
+            else
+              cd cheerp-compiler && git checkout << pipeline.parameters.cheerp-compiler-commit >> && cd ..
+              cd cheerp-utils && git checkout << pipeline.parameters.cheerp-utils-commit >>
+            fi
+      - build-tblgen
+      - run:
+          name: Build cheerp-compiler
+          working_directory: ~/project/cheerp-compiler
+          command: |
+            mkdir build
+            cd build
+            cmake \
+              -C ~/project/cheerp-compiler/llvm/CheerpCmakeConf.cmake \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_TOOLCHAIN_FILE=~/project/cheerp-internal/tools/windows_crosscompile/Mingw.cmake \
+              -DCMAKE_CXX_FLAGS_RELEASE="-static-libgcc -static-libstdc++ -static -DNDEBUG" \
+              -DCMAKE_C_FLAGS_RELEASE="-static-libgcc -static-libstdc++ -static -DNDEBUG" \
+              -DCMAKE_INSTALL_PREFIX="c:\cheerp" \
+              -DCLANG_VENDOR="Cheerp ${VERSION_NO}" \
+              -DLLVM_ENABLE_PIC=OFF \
+              -DLLVM_ENABLE_THREADS=OFF \
+              -DCMAKE_EXE_LINKER_FLAGS="-Wl,--large-address-aware" \
+              -DLLVM_ENABLE_PROJECTS=clang \
+              -DLLVM_INCLUDE_BENCHMARKS=OFF \
+              -GNinja ../llvm/ \
+              -DLLVM_TABLEGEN=../build-tblgen/bin/llvm-tblgen \
+              -DCLANG_TABLEGEN=../build-tblgen/bin/clang-tblgen
+            ninja -j6 distribution
+      - run:
+          name: Install distrubution
+          working_directory: ~/project/cheerp-compiler/build
+          command: |
+            cmake -DCMAKE_INSTALL_COMPONENT="opt" -P cmake_install.cmake
+            cmake -DCMAKE_INSTALL_COMPONENT="clang-resource-headers" -P cmake_install.cmake
+            cmake -DCMAKE_INSTALL_COMPONENT="clang" -P cmake_install.cmake
+            cmake -DCMAKE_INSTALL_COMPONENT="llc" -P cmake_install.cmake
+            cmake -DCMAKE_INSTALL_COMPONENT="llvm-dis" -P cmake_install.cmake
+            cmake -DCMAKE_INSTALL_COMPONENT="llvm-link" -P cmake_install.cmake
+      - run:
+          name: Add includes and libraries
+          working_directory: ~/project/cheerp-compiler/build
+          command: |
+            tar -xvf ~/project/packages/cheerp-headers-and-libs-${VERSION_NO}.tar.bz2 -C "c:/cheerp/"
+            cp -v ~/project/cheerp-compiler/llvm/LICENSE.TXT "c:/cheerp/LICENSE.TXT.cheerp-llvm-clang"
+      - run:
+          name: Build cheerp-utils
+          working_directory: ~/project/cheerp-compiler/build
+          command: |
+            mkdir cheerp-utils-build
+            cd cheerp-utils-build
+            cmake -DCMAKE_INSTALL_PREFIX="c:\cheerp" ~/project/cheerp-utils/
+            make
+      - run:
+          name: Override cheerp-utils files
+          working_directory: ~/project/cheerp-compiler/build
+          command: |
+            sed -i "s@/@\\\\\\\\@g" cheerp-utils-build/CheerpToolchain.cmake
+            sed -i "s@/@\\\\\\\\@g" cheerp-utils-build/CheerpCommon.cmake
+            sed -i "s@/@\\\\\\\\@g" cheerp-utils-build/CheerpWasmToolchain.cmake
+            cp cheerp-utils-build/CheerpCommon.cmake "c:/cheerp/share/cmake/Modules/"
+            cp cheerp-utils-build/CheerpToolchain.cmake "c:/cheerp/share/cmake/Modules/"
+            cp cheerp-utils-build/CheerpWasmToolchain.cmake "c:/cheerp/share/cmake/Modules/"
+      - run:
+          name: Manually patch executable paths
+          working_directory: ~/project/cheerp-compiler/build
+          command: |
+            sed -i "s/clang /clang.exe /g" "c:/cheerp/share/cmake/Modules/CheerpCommon.cmake"
+            sed -i "s/clang++ /clang++.exe /g" "c:/cheerp/share/cmake/Modules/CheerpCommon.cmake"
+            sed -i "s/llvm-link /llvm-link.exe /g" "c:/cheerp/share/cmake/Modules/CheerpCommon.cmake"
+            cp cheerp-utils-build/cheerpwrap "c:/cheerp/bin/"
+      - run:
+          name: Create windows archive
+          working_directory: ~/project/cheerp-compiler/build/c:/
+          command: |
+            zip -r ~/project/packages/cheerp-win-${VERSION_NO}.zip cheerp/
+      - persist_to_workspace:
+          root: packages
+          paths:
+            - cheerp-win-*.zip
+  cheerp-proprietary-package:
+    docker:
+      - image: cimg/base:2021.04
+    resource_class: small
+    steps:
+      - attach_workspace:
+          at: ~/project/packages
+      - run:
+          name: Set up workspace
+          command: |
+            sudo mkdir -p /opt/cheerp/
+            cat ~/project/packages/version >> $BASH_ENV
+      - run:
+          name: Add known hosts
+          command: |
+            mkdir -p ~/.ssh
+            echo $GH_HOST >> ~/.ssh/known_hosts
+      - run:
+          name: Get dependencies
+          command: |
+            git clone git@github.com:leaningtech/cheerp-internal.git
+      - run: mkdir macos
+      - run:
+          name: Create proprietary package for Macosx
+          working_dir: ~/project/macos
+          command: |
+            tar -xf ~/project/packages/cheerp-macosx-${VERSION_NO}.tar.bz2
+      - run:
+          name: Overwrite headers and licenses
+          working_dir: ~/project/macos
+          command: |
+            tar -C cheerp -xf ~/project/packages/cheerp-headers-and-libs-${VERSION_NO}-proprietary.tar.bz2
+            rm cheerp/COPYING
+      - run:
+          name: Overwrite LLVM/clang license
+          working_dir: ~/project/macos
+          command: |
+            cp -v ~/project/cheerp-internal/tools/releasing/LICENSE.TXT.cheerp-llvm-clang.proprietary cheerp/LICENSE.TXT-cheerp-llvm-clang
+      - run:
+          name: Create proprietary tarball for macos
+          working_dir: ~/project/macos
+          command: |
+            tar -cvjf ~/project/packages/cheerp-macosx-${VERSION_NO}-proprietary.tar.bz2 cheerp
+      - run: mkdir linux
+      - run:
+          name: Make package for linux
+          working_directory: ~/project/linux
+          command: |
+            dpkg -x ~/project/packages/cheerp-llvm-clang_${VERSION_NO}-*.deb .
+            tar -C opt/cheerp -xf ~/project/packages/cheerp-headers-and-libs-${VERSION_NO}-proprietary.tar.bz2
+            cp -v ~/project/cheerp-internal/tools/releasing/LICENSE.TXT.cheerp-llvm-clang.proprietary opt/cheerp/LICENSE.TXT-cheerp-llvm-clang
+      - run:
+          name: Create proprietary tarball for linux
+          working_directory: ~/project/linux
+          command: |
+            tar -C opt/ -cvjf ~/project/packages/cheerp-linux-${VERSION_NO}-proprietary.tar.bz2 cheerp
+      - persist_to_workspace:
+          root: ~/project/packages
+          paths:
+            - cheerp-macosx-*-proprietary.tar.bz2
+            - cheerp-linux-*-proprietary.tar.bz2
+  create-dmg:
+    machine:
+      image: ubuntu-2004:202201-02
+    resource_class: medium
+    steps:
+      - attach_workspace:
+          at: ~/project/packages
+      - run:
+          name: Set up workspace
+          command: |
+            sudo mkdir -p /opt/cheerp/
+            sudo mkdir /dmg
+            cat ~/project/packages/version >> $BASH_ENV
+      - run: sudo apt-get update && sudo apt-get install linux-modules-extra-$(uname -r) cmake make
+      - run:
+          name: Add known hosts
+          command: |
+            mkdir -p ~/.ssh
+            echo $GH_HOST >> ~/.ssh/known_hosts
+      - run:
+          name: Clone dependencies
+          command: |
+              git clone git@github.com:leaningtech/cheerp-internal.git
+      - run:
+          name: Set up libdmg-hfsplus
+          command: |
+            git clone https://github.com/leaningtech/libdmg-hfsplus.git
+            cd libdmg-hfsplus
+            cmake -DENABLE_SSL=False .
+            make
+      - mount-template-dmg
+      - unpack-macos:
+          package-name: ""
+      - unmount-and-package:
+          package-name: ""
+      - mount-template-dmg
+      - unpack-macos:
+          package-name: "-proprietary"
+      - unmount-and-package:
+          package-name: "-proprietary"
+      - run:
+          name: Compress DMGs
+          working_directory: ~/project/cheerp-internal/tools/macosx_package
+          command: |
+            ~/project/libdmg-hfsplus/dmg/dmg dmg cheerp-macosx-${VERSION_NO}-uncompressed.dmg cheerp-macosx-${VERSION_NO}.dmg
+            ~/project/libdmg-hfsplus/dmg/dmg dmg cheerp-macosx-${VERSION_NO}-proprietary-uncompressed.dmg cheerp-macosx-${VERSION_NO}-proprietary.dmg
+      - run:
+          name: Store DMGs
+          working_directory: ~/project/cheerp-internal/tools/macosx_package
+          command: |
+            cp cheerp-macosx-${VERSION_NO}.dmg ~/project/packages
+            cp cheerp-macosx-${VERSION_NO}-proprietary.dmg ~/project/packages
+      - when:
+          condition:
+            not:
+              equal: [ master, << pipeline.parameters.release-tag >> ]
+          steps:
+            - run:
+                name: Upload to Github
+                working_directory: ~/project/cheerp-internal/tools/macosx_package
+                command: python2 ../releasing/github_upload.py << pipeline.parameters.release-tag >> "Cheerp ${VERSION_NO}" cheerp-macosx-${VERSION_NO}.dmg cheerp-macosx-${VERSION_NO}.dmg
+      - persist_to_workspace:
+          root: ~/project/packages
+          paths:
+            - cheerp-macosx-*.dmg
+            - cheerp-macosx-*-proprietary.dmg
+  create-windows-exe:
+    docker:
+      - image: leaningtech/cheerp_win_base:20.04
+    resource_class: small
+    steps:
+      - attach_workspace:
+          at: ~/project/packages
+      - run:
+          name: Set up workspace
+          command: |
+            mkdir -p /opt/cheerp/
+            cat ~/project/packages/version >> $BASH_ENV
+      - run:
+          name: Add known hosts
+          command: |
+            mkdir -p ~/.ssh
+            echo $GH_HOST >> ~/.ssh/known_hosts
+      - run:
+          name: Clone dependencies
+          command: |
+              git clone git@github.com:leaningtech/cheerp-internal.git
+      - run:
+          name: Create windows package
+          working_directory: ~/project/cheerp-internal/tools/windows_package
+          command: |
+            unzip ~/project/packages/cheerp-win-${VERSION_NO}.zip
+            echo ${VERSION_NO}
+            cmake -DCHEERP_VERSION=${VERSION_NO} .
+            make package
+            cp Cheerp-${VERSION_NO}-Windows.exe ~/project/packages/
+      - when:
+          condition:
+            not:
+              equal: [ master, << pipeline.parameters.release-tag >> ]
+          steps:
+            - run:
+                name: Upload to Github
+                working_directory: ~/project/cheerp-internal/tools/windows_package
+                command: python2 ../releasing/github_upload.py << pipeline.parameters.release-tag >> "Cheerp ${VERSION_NO}" Cheerp-${VERSION_NO}-Windows.exe Cheerp-${VERSION_NO}-Windows.exe
+      - run:
+          name: Create commercial package
+          working_directory: ~/project/cheerp-internal/tools/windows_package
+          command: |
+            tar -C cheerp/ -xf ~/project/packages/cheerp-headers-and-libs-${VERSION_NO}-proprietary.tar.bz2
+            cp ../releasing/LICENSE.TXT.cheerp-llvm-clang.proprietary cheerp/LICENSE.TXT.cheerp-llvm-clang
+            cmake -DCHEERP_VERSION=$VERSION_NO . -DCHEERP_PROPRIETARY=1
+            make package
+            mv Cheerp-${VERSION_NO}-Windows.exe ~/project/packages/Cheerp-${VERSION_NO}-Windows-proprietary.exe
+      - persist_to_workspace:
+          root: ~/project/packages
+          paths:
+            - Cheerp-*-Windows.exe
+            - Cheerp-*-Windows-proprietary.exe
+  store-results:
+    docker:
+      - image: cimg/base:2021.04
+    resource_class: small
+    steps:
+      - attach_workspace:
+          at: ~/project/packages
+      - store_artifacts:
+          path: ~/project/packages
 
 commands:
   create-deb:
@@ -622,6 +1105,45 @@ commands:
           command: |
             dnf clean all
             dnf install -y cheerp-<< parameters.package-name >>-${VERSION_NO}-1.el8
+  build-tblgen:
+    steps:
+      - run:
+          name: Build tablegen
+          working_directory: ~/project/cheerp-compiler
+          command: |
+            mkdir build-tblgen
+            cd build-tblgen
+            cmake -DLLVM_ENABLE_PROJECTS=clang ../llvm/ -GNinja
+            ninja llvm-tblgen clang-tblgen
+  mount-template-dmg:
+    steps:
+      - run:
+          name: Mount template DMG
+          working_directory: ~/project/cheerp-internal/tools/macosx_package
+          command: |
+            tar xjf cheerp-macosx-template.tar.bz2
+            sudo mount $PWD/cheerp-macosx-template.dmg /dmg
+  unpack-macos:
+    parameters:
+      package-name:
+        type: string
+    steps:
+      - run:
+          name: Unpack macox<< parameters.package-name >> package
+          working_directory: ~/project/cheerp-internal/tools/macosx_package
+          command: |
+            sudo tar --no-overwrite-dir -xvjmf ~/project/packages/cheerp-macosx-${VERSION_NO}<< parameters.package-name >>.tar.bz2 -C /dmg
+  unmount-and-package:
+    parameters:
+      package-name:
+        type: string
+    steps:
+      - run:
+          name: Unmount and package uncompressed DMG<< parameters.package-name >>
+          working_directory: ~/project/cheerp-internal/tools/macosx_package
+          command: |
+            sudo umount /dmg
+            mv cheerp-macosx-template.dmg cheerp-macosx-${VERSION_NO}<< parameters.package-name >>-uncompressed.dmg
 
 parameters:
   release-tag:
@@ -677,3 +1199,27 @@ workflows:
           filters:
             branches:
               only: master
+      - build-cheerp-headers-and-libs:
+          requires:
+            - build-libraries
+      - build-macos:
+          requires:
+            - build-cheerp-headers-and-libs
+      - build-windows:
+          requires:
+            - build-cheerp-headers-and-libs
+      - cheerp-proprietary-package:
+          requires:
+            - build-cheerp-headers-and-libs
+            - build-macos
+      - create-dmg:
+          requires:
+            - build-macos
+            - cheerp-proprietary-package
+      - create-windows-exe:
+          requires:
+            - build-windows
+      - store-results:
+          requires:
+            - create-dmg
+            - create-windows-exe
