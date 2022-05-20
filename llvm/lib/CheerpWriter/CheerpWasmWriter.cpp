@@ -1957,6 +1957,16 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 				{
 					// We can encode this as a get_global
 					encodeInst(WasmU32Opcode::GET_GLOBAL, it->second, code);
+					if(li.getType()->isIntegerTy())
+					{
+						const uint32_t bitWidth = li.getType()->getIntegerBitWidth();
+
+						if (bitWidth < 32)
+						{
+							encodeInst(WasmS32Opcode::I32_CONST, getMaskForBitWidth(bitWidth), code);
+							encodeInst(WasmOpcode::I32_AND, code);
+						}
+					}
 					break;
 				}
 			}
