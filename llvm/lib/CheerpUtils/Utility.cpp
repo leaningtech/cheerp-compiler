@@ -1195,6 +1195,9 @@ bool replaceCallOfBitCastWithBitCastOfCall(CallBase& callInst, bool mayFail, boo
 			assert(performPtrIntConversions);
 			return new IntToPtrInst(src, newType, "", insertPoint);
 		} else if(oldType->isPointerTy() && newType->isIntegerTy()) {
+			if (IntToPtrInst* intToPtr = dyn_cast<IntToPtrInst>(src))
+				if (intToPtr->getOperand(0)->getType() == newType)
+					return intToPtr->getOperand(0);
 			assert(performPtrIntConversions);
 			return new PtrToIntInst(src, newType, "", insertPoint);
 		} else if(oldType->isPointerTy() && newType->isPointerTy()) {
