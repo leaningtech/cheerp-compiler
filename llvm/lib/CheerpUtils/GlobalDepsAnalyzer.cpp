@@ -1183,6 +1183,10 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 {
 	VisitedSet NewvisitPath;
 
+
+	if (F->getIntrinsicID() == Intrinsic::cheerp_throw)
+		hasCheerpException = true;
+
 	if(F->hasPersonalityFn())
 	{
 		hasCheerpException = true;
