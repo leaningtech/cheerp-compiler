@@ -128,6 +128,8 @@ class PartialInterpreter : public llvm::Interpreter {
 	// 	that no store to those GlobalVariable have been performed
 	std::vector<std::pair<long long,long long>> immutableLoadIntervals;
 	NewAlignmentData newAlignmentData;
+
+	std::map<const llvm::Function*, uint32_t> functionCounters;
 public:
 	// While visiting PHINodes of a BasicBlock, incomingBB will hold the incoming (if uniquely identified) or nullptr
 	const llvm::BasicBlock* incomingBB{nullptr};
@@ -532,6 +534,10 @@ public:
 		}
 		return nullptr;
 	}
+	bool addToCounter(const llvm::Function* F)
+	{
+		return (++functionCounters[F] > 0x1000);
+	}
 	void visitOuter(llvm::Instruction& I)
 	{
 		if (PHINode* phi = dyn_cast<PHINode>(&I))
@@ -624,6 +630,9 @@ public:
 					skip = true;
 				}
 			}
+
+			if (addToCounter(I.getFunction()))
+				skip = true;
 
 			//We are inside a call, here we assume all failure to execute are non-recoverable (as in no information could be gained)
 			if (skip)
