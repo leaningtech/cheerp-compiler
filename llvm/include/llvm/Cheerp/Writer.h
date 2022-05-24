@@ -14,6 +14,7 @@
 
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Cheerp/AllocaMerging.h"
+#include "llvm/Cheerp/BaseWriter.h"
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
 #include "llvm/Cheerp/LinearMemoryHelper.h"
 #include "llvm/Cheerp/NameGenerator.h"
@@ -158,7 +159,7 @@ private:
 	int indentLevel;
 };
 
-class CheerpWriter
+class CheerpWriter : public CheerpBaseWriter
 {
 public:
 	enum PARENT_PRIORITY { LOWEST = 0, INTN, UINTN, FROUND, TERNARY, LOGICAL_OR, LOGICAL_AND, BIT_OR, BIT_XOR, BIT_AND, COMPARISON, SHIFT, ADD_SUB, MUL_DIV, HIGHEST };
