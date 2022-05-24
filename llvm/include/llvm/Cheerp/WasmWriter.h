@@ -14,6 +14,7 @@
 
 #include <sstream>
 
+#include "llvm/Cheerp/BaseWriter.h"
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
 #include "llvm/Cheerp/LinearMemoryHelper.h"
 #include "llvm/Cheerp/NameGenerator.h"
@@ -71,7 +72,7 @@ public:
 	~Section();
 };
 
-class CheerpWasmWriter
+class CheerpWasmWriter : public CheerpBaseWriter
 {
 public:
 	bool shouldDefer(const llvm::Instruction* I) const;
