@@ -24,6 +24,7 @@ class CheerpBaseWriter
 public:
 	bool needsUnsignedTruncation(const llvm::Value* v, bool asmjs) const;
 
+	virtual bool isGlobalized(const llvm::Value* v) const =0;
 	virtual ~CheerpBaseWriter() = 0;
 
 private:

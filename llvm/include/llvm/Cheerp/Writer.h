@@ -314,6 +314,11 @@ private:
 		return namegen.getSecondaryNameForEdge(v, edgeContext);
 	}
 
+	bool isGlobalized(const llvm::Value* v) const final
+	{
+		return false;
+	}
+
 	/**
 	 * Compile memcpy and memmove
 	 */

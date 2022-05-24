@@ -531,6 +531,8 @@ bool CheerpBaseWriter::needsUnsignedTruncationImpl(std::unordered_map<const llvm
 	}
 	else if(const LoadInst* LI = dyn_cast<LoadInst>(v))
 	{
+		if (isGlobalized(LI->getOperand(0)))
+			return true;
 		// In linear memory mode loads are unconditionally truncated
 		if(asmjs)
 			return false;
