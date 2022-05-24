@@ -1,5 +1,6 @@
 add_llvm_component_library(LLVMCheerpWriter
   SourceMaps.cpp
+  CheerpBaseWriter.cpp
   CheerpWriter.cpp
   CheerpWasmWriter.cpp
   JSInterop.cpp

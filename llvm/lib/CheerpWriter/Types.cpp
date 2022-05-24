@@ -515,7 +515,7 @@ void CheerpWriter::compileArrayPointerType()
 		<< NewLine;
 }
 
-bool CheerpWriter::needsUnsignedTruncationImpl(std::unordered_map<const llvm::Value*, bool>& visited, const Value* v, bool asmjs)
+bool CheerpBaseWriter::needsUnsignedTruncationImpl(std::unordered_map<const llvm::Value*, bool>& visited, const Value* v, bool asmjs) const
 {
 	if(isa<CmpInst>(v))
 	{
@@ -583,7 +583,7 @@ bool CheerpWriter::needsUnsignedTruncationImpl(std::unordered_map<const llvm::Va
 	return true;
 }
 
-bool CheerpWriter::needsUnsignedTruncation(std::unordered_map<const llvm::Value*, bool>& visited, const Value* v, bool asmjs)
+bool CheerpBaseWriter::needsUnsignedTruncation(std::unordered_map<const llvm::Value*, bool>& visited, const Value* v, bool asmjs) const
 {
 	//needsUnsignedTruncation will visit a sub-graph of the instructions vising every operand recursively
 	//the terminating conditions are:
@@ -608,7 +608,7 @@ bool CheerpWriter::needsUnsignedTruncation(std::unordered_map<const llvm::Value*
 	return iter->second;
 }
 
-bool CheerpWriter::needsUnsignedTruncation(const Value* v, bool asmjs)
+bool CheerpBaseWriter::needsUnsignedTruncation(const Value* v, bool asmjs) const
 {
 	std::unordered_map<const llvm::Value*, bool> visited;
 	return needsUnsignedTruncation(visited, v, asmjs);

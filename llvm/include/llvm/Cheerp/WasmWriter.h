@@ -72,7 +72,7 @@ public:
 	~Section();
 };
 
-class CheerpWasmWriter : public CheerpBaseWriter
+class CheerpWasmWriter final : public CheerpBaseWriter
 {
 public:
 	bool shouldDefer(const llvm::Instruction* I) const;
