@@ -159,7 +159,7 @@ private:
 	int indentLevel;
 };
 
-class CheerpWriter : public CheerpBaseWriter
+class CheerpWriter final : public CheerpBaseWriter
 {
 public:
 	enum PARENT_PRIORITY { LOWEST = 0, INTN, UINTN, FROUND, TERNARY, LOGICAL_OR, LOGICAL_AND, BIT_OR, BIT_XOR, BIT_AND, COMPARISON, SHIFT, ADD_SUB, MUL_DIV, HIGHEST };
@@ -520,8 +520,6 @@ private:
 	void compileArrayClassType(llvm::Type* T);
 	void compileResizeArrayClassType(llvm::Type* T);
 	void compileArrayPointerType();
-	static bool needsUnsignedTruncation(std::unordered_map<const llvm::Value*, bool>& visited, const llvm::Value* v, bool asmjs);
-	static bool needsUnsignedTruncationImpl(std::unordered_map<const llvm::Value*, bool>& visited, const llvm::Value* v, bool asmjs);
 
 	/**
 	 * Methods implemented in Opcodes.cpp
@@ -744,7 +742,6 @@ public:
 	                                       const PointerAnalyzer& PA, const Registerize& registerize, const EdgeContext& edgeContext);
 	static bool needsPointerKindConversionForBlocks(const llvm::BasicBlock* to, const llvm::BasicBlock* from,
 	                                                const PointerAnalyzer& PA, const Registerize& registerize);
-	static bool needsUnsignedTruncation(const llvm::Value* v, bool asmjs);
 private:
 
 	enum Options{NEED_SOURCE_MAPS, MEASURE_TIME_TO_MAIN, NEED_MODULE_CLOSURE, MAX_OPTION};

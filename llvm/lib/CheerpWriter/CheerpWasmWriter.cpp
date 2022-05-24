@@ -745,7 +745,7 @@ void CheerpWasmWriter::compileUnsignedInteger(WasmBuffer& code, const llvm::Valu
 	compileOperand(code, v);
 
 	uint32_t initialSize = v->getType()->getIntegerBitWidth();
-	if(initialSize < 32 && CheerpWriter::needsUnsignedTruncation(v, /*asmjs*/true))
+	if(initialSize < 32 && needsUnsignedTruncation(v, /*asmjs*/true))
 	{
 		encodeInst(WasmS32Opcode::I32_CONST, getMaskForBitWidth(initialSize), code);
 		encodeInst(WasmOpcode::I32_AND, code);
@@ -2753,7 +2753,7 @@ void CheerpWasmWriter::compileBranchTable(WasmBuffer& code, const llvm::SwitchIn
 		encodeInst(WasmS32Opcode::I32_CONST, min, code);
 		encodeInst(WasmOpcode::I32_SUB, code);
 	}
-	if (bitWidth != 32 && CheerpWriter::needsUnsignedTruncation(si->getCondition(), /*asmjs*/true))
+	if (bitWidth != 32 && needsUnsignedTruncation(si->getCondition(), /*asmjs*/true))
 	{
 		assert(bitWidth < 32);
 		encodeInst(WasmS32Opcode::I32_CONST, getMaskForBitWidth(bitWidth), code);
