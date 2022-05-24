@@ -783,19 +783,6 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(const
 		llvm::report_fatal_error("Unsupported memory intrinsic, please rebuild the code using an updated version of Cheerp", false);
 		return COMPILE_EMPTY;
 	}
-	else if(intrinsicId==Intrinsic::invariant_start)
-	{
-		//TODO: Try to optimize using this, for now just pass the second arg
-		if(!callV.use_empty())
-		{
-			compileOperand(*(it+1));
-			return COMPILE_OK;
-		}
-		else
-			return COMPILE_EMPTY;
-	}
-	else if(intrinsicId==Intrinsic::invariant_end)
-		return COMPILE_EMPTY;
 	else if(intrinsicId==Intrinsic::vastart)
 	{
 		assert(!asmjs && "vastart instructions in asmjs functions are removed in the AllocaLowering pass");
@@ -4709,6 +4696,8 @@ void CheerpWriter::compileBB(const BasicBlock& BB)
 			//Skip some kind of intrinsics
 			if(II->getIntrinsicID()==Intrinsic::lifetime_start ||
 				II->getIntrinsicID()==Intrinsic::lifetime_end ||
+				II->getIntrinsicID()==Intrinsic::invariant_start ||
+				II->getIntrinsicID()==Intrinsic::invariant_end ||
 				II->getIntrinsicID()==Intrinsic::dbg_declare ||
 				II->getIntrinsicID()==Intrinsic::dbg_value ||
 				II->getIntrinsicID()==Intrinsic::dbg_label ||

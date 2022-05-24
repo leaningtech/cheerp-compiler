@@ -1600,28 +1600,6 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						}
 						return false;
 					}
-					case Intrinsic::invariant_start:
-					{
-						//TODO: Try to optimize using this, for now just pass the second arg
-						if (ci.use_empty())
-							return true;
-
-						compileOperand(code, ci.getOperand(1));
-						// NOTE: If there are no uses this cannot be a tail-call (the user would have been the return)
-						if(useTailCall)
-						{
-							encodeInst(WasmOpcode::RETURN, code);
-							return true;
-						}
-						return false;
-					}
-					case Intrinsic::invariant_end:
-					{
-						// Do nothing.
-						if(useTailCall)
-							encodeInst(WasmOpcode::RETURN, code);
-						return true;
-					}
 					case Intrinsic::abs:
 					{
 						//Implementing ( X >= 0 ) ? X : -X
@@ -2365,6 +2343,8 @@ void CheerpWasmWriter::compileInstructionAndSet(WasmBuffer& code, const llvm::In
 		//Skip some kind of intrinsics
 		if(II->getIntrinsicID()==Intrinsic::lifetime_start ||
 			II->getIntrinsicID()==Intrinsic::lifetime_end ||
+			II->getIntrinsicID()==Intrinsic::invariant_start ||
+			II->getIntrinsicID()==Intrinsic::invariant_end ||
 			II->getIntrinsicID()==Intrinsic::dbg_declare ||
 			II->getIntrinsicID()==Intrinsic::dbg_value ||
 			II->getIntrinsicID()==Intrinsic::dbg_label ||
