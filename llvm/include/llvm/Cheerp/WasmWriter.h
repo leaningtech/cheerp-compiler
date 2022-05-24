@@ -77,6 +77,12 @@ class CheerpWasmWriter final : public CheerpBaseWriter
 public:
 	bool shouldDefer(const llvm::Instruction* I) const;
 
+	bool isGlobalized(const llvm::Value* v) const final
+	{
+		if (const llvm::GlobalVariable* GV = llvm::dyn_cast<llvm::GlobalVariable>(v))
+			return globalizedGlobalsIDs.count(GV);
+		return false;
+	}
 private:
 	llvm::Module& module;
 	llvm::ModuleAnalysisManager& MAM;
