@@ -64,41 +64,6 @@ static void createNullptrFunction(llvm::Module& module)
 	builder.CreateUnreachable();
 }
 
-static void callGlobalConstructorsOnStart(llvm::Module& M, GlobalDepsAnalyzer& GDA)
-{
-	// Determine if a function should be constructed that calls the global
-	// constructors on start. The function will not be constructed when there
-	// are no global constructors.
-	auto constructors = cheerp::ModuleGlobalConstructors(M);
-	if (!constructors || constructors->op_begin() == constructors->op_end())
-		return;
-
-	// Create the function with the call instructions.
-	IRBuilder<> builder(M.getContext());
-	auto fTy = FunctionType::get(builder.getVoidTy(), false);
-	auto stub = Function::Create(fTy, Function::InternalLinkage, "_start", &M);
-	stub->setSection("asmjs");
-
-	auto block = BasicBlock::Create(M.getContext(), "entry", stub);
-	builder.SetInsertPoint(block);
-
-	for (auto it = constructors->op_begin(); it != constructors->op_end(); ++it)
-	{
-		assert(isa<ConstantStruct>(it));
-		ConstantStruct* cs = cast<ConstantStruct>(it);
-		assert(isa<Function>(cs->getAggregateElement(1)));
-		Function* F = cast<Function>(cs->getAggregateElement(1));
-
-		if (F->getSection() != StringRef("asmjs"))
-			continue;
-
-		builder.CreateCall(F, {});
-	}
-
-	builder.CreateRet(nullptr);
-	return;
-}
-
 void GlobalDepsAnalyzer::simplifyCalls(llvm::Module & module) const
 {
 	std::vector<llvm::CallInst*> deleteList;
@@ -521,84 +486,18 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 		}
 	}
 
-	llvm::Function* webMainOrMain = getMainFunction(module);
-	if (webMainOrMain)
+	llvm::Function* startFunc = module.getFunction("_start");
+	if (startFunc)
 	{
 		// Webmain entry point
-		extendLifetime(webMainOrMain);
+		extendLifetime(startFunc);
 	}
 	else
 	{
-		llvm::errs() << "warning: webMain or main entry point not found\n";
+		llvm::errs() << "warning: _start function point not found\n";
 	}
-	entryPoint = webMainOrMain;
+	entryPoint = startFunc;
 	
-	//Process constructors
-	const ConstantArray* constructors = ModuleGlobalConstructors(module);
-	// Random things which may go boom
-	if (constructors) {
-		auto getConstructorPriority = []( const Constant * p ) -> uint32_t 
-		{
-			assert( isa< ConstantStruct >(p) );
-			assert( isa< ConstantInt >(p->getAggregateElement(0u) ) );
-			
-			return cast<ConstantInt>(p->getAggregateElement(0u) )->getSExtValue();
-		};
-		
-		auto getConstructorFunction = []( const Constant * p ) -> llvm::Function *
-		{
-			assert( isa< ConstantStruct >(p) );
-			assert( isa< Function >(p->getAggregateElement(1) ) );
-			
-			return cast<Function>( p->getAggregateElement(1) );
-		};
-		
-		auto getConstructorData = [](const Constant* p) -> const llvm::Constant*
-		{
-			assert(isa<ConstantStruct>(p) );
-			if (!p->getAggregateElement(2))
-				return nullptr;
-			return p->getAggregateElement(2);
-		};
-		
-		auto constComparator = [&]( const Constant * lhs, const Constant * rhs ) -> bool
-		{
-			return std::make_pair( getConstructorPriority(lhs), lhs) < 
-				std::make_pair( getConstructorPriority(rhs), rhs);
-		};
-		
-		std::set< const Constant *, decltype(constComparator) > requiredConstructors( constComparator );
-	
-		for (ConstantArray::const_op_iterator it = constructors->op_begin();
-		     it != constructors->op_end(); ++it)
-		{
-			assert( isa<Constant>(it) );
-			const Constant * p = cast<Constant>(it);
-
-			requiredConstructors.insert(p);
-			SubExprVec vec;
-			visitGlobal( getConstructorFunction(p), visited, vec );
-			const llvm::Constant* data = getConstructorData(p);
-			if (data)
-				visitConstant(data, visited, vec);
-			assert( visited.empty() );
-		}
-		
-		constructorsNeeded.reserve( requiredConstructors.size() );
-		std::transform( requiredConstructors.begin(),
-				requiredConstructors.end(),
-				std::back_inserter(constructorsNeeded),
-				getConstructorFunction );
-
-		// Make sure the constructors are considered externals
-		for(Function* F: constructorsNeeded)
-			externals.push_back(F);
-
-		auto constructorVar = module.getGlobalVariable("llvm.global_ctors");
-		reachableGlobals.insert(constructorVar);
-		varsOrder.push_back(constructorVar);
-	}
-
 	processEnqueuedFunctions();
 
 	// Flush out all functions
@@ -1055,10 +954,6 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 		//Visit the indirect uses of the old functions, and change them to use the new (almost empty) function
 		replaceSomeUsesWith(indirectUses, placeholderFunc);
 	}
-
-	// Create the start function only if we have a wasm module without js loader
-	if (wasmStart)
-		callGlobalConstructorsOnStart(module, *this);
 
 	// If the linear output is wasm, pretend that there is always some code.
 	// This simplify the writer for the logic that doesn't output a module if we only have
@@ -1602,10 +1497,6 @@ void GlobalDepsAnalyzer::insertDynAllocArray(Type* t) {
 
 void GlobalDepsAnalyzer::eraseFunction(llvm::Function* F) {
 	assert(F && F != entryPoint && "Cound not erase entry point!");
-
-	auto it = std::find(constructorsNeeded.begin(), constructorsNeeded.end(), F);
-	if (it != constructorsNeeded.end())
-		constructorsNeeded.erase(it);
 
 	asmJSExportedFuncions.erase(F);
 	asmJSImportedFuncions.erase(F);

@@ -84,9 +84,6 @@ bool isInlineable(const llvm::Instruction& I, const PointerAnalyzer& PA);
 
 bool mayContainSideEffects(const llvm::Value* V, const PointerAnalyzer& PA);
 
-llvm::Function* getMainFunction(llvm::Module& module);
-const llvm::Function* getMainFunction(const llvm::Module& module);
-
 // Forward define the Registerize class
 class Registerize;
 
