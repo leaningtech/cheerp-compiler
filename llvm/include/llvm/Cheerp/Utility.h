@@ -213,7 +213,14 @@ inline bool isGEP(const llvm::Value* v)
 //Utility function that calculate the offset for Structs or Array at a given index of a GEP
 int32_t partialOffset(llvm::Type* & curType, const llvm::DataLayout& DL, const int32_t index);
 
-const llvm::ConstantArray* ModuleGlobalConstructors(llvm::Module& M);
+struct GlobalConstructor
+{
+	int prio;
+	llvm::Function* func;
+	llvm::Constant* data;
+};
+
+std::vector<llvm::Constant*> getGlobalConstructors(llvm::Module& M);
 
 bool needsSecondaryName(const llvm::Value*, const PointerAnalyzer& PA);
 

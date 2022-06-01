@@ -6456,8 +6456,8 @@ void CheerpWriter::compileCommonJSExports()
 void CheerpWriter::compileEntryPoint()
 {
 	const Function * entryPoint = module.getFunction("_start");
-	assert(entryPoint);
-	stream << getName(entryPoint) << "();" << NewLine;
+	if (entryPoint)
+		stream << getName(entryPoint) << "();" << NewLine;
 }
 
 void CheerpWriter::compileFileBegin(const OptionsSet& options)
