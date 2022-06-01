@@ -976,16 +976,24 @@ bool PreExecute::runOnModule(Module& m)
     FD.detach("fREe");
     FD.detach("rEALLOc");
 
+    bool abortAtNextPrio = false;
     if (constructorVar)
     {
-        const Constant *initializer = constructorVar->getInitializer();
-        const ConstantArray *constructors = cast<ConstantArray>(initializer);
-
-        for (ConstantArray::const_op_iterator it = constructors->op_begin();
-             it != constructors->op_end(); ++it)
+        std::vector<Constant*> constructors = getGlobalConstructors(m);
+        int curPrio = -1;
+        for (auto it = constructors.begin(); it != constructors.end();++it)
         {
-            Constant *elem = cast<Constant>(*it);
+            Constant* elem = *it;
             Function* func = cast<Function>(elem->getAggregateElement(1));
+            int prio = cast<ConstantInt>(elem->getAggregateElement(0u))->getSExtValue();
+            if (prio != curPrio && abortAtNextPrio)
+            {
+                // if we aborted the previous constructor and we are increasing the priority,
+                // we cannot safely pre-execute any following constructor
+                newConstructors.insert(newConstructors.end(), it, constructors.end());
+                break;
+            }
+            curPrio = prio;
             if(runOnConstructor(m, func))
                 Changed |= true;
             else
@@ -994,14 +1002,17 @@ bool PreExecute::runOnModule(Module& m)
     }
 
 
-    if (PreExecuteMain)
+    if (PreExecuteMain && !abortAtNextPrio)
     {
+        Function* mainFunc = getMainFunction(m);
+        assert(mainFunc && "unable to find main/webMain in module!");
         Function* startFunc = m.getFunction("_start");
         assert(startFunc && "unable to find _start in module!");
         if(runOnConstructor(m, startFunc))
         {
             Changed |= true;
             startFunc->eraseFromParent();
+            mainFunc->eraseFromParent();
         }
     }
 

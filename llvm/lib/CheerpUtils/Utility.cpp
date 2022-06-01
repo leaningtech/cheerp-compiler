@@ -1009,7 +1009,7 @@ bool DynamicAllocInfo::useTypedArray() const
 	return TypeSupport::isTypedArrayType( getCastedType()->getPointerElementType(), forceTypedArrays);
 }
 
-const ConstantArray* ModuleGlobalConstructors(Module& M)
+static const ConstantArray* getConstructorsConst(Module& M)
 {
 	GlobalVariable* var = M.getGlobalVariable("llvm.global_ctors");
 	if (!var || !var->hasInitializer())
@@ -1020,6 +1020,29 @@ const ConstantArray* ModuleGlobalConstructors(Module& M)
 
 	return cast<ConstantArray>(var->getInitializer());
 }
+
+std::vector<Constant*> getGlobalConstructors(Module& module)
+{
+	//Process constructors
+	const ConstantArray* constructors = getConstructorsConst(module);
+	if (!constructors)
+		return {};
+
+	std::vector<Constant*> ret;
+	ret.reserve(constructors->getNumOperands());
+	for (auto& el: constructors->operands())
+	{
+		Constant* C = cast<Constant>(el);
+		ret.push_back(C);
+	}
+	std::stable_sort(ret.begin(), ret.end(), [](auto& a, auto& b)
+	{
+		return cast<ConstantInt>(a->getAggregateElement(0u))->getSExtValue()
+			< cast<ConstantInt>(b->getAggregateElement(0u))->getSExtValue();
+	});
+	return ret;
+}
+
 
 bool needsSecondaryName(const Value* V, const PointerAnalyzer& PA)
 {

@@ -26,24 +26,6 @@ using namespace llvm;
 namespace cheerp
 {
 
-static std::vector<Function*> getConstructors(Module& module)
-{
-	std::vector<Function*> ret;
-	//Process constructors
-	const ConstantArray* constructors = cheerp::ModuleGlobalConstructors(module);
-	if (!constructors)
-		return ret;
-
-	ret.reserve(constructors->getNumOperands());
-	for (auto& el: constructors->operands())
-	{
-		Constant* C = cast<Constant>(el);
-		Function* func = cast<Function>(C->getAggregateElement(1));
-		ret.push_back(func);
-	}
-	return ret;
-}
-
 PreservedAnalyses CallConstructorsPass::run(llvm::Module &M, llvm::ModuleAnalysisManager &MPA)
 {
 	FunctionType* Ty = FunctionType::get(Type::getVoidTy(M.getContext()), false);
@@ -54,9 +36,9 @@ PreservedAnalyses CallConstructorsPass::run(llvm::Module &M, llvm::ModuleAnalysi
 	BasicBlock* Entry = BasicBlock::Create(M.getContext(),"entry", Ctors);
 	IRBuilder<> Builder(Entry);
 
-	for (Function* C: getConstructors(M))
+	for (Constant* C: cheerp::getGlobalConstructors(M))
 	{
-		Builder.CreateCall(Ty, C);
+		Builder.CreateCall(Ty, cast<Function>(C->getAggregateElement(1)));
 	}
 	Builder.CreateRetVoid();
 
