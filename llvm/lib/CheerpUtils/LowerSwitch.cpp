@@ -175,9 +175,9 @@ private:
 			minimum = p.first + 1;
 			orderedRanges.push_back(RangeDest(p.first, p.second));
 		}
-		if (hasDefault() && orderedRanges.back().high < maximum)
+		if (hasDefault() && minimum < maximum)
 		{
-			orderedRanges.push_back(RangeDest(orderedRanges.back().high+1, maximum, SI->getDefaultDest()));
+			orderedRanges.push_back(RangeDest(minimum, maximum, SI->getDefaultDest()));
 		}
 	}
 	SwitchInst* SI;
@@ -716,6 +716,10 @@ bool CheerpLowerSwitch::runOnFunction(Function& F, AssumptionCache* AC)
 bool CheerpLowerSwitch::processSwitchInst(SwitchInst *SI)
 {
 	DataOnSwitch data(SI);
+
+	if (data.numRanges() <= 1)
+		return true;
+
 	GreedyLowering lowering(SI);
 
 	const bool isConvenientToLower = (lowering.calculatedCost(data) < 5.0);
