@@ -653,11 +653,13 @@ void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("-cheerp-keep-invokes");
   addPass("function(simplifycfg)");
 
+  addPass("CallConstructors");
   addPass("GlobalDepsAnalyzer");
   addPass("TypeOptimizer");
   addPass("function(CheerpLowerSwitch)");
   addPass("I64Lowering");
   addPass("function(ReplaceNopCastsAndByteSwaps)");
+
   if(!Args.hasArg(options::OPT_cheerp_no_lto))
   {
     addPass("FreeAndDeleteRemoval");
