@@ -299,8 +299,7 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 			const CallInst* ci = cast<CallInst>(A);
 			const Function * calledFunc = ci->getCalledFunction();
 			const Value * calledValue = ci->getCalledOperand();
-			const PointerType* pTy = cast<PointerType>(calledValue->getType());
-			const FunctionType* fTy = cast<FunctionType>(pTy->getPointerElementType());
+			const FunctionType* fTy = ci->getFunctionType();
 			assert(!ci->isInlineAsm());
 
 			if (calledFunc)
@@ -349,8 +348,7 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 			}
 
 			const Value* calledValueB = cast<CallInst>(B)->getCalledOperand();
-			const PointerType* pTyB = cast<PointerType>(calledValueB->getType());
-			const FunctionType* fTyB = cast<FunctionType>(pTyB->getPointerElementType());
+			const FunctionType* fTyB = cast<CallInst>(B)->getFunctionType();
 
 			if (fTy->getNumParams() != fTyB->getNumParams())
 				return CacheAndReturn(false);
