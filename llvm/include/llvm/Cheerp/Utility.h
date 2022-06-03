@@ -57,6 +57,17 @@ inline llvm::Type* getElementType(llvm::Type* t)
 		return t->getArrayElementType();
 }, "getPointerElementType is deprecated")
 
+inline llvm::Type* getElementType(llvm::Type* t, llvm::Type* candidate)
+{
+	if(llvm::isa<llvm::PointerType>(t))
+	{
+		assert(candidate && candidate->getPointerTo() == t);
+		return candidate;
+	}
+	else
+		return t->getArrayElementType();
+}
+
 class InlineableCache
 {
 	typedef llvm::DenseMap<const llvm::Instruction*, bool> Cache;
