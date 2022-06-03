@@ -276,7 +276,7 @@ std::pair<const llvm::Value*, int> StoreMerging::findBasePointerAndOffset(const 
 					assert(CI);
 
 					//partialOffset modifyies curType
-					totalOffset += partialOffset(curType, *DL, CI->getSExtValue());
+					totalOffset += partialOffset(curType, gep->getSourceElementType(), *DL, CI->getSExtValue());
 				}
 
 				pointer = gep->getPointerOperand();

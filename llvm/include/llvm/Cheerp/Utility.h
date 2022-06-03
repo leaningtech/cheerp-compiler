@@ -225,7 +225,7 @@ inline bool isGEP(const llvm::Value* v)
 }
 
 //Utility function that calculate the offset for Structs or Array at a given index of a GEP
-int32_t partialOffset(llvm::Type* & curType, const llvm::DataLayout& DL, const int32_t index);
+int32_t partialOffset(llvm::Type* & curType, llvm::Type* alternative, const llvm::DataLayout& DL, const int32_t index);
 
 struct GlobalConstructor
 {

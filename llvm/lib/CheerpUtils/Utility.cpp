@@ -82,7 +82,7 @@ bool isValidVoidPtrSource(const Value* val, std::set<const PHINode*>& visitedPhi
 	return false;
 }
 
-int32_t partialOffset(llvm::Type* & curType, const llvm::DataLayout& DL, const int32_t index)
+int32_t partialOffset(llvm::Type* & curType, llvm::Type* alternative, const llvm::DataLayout& DL, const int32_t index)
 {
 	int32_t partialOffset = 0;
 	if(llvm::StructType* ST = dyn_cast<llvm::StructType>(curType))
@@ -93,9 +93,9 @@ int32_t partialOffset(llvm::Type* & curType, const llvm::DataLayout& DL, const i
 	}
 	else
 	{
-		const uint32_t elementSize = DL.getTypeAllocSize(getElementType(curType));
+		const uint32_t elementSize = DL.getTypeAllocSize(getElementType(curType, alternative));
 		partialOffset = elementSize * index;
-		curType = getElementType(curType);
+		curType = getElementType(curType, alternative);
 	}
 	return partialOffset;
 }

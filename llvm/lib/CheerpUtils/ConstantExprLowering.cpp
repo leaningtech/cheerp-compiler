@@ -96,7 +96,7 @@ Constant* ConstantExprLowering::visitConstantExpr(const ConstantExpr *CE, SmallD
 				{
 					int64_t index = cast<ConstantInt>(idx)->getZExtValue();
 					//curTy is modifyed by partialOffset
-					Addr += partialOffset(curTy, *DL, index);
+					Addr += partialOffset(curTy, GEP->getSourceElementType(), *DL, index);
 				}
 				auto *CI = ConstantInt::get(IntegerType::get(CE->getContext(), 32), Addr);
 				return ConstantExpr::getIntToPtr(CI, CE->getType());
