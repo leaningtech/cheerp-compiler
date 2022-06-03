@@ -2898,8 +2898,7 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 		else
 		{
 			PARENT_PRIORITY prio = LOWEST;
-			const PointerType* pTy = cast<PointerType>(callV.getCalledOperand()->getType());
-			const FunctionType* fTy = cast<FunctionType>(pTy->getPointerElementType());
+			const FunctionType* fTy = callV.getFunctionType();
 			if (asmjs && (TypeSupport::isRawPointer(tp, true) || (tp->isIntegerTy() &&
 				(isImport ||
 				(!F && !linearHelper.getFunctionTables().count(fTy))))))
@@ -4501,8 +4500,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileCallInstruction(
 	bool asmjs = currentFun->getSection() == StringRef("asmjs");
 	const Function * calledFunc = ci.getCalledFunction();
 	const Value * calledValue = ci.getCalledOperand();
-	const PointerType* pTy = cast<PointerType>(calledValue->getType());
-	const FunctionType* fTy = cast<FunctionType>(pTy->getPointerElementType());
+	const FunctionType* fTy = ci.getFunctionType();
 	// Skip over bitcasts of function
 	if(isBitCast(calledValue))
 	{
