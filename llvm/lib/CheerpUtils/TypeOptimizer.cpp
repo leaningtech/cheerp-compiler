@@ -819,7 +819,7 @@ std::pair<Constant*, uint8_t> TypeOptimizer::rewriteConstant(Constant* C, bool r
 				{
 					idxs.push_back(*Op);
 				}
-				uint8_t mergedIntegerOffset=rewriteGEPIndexes(newIndexes, ptrType, idxs, targetType, NULL);
+				uint8_t mergedIntegerOffset=rewriteGEPIndexes(newIndexes, ptrType, cast<GEPOperator>(CE)->getSourceElementType(), idxs, targetType, NULL);
 				return std::make_pair(ConstantExpr::getGetElementPtr(ptrOperand->getType()->getPointerElementType(), ptrOperand, newIndexes), mergedIntegerOffset);
 			}
 			case Instruction::BitCast:
@@ -1112,7 +1112,7 @@ Function* TypeOptimizer::rewriteIntrinsic(Function* F, FunctionType* FT)
 	return newF;
 }
 
-uint8_t TypeOptimizer::rewriteGEPIndexes(SmallVector<Value*, 4>& newIndexes, Type* ptrType, ArrayRef<Value*> idxs, Type* targetType, Instruction* insertionPoint)
+uint8_t TypeOptimizer::rewriteGEPIndexes(SmallVector<Value*, 4>& newIndexes, Type* ptrType, Type* srcType, ArrayRef<Value*> idxs, Type* targetType, Instruction* insertionPoint)
 {
 	// The addToLastIndex flag should be set to true if the following index should be added to the previouly pushed one
 	bool addToLastIndex = false;
@@ -1234,8 +1234,26 @@ uint8_t TypeOptimizer::rewriteGEPIndexes(SmallVector<Value*, 4>& newIndexes, Typ
 			case TypeMappingInfo::FLATTENED_ARRAY:
 			{
 				// We had something like [ N x [ M x T ] ] which is now [ N*M x T ]
-				uint32_t oldTypeSize = DL->getTypeAllocSize(rewriteType(getElementType(curType)));
-				uint32_t elementSize = DL->getTypeAllocSize(getElementType(curTypeMappingInfo.mappedType));
+				uint32_t oldTypeSize = DL->getTypeAllocSize(rewriteType(getElementType(curType, srcType)));
+
+				llvm::Type* mappedType = curTypeMappingInfo.mappedType;
+				llvm::Type* elementType = nullptr;
+				if (ArrayType* mappedArrayType = dyn_cast<ArrayType>(mappedType))
+				{
+					elementType = mappedArrayType->getArrayElementType();
+				}
+				else if (PointerType* mappedPointedType = dyn_cast<PointerType>(mappedType))
+				{
+					llvm::Type* rewritten = rewriteType(srcType);
+
+					if (ArrayType* rewrittenAsArray = dyn_cast<ArrayType>(rewritten))
+						elementType = rewrittenAsArray->getArrayElementType();
+					else
+						elementType = mappedPointedType->getPointerElementType();
+				}
+
+				assert(elementType);
+				uint32_t elementSize = DL->getTypeAllocSize(elementType);
 				assert(!(oldTypeSize % elementSize));
 				uint32_t numElements=oldTypeSize/elementSize;
 				AddMultipliedIndex(idxs[i], numElements);
@@ -1279,7 +1297,7 @@ uint8_t TypeOptimizer::rewriteGEPIndexes(SmallVector<Value*, 4>& newIndexes, Typ
 		if(StructType* ST=dyn_cast<StructType>(curType))
 			curType = ST->getElementType(cast<ConstantInt>(idxs[i])->getZExtValue());
 		else
-			curType = getElementType(curType);
+			curType = getElementType(curType, srcType);
 	}
 	assert(rewriteType(curType) == targetType);
 	if(targetType->isArrayTy())
@@ -1546,7 +1564,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 						{
 							idxs.push_back(localInstMapping.getMappedOperand(*Op).first);
 						}
-						uint8_t mergedIntegerOffset=rewriteGEPIndexes(newIndexes, ptrType, idxs, targetType, &I);
+						uint8_t mergedIntegerOffset=rewriteGEPIndexes(newIndexes, ptrType, cast<GEPOperator>(&I)->getSourceElementType(), idxs, targetType, &I);
 						auto rewrittenOperand = localInstMapping.getMappedOperand(ptrOperand);
 						if (auto A = dyn_cast<Argument>(rewrittenOperand.first))
 						{
