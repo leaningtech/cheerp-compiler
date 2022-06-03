@@ -140,8 +140,7 @@ bool AllocaLowering::runOnFunction(Function& F, DominatorTree& DT, cheerp::Globa
 				// Skip if both caller and callee not asmjs
 				if (!asmjs && (!calledFunc || calledFunc->getSection() != StringRef("asmjs")))
 					continue;
-				const PointerType* pTy = cast<PointerType>(ci->getCalledOperand()->getType());
-				const FunctionType* fTy = cast<FunctionType>(pTy->getPointerElementType());
+				const FunctionType* fTy = ci->getFunctionType();
 				if (fTy->isVarArg())
 				{
 					varargCalls.push_back(ci);
@@ -255,8 +254,7 @@ bool AllocaLowering::runOnFunction(Function& F, DominatorTree& DT, cheerp::Globa
 	// Add stack handling instructions to vararg calls
 	for (const auto& ci: varargCalls)
 	{
-		const PointerType* pTy = cast<PointerType>(ci->getCalledOperand()->getType());
-		const FunctionType* fTy = cast<FunctionType>(pTy->getPointerElementType());
+		const FunctionType* fTy = ci->getFunctionType();
 
 		size_t totalParamNum = ci->arg_size();
 		size_t fixedParamsNum = fTy->getNumParams();
