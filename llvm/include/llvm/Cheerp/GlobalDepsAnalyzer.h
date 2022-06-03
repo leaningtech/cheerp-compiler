@@ -100,11 +100,6 @@ public:
 	const DeterministicFunctionSet & asmJSImports() const { return asmJSImportedFuncions; }
 
 	/**
-	 * Get the list of constructors (static initializers) required by the program
-	 */
-	const std::vector<llvm::Function*> & constructors() const { return constructorsNeeded; }
-
-	/**
 	 * Get the entry point of the program, might be webMain or main
 	 */
 	const llvm::Function* getEntryPoint() const { return entryPoint; }
@@ -254,8 +249,7 @@ private:
 	std::unordered_set<llvm::Type* > arrayResizesNeeded;
 	DeterministicFunctionSet asmJSExportedFuncions;
 	DeterministicFunctionSet asmJSImportedFuncions;
-	std::vector< llvm::Function* > constructorsNeeded;
-		
+
 	std::vector< const llvm::GlobalVariable * > varsOrder;
 	std::vector< llvm::GlobalValue * > externals;
 	std::vector< const llvm::Function* > functionsQueue;

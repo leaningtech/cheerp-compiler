@@ -5239,7 +5239,7 @@ void CheerpWriter::compileMethod(const Function& F)
 			stream << getName(&*curArg);
 	}
 	stream << "){" << NewLine;
-	if (measureTimeToMain && (&F == getMainFunction(module)) )
+	if (measureTimeToMain && (&F == (globalDeps.getEntryPoint())))
 	{
 		stream << "__cheerp_main_time=__cheerp_now();" << NewLine;
 	}
@@ -6042,18 +6042,6 @@ void CheerpWriter::compileAsmJSClosure()
 	compileFunctionTablesAsmJS();
 
 	stream << "return {" << NewLine;
-	// export constructors
-	for (const Function * F : globalDeps.constructors() )
-	{
-		if (F->getSection() == StringRef("asmjs"))
-			stream << getName(F) << ':' << getName(F) << ',' << NewLine;
-	}
-	// if entry point is in asm.js, explicitly export it
-	if ( const Function * entryPoint = globalDeps.getEntryPoint())
-	{
-		if (entryPoint->getSection() == StringRef("asmjs"))
-			stream << getName(entryPoint) << ':' << getName(entryPoint) << ',' << NewLine;
-	}
 	for (const Function* exported: globalDeps.asmJSExports())
 	{
 		StringRef name = getName(exported);
@@ -6483,25 +6471,11 @@ void CheerpWriter::compileCommonJSExports()
 	stream << "};" << NewLine;
 }
 
-void CheerpWriter::compileConstructors()
+void CheerpWriter::compileEntryPoint()
 {
-	//Call constructors
-	for (const Function * F : globalDeps.constructors() )
-	{
-		bool asmjs = F->getSection() == StringRef("asmjs");
-		if (asmjs)
-			stream << "__asm.";
-		stream << namegen.getName(F) << "();" << NewLine;
-	}
-
-	//Invoke the entry point
-	if ( const Function * entryPoint = globalDeps.getEntryPoint() )
-	{
-		bool asmjs = entryPoint->getSection() == StringRef("asmjs");
-		if (asmjs)
-			stream << "__asm.";
-		stream << getName(entryPoint) << "();" << NewLine;
-	}
+	const Function * entryPoint = module.getFunction("_start");
+	assert(entryPoint);
+	stream << getName(entryPoint) << "();" << NewLine;
 }
 
 void CheerpWriter::compileFileBegin(const OptionsSet& options)
@@ -6581,7 +6555,7 @@ void CheerpWriter::makeJS()
 	}
 
 	compileDefineExports();
-	compileConstructors();
+	compileEntryPoint();
 	if (makeModule == MODULE_TYPE::COMMONJS || makeModule == MODULE_TYPE::ES6)
 		compileCommonJSExports();
 

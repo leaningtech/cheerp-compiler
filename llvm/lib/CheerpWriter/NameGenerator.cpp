@@ -199,18 +199,14 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 	 */
 	std::set< useGlobalPair, std::greater< useGlobalPair > > allGlobalValues;
 
-	const Function* mainOrWebMain = getMainFunction(M);
+	const Function* entryPoint = gda.getEntryPoint();
 
 	for (const Function & f : M.getFunctionList() )
 	{
 		unsigned nUses = f.getNumUses();
 
-		if ( &f == mainOrWebMain)
-			++nUses; // We explicitly invoke the webmain
-
-		// Constructors are also explicitly invoked
-		if ( std::find(gda.constructors().begin(), gda.constructors().end(), &f ) != gda.constructors().end() )
-			++nUses;
+		if ( &f == entryPoint)
+			++nUses; // We explicitly invoke the entry point
 
 		allGlobalValues.emplace( nUses, &f );
 

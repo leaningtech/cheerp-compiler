@@ -3507,19 +3507,13 @@ void CheerpWasmWriter::compileExportSection()
 	Section section(0x07, "Export", this);
 	std::vector<const llvm::Function*> exports;
 
-	// Export the webMain symbol, if defined.
+	// Export the _start symbol, if defined.
 	const llvm::Function* entry = globalDeps.getEntryPoint();
 	if(entry && entry->getSection() == StringRef("asmjs")) {
 		assert(globalDeps.asmJSExports().find(entry) == globalDeps.asmJSExports().end());
 		exports.push_back(entry);
 	}
 
-	// Add the static constructors
-	for (const Function * F : globalDeps.constructors() )
-	{
-		if (F->getSection() == StringRef("asmjs"))
-			exports.push_back(F);
-	}
 	// Add the list of asmjs-exported functions.
 	exports.insert(exports.end(), globalDeps.asmJSExports().begin(),
 			globalDeps.asmJSExports().end());
