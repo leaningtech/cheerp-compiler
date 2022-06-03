@@ -125,8 +125,8 @@ void LinearMemoryHelper::compileConstantAsBytes(const Constant* c, bool asmjs, B
 						}
 						else
 						{
-							offset += index*targetData.getTypeAllocSize(getElementType(curTy));
-							curTy = getElementType(curTy);
+							offset += index*targetData.getTypeAllocSize(getElementType(curTy, cast<const GEPOperator>(ce)->getSourceElementType()));
+							curTy = getElementType(curTy, cast<const GEPOperator>(ce)->getSourceElementType());
 						}
 					}
 					compileConstantAsBytes(ce->getOperand(0), asmjs, listener, offset);
@@ -357,7 +357,7 @@ const llvm::Value* LinearMemoryHelper::compileGEP(const llvm::Module* module, co
 					if (mightBeNegative)
 						listener->avoidOffsetOptimization();
 
-					curType = getElementType(curType);
+					curType = getElementType(curType, cast<const GEPOperator>(p)->getSourceElementType());
 					uint32_t size = targetData.getTypeAllocSize(curType);
 					constPart += compileGEPOperand(indices[i], size, listener, false);
 				}
