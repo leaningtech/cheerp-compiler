@@ -152,7 +152,7 @@ private:
 	void rewriteFunction(llvm::Function* F);
 	llvm::Function* rewriteIntrinsic(llvm::Function* F, llvm::FunctionType* FT);
 	void gatherAllTypesInfo(const llvm::Module& M);
-	uint8_t rewriteGEPIndexes(llvm::SmallVector<llvm::Value*, 4>& newIndexes, llvm::Type* ptrType, llvm::ArrayRef<llvm::Value*> idxs,
+	uint8_t rewriteGEPIndexes(llvm::SmallVector<llvm::Value*, 4>& newIndexes, llvm::Type* ptrType, llvm::Type* srcType, llvm::ArrayRef<llvm::Value*> idxs,
 				llvm::Type* targetType, llvm::Instruction* insertionPoint);
 	bool isUnsafeDowncastSource(llvm::StructType* st);
 	void addAllBaseTypesForByteLayout(llvm::StructType* st, llvm::Type* base);
