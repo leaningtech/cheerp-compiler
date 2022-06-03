@@ -18,6 +18,7 @@
 #include "llvm/IR/Argument.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/Operator.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/Debug.h"
 #include <numeric>
@@ -477,7 +478,7 @@ bool PointerUsageVisitor::visitByteLayoutChain( const Value * p )
 			else
 			{
 				// This case also handles the first index
-				curType = getElementType(curType);
+				curType = getElementType(curType, cast<GEPOperator>(const_cast<Value*>(p))->getSourceElementType());
 			}
 		}
 		return false;
