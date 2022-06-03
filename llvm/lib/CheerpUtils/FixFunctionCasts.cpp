@@ -78,7 +78,7 @@ bool FixFunctionCasts::runOnModule(Module& M)
 				if (!BC->getType()->isPointerTy() || !BC->getType()->getPointerElementType()->isFunctionTy())
 					continue;
 				FunctionType* Dst = dyn_cast<FunctionType>(BC->getType()->getPointerElementType());
-				FunctionType* Src = dyn_cast<FunctionType>(F.getType()->getPointerElementType());
+				FunctionType* Src = F.getFunctionType();
 				if (!Dst || !Src)
 					continue;
 				if (Dst->getNumParams() <= Src->getNumParams())
