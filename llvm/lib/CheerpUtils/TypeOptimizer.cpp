@@ -2046,12 +2046,12 @@ Constant* TypeOptimizer::rewriteGlobal(GlobalVariable* GV)
 	globalTypeMapping[GV] = GV->getType();
 	if(GV->getType()==newInfo.mappedType)
 	{
-		assert(!GV->getType()->getPointerElementType()->isArrayTy());
+		assert(!GV->getValueType()->isArrayTy());
 		return GV;
 	}
 	if(newInfo.elementMappingKind == TypeMappingInfo::POINTER_FROM_ARRAY)
 	{
-		Type* newAllocatedType = rewriteType(GV->getType()->getPointerElementType());
+		Type* newAllocatedType = rewriteType(GV->getValueType());
 		Type* newPtrType = PointerType::get(newAllocatedType, 0);
 		GV->mutateType(newPtrType);
 		Type* Int32 = IntegerType::get(GV->getType()->getContext(), 32);
