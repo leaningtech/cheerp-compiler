@@ -206,7 +206,7 @@ static Function* getInvokeWrapper(Module& M, Function* F, Constant* PersonalityF
 
 	Builder.SetInsertPoint(Cont);
 	Value* Ret = ForwardInvoke->getType()->isVoidTy() ? nullptr : ForwardInvoke;
-	Builder.CreateStore(ConstantPointerNull::get(cast<PointerType>(Helper->getType()->getPointerElementType())), Helper);
+	Builder.CreateStore(ConstantPointerNull::get(cast<PointerType>(Helper->getValueType())), Helper);
 	Builder.CreateRet(Ret);
 
 	Builder.SetInsertPoint(Catch);
@@ -289,7 +289,7 @@ static Function* wrapInvoke(Module& M, InvokeInst& IV, DenseSet<Instruction*>& T
 	replaceInvokeWithWrapper(&IV, Wrapper, extraArgs);
 
 	GlobalVariable* Helper = getOrInsertHelperGlobal(M);
-	Value* Ex = Builder.CreateLoad(Helper->getType()->getPointerElementType(), Helper);
+	Value* Ex = Builder.CreateLoad(Helper->getValueType(), Helper);
 	Value* Cond = Builder.CreateICmpEQ(Ex, ConstantPointerNull::get(cast<PointerType>(Ex->getType())));
 	Builder.CreateCondBr(Cond, IV.getNormalDest(), IV.getUnwindDest());
 
@@ -355,7 +355,7 @@ bool InvokeWrapping::runOnModule(Module& M, cheerp::GlobalDepsAnalyzer& GDA)
 	{
 		IRBuilder<> Builder(OldLP);
 		GlobalVariable* Helper = getOrInsertHelperGlobal(M);
-		Value* Ex = Builder.CreateLoad(Helper->getType()->getPointerElementType(), Helper);
+		Value* Ex = Builder.CreateLoad(Helper->getValueType(), Helper);
 		OldLP->replaceAllUsesWith(Ex);
 		OldLP->eraseFromParent();
 	}
