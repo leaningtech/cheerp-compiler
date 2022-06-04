@@ -1378,7 +1378,7 @@ PointerConstantOffsetWrapper& PointerConstantOffsetVisitor::visitValue(PointerCo
 	// Handle global pointers
 	if(const GlobalVariable* GV = dyn_cast<GlobalVariable>(v))
 	{
-		if(GV->hasInitializer() && GV->getType()->getPointerElementType()->isPointerTy())
+		if(GV->hasInitializer() && GV->getValueType()->isPointerTy())
 		{
 			visitValue(ret, GV->getInitializer(), false);
 			for(const Use& u: GV->uses())
