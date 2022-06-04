@@ -587,7 +587,7 @@ bool IdenticalCodeFolding::equivalentConstant(const llvm::Constant* A, const llv
 		if (!GA->isConstant() || !GB->isConstant())
 			return false;
 
-		if (!equivalentType(GA->getType()->getPointerElementType(), GB->getType()->getPointerElementType()))
+		if (!equivalentType(GA->getValueType(), GB->getValueType()))
 			return false;
 
 		// Without an initializer, the global variable is equivalent when the
