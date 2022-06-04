@@ -318,7 +318,7 @@ static StructType* most_derived_class(char* Addr)
   StructType* Ty;
   if (GV)
   {
-    Ty = dyn_cast<StructType>(GV->getType()->getPointerElementType());
+    Ty = dyn_cast<StructType>(GV->getValueType());
   }
   else
   {
@@ -677,7 +677,7 @@ Constant* PreExecute::findPointerFromGlobal(const DataLayout* DL,
             memType->getPointerElementType(), Offset);
     if (!typeFound)
         return NULL;
-    Constant* GEP = ConstantExpr::getGetElementPtr(GV->getType()->getPointerElementType(), GV, Indices);
+    Constant* GEP = ConstantExpr::getGetElementPtr(GV->getValueType(), GV, Indices);
     assert(GEP->getType()->getPointerElementType() == typeFound);
     if(GEP->getType() != memType)
         return ConstantExpr::getBitCast(GEP, memType);
@@ -884,7 +884,7 @@ bool PreExecute::runOnConstructor(llvm::Module& m, llvm::Function* func)
         void* Addr = currentEE->getPointerToGlobal(GV);
         Constant* newInit;
         const DataLayout *DL = &m.getDataLayout();
-        Type *ptrType = GV->getType()->getPointerElementType();
+        Type *ptrType = GV->getValueType();
         bool asmjs = GV->getSection() == StringRef("asmjs");
         newInit = computeInitializerFromMemory(DL, ptrType, (char*)Addr, asmjs);
         assert(newInit);
