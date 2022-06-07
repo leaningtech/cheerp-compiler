@@ -1,6 +1,8 @@
 #!/usr/bin/make -f
 
 deb_version := $(shell dpkg-parsechangelog | sed -n 's/^Version: //p')
+FLAGS_RELEASE="-DNDEBUG -O2"
+FLAGS_RELEASE_CI="-O2"
 
 %:
 	dh $@ --parallel --builddirectory=build
@@ -8,10 +10,10 @@ deb_version := $(shell dpkg-parsechangelog | sed -n 's/^Version: //p')
 override_dh_auto_configure:
 	mkdir -p build
     ifndef CIRCLECI
-	cd build && cmake \
+		cd build && cmake \
 		-C ../llvm/CheerpCmakeConf.cmake \
 		-DCMAKE_BUILD_TYPE=Release \
-		-DCMAKE_CXX_FLAGS_RELEASE="-DNDEBUG -O2" \
+		-DCMAKE_CXX_FLAGS_RELEASE=${FLAGS_RELEASE} \
 		-DCLANG_VENDOR="Cheerp ${deb_version}" \
 		-DLLVM_ENABLE_PROJECTS=clang \
 		../llvm/ \
@@ -22,10 +24,10 @@ override_dh_auto_configure:
 		-DCMAKE_SHARED_LINKER_FLAGS=-fuse-ld=lld \
 		-DCMAKE_MODULE_LINKER_FLAGS=-fuse-ld=lld
     else
-	cd build && cmake \
+		cd build && cmake \
 		-C ../llvm/CheerpCmakeConf.cmake \
 		-DCMAKE_BUILD_TYPE=Release \
-		-DCMAKE_CXX_FLAGS_RELEASE="-O2" \
+		-DCMAKE_CXX_FLAGS_RELEASE=${FLAGS_RELEASE_CI} \
 		-DCLANG_VENDOR="Cheerp ${deb_version}" \
 		-DLLVM_ENABLE_PROJECTS=clang \
 		../llvm/ \
