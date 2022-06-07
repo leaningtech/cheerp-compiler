@@ -7,6 +7,7 @@ deb_version := $(shell dpkg-parsechangelog | sed -n 's/^Version: //p')
 
 override_dh_auto_configure:
 	mkdir -p build
+    ifndef CIRCLECI
 	cd build && cmake \
 		-C ../llvm/CheerpCmakeConf.cmake \
 		-DCMAKE_BUILD_TYPE=Release \
@@ -19,7 +20,22 @@ override_dh_auto_configure:
 		-DCMAKE_C_COMPILER=clang \
 		-DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=lld \
 		-DCMAKE_SHARED_LINKER_FLAGS=-fuse-ld=lld \
-		-DCMAKE_MODULE_LINKER_FLAGS=-fuse-ld=lld \
+		-DCMAKE_MODULE_LINKER_FLAGS=-fuse-ld=lld
+    else
+	cd build && cmake \
+		-C ../llvm/CheerpCmakeConf.cmake \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DCMAKE_CXX_FLAGS_RELEASE="-O2" \
+		-DCLANG_VENDOR="Cheerp ${deb_version}" \
+		-DLLVM_ENABLE_PROJECTS=clang \
+		../llvm/ \
+		-GNinja \
+		-DCMAKE_CXX_COMPILER=clang++ \
+		-DCMAKE_C_COMPILER=clang \
+		-DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=lld \
+		-DCMAKE_SHARED_LINKER_FLAGS=-fuse-ld=lld \
+		-DCMAKE_MODULE_LINKER_FLAGS=-fuse-ld=lld
+    endif
 
 override_dh_auto_install:
 	cd build && DESTDIR=${PWD}/debian/tmp ninja install-distribution
