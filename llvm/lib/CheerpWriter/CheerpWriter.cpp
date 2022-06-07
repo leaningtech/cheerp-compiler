@@ -4353,7 +4353,16 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 
 			if (asmjs || kind == RAW)
 			{
+				bool needsRegular = li.getType()->isPointerTy() && PA.getPointerKindAssert(&li) == REGULAR;
+				if(needsRegular)
+				{
+					stream << "{d:";
+					compileHeapForType(cast<PointerType>(li.getType())->getPointerElementType());
+					stream << ",o:";
+				}
 				compileHeapAccess(ptrOp);
+				if(needsRegular)
+					stream << "}";
 			}
 			else if (kind == BYTE_LAYOUT)
 			{
