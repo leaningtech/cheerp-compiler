@@ -552,11 +552,11 @@ bool AllocaArraysMerging::runOnFunction(Function& F, cheerp::PointerAnalyzer& PA
 						indices.push_back(ConstantInt::get(indexType, 0));
 						// Reach offset
 						indices.push_back(ConstantInt::get(indexType, baseOffset));
-						Value* gep1 = GetElementPtrInst::Create(newAllocaType, newAlloca, indices, "", oldGep);
+						GetElementPtrInst* gep1 = GetElementPtrInst::Create(newAllocaType, newAlloca, indices, "", oldGep);
 						// Apply all the old offsets but the first one using a new GEP
 						indices.clear();
 						indices.insert(indices.begin(), oldGep->idx_begin()+1, oldGep->idx_end());
-						Value* gep2 = GetElementPtrInst::Create(gep1->getType()->getPointerElementType(), gep1, indices, "", oldGep);
+						Value* gep2 = GetElementPtrInst::Create(gep1->getResultElementType(), gep1, indices, "", oldGep);
 						// Replace all uses with gep2
 						oldGep->replaceAllUsesWith(gep2);
 						PA.invalidate(oldGep);
