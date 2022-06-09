@@ -2115,14 +2115,17 @@ CGCallee ItaniumCXXABI::getVirtualFunctionPointer(CodeGenFunction &CGF,
                                                   llvm::Type *Ty,
                                                   SourceLocation Loc) {
   llvm::Type *TyPtr = Ty->getPointerTo();
+  llvm::Type *VTablePointedType = nullptr;
   auto *MethodDecl = cast<CXXMethodDecl>(GD.getDecl());
   llvm::Value* VTable = NULL;
   if(CGF.getTarget().isByteAddressable()) {
+    VTablePointedType = TyPtr;
     VTable = CGF.GetVTablePtr(
       This, TyPtr->getPointerTo(), MethodDecl->getParent());
   } else {
     const CXXRecordDecl *RD = MethodDecl->getParent();
-    llvm::Type* VTableType = CGM.getTypes().GetPrimaryVTableType(RD)->getPointerTo();
+    VTablePointedType = CGM.getTypes().GetPrimaryVTableType(RD);
+    llvm::Type* VTableType = VTablePointedType->getPointerTo();
     VTable = CGF.GetVTablePtr(This, VTableType, MethodDecl->getParent());
   }
 
@@ -2138,6 +2141,7 @@ CGCallee ItaniumCXXABI::getVirtualFunctionPointer(CodeGenFunction &CGF,
     llvm::Value *VFuncLoad;
     if (CGM.getItaniumVTableContext().isRelativeLayout()) {
       VTable = CGF.Builder.CreateBitCast(VTable, CGM.Int8PtrTy);
+      VTablePointedType = CGM.Int8Ty;
       llvm::Value *Load = CGF.Builder.CreateCall(
           CGM.getIntrinsic(llvm::Intrinsic::load_relative, {CGM.Int32Ty}),
           {VTable, llvm::ConstantInt::get(CGM.Int32Ty, 4 * VTableIndex)});
@@ -2145,6 +2149,7 @@ CGCallee ItaniumCXXABI::getVirtualFunctionPointer(CodeGenFunction &CGF,
     } else if(CGF.getTarget().isByteAddressable()) {
       VTable =
           CGF.Builder.CreateBitCast(VTable, TyPtr->getPointerTo());
+      VTablePointedType = TyPtr;
       llvm::Value *VTableSlotPtr = CGF.Builder.CreateConstInBoundsGEP1_64(
           TyPtr, VTable, VTableIndex, "vfn");
       VFuncLoad =
