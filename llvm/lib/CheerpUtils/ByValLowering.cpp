@@ -35,7 +35,7 @@ static bool ExpandCall(const DataLayout& DL, CallBase* Call)
 		{
 			Modify = true;
 			Value *ArgPtr = Call->getArgOperand(ArgIdx);
-			Type *ArgType = ArgPtr->getType()->getPointerElementType();
+			Type *ArgType = Call->getParamByValType(ArgIdx);
 			ConstantInt *ArgSize = ConstantInt::get(
 				Call->getContext(), APInt(64, DL.getTypeStoreSize(ArgType)));
 			unsigned AllocAlignment = DL.getABITypeAlignment(ArgType);
