@@ -346,7 +346,7 @@ const GlobalValue *ExecutionEngine::getGlobalValueAtAddress(void *Addr) {
   if (I->first == (uint64_t)Addr)
     return foundGlobal;
   // Check if the address is in the middle of the global
-  Type *ElTy = foundGlobal->getType()->getPointerElementType();
+  Type *ElTy = foundGlobal->getValueType();
   size_t GVSize = (size_t)getDataLayout().getTypeAllocSize(ElTy);
   if (uintptr_t(Addr) <= (uintptr_t(I->first)+GVSize))
     return foundGlobal;
