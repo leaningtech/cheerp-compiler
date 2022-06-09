@@ -1367,25 +1367,25 @@ static RValue EmitNewDeleteCall(CodeGenFunction &CGF,
     QualType retType = CGF.getContext().getPointerType(allocType);
     llvm::Type* types[] = { CGF.ConvertType(retType) };
 
-    llvm::Constant* CalleeAddr = llvm::Intrinsic::getDeclaration(&CGF.CGM.getModule(),
+    llvm::Function* CalleeAddr = llvm::Intrinsic::getDeclaration(&CGF.CGM.getModule(),
                                 use_array? llvm::Intrinsic::cheerp_allocate_array :
                                          llvm::Intrinsic::cheerp_allocate,
                                 types);
     llvm::Value* Arg[] = { Args[0].getKnownRValue().getScalarVal() };
-    CallOrInvoke = CGF.Builder.CreateCall(cast<llvm::FunctionType>(CalleeAddr->getType()->getPointerElementType()), CalleeAddr, Arg);
+    CallOrInvoke = CGF.Builder.CreateCall(cast<llvm::FunctionType>(CalleeAddr->getValueType()), CalleeAddr, Arg);
     RV = RValue::get(CallOrInvoke);
   }
   else if(IsDelete && cheerp && !(asmjs && user_defined_new))
   {
     QualType retType = CGF.getContext().getPointerType(allocType);
     llvm::Type* types[] = { CGF.ConvertType(retType) };
-    llvm::Constant* CalleeAddr = llvm::Intrinsic::getDeclaration(&CGF.CGM.getModule(),
+    llvm::Function* CalleeAddr = llvm::Intrinsic::getDeclaration(&CGF.CGM.getModule(),
                                 llvm::Intrinsic::cheerp_deallocate, types);
     llvm::Value* Arg[] = { Args[0].getKnownRValue().getScalarVal() };
     if (Arg[0]->getType() != types[0]) {
       Arg[0] = CGF.Builder.CreateBitCast(Arg[0], types[0]);
     }
-    CallOrInvoke = CGF.Builder.CreateCall(cast<llvm::FunctionType>(CalleeAddr->getType()->getPointerElementType()), CalleeAddr, Arg);
+    CallOrInvoke = CGF.Builder.CreateCall(cast<llvm::FunctionType>(CalleeAddr->getValueType()), CalleeAddr, Arg);
     RV = RValue::get(CallOrInvoke);
   }
   else
