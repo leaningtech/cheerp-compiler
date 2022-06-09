@@ -678,7 +678,7 @@ Constant* PreExecute::findPointerFromGlobal(const DataLayout* DL,
     if (!typeFound)
         return NULL;
     Constant* GEP = ConstantExpr::getGetElementPtr(GV->getValueType(), GV, Indices);
-    assert(GEP->getType()->getPointerElementType() == typeFound);
+    assert(GEP->getType() == typeFound->getPointerTo());
     if(GEP->getType() != memType)
         return ConstantExpr::getBitCast(GEP, memType);
     return GEP;
