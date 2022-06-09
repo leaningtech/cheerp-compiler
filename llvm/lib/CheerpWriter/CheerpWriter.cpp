@@ -1980,10 +1980,10 @@ const Value* CheerpWriter::compileByteLayoutOffset(const Value* p, BYTE_LAYOUT_O
 						if (!isOffsetConstantZero)
 						{
 							compileOperand( indices[i], MUL_DIV );
-							stream << '*' << targetData.getTypeAllocSize(getElementType(curType)) << '+';
+							stream << '*' << targetData.getTypeAllocSize(getElementType(curType, cast<const GEPOperator>(p)->getSourceElementType())) << '+';
 						}
 					}
-					curType = getElementType(curType);
+					curType = getElementType(curType, cast<const GEPOperator>(p)->getSourceElementType());
 				}
 				if (skipUntilBytelayout && TypeSupport::hasByteLayout(curType))
 					skipUntilBytelayout = false;
