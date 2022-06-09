@@ -413,8 +413,8 @@ void LinearMemoryHelper::addGlobals()
 			uint32_t nonZeroInitializedB = hasNonZeroInitialiser(b);
 			if(nonZeroInitializedA != nonZeroInitializedB)
 				return nonZeroInitializedA > nonZeroInitializedB;
-			Type* aTy = a->getType()->getPointerElementType();
-			Type* bTy = b->getType()->getPointerElementType();
+			Type* aTy = a->getValueType();
+			Type* bTy = b->getValueType();
 			uint32_t typeAlignA = TypeSupport::getAlignmentAsmJS(targetData, aTy);
 			uint32_t typeAlignB = TypeSupport::getAlignmentAsmJS(targetData, bTy);
 			uint32_t alignA = std::max<uint32_t>(typeAlignA, a->getAlignment());
@@ -430,10 +430,10 @@ void LinearMemoryHelper::addGlobals()
 		if (globalizedGlobalsUsage.count(G))
 			continue;
 		asmjsAddressableGlobals.push_back(G);
-		Type* ty = G->getType();
-		uint32_t size = targetData.getTypeAllocSize(ty->getPointerElementType());
+		Type* ty = G->getValueType();
+		uint32_t size = targetData.getTypeAllocSize(ty);
 		// Ensure the right alignment for the type
-		uint32_t alignment = std::max<uint32_t>(TypeSupport::getAlignmentAsmJS(targetData, ty->getPointerElementType()), G->getAlignment());
+		uint32_t alignment = std::max<uint32_t>(TypeSupport::getAlignmentAsmJS(targetData, ty), G->getAlignment());
 		// The following is correct if alignment is a power of 2 (which it should be)
 		heapStart = (heapStart + alignment - 1) & ~(alignment - 1);
 		globalAddresses.emplace(G, heapStart);
@@ -662,7 +662,7 @@ void LinearMemoryHelper::addHeapStartAndEnd()
 		// Align to 8 bytes
 		heapStart = (heapStart + 7) & ~7;
 		ConstantInt* startAddr = ConstantInt::get(IntegerType::getInt32Ty(module->getContext()), heapStart, false);
-		Constant* startInit = ConstantExpr::getIntToPtr(startAddr, heapStartVar->getType()->getPointerElementType(), false);
+		Constant* startInit = ConstantExpr::getIntToPtr(startAddr, heapStartVar->getValueType(), false);
 		heapStartVar->setInitializer(startInit);
 		heapStartVar->setSection("asmjs");
 
@@ -670,7 +670,7 @@ void LinearMemoryHelper::addHeapStartAndEnd()
 		// Align heapEnd to a wasm page size
 		heapEnd = (heapEnd + 65535) & ~65535;
 		ConstantInt* endAddr = ConstantInt::get(IntegerType::getInt32Ty(module->getContext()), heapEnd, false);
-		Constant* endInit = ConstantExpr::getIntToPtr(endAddr, heapEndVar->getType()->getPointerElementType(), false);
+		Constant* endInit = ConstantExpr::getIntToPtr(endAddr, heapEndVar->getValueType(), false);
 		heapEndVar->setInitializer(endInit);
 		heapEndVar->setSection("asmjs");
 	}
