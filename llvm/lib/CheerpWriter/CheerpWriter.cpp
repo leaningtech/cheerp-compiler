@@ -1828,6 +1828,7 @@ void CheerpWriter::compileHeapAccess(const Value* p, Type* t)
 		return;
 	}
 	PointerType* pt=cast<PointerType>(p->getType());
+	assert(!t || t->getPointerTo() == pt);
 	Type* et = (t==nullptr) ? pt->getPointerElementType() : t;
 	uint32_t shift = compileHeapForType(et);
 	stream << '[';
@@ -3180,7 +3181,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			bool asmjs = currentFun && currentFun->getSection()==StringRef("asmjs");
 			if (RAW == kind || (asmjs && kind == CONSTANT))
 			{
-				compileHeapAccess(ptrOp);
+				compileHeapAccess(ptrOp, si.getValueOperand()->getType());
 			}
 			else if (kind == BYTE_LAYOUT)
 			{
@@ -4391,7 +4392,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 					compileHeapForType(cast<PointerType>(li.getType())->getPointerElementType());
 					stream << ",o:";
 				}
-				compileHeapAccess(ptrOp);
+				compileHeapAccess(ptrOp, li.getType());
 				if(needsRegular)
 					stream << "}";
 			}
@@ -4399,7 +4400,8 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			{
 				//Optimize loads of single values from unions
 				compilePointerBase(ptrOp);
-				Type* pointedType=ptrOp->getType()->getPointerElementType();
+				Type* pointedType=li.getType();
+				assert(ptrOp->getType()== pointedType->getPointerTo());
 				if(pointedType->isIntegerTy(8))
 					stream << ".getUint8(";
 				else if(pointedType->isIntegerTy(16))
