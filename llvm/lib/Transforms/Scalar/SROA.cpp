@@ -2440,7 +2440,7 @@ private:
     SmallVector<Value*, 4> newIndexes;
     newIndexes.push_back(Zero);
     Type* curType = NewAI.getAllocatedType();
-    Type* destType = GEPI.getType()->getPointerElementType();
+    Type* destType = GEPI.getSourceElementType();
     while (curType!=destType) {
       if (StructType* ST=dyn_cast<StructType>(curType))
         curType = ST->getElementType(0);
