@@ -5457,7 +5457,7 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 	compiledGVars.insert(&G);
 	if(G.hasInitializer())
 	{
-		if(StructType* st=dyn_cast<StructType>(G.getType()->getPointerElementType()))
+		if(StructType* st=dyn_cast<StructType>(G.getValueType()))
 		{
 			//TODO: Verify that it makes sense to assume struct with no name has no bases
 			if(st->hasName() && module.getNamedMetadata(Twine(st->getName(),"_bases")) &&
