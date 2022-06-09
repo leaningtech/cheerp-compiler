@@ -1602,14 +1602,14 @@ void CheerpWriter::compileAccessToElement(Type* tp, ArrayRef< const Value* > ind
 	}
 }
 
-void CheerpWriter::compileOffsetForGEP(Type* pointerOperandType, ArrayRef< const Value* > indices)
+void CheerpWriter::compileOffsetForGEP(Type* pointedOperandType, ArrayRef< const Value* > indices)
 {
 	// FIXME This will not compile cause getIndexedType is not const-correct
 	/*
-	 * Type * tp = GetElementPtrInst::getIndexedType( pointerOperandType, indices.slice(0, indices.size() - 1 ) );
+	 * Type * tp = GetElementPtrInst::getIndexedType( pointedOperandType->getPointerTo(), indices.slice(0, indices.size() - 1 ) );
 	 */
 
-	Type* tp = GetElementPtrInst::getIndexedType(pointerOperandType->getPointerElementType(),
+	Type* tp = GetElementPtrInst::getIndexedType(pointedOperandType,
 	                makeArrayRef(const_cast<Value* const*>(indices.begin()),
 	                             const_cast<Value* const*>(indices.end() - 1)));
 
@@ -3519,7 +3519,7 @@ void CheerpWriter::compileGEPOffset(const llvm::User* gep_inst, PARENT_PRIORITY 
 			stream << ".o";
 		}
 		else
-			compileOffsetForGEP(gep_inst->getOperand(0)->getType(), indices);
+			compileOffsetForGEP(cast<GEPOperator>(gep_inst)->getSourceElementType(), indices);
 	}
 }
 
