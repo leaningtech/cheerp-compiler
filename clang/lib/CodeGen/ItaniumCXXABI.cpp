@@ -1336,8 +1336,9 @@ static llvm::FunctionCallee getAllocateExceptionFn(CodeGenModule &CGM, QualType 
   // void *__cxa_allocate_exception(size_t thrown_size);
 
   if (!CGM.getTarget().isByteAddressable()) {
-    llvm::Type* Tys[1] = { CGM.getTypes().ConvertType(QTy)->getPointerTo() };
-    if(Tys[0]->getPointerElementType()->isPointerTy())
+    llvm::Type* pointedTy = CGM.getTypes().ConvertType(QTy);
+    llvm::Type* Tys[1] = { pointedTy->getPointerTo() };
+    if(pointedTy->isPointerTy())
     {
 	    Tys[0] = CGM.VoidPtrPtrTy;
     }
@@ -1544,11 +1545,12 @@ llvm::Value *ItaniumCXXABI::EmitTypeid(CodeGenFunction &CGF,
     Value =
         CGF.Builder.CreateConstInBoundsGEP1_64(StdTypeInfoPtrTy, Value, -1ULL);
   } else {
-    llvm::Type* VTableType = CGM.getTypes().GetPrimaryVTableType(ClassDecl)->getPointerTo();
+    llvm::Type* VTablePointedType = CGM.getTypes().GetPrimaryVTableType(ClassDecl);
+    llvm::Type* VTableType = VTablePointedType->getPointerTo();
     Value = CGF.GetVTablePtr(ThisPtr, VTableType, ClassDecl);
     bool asmjs = SrcRecordTy->getAsCXXRecordDecl()->hasAttr<AsmJSAttr>(); 
     int offset = asmjs? 1 : 0;
-    Value = CGF.Builder.CreateStructGEP(VTableType->getPointerElementType(), Value, offset);
+    Value = CGF.Builder.CreateStructGEP(VTablePointedType, Value, offset);
   }
   return CGF.Builder.CreateAlignedLoad(StdTypeInfoPtrTy, Value,
                                        CGF.getPointerAlign());
@@ -1717,13 +1719,14 @@ ItaniumCXXABI::GetVirtualBaseClassOffset(CodeGenFunction &CGF,
                                          const CXXRecordDecl *ClassDecl,
                                          const CXXRecordDecl *BaseClassDecl) {
   if (!CGM.getTarget().isByteAddressable()) {
-    llvm::Type* VTableType = CGM.getTypes().GetPrimaryVTableType(ClassDecl)->getPointerTo();
+    llvm::Type* VTablePointedType = CGM.getTypes().GetPrimaryVTableType(ClassDecl);
+    llvm::Type* VTableType = VTablePointedType->getPointerTo();
     llvm::Value *VTablePtr = CGF.GetVTablePtr(This, VTableType, ClassDecl);
     CharUnits VBaseOffsetOffset =
         CGM.getItaniumVTableContext().getVirtualBaseOffsetOffset(ClassDecl,
                                                                  BaseClassDecl);
-    llvm::Value *VBaseOffsetPtr = CGF.Builder.CreateStructGEP(VTableType->getPointerElementType(), VTablePtr, VBaseOffsetOffset.getQuantity());
-    return CGF.Builder.CreateAlignedLoad(VBaseOffsetPtr->getType()->getPointerElementType(), VBaseOffsetPtr, CGF.getPointerAlign(),
+    llvm::Value *VBaseOffsetPtr = CGF.Builder.CreateStructGEP(VTablePointedType, VTablePtr, VBaseOffsetOffset.getQuantity());
+    return CGF.Builder.CreateAlignedLoad(cast<llvm::GetElementPtrInst>(VBaseOffsetPtr)->getResultElementType(), VBaseOffsetPtr, CGF.getPointerAlign(),
                                   "vbase.offset");
   }
   llvm::Value *VTablePtr = CGF.GetVTablePtr(This, CGM.Int8PtrTy, ClassDecl);
@@ -2148,8 +2151,8 @@ CGCallee ItaniumCXXABI::getVirtualFunctionPointer(CodeGenFunction &CGF,
           CGF.Builder.CreateAlignedLoad(TyPtr, VTableSlotPtr,
                                         CGF.getPointerAlign());
     } else {
-      llvm::Value* VFuncPtr = CGF.Builder.CreateConstInBoundsGEP2_32(VTable->getType()->getPointerElementType(), VTable, 0, VTableIndex, "vfn");
-      VFuncLoad = CGF.Builder.CreateAlignedLoad(VFuncPtr->getType()->getPointerElementType(), VFuncPtr, CGF.getPointerAlign());
+      llvm::Value* VFuncPtr = CGF.Builder.CreateConstInBoundsGEP2_32(VTablePointedType, VTable, 0, VTableIndex, "vfn");
+      VFuncLoad = CGF.Builder.CreateAlignedLoad(cast<llvm::GetElementPtrInst>(VFuncPtr)->getResultElementType(), VFuncPtr, CGF.getPointerAlign());
     }
 
     // Add !invariant.load md to virtual function load to indicate that
@@ -2296,10 +2299,11 @@ static llvm::Value *performTypeAdjustment(CodeGenFunction &CGF,
       const CXXRecordDecl* DowncastTarget = AdjustmentTarget;
 
       if (VirtualAdjustment) {
-        llvm::Type* VTableTy = CGF.CGM.getTypes().GetSecondaryVTableType(AdjustmentSource)->getPointerTo();
+        llvm::Type* VTablePointedTy = CGF.CGM.getTypes().GetSecondaryVTableType(AdjustmentSource);
+        llvm::Type* VTableTy = VTablePointedTy->getPointerTo();
         llvm::Value *VTablePtr = CGF.GetVTablePtr(Ptr, VTableTy, AdjustmentSource);
-        llvm::Value* VCallOffsetPtr = CGF.Builder.CreateStructGEP(VTableTy->getPointerElementType(), VTablePtr, VirtualAdjustment);
-        llvm::Value* VCallOffset = CGF.Builder.CreateAlignedLoad(VCallOffsetPtr->getType()->getPointerElementType(), VCallOffsetPtr, CGF.getPointerAlign());
+        llvm::Value* VCallOffsetPtr = CGF.Builder.CreateStructGEP(VTablePointedTy, VTablePtr, VirtualAdjustment);
+        llvm::Value* VCallOffset = CGF.Builder.CreateAlignedLoad(cast<llvm::GetElementPtrInst>(VCallOffsetPtr)->getResultElementType(), VCallOffsetPtr, CGF.getPointerAlign());
         Ptr = CGF.GenerateVirtualcast(Ptr, VirtualBase, VCallOffset);
       }
       Ptr = CGF.GenerateDowncast(Ptr, DowncastTarget, NonVirtualAdjustment);
@@ -2309,10 +2313,11 @@ static llvm::Value *performTypeAdjustment(CodeGenFunction &CGF,
       const CXXRecordDecl* DowncastTarget = VirtualBase ? VirtualBase : AdjustmentTarget;
       Ptr = CGF.GenerateDowncast(Ptr, DowncastTarget, NonVirtualAdjustment);
       if (VirtualAdjustment) {
-        llvm::Type* VTableTy = CGF.CGM.getTypes().GetSecondaryVTableType(VirtualBase)->getPointerTo();
+        llvm::Type* VTablePointedTy = CGF.CGM.getTypes().GetSecondaryVTableType(VirtualBase);
+        llvm::Type* VTableTy = VTablePointedTy->getPointerTo();
         llvm::Value *VTablePtr = CGF.GetVTablePtr(Ptr, VTableTy, VirtualBase);
-        llvm::Value* VCallOffsetPtr = CGF.Builder.CreateStructGEP(VTableTy->getPointerElementType(), VTablePtr, VirtualAdjustment);
-        llvm::Value* VCallOffset = CGF.Builder.CreateAlignedLoad(VCallOffsetPtr->getType()->getPointerElementType(), VCallOffsetPtr, CGF.getPointerAlign());
+        llvm::Value* VCallOffsetPtr = CGF.Builder.CreateStructGEP(VTablePointedTy, VTablePtr, VirtualAdjustment);
+        llvm::Value* VCallOffset = CGF.Builder.CreateAlignedLoad(cast<llvm::GetElementPtrInst>(VCallOffsetPtr)->getResultElementType(), VCallOffsetPtr, CGF.getPointerAlign());
         Ptr = CGF.GenerateVirtualcast(Ptr, AdjustmentTarget, VCallOffset);
       }
     }
@@ -4007,7 +4012,7 @@ llvm::Constant *ItaniumRTTIBuilder::BuildTypeInfo(
   } else {
     llvm::Constant *Zero = llvm::Constant::getNullValue(CGM.Int32Ty);
     llvm::Constant *Zeros[] = { Zero, Zero };
-    TypeNameField = llvm::ConstantExpr::getGetElementPtr(TypeName->getType()->getPointerElementType(), TypeName, Zeros);
+    TypeNameField = llvm::ConstantExpr::getGetElementPtr(TypeName->getValueType(), TypeName, Zeros);
   }
   Fields.push_back(TypeNameField);
 
