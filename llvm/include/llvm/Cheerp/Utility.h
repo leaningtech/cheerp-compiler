@@ -49,15 +49,6 @@ inline bool isValidVoidPtrSource(const llvm::Value* val)
 	return isValidVoidPtrSource(val, visitedPhis);
 }
 
-LLVM_ATTRIBUTE_DEPRECATED(
-inline llvm::Type* getElementType(llvm::Type* t)
-{
-	if(llvm::isa<llvm::PointerType>(t))
-		return t->getPointerElementType();
-	else
-		return t->getArrayElementType();
-}, "getPointerElementType is deprecated")
-
 inline llvm::Type* getElementType(llvm::Type* t, llvm::Type* candidate)
 {
 	if(llvm::isa<llvm::PointerType>(t))
