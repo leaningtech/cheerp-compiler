@@ -1589,7 +1589,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 						}
 						assert(rewrittenOperand.second == 0);
 						GetElementPtrInst* NewInst = GetElementPtrInst::Create(newPtrType->getPointerElementType(), rewrittenOperand.first, newIndexes);
-						assert(!NewInst->getType()->getPointerElementType()->isArrayTy());
+						assert(!NewInst->getResultElementType()->isArrayTy());
 						NewInst->takeName(&I);
 						NewInst->setIsInBounds(cast<GetElementPtrInst>(I).isInBounds());
 						localInstMapping.setMappedOperand(&I, NewInst, mergedIntegerOffset);
