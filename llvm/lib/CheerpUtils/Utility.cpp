@@ -1225,6 +1225,11 @@ bool replaceCallOfBitCastWithBitCastOfCall(CallBase& callInst, bool mayFail, boo
 			return new PtrToIntInst(src, newType, "", insertPoint);
 		} else if(oldType->isPointerTy() && newType->isPointerTy()) {
 			return new BitCastInst(src, newType, "", insertPoint);
+		} else if(oldType->isIntegerTy() && newType->isIntegerTy()) {
+			if(oldType->getIntegerBitWidth() < newType->getIntegerBitWidth())
+				return new ZExtInst(src, newType, "", insertPoint);
+			else
+				return new TruncInst(src, newType, "", insertPoint);
 		} else if (oldType->isVoidTy()) {
 			// NOTE: This case is only ever encountered for return values, and in that case oldType is the new one
 			//       If we get here it means that we have replaced a bitcast from a void function to non-void,
