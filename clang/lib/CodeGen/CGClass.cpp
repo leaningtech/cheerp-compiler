@@ -2922,12 +2922,12 @@ llvm::Value *CodeGenFunction::GetVTablePtr(Address This,
                                            const CXXRecordDecl *RD) {
   assert(This.getType()->isPointerTy());
   Address VTablePtrSrc = Address::invalid();
-  if(This.getType()->getPointerElementType()->isStructTy() &&
-      !cast<llvm::StructType>(This.getType()->getPointerElementType())->isOpaque())
+  if(This.getElementType()->isStructTy() &&
+      !cast<llvm::StructType>(This.getElementType())->isOpaque())
     VTablePtrSrc = Builder.CreateStructGEP(This, 0);
   else
     VTablePtrSrc = This;
-  if(!VTablePtrSrc.getType()->getPointerElementType()->isPointerTy())
+  if(!VTablePtrSrc.getElementType()->isPointerTy())
   {
     // We did not find a pointer, use the type unsafe code path
     VTablePtrSrc = Builder.CreateElementBitCast(This, VTableTy);
