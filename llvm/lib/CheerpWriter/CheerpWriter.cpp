@@ -3526,9 +3526,9 @@ void CheerpWriter::compileGEPOffset(const llvm::User* gep_inst, PARENT_PRIORITY 
 void CheerpWriter::compileGEP(const llvm::User* gep_inst, POINTER_KIND kind, PARENT_PRIORITY parentPrio)
 {
 	SmallVector< const Value*, 8 > indices(std::next(gep_inst->op_begin()), gep_inst->op_end());
-	Type* basePointerType = gep_inst->getOperand(0)->getType();
+	Type* basePointedType = cast<GEPOperator>(gep_inst)->getSourceElementType();
 
-	StructType* containerStructType = dyn_cast<StructType>(GetElementPtrInst::getIndexedType(basePointerType->getPointerElementType(),
+	StructType* containerStructType = dyn_cast<StructType>(GetElementPtrInst::getIndexedType(basePointedType,
 			makeArrayRef(const_cast<Value* const*>(indices.begin()),
 				     const_cast<Value* const*>(indices.end() - 1))));
 	if(containerStructType && indices.size() > 1)
@@ -3562,7 +3562,6 @@ void CheerpWriter::compileGEP(const llvm::User* gep_inst, POINTER_KIND kind, PAR
 	{
 		if (PA.getConstantOffsetForPointer(gep_inst))
 		{
-			Type* basePointedType = basePointerType->getPointerElementType();
 			compileCompleteObject(gep_inst->getOperand(0), indices.front());
 			compileAccessToElement(basePointedType, makeArrayRef(std::next(indices.begin()),std::prev(indices.end())), /*compileLastWrapperArray*/false);
 			return;
