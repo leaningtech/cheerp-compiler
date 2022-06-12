@@ -16,6 +16,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/Operator.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Support/raw_ostream.h"
 #include <set>
@@ -813,7 +814,7 @@ std::pair<Constant*, uint8_t> TypeOptimizer::rewriteConstant(Constant* C, bool r
 				assert(rewrittenOperand.second==0);
 				ptrOperand = rewrittenOperand.first;
 				SmallVector<Value*, 4> newIndexes;
-				Type* targetType = rewriteType(CE->getType()->getPointerElementType());
+				Type* targetType = rewriteType(cast<GEPOperator>(CE)->getResultElementType());
 				SmallVector<Value*, 2> idxs;
 				for (auto Op = CE->op_begin()+1; Op != CE->op_end(); ++Op)
 				{
