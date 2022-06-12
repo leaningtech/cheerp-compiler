@@ -1576,7 +1576,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 					if(newPtrType != ptrType || rewriteType(I.getType()) != I.getType())
 					{
 						SmallVector<Value*, 4> newIndexes;
-						Type* targetType = rewriteType(I.getType()->getPointerElementType());
+						Type* targetType = rewriteType(cast<GetElementPtrInst>(I).getResultElementType());
 						SmallVector<Value*, 2> idxs;
 						for (auto Op = I.op_begin()+1; Op != I.op_end(); ++Op)
 						{
