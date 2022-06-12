@@ -2038,11 +2038,11 @@ void CheerpWriter::compilePointerOffset(const Value* p, PARENT_PRIORITY parentPr
 	if ( kind == RAW)
 	{
 		assert(isa<PointerType>(p->getType()));
-		Type* ty = llvm::cast<PointerType>(p->getType())->getPointerElementType();
+		PointerType* ty = llvm::cast<PointerType>(p->getType());
 		if (parentPrio > SHIFT)
 			stream << '(';
 		compileRawPointer(p, SHIFT);
-		stream << ">>" << getHeapShiftForType(ty);
+		stream << ">>" << getHeapShiftForPointerType(ty);
 		if (parentPrio > SHIFT)
 			stream << ')';
 		return;
@@ -2739,7 +2739,7 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 					if (incomingKind == RAW)
 					{
 						writer.compileRawPointer(incoming, SHIFT);
-						writer.stream << ">>" << writer.getHeapShiftForType(cast<PointerType>(phiType)->getPointerElementType());
+						writer.stream << ">>" << writer.getHeapShiftForPointerType(cast<PointerType>(phiType));
 					}
 					else
 					{
@@ -4427,7 +4427,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				assert(!isInlineable(li, PA));
 				if(kind == RAW)
 				{
-					int shift =  getHeapShiftForType(cast<PointerType>(li.getType())->getPointerElementType());
+					int shift =  getHeapShiftForPointerType(cast<PointerType>(li.getType()));
 					if (shift != 0)
 						stream << ">>" << shift;
 				}
