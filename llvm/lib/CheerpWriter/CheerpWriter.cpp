@@ -1746,6 +1746,11 @@ int CheerpWriter::getTypeIdFor(Value* V)
 	return local.getTypeIdFor(V);
 }
 
+int CheerpWriter::getHeapShiftForPointerType(PointerType* ptrTy)
+{
+	return getHeapShiftForType(ptrTy->getPointerElementType());
+}
+
 int CheerpWriter::getHeapShiftForType(Type* et)
 {
 	uint32_t shift=0;

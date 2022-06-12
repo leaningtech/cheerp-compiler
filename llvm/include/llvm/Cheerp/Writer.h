@@ -688,6 +688,7 @@ public:
 	bool isInlineableInstruction(const llvm::Value* v) const;
 
 	// returns the amount fo shift required for accessing the corresponding heap
+	int getHeapShiftForPointerType(llvm::PointerType* ptrTy);
 	int getHeapShiftForType(llvm::Type* et);
 	int compileHeapForType(llvm::Type* et);
 	void compileHeapAccess(const llvm::Value* p, llvm::Type* t = nullptr);
