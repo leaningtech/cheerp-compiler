@@ -3555,7 +3555,7 @@ void CheerpWriter::compileGEP(const llvm::User* gep_inst, POINTER_KIND kind, PAR
 		} else {
 			compileCompleteObject(gep_inst->getOperand(0), indices.front());
 		}
-		compileAccessToElement(gep_inst->getOperand(0)->getType()->getPointerElementType(),
+		compileAccessToElement(cast<GEPOperator>(gep_inst)->getSourceElementType(),
 		                       makeArrayRef(std::next(indices.begin()), indices.end()), /*compileLastWrapperArray*/true);
 	}
 	else
