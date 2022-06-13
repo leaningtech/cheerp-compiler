@@ -1893,8 +1893,8 @@ void CheerpWriter::compileHeapAccess(const Value* p, Type* t)
 	}
 	PointerType* pt=cast<PointerType>(p->getType());
 	assert(!t || t->getPointerTo() == pt);
-	Type* et = (t==nullptr) ? pt->getPointerElementType() : t;
-	uint32_t shift = compileHeapForType(et);
+	PointerType* ptrT = (t==nullptr) ? pt : t->getPointerTo();
+	uint32_t shift = compileHeapForPointerType(ptrT);
 	stream << '[';
 	if(!symbolicGlobalsAsmJS && isa<GlobalVariable>(p))
 	{
@@ -1913,9 +1913,8 @@ void CheerpWriter::compilePointerBase(const Value* p, bool forEscapingPointer)
 	if(kind == RAW)
 	{
 		assert(isa<PointerType>(p->getType()));
-		Type* ty = llvm::cast<PointerType>(p->getType())->getPointerElementType();
 		if (globalDeps.needAsmJSMemory()||globalDeps.needAsmJSCode())
-			compileHeapForType(ty);
+			compileHeapForPointerType(llvm::cast<PointerType>(p->getType()));
 		else
 			stream << "nullArray";
 		return;
@@ -1941,7 +1940,7 @@ void CheerpWriter::compilePointerBase(const Value* p, bool forEscapingPointer)
 			stream << "nullArray";
 		else if ((globalDeps.needAsmJSMemory() || globalDeps.needAsmJSCode()) && !ty->isStructTy())
 		{
-			compileHeapForType(ty);
+			compileHeapForPointerType(llvm::cast<PointerType>(p->getType()));
 		}
 		else
 			stream << "nullArray";
@@ -4437,7 +4436,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				if(needsRegular)
 				{
 					stream << "{d:";
-					compileHeapForType(cast<PointerType>(li.getType())->getPointerElementType());
+					compileHeapForPointerType(cast<PointerType>(li.getType()));
 					stream << ",o:";
 				}
 				compileHeapAccess(ptrOp, li.getType());
@@ -4503,7 +4502,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				stream << ';' << NewLine;
 				stream << getName(&li) << '=';
 				if(kind == RAW)
-					compileHeapForType(cast<PointerType>(li.getType())->getPointerElementType());
+					compileHeapForPointerType(cast<PointerType>(li.getType()));
 				else
 					compileCompleteObject(ptrOp);
 			}
@@ -4569,7 +4568,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileCallInstruction(
 	uint32_t addrShift = 0;
 	if (!asmjs && asmjsCallee && kind == Registerize::OBJECT && PA.getPointerKindAssert(&ci) == SPLIT_REGULAR && !ci.use_empty())
 	{
-		addrShift = compileHeapForType(cast<PointerType>(ci.getType())->getPointerElementType());
+		addrShift = compileHeapForPointerType(cast<PointerType>(ci.getType()));
 		stream << ';' << NewLine;
 		stream << getSecondaryName(&ci) << '=';
 	}
