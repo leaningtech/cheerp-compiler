@@ -109,6 +109,14 @@ bool IdenticalCodeFolding::equivalentFunction(const llvm::Function* A, const llv
 			return false;
 	}
 
+	// Do not fold functions that return different pointer types and are
+	// exported from asmjs.
+	// We need the correct return type to properly convert RAW pointers to REGULAR.
+	if (((A->getReturnType()->isPointerTy() && GDA->asmJSExports().count(A))
+		|| (B->getReturnType()->isPointerTy() && GDA->asmJSExports().count(B)))
+		&& A->getReturnType() != B->getReturnType())
+		return false;
+
 	if (A->empty() || B->empty())
 		return A->empty() == B->empty();
 
@@ -770,6 +778,7 @@ bool IdenticalCodeFolding::isStaticIndirectFunction(const llvm::Value* A)
 bool IdenticalCodeFolding::runOnModule(llvm::Module& module, cheerp::GlobalDepsAnalyzer& GDA)
 {
 	DL = &module.getDataLayout();
+	this->GDA = &GDA;
 
 	// First, compute an hash of each function.
 	std::unordered_map<uint64_t, std::vector<Function*>> functionHashes;
