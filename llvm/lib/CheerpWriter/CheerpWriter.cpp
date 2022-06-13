@@ -1505,12 +1505,13 @@ void CheerpWriter::compileEqualPointersComparison(const llvm::Value* lhs, const 
 	POINTER_KIND rhsKind = PA.getPointerKind(rhs);
 
 	if(lhsKind == RAW)
-		assert(rhsKind == RAW || rhsKind == CONSTANT);
+		assert(rhsKind != COMPLETE_OBJECT && rhsKind != BYTE_LAYOUT);
 	if(rhsKind == RAW)
-		assert(lhsKind == RAW || lhsKind == CONSTANT);
+		assert(lhsKind != COMPLETE_OBJECT && lhsKind != BYTE_LAYOUT);
 
 	bool asmjs = currentFun && currentFun->getSection() == "asmjs";
-	bool compareRaw = lhsKind == RAW || rhsKind == RAW || (lhsKind == CONSTANT && rhsKind == CONSTANT && asmjs);
+	bool compareRaw = ((lhsKind == RAW || lhsKind == CONSTANT) && (rhsKind == RAW || rhsKind == CONSTANT))
+		&& !(lhsKind == CONSTANT && rhsKind == CONSTANT && !asmjs);
 
 	if (compareRaw)
 		compareString = (p == CmpInst::ICMP_NE) ? "!=" : "==";
@@ -1530,8 +1531,8 @@ void CheerpWriter::compileEqualPointersComparison(const llvm::Value* lhs, const 
 	// NOTE: For any pointer-to-immutable, converting to CO is actually a dereference. (base[offset] in both cases)
 	//       PA enforces that comparisons between pointers-to-immutable (which include pointers-to-pointers)
 	//       need a SPLIT_REGULAR kind. Make sure to also use SPLIT_REGULAR if one kind is CONSTANT (e.g. null)
-	else if((lhsKind == REGULAR || lhsKind == SPLIT_REGULAR || lhsKind == CONSTANT || (isGEP(lhs) && cast<User>(lhs)->getNumOperands()==2)) &&
-		(rhsKind == REGULAR || rhsKind == SPLIT_REGULAR || rhsKind == CONSTANT || (isGEP(rhs) && cast<User>(rhs)->getNumOperands()==2)))
+	else if((lhsKind == REGULAR || lhsKind == SPLIT_REGULAR || lhsKind == RAW ||lhsKind == CONSTANT || (isGEP(lhs) && cast<User>(lhs)->getNumOperands()==2)) &&
+		(rhsKind == REGULAR || rhsKind == SPLIT_REGULAR || rhsKind == RAW ||rhsKind == CONSTANT || (isGEP(rhs) && cast<User>(rhs)->getNumOperands()==2)))
 	{
 		assert(lhsKind != COMPLETE_OBJECT || !isa<Instruction>(lhs) ||
 				isInlineable(*cast<Instruction>(lhs), PA));
