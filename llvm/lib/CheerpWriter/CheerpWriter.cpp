@@ -1849,7 +1849,10 @@ void CheerpWriter::compilePointerBase(const Value* p, bool forEscapingPointer)
 	{
 		assert(isa<PointerType>(p->getType()));
 		Type* ty = llvm::cast<PointerType>(p->getType())->getPointerElementType();
-		compileHeapForType(ty);
+		if (globalDeps.needAsmJSMemory()||globalDeps.needAsmJSCode())
+			compileHeapForType(ty);
+		else
+			stream << "nullArray";
 		return;
 	}
 	// Collapse if p is a gepInst
@@ -2738,10 +2741,7 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 					}
 					writer.stream << ';' << writer.NewLine;
 					writer.stream << writer.getName(phi, /*doNotConsiderEdgeContext*/true) << '=';
-					if (incomingKind == RAW)
-						writer.compileHeapForType(cast<PointerType>(phiType)->getPointerElementType());
-					else
-						writer.compilePointerBase(incoming);
+					writer.compilePointerBase(incoming);
 					if(selfReferencing)
 					{
 						writer.stream << ';' << writer.NewLine;
