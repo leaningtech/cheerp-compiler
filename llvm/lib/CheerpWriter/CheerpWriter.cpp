@@ -1840,46 +1840,6 @@ int CheerpWriter::compileHeapForPointerType(llvm::PointerType* ptrTy)
 	llvm::report_fatal_error("Unsupported code found, please report a bug", false);
 }
 
-int CheerpWriter::compileHeapForType(Type* et)
-{
-	uint32_t shift=0;
-	if(et->isIntegerTy(8) || et->isIntegerTy(1))
-	{
-		stream << getHeapName(HEAP8);
-		shift = 0;
-	}
-	else if(et->isIntegerTy(16))
-	{
-		stream << getHeapName(HEAP16);
-		shift = 1;
-	}
-	else if(et->isIntegerTy(32) || et->isPointerTy() || et->isArrayTy())
-	{
-		stream << getHeapName(HEAP32);
-		shift = 2;
-	}
-	else if(et->isIntegerTy(64))
-	{
-		stream << getHeapName(HEAP64);
-		shift = 3;
-	}
-	else if(et->isFloatTy())
-	{
-		stream << getHeapName(HEAPF32);
-		shift = 2;
-	}
-	else if(et->isDoubleTy())
-	{
-		stream << getHeapName(HEAPF64);
-		shift = 3;
-	}
-	else
-	{
-		llvm::errs() << "Unsupported heap access for  type " << *et << "\n";
-		llvm::report_fatal_error("Unsupported code found, please report a bug", false);
-	}
-	return shift;
-}
 void CheerpWriter::compileHeapAccess(const Value* p, Type* t)
 {
 	if (!isa<PointerType>(p->getType()))
