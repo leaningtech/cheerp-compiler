@@ -1868,7 +1868,15 @@ void CheerpWriter::compilePointerBase(const Value* p, bool forEscapingPointer)
 
 	if(kind == CONSTANT)
 	{
-		stream << "nullArray";
+		Type* ty = llvm::cast<PointerType>(p->getType())->getPointerElementType();
+		if (isa<ConstantPointerNull>(p))
+			stream << "nullArray";
+		else if ((globalDeps.needAsmJSMemory() || globalDeps.needAsmJSCode()) && !ty->isStructTy())
+		{
+			compileHeapForType(ty);
+		}
+		else
+			stream << "nullArray";
 		return;
 	}
 
@@ -2038,7 +2046,15 @@ void CheerpWriter::compilePointerOffset(const Value* p, PARENT_PRIORITY parentPr
 	// null must be handled first, even if it is bytelayout
 	else if(kind == CONSTANT || isa<UndefValue>(p))
 	{
-		stream << '0';
+		if (const IntToPtrInst* ITP = dyn_cast<IntToPtrInst>(p))
+		{
+			ConstantInt* CI = cast<ConstantInt>(ITP->getOperand(0));
+			stream << CI->getSExtValue();
+		}
+		else
+		{
+			stream << '0';
+		}
 	}
 	// byteLayout must be handled second, otherwise we may print a constant offset without the required byte multiplier
 	else if ( byteLayout && !forEscapingPointer)
