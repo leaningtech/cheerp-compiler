@@ -1748,39 +1748,46 @@ int CheerpWriter::getTypeIdFor(Value* V)
 
 int CheerpWriter::getHeapShiftForPointerType(PointerType* ptrTy)
 {
-	return getHeapShiftForType(ptrTy->getPointerElementType());
-}
-
-int CheerpWriter::getHeapShiftForType(Type* et)
-{
-	uint32_t shift=0;
-	if(et->isIntegerTy(8) || et->isIntegerTy(1))
+	auto& context = ptrTy->getContext();
+	if(ptrTy == Type::getIntNPtrTy(context, 1)->getPointerTo())
 	{
-		shift = 0;
+		return 0;
 	}
-	else if(et->isIntegerTy(16))
+	else if(ptrTy == Type::getIntNPtrTy(context, 8)->getPointerTo())
 	{
-		shift = 1;
+		return 0;
 	}
-	else if(et->isIntegerTy(32) || et->isPointerTy() || et->isArrayTy())
+	else if(ptrTy == Type::getIntNPtrTy(context, 16)->getPointerTo())
 	{
-		shift = 2;
+		return 1;
 	}
-	else if(et->isFloatTy())
+	else if(ptrTy == Type::getIntNPtrTy(context, 32)->getPointerTo())
 	{
-		shift = 2;
+		return 2;
 	}
-	else if(et->isDoubleTy() || et->isIntegerTy(64))
+	else if(ptrTy == Type::getIntNPtrTy(context, 64)->getPointerTo())
 	{
-		shift = 3;
+		return 3;
+	}
+	else if(ptrTy == Type::getFloatPtrTy(context)->getPointerTo())
+	{
+		return 2;
+	}
+	else if(ptrTy == Type::getDoublePtrTy(context)->getPointerTo())
+	{
+		return 3;
 	}
 	else
 	{
-		llvm::errs() << "Unsupported heap access for  type " << *et << "\n";
-		llvm::report_fatal_error("Unsupported code found, please report a bug", false);
+		Type* et = ptrTy->getPointerElementType();
+		if ( et->isPointerTy() || et->isArrayTy())
+			return 2;
 	}
-	return shift;
+
+	llvm::errs() << "Unsupported heap access for type pointed by " << *ptrTy << "\n";
+	llvm::report_fatal_error("Unsupported code found, please report a bug", false);
 }
+
 int CheerpWriter::compileHeapForType(Type* et)
 {
 	uint32_t shift=0;
