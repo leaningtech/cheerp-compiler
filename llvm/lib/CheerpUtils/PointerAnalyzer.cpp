@@ -513,6 +513,13 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 		}
 		if (visitByteLayoutChain(p))
 			return pointerKindData.valueMap.insert( std::make_pair(p, BYTE_LAYOUT ) ).first->second;
+
+		bool isIntToPtrOfConst = isa<IntToPtrInst>(p) && isa<ConstantInt>(cast<IntToPtrInst>(p)->getOperand(0));
+		if (isIntToPtrOfConst)
+		{
+			return pointerKindData.valueMap.insert( std::make_pair(p, CONSTANT ) ).first->second;
+		}
+
 		if (auto* a = dyn_cast<Argument>(p))
 		{
 			if (a->getParent()->getAttributes().hasParamAttr(a->getArgNo(), "force-raw"))
