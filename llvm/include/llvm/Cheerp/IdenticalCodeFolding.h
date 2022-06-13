@@ -62,6 +62,7 @@ private:
 	void mergeTwoFunctions(llvm::Function* F, llvm::Function* G);
 
 	const llvm::DataLayout *DL;
+	const cheerp::GlobalDepsAnalyzer* GDA;
 
 	llvm::SmallSet<const llvm::PHINode*, 16> visitedPhis;
 	std::unordered_map<std::pair<const llvm::Function*, const llvm::Function*>, bool, pair_hash> functionEquivalence;
