@@ -835,6 +835,9 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 			return ret |= PointerKindWrapper(kindForType, p);
 		if ( !I->isEquality() )
 			return ret |= PointerKindWrapper(SPLIT_REGULAR, p);
+		Value* Other = I->getOperand(0) == U->get() ? I->getOperand(1) : I->getOperand(0);
+		if ( visitRawChain(Other) || isa<IntToPtrInst>(Other))
+			return ret |= PointerKindWrapper(SPLIT_REGULAR, p);
 		else
 			return ret |= COMPLETE_OBJECT;
 	}
