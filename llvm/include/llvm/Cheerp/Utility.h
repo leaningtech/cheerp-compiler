@@ -535,7 +535,7 @@ public:
 	 * Will report an llvm error if the use of the result is not consistent
 	 */
 	llvm::PointerType * getCastedType() const { return castedType; }
-	
+	llvm::Type* getCastedPointedType() const { return castedType->getPointerElementType(); }
 	/**
 	 * This argument will never be null
 	 */

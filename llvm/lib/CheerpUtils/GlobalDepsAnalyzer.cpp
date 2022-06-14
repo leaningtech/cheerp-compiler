@@ -1124,17 +1124,17 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 				DynamicAllocInfo ai (CB, DL, forceTypedArrays);
 				if ( !isAsmJS && ai.isValidAlloc() )
 				{
-					assert(!TypeSupport::isAsmJSPointer(ai.getCastedType()));
+					assert(!TypeSupport::isAsmJSPointed(ai.getCastedPointedType()));
 					if ( ai.useCreatePointerArrayFunc() )
 						hasPointerArrays = true;
 					else if ( ai.useCreateArrayFunc() )
 					{
 						if ( ai.getAllocType() == DynamicAllocInfo::cheerp_reallocate )
-							arrayResizesNeeded.insert( ai.getCastedType()->getPointerElementType() );
+							arrayResizesNeeded.insert( ai.getCastedPointedType() );
 						else
-							arraysNeeded.insert( ai.getCastedType()->getPointerElementType() );
+							arraysNeeded.insert( ai.getCastedPointedType() );
 					}
-					if ( StructType* ST = dyn_cast<StructType>(ai.getCastedType()->getPointerElementType()) )
+					if ( StructType* ST = dyn_cast<StructType>(ai.getCastedPointedType()) )
 						visitStruct(ST);
 				}
 			}
