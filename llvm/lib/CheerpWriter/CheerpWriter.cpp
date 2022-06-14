@@ -432,7 +432,7 @@ void CheerpWriter::compileMemFunc(const Value* dest, const Value* src, const Val
 uint32_t CheerpWriter::compileArraySize(const DynamicAllocInfo & info, bool shouldPrint, bool inBytes)
 {
 	// We assume parenthesis around this code
-	Type * t = info.getCastedType()->getPointerElementType();
+	Type * t = info.getCastedPointedType();
 	uint32_t typeSize = targetData.getTypeAllocSize(t);
 	if(inBytes)
 		typeSize = 1;
@@ -493,7 +493,7 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 {
 	assert (info.isValidAlloc());
 
-	Type * t = info.getCastedType()->getPointerElementType();
+	Type * t = info.getCastedPointedType();
 
 	POINTER_KIND result = PA.getPointerKindAssert(info.getInstruction());
 	const ConstantInt* constantOffset = PA.getConstantOffsetForPointer(info.getInstruction());

@@ -541,7 +541,7 @@ public:
 	 * Will report an llvm error if the use of the result is not consistent
 	 */
 	llvm::PointerType * getCastedType() const { return castedType; }
-	
+	llvm::Type* getCastedPointedType() const { return castedElementType; }
 	/**
 	 * This argument will never be null
 	 */
@@ -584,6 +584,7 @@ private:
 	AllocType type;
 	uint32_t typeSize;
 	llvm::PointerType * castedType;
+	llvm::Type* castedElementType;
 	bool forceTypedArrays;
 };
 
