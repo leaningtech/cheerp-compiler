@@ -272,7 +272,7 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 			return true;
 
 		if (IPointerKind == COMPLETE_OBJECT) {
-			auto type = cast<GetElementPtrInst>(I).getType()->getPointerElementType();
+			auto type = cast<GetElementPtrInst>(I).getResultElementType();
 			// Always inline geps to immutable fields of a complete object.
 			if (TypeSupport::isImmutableType(type))
 				return true;
@@ -627,8 +627,8 @@ bool hasNonLoadStoreUses( const Value* v)
 Type* getGEPContainerType(const User* gep)
 {
 	SmallVector< const Value*, 8 > indices(std::next(gep->op_begin()), std::prev(gep->op_end()));
-	Type* basePointerType = gep->getOperand(0)->getType();
-	Type* containerType = GetElementPtrInst::getIndexedType(basePointerType->getPointerElementType(),
+	assertPointerElementOrOpaque(gep->getOperand(0)->getType(), cast<GEPOperator>(gep)->getSourceElementType());
+	Type* containerType = GetElementPtrInst::getIndexedType(cast<GEPOperator>(gep)->getSourceElementType(),
 			makeArrayRef(const_cast<Value* const*>(indices.begin()),
 				     const_cast<Value* const*>(indices.end())));
 	return containerType;
