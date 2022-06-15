@@ -263,7 +263,7 @@ CodeGenFunction::GetAddressOfDirectBaseInCompleteClass(Address This,
   {
     // Cheerp: if the base class has no members create a bitcast with cheerp specific intrinsic
     if(Base->isEmpty() || Offset.isZero())
-       return GenerateUpcastCollapsed(This, ConvertType(Base)->getPointerTo());
+       return GenerateUpcastCollapsed(This, ConvertType(Base));
     else
     {
       // Get the layout.
@@ -388,7 +388,7 @@ Address CodeGenFunction::GetAddressOfBaseClass(
     if(getTarget().isByteAddressable())
       return Builder.CreateElementBitCast(Value, BaseValueTy);
     else
-      return GenerateUpcastCollapsed(Value, BasePtrTy);
+      return GenerateUpcastCollapsed(Value, BaseValueTy, Value.getType()->getPointerAddressSpace());
   }
 
   llvm::BasicBlock *origBB = nullptr;
@@ -429,7 +429,7 @@ Address CodeGenFunction::GetAddressOfBaseClass(
       Derived = VBase;
     }
     if (NonVirtualOffset.isZero()) {
-      Value = GenerateUpcastCollapsed(Value, BasePtrTy);
+      Value = GenerateUpcastCollapsed(Value, BaseValueTy, Value.getType()->getPointerAddressSpace());
     } else {
       Value = GenerateUpcast(Value, Derived, Start, PathEnd);
     }
@@ -504,14 +504,15 @@ CodeGenModule::ComputeVirtualBaseIdOffset(const CXXRecordDecl *Derived,
 
 Address
 CodeGenFunction::GenerateUpcastCollapsed(Address Value,
-                                         llvm::Type* BasePtrTy)
+                                         llvm::Type* BasePointedTy, unsigned AddrSpace)
 {
+  llvm::Type* BasePtrTy = BasePointedTy->getPointerTo(AddrSpace);
   llvm::Type* types[] = { BasePtrTy, Value.getType() };
 
   llvm::Function* intrinsic = llvm::Intrinsic::getDeclaration(&CGM.getModule(),
                               llvm::Intrinsic::cheerp_upcast_collapsed, types);
 
-  return Address(Builder.CreateCall(intrinsic, Value.getPointer()), BasePtrTy->getPointerElementType(), Value.getAlignment());
+  return Address(Builder.CreateCall(intrinsic, Value.getPointer()), BasePointedTy, Value.getAlignment());
 }
 
 Address
@@ -542,8 +543,6 @@ CodeGenFunction::GenerateUpcast(Address Value,
     llvm::Value* Ptr = Builder.CreateGEP(Value.getElementType(), Value.getPointer(), GEPConstantIndexes);
     Value = Address(Ptr, expectedGepType, Value.getAlignment());
   }
-
-  BasePtrTy = BasePtrTy->getPointerTo();
 
   //Cheerp: Check if the type is the expected one. If not create a builtin to handle this.
   //This may happen when empty base classes are used

@@ -2855,7 +2855,8 @@ public:
                                 bool NullCheckValue, SourceLocation Loc);
 
   Address GenerateUpcastCollapsed(Address Value,
-                               llvm::Type *BasePtrTy);
+                               llvm::Type *BasePtrTy,
+                               unsigned AddrSpace = 0);
   Address GenerateUpcast(Address Value,
                                const CXXRecordDecl *Derived,
                                CastExpr::path_const_iterator PathBegin,
