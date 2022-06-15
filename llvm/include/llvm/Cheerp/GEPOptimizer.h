@@ -876,7 +876,7 @@ private:
 		static Value* getValueNthOperator(const GetElementPtrInst* it, const uint32_t index);
 		std::vector<PairRepresentativeOrderedGEPs> splitIntoSubproblems (const OrderedGEPs::iterator begin, const OrderedGEPs::iterator end, const uint32_t endIndex) const;
 		void buildNodesOfGEPTree(OrderedGEPs::iterator begin, const OrderedGEPs::iterator end,
-			llvm::Value* base, const uint32_t startIndex);
+			llvm::Value* base, llvm::Type* pointedType, const uint32_t startIndex);
 		bool checkInvariantsOnOrderedGEPs(const OrderedGEPs& orderedGEPs)
 		{
 			OrderByOperands orderByOperands(order);
