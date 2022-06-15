@@ -36,7 +36,7 @@ Value* GEPOptimizer::GEPRecursionData::getValueNthOperator(const GetElementPtrIn
 }
 
 void GEPOptimizer::GEPRecursionData::buildNodesOfGEPTree(OrderedGEPs::iterator begin, const OrderedGEPs::iterator end,
-		Value* base, uint32_t endIndex)
+		Value* base, Type* pointedType, uint32_t endIndex)
 {
 	//This function takes a range (begin, end) of GEPs, build all the GEPs of level endIndex in the GEPTree, and then call itself again as to build nodes on levels > endIndex
 
@@ -80,7 +80,8 @@ void GEPOptimizer::GEPRecursionData::buildNodesOfGEPTree(OrderedGEPs::iterator b
 				insertionPoint = subproblem.representative->getTerminator();
 
 			newIndexes.push_back((*(subproblem.GEPs.begin()))->getOperand(endIndex));
-			GetElementPtrInst* newGEP = GetElementPtrInst::Create(base->getType()->getPointerElementType(), base, newIndexes, base->getName()+".optgep");
+			cheerp::assertPointerElementOrOpaque(base->getType(), pointedType);
+			GetElementPtrInst* newGEP = GetElementPtrInst::Create(pointedType, base, newIndexes, base->getName()+".optgep");
 			newGEP->insertBefore(insertionPoint);
 			newIndexes.pop_back();
 #if DEBUG_GEP_OPT_VERBOSE
@@ -101,7 +102,7 @@ void GEPOptimizer::GEPRecursionData::buildNodesOfGEPTree(OrderedGEPs::iterator b
 			{
 				nonTerminalGeps.push_back(newGEP);
 				//Take care of a nonTerminalGeps (= has children nodes in the GEP tree)
-				buildNodesOfGEPTree(longerGEPs.begin(), longerGEPs.end(), newGEP, endIndex + 1);
+				buildNodesOfGEPTree(longerGEPs.begin(), longerGEPs.end(), newGEP, newGEP->getResultElementType(), endIndex + 1);
 			}
 		}
 
@@ -493,7 +494,7 @@ void GEPOptimizer::GEPRecursionData::buildGEPTree()
 				llvm::errs() << **it2 << "\n";
 			llvm::errs() << "\n";
 #endif
-			buildNodesOfGEPTree(rangeStart, it, (*rangeStart)->getOperand(0), 1);
+			buildNodesOfGEPTree(rangeStart, it, (*rangeStart)->getOperand(0), (*rangeStart)->getSourceElementType(), 1);
 		}
 		rangeLength = 0;
 		rangeStart = it;
