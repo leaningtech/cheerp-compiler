@@ -1959,6 +1959,7 @@ private:
 
 
   llvm::Type* CurrentType = C->getType()->getPointerElementType();
+  llvm::Type* CElementType = CurrentType;
 
   if(Value.hasLValuePath() && CGM.getTypes().ConvertTypeForMem(CurType) == CurrentType) {
     ArrayRef<APValue::LValuePathEntry> Path = Value.getLValuePath();
@@ -1978,8 +1979,10 @@ private:
           CurType = FD->getType();
 	  if (CurClass->isUnionType()) {
             // Apply a bitcast, on unions it is safe
-            C = llvm::ConstantExpr::getGetElementPtr(C->getType()->getPointerElementType(), C, Indexes);
+            C = llvm::ConstantExpr::getGetElementPtr(CElementType, C, Indexes);
 	    C = llvm::ConstantExpr::getBitCast(C, CGM.getTypes().ConvertTypeForMem(CurType)->getPointerTo());
+            CElementType = CGM.getTypes().ConvertTypeForMem(CurType);
+
 	    Indexes.clear();
             continue;
           }
@@ -2048,7 +2051,7 @@ private:
     }
 
     if(Indexes.size() > 1)
-      C = llvm::ConstantExpr::getGetElementPtr(C->getType()->getPointerElementType(), C, Indexes);
+      C = llvm::ConstantExpr::getGetElementPtr(CElementType, C, Indexes);
 
     if (OffsetVal == 0)
       return C;
