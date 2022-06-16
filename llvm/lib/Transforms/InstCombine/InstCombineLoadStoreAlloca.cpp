@@ -625,8 +625,6 @@ static Instruction *combineLoadToOperationType(InstCombinerImpl &IC,
   if (!DL.isByteAddressable())
     return nullptr;
 
-  Type *Ty = LI.getType();
-
   // Fold away bit casts of the loaded value by loading the desired type.
   // Note that we should not do this for pointer<->integer casts,
   // because that would result in type punning.
