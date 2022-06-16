@@ -695,8 +695,8 @@ static CharUnits CalculateCookiePadding(CodeGenFunction &CGF,
   if (E->getOperatorNew()->isReservedGlobalPlacementOperator())
     return CharUnits::Zero();
 
-  llvm::Type* allocType = CGF.ConvertType(E->getAllocatedType())->getPointerTo();
-  bool asmjs = CGF.CurFn->getSection() == StringRef("asmjs") || cheerp::TypeSupport::isAsmJSPointer(allocType);
+  llvm::Type* allocElementType = CGF.ConvertType(E->getAllocatedType());
+  bool asmjs = CGF.CurFn->getSection() == StringRef("asmjs") || cheerp::TypeSupport::isAsmJSPointed(allocElementType);
   if (!CGF.getTarget().isByteAddressable() && !asmjs)
     return CharUnits::Zero();
 
