@@ -153,6 +153,9 @@ void LandingPadTable::populate(Module& M, GlobalDepsAnalyzer& GDA)
 	// If we found no landing pads, there is nothing to do
 	if(elemTy == nullptr)
 		return;
+
+	Type* oldElementType = table->getValueType();
+
 	Constant* init = ConstantArray::get(ArrayType::get(elemTy, v.size()), v);
 	table->setValueType(init->getType());
 	table->mutateType(init->getType()->getPointerTo());
@@ -162,6 +165,27 @@ void LandingPadTable::populate(Module& M, GlobalDepsAnalyzer& GDA)
 	// Also, it is a waste do do the fixups when we can just render this last.
 	table->removeFromParent();
 	M.getGlobalList().push_back(table);
+
+	Type* newElementType = init->getType();
+
+	for (auto* u : table->users())
+	{
+		if (GetElementPtrInst* GEP = dyn_cast<GetElementPtrInst>(u))
+		{
+			llvm::Type* oldTy = GEP->getType();
+			if (GEP->getSourceElementType() == oldElementType)
+			{
+				GEP->setSourceElementType(newElementType);
+			}
+
+			assert(oldTy == GEP->getType());
+		}
+		else
+		{
+			u->dump();
+			llvm_unreachable("Unexpected table use");
+		}
+	}
 
 	if (v.size() > 8)
 	{
