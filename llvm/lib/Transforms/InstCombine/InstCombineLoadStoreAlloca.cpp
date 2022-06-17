@@ -410,7 +410,7 @@ Instruction *InstCombinerImpl::visitAllocaInst(AllocaInst &AI) {
     if (TheSrc->getType()!=AI.getType() && !DL.isByteAddressable()) {
       // Wee can only proceed if the source is a constant GEP
       if(isa<ConstantExpr>(TheSrc) && cast<ConstantExpr>(TheSrc)->getOpcode()==Instruction::GetElementPtr) {
-        Type* curType = cast<ConstantExpr>(TheSrc)->getOperand(0)->getType()->getPointerElementType();
+        Type* curType = cast<GEPOperator>(TheSrc)->getSourceElementType();
         unsigned lastIndex = 1;
         // Find out how many indexes we need to get the same type as the alloca
         for(unsigned i=2;i<cast<ConstantExpr>(TheSrc)->getNumOperands() && curType!=AI.getAllocatedType();i++) {
@@ -427,7 +427,7 @@ Instruction *InstCombinerImpl::visitAllocaInst(AllocaInst &AI) {
           SmallVector<Constant*, 4> newIndexes;
           for(unsigned i=1;i<=lastIndex;i++)
             newIndexes.push_back(cast<Constant>(cast<ConstantExpr>(TheSrc)->getOperand(i)));
-          TheSrc = ConstantExpr::getGetElementPtr(cast<ConstantExpr>(TheSrc)->getOperand(0)->getType()->getPointerElementType(),
+          TheSrc = ConstantExpr::getGetElementPtr(cast<GEPOperator>(TheSrc)->getSourceElementType(),
       		    				cast<Constant>(cast<ConstantExpr>(TheSrc)->getOperand(0)), newIndexes);
         } else {
           // Even by using all indexes we could not find the same type as the alloca. Bail out.
