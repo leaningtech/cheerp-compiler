@@ -1590,7 +1590,11 @@ void TypeOptimizer::rewriteFunction(Function* F)
 							assert(A->getParent() == F);
 						}
 						assert(rewrittenOperand.second == 0);
-						GetElementPtrInst* NewInst = GetElementPtrInst::Create(newPtrType->getPointerElementType(), rewrittenOperand.first, newIndexes);
+						Type* srcElementType = rewriteType(cast<GetElementPtrInst>(I).getSourceElementType());
+						if (isa<ArrayType>(srcElementType))
+							srcElementType = cast<ArrayType>(srcElementType)->getElementType();
+
+						GetElementPtrInst* NewInst = GetElementPtrInst::Create(srcElementType, rewrittenOperand.first, newIndexes);
 						assert(!NewInst->getResultElementType()->isArrayTy());
 						NewInst->takeName(&I);
 						NewInst->setIsInBounds(cast<GetElementPtrInst>(I).isInBounds());
