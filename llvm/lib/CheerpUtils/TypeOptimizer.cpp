@@ -230,6 +230,23 @@ void TypeOptimizer::gatherAllTypesInfo(const Module& M)
 			}
 		}
 	}
+
+	if (!UseBigInts)
+        {
+		//Special functions that may need to be reachable from genericjs
+		auto markAsReachable = [this](Function* F)
+		{
+			if (F) {
+				onlyCalledByWasmFuncs.erase(F);
+			}
+		};
+
+                markAsReachable(M.getFunction("__modti3"));
+                markAsReachable(M.getFunction("__umodti3"));
+                markAsReachable(M.getFunction("__divti3"));
+                markAsReachable(M.getFunction("__udivti3"));
+        }
+
 	// Ugly, we need to iterate over constant GEPs, but they are per-context and not per-module
 	SmallVector<ConstantExpr*, 4> ConstantGEPs;
 	ConstantExpr::getAllFromOpcode(ConstantGEPs, M.getContext(), Instruction::GetElementPtr);
