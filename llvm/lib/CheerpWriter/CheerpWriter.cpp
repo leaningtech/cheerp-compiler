@@ -4310,6 +4310,22 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				stream << namegen.getBuiltinName(NameGenerator::Builtin::HANDLE_VAARG) << "(";
 				compileCompleteObject(vi.getPointerOperand());
 				stream << ')';
+				if (vi.getType()->isPointerTy() && vi.getNumUses() > 0)
+				{
+					StringRef name = namegen.getName(&vi);
+					stream << ';' << NewLine;
+					stream << name << "=";
+					stream << name << "===0?";
+					POINTER_KIND k = PA.getPointerKindForStoredType(vi.getType());
+					if (k == COMPLETE_OBJECT)
+						stream << "null";
+					else
+					{
+						assert(k == REGULAR);
+						stream << "nullObj";
+					}
+					stream << ':' << name;
+				}
 
 				assert( globalDeps.needHandleVAArg() );
 			}
