@@ -1924,7 +1924,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 					TypeMappingInfo newInfo = rewriteType(I.getType());
 					if(newInfo.mappedType!=I.getType())
 					{
-						Type* newAllocatedType = rewriteType(I.getType()->getPointerElementType());
+						Type* newAllocatedType = rewriteType(AI->getAllocatedType());
 						AI->setAllocatedType(newAllocatedType);
 						localTypeMapping.setOriginalOperandType(&I, I.getType());
 						// Special handling for Alloca
