@@ -227,12 +227,11 @@ private:
   mutable bool IsUsed;
 
 public:
-  bool IsNull;
   QualType Ty;
-  CallArg(RValue rv, QualType ty, bool isnull = false)
-      : RV(rv), HasLV(false), IsUsed(false), IsNull(isnull), Ty(ty) {}
+  CallArg(RValue rv, QualType ty)
+      : RV(rv), HasLV(false), IsUsed(false), Ty(ty) {}
   CallArg(LValue lv, QualType ty)
-      : LV(lv), HasLV(true), IsUsed(false), IsNull(false), Ty(ty) {}
+      : LV(lv), HasLV(true), IsUsed(false), Ty(ty) {}
   bool hasLValue() const { return HasLV; }
   QualType getType() const { return Ty; }
 
@@ -289,7 +288,7 @@ public:
     llvm::Value *Size;
   };
 
-  void add(RValue rvalue, QualType type, bool isnull = false) { push_back(CallArg(rvalue, type, isnull)); }
+  void add(RValue rvalue, QualType type) { push_back(CallArg(rvalue, type)); }
 
   void addUncopiedAggregate(LValue LV, QualType type) {
     push_back(CallArg(LV, type));

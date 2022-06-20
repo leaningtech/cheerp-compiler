@@ -4414,8 +4414,6 @@ void CodeGenFunction::EmitCallArg(CallArgList &args, const Expr *E,
     return;
   }
 
-  bool isNull = isa<GNUNullExpr>(E);
-
   AggValueSlot AggSlot = AggValueSlot::ignored();
   if (hasAggregateEvaluationKind(E->getType()))
   {
@@ -4431,7 +4429,7 @@ void CodeGenFunction::EmitCallArg(CallArgList &args, const Expr *E,
 	  }
     }
   }
-  args.add(EmitAnyExpr(E, AggSlot), type, isNull);
+  args.add(EmitAnyExpr(E, AggSlot), type);
 }
 
 QualType CodeGenFunction::getVarArgType(const Expr *Arg) {
@@ -4987,14 +4985,9 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
           ArgInfo.getDirectOffset() == 0) {
         assert(NumIRArgs == 1);
         llvm::Value *V;
-        if (!I->isAggregate()) {
-          // Special handling for NULL pointers passed to variadic functions
-          // without this they would be an int
-          if(ArgNo >= CallInfo.getNumRequiredArgs() && I->IsNull)
-            V = llvm::ConstantPointerNull::get(Int8PtrTy);
-          else
-            V = I->getKnownRValue().getScalarVal();
-	} else
+        if (!I->isAggregate())
+          V = I->getKnownRValue().getScalarVal();
+        else
           V = Builder.CreateLoad(
               I->hasLValue() ? I->getKnownLValue().getAddress(*this)
                              : I->getKnownRValue().getAggregateAddress());
