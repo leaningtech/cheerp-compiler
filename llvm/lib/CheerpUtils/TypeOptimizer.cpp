@@ -831,14 +831,17 @@ std::pair<Constant*, uint8_t> TypeOptimizer::rewriteConstant(Constant* C, bool r
 				assert(rewrittenOperand.second==0);
 				ptrOperand = rewrittenOperand.first;
 				SmallVector<Value*, 4> newIndexes;
+				Type* srcType = rewriteType(cast<GEPOperator>(CE)->getSourceElementType());
 				Type* targetType = rewriteType(cast<GEPOperator>(CE)->getResultElementType());
 				SmallVector<Value*, 2> idxs;
 				for (auto Op = CE->op_begin()+1; Op != CE->op_end(); ++Op)
 				{
 					idxs.push_back(*Op);
 				}
+				if (isa<ArrayType>(srcType))
+					srcType = cast<ArrayType>(srcType)->getElementType();
 				uint8_t mergedIntegerOffset=rewriteGEPIndexes(newIndexes, ptrType, cast<GEPOperator>(CE)->getSourceElementType(), idxs, targetType, NULL);
-				return std::make_pair(ConstantExpr::getGetElementPtr(ptrOperand->getType()->getPointerElementType(), ptrOperand, newIndexes), mergedIntegerOffset);
+				return std::make_pair(ConstantExpr::getGetElementPtr(srcType, ptrOperand, newIndexes), mergedIntegerOffset);
 			}
 			case Instruction::BitCast:
 			{
