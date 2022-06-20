@@ -1653,7 +1653,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 								{
 									Type* argType = localTypeMapping.getOriginalOperandType(CI->getArgOperand(i));
 									assert(argType->isPointerTy());
-									Type* rewrittenArgType = rewriteType(argType->getPointerElementType());
+									Type* rewrittenArgType = rewriteType(CI->getParamByValType(i));
 									if(rewrittenArgType->isStructTy())
 									{
 										newAttrs = newAttrs.removeParamAttribute(module->getContext(), i, Attribute::ByVal);
@@ -1689,7 +1689,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 								{
 									Type* argType = localTypeMapping.getOriginalOperandType(CI->getArgOperand(i));
 									assert(argType->isPointerTy());
-									Type* rewrittenArgType = rewriteType(argType->getPointerElementType());
+									Type* rewrittenArgType = rewriteType(CI->getParamStructRetType(i));
 									newAttrs=newAttrs.removeParamAttribute(module->getContext(), i, Attribute::StructRet);
 									attributesChanged = true;
 									if(rewrittenArgType->isStructTy())
