@@ -787,7 +787,6 @@ Constant *SymbolicallyEvaluateBinop(unsigned Opc, Constant *Op0, Constant *Op1,
           }
           Op0 = COp0->getOperand(0);
           Op1 = COp1->getOperand(0);
-          unsigned ElemSize = DL.getTypeSizeInBits(Op0->getType()->getPointerElementType());
           // We can handle two possibilities:
           // 1) 2 GEPs which have the same indices but for the last
           // 2) 1 GEP and 1 constant. The GEP may have a single index
@@ -799,12 +798,14 @@ Constant *SymbolicallyEvaluateBinop(unsigned Opc, Constant *Op0, Constant *Op1,
             // In this case it must have a single index, the result is the index itself
             if (CE0->getNumOperands() != 2)
               return 0;
+            unsigned ElemSize = DL.getTypeSizeInBits(cast<GEPOperator>(CE0)->getResultElementType());
             return ConstantExpr::getMul(CE0->getOperand(1), ConstantInt::get(cast<IntegerType>(CE0->getOperand(1)->getType()), ElemSize/8));
           } else if (CE1 && CE1->getOpcode() == Instruction::GetElementPtr &&
                      CE1->getOperand(0) == Op0) {
             // Like before, but negate the result
             if (CE1->getNumOperands() != 2)
               return 0;
+            unsigned ElemSize = DL.getTypeSizeInBits(cast<GEPOperator>(CE1)->getResultElementType());
             return ConstantExpr::getMul(ConstantExpr::getNeg(CE1->getOperand(1)), ConstantInt::get(cast<IntegerType>(CE1->getOperand(1)->getType()), ElemSize/8));
           } else if (CE0 && CE0->getOpcode() == Instruction::GetElementPtr &&
                      CE1 && CE1->getOpcode() == Instruction::GetElementPtr) {
@@ -819,6 +820,7 @@ Constant *SymbolicallyEvaluateBinop(unsigned Opc, Constant *Op0, Constant *Op1,
               if (*it1 != *it2)
                 return 0;
             }
+            unsigned ElemSize = DL.getTypeSizeInBits(cast<GEPOperator>(CE0)->getResultElementType());
             return ConstantExpr::getMul(ConstantExpr::getSub(cast<Constant>(*it1), cast<Constant>(*it2)), ConstantInt::get(cast<IntegerType>((*it1)->getType()), ElemSize/8));
           }
         } else {
