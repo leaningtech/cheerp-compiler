@@ -1355,10 +1355,9 @@ Function* TypeOptimizer::rewriteFunctionSignature(Function* F)
 			AttributeSet CurAttrs = PAL.getParamAttrs(i);
 			if(CurAttrs.hasAttribute(Attribute::ByVal))
 			{
-				Type* argType = oldFuncType->getParamType(i);
-				assert(argType->isPointerTy());
+				Type* argElemType = F->getParamByValType(i);
 				PAL = PAL.removeParamAttribute(F->getContext(), i, Attribute::ByVal);
-				Type* rewrittenArgType = rewriteType(argType->getPointerElementType());
+				Type* rewrittenArgType = rewriteType(argElemType);
 				if(rewrittenArgType->isStructTy())
 				{
 					PAL = PAL.addParamAttribute(F->getContext(), i, Attribute::getWithByValType(F->getContext(), rewrittenArgType));
@@ -1366,10 +1365,9 @@ Function* TypeOptimizer::rewriteFunctionSignature(Function* F)
 			}
 			if(CurAttrs.hasAttribute(Attribute::StructRet))
 			{
-				Type* argType = oldFuncType->getParamType(i);
-				assert(argType->isPointerTy());
+				Type* argElemType = F->getParamStructRetType(i);
 				PAL = PAL.removeParamAttribute(F->getContext(), i, Attribute::StructRet);
-				Type* rewrittenArgType = rewriteType(argType->getPointerElementType());
+				Type* rewrittenArgType = rewriteType(argElemType);
 				if(rewrittenArgType->isStructTy())
 				{
 					PAL = PAL.addParamAttribute(F->getContext(), i, Attribute::getWithStructRetType(F->getContext(), rewrittenArgType));
