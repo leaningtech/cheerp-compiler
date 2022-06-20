@@ -75,9 +75,9 @@ bool FixFunctionCasts::runOnModule(Module& M)
 			{
 				if (!BC->isCast())
 					continue;
-				if (!BC->getType()->isPointerTy() || !BC->getType()->getPointerElementType()->isFunctionTy())
+				if (!BC->getType()->isPointerTy() || !BC->getType()->getNonOpaquePointerElementType()->isFunctionTy())
 					continue;
-				FunctionType* Dst = dyn_cast<FunctionType>(BC->getType()->getPointerElementType());
+				FunctionType* Dst = dyn_cast<FunctionType>(BC->getType()->getNonOpaquePointerElementType());
 				FunctionType* Src = F.getFunctionType();
 				if (!Dst || !Src)
 					continue;
