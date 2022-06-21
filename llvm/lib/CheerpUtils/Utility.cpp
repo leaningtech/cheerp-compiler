@@ -1262,9 +1262,9 @@ bool replaceCallOfBitCastWithBitCastOfCall(CallBase& callInst, bool mayFail, boo
 	}
 	FunctionType* FTy = F->getFunctionType();
 
-	if (FTy->getNumParams() != callInst.arg_size())
+	if (FTy->getNumParams() > callInst.arg_size() || (FTy->getNumParams() < callInst.arg_size() && !FTy->isVarArg()))
 	{
-		assert(mayFail && "Equal number of paramether expected");
+		assert(mayFail && "Equal number of parameters expected");
 		return false;
 	}
 
