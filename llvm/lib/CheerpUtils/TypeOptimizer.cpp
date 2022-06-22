@@ -1611,7 +1611,9 @@ void TypeOptimizer::rewriteFunction(Function* F)
 							// If the return type is not a struct anymore while the source type is still a
 							// struct replace the upcast with a GEP
 							Value* ptrOperand = I.getOperand(0);
-							Type* curType = localTypeMapping.getOriginalOperandType(ptrOperand)->getPointerElementType();
+							Type* curType = CI->getParamElementType(0);
+							assert(curType);
+							assertPointerElementOrOpaque(localTypeMapping.getOriginalOperandType(ptrOperand), curType);
 							TypeMappingInfo newRetInfo = rewriteType(I.getType()->getPointerElementType());
 							TypeMappingInfo newOpInfo = rewriteType(curType);
 							if(TypeMappingInfo::isCollapsedStruct(newRetInfo.elementMappingKind) &&
