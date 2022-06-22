@@ -512,7 +512,11 @@ CodeGenFunction::GenerateUpcastCollapsed(Address Value,
   llvm::Function* intrinsic = llvm::Intrinsic::getDeclaration(&CGM.getModule(),
                               llvm::Intrinsic::cheerp_upcast_collapsed, types);
 
-  return Address(Builder.CreateCall(intrinsic, Value.getPointer()), BasePointedTy, Value.getAlignment());
+  llvm::CallBase* CB = Builder.CreateCall(intrinsic, Value.getPointer());
+  assert(CB->getArgOperand(0)->getType()->isOpaquePointerTy() || CB->getArgOperand(0)->getType()->getNonOpaquePointerElementType() == Value.getElementType());
+  CB->addParamAttr(0, llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, Value.getElementType()));
+
+  return Address(CB, BasePointedTy, Value.getAlignment());
 }
 
 Address
