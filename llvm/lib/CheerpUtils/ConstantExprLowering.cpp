@@ -79,6 +79,8 @@ Constant* ConstantExprLowering::visitConstantExpr(const ConstantExpr *CE, SmallD
 		return ConstantFoldCompareInstOperands(CE->getPredicate(), Ops[0], Ops[1], *DL);
 	if (Instruction::isCast(Opcode))
 		return ConstantFoldCastOperand(Opcode, Ops[0], CE->getType(), *DL);
+	if (Opcode == Instruction::Select)
+		return ConstantFoldSelectInstruction(Ops[0], Ops[1], Ops[2]);
 
 	// Manually fold GEPs of globals. Maybe we can let llvm do this too
 	if (auto *GEP = dyn_cast<GEPOperator>(CE)) {
