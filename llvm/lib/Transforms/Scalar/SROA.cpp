@@ -708,8 +708,8 @@ private:
       if(AllocaTy->isStructTy() && cast<StructType>(AllocaTy)->hasByteLayout())
         return PI.setAborted(&BC);
       // Do not handle unsafe bitcasts. The safe ones are only between a class and it's directbase
-      StructType* srcType = dyn_cast<StructType>(BC.getOperand(0)->getType()->getPointerElementType());
-      StructType* dstType = dyn_cast<StructType>(BC.getType()->getPointerElementType());
+      StructType* srcType = dyn_cast<StructType>(BC.getOperand(0)->getType()->getNonOpaquePointerElementType());
+      StructType* dstType = dyn_cast<StructType>(BC.getType()->getNonOpaquePointerElementType());
       if(!srcType || !dstType) {
         return PI.setAborted(&BC);
       }
@@ -1015,7 +1015,7 @@ private:
 
       if (BitCastInst* BC = dyn_cast<BitCastInst>(I)) {
         assert(UsedI->getType()->isPointerTy());
-        Type* UsedTy = UsedI->getType()->getPointerElementType();
+        Type* UsedTy = UsedI->getType()->getNonOpaquePointerElementType();
         if (!DL.isByteAddressable() && I->getParent()->getParent()->getSection() != StringRef("asmjs") && UsedTy->isStructTy() && cast<StructType>(UsedTy)->hasByteLayout())
           return BC;
       }
