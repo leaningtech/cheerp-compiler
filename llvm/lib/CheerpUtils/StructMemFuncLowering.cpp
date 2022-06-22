@@ -220,13 +220,13 @@ void StructMemFuncLowering::createGenericLoop(IRBuilder<>* IRB, BasicBlock* prev
 	{
 		IRB->SetInsertPoint(previousBlock->getTerminator());
 		if (needsLoop)
-			endPtr = IRB->CreateInBoundsGEP(dst->getType()->getScalarType()->getPointerElementType(), dst, isForward ? elementsCount : ConstantInt::get(int32Type, 0));
+			endPtr = IRB->CreateInBoundsGEP(pointedType, dst, isForward ? elementsCount : ConstantInt::get(int32Type, 0));
 		if (!isForward)
 		{
 			assert(mode == MEMMOVE);
 			//Move src and dst past the end of the range (we copy backwards)
-			src = IRB->CreateInBoundsGEP(src->getType()->getScalarType()->getPointerElementType(), src, elementsCount);
-			dst = IRB->CreateInBoundsGEP(dst->getType()->getScalarType()->getPointerElementType(), dst, elementsCount);
+			src = IRB->CreateInBoundsGEP(pointedType, src, elementsCount);
+			dst = IRB->CreateInBoundsGEP(pointedType, dst, elementsCount);
 		}
 		IRB->SetInsertPoint(currentBlock);
 	}
@@ -252,8 +252,8 @@ void StructMemFuncLowering::createGenericLoop(IRBuilder<>* IRB, BasicBlock* prev
 	// Immediately decrement by one, so that we are accessing a valid elements
 	if (!isForward)
 	{
-		srcVal = IRB->CreateInBoundsGEP(srcVal->getType()->getScalarType()->getPointerElementType(), srcVal, ConstantInt::get(int32Type, -1));
-		dstVal = IRB->CreateInBoundsGEP(dstVal->getType()->getScalarType()->getPointerElementType(), dstVal, ConstantInt::get(int32Type, -1));
+		srcVal = IRB->CreateInBoundsGEP(pointedType, srcVal, ConstantInt::get(int32Type, -1));
+		dstVal = IRB->CreateInBoundsGEP(pointedType, dstVal, ConstantInt::get(int32Type, -1));
 	}
 
 	// Now, recursively descend into the object to copy all the values
@@ -271,8 +271,8 @@ void StructMemFuncLowering::createGenericLoop(IRBuilder<>* IRB, BasicBlock* prev
 		if (isForward)
 		{
 			if (mode != MEMSET)
-				srcVal = IRB->CreateInBoundsGEP(srcVal->getType()->getScalarType()->getPointerElementType(), srcVal, ConstantInt::get(int32Type, 1));
-			dstVal = IRB->CreateInBoundsGEP(dstVal->getType()->getScalarType()->getPointerElementType(), dstVal, ConstantInt::get(int32Type, 1));
+				srcVal = IRB->CreateInBoundsGEP(pointedType, srcVal, ConstantInt::get(int32Type, 1));
+			dstVal = IRB->CreateInBoundsGEP(pointedType, dstVal, ConstantInt::get(int32Type, 1));
 		}
 
 		// Close the loop for dst (and src)
@@ -435,10 +435,10 @@ bool StructMemFuncLowering::runOnBlock(BasicBlock& BB, bool asmjs)
 				if(uint32_t tailSize = sizeInt % elemSize) {
 					IRBuilder<> IRB(CI->getNextNode());
 					uint32_t skipCount = sizeInt / elemSize;
-					llvm::Value* tailDst = IRB.CreateGEP(dst->getType()->getScalarType()->getPointerElementType(), dst, ConstantInt::get(int32Type, skipCount));
+					llvm::Value* tailDst = IRB.CreateGEP(pointedType, dst, ConstantInt::get(int32Type, skipCount));
 					llvm::Value* tailSrc = src;
 					if(mode != MEMSET)
-						tailSrc = IRB.CreateGEP(src->getType()->getScalarType()->getPointerElementType(), src, ConstantInt::get(int32Type, skipCount));
+						tailSrc = IRB.CreateGEP(pointedType, src, ConstantInt::get(int32Type, skipCount));
 					uint32_t newAlign = alignInt;
 					// The tail operation starts at a multiple of elemSize
 					while(elemSize % newAlign != 0)
