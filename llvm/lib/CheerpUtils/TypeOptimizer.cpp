@@ -178,7 +178,8 @@ void TypeOptimizer::gatherAllTypesInfo(const Module& M)
 					else if(II->getIntrinsicID() == Intrinsic::cheerp_virtualcast)
 					{
 						// We can't collapse the source of a virtualcast, keep track of this by setting the mapping to an empty vector
-						StructType* sourceType = cast<StructType>(II->getOperand(0)->getType()->getPointerElementType());
+						assert(II->getParamElementType(0));
+						StructType* sourceType = cast<StructType>(II->getParamElementType(0));
 						downcastSourceToDestinationsMapping[sourceType].clear();
 					}
 				}
