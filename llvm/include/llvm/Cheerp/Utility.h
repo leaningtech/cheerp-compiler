@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2011-2021 Leaning Technologies
+// Copyright 2011-2022 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -540,7 +540,7 @@ public:
 	 * 
 	 * Will report an llvm error if the use of the result is not consistent
 	 */
-	llvm::PointerType * getCastedType() const { return castedType; }
+	llvm::PointerType * getCastedType() const { return castedElementType->getPointerTo(); }
 	llvm::Type* getCastedPointedType() const { return castedElementType; }
 	/**
 	 * This argument will never be null
@@ -578,12 +578,11 @@ public:
 	bool useTypedArray() const;
 
 private:
-	llvm::PointerType * computeCastedType() const;
+	llvm::Type * computeCastedElementType() const;
 	
 	const llvm::CallBase* call;
 	AllocType type;
 	uint32_t typeSize;
-	llvm::PointerType * castedType;
 	llvm::Type* castedElementType;
 	bool forceTypedArrays;
 };
