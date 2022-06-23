@@ -22,11 +22,11 @@ using namespace llvm;
 
 const unsigned INLINE_WRITE_LOOP_MAX = 128;
 
-void StructMemFuncLowering::createMemFunc(IRBuilder<>* IRB, Value* baseDst, Value* baseSrc, size_t size,
+void StructMemFuncLowering::createMemFunc(IRBuilder<>* IRB, Value* baseDst, Value* baseSrc, Type* containingType, size_t size,
 						SmallVector<Value*, 8>& indexes)
 {
-	Value* src = IRB->CreateGEP(baseSrc->getType()->getScalarType()->getPointerElementType(), baseSrc, indexes);
-	Value* dst = IRB->CreateGEP(baseDst->getType()->getScalarType()->getPointerElementType(), baseDst, indexes);
+	Value* src = IRB->CreateGEP(containingType, baseSrc, indexes);
+	Value* dst = IRB->CreateGEP(containingType, baseDst, indexes);
 	assert(!src->getType()->getPointerElementType()->isArrayTy());
 	// Create a type safe memcpy
 	IRB->CreateMemCpy(dst, MaybeAlign(), src, MaybeAlign(), size, false, NULL, NULL, NULL, NULL, llvm::IRBuilderBase::CheerpTypeInfo(cast<GetElementPtrInst>(src)->getResultElementType()));
@@ -38,8 +38,9 @@ void StructMemFuncLowering::recursiveCopy(IRBuilder<>* IRB, Value* baseDst, Valu
 	// For aggregates we push a new index and overwrite it for each element
 	if(StructType* ST=dyn_cast<StructType>(curType))
 	{
+		assert(baseDst->getType() == containingType->getPointerTo());
 		if (ST->hasByteLayout())
-			return createMemFunc(IRB, baseDst, baseSrc, DL->getTypeAllocSize(curType), indexes);
+			return createMemFunc(IRB, baseDst, baseSrc, containingType, DL->getTypeAllocSize(curType), indexes);
 		indexes.push_back(NULL);
 		const StructLayout* SL = DL->getStructLayout(ST);
 		for(uint32_t i=0;i<ST->getNumElements();i++)

@@ -26,7 +26,7 @@ private:
 	bool runOnBlock(BasicBlock& BB, bool asmjs);
 	void recursiveCopy(IRBuilder<>* IRB, Value* baseDst, Value* baseSrc, Type* curType, Type* containingType, Type* indexType, uint32_t baseAlign, SmallVector<Value*, 8>& indexes);
 	void recursiveReset(IRBuilder<>* IRB, Value* baseDst, Value* resetVal, Type* curType, Type* containingType, Type* indexType, uint32_t baseAlign, SmallVector<Value*, 8>& indexes);
-	void createMemFunc(IRBuilder<>* IRB, Value* baseDst, Value* baseSrc, size_t size, SmallVector<Value*, 8>& indexes);
+	void createMemFunc(IRBuilder<>* IRB, Value* baseDst, Value* baseSrc, Type* containingType, size_t size, SmallVector<Value*, 8>& indexes);
 	void createBackwardLoop(IRBuilder<>* IRB, BasicBlock* BB, BasicBlock* endLoop, BasicBlock* memfuncBody,
 				Type* pointedType, Value* dst, Value* src, Value* elementsCount, uint32_t baseAlign);
 	void createForwardLoop(IRBuilder<>* IRB, BasicBlock* BB, BasicBlock* endLoop, BasicBlock* memfuncBody,
