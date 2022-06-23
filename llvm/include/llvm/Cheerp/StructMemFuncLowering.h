@@ -24,7 +24,7 @@ class StructMemFuncLowering
 private:
 	enum MODE { NONE = 0, MEMCPY, MEMMOVE, MEMSET };
 	bool runOnBlock(BasicBlock& BB, bool asmjs);
-	void recursiveCopy(IRBuilder<>* IRB, Value* baseDst, Value* baseSrc, Type* curType, Type* indexType, uint32_t baseAlign, SmallVector<Value*, 8>& indexes);
+	void recursiveCopy(IRBuilder<>* IRB, Value* baseDst, Value* baseSrc, Type* curType, Type* containingType, Type* indexType, uint32_t baseAlign, SmallVector<Value*, 8>& indexes);
 	void recursiveReset(IRBuilder<>* IRB, Value* baseDst, Value* resetVal, Type* curType, Type* containingType, Type* indexType, uint32_t baseAlign, SmallVector<Value*, 8>& indexes);
 	void createMemFunc(IRBuilder<>* IRB, Value* baseDst, Value* baseSrc, size_t size, SmallVector<Value*, 8>& indexes);
 	void createBackwardLoop(IRBuilder<>* IRB, BasicBlock* BB, BasicBlock* endLoop, BasicBlock* memfuncBody,
