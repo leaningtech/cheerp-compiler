@@ -182,7 +182,9 @@ void LandingPadTable::populate(Module& M, GlobalDepsAnalyzer& GDA)
 		}
 		else
 		{
+#ifndef NDEBUG
 			u->dump();
+#endif
 			llvm_unreachable("Unexpected table use");
 		}
 	}
