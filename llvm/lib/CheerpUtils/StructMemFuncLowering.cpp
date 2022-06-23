@@ -103,7 +103,7 @@ void StructMemFuncLowering::recursiveCopy(IRBuilder<>* IRB, Value* baseDst, Valu
 	}
 }
 
-void StructMemFuncLowering::recursiveReset(IRBuilder<>* IRB, Value* baseDst, Value* resetVal, Type* curType,
+void StructMemFuncLowering::recursiveReset(IRBuilder<>* IRB, Value* baseDst, Value* resetVal, Type* curType, Type* containingType,
 						Type* indexType, uint32_t baseAlign, SmallVector<Value*, 8>& indexes)
 {
 	// For aggregates we push a new index and overwrite it for each element
@@ -118,7 +118,7 @@ void StructMemFuncLowering::recursiveReset(IRBuilder<>* IRB, Value* baseDst, Val
 			uint32_t elemAlign = baseAlign;
 			while(elemOffset % elemAlign != 0)
 				elemAlign /= 2;
-			recursiveReset(IRB, baseDst, resetVal, ST->getElementType(i), indexType, elemAlign, indexes);
+			recursiveReset(IRB, baseDst, resetVal, ST->getElementType(i), containingType, indexType, elemAlign, indexes);
 		}
 		indexes.pop_back();
 	}
@@ -141,7 +141,7 @@ void StructMemFuncLowering::recursiveReset(IRBuilder<>* IRB, Value* baseDst, Val
 			llvm::PHINode* index=IRB->CreatePHI(indexType, 2);
 			index->addIncoming(ConstantInt::get(indexType, 0), prevBlock);
 			indexes.back() = index;
-			recursiveReset(IRB, baseDst, resetVal, elementType, indexType, elemAlign, indexes);
+			recursiveReset(IRB, baseDst, resetVal, elementType, containingType, indexType, elemAlign, indexes);
 			Value* incrementedIndex = IRB->CreateAdd(index, ConstantInt::get(indexType, 1));
 			index->addIncoming(incrementedIndex, IRB->GetInsertBlock());
 			Value* finishedLooping=IRB->CreateICmp(CmpInst::ICMP_EQ, ConstantInt::get(indexType, AT->getNumElements()), incrementedIndex);
@@ -153,7 +153,7 @@ void StructMemFuncLowering::recursiveReset(IRBuilder<>* IRB, Value* baseDst, Val
 			for(uint32_t i=0;i<AT->getNumElements();i++)
 			{
 				indexes.back() = ConstantInt::get(indexType, i);
-				recursiveReset(IRB, baseDst, resetVal, elementType, indexType, elemAlign, indexes);
+				recursiveReset(IRB, baseDst, resetVal, elementType, containingType, indexType, elemAlign, indexes);
 			}
 		}
 		indexes.pop_back();
@@ -169,7 +169,8 @@ void StructMemFuncLowering::recursiveReset(IRBuilder<>* IRB, Value* baseDst, Val
 			computedResetVal=IRB->CreateShl(computedResetVal, 8);
 			computedResetVal=IRB->CreateOr(computedResetVal, expandedResetVal);
 		}
-		Value* elementDst = IRB->CreateGEP(curType, baseDst, indexes);
+		assert(containingType->getPointerTo() == baseDst->getType());
+		Value* elementDst = IRB->CreateGEP(containingType, baseDst, indexes);
 		IRB->CreateAlignedStore(computedResetVal, elementDst, MaybeAlign(baseAlign));
 	}
 	else if(curType->isFloatTy() || curType->isDoubleTy())
@@ -189,7 +190,8 @@ void StructMemFuncLowering::recursiveReset(IRBuilder<>* IRB, Value* baseDst, Val
 			floatResetVal = ConstantFP::get(curType->getContext(), APFloat(APFloat::IEEEsingle(), floatConstant));
 		else
 			floatResetVal = ConstantFP::get(curType->getContext(), APFloat(APFloat::IEEEdouble(), floatConstant));
-		Value* elementDst = IRB->CreateGEP(curType, baseDst, indexes);
+		assert(containingType->getPointerTo() == baseDst->getType());
+		Value* elementDst = IRB->CreateGEP(containingType, baseDst, indexes);
 		IRB->CreateAlignedStore(floatResetVal, elementDst, MaybeAlign(baseAlign));
 	}
 	else if(PointerType* PT=dyn_cast<PointerType>(curType))
@@ -197,7 +199,8 @@ void StructMemFuncLowering::recursiveReset(IRBuilder<>* IRB, Value* baseDst, Val
 		// Only constant NULL is supported
 		// TODO: Stop non constant in the frontend
 		assert(cast<ConstantInt>( resetVal )->getZExtValue() == 0);
-		Value* elementDst = IRB->CreateGEP(curType, baseDst, indexes);
+		assert(containingType->getPointerTo() == baseDst->getType());
+		Value* elementDst = IRB->CreateGEP(containingType, baseDst, indexes);
 		IRB->CreateAlignedStore(ConstantPointerNull::get(PT), elementDst, MaybeAlign(baseAlign));
 	}
 	else
@@ -261,7 +264,7 @@ void StructMemFuncLowering::createGenericLoop(IRBuilder<>* IRB, BasicBlock* prev
 	indexes.push_back(ConstantInt::get(int32Type, 0));
 
 	if (mode == MEMSET)
-		recursiveReset(IRB, dstVal, srcVal, pointedType, int32Type, baseAlign, indexes);
+		recursiveReset(IRB, dstVal, srcVal, pointedType, pointedType, int32Type, baseAlign, indexes);
 	else
 		recursiveCopy(IRB, dstVal, srcVal, pointedType, int32Type, baseAlign, indexes);
 
