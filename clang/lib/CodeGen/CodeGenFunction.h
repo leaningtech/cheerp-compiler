@@ -2867,7 +2867,7 @@ public:
   Address GenerateDowncast(Address Value,
                                  const CXXRecordDecl *Derived,
                                  llvm::Value* BaseIdOffset);
-  llvm::Value * GenerateVirtualcast(llvm::Value* Value,
+  llvm::Value * GenerateVirtualcast(Address Value,
                                  llvm::Type *DestTy,
                                  llvm::Value* VirtualOffset);
   Address GenerateVirtualcast(Address Value,
