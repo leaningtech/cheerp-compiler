@@ -1669,7 +1669,7 @@ llvm::Value *ItaniumCXXABI::EmitDynamicCastToVoid(CodeGenFunction &CGF,
     } else {
       OffsetToTop = llvm::ConstantInt::get(CGM.Int32Ty, 0);
     }
-    llvm::Value *Ret = CGF.GenerateVirtualcast(ThisAddr.getPointer(), CGM.VoidPtrTy, OffsetToTop);
+    llvm::Value *Ret = CGF.GenerateVirtualcast(ThisAddr, CGM.VoidPtrTy, OffsetToTop);
     return Ret;
   }
 
