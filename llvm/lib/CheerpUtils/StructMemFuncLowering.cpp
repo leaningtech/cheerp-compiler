@@ -27,7 +27,7 @@ void StructMemFuncLowering::createMemFunc(IRBuilder<>* IRB, Value* baseDst, Valu
 {
 	Value* src = IRB->CreateGEP(containingType, baseSrc, indexes);
 	Value* dst = IRB->CreateGEP(containingType, baseDst, indexes);
-	assert(!src->getType()->getPointerElementType()->isArrayTy());
+	assert(!cast<GetElementPtrInst>(src)->getResultElementType()->isArrayTy());
 	// Create a type safe memcpy
 	IRB->CreateMemCpy(dst, MaybeAlign(), src, MaybeAlign(), size, false, NULL, NULL, NULL, NULL, llvm::IRBuilderBase::CheerpTypeInfo(cast<GetElementPtrInst>(src)->getResultElementType()));
 }
