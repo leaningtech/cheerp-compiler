@@ -825,12 +825,11 @@ std::pair<std::string, std::string> TypeSupport::ClientFunctionDemangled::getCli
 	return std::make_pair(namespaced, funcName);
 }
 
-DynamicAllocInfo::DynamicAllocInfo( const CallBase* callV, const DataLayout* DL, bool forceTypedArrays ) : call(callV), type( getAllocType(callV) ), castedType(nullptr), castedElementType(nullptr), forceTypedArrays(forceTypedArrays)
+DynamicAllocInfo::DynamicAllocInfo( const CallBase* callV, const DataLayout* DL, bool forceTypedArrays ) : call(callV), type( getAllocType(callV) ), castedElementType(nullptr), forceTypedArrays(forceTypedArrays)
 {
 	if ( isValidAlloc() )
 	{
-		castedType = computeCastedType();
-		castedElementType = castedType->getPointerElementType();
+		castedElementType = computeCastedElementType();
 		typeSize = DL->getTypeAllocSize(castedElementType);
 	}
 }
@@ -866,23 +865,24 @@ DynamicAllocInfo::AllocType DynamicAllocInfo::getAllocType( const CallBase* call
 	return ret;
 }
 
-PointerType * DynamicAllocInfo::computeCastedType() const 
+Type * DynamicAllocInfo::computeCastedElementType() const
 {
 	assert(isValidAlloc() );
 	
 	if ( type == cheerp_allocate || type == cheerp_reallocate )
 	{
 		assert( call->getType()->isPointerTy() );
-		return cast<PointerType>(call->getType());
+		assert( call->getParamElementType(0) );
+		return call->getParamElementType(0);
 	}
 	
 	auto getTypeForUse = [](const User * U) -> Type *
 	{
 		if ( isa<BitCastInst>(U) )
-			return U->getType();
+			return U->getType()->getNonOpaquePointerElementType();
 		else if ( const IntrinsicInst * ci = dyn_cast<IntrinsicInst>(U) )
 			if ( ci->getIntrinsicID() == Intrinsic::cheerp_cast_user )
-				return U->getType();
+				return ci->getParamElementType(0);
 		return nullptr;
 	};
 	
@@ -894,12 +894,11 @@ PointerType * DynamicAllocInfo::computeCastedType() const
 	// If there are no casts, use i8*
 	if ( call->user_end() == firstNonNull )
 	{
-		return cast<PointerType>(Type::getInt8PtrTy(call->getContext()));
+		return Type::getInt8Ty(call->getContext());
 	}
 	
-	assert( getTypeForUse(*firstNonNull)->isPointerTy() );
-	
-	PointerType * pt = cast<PointerType>( getTypeForUse(*firstNonNull) );
+	Type * pt = getTypeForUse(*firstNonNull);
+	assert(pt);
 	
 	// Check that all uses are the same
 	if (! std::all_of( 
