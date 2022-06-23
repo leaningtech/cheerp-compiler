@@ -169,7 +169,7 @@ void StructMemFuncLowering::recursiveReset(IRBuilder<>* IRB, Value* baseDst, Val
 			computedResetVal=IRB->CreateShl(computedResetVal, 8);
 			computedResetVal=IRB->CreateOr(computedResetVal, expandedResetVal);
 		}
-		Value* elementDst = IRB->CreateGEP(baseDst->getType()->getScalarType()->getPointerElementType(), baseDst, indexes);
+		Value* elementDst = IRB->CreateGEP(curType, baseDst, indexes);
 		IRB->CreateAlignedStore(computedResetVal, elementDst, MaybeAlign(baseAlign));
 	}
 	else if(curType->isFloatTy() || curType->isDoubleTy())
@@ -189,7 +189,7 @@ void StructMemFuncLowering::recursiveReset(IRBuilder<>* IRB, Value* baseDst, Val
 			floatResetVal = ConstantFP::get(curType->getContext(), APFloat(APFloat::IEEEsingle(), floatConstant));
 		else
 			floatResetVal = ConstantFP::get(curType->getContext(), APFloat(APFloat::IEEEdouble(), floatConstant));
-		Value* elementDst = IRB->CreateGEP(baseDst->getType()->getScalarType()->getPointerElementType(), baseDst, indexes);
+		Value* elementDst = IRB->CreateGEP(curType, baseDst, indexes);
 		IRB->CreateAlignedStore(floatResetVal, elementDst, MaybeAlign(baseAlign));
 	}
 	else if(PointerType* PT=dyn_cast<PointerType>(curType))
@@ -197,7 +197,7 @@ void StructMemFuncLowering::recursiveReset(IRBuilder<>* IRB, Value* baseDst, Val
 		// Only constant NULL is supported
 		// TODO: Stop non constant in the frontend
 		assert(cast<ConstantInt>( resetVal )->getZExtValue() == 0);
-		Value* elementDst = IRB->CreateGEP(baseDst->getType()->getScalarType()->getScalarType()->getPointerElementType(), baseDst, indexes);
+		Value* elementDst = IRB->CreateGEP(curType, baseDst, indexes);
 		IRB->CreateAlignedStore(ConstantPointerNull::get(PT), elementDst, MaybeAlign(baseAlign));
 	}
 	else
