@@ -32,7 +32,7 @@ void StructMemFuncLowering::createMemFunc(IRBuilder<>* IRB, Value* baseDst, Valu
 	IRB->CreateMemCpy(dst, MaybeAlign(), src, MaybeAlign(), size, false, NULL, NULL, NULL, NULL, llvm::IRBuilderBase::CheerpTypeInfo(cast<GetElementPtrInst>(src)->getResultElementType()));
 }
 
-void StructMemFuncLowering::recursiveCopy(IRBuilder<>* IRB, Value* baseDst, Value* baseSrc, Type* curType,
+void StructMemFuncLowering::recursiveCopy(IRBuilder<>* IRB, Value* baseDst, Value* baseSrc, Type* curType, Type* containingType,
 						Type* indexType, uint32_t baseAlign, SmallVector<Value*, 8>& indexes)
 {
 	// For aggregates we push a new index and overwrite it for each element
@@ -49,7 +49,7 @@ void StructMemFuncLowering::recursiveCopy(IRBuilder<>* IRB, Value* baseDst, Valu
 			uint32_t elemAlign = baseAlign;
 			while(elemOffset % elemAlign != 0)
 				elemAlign /= 2;
-			recursiveCopy(IRB, baseDst, baseSrc, ST->getElementType(i), indexType, elemAlign, indexes);
+			recursiveCopy(IRB, baseDst, baseSrc, ST->getElementType(i), containingType, indexType, elemAlign, indexes);
 		}
 		indexes.pop_back();
 	}
@@ -72,7 +72,7 @@ void StructMemFuncLowering::recursiveCopy(IRBuilder<>* IRB, Value* baseDst, Valu
 			llvm::PHINode* index=IRB->CreatePHI(indexType, 2);
 			index->addIncoming(ConstantInt::get(indexType, 0), prevBlock);
 			indexes.back() = index;
-			recursiveCopy(IRB, baseDst, baseSrc, elementType, indexType, elemAlign, indexes);
+			recursiveCopy(IRB, baseDst, baseSrc, elementType, containingType, indexType, elemAlign, indexes);
 			Value* incrementedIndex = IRB->CreateAdd(index, ConstantInt::get(indexType, 1));
 			index->addIncoming(incrementedIndex, IRB->GetInsertBlock());
 			Value* finishedLooping=IRB->CreateICmp(CmpInst::ICMP_EQ, ConstantInt::get(indexType, AT->getNumElements()), incrementedIndex);
@@ -84,7 +84,7 @@ void StructMemFuncLowering::recursiveCopy(IRBuilder<>* IRB, Value* baseDst, Valu
 			for(uint32_t i=0;i<AT->getNumElements();i++)
 			{
 				indexes.back() = ConstantInt::get(indexType, i);
-				recursiveCopy(IRB, baseDst, baseSrc, elementType, indexType, elemAlign, indexes);
+				recursiveCopy(IRB, baseDst, baseSrc, elementType, containingType, indexType, elemAlign, indexes);
 			}
 		}
 		indexes.pop_back();
@@ -93,12 +93,17 @@ void StructMemFuncLowering::recursiveCopy(IRBuilder<>* IRB, Value* baseDst, Valu
 	{
 		Value* elementSrc = baseSrc;
 		Value* elementDst = baseDst;
+		Type* loadType = containingType;
 		if(indexes.size() != 1 || !isa<ConstantInt>(indexes[0]) || cast<ConstantInt>(indexes[0])->getZExtValue()!=0)
 		{
-			elementSrc = IRB->CreateGEP(baseSrc->getType()->getScalarType()->getPointerElementType(), baseSrc, indexes);
-			elementDst = IRB->CreateGEP(baseDst->getType()->getScalarType()->getPointerElementType(), baseDst, indexes);
+			assert(baseSrc->getType() == containingType->getPointerTo());
+			assert(baseSrc->getType() == baseDst->getType());
+			elementSrc = IRB->CreateGEP(containingType, baseSrc, indexes);
+			elementDst = IRB->CreateGEP(containingType, baseDst, indexes);
+			loadType = cast<GEPOperator>(elementDst)->getResultElementType();
 		}
-		Value* element = IRB->CreateAlignedLoad(elementSrc->getType()->getPointerElementType(), elementSrc, MaybeAlign(baseAlign));
+		assert(loadType->getPointerTo() == elementSrc->getType());
+		Value* element = IRB->CreateAlignedLoad(loadType, elementSrc, MaybeAlign(baseAlign));
 		IRB->CreateAlignedStore(element, elementDst, MaybeAlign(baseAlign));
 	}
 }
@@ -266,7 +271,7 @@ void StructMemFuncLowering::createGenericLoop(IRBuilder<>* IRB, BasicBlock* prev
 	if (mode == MEMSET)
 		recursiveReset(IRB, dstVal, srcVal, pointedType, pointedType, int32Type, baseAlign, indexes);
 	else
-		recursiveCopy(IRB, dstVal, srcVal, pointedType, int32Type, baseAlign, indexes);
+		recursiveCopy(IRB, dstVal, srcVal, pointedType, pointedType, int32Type, baseAlign, indexes);
 
 	if(needsLoop)
 	{
