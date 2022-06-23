@@ -433,7 +433,8 @@ bool CheerpNativeRewriterPass::rewriteNativeObjectsConstructors(Module& M, Funct
 				   called->getIntrinsicID() != Intrinsic::cheerp_allocate_array)
 					continue;
 				//This should be a typed new
-				Type* t=i.getType()->getPointerElementType();
+				Type* t=i.getParamElementType(0);
+				assert(t);
 				std::string builtinTypeName;
 				if(!t->isStructTy() || !isBuiltinType(t->getStructName().data(), builtinTypeName))
 					continue;
