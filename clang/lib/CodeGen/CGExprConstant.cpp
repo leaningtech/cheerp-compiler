@@ -2006,7 +2006,7 @@ private:
   } else {
     // Try to build a naturally looking GEP from the returned expression to the
     // required type
-    while(DestTy->isPointerTy() && (OffsetVal || CurrentType->getPointerTo() != DestTy))
+    while(DestTy->isPointerTy() && (OffsetVal || CurrentType!=DestTy->getPointerElementType()))
     {
       if (llvm::StructType* ST=dyn_cast<llvm::StructType>(CurrentType))
       {
@@ -2018,7 +2018,7 @@ private:
           bool isBaseGood = false;
           while((curBase = curBase->getDirectBase()))
           {
-            if(curBase->getPointerTo() == DestTy)
+            if(curBase == DestTy->getPointerElementType())
             {
               isBaseGood = true;
               break;
