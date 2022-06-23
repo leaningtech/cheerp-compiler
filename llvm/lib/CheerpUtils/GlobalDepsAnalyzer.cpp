@@ -1267,7 +1267,23 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 	}
 	if (F->getIntrinsicID() == Intrinsic::cheerp_virtualcast)
 	{
+		Type* elementType = nullptr;
+		for (auto* u : F->users())
+		{
+			if (const CallBase* CB = dyn_cast<CallBase>(u))
+			{
+				Type* currElementType = CB->getParamElementType(0);
+				if (!elementType)
+					elementType = currElementType;
+				else
+					assert(elementType == currElementType);
+			}
+		}
+		if (!elementType)
+			return;
+
 		StructType* base = cast<StructType>(F->getFunctionType()->getParamType(0)->getPointerElementType());
+		assert(base == elementType);
 		if (!base->hasAsmJS())
 		{
 			std::unordered_map<StructType*, bool> visitedClasses;
