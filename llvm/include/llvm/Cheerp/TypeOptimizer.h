@@ -49,7 +49,7 @@ private:
 	};
 	class LocalTypeMapping {
 	public:
-		llvm::Type* getOriginalOperandType(llvm::Value* v)
+		llvm::Type* getOriginalOperandType(llvm::Value* v) const
 		{
 			auto it = localTypeMapping.find(v);
 			if(it != localTypeMapping.end())
