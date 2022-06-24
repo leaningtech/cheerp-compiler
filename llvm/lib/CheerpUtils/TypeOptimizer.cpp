@@ -1724,12 +1724,13 @@ void TypeOptimizer::rewriteFunction(Function* F)
 					if (needsRewrite)
 					{
 						SmallVector<Value *, 16> Args;
-						SmallVector<AttributeSet, 8> ArgAttrVec;
+						AttributeList paramAttributes;
 						const AttributeList &CallPAL = CI->getAttributes();
 
 						// Loop over the operands, unpacking i64s into i32s when necessary.
 						auto AI = CI->arg_begin();
 						unsigned ArgNo = 0;
+						unsigned nextArgNo = 0;
 						for (auto AE = CI->arg_end(); AI != AE;
 							++AI, ++ArgNo)
 						{
@@ -1742,13 +1743,29 @@ void TypeOptimizer::rewriteFunction(Function* F)
 								Value* High = V.second;
 								Args.push_back(Low);
 								Args.push_back(High);
-								ArgAttrVec.push_back(AttributeSet());
-								ArgAttrVec.push_back(AttributeSet());
+								nextArgNo += 2;
 							}
 							else
 							{
 								Args.push_back(Op); // Unmodified argument
-								ArgAttrVec.push_back(CallPAL.getParamAttrs(ArgNo));
+								for (auto attr : CallPAL.getParamAttrs(ArgNo))
+								{
+									if (attr.getKindAsEnum() == Attribute::ElementType)
+									{
+										llvm::Type* newType = rewriteType(attr.getValueAsType()).mappedType;
+										if (newType->isArrayTy())
+											newType = newType->getArrayElementType();
+										Attribute newTypedAttr = attr.getWithNewType(CI->getContext(), newType);
+										paramAttributes = paramAttributes.addAttributeAtIndex(CI->getContext(), nextArgNo+1, newTypedAttr);
+									}
+									else
+									{
+										//non-typed attributes do not require rewriting
+										//ByVal and StructRet have been transformed above
+										paramAttributes = paramAttributes.addAttributeAtIndex(CI->getContext(), nextArgNo+1, attr);
+									}
+								}
+								nextArgNo += 1;
 							}
 						}
 
@@ -1774,12 +1791,13 @@ void TypeOptimizer::rewriteFunction(Function* F)
 							llvm_unreachable("unhandled CallBase derived class");
 						}
 						NewCall->setCallingConv(CI->getCallingConv());
-						NewCall->setAttributes(
+						NewCall->setAttributes(AttributeList::get(F->getContext(), {
 							AttributeList::get(F->getContext(), CallPAL.getFnAttrs(),
-							CallPAL.getRetAttrs(), ArgAttrVec));
+								CallPAL.getRetAttrs(), {}),
+							paramAttributes
+							}));
 						NewCall->setDebugLoc(CI->getDebugLoc());
 						Args.clear();
-						ArgAttrVec.clear();
 				
 						Value* Ret = NewCall;
 						NewCall->copyMetadata(*CI);
