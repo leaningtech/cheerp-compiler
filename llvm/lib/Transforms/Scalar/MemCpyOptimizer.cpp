@@ -512,7 +512,7 @@ Instruction *MemCpyOptPass::tryMergingIntoMemset(Instruction *StartInst,
     StartPtr = Range.StartPtr;
 
     AMemSet = Builder.CreateMemSet(StartPtr, ByteVal, Range.End - Range.Start,
-                                   MaybeAlign(Range.Alignment), false, NULL, NULL, NULL, DL.isByteAddressable());
+                                   MaybeAlign(Range.Alignment), false, NULL, NULL, NULL, IRBuilderBase::CheerpTypeInfo::get(DL.isByteAddressable(), nullptr));
     LLVM_DEBUG(dbgs() << "Replace stores:\n"; for (Instruction *SI
                                                    : Range.TheStores) dbgs()
                                               << *SI << '\n';
@@ -1174,18 +1174,18 @@ bool MemCpyOptPass::processMemCpyMemCpyDependence(MemCpyInst *M,
   if (UseMemMove)
     NewM = Builder.CreateMemMove(M->getRawDest(), M->getDestAlign(),
                                  MDep->getRawSource(), MDep->getSourceAlign(),
-                                 M->getLength(), M->isVolatile(), NULL, NULL, NULL, DL.isByteAddressable());
+                                 M->getLength(), M->isVolatile(), NULL, NULL, NULL, IRBuilderBase::CheerpTypeInfo::get(DL.isByteAddressable(), M->getParamElementType(0)));
   else if (isa<MemCpyInlineInst>(M)) {
     // llvm.memcpy may be promoted to llvm.memcpy.inline, but the converse is
     // never allowed since that would allow the latter to be lowered as a call
     // to an external function.
     NewM = Builder.CreateMemCpyInline(
         M->getRawDest(), M->getDestAlign(), MDep->getRawSource(),
-        MDep->getSourceAlign(), M->getLength(), M->isVolatile(), NULL, NULL, NULL, NULL, DL.isByteAddressable());
+        MDep->getSourceAlign(), M->getLength(), M->isVolatile(), NULL, NULL, NULL, NULL, IRBuilderBase::CheerpTypeInfo::get(DL.isByteAddressable(), M->getParamElementType(0)));
   } else
     NewM = Builder.CreateMemCpy(M->getRawDest(), M->getDestAlign(),
                                 MDep->getRawSource(), MDep->getSourceAlign(),
-                                M->getLength(), M->isVolatile(), NULL, NULL, NULL, NULL, DL.isByteAddressable());
+                                M->getLength(), M->isVolatile(), NULL, NULL, NULL, NULL, IRBuilderBase::CheerpTypeInfo::get(DL.isByteAddressable(), M->getParamElementType(0)));
 
   assert(isa<MemoryDef>(MSSAU->getMemorySSA()->getMemoryAccess(M)));
   auto *LastDef = cast<MemoryDef>(MSSAU->getMemorySSA()->getMemoryAccess(M));
@@ -1279,7 +1279,7 @@ bool MemCpyOptPass::processMemSetMemCpyDependence(MemCpyInst *MemCpy,
                                                   Builder.getInt8PtrTy(DestAS)),
                         SrcSize),
       MemSet->getOperand(1), MemsetLen, MaybeAlign(Align),
-                       false, NULL, NULL, NULL, DL.isByteAddressable());
+                       false, NULL, NULL, NULL, IRBuilderBase::CheerpTypeInfo::get(DL.isByteAddressable(), Builder.getInt8Ty()));
 
   assert(isa<MemoryDef>(MSSAU->getMemorySSA()->getMemoryAccess(MemCpy)) &&
          "MemCpy must be a MemoryDef");
@@ -1392,7 +1392,7 @@ bool MemCpyOptPass::performMemCpyToMemSetOptzn(MemCpyInst *MemCpy,
   Instruction *NewM =
       Builder.CreateMemSet(MemCpy->getRawDest(), MemSet->getOperand(1),
                            CopySize, MaybeAlign(MemCpy->getDestAlignment()),
-                           false, NULL, NULL, NULL, DL.isByteAddressable());
+                           false, NULL, NULL, NULL, IRBuilderBase::CheerpTypeInfo::get(DL.isByteAddressable(), MemCpy->getParamElementType(0)));
   auto *LastDef =
       cast<MemoryDef>(MSSAU->getMemorySSA()->getMemoryAccess(MemCpy));
   auto *NewAccess = MSSAU->createMemoryAccessAfter(NewM, LastDef, LastDef);
@@ -1426,7 +1426,7 @@ bool MemCpyOptPass::processMemCpy(MemCpyInst *M, BasicBlock::iterator &BBI) {
         IRBuilder<> Builder(M);
         Instruction *NewM =
             Builder.CreateMemSet(M->getRawDest(), ByteVal, M->getLength(),
-                                 MaybeAlign(M->getDestAlignment()), false, NULL, NULL, NULL, DL.isByteAddressable());
+                                 MaybeAlign(M->getDestAlignment()), false, NULL, NULL, NULL, IRBuilderBase::CheerpTypeInfo::get(DL.isByteAddressable(), M->getParamElementType(0)));
         auto *LastDef =
             cast<MemoryDef>(MSSAU->getMemorySSA()->getMemoryAccess(M));
         auto *NewAccess =

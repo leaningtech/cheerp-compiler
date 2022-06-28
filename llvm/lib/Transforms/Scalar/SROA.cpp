@@ -2910,11 +2910,23 @@ private:
       Type *SizeTy = II.getLength()->getType();
       Constant *Size = ConstantInt::get(SizeTy, NewEndOffset - NewBeginOffset);
       Value* OurPtr = getNewAllocaSlicePtr(IRB, RealPtrTy);
-      if (!OurPtr)
+
+      llvm::Type *elementType = II.getParamElementType(0);
+      if (!OurPtr) {
         OurPtr = &NewAI;
+        elementType = NewAI.getAllocatedType();
+      }
+
+      if (elementType && OurPtr->getType()->isOpaquePointerTy())
+        assert(elementType == OurPtr->getType()->getNonOpaquePointerElementType());
+      if (IRB.GetInsertBlock()->getParent()->getSection() == StringRef("asmjs")) {
+        //optimize to i8*
+        elementType = nullptr;
+      }
       CallInst *New = IRB.CreateMemSet(
           OurPtr, II.getValue(), Size,
-          MaybeAlign(getSliceAlign()), II.isVolatile(), NULL, NULL, NULL, DL.isByteAddressable() || IRB.GetInsertBlock()->getParent()->getSection() == StringRef("asmjs"));
+          MaybeAlign(getSliceAlign()), II.isVolatile(), NULL, NULL, NULL,
+	  IRBuilderBase::CheerpTypeInfo::get(DL.isByteAddressable(), elementType));
       if (AATags)
         New->setAAMetadata(AATags.shift(NewBeginOffset - BeginOffset));
       LLVM_DEBUG(dbgs() << "          to: " << *New << "\n");
@@ -3128,8 +3140,16 @@ private:
         SrcPtr = OurPtr;
         SrcAlign = SliceAlign;
       }
+      llvm::Type *elementType = II.getParamElementType(0);
+      if (elementType && DestPtr->getType()->isOpaquePointerTy())
+        assert(elementType == DestPtr->getType()->getNonOpaquePointerElementType());
+      if (IRB.GetInsertBlock()->getParent()->getSection() == StringRef("asmjs")) {
+        //optimize to i8*
+        elementType = nullptr;
+      }
       CallInst *New = IRB.CreateMemCpy(DestPtr, DestAlign, SrcPtr, SrcAlign,
-                                       Size, II.isVolatile(), NULL, NULL, NULL, NULL, DL.isByteAddressable() || IRB.GetInsertBlock()->getParent()->getSection() == StringRef("asmjs"));
+                                       Size, II.isVolatile(), NULL, NULL, NULL, NULL,
+				       IRBuilderBase::CheerpTypeInfo::get(DL.isByteAddressable(), elementType));
       if (AATags)
         New->setAAMetadata(AATags.shift(NewBeginOffset - BeginOffset));
       LLVM_DEBUG(dbgs() << "          to: " << *New << "\n");
