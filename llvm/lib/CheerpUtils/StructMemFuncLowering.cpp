@@ -425,7 +425,7 @@ bool StructMemFuncLowering::runOnBlock(BasicBlock& BB, bool asmjs)
 			}
 			uint32_t sizeInt = sizeConst->getZExtValue();
 			uint32_t elemSize = 1;
-			if (useUnaligned && sizeInt >= 8) {
+			if (LinearOutput == Wasm && effectiveAlignInt % 8 == 0 && sizeInt >= 8) {
 				// i64 can only be used in wasm mode
 				Type* int64Type = IntegerType::get(BB.getContext(), 64);
 				pointedType = int64Type;
