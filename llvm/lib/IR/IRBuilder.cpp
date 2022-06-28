@@ -141,8 +141,9 @@ Value *IRBuilderBase::CreateStepVector(Type *DstType, const Twine &Name) {
 CallInst *IRBuilderBase::CreateMemSet(Value *Ptr, Value *Val, Value *Size,
                                       MaybeAlign Align, bool isVolatile,
                                       MDNode *TBAATag, MDNode *ScopeTag,
-                                      MDNode *NoAliasTag, bool byteLayout) {
-  if (byteLayout)
+                                      MDNode *NoAliasTag, CheerpTypeInfo cheerpInfo) {
+  checkTypeInfo(cheerpInfo);
+  if (cheerpInfo.needsInt8PtrCast)
     Ptr = getCastedInt8PtrValue(Ptr);
   Value *Ops[] = {Ptr, Val, Size, getInt1(isVolatile)};
   Type *Tys[] = { Ptr->getType(), Size->getType() };
@@ -227,9 +228,9 @@ CallInst *IRBuilderBase::CreateElementUnorderedAtomicMemSet(
 CallInst *IRBuilderBase::CreateMemTransferInst(
     Intrinsic::ID IntrID, Value *Dst, MaybeAlign DstAlign, Value *Src,
     MaybeAlign SrcAlign, Value *Size, bool isVolatile, MDNode *TBAATag,
-    MDNode *TBAAStructTag, MDNode *ScopeTag, MDNode *NoAliasTag, bool byteLayout) {
-  if (byteLayout)
-  {
+    MDNode *TBAAStructTag, MDNode *ScopeTag, MDNode *NoAliasTag, CheerpTypeInfo cheerpInfo) {
+  checkTypeInfo(cheerpInfo);
+  if (cheerpInfo.needsInt8PtrCast) {
     Dst = getCastedInt8PtrValue(Dst);
     Src = getCastedInt8PtrValue(Src);
   }
@@ -267,9 +268,9 @@ CallInst *IRBuilderBase::CreateMemTransferInst(
 CallInst *IRBuilderBase::CreateMemCpyInline(
     Value *Dst, MaybeAlign DstAlign, Value *Src, MaybeAlign SrcAlign,
     Value *Size, bool IsVolatile, MDNode *TBAATag, MDNode *TBAAStructTag,
-    MDNode *ScopeTag, MDNode *NoAliasTag, bool byteLayout) {
-  if (byteLayout)
-  {
+    MDNode *ScopeTag, MDNode *NoAliasTag, CheerpTypeInfo cheerpInfo) {
+  checkTypeInfo(cheerpInfo);
+  if (cheerpInfo.needsInt8PtrCast) {
     Dst = getCastedInt8PtrValue(Dst);
     Src = getCastedInt8PtrValue(Src);
   }
@@ -350,9 +351,9 @@ CallInst *IRBuilderBase::CreateMemMove(Value *Dst, MaybeAlign DstAlign,
                                        Value *Src, MaybeAlign SrcAlign,
                                        Value *Size, bool isVolatile,
                                        MDNode *TBAATag, MDNode *ScopeTag,
-                                       MDNode *NoAliasTag, bool byteLayout) {
-  if (byteLayout)
-  {
+                                       MDNode *NoAliasTag, CheerpTypeInfo cheerpInfo) {
+  checkTypeInfo(cheerpInfo);
+  if (cheerpInfo.needsInt8PtrCast) {
     Dst = getCastedInt8PtrValue(Dst);
     Src = getCastedInt8PtrValue(Src);
   }

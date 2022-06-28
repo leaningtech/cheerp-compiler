@@ -29,7 +29,7 @@ void StructMemFuncLowering::createMemFunc(IRBuilder<>* IRB, Value* baseDst, Valu
 	Value* dst = IRB->CreateGEP(baseDst->getType()->getScalarType()->getPointerElementType(), baseDst, indexes);
 	assert(!src->getType()->getPointerElementType()->isArrayTy());
 	// Create a type safe memcpy
-	IRB->CreateMemCpy(dst, MaybeAlign(), src, MaybeAlign(), size, false, NULL, NULL, NULL, NULL, false);
+	IRB->CreateMemCpy(dst, MaybeAlign(), src, MaybeAlign(), size, false, NULL, NULL, NULL, NULL, llvm::IRBuilderBase::CheerpTypeInfo(cast<GetElementPtrInst>(src)->getResultElementType()));
 }
 
 void StructMemFuncLowering::recursiveCopy(IRBuilder<>* IRB, Value* baseDst, Value* baseSrc, Type* curType,

@@ -62,7 +62,7 @@ static bool ExpandCall(const DataLayout& DL, CallBase* Call)
 			// slot to form and the known alignment of the pointer specified
 			// to the call site".
 			Instruction *MemCpy = Builder.CreateMemCpy(CopyBuf, MaybeAlign(AllocAlignment), ArgPtr, MaybeAlign(AllocAlignment), ArgSize,
-				false, nullptr, nullptr, nullptr, nullptr, false);
+				false, nullptr, nullptr, nullptr, nullptr, llvm::IRBuilderBase::CheerpTypeInfo(ArgType));
 			MemCpy->setDebugLoc(Call->getDebugLoc());
 			Call->setArgOperand(ArgIdx, CopyBuf);
 			// Mark the argument copy as unused using llvm.lifetime.end.

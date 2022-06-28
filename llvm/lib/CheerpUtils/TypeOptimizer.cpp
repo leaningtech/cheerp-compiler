@@ -1687,7 +1687,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 										// 2) Create a mempcy
 										Builder.CreateMemCpy(byValCopy, MaybeAlign(), mappedOp, MaybeAlign(), DL->getTypeAllocSize(rewrittenArgType),
 													/*volatile*/false, nullptr, nullptr,
-													nullptr, nullptr, /*byteLayout*/ false);
+													nullptr, nullptr, llvm::IRBuilderBase::CheerpTypeInfo(rewrittenArgType));
 										// 3) Replace the argument
 										CI->setOperand(i, byValCopy);
 									}
