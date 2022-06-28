@@ -3194,6 +3194,12 @@ void Verifier::visitCallBase(CallBase &Call) {
   // Verify call attributes.
   verifyFunctionAttrs(FTy, Attrs, &Call, IsIntrinsic, Call.isInlineAsm());
 
+  if (!DL.isByteAddressable()) {
+    if (isa<MemIntrinsic>(Call)) {
+      Assert(Attrs.hasParamAttr(0, Attribute::ElementType), "Cheerp MemIntrinsic should specify element type", Call);
+    }
+  }
+
   // Conservatively check the inalloca argument.
   // We have a bug if we can find that there is an underlying alloca without
   // inalloca.
