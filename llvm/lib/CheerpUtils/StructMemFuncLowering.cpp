@@ -430,18 +430,6 @@ bool StructMemFuncLowering::runOnBlock(BasicBlock& BB, bool asmjs)
 				Type* int64Type = IntegerType::get(BB.getContext(), 64);
 				pointedType = int64Type;
 				elemSize = 8;
-			} else if (effectiveAlignInt % 8 == 0 && sizeInt >= 8 &&
-					(mode==MEMSET ?
-						// For MEMSET the dst must be compatible, but also allow constant 0
-						isDoubleAggregate(dst->getType()->getPointerElementType()) || (isa<Constant>(src) && cast<Constant>(src)->isNullValue()) :
-						// Otherwise dst and src must be compatible
-						isDoubleAggregate(dst->getType()->getPointerElementType()) && isDoubleAggregate(src->getType()->getPointerElementType()))) {
-				// NOTE: We expect to get here only when _not_ using wasm
-				assert(effectiveAlignInt == alignInt && useUnaligned == false);
-				// We must be in asm.js mode, take advantage of double moves when possible
-				Type* doubleType = Type::getDoubleTy(BB.getContext());
-				pointedType = doubleType;
-				elemSize = 8;
 			} else if (effectiveAlignInt % 4 == 0 && sizeInt >= 4) {
 				pointedType = int32Type;
 				elemSize = 4;
