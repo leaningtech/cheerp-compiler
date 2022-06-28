@@ -1377,7 +1377,8 @@ static void HandleByValArgumentInit(Type *ByValType, Value *Dst, Value *Src,
   // the alignment of the src pointer.  Other optimizations can infer
   // better alignment.
   Builder.CreateMemCpy(Dst, /*DstAlign*/ Align(1), Src,
-                       /*SrcAlign*/ Align(1), Size, /*isVolatile=*/false, nullptr, nullptr, nullptr, nullptr, M->getDataLayout().isByteAddressable());
+                       /*SrcAlign*/ Align(1), Size, /*isVolatile=*/false, nullptr, nullptr, nullptr, nullptr,
+		       llvm::IRBuilderBase::CheerpTypeInfo::get(M->getDataLayout().isByteAddressable(), ByValType));
 }
 
 /// When inlining a call site that has a byval argument,

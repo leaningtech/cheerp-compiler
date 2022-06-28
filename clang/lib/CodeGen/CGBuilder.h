@@ -310,13 +310,13 @@ public:
                                bool IsVolatile = false, bool byteLayout = true) {
     return CreateMemCpy(Dest.getPointer(), Dest.getAlignment().getAsAlign(),
                         Src.getPointer(), Src.getAlignment().getAsAlign(), Size,
-                        IsVolatile, NULL, NULL, NULL, NULL, byteLayout);
+                        IsVolatile, NULL, NULL, NULL, NULL, CheerpTypeInfo::get(byteLayout, Dest.getElementType()));
   }
   llvm::CallInst *CreateMemCpy(Address Dest, Address Src, uint64_t Size,
                                bool IsVolatile = false, bool byteLayout = true) {
     return CreateMemCpy(Dest.getPointer(), Dest.getAlignment().getAsAlign(),
                         Src.getPointer(), Src.getAlignment().getAsAlign(), Size,
-                        IsVolatile, NULL, NULL, NULL, NULL, byteLayout);
+                        IsVolatile, NULL, NULL, NULL, NULL, CheerpTypeInfo::get(byteLayout, Dest.getElementType()));
   }
 
   using CGBuilderBaseTy::CreateMemCpyInline;
@@ -331,14 +331,14 @@ public:
                                 bool IsVolatile = false, bool byteLayout = true) {
     return CreateMemMove(Dest.getPointer(), Dest.getAlignment().getAsAlign(),
                          Src.getPointer(), Src.getAlignment().getAsAlign(),
-                         Size, IsVolatile, NULL, NULL, NULL, byteLayout);
+                         Size, IsVolatile, NULL, NULL, NULL, CheerpTypeInfo::get(byteLayout, Dest.getElementType()));
   }
 
   using CGBuilderBaseTy::CreateMemSet;
   llvm::CallInst *CreateMemSet(Address Dest, llvm::Value *Value,
                                llvm::Value *Size, bool IsVolatile = false, bool byteLayout = true) {
     return CreateMemSet(Dest.getPointer(), Value, Size,
-                        Dest.getAlignment().getAsAlign(), IsVolatile, NULL, NULL, NULL, byteLayout);
+                        Dest.getAlignment().getAsAlign(), IsVolatile, NULL, NULL, NULL, CheerpTypeInfo::get(byteLayout, Dest.getElementType()));
   }
 
   using CGBuilderBaseTy::CreatePreserveStructAccessIndex;

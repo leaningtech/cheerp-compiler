@@ -12251,7 +12251,8 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
     llvm::Value* sizeInBytes = Builder.CreateMul(Ops[0], Ops[1]);
     llvm::Value* NewOp[1] = { sizeInBytes };
     llvm::Value* Ret = Builder.CreateCall(F, NewOp);
-    Builder.CreateMemSet(Ret, ConstantInt::get(Int8Ty, 0), sizeInBytes, MaybeAlign(1), false, NULL, NULL, NULL, getTarget().isByteAddressable());
+    Builder.CreateMemSet(Ret, ConstantInt::get(Int8Ty, 0), sizeInBytes, MaybeAlign(1), false, NULL, NULL, NULL,
+        CGBuilderTy::CheerpTypeInfo::get(getTarget().isByteAddressable(), ConvertType(retCE->getType()->getPointeeType())));
     return Ret;
   }
   else if (BuiltinID == Builtin::BIrealloc) {
