@@ -561,19 +561,50 @@ public:
   /// If the pointer isn't an i8*, it will be converted. If a TBAA tag is
   /// specified, it will be added to the instruction. Likewise with alias.scope
   /// and noalias tags.
+
+  /// Cheerp helper class to pass around element type information
+  class CheerpTypeInfo {
+  public:
+    bool isCheerp;
+    bool needsInt8PtrCast;
+    Type* elementType;
+    CheerpTypeInfo() : isCheerp(false), needsInt8PtrCast(true), elementType(nullptr) {}
+    CheerpTypeInfo(Type* elementType, bool castToInt8 = false) : isCheerp(true), needsInt8PtrCast(castToInt8), elementType(elementType) {}
+    static CheerpTypeInfo get(bool byteLayout, llvm::Type* elementType) {
+      if (byteLayout)
+        return CheerpTypeInfo();
+      if (elementType)
+        return CheerpTypeInfo(elementType);
+      return CheerpTypeInfo(nullptr, /*castToInt8*/true);
+    }
+  };
+
+  void checkTypeInfo(CheerpTypeInfo& cheerpInfo) {
+    if (!BB)
+      return;
+    if (BB->getParent()->getParent()->getDataLayout().isByteAddressable()) {
+      assert(cheerpInfo.isCheerp == false);
+    }
+    else {
+      if (!cheerpInfo.isCheerp) {
+        cheerpInfo = CheerpTypeInfo(nullptr, true);
+      }
+    }
+  }
+
   CallInst *CreateMemSet(Value *Ptr, Value *Val, uint64_t Size,
                          MaybeAlign Align, bool isVolatile = false,
                          MDNode *TBAATag = nullptr, MDNode *ScopeTag = nullptr,
-                         MDNode *NoAliasTag = nullptr, bool byteLayout = true) {
+                         MDNode *NoAliasTag = nullptr, CheerpTypeInfo cheerpInfo = CheerpTypeInfo()) {
     return CreateMemSet(Ptr, Val, getInt32(Size), Align, isVolatile,
-                        TBAATag, ScopeTag, NoAliasTag, byteLayout);
+                        TBAATag, ScopeTag, NoAliasTag, cheerpInfo);
   }
 
   CallInst *CreateMemSet(Value *Ptr, Value *Val, Value *Size, MaybeAlign Align,
                          bool isVolatile = false, MDNode *TBAATag = nullptr,
                          MDNode *ScopeTag = nullptr,
                          MDNode *NoAliasTag = nullptr,
-                         bool byteLayout = true);
+                         CheerpTypeInfo cheerpInfo = CheerpTypeInfo());
 
   /// Create and insert an element unordered-atomic memset of the region of
   /// memory starting at the given pointer to the given value.
@@ -609,34 +640,37 @@ public:
                          bool isVolatile = false, MDNode *TBAATag = nullptr,
                          MDNode *TBAAStructTag = nullptr,
                          MDNode *ScopeTag = nullptr,
-                         MDNode *NoAliasTag = nullptr, bool byteLayout = true) {
+                         MDNode *NoAliasTag = nullptr, CheerpTypeInfo cheerpInfo = CheerpTypeInfo()) {
     return CreateMemCpy(Dst, DstAlign, Src, SrcAlign, getInt32(Size),
                         isVolatile, TBAATag, TBAAStructTag, ScopeTag,
-                        NoAliasTag, byteLayout);
+                        NoAliasTag, cheerpInfo);
   }
 
   CallInst *CreateMemTransferInst(
       Intrinsic::ID IntrID, Value *Dst, MaybeAlign DstAlign, Value *Src,
       MaybeAlign SrcAlign, Value *Size, bool isVolatile = false,
       MDNode *TBAATag = nullptr, MDNode *TBAAStructTag = nullptr,
-      MDNode *ScopeTag = nullptr, MDNode *NoAliasTag = nullptr, bool byteLayout = true);
+      MDNode *ScopeTag = nullptr, MDNode *NoAliasTag = nullptr,
+      CheerpTypeInfo cheerpInfo = CheerpTypeInfo());
 
   CallInst *CreateMemCpy(Value *Dst, MaybeAlign DstAlign, Value *Src,
                          MaybeAlign SrcAlign, Value *Size,
                          bool isVolatile = false, MDNode *TBAATag = nullptr,
                          MDNode *TBAAStructTag = nullptr,
                          MDNode *ScopeTag = nullptr,
-                         MDNode *NoAliasTag = nullptr, bool byteLayout = true) {
+                         MDNode *NoAliasTag = nullptr,
+			 CheerpTypeInfo cheerpInfo = CheerpTypeInfo()) {
     return CreateMemTransferInst(Intrinsic::memcpy, Dst, DstAlign, Src,
                                  SrcAlign, Size, isVolatile, TBAATag,
-                                 TBAAStructTag, ScopeTag, NoAliasTag, byteLayout);
+                                 TBAAStructTag, ScopeTag, NoAliasTag, cheerpInfo);
   }
 
   CallInst *
   CreateMemCpyInline(Value *Dst, MaybeAlign DstAlign, Value *Src,
                      MaybeAlign SrcAlign, Value *Size, bool IsVolatile = false,
                      MDNode *TBAATag = nullptr, MDNode *TBAAStructTag = nullptr,
-                     MDNode *ScopeTag = nullptr, MDNode *NoAliasTag = nullptr, bool byteLayout = true);
+                     MDNode *ScopeTag = nullptr, MDNode *NoAliasTag = nullptr,
+		     CheerpTypeInfo cheerpInfo = CheerpTypeInfo());
 
   /// Create and insert an element unordered-atomic memcpy between the
   /// specified pointers.
@@ -665,7 +699,8 @@ public:
                           MaybeAlign SrcAlign, Value *Size,
                           bool isVolatile = false, MDNode *TBAATag = nullptr,
                           MDNode *ScopeTag = nullptr,
-                          MDNode *NoAliasTag = nullptr, bool byteLayout = true);
+                          MDNode *NoAliasTag = nullptr,
+			  CheerpTypeInfo cheerpInfo = CheerpTypeInfo());
 
   /// \brief Create and insert an element unordered-atomic memmove between the
   /// specified pointers.
