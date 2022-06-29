@@ -3591,7 +3591,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
                         E->getArg(0)->getExprLoc(), FD, 0);
     EmitNonNullArgCheck(RValue::get(Src.getPointer()), E->getArg(1)->getType(),
                         E->getArg(1)->getExprLoc(), FD, 1);
-    Builder.CreateMemCpyInline(Dest, Src, Size);
+    Builder.CreateMemCpyInline(Dest, Src, Size, getTarget().isByteAddressable());
     return RValue::get(nullptr);
   }
 
