@@ -974,7 +974,7 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 	{
 		if (TypeSupport::isRawPointer(p->getType(), false))
 			return ret |= PointerKindWrapper(SPLIT_REGULAR, p);
-		else if (TypeSupport::hasByteLayout(p->getOperand(0)->getType()->getPointerElementType()))
+		else if (TypeSupport::hasByteLayout(p->getOperand(0)->getType()->getNonOpaquePointerElementType()))
 			return ret |= COMPLETE_OBJECT;
 		else
 			return visitValue( ret, p, /*first*/ false );
