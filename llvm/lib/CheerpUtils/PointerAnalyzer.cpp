@@ -850,7 +850,8 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 		case Intrinsic::memmove:
 		case Intrinsic::memcpy:
 		{
-			if (TypeSupport::hasByteLayout(intrinsic->getOperand(0)->getType()->getPointerElementType()))
+			assert(intrinsic->getParamElementType(0));
+			if (TypeSupport::hasByteLayout(intrinsic->getParamElementType(0)))
 				return ret |= COMPLETE_OBJECT;
 			else
 				return ret |= PointerKindWrapper(SPLIT_REGULAR, p);
