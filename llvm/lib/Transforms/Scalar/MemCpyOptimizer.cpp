@@ -746,7 +746,7 @@ bool MemCpyOptPass::processStore(StoreInst *SI, BasicBlock::iterator &BBI) {
           else
             M = Builder.CreateMemCpy(
                 SI->getPointerOperand(), SI->getAlign(),
-                LI->getPointerOperand(), LI->getAlign(), Size);
+                LI->getPointerOperand(), LI->getAlign(), Size, false, NULL, NULL, NULL, NULL, IRBuilderBase::CheerpTypeInfo::get(DL.isByteAddressable(), SI->getValueOperand()->getType()));
 
           LLVM_DEBUG(dbgs() << "Promoting " << *LI << " to " << *SI << " => "
                             << *M << "\n");
