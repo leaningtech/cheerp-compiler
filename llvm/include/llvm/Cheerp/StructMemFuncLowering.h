@@ -34,7 +34,6 @@ private:
 	void createGenericLoop(IRBuilder<>* IRB, BasicBlock* BB, BasicBlock* endLoop, BasicBlock* memfuncBody,
 				Type* pointedType, Value* dst, Value* src, Value* elementsCount, MODE, uint32_t baseAlign, const bool isForward);
 	bool createLoops(BasicBlock& BB, BasicBlock* endLoop, Type* int32Type, Value* src, Value* dst, Value* size, Type* pointedType, MODE mode, uint32_t baseAlign);
-	static bool isDoubleAggregate(llvm::Type* t);
 	SmallVector<BasicBlock*, 10> basicBlocks;
 	const DataLayout* DL;
 public:

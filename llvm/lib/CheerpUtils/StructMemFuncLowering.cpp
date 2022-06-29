@@ -302,27 +302,6 @@ void StructMemFuncLowering::createBackwardLoop(IRBuilder<>* IRB, BasicBlock* pre
 	createGenericLoop(IRB, previousBlock, endBlock, currentBlock, pointedType, dst, src, elementsCount, MODE::MEMMOVE, baseAlign, /*isForward*/false);
 }
 
-bool StructMemFuncLowering::isDoubleAggregate(llvm::Type* t)
-{
-	if(StructType* ST = dyn_cast<StructType>(t))
-	{
-		for(uint32_t i=0;i<ST->getNumElements();i++)
-		{
-			if(!isDoubleAggregate(ST->getElementType(i)))
-				return false;
-		}
-		return true;
-	}
-	else if(ArrayType* AT = dyn_cast<ArrayType>(t))
-	{
-		return isDoubleAggregate(AT->getElementType());
-	}
-	else if(t->isDoubleTy())
-		return true;
-	else
-		return false;
-}
-
 bool StructMemFuncLowering::createLoops(llvm::BasicBlock& BB, llvm::BasicBlock* endLoop, llvm::Type* int32Type, llvm::Value* src, llvm::Value* dst, llvm::Value* size, llvm::Type* pointedType, MODE mode, uint32_t baseAlign)
 {
 	assert(dst->getType() == src->getType() || mode==MEMSET);
