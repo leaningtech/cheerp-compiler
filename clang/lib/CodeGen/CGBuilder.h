@@ -320,10 +320,10 @@ public:
   }
 
   using CGBuilderBaseTy::CreateMemCpyInline;
-  llvm::CallInst *CreateMemCpyInline(Address Dest, Address Src, uint64_t Size) {
+  llvm::CallInst *CreateMemCpyInline(Address Dest, Address Src, uint64_t Size, bool byteLayout) {
     return CreateMemCpyInline(
         Dest.getPointer(), Dest.getAlignment().getAsAlign(), Src.getPointer(),
-        Src.getAlignment().getAsAlign(), getInt64(Size));
+        Src.getAlignment().getAsAlign(), getInt64(Size), false, NULL, NULL, NULL, NULL, CheerpTypeInfo::get(byteLayout, Dest.getElementType()));
   }
 
   using CGBuilderBaseTy::CreateMemMove;
