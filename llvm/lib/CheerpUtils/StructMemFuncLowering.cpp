@@ -383,7 +383,8 @@ bool StructMemFuncLowering::runOnBlock(BasicBlock& BB, bool asmjs)
 			mode = MEMSET;
 		if(mode==NONE)
 			continue;
-		Type* pointedType = F->getFunctionType()->getParamType(0)->getPointerElementType();
+		Type* pointedType = CI->getParamElementType(0);
+		assert(pointedType);
 		uint32_t alignInt = 0;
 		//We want to decompose everything which is not a byte layout structure. memset is always decomposed.
 		if(mode != MEMSET)
