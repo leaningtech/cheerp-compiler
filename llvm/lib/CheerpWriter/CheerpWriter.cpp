@@ -3753,9 +3753,8 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			const GetElementPtrInst& gep = cast<GetElementPtrInst>(I);
 			Type* t=gep.getOperand(0)->getType();
 			assert(t->isPointerTy());
-			PointerType* ptrT=cast<PointerType>(t);
 
-			if(TypeSupport::isClientType(ptrT->getPointerElementType()))
+			if(TypeSupport::isClientType(gep.getSourceElementType()))
 			{
 				//Client objects are just passed through
 				compileOperand(gep.getOperand(0), parentPrio);
