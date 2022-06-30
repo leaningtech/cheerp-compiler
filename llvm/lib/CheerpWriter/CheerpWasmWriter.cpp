@@ -1468,7 +1468,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			// NOTE: If 'useTailCall' the code _must_ use return_call or insert a return
 			//       Returns are not otherwise added in such cases
 			const bool useTailCall = isTailCall(ci);
-
+			bool skipFirstParam = false;
 			if (calledFunc)
 			{
 				unsigned intrinsicId = calledFunc->getIntrinsicID();
@@ -1678,6 +1678,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 					case Intrinsic::cheerp_allocate:
 					case Intrinsic::cheerp_allocate_array:
 					{
+						skipFirstParam = true;
 						calledFunc = module.getFunction("malloc");
 						if (!calledFunc)
 							llvm::report_fatal_error("missing malloc definition");
@@ -1820,9 +1821,10 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			}
 
 			//This corrections is needed basically for ctlz / cttz since they have an extra parameters to be ignored
-			const unsigned int numUsedParameters = fTy->getNumParams() - TypedBuiltinInstr::numExtraParameters(calledFunc);
-			for (auto op = ci.op_begin();
-					op != ci.op_begin() + numUsedParameters; ++op)
+			const unsigned int endParam = fTy->getNumParams() - TypedBuiltinInstr::numExtraParameters(calledFunc);
+			const unsigned int startParam = skipFirstParam ? 1 : 0;
+			for (auto op = ci.op_begin() + startParam;
+					op != ci.op_begin() + endParam; ++op)
 			{
 				compileOperand(code, op->get());
 			}

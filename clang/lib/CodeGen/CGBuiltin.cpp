@@ -3487,17 +3487,19 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
       ParentMap PM(FD->getBody());
       const Stmt* parent=PM.getParent(E);
       // We need an explicit cast after the call, void* can't be used
-      llvm::Type *Tys[] = { VoidPtrTy };
+      llvm::Type *Tys[] = { VoidPtrTy, VoidPtrTy };
       const CastExpr* retCE=dyn_cast_or_null<CastExpr>(parent);
       if (!retCE || retCE->getType()->isVoidPointerType())
         CGM.getDiags().Report(E->getBeginLoc(), diag::err_cheerp_alloc_requires_cast);
       else
       {
           QualType returnType=retCE->getType();
-          Tys[0] = ConvertType(returnType);
+          Tys[0] = Tys[1] = ConvertType(returnType);
       }
       Function *F = CGM.getIntrinsic(Intrinsic::cheerp_allocate, Tys);
-      return RValue::get(Builder.CreateCall(F, Size));
+      CallBase* CB = Builder.CreateCall(F, {llvm::Constant::getNullValue(Tys[0]),Size});
+      CB->addParamAttr(0, llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, Tys[0]->getPointerElementType()));
+      return RValue::get(CB);
     }
     const TargetInfo &TI = getContext().getTargetInfo();
     // The alignment of the alloca should correspond to __BIGGEST_ALIGNMENT__.
@@ -12213,7 +12215,7 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
     ParentMap PM(FD->getBody());
     const Stmt* parent=PM.getParent(E);
     // We need an explicit cast after the call, void* can't be used
-    llvm::Type *Tys[] = { VoidPtrTy };
+    llvm::Type *Tys[] = { VoidPtrTy , VoidPtrTy};
     const CastExpr* retCE=dyn_cast_or_null<CastExpr>(parent);
     if (!retCE || retCE->getType()->isVoidPointerType())
     {
@@ -12223,10 +12225,12 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
     else
     {
         QualType returnType=retCE->getType();
-        Tys[0] = ConvertType(returnType);
+        Tys[0] = Tys[1] = ConvertType(returnType);
     }
     Function *F = CGM.getIntrinsic(Intrinsic::cheerp_allocate, Tys);
-    return Builder.CreateCall(F, Ops);
+    CallBase* CB = Builder.CreateCall(F, {llvm::Constant::getNullValue(Tys[0]), Ops[0]});
+    CB->addParamAttr(0, llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, Tys[0]->getPointerElementType()));
+    return CB;
   }
   else if (BuiltinID == Builtin::BIcalloc) {
     const FunctionDecl* FD=dyn_cast<FunctionDecl>(CurFuncDecl);
@@ -12234,7 +12238,7 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
     ParentMap PM(FD->getBody());
     const Stmt* parent=PM.getParent(E);
     // We need an explicit cast after the call, void* can't be used
-    llvm::Type *Tys[] = { VoidPtrTy };
+    llvm::Type *Tys[] = { VoidPtrTy, VoidPtrTy };
     const CastExpr* retCE=dyn_cast_or_null<CastExpr>(parent);
     if (!retCE || retCE->getType()->isVoidPointerType())
     {
@@ -12244,13 +12248,14 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
     else
     {
         QualType returnType=retCE->getType();
-        Tys[0] = ConvertType(returnType);
+        Tys[0] = Tys[1] = ConvertType(returnType);
     }
     Function *F = CGM.getIntrinsic(Intrinsic::cheerp_allocate, Tys);
     // Compute the size in bytes
     llvm::Value* sizeInBytes = Builder.CreateMul(Ops[0], Ops[1]);
-    llvm::Value* NewOp[1] = { sizeInBytes };
-    llvm::Value* Ret = Builder.CreateCall(F, NewOp);
+    llvm::Value* NewOp[2] = { llvm::Constant::getNullValue(Tys[0]), sizeInBytes };
+    llvm::CallBase* Ret = Builder.CreateCall(F, NewOp);
+    Ret->addParamAttr(0, llvm::Attribute::get(Ret->getContext(), llvm::Attribute::ElementType, Tys[0]->getPointerElementType()));
     Builder.CreateMemSet(Ret, ConstantInt::get(Int8Ty, 0), sizeInBytes, MaybeAlign(1), false, NULL, NULL, NULL,
         CGBuilderTy::CheerpTypeInfo::get(getTarget().isByteAddressable(), ConvertType(retCE->getType()->getPointeeType())));
     return Ret;
@@ -12306,9 +12311,10 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
       BasicBlock* endBlock = createBasicBlock("realloc_end", this->CurFn);
       Builder.CreateCondBr(opIsNull, mallocBlock, reallocBlock);
       Builder.SetInsertPoint(mallocBlock);
-      llvm::Type *mallocTys[] = { Tys[0] };
-      Function *mallocFunc = CGM.getIntrinsic(Intrinsic::cheerp_allocate, mallocTys);
-      llvm::Value* mallocRet = Builder.CreateCall(mallocFunc, Ops[1]);
+
+      Function *mallocFunc = CGM.getIntrinsic(Intrinsic::cheerp_allocate, Tys);
+      llvm::CallBase* mallocRet = Builder.CreateCall(mallocFunc, {llvm::Constant::getNullValue(Tys[0]), Ops[1]});
+      mallocRet->addParamAttr(0, llvm::Attribute::get(mallocRet->getContext(), llvm::Attribute::ElementType, Tys[0]->getPointerElementType()));
       Builder.CreateBr(endBlock);
       Builder.SetInsertPoint(reallocBlock);
       llvm::CallBase* reallocRet = cast<CallBase>(Builder.CreateCall(reallocFunc, Ops));

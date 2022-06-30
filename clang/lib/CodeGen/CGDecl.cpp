@@ -1589,13 +1589,14 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
     uint64_t size = CGM.getDataLayout().getTypeAllocSize(llvmTy);
     llvm::Constant* typeSize = llvm::ConstantInt::get(elementCount->getType(), size);
 
-    llvm::Type* Tys = { llvmTy->getPointerTo() };
+    llvm::Type* Tys[] = { llvmTy->getPointerTo(), llvmTy->getPointerTo() };
     llvm::Function *F = CGM.getIntrinsic(llvm::Intrinsic::cheerp_allocate, Tys);
     // Compute the size in bytes
     llvm::Value* sizeInBytes = Builder.CreateMul(elementCount, typeSize);
-    llvm::Value* Args[1] = { sizeInBytes };
+    llvm::Value* Args[2] = { llvm::Constant::getNullValue(llvmTy->getPointerTo()), sizeInBytes };
     // Allocate memory for the array.
     llvm::Value* Ret = Builder.CreateCall(F, Args);
+    cast<llvm::CallInst>(Ret)->addParamAttr(0, llvm::Attribute::get(Ret->getContext(), llvm::Attribute::ElementType, llvmTy));
     address = Address(Ret, llvmTy, CharUnits::One());
   } else {
     EnsureInsertPoint();

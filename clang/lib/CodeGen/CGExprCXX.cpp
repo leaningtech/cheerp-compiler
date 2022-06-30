@@ -1365,14 +1365,15 @@ static RValue EmitNewDeleteCall(CodeGenFunction &CGF,
   {
     // Forge a call to a special type safe allocator intrinsic
     QualType retType = CGF.getContext().getPointerType(allocType);
-    llvm::Type* types[] = { CGF.ConvertType(retType) };
+    llvm::Type* types[] = { CGF.ConvertType(retType), CGF.ConvertType(retType) };
 
     llvm::Function* CalleeAddr = llvm::Intrinsic::getDeclaration(&CGF.CGM.getModule(),
                                 use_array? llvm::Intrinsic::cheerp_allocate_array :
                                          llvm::Intrinsic::cheerp_allocate,
                                 types);
-    llvm::Value* Arg[] = { Args[0].getKnownRValue().getScalarVal() };
+    llvm::Value* Arg[] = { llvm::Constant::getNullValue(types[0]), Args[0].getKnownRValue().getScalarVal() };
     CallOrInvoke = CGF.Builder.CreateCall(cast<llvm::FunctionType>(CalleeAddr->getValueType()), CalleeAddr, Arg);
+    CallOrInvoke->addParamAttr(0, llvm::Attribute::get(CallOrInvoke->getContext(), llvm::Attribute::ElementType, types[0]->getPointerElementType()));
     RV = RValue::get(CallOrInvoke);
   }
   else if(IsDelete && cheerp && !(asmjs && user_defined_new))

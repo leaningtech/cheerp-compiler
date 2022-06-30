@@ -1337,10 +1337,10 @@ static llvm::FunctionCallee getAllocateExceptionFn(CodeGenModule &CGM, QualType 
 
   if (!CGM.getTarget().isByteAddressable()) {
     llvm::Type* pointedTy = CGM.getTypes().ConvertType(QTy);
-    llvm::Type* Tys[1] = { pointedTy->getPointerTo() };
+    llvm::Type* Tys[2] = { pointedTy->getPointerTo(), pointedTy->getPointerTo() };
     if(pointedTy->isPointerTy())
     {
-	    Tys[0] = CGM.VoidPtrPtrTy;
+	    Tys[0] = Tys[1] = CGM.VoidPtrPtrTy;
     }
     llvm::Function *F = CGM.getIntrinsic(llvm::Intrinsic::cheerp_allocate, Tys);
     return llvm::FunctionCallee(F);
@@ -1395,8 +1395,21 @@ void ItaniumCXXABI::emitThrow(CodeGenFunction &CGF, const CXXThrowExpr *E) {
   uint64_t TypeSize = getContext().getTypeSizeInChars(ThrowType).getQuantity();
 
   llvm::FunctionCallee AllocExceptionFn = getAllocateExceptionFn(CGM, ThrowType);
+
+  llvm::FunctionType* FT = AllocExceptionFn.getFunctionType();
+  SmallVector<llvm::Value*> Ops(FT->getNumParams());
+  if (FT->getNumParams() == 2) {
+    // Cheerp specific logic
+    assert(!CGM.getTarget().isByteAddressable());
+    Ops[0] = llvm::Constant::getNullValue(FT->getParamType(0));
+  }
+  Ops.back() = llvm::ConstantInt::get(SizeTy, TypeSize);
+
   llvm::CallInst *ExceptionPtr = CGF.EmitNounwindRuntimeCall(
-      AllocExceptionFn, llvm::ConstantInt::get(SizeTy, TypeSize), "exception");
+      AllocExceptionFn, Ops, "exception");
+
+  if (FT->getNumParams() == 2)
+    ExceptionPtr->addParamAttr(0, llvm::Attribute::get(ExceptionPtr->getContext(), llvm::Attribute::ElementType, AllocExceptionFn.getFunctionType()->getParamType(0)->getPointerElementType()));
 
   CharUnits ExnAlign = CGF.getContext().getExnObjectAlignment();
   if(!CGM.getTarget().isByteAddressable() && ThrowType->isPointerType())
