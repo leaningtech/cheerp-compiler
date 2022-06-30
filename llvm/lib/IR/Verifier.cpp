@@ -3198,6 +3198,16 @@ void Verifier::visitCallBase(CallBase &Call) {
     if (isa<MemIntrinsic>(Call)) {
       Assert(Attrs.hasParamAttr(0, Attribute::ElementType), "Cheerp MemIntrinsic should specify element type", Call);
     }
+    else if (IntrinsicInst* II = dyn_cast<IntrinsicInst>(&Call)) {
+      switch (II->getIntrinsicID()) {
+        case Intrinsic::cheerp_upcast_collapsed:
+        case Intrinsic::cheerp_virtualcast:
+          Assert(Attrs.hasParamAttr(0, Attribute::ElementType), "Cheerp Intrinsic should specify element type", Call);
+	  break;
+      default:
+	  break;
+      }
+    }
   }
 
   // Conservatively check the inalloca argument.
