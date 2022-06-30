@@ -225,6 +225,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 								ci->mutateType(F->getReturnType());
 								newCast->setOperand(0, ci);
 							}
+							ci->removeParamAttr(0, llvm::Attribute::ElementType);
 							ci->setCalledFunction(F);
 						}
 						else if(II == Intrinsic::cheerp_deallocate)
