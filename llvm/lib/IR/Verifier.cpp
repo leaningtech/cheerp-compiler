@@ -3266,13 +3266,16 @@ void Verifier::visitCallBase(CallBase &Call) {
 
   if (!DL.isByteAddressable()) {
     if (isa<MemIntrinsic>(Call)) {
-      Assert(Attrs.hasParamAttr(0, Attribute::ElementType), "Cheerp MemIntrinsic should specify element type", Call);
+      Check(Attrs.hasParamAttr(0, Attribute::ElementType), "Cheerp MemIntrinsic should specify element type", Call);
     }
     else if (IntrinsicInst* II = dyn_cast<IntrinsicInst>(&Call)) {
       switch (II->getIntrinsicID()) {
         case Intrinsic::cheerp_upcast_collapsed:
         case Intrinsic::cheerp_virtualcast:
-          Assert(Attrs.hasParamAttr(0, Attribute::ElementType), "Cheerp Intrinsic should specify element type", Call);
+        case Intrinsic::cheerp_allocate:
+        case Intrinsic::cheerp_allocate_array:
+        case Intrinsic::cheerp_reallocate:
+          Check(Attrs.hasParamAttr(0, Attribute::ElementType), "Cheerp Intrinsic should specify element type", Call);
 	  break;
       default:
 	  break;
