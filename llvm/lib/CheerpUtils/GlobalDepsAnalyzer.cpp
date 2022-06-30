@@ -209,7 +209,17 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 								ci->mutateType(F->getReturnType());
 								newCast->setOperand(0, ci);
 							}
-							ci->setCalledFunction(F);
+							//cheerp_allocate(nullptr, N) -> malloc(N), so we need to move argument(1) to argument(0)
+							CallInst* newCall = CallInst::Create(F, { ci->getOperand(1) }, "", ci);
+							ci->replaceAllUsesWith(newCall);
+
+							//Set up loop variable, so the next loop will check and possibly expand newCall
+							--instructionIterator;
+							advance = false;
+							assert(&*instructionIterator == newCall);
+
+							ci->eraseFromParent();
+							continue;
 						}
 						else if(II == Intrinsic::cheerp_reallocate)
 						{

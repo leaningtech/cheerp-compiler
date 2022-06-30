@@ -101,7 +101,7 @@ static GenericValue pre_execute_pointer_offset(FunctionType *FT,
 static GenericValue pre_execute_allocate_array(FunctionType *FT,
                                          ArrayRef<GenericValue> Args) {
   ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
-  size_t size=(size_t)(Args[0].IntVal.getLimitedValue());
+  size_t size=(size_t)(Args[1].IntVal.getLimitedValue());
 
   llvm::Type *type = FT->getReturnType()->getPointerElementType();
   bool asmjs = currentEE->getCurrentCaller()->getSection() == StringRef("asmjs") ||
@@ -134,7 +134,7 @@ static GenericValue pre_execute_allocate_array(FunctionType *FT,
 
 static GenericValue pre_execute_allocate(FunctionType *FT,
                                          ArrayRef<GenericValue> Args) {
-  size_t size=(size_t)(Args[0].IntVal.getLimitedValue());
+  size_t size=(size_t)(Args[1].IntVal.getLimitedValue());
   ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
   void* ret = PreExecute::currentPreExecutePass->allocator->allocate(size);
   memset(ret, 0, size);

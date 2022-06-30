@@ -1372,7 +1372,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(const
 		if (!fmalloc)
 			llvm::report_fatal_error("missing malloc definition");
 		stream << getName(fmalloc) << "(";
-		compileOperand(*it, PARENT_PRIORITY::LOWEST);
+		compileOperand(*(it+1), PARENT_PRIORITY::LOWEST);
 		stream << ")|0";
 		return COMPILE_OK;
 	}

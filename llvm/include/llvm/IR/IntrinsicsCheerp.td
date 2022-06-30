@@ -39,9 +39,9 @@ def int_cheerp_cast_user  : Intrinsic<[llvm_anyptr_ty],
 
 // Type safe memory allocation
 def int_cheerp_allocate  : Intrinsic<[llvm_anyptr_ty],
-                             [llvm_i32_ty]>;
+                             [llvm_anyptr_ty,llvm_i32_ty]>;
 def int_cheerp_allocate_array  : Intrinsic<[llvm_anyptr_ty],
-                             [llvm_i32_ty]>;
+                             [llvm_anyptr_ty,llvm_i32_ty]>;
 def int_cheerp_get_array_len  : Intrinsic<[llvm_i32_ty],
                              [llvm_anyptr_ty]>;
 def int_cheerp_reallocate  : Intrinsic<[llvm_anyptr_ty],

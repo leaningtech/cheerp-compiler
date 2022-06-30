@@ -927,13 +927,12 @@ PointerType * DynamicAllocInfo::computeCastedType() const
 const Value * DynamicAllocInfo::getByteSizeArg() const
 {
 	assert( isValidAlloc() );
-
 	if ( calloc == type )
 	{
 		assert( call->arg_size() == 2 );
 		return call->getOperand(1);
 	}
-	else if ( cheerp_reallocate == type )
+	else if ( cheerp_allocate == type || cheerp_reallocate == type )
 	{
 		assert( call->arg_size() == 2 );
 		return call->getOperand(1);
