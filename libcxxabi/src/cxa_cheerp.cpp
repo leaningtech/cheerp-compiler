@@ -23,6 +23,7 @@ __terminate_impl() noexcept
 {
 	aborting = true;
 	asm("throw 'Program called std::terminate()'");
+	__builtin_unreachable();
 }
 
 namespace std {
