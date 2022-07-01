@@ -439,22 +439,34 @@ can_catch_ret can_catch(const __shim_type_info* catcher, const __shim_type_info*
 
 extern __cheerp_clause __cxa_cheerp_clause_table[];
 
+class ReentGuard
+{
+private:
+	static bool active;
+public:
+	ReentGuard() noexcept
+	{
+		if (active || aborting)
+			__terminate_impl();
+		active = true;
+	}
+	~ReentGuard() noexcept
+	{
+		active = false;
+	}
+};
+
+bool ReentGuard::active = false;
+
 __attribute((noinline))
  __cheerp_landingpad*
 __gxx_personality_v0
                     (client::Object* obj, int start, int n) noexcept
 {
-	static bool reent = false;
 	[[cheerp::wasm]]
 	static __cheerp_landingpad lp;
 
-	if(reent || aborting)
-	{
-		aborting = true;
-		__terminate_impl();
-	}
-
-	reent = true;
+	ReentGuard reent;
 
 	bool native;
 	asm("%1 instanceof CheerpException" : "=r"(native) : "r"(obj));
@@ -516,7 +528,6 @@ __gxx_personality_v0
 			break;
 		}
 	}
-	reent = false;
 	return &lp;
 }
 
