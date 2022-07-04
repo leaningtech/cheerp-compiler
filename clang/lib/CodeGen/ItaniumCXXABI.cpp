@@ -1363,6 +1363,31 @@ static llvm::FunctionCallee getThrowFn(CodeGenModule &CGM, bool asmjs) {
   return CGM.CreateRuntimeFunction(FTy, asmjs ? "__cxa_throw_wasm" : "__cxa_throw");
 }
 
+static llvm::Function* getExceptionDestructorThunk(CodeGenModule& CGM, llvm::Constant* DestC, bool asmjs) {
+  llvm::Function* Dest = dyn_cast<llvm::Function>(DestC);
+  if (!Dest) {
+    auto* A = cast<llvm::GlobalAlias>(DestC);
+    Dest = cast<llvm::Function>(A->getAliasee());
+  }
+  StringRef DestName = Dest->getName();
+  auto ThunkName = llvm::Twine("_ExThunk_",DestName).str();
+  llvm::FunctionType* Ty = llvm::FunctionType::get(CGM.VoidTy, CGM.VoidPtrTy, false);
+  llvm::Function* Thunk = CGM.getModule().getFunction(ThunkName);
+  if (Thunk) {
+    assert(!Thunk->empty());
+    return Thunk;
+  }
+  Thunk = llvm::Function::Create(Ty, llvm::Function::LinkOnceODRLinkage, ThunkName, &CGM.getModule());
+  if (asmjs)
+	Thunk->setSection("asmjs");
+  llvm::BasicBlock* Entry = llvm::BasicBlock::Create(CGM.getLLVMContext(), "entry", Thunk);
+  llvm::Value* Arg = Thunk->getArg(0);
+  Arg = llvm::BitCastInst::CreatePointerCast(Arg, CGM.VoidPtrTy, "", Entry);
+  llvm::CallInst::Create(llvm::FunctionCallee(Ty, Dest), Arg, "", Entry);
+  llvm::ReturnInst::Create(CGM.getLLVMContext(), Entry);
+  return Thunk;
+}
+
 void ItaniumCXXABI::emitThrow(CodeGenFunction &CGF, const CXXThrowExpr *E) {
   QualType ThrowType = E->getSubExpr()->getType();
   // Now allocate the exception object.
@@ -1375,7 +1400,7 @@ void ItaniumCXXABI::emitThrow(CodeGenFunction &CGF, const CXXThrowExpr *E) {
 
   CharUnits ExnAlign = CGF.getContext().getExnObjectAlignment();
   if(!CGM.getTarget().isByteAddressable() && ThrowType->isPointerType())
-	CGF.EmitTypedPtrExprToExn(E->getSubExpr(), Address(ExceptionPtr, CGM.Int8PtrTy, ExnAlign));
+    CGF.EmitTypedPtrExprToExn(E->getSubExpr(), Address(ExceptionPtr, CGM.Int8PtrTy, ExnAlign));
   else
     CGF.EmitAnyExprToExn(
       E->getSubExpr(), Address(ExceptionPtr, CGM.getTarget().isByteAddressable() ? CGM.Int8Ty : CGM.getTypes().ConvertType(ThrowType), ExnAlign));
@@ -1392,6 +1417,11 @@ void ItaniumCXXABI::emitThrow(CodeGenFunction &CGF, const CXXThrowExpr *E) {
     if (!Record->hasTrivialDestructor()) {
       CXXDestructorDecl *DtorD = Record->getDestructor();
       Dtor = CGM.getAddrOfCXXStructor(GlobalDecl(DtorD, Dtor_Complete));
+      // CHEERP: We need to use a thunk that takes a void* and casts to the correct type
+      if(!CGM.getTarget().isByteAddressable()) {
+        bool asmjs = DtorD->hasAttr<AsmJSAttr>();
+        Dtor = getExceptionDestructorThunk(CGM, Dtor, asmjs);
+      }
       Dtor = llvm::ConstantExpr::getBitCast(Dtor, CGM.Int8PtrTy);
     }
   }
