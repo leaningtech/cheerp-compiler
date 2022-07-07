@@ -353,10 +353,9 @@ void CheerpWriter::compileVirtualcast( const CallBase& callV )
  * Since only immutable types are handled in the backend and we use TypedArray.set to make the copy
  * there is not need to handle memmove in a special way
 */
-void CheerpWriter::compileMemFunc(const Value* dest, const Value* src, const Value* size)
+void CheerpWriter::compileMemFunc(const Value* dest, Type* destElementType, const Value* src, const Value* size)
 {
-	Type* destType=dest->getType();
-	Type* pointedType = cast<PointerType>(destType)->getPointerElementType();
+	Type* pointedType = destElementType;
 	if(!(TypeSupport::isTypedArrayType(pointedType, /* forceTypedArray*/ true) || TypeSupport::hasByteLayout(pointedType)))
 		llvm::report_fatal_error("Unsupported memory intrinsic, please rebuild the code using an updated version of Cheerp", false);
 
@@ -735,7 +734,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(const
 	{
 		if (!asmjs)
 		{
-			compileMemFunc(*(it), *(it+1), *(it+2));
+			compileMemFunc(*(it), callV.getParamElementType(0), *(it+1), *(it+2));
 			return COMPILE_EMPTY;
 		}
 		else if (intrinsicId == Intrinsic::memcpy)
