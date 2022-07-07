@@ -46,6 +46,7 @@ namespace llvm {
 
 class Constant;
 class Function;
+class CallBase;
 struct GenericValue;
 class GlobalValue;
 class GlobalVariable;
@@ -153,6 +154,7 @@ public:
   // Get the caller of the current function, or nullptr if this is the entry point
   // This function is overridden by the interpreter
   virtual Function* getCurrentCaller() { return nullptr; }
+  virtual CallBase* getCurrentCallSite() { return nullptr; }
   virtual Function* getCurrentFunction() { return nullptr; }
 
 protected:
