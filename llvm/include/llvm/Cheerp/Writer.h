@@ -376,6 +376,7 @@ private:
 	 * Compile the pointer base.
 	 */
 	void compilePointerBase(const llvm::Value*, bool forEscapingPointer=false);
+	void compilePointerBaseTyped(const llvm::Value*, llvm::Type* elementType, bool forEscapingPointer=false);
 
 	/**
 	 * Compile the pointer offset.

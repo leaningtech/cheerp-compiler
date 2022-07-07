@@ -256,7 +256,7 @@ void CheerpWriter::compileDowncast( const CallBase& callV )
 	{
 		if(result_kind == SPLIT_REGULAR)
 		{
-			compilePointerBase(src);
+			compilePointerBaseTyped(src, t);
 			stream << ';' << NewLine;
 			stream << getSecondaryName(&callV) << '=';
 			compilePointerOffset(src, LOWEST);
@@ -390,7 +390,7 @@ void CheerpWriter::compileMemFunc(const Value* dest, Type* destElementType, cons
 		// The semantics of TypedArray.set is memmove-like, no need to care about direction
 		if(byteLayout)
 			stream << "(new Int8Array(";
-		compilePointerBase(dest);
+		compilePointerBaseTyped(dest, destElementType);
 		if(byteLayout)
 			stream << ".buffer))";
 		stream << ".set(";
@@ -515,7 +515,7 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 		{
 			stream << "(function(){";
 			stream << "var __old__=";
-			compilePointerBase(info.getMemoryArg());
+			compilePointerBaseTyped(info.getMemoryArg(), info.getCastedPointedType());
 			stream << ';' << NewLine;
 			//Allocated the new array (created below) in a temporary var
 			stream << "var __ret__=";
@@ -543,9 +543,9 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 		stream << namegen.getBuiltinName(NameGenerator::Builtin::CREATE_POINTER_ARRAY) << "(";
 		if (info.getAllocType() == DynamicAllocInfo::cheerp_reallocate)
 		{
-			compilePointerBase(info.getMemoryArg());
+			compilePointerBaseTyped(info.getMemoryArg(), info.getCastedPointedType());
 			stream << ',';
-			compilePointerBase(info.getMemoryArg());
+			compilePointerBaseTyped(info.getMemoryArg(), info.getCastedPointedType());
 			stream << ".length,";
 		}
 		else
@@ -568,9 +568,9 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 			assert( globalDeps.dynResizeArrays().count(t) );
 
 			stream << namegen.getArrayResizeName(t) << '(';
-			compilePointerBase(info.getMemoryArg());
+			compilePointerBaseTyped(info.getMemoryArg(), info.getCastedPointedType());
 			stream << ',';
-			compilePointerBase(info.getMemoryArg());
+			compilePointerBaseTyped(info.getMemoryArg(), info.getCastedPointedType());
 			stream << ".length,";
 			compileArraySize(info, /* shouldPrint */true);
 			stream << ')';
@@ -1844,6 +1844,11 @@ void CheerpWriter::compileHeapAccess(const Value* p, Type* t)
 }
 void CheerpWriter::compilePointerBase(const Value* p, bool forEscapingPointer)
 {
+	compilePointerBaseTyped(p, p->getType()->getPointerElementType(), forEscapingPointer);
+}
+
+void CheerpWriter::compilePointerBaseTyped(const Value* p, Type* elementType, bool forEscapingPointer)
+{
 	POINTER_KIND kind = PA.getPointerKind(p);
 	if(kind == RAW)
 	{
@@ -1896,7 +1901,7 @@ void CheerpWriter::compilePointerBase(const Value* p, bool forEscapingPointer)
 		{
 			case Intrinsic::cheerp_upcast_collapsed:
 			case Intrinsic::cheerp_cast_user:
-				return compilePointerBase(II->getOperand(0));
+				return compilePointerBaseTyped(II->getOperand(0), II->getParamElementType(0));
 			case Intrinsic::cheerp_make_regular:
 				return compileCompleteObject(II->getOperand(0));
 			default:
@@ -1916,9 +1921,9 @@ void CheerpWriter::compilePointerBase(const Value* p, bool forEscapingPointer)
 		stream << '(';
 		compileOperand(u->getOperand(0), TERNARY, /*allowBooleanObjects*/ true);
 		stream << '?';
-		compilePointerBase(u->getOperand(1));
+		compilePointerBaseTyped(u->getOperand(1), elementType);
 		stream << ':';
-		compilePointerBase(u->getOperand(2));
+		compilePointerBaseTyped(u->getOperand(2), elementType);
 		stream << ')';
 		return;
 	}
@@ -2307,14 +2312,14 @@ void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio
 					if(dependOnUndefined)
 						stream << "undefined";
 					else
-						compilePointerBase(d->getOperand(i));
+						compilePointerBaseTyped(d->getOperand(i), elementType);
 				}
 				else if(k == SPLIT_REGULAR)
 				{
 					if(dependOnUndefined)
 						stream << "undefined";
 					else
-						compilePointerBase(d->getOperand(i));
+						compilePointerBaseTyped(d->getOperand(i), elementType);
 					stream << ',';
 					stream << types.getPrefixCharForMember(PA, d->getType(), i) << i << 'o';
 					stream << ':';
@@ -3185,8 +3190,9 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			else if (kind == BYTE_LAYOUT)
 			{
 				//Optimize stores of single values from unions
-				compilePointerBase(ptrOp);
 				Type* pointedType=ptrOp->getType()->getPointerElementType();
+				assert(pointedType == valOp->getType());
+				compilePointerBaseTyped(ptrOp, pointedType);
 				if(pointedType->isIntegerTy(8))
 					stream << ".setInt8(";
 				else if(pointedType->isIntegerTy(16))
@@ -3321,9 +3327,10 @@ void CheerpWriter::compileGEPBase(const llvm::User* gep_inst, bool forEscapingPo
 		useDownCastArray = !types.useWrapperArrayForMember(PA, containerStructType, lastOffsetConstant);
 	}
 	bool byteLayout = PA.getPointerKindAssert(gep_inst) == BYTE_LAYOUT;
+	const Value* baseOperand = gep_inst->getOperand(0);
+	Type* elementTypeBaseOperand = cast<GEPOperator>(gep_inst)->getSourceElementType();
 	if (byteLayout)
 	{
-		const Value* baseOperand = gep_inst->getOperand(0);
 		bool byteLayoutFromHere = PA.getPointerKindAssert(baseOperand) != BYTE_LAYOUT;
 		if (byteLayoutFromHere)
 			compileCompleteObject(gep_inst);
@@ -3333,26 +3340,26 @@ void CheerpWriter::compileGEPBase(const llvm::User* gep_inst, bool forEscapingPo
 			// Recycle or create an appropiate typed array
 			assert (!TypeSupport::hasByteLayout(targetType));
 			stream << "(";
-			compilePointerBase( baseOperand );
+			compilePointerBaseTyped( baseOperand, elementTypeBaseOperand );
 			stream << ".";
 			compileTypedArrayType(targetType);
 			stream << "||(";
-			compilePointerBase( baseOperand );
+			compilePointerBaseTyped( baseOperand, elementTypeBaseOperand );
 			stream << ".";
 			compileTypedArrayType(targetType);
 			stream << "=new ";
 			compileTypedArrayType(targetType);
 			stream << '(';
-			compilePointerBase( baseOperand );
+			compilePointerBaseTyped( baseOperand, elementTypeBaseOperand );
 			stream << ".buffer)))";
 		}
 		else
-			compilePointerBase( baseOperand );
+			compilePointerBaseTyped( baseOperand, elementTypeBaseOperand );
 	}
 	else if (indices.size() == 1)
 	{
 		// Just another pointer from this one
-		compilePointerBase(gep_inst->getOperand(0));
+		compilePointerBaseTyped(gep_inst->getOperand(0), elementTypeBaseOperand );
 	}
 	else
 	{
@@ -3568,7 +3575,7 @@ void CheerpWriter::compileGEP(const llvm::User* gep_inst, POINTER_KIND kind, PAR
 		}
 
 		stream << "{d:";
-		compilePointerBase( gep_inst, true);
+		compilePointerBaseTyped( gep_inst, cast<GEPOperator>(gep_inst)->getResultElementType(), true);
 		stream << ",o:";
 		compilePointerOffset( gep_inst, LOWEST, true);
 		stream << '}';
@@ -5460,7 +5467,7 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 			{
 				POINTER_KIND storedKind = PA.getPointerKindForStoredType(C->getType());
 				if(storedKind == REGULAR && PA.getConstantOffsetForPointer(&G))
-					compilePointerBase(C);
+					compilePointerBaseTyped(C, G.getValueType());
 				else
 					compilePointerAs(C, storedKind);
 			}
