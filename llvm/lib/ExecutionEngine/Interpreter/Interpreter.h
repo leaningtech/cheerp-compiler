@@ -245,7 +245,7 @@ public:
       return nullptr;
     return ECStack[ECStack.size()-2].Caller->getCaller();
   }
-  CallBase* getCurrentCallSite() {
+  CallBase* getCurrentCallSite() override {
     if (ECStack.size() < 2)
       return nullptr;
     return ECStack[ECStack.size()-2].Caller;
