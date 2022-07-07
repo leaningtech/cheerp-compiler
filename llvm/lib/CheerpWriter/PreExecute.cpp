@@ -103,7 +103,7 @@ static GenericValue pre_execute_allocate_array(FunctionType *FT,
   ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
   size_t size=(size_t)(Args[1].IntVal.getLimitedValue());
 
-  llvm::Type *type = FT->getReturnType()->getPointerElementType();
+  llvm::Type *type = currentEE->getCurrentCallSite()->getParamElementType(0);
   bool asmjs = currentEE->getCurrentCaller()->getSection() == StringRef("asmjs") ||
                 TypeSupport::isAsmJSPointed(type);
   const DataLayout *DL = &PreExecute::currentPreExecutePass->currentModule->getDataLayout();
@@ -144,7 +144,7 @@ static GenericValue pre_execute_allocate(FunctionType *FT,
 #endif
 
   // Register this allocations in the pass
-  llvm::Type *type = FT->getReturnType()->getPointerElementType();
+  llvm::Type *type = currentEE->getCurrentCallSite()->getParamElementType(0);
   bool asmjs = currentEE->getCurrentCaller()->getSection() == StringRef("asmjs") ||
                 TypeSupport::isAsmJSPointed(type);
   PreExecute::currentPreExecutePass->recordTypedAllocation(type, size, (char*)ret, /*hasCookie*/ false, asmjs);
@@ -182,7 +182,7 @@ static GenericValue pre_execute_reallocate(FunctionType *FT,
 #endif
 
   // Register this allocations in the pass
-  llvm::Type *type = FT->getReturnType()->getPointerElementType();
+  llvm::Type *type = currentEE->getCurrentCallSite()->getParamElementType(0);
   bool asmjs = currentEE->getCurrentCaller()->getSection() == StringRef("asmjs") ||
                 TypeSupport::isAsmJSPointer(type);
   PreExecute::currentPreExecutePass->recordTypedAllocation(type, size, (char*)ret, /*hasCookie*/ false, asmjs);
