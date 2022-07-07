@@ -1244,7 +1244,7 @@ void CheerpWasmWriter::compileDowncast(WasmBuffer& code, const CallBase* callV)
 	const Value* src = callV->getOperand(0);
 	const Value* offset = callV->getOperand(1);
 
-	Type* t = src->getType()->getPointerElementType();
+	Type* t = callV->getParamElementType(0);
 
 	compileOperand(code, src);
 
