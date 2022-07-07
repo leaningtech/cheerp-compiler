@@ -1196,7 +1196,7 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 				else if (calledFunc->getIntrinsicID() == Intrinsic::cheerp_allocate ||
 				    calledFunc->getIntrinsicID() == Intrinsic::cheerp_allocate_array)
 				{
-					if (isAsmJS || TypeSupport::isAsmJSPointer(calledFunc->getReturnType()))
+					if (isAsmJS || TypeSupport::isAsmJSPointed(ci.getParamElementType(0)))
 					{
 						Function* fmalloc = module->getFunction("malloc");
 						if (fmalloc)
@@ -1212,7 +1212,7 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 				}
 				else if (calledFunc->getIntrinsicID() == Intrinsic::cheerp_reallocate)
 				{
-					if (isAsmJS || TypeSupport::isAsmJSPointer(calledFunc->getReturnType()))
+					if (isAsmJS || TypeSupport::isAsmJSPointed(ci.getParamElementType(0)))
 					{
 						Function* frealloc = module->getFunction("realloc");
 						if (frealloc)
