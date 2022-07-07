@@ -578,7 +578,9 @@ CodeGenFunction::GenerateDowncast(Address Value,
   llvm::Function* intrinsic = llvm::Intrinsic::getDeclaration(&CGM.getModule(),
                               llvm::Intrinsic::cheerp_downcast, types);
 
-  return Address(Builder.CreateCall(intrinsic, {Value.getPointer(), BaseIdOffset}), DerivedPtrTy, Value.getAlignment());
+  llvm::CallBase* CB = Builder.CreateCall(intrinsic, {Value.getPointer(), BaseIdOffset});
+  CB->addParamAttr(0, llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, Value.getElementType()));
+  return Address(CB, DerivedPtrTy, Value.getAlignment());
 }
 
 llvm::Value *
