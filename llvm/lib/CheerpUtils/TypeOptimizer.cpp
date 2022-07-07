@@ -124,7 +124,7 @@ void TypeOptimizer::gatherAllTypesInfo(const Module& M)
 				{
 					if(II->getIntrinsicID()==Intrinsic::cheerp_downcast)
 					{
-						Type* opType = II->getOperand(0)->getType()->getPointerElementType();
+						Type* opType = II->getParamElementType(0);
 						Type* retType = II->getType()->getPointerElementType();
 						// In the special case of downcast from i8* to i8* we are dealing with exceptions.
 						// We collect the types info from another syntetic downcast, so just skip here.
