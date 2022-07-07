@@ -677,7 +677,7 @@ bool FreeAndDeleteRemoval::runOnModule(Module& M)
 					Type* ty = call->getOperand(0)->getType();
 					assert(isa<PointerType>(ty));
 					Type* elemTy = cast<PointerType>(ty)->getPointerElementType();
-					if (isAllGenericJS || (!cheerp::TypeSupport::isAsmJSPointer(ty) && elemTy->isAggregateType()))
+					if (isAllGenericJS || (!cheerp::TypeSupport::isAsmJSPointed(elemTy) && elemTy->isAggregateType()))
 					{
 						deleteInstructionAndUnusedOperands(call);
 						Changed = true;
