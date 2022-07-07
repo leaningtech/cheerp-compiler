@@ -3202,6 +3202,7 @@ void Verifier::visitCallBase(CallBase &Call) {
       switch (II->getIntrinsicID()) {
         case Intrinsic::cheerp_upcast_collapsed:
         case Intrinsic::cheerp_virtualcast:
+        case Intrinsic::cheerp_downcast:
         case Intrinsic::cheerp_allocate:
         case Intrinsic::cheerp_allocate_array:
         case Intrinsic::cheerp_reallocate:
