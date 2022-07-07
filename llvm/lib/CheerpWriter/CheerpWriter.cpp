@@ -250,7 +250,7 @@ void CheerpWriter::compileDowncast( const CallBase& callV )
 	const Value * src = callV.getOperand(0);
 	const Value * offset = callV.getOperand(1);
 
-	Type* t=src->getType()->getPointerElementType();
+	Type* t=callV.getParamElementType(0);
 
 	if(TypeSupport::isClientType(t) || (isa<ConstantInt>(offset) && cast<ConstantInt>(offset)->isNullValue()))
 	{
