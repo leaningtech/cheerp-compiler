@@ -85,15 +85,16 @@ class IdAllocator
 		if (id == len)
 		{
 			len = len*2;
-			store = static_cast<T*>(realloc(store, len));
+			store = static_cast<T*>(realloc(store, len*sizeof(T)));
 			slots = static_cast<bool*>(realloc(slots, len));
 		}
 		return id;
 	};
 public:
-	IdAllocator(): slots(new bool[16]), len(16)
+	IdAllocator(): len(16)
 	{
-		store = static_cast<T*>(malloc(16*sizeof(T)));
+		store = static_cast<T*>(malloc(len*sizeof(T)));
+		slots = static_cast<bool*>(malloc(len));
 	}
 	template<typename... Args>
 	T* allocate(Args&&... args)
