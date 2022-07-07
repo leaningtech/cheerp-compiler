@@ -1293,8 +1293,7 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 		if (!elementType)
 			return;
 
-		StructType* base = cast<StructType>(F->getFunctionType()->getParamType(0)->getPointerElementType());
-		assert(base == elementType);
+		StructType* base = cast<StructType>(elementType);
 		if (!base->hasAsmJS())
 		{
 			std::unordered_map<StructType*, bool> visitedClasses;
