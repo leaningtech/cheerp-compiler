@@ -43,7 +43,7 @@ bool isNopCast(const Value* val)
 		
 		if ( Intrinsic::cheerp_downcast == id )
 		{
-			Type* t = newCall->getArgOperand(0)->getType()->getPointerElementType();
+			Type* t = newCall->getParamElementType(0);
 
 			// Special case downcasts from a type to itself, they are used to support pointers to member functions
 			if ( TypeSupport::isClientType(t) ||
