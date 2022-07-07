@@ -604,19 +604,15 @@ static bool isTypeCompatible(Type* curType, Type* endType)
 }
 
 llvm::Type* getTypeSafeGepForAddress(SmallVector<Constant*, 4>& Indices, Type* Int32Ty, const DataLayout* DL,
-                    Type* startType, Type* endType, uint32_t Offset)
+                    Type* ET, Type* endType, uint32_t Offset)
 {
-    Type* curType = startType;
+    Type* curType = ET;
     // Keep track of the state while ignoring all trailing zero indices
-    assert(isa<PointerType>(curType));
-    if (PointerType* PT=dyn_cast<PointerType>(curType))
     {
-        Type* ET = PT->getPointerElementType();
         uint32_t elementSize = DL->getTypeAllocSize(ET);
         uint32_t elementOffset = Offset/elementSize;
         Indices.push_back(ConstantInt::get(Int32Ty, elementOffset));
         Offset %= elementSize;
-        curType = ET;
     }
     Type* typeAtLastNotZero = curType;
     uint32_t indicesLengthAtLastNotZero = 1;
@@ -673,7 +669,7 @@ Constant* PreExecute::findPointerFromGlobal(const DataLayout* DL,
     llvm::SmallVector<Constant*, 4> Indices;
     // This is needed to dereference global
     llvm::Type* typeFound = getTypeSafeGepForAddress(Indices, Int32Ty, DL,
-            GV->getType(),
+            GV->getValueType(),
             memType->getPointerElementType(), Offset);
     if (!typeFound)
         return NULL;
