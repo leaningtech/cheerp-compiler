@@ -1365,7 +1365,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(const
 		return COMPILE_OK;
 	}
 	if ((func->getIntrinsicID()==Intrinsic::cheerp_allocate || func->getIntrinsicID()==Intrinsic::cheerp_allocate_array) &&
-	    (asmjs || TypeSupport::isAsmJSPointer(func->getReturnType())))
+	    (asmjs || TypeSupport::isAsmJSPointed(callV.getParamElementType(0))))
 	{
 		Function* fmalloc = module.getFunction("malloc");
 		if (!fmalloc)
@@ -1375,7 +1375,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(const
 		stream << ")|0";
 		return COMPILE_OK;
 	}
-	else if (asmjs && func->getIntrinsicID()==Intrinsic::cheerp_reallocate && (asmjs || TypeSupport::isAsmJSPointer(func->getReturnType())))
+	else if (asmjs && func->getIntrinsicID()==Intrinsic::cheerp_reallocate && (asmjs || TypeSupport::isAsmJSPointed(callV.getParamElementType(0))))
 	{
 		Function* frealloc = module.getFunction("realloc");
 		if (!frealloc)
