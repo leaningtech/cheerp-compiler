@@ -323,6 +323,7 @@ private:
 	 * Compile memcpy and memmove
 	 */
 	void compileMemFunc(const llvm::Value* dest,
+	                    llvm::Type* destElementType,
 	                    const llvm::Value* srcOrResetVal,
 	                    const llvm::Value* size);
 
