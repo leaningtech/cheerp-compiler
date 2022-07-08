@@ -293,7 +293,7 @@ bool TypeOptimizer::canCollapseStruct(llvm::StructType* st, llvm::StructType* ne
 	// NOTE: We allow the collapsing of client pointers
 	if(!TypeSupport::isJSExportedType(newStruct, *module) &&
 		!TypeSupport::hasByteLayout(st) &&
-		!newType->isIntegerTy(8) && (!newType->isPointerTy() || TypeSupport::isClientType(newType->getPointerElementType())))
+		!newType->isIntegerTy(8) && (!newType->isPointerTy() || TypeSupport::isClientPtrType(cast<PointerType>(newType))))
 	{
 		// If this type is an unsafe downcast source and can't be collapse
 		// we need to fall through to correctly set the mapped element

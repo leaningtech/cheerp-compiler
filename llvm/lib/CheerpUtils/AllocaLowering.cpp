@@ -97,7 +97,7 @@ bool AllocaLowering::runOnFunction(Function& F, DominatorTree& DT, cheerp::Globa
 				Type* allocTy = ai->getAllocatedType();
 				// Frontend checks should have made sure that allocas of anyrefs are
 				// always promotable to registers, so if we find one, just promote it
-				if (allocTy->isPointerTy() && cheerp::TypeSupport::isClientType(allocTy->getPointerElementType()))
+				if (allocTy->isPointerTy() && cheerp::TypeSupport::isClientPtrType(cast<PointerType>(allocTy)))
 				{
 					assert(isAllocaPromotable(ai) && "Alloca of externref not promotable to register");
 					allocasToPromote.push_back(ai);

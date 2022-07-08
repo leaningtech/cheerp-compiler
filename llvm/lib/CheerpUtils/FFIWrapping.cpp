@@ -88,7 +88,7 @@ static bool needsWrapping(const Function* F)
 			return false;
 		// Excluding client pointers (which are always anyref), we support only
 		// split regulars, and they always need the wrapper
-		if (TypeSupport::isClientType(ty->getPointerElementType()))
+		if (TypeSupport::isClientPtrType(cast<PointerType>(ty)))
 			return false;
 		return true;
 	};

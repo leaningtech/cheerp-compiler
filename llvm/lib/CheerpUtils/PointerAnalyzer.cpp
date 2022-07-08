@@ -1554,7 +1554,7 @@ POINTER_KIND PointerAnalyzer::getPointerKindForReturn(const Function* F) const
 	{
 		if (F->getName() == StringRef("__getStackPtr"))
 			return RAW;
-		if (TypeSupport::isClientType(F->getReturnType()->getPointerElementType()))
+		if (TypeSupport::isClientPtrType(cast<PointerType>(F->getReturnType())))
 			return COMPLETE_OBJECT;
 		return SPLIT_REGULAR;
 	}
