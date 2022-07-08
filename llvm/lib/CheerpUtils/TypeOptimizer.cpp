@@ -1266,7 +1266,10 @@ uint8_t TypeOptimizer::rewriteGEPIndexes(SmallVector<Value*, 4>& newIndexes, Typ
 					if (ArrayType* rewrittenAsArray = dyn_cast<ArrayType>(rewritten))
 						elementType = rewrittenAsArray->getArrayElementType();
 					else
+					{
+						assertPointerElementOrOpaque(mappedPointedType, rewriteType(getElementType(curType, srcType)));
 						elementType = mappedPointedType->getPointerElementType();
+					}
 				}
 
 				assert(elementType);
