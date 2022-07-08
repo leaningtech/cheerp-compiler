@@ -340,6 +340,12 @@ public:
 			return false;
 	}
 
+	static bool isClientPtrType(llvm::PointerType* ptr)
+	{
+		return isClientType(ptr->getPointerElementType());
+	}
+
+
 	class ClientFunctionDemangled
 	{
 	public:

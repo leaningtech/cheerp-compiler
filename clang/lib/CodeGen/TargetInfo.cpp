@@ -10214,7 +10214,7 @@ public:
     if(Ty->isIntegerTy(64))
       return nullptr;
     // Only allow basic types and pointers to client objects
-    if(Ty->isIntegerTy() || Ty->isFloatingPointTy() || (Ty->isPointerTy() && cheerp::TypeSupport::isClientType(Ty->getPointerElementType())))
+    if(Ty->isIntegerTy() || Ty->isFloatingPointTy() || (Ty->isPointerTy() && cheerp::TypeSupport::isClientPtrType(cast<llvm::PointerType>(Ty))))
       return Ty;
     return nullptr;
   }
