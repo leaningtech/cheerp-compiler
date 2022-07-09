@@ -1334,16 +1334,11 @@ void ItaniumCXXABI::emitRethrow(CodeGenFunction &CGF, bool isNoReturn) {
     CGF.EmitRuntimeCallOrInvoke(Fn);
 }
 
-static llvm::FunctionCallee getAllocateExceptionFn(CodeGenModule &CGM, QualType QTy) {
+static llvm::FunctionCallee getAllocateExceptionFn(CodeGenModule &CGM, llvm::Type* pointedTy) {
   // void *__cxa_allocate_exception(size_t thrown_size);
 
   if (!CGM.getTarget().isByteAddressable()) {
-    llvm::Type* pointedTy = CGM.getTypes().ConvertType(QTy);
     llvm::Type* Tys[2] = { pointedTy->getPointerTo(), pointedTy->getPointerTo() };
-    if(pointedTy->isPointerTy())
-    {
-	    Tys[0] = Tys[1] = CGM.VoidPtrPtrTy;
-    }
     llvm::Function *F = CGM.getIntrinsic(llvm::Intrinsic::cheerp_allocate, Tys);
     return llvm::FunctionCallee(F);
   }
@@ -1396,7 +1391,15 @@ void ItaniumCXXABI::emitThrow(CodeGenFunction &CGF, const CXXThrowExpr *E) {
   llvm::Type *SizeTy = CGF.ConvertType(getContext().getSizeType());
   uint64_t TypeSize = getContext().getTypeSizeInChars(ThrowType).getQuantity();
 
-  llvm::FunctionCallee AllocExceptionFn = getAllocateExceptionFn(CGM, ThrowType);
+  llvm::Type* elemTy = nullptr;
+
+  if (!CGM.getTarget().isByteAddressable()) {
+    elemTy = CGM.getTypes().ConvertType(ThrowType);
+    if(elemTy->isPointerTy())
+      elemTy = CGM.VoidPtrTy;
+  }
+
+  llvm::FunctionCallee AllocExceptionFn = getAllocateExceptionFn(CGM, elemTy);
 
   llvm::FunctionType* FT = AllocExceptionFn.getFunctionType();
   SmallVector<llvm::Value*> Ops(FT->getNumParams());
@@ -1410,8 +1413,11 @@ void ItaniumCXXABI::emitThrow(CodeGenFunction &CGF, const CXXThrowExpr *E) {
   llvm::CallInst *ExceptionPtr = CGF.EmitNounwindRuntimeCall(
       AllocExceptionFn, Ops, "exception");
 
-  if (FT->getNumParams() == 2)
-    ExceptionPtr->addParamAttr(0, llvm::Attribute::get(ExceptionPtr->getContext(), llvm::Attribute::ElementType, AllocExceptionFn.getFunctionType()->getParamType(0)->getPointerElementType()));
+  if (FT->getNumParams() == 2) {
+    llvm::Type* paramType = AllocExceptionFn.getFunctionType()->getParamType(0);
+    assert(paramType->isOpaquePointerTy() || paramType->getNonOpaquePointerElementType() == elemTy);
+    ExceptionPtr->addParamAttr(0, llvm::Attribute::get(ExceptionPtr->getContext(), llvm::Attribute::ElementType, elemTy));
+  }
 
   CharUnits ExnAlign = CGF.getContext().getExnObjectAlignment();
   if(!CGM.getTarget().isByteAddressable() && ThrowType->isPointerType())
@@ -1656,7 +1662,8 @@ llvm::Value *ItaniumCXXABI::EmitDynamicCastCall(
     llvm::Type* Tys[] = { DestLTy, DynCastObj->getType() };
     llvm::Function* intrinsic = llvm::Intrinsic::getDeclaration(&CGF.CGM.getModule(), llvm::Intrinsic::cheerp_downcast, Tys);
     llvm::Value* DynamicDowncast = CGF.Builder.CreateCall(intrinsic, {DynCastObj, Value});
-    cast<llvm::CallBase>(DynamicDowncast)->addParamAttr(0, llvm::Attribute::get(DynamicDowncast->getContext(), llvm::Attribute::ElementType, DynCastObj->getType()->getPointerElementType()));
+    assert(DynCastObj->getType()->isOpaquePointerTy() || DynCastObj->getType()->getNonOpaquePointerElementType() == ThisAddr.getElementType());
+    cast<llvm::CallBase>(DynamicDowncast)->addParamAttr(0, llvm::Attribute::get(DynamicDowncast->getContext(), llvm::Attribute::ElementType, ThisAddr.getElementType()));
     CGF.Builder.CreateBr(EndBB);
     // If the returned offset is zero, we can passthrough the value
     llvm::BasicBlock *ZeroBB = CGF.createBasicBlock("cheerp_null_downcast");
