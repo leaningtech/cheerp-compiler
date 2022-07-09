@@ -2028,7 +2028,9 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
 		      CGF.getContext().getPointerType(E->getType()),
 		      CGF.getContext().getPointerType(DestTy),
 		      asmjs);
-      Addr = Address(Builder.CreateCall(intrinsic, Addr.getPointer()), CGF.ConvertTypeForMem(DestTy), Addr.getAlignment());
+      llvm::CallBase* CB = Builder.CreateCall(intrinsic, Addr.getPointer());
+      CB->addParamAttr(0, llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, Addr.getElementType()));
+      Addr = Address(CB, CGF.ConvertTypeForMem(DestTy), Addr.getAlignment());
     }
     LValue LV = CGF.MakeAddrLValue(Addr, DestTy);
     return EmitLoadOfLValue(LV, CE->getExprLoc());
@@ -2186,7 +2188,9 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
     else
     {
       llvm::Function* intrinsic = CGF.CGM.GetUserCastIntrinsic(CE, E->getType(), DestTy, asmjs);
-      return Builder.CreateCall(intrinsic, Src);
+      llvm::CallBase* CB = Builder.CreateCall(intrinsic, Src);
+      CB->addParamAttr(0, llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, Src->getType()->getPointerElementType()));
+      return CB;
     }
     return Builder.CreateBitCast(Src, DstTy);
   }

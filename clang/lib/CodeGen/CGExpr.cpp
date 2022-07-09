@@ -1108,7 +1108,9 @@ Address CodeGenFunction::EmitPointerWithAlignment(const Expr *E,
               ECE->getSubExpr()->getType(),
               ECE->getTypeAsWritten(),
               asmjs);
-            Addr = Address(Builder.CreateCall(intrinsic, Addr.getPointer()),
+            llvm::CallBase* CB = Builder.CreateCall(intrinsic, Addr.getPointer());
+            CB->addParamAttr(0, llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, Addr.getElementType()));
+            Addr = Address(CB,
               ConvertTypeForMem(ECE->getTypeAsWritten()->getPointeeType()), Align);
 
             return Addr;
@@ -4870,7 +4872,9 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
 		      getContext().getPointerType(E->getSubExpr()->getType()),
 		      CE->getTypeAsWritten(),
 		      asmjs);
-      V = Address(Builder.CreateCall(intrinsic, V.getPointer()),
+      llvm::CallBase* CB = Builder.CreateCall(intrinsic, V.getPointer());
+      CB->addParamAttr(0, llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, V.getElementType()));
+      V = Address(CB,
 		      ConvertTypeForMem(CE->getTypeAsWritten()->getPointeeType()), V.getAlignment());
     }
     return MakeAddrLValue(V, E->getType(), LV.getBaseInfo(),
