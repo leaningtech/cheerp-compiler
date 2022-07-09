@@ -1631,7 +1631,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 								auto rewrittenOperand = localInstMapping.getMappedOperand(ptrOperand);
 								assert(rewrittenOperand.second == 0);
 								Value* newPtrOperand = rewrittenOperand.first;
-								Type* newType = GetElementPtrInst::getIndexedType(newPtrOperand->getType()->getPointerElementType(), Indexes);
+								Type* newType = GetElementPtrInst::getIndexedType(rewriteType(curType), Indexes);
 								Value* newGEP = NULL;
 								if(newType->isArrayTy())
 								{
