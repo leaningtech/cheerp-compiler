@@ -1677,8 +1677,9 @@ void TypeOptimizer::rewriteFunction(Function* F)
 										auto rewrittenOperand = localInstMapping.getMappedOperand(CI->getOperand(i));
 										assert(rewrittenOperand.second==0);
 										Value* mappedOp = rewrittenOperand.first;
+										assertPointerElementOrOpaque(mappedOp->getType(), rewrittenArgType);
 										assert(mappedOp->getType()->isPointerTy() &&
-											!mappedOp->getType()->getPointerElementType()->isArrayTy());
+											!rewrittenArgType->isArrayTy());
 										// 1) Create an alloca of the right type
 										Value* byValCopy=Builder.CreateAlloca(rewrittenArgType, nullptr, "byvalcopy");
 										byValCopy=Builder.CreateConstGEP2_32(rewrittenArgType, byValCopy, 0, 0);
