@@ -1384,8 +1384,8 @@ static llvm::Function* getExceptionDestructorThunk(CodeGenModule& CGM, llvm::Con
 	Thunk->setSection("asmjs");
   llvm::BasicBlock* Entry = llvm::BasicBlock::Create(CGM.getLLVMContext(), "entry", Thunk);
   llvm::Value* Arg = Thunk->getArg(0);
-  Arg = llvm::BitCastInst::CreatePointerCast(Arg, CGM.VoidPtrTy, "", Entry);
-  llvm::CallInst::Create(llvm::FunctionCallee(Ty, Dest), Arg, "", Entry);
+  Arg = llvm::BitCastInst::CreatePointerCast(Arg, Dest->getFunctionType()->getParamType(0), "", Entry);
+  llvm::CallInst::Create(Dest, Arg, "", Entry);
   llvm::ReturnInst::Create(CGM.getLLVMContext(), Entry);
   return Thunk;
 }
