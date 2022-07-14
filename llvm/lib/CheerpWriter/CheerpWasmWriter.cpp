@@ -1805,7 +1805,6 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 								encodeInst(WasmOpcode::F64_PROMOTE_F32, code);
 						}
 						uint32_t importedId = linearHelper.getBuiltinId(b);
-						assert(importedId);
 						encodeInst(WasmU32Opcode::CALL, importedId, code);
 						if(floatType)
 							encodeInst(WasmOpcode::F32_DEMOTE_F64, code);
