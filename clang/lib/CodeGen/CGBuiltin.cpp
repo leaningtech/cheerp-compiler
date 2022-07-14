@@ -12192,7 +12192,11 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
     llvm::Type *Tys[] = { ConvertType(E->getType()), Ops[0]->getType() };
     Function *F = CGM.getIntrinsic(Intrinsic::cheerp_downcast, Tys);
     CallBase* CB = Builder.CreateCall(F, Ops);
-    CB->addParamAttr(0, llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, Ops[0]->getType()->getPointerElementType()));
+
+    llvm::Type* elementType = ConvertTypeForMem(E->getArg(0)->getType()->getPointeeType());
+    assert(Ops[0]->getType()->isOpaquePointerTy() || Ops[0]->getType()->getNonOpaquePointerElementType() == elementType);
+
+    CB->addParamAttr(0, llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, elementType));
     return CB;
   }
   else if (BuiltinID == Cheerp::BI__builtin_cheerp_pointer_kind) {
