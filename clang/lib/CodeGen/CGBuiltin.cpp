@@ -3489,16 +3489,22 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
       // We need an explicit cast after the call, void* can't be used
       llvm::Type *Tys[] = { VoidPtrTy, VoidPtrTy };
       const CastExpr* retCE=dyn_cast_or_null<CastExpr>(parent);
+      llvm::Type *elementType = nullptr;
       if (!retCE || retCE->getType()->isVoidPointerType())
         CGM.getDiags().Report(E->getBeginLoc(), diag::err_cheerp_alloc_requires_cast);
       else
       {
           QualType returnType=retCE->getType();
           Tys[0] = Tys[1] = ConvertType(returnType);
+          elementType = ConvertType(returnType->getPointeeType());
       }
       Function *F = CGM.getIntrinsic(Intrinsic::cheerp_allocate, Tys);
       CallBase* CB = Builder.CreateCall(F, {llvm::Constant::getNullValue(Tys[0]),Size});
-      CB->addParamAttr(0, llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, Tys[0]->getPointerElementType()));
+
+      assert(elementType);
+      assert(Tys[0]->isOpaquePointerTy() || Tys[0]->getNonOpaquePointerElementType() == elementType);
+
+      CB->addParamAttr(0, llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, elementType));
       return RValue::get(CB);
     }
     const TargetInfo &TI = getContext().getTargetInfo();
