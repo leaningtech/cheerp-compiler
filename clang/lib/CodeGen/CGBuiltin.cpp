@@ -12271,7 +12271,11 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
     llvm::Value* sizeInBytes = Builder.CreateMul(Ops[0], Ops[1]);
     llvm::Value* NewOp[2] = { llvm::Constant::getNullValue(Tys[0]), sizeInBytes };
     llvm::CallBase* Ret = Builder.CreateCall(F, NewOp);
-    Ret->addParamAttr(0, llvm::Attribute::get(Ret->getContext(), llvm::Attribute::ElementType, Tys[0]->getPointerElementType()));
+
+    llvm::Type* elementType = ConvertTypeForMem(retCE->getType()->getPointeeType());
+    assert(Tys[0]->isOpaquePointerTy() || Tys[0]->getNonOpaquePointerElementType() == elementType);
+
+    Ret->addParamAttr(0, llvm::Attribute::get(Ret->getContext(), llvm::Attribute::ElementType, elementType));
     Builder.CreateMemSet(Ret, ConstantInt::get(Int8Ty, 0), sizeInBytes, MaybeAlign(1), false, NULL, NULL, NULL,
         CGBuilderTy::CheerpTypeInfo::get(getTarget().isByteAddressable(), ConvertType(retCE->getType()->getPointeeType())));
     return Ret;
