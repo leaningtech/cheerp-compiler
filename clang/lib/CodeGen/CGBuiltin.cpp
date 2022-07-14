@@ -12317,11 +12317,13 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
       Tys[0]=Tys[1];
     }
 
+    llvm::Type* elementType = ConvertTypeForMem(reallocType->getPointeeType());
+    assert(Tys[0]->isOpaquePointerTy() || Tys[0]->getNonOpaquePointerElementType() == elementType);
+
     Function *reallocFunc = CGM.getIntrinsic(Intrinsic::cheerp_reallocate, Tys);
     if(asmjs) {
       CallBase* CB = Builder.CreateCall(reallocFunc, Ops);
-      assert(Tys[0]->getPointerElementType() == ConvertType(reallocType->getPointeeType()));
-      CB->addParamAttr(0, llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, ConvertType(reallocType->getPointeeType())));
+      CB->addParamAttr(0, llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, elementType));
       return CB;
     } else {
       // realloc needs to behave like malloc if the operand is null
@@ -12334,11 +12336,11 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
 
       Function *mallocFunc = CGM.getIntrinsic(Intrinsic::cheerp_allocate, Tys);
       llvm::CallBase* mallocRet = Builder.CreateCall(mallocFunc, {llvm::Constant::getNullValue(Tys[0]), Ops[1]});
-      mallocRet->addParamAttr(0, llvm::Attribute::get(mallocRet->getContext(), llvm::Attribute::ElementType, Tys[0]->getPointerElementType()));
+      mallocRet->addParamAttr(0, llvm::Attribute::get(mallocRet->getContext(), llvm::Attribute::ElementType, elementType));
       Builder.CreateBr(endBlock);
       Builder.SetInsertPoint(reallocBlock);
       llvm::CallBase* reallocRet = cast<CallBase>(Builder.CreateCall(reallocFunc, Ops));
-      reallocRet->addParamAttr(0, llvm::Attribute::get(reallocRet->getContext(), llvm::Attribute::ElementType, Tys[0]->isOpaquePointerTy() ? nullptr : Tys[0]->getNonOpaquePointerElementType()));
+      reallocRet->addParamAttr(0, llvm::Attribute::get(reallocRet->getContext(), llvm::Attribute::ElementType, elementType));
       Builder.CreateBr(endBlock);
       Builder.SetInsertPoint(endBlock);
       llvm::PHINode* Result = Builder.CreatePHI(Tys[0], 2);
