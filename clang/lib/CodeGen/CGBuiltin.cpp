@@ -12241,7 +12241,11 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
     }
     Function *F = CGM.getIntrinsic(Intrinsic::cheerp_allocate, Tys);
     CallBase* CB = Builder.CreateCall(F, {llvm::Constant::getNullValue(Tys[0]), Ops[0]});
-    CB->addParamAttr(0, llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, Tys[0]->getPointerElementType()));
+
+    llvm::Type* elementType = ConvertTypeForMem(retCE->getType()->getPointeeType());
+    assert(Tys[0]->isOpaquePointerTy() || Tys[0]->getNonOpaquePointerElementType() == elementType);
+
+    CB->addParamAttr(0, llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, elementType));
     return CB;
   }
   else if (BuiltinID == Builtin::BIcalloc) {
