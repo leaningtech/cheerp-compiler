@@ -1266,7 +1266,7 @@ uint32_t CheerpWasmWriter::compileLoadStorePointer(WasmBuffer& code, const Value
 		if(const GlobalVariable* GV = dyn_cast<GlobalVariable>(p))
 			gepWriter.addConst(linearHelper.getGlobalVariableAddress(GV));
 		else if(isa<IntToPtrInst>(p) && isa<ConstantInt>(cast<IntToPtrInst>(p)->getOperand(0)))
-			gepWriter.addConst(cast<ConstantInt>(cast<IntToPtrInst>(p)->getOperand(0))->getZExtValue());
+			gepWriter.addConst(cast<ConstantInt>(cast<IntToPtrInst>(p)->getOperand(0))->getSExtValue());
 		else
 			gepWriter.addValue(p, 1);
 
