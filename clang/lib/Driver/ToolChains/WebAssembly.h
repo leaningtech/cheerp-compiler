@@ -40,6 +40,7 @@ namespace cheerp {
     GROWMEM,
     SHAREDMEM,
     EXPORTEDTABLE,
+    EXPORTEDMEMORY,
     ANYREF,
     RETURNCALLS,
     BRANCHHINTS,
