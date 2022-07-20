@@ -26,13 +26,14 @@ namespace cheerp {
 
 NameGenerator::NameGenerator(const Module& M, const GlobalDepsAnalyzer& gda, Registerize& r,
 				const PointerAnalyzer& PA,  LinearMemoryHelper& linearHelper,
-				const std::vector<std::string>& rn, bool makeReadableNames):
+				const std::vector<std::string>& rn, bool makeReadableNames,
+				bool exportedMemory):
 				registerize(r), PA(PA), reservedNames(buildReservedNamesList(M, rn))
 {
 	if ( makeReadableNames )
 		generateReadableNames(M, gda, linearHelper);
 	else
-		generateCompressedNames(M, gda, linearHelper);
+		generateCompressedNames(M, gda, linearHelper, exportedMemory);
 }
 
 llvm::StringRef NameGenerator::getNameForEdge(const llvm::Value* v, const EdgeContext& edgeContext) const
@@ -108,7 +109,7 @@ SmallString< 4 > NameGenerator::filterLLVMName(StringRef s, NAME_FILTER_MODE fil
 	return ans;
 }
 
-void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAnalyzer& gda, LinearMemoryHelper& linearHelper)
+void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAnalyzer& gda, LinearMemoryHelper& linearHelper, bool exportedMemory)
 {
 	typedef std::pair<unsigned, const GlobalValue *> useGlobalPair;
 	// We either encode arguments in the Value or a pair of (Function, register id)
@@ -483,8 +484,12 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 		tableIt.second.name = nameHelper.makeGlobalName();
 	}
 	// Generate the rest of the builtins
-	for(int i=IMUL;i<=FETCHBUFFER;i++)
+	for(int i=IMUL;i<MEMORY;i++)
 		builtins[i] = nameHelper.makeGlobalName();
+	if(exportedMemory)
+		builtins[MEMORY] = "memory";
+	else
+		builtins[MEMORY] = nameHelper.makeGlobalName();
 
 	if (shortestLocalName.size() == 0)
 		assignLocalName(nameHelper.makeLocalName());

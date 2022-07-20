@@ -216,7 +216,7 @@ PreservedAnalyses cheerp::CheerpWritePassImpl::run(Module& M, ModuleAnalysisMana
   std::vector<std::string> reservedNames(ReservedNames.begin(), ReservedNames.end());
   std::sort(reservedNames.begin(), reservedNames.end());
 
-  cheerp::NameGenerator namegen(M, GDA, registerize, PA, linearHelper, reservedNames, PrettyCode);
+  cheerp::NameGenerator namegen(M, GDA, registerize, PA, linearHelper, reservedNames, PrettyCode, WasmExportedMemory);
 
   std::string wasmFile;
   std::string asmjsMemFile;

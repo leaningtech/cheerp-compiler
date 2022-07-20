@@ -648,6 +648,8 @@ void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
   auto features = getWasmFeatures(D, Args);
   if(std::find(features.begin(), features.end(), EXPORTEDTABLE) != features.end())
     CmdArgs.push_back("-cheerp-wasm-exported-table");
+  if(std::find(features.begin(), features.end(), EXPORTEDMEMORY) != features.end())
+    CmdArgs.push_back("-cheerp-wasm-exported-memory");
 
   addPass("function(CheerpLowerInvoke)");
   if (Args.hasArg(options::OPT_fexceptions))
@@ -693,6 +695,7 @@ static cheerp::CheerpWasmOpt parseWasmOpt(StringRef opt)
     .Case("growmem", cheerp::GROWMEM)
     .Case("sharedmem", cheerp::SHAREDMEM)
     .Case("exportedtable", cheerp::EXPORTEDTABLE)
+    .Case("exportedmemory", cheerp::EXPORTEDMEMORY)
     .Case("externref", cheerp::ANYREF)
     .Case("returncalls", cheerp::RETURNCALLS)
     .Case("branchhinting", cheerp::BRANCHHINTS)
@@ -840,6 +843,9 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
         break;
       case EXPORTEDTABLE:
         CmdArgs.push_back("-cheerp-wasm-exported-table");
+        break;
+      case EXPORTEDMEMORY:
+        CmdArgs.push_back("-cheerp-wasm-exported-memory");
         break;
       case ANYREF:
         CmdArgs.push_back("-cheerp-wasm-externref");

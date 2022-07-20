@@ -65,10 +65,10 @@ public:
 		GROW_MEM,
 		ASSIGN_HEAPS,
 		DUMMY,
-		MEMORY,
 		HANDLE_VAARG,
 		EXCEPTION,
 		FETCHBUFFER,
+		MEMORY,
 		HEAP8,
 		HEAP16,
 		HEAP32,
@@ -82,7 +82,7 @@ public:
 	 * all the global variable names
 	 */
 	explicit NameGenerator( const llvm::Module&, const GlobalDepsAnalyzer &, Registerize &, const PointerAnalyzer& PA, LinearMemoryHelper& linearHelper,
-		const std::vector<std::string>& reservedNames, bool makeReadableNames = true );
+		const std::vector<std::string>& reservedNames, bool makeReadableNames, bool exportedMemory );
 
 	/**
 	 * Return the computed name for the given variable.
@@ -194,7 +194,7 @@ private:
 		if (shortestLocalName.size() == 0 || name.size() < shortestLocalName.size())
 			shortestLocalName = std::string(name);
 	}
-	void generateCompressedNames( const llvm::Module& M, const GlobalDepsAnalyzer &, LinearMemoryHelper& linearHelper);
+	void generateCompressedNames( const llvm::Module& M, const GlobalDepsAnalyzer &, LinearMemoryHelper& linearHelper, bool exportedMemory);
 	void generateReadableNames( const llvm::Module& M, const GlobalDepsAnalyzer &, LinearMemoryHelper& linearHelper );
 
 	Registerize& registerize;
