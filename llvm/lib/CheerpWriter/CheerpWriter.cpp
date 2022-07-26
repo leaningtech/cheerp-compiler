@@ -5780,7 +5780,8 @@ void CheerpWriter::compileGrowMem()
 	stream << "var pages=(bytes+65535)>>16;" << NewLine;
 	stream << "try{" << NewLine;
 	stream << "__asm." << namegen.getBuiltinName(NameGenerator::MEMORY) << ".grow(pages);" << NewLine;
-	stream << namegen.getBuiltinName(NameGenerator::Builtin::ASSIGN_HEAPS) << "(__asm." << namegen.getBuiltinName(NameGenerator::MEMORY) << ".buffer);" << NewLine;
+	stream << "__heap=__asm." << namegen.getBuiltinName(NameGenerator::MEMORY) << ".buffer;" << NewLine;
+	stream << namegen.getBuiltinName(NameGenerator::Builtin::ASSIGN_HEAPS) << "(__heap);" << NewLine;
 	stream << "return pages<<16;" << NewLine;
 	stream << "}catch(e){" << NewLine;
 	stream << "return -1;" << NewLine;
