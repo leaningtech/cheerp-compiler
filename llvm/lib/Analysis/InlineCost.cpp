@@ -3000,6 +3000,9 @@ bool llvm::isInlineViableCheerp(Function &F, Function &Caller) {
           return false;
         }
       }
+      // No invokes
+      if (isa<InvokeInst>(II))
+        return false;
       // No allocas (TODO relax this)
       if (isa<AllocaInst>(II))
         return false;
