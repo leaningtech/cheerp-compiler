@@ -3014,13 +3014,30 @@ bool llvm::isInlineViableCheerp(Function &F, Function &Caller) {
         if (si->getValueOperand()->getType()->isIntegerTy(64))
           return false;
       }
-      // No loads of pointers of pointers (TODO relax this)
-      if (const LoadInst* li = dyn_cast<LoadInst>(II)) {
-        if (li->getType()->isPointerTy() && li->getType()->getPointerElementType()->isPointerTy())
-          return false;
-      }
       if (II->getType()->isIntegerTy(64))
 	return false;
+
+      // No PtrToIntInst
+      if (isa<PtrToIntInst>(II))
+        return false;
+
+      // Here we forbid any usage of T** - it used to be an explicit tracking on loads, now we move that
+      //	to a tracking on the usage of T**
+      Type* elementType = nullptr;
+      if (isa<BitCastInst>(II) && II->getOperand(0)->getType()->isPointerTy()) {
+        // Any bitcasts on pointers implies opaque pointer information is available
+        elementType = II->getOperand(0)->getType()->getNonOpaquePointerElementType();
+      }
+      if (const GetElementPtrInst* gep = dyn_cast<GetElementPtrInst>(II)) {
+        elementType = gep->getSourceElementType();
+      }
+      if (const CallInst* ci = dyn_cast<CallInst>(II)) {
+        elementType = ci->getParamElementType(0);
+        assert(elementType);  // Since we checked before hand that only cheerp_upcast_collapsed
+                              // or cheerp_cast_user could be here, param annotation has to be here
+      }
+      if (elementType && elementType->isPointerTy())
+        return false;
     }
   }
   return true;
