@@ -15481,6 +15481,19 @@ void Sema::DefineImplicitLambdaToFunctionPointerConversion(
   Invoker->setType(Conv->getReturnType()->getPointeeType());
   Invoker->setBody(new (Context) CompoundStmt(Conv->getLocation()));
 
+  // CHEERP: inherit the asmjs/genericjs attributes from the lambda decl
+  const Decl* referenceDecl = Invoker;
+  auto attributeToAdd = cheerp::getCheerpAttributeToAdd(referenceDecl, Context);
+
+  if (attributeToAdd == cheerp::CheerpAttributeToAdd::AsmJSLike) {
+    cheerp::checksOnAsmJSAttributeInjection(*this, Invoker);
+    auto AsmJSSpelling = referenceDecl->hasAttr<AsmJSAttr>() ? referenceDecl->getAttr<AsmJSAttr>()->getSemanticSpelling() :
+	    (LangOpts.getCheerpLinearOutput() == LangOptions::CHEERP_LINEAR_OUTPUT_AsmJs ? AsmJSAttr::CXX11_cheerp_asmjs : AsmJSAttr::CXX11_cheerp_wasm);
+    Invoker->addAttr(AsmJSAttr::CreateImplicit(Context, Invoker->getBeginLoc(), AttributeCommonInfo::AS_GNU, AsmJSSpelling));
+  } else if (attributeToAdd == cheerp::CheerpAttributeToAdd::GenericJS) {
+    Invoker->addAttr(GenericJSAttr::CreateImplicit(Context, Invoker->getBeginLoc(), AttributeCommonInfo::AS_GNU, GenericJSAttr::CXX11_cheerp_genericjs));
+  }
+
   // Construct the body of the conversion function { return __invoke; }.
   Expr *FunctionRef = BuildDeclRefExpr(Invoker, Invoker->getType(),
                                        VK_LValue, Conv->getLocation());
