@@ -1373,7 +1373,9 @@ static RValue EmitNewDeleteCall(CodeGenFunction &CGF,
                                 types);
     llvm::Value* Arg[] = { llvm::Constant::getNullValue(types[0]), Args[0].getKnownRValue().getScalarVal() };
     CallOrInvoke = CGF.Builder.CreateCall(cast<llvm::FunctionType>(CalleeAddr->getValueType()), CalleeAddr, Arg);
-    CallOrInvoke->addParamAttr(0, llvm::Attribute::get(CallOrInvoke->getContext(), llvm::Attribute::ElementType, types[0]->getPointerElementType()));
+    llvm::Type* elementType = CGF.ConvertTypeForMem(retType->getPointeeType());
+    assert(types[0]->isOpaquePointerTy() || types[0]->getNonOpaquePointerElementType() == elementType);
+    CallOrInvoke->addParamAttr(0, llvm::Attribute::get(CallOrInvoke->getContext(), llvm::Attribute::ElementType, elementType));
     RV = RValue::get(CallOrInvoke);
   }
   else if(IsDelete && cheerp && !(asmjs && user_defined_new))
