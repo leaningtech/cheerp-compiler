@@ -1701,11 +1701,11 @@ static Value *getAdjustedPtr(IRBuilderTy &IRB, const DataLayout &DL, Value *Ptr,
 
   // On the off chance we were targeting i8*, guard the bitcast here.
   if (cast<PointerType>(Ptr->getType()) != TargetPtrTy) {
-    Type* targetType = PointerTy->getPointerElementType();
+    assert(PointerTy->isOpaquePointerTy() || PointerTy->getNonOpaquePointerElementType() == TargetTy);
     // Cheerp: Only allow safe casts to direct bases, unless we are in asm.js mode
     if(StructType* StTy = dyn_cast<StructType>(Ptr->getType()->getPointerElementType())) {
       while(StructType* directBase = StTy->getDirectBase()) {
-        if(directBase == targetType) {
+        if(directBase == TargetTy) {
           // The target type is a directbase of the current one, we can create a bitcast
           Ptr = IRB.CreateBitCast(Ptr, PointerTy);
           return Ptr;
