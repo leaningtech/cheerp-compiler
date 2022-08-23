@@ -421,13 +421,14 @@ class PointerAnalysis : public llvm::AnalysisInfoMixin<PointerAnalysis> {
   static llvm::AnalysisKey Key;
 
 public:
+  static llvm::Module* modulePtr;
+
   /// Provide the result typedef for this analysis pass.
   using Result = PointerAnalysisWrapper;
 
   /// Run the analysis pass over a function and produce a dominator tree.
   Result run(llvm::Module &M, llvm::ModuleAnalysisManager &MAM)
   {
-	static llvm::Module* modulePtr = nullptr;
 	assert(modulePtr != &M);
 	modulePtr = &M;
 	  return PointerAnalysisWrapper();

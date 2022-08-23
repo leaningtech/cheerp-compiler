@@ -30,6 +30,8 @@ namespace cheerp {
 PointerKindWrapper PointerKindWrapper::staticDefaultValue(COMPLETE_OBJECT);
 PointerConstantOffsetWrapper PointerConstantOffsetWrapper::staticDefaultValue(PointerConstantOffsetWrapper::INVALID);
 
+llvm::Module* PointerAnalysis::modulePtr = nullptr;
+
 void IndirectPointerKindConstraint::dump() const
 {
 	switch(kind)
