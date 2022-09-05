@@ -519,6 +519,8 @@ public:
 	static void encodeInst(WasmS32Opcode opcode, int32_t immediate, WasmBuffer& code);
 	static void encodeInst(WasmS64Opcode opcode, int64_t immediate, WasmBuffer& code);
 	static void encodeInst(WasmU32Opcode opcode, uint32_t immediate, WasmBuffer& code);
+  static void encodeInst(WasmSIMDOpcode opcode, WasmBuffer& code);
+  static void encodeInst(WasmSIMDU32U32Opcode opcode, uint32_t i1, uint32_t i2, WasmBuffer& code);
 	static void encodeInst(WasmU32U32Opcode opcode, uint32_t i1, uint32_t i2, WasmBuffer& code);
 	void encodeInst(WasmInvalidOpcode opcode, WasmBuffer& code);
 	void encodeBranchHint(const llvm::BranchInst* BI, const bool IfNot, WasmBuffer& code);

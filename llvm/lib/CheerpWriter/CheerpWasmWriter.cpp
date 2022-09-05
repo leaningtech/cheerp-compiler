@@ -433,6 +433,20 @@ void CheerpWasmWriter::encodeInst(WasmU32U32Opcode opcode, uint32_t i1, uint32_t
 	encodeULEB128(i2, code);
 }
 
+void CheerpWasmWriter::encodeInst(WasmSIMDOpcode opcode, WasmBuffer& code)
+{
+  code << static_cast<char>(WasmOpcode::SIMD);
+  encodeULEB128(static_cast<uint64_t>(opcode), code);
+}
+
+void CheerpWasmWriter::encodeInst(WasmSIMDU32U32Opcode opcode, uint32_t i1, uint32_t i2, WasmBuffer& code)
+{
+  code << static_cast<char>(WasmOpcode::SIMD);
+  code << static_cast<char>(opcode);
+  encodeULEB128(i1, code);
+  encodeULEB128(i2, code);
+}
+
 void CheerpWasmWriter::encodeInst(WasmInvalidOpcode opcode, WasmBuffer& code)
 {
 	nopLocations.push_back(code.tell());
