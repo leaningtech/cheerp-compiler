@@ -10,6 +10,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "CheerpTargetMachine.h"
+#include "CheerpTargetTransformInfo.h"
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
@@ -301,4 +302,9 @@ const CheerpTargetLowering* CheerpSubtarget::getTargetLowering() const
 const CheerpSubtarget* CheerpTargetMachine::getSubtargetImpl(const Function &F) const
 {
   return &subTargetInfo;
+}
+
+TargetTransformInfo CheerpTargetMachine::getTargetTransformInfo(const Function &F) const
+{
+  return TargetTransformInfo(CheerpTTIImpl(this, F));
 }

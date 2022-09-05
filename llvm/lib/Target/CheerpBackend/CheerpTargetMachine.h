@@ -72,6 +72,7 @@ public:
   virtual TargetLoweringObjectFile *getObjFileLowering() const override {
     return targetLoweringObjectFile;
   }
+  TargetTransformInfo getTargetTransformInfo(const Function &F) const override;
 };
 
 extern Target TheCheerpBackendTarget;
