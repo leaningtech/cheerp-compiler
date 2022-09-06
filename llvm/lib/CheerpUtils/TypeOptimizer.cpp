@@ -185,6 +185,8 @@ void TypeOptimizer::gatherAllTypesInfo(const Module& M)
 				}
 				else if(const BitCastInst* BC=dyn_cast<BitCastInst>(&I))
 				{
+					if (!BC->getDestTy()->isPointerTy())
+						continue;
 					// Find out all the types that bytelayout structs are casted to
 					StructType* st = dyn_cast<StructType>(BC->getSrcTy()->getNonOpaquePointerElementType());
 					if(!st || !st->hasByteLayout())
