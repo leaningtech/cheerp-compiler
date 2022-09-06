@@ -1462,7 +1462,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 		}
 		case Instruction::BitCast:
 		{
-			assert(I.getType()->isPointerTy());
+			//assert(I.getType()->isPointerTy());
 			compileOperand(code, I.getOperand(0));
 			break;
 		}
