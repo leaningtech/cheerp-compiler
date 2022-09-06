@@ -10580,7 +10580,7 @@ LoopVectorizeResult LoopVectorizePass::runImpl(
   //Cheerp: currently JS does not support vector instructions,
   //they might be supported in the future though.
   const DataLayout &DL = F.getParent()->getDataLayout();
-  if (!DL.isByteAddressable()) {
+  if (!DL.isByteAddressable() && F.getSection() != "asmjs") {
     LLVM_DEBUG(dbgs() << "LV: Not vectorizing on NBA target");
     return LoopVectorizeResult(false, false);
   }
