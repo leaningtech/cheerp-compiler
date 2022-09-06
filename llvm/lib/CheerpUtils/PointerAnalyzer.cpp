@@ -500,6 +500,12 @@ bool PointerUsageVisitor::visitByteLayoutChain( const Value * p )
 
 PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, const Value* p, bool first)
 {
+  if (p->getType()->isVectorTy())
+  {
+    pointerKindData.valueMap.insert( std::make_pair(p, RAW ) );
+    return pointerKindData.valueMap.insert( std::make_pair(p, RAW ) ).first->second;
+  }
+
 	if (p->getType()->isPointerTy())
 	{
 		if (isa<ConstantPointerNull>(p) || isa<UndefValue>(p))
