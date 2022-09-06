@@ -226,6 +226,10 @@ public:
   virtual void getTargetDefines(const LangOptions &Opts,
                                 MacroBuilder &Builder) const override;
 
+  bool hasFeature(StringRef Feature) const final;
+  bool initFeatureMap(llvm::StringMap<bool> &Features, DiagnosticsEngine &Diags,
+                 StringRef CPU, const std::vector<std::string> &FeaturesVec) const override;
+
   virtual BuiltinVaListKind getBuiltinVaListKind() const override{
     return TargetInfo::CharPtrBuiltinVaList;
   }

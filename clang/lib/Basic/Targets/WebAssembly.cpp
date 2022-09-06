@@ -315,6 +315,20 @@ void CheerpTargetInfo::getTargetDefines(const LangOptions &Opts,
   Builder.defineMacro("__LITTLE_ENDIAN__");
 }
 
+bool CheerpTargetInfo::hasFeature(StringRef Feature) const {
+  return llvm::StringSwitch<bool>(Feature)
+      .Case("simd128", true)
+      .Default(false);
+}
+
+bool CheerpTargetInfo::initFeatureMap(
+    llvm::StringMap<bool> &Features, DiagnosticsEngine &Diags, StringRef CPU,
+    const std::vector<std::string> &FeaturesVec) const {
+  Features["simd128"] = true;
+
+  return TargetInfo::initFeatureMap(Features, Diags, CPU, FeaturesVec);
+}
+
 const Builtin::Info CheerpTargetInfo::BuiltinInfo[] = {
 #define BUILTIN(ID, TYPE, ATTRS) { #ID, TYPE, ATTRS, 0, ALL_LANGUAGES, nullptr},
 #define LIBBUILTIN(ID, TYPE, ATTRS, HEADER) { #ID, TYPE, ATTRS, HEADER,\
