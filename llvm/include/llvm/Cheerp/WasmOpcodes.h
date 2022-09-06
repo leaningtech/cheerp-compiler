@@ -187,7 +187,9 @@ enum class WasmU32U32Opcode {
 };
 
 enum class WasmSIMDOpcode {
+  I32x4_ADD = 0xae,
   I32x4_MUL = 0xb5,
+  F32x4_MUL = 0xe6,
 };
 
 enum class WasmSIMDU32U32Opcode {
