@@ -338,6 +338,18 @@ void CheerpWasmWriter::encodeBinOp(const llvm::Instruction& I, WasmBuffer& code)
 	}
 
 	const Type* t = I.getType();
+
+	if (t->isVectorTy())
+	{
+    if (I.getOpcode() == Instruction::Mul)
+      encodeInst(WasmSIMDOpcode::I32x4_MUL, code);
+    if (I.getOpcode() == Instruction::Add)
+      encodeInst(WasmSIMDOpcode::I32x4_ADD, code);
+    if (I.getOpcode() == Instruction::FMul)
+      encodeInst(WasmSIMDOpcode::F32x4_MUL, code);
+		return ;
+	}
+
 	switch (I.getOpcode())
 	{
 #define BINOPI(Ty, name) \
@@ -526,6 +538,8 @@ void CheerpWasmWriter::encodeLoad(const llvm::Type* ty, uint32_t offset,
 			encodeInst(WasmU32U32Opcode::F32_LOAD, 0x2, offset, code);
 		else if (ty->isDoubleTy())
 			encodeInst(WasmU32U32Opcode::F64_LOAD, 0x3, offset, code);
+    else if (ty->isVectorTy())
+      encodeInst(WasmSIMDU32U32Opcode::V128_LOAD, 0x2, offset, code);
 		else
 			encodeInst(WasmU32U32Opcode::I32_LOAD, 0x2, offset, code);
 	}
@@ -2030,6 +2044,8 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 					encodeInst(WasmU32U32Opcode::F32_STORE, 0x2, offset, code);
 				else if (valOp->getType()->isDoubleTy())
 					encodeInst(WasmU32U32Opcode::F64_STORE, 0x3, offset, code);
+        else if (valOp->getType()->isVectorTy())
+          encodeInst(WasmSIMDU32U32Opcode::V128_STORE, 0x2, offset, code);
 				else
 					encodeInst(WasmU32U32Opcode::I32_STORE, 0x2, offset, code);
 			}
