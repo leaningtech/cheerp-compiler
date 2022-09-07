@@ -2933,6 +2933,8 @@ Registerize::REGISTER_KIND Registerize::getRegKindFromType(const llvm::Type* t, 
 	// Raw pointers are just integers
 	else if(TypeSupport::isRawPointer(t, asmjs))
 		return INTEGER;
+	else if(t->isVectorTy())
+		return VECTOR;
 	// NOTE: the Void type is considered an OBJECT
 	else
 		return OBJECT;
