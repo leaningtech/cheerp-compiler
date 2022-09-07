@@ -65,6 +65,9 @@ static inline void encodeRegisterKind(Registerize::REGISTER_KIND regKind, WasmBu
 		case Registerize::OBJECT:
 			encodeULEB128(0x6f, stream);
 			break;
+		case Registerize::VECTOR:
+			encodeULEB128(0x7b, stream);
+			break;
 	}
 }
 
@@ -80,6 +83,8 @@ static uint32_t getValType(const Type* t)
 		return 0x7c;
 	else if (t->isPointerTy())
 		return 0x6f;
+	else if (t->isVectorTy())
+		return 0x7b;
 	else
 	{
 #ifndef NDEBUG
@@ -2614,6 +2619,7 @@ void CheerpWasmWriter::compileMethodLocals(WasmBuffer& code, const vector<int>& 
 	groups += (uint32_t) locals.at(Registerize::DOUBLE) > 0;
 	groups += (uint32_t) locals.at(Registerize::FLOAT) > 0;
 	groups += (uint32_t) locals.at(Registerize::OBJECT) > 0;
+	groups += (uint32_t) locals.at(Registerize::VECTOR) > 0;
 
 	// Local declarations are compressed into a vector whose entries
 	// consist of:
@@ -2647,6 +2653,11 @@ void CheerpWasmWriter::compileMethodLocals(WasmBuffer& code, const vector<int>& 
 	if (locals.at(Registerize::OBJECT)) {
 		encodeULEB128(locals.at(Registerize::OBJECT), code);
 		encodeRegisterKind(Registerize::OBJECT, code);
+	}
+
+	if (locals.at(Registerize::VECTOR)) {
+		encodeULEB128(locals.at(Registerize::VECTOR), code);
+		encodeRegisterKind(Registerize::VECTOR, code);
 	}
 }
 
@@ -2998,7 +3009,7 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F)
 	const std::vector<Registerize::RegisterInfo>& regsInfo = registerize.getRegistersForFunction(&F);
 	const uint32_t localCount = regsInfo.size();
 
-	vector<int> locals(5, 0);
+	vector<int> locals(6, 0);
 	localMap.assign(localCount, 0);
 	uint32_t reg = 0;
 
@@ -3040,6 +3051,12 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F)
 				offset += locals.at((int)Registerize::DOUBLE);
 				offset += locals.at((int)Registerize::FLOAT);
 				break;
+			case Registerize::VECTOR:
+				offset += locals.at((int)Registerize::INTEGER);
+				offset += locals.at((int)Registerize::INTEGER64);
+				offset += locals.at((int)Registerize::DOUBLE);
+				offset += locals.at((int)Registerize::FLOAT);
+				offset += locals.at((int)Registerize::OBJECT);
 		}
 		localMap[reg++] += offset;
 	}
