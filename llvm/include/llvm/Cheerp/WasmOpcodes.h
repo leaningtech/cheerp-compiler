@@ -140,7 +140,7 @@ enum class WasmOpcode {
 	I64_REINTERPRET_F64 = 0xbd,
 	F32_REINTERPRET_I32 = 0xbe,
 	F64_REINTERPRET_I64 = 0xbf,
-  SIMD = 0xfd,
+	SIMD = 0xfd,
 };
 
 enum class WasmS32Opcode {
@@ -187,14 +187,14 @@ enum class WasmU32U32Opcode {
 };
 
 enum class WasmSIMDOpcode {
-  I32x4_ADD = 0xae,
-  I32x4_MUL = 0xb5,
-  F32x4_MUL = 0xe6,
+	I32x4_ADD = 0xae,
+	I32x4_MUL = 0xb5,
+	F32x4_MUL = 0xe6,
 };
 
 enum class WasmSIMDU32U32Opcode {
-  V128_LOAD = 0x0,
-  V128_STORE = 0x0B,
+	V128_LOAD = 0x0,
+	V128_STORE = 0x0B,
 };
 
 enum class WasmInvalidOpcode {
