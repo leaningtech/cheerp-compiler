@@ -25,22 +25,6 @@ public:
       : BaseT(TM, F.getParent()->getDataLayout()), ST(TM->getSubtargetImpl(F)),
         TLI(ST->getTargetLowering()) {}
 
-  /// \name Scalar TTI Implementations
-  /// @{
-
-  // TODO: Implement more Scalar TTI for WebAssembly
-
-  TTI::PopcntSupportKind getPopcntSupport(unsigned TyWidth) const;
-
-  void getUnrollingPreferences(Loop *L, ScalarEvolution &SE,
-                               TTI::UnrollingPreferences &UP,
-                               OptimizationRemarkEmitter *ORE) const;
-
-  /// @}
-
-  /// \name Vector TTI Implementations
-  /// @{
-
   unsigned getNumberOfRegisters(unsigned ClassID) const;
   TypeSize getRegisterBitWidth(TargetTransformInfo::RegisterKind K) const;
   InstructionCost getArithmeticInstrCost(
@@ -53,8 +37,6 @@ public:
       const Instruction *CxtI = nullptr);
   InstructionCost getVectorInstrCost(unsigned Opcode, Type *Val,
                                      unsigned Index);
-
-  /// @}
 
   bool areInlineCompatible(const Function *Caller,
                            const Function *Callee) const;
