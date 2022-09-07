@@ -32,52 +32,6 @@ BUILTIN(__builtin_cheerp_throw, "", "rT")
 BUILTIN(__builtin_cheerp_downcast, "", "T")
 BUILTIN(__builtin_cheerp_downcast_current, "", "T")
 
-// Query the current memory size, and increase the current memory size.
-// Note that memory.size is not "c" (readnone) because it must be sequenced
-// with respect to memory.grow calls.
-BUILTIN(__builtin_wasm_memory_size, "zIi", "n")
-BUILTIN(__builtin_wasm_memory_grow, "zIiz", "n")
-
-// Thread-local storage
-TARGET_BUILTIN(__builtin_wasm_tls_size, "z", "nc", "bulk-memory")
-TARGET_BUILTIN(__builtin_wasm_tls_align, "z", "nc", "bulk-memory")
-TARGET_BUILTIN(__builtin_wasm_tls_base, "v*", "nU", "bulk-memory")
-
-// Floating point min/max
-BUILTIN(__builtin_wasm_min_f32, "fff", "nc")
-BUILTIN(__builtin_wasm_max_f32, "fff", "nc")
-BUILTIN(__builtin_wasm_min_f64, "ddd", "nc")
-BUILTIN(__builtin_wasm_max_f64, "ddd", "nc")
-
-// Exception handling builtins.
-TARGET_BUILTIN(__builtin_wasm_throw, "vIUiv*", "r", "exception-handling")
-TARGET_BUILTIN(__builtin_wasm_rethrow, "v", "r", "exception-handling")
-
-// Atomic wait and notify.
-TARGET_BUILTIN(__builtin_wasm_memory_atomic_wait32, "ii*iLLi", "n", "atomics")
-TARGET_BUILTIN(__builtin_wasm_memory_atomic_wait64, "iLLi*LLiLLi", "n", "atomics")
-TARGET_BUILTIN(__builtin_wasm_memory_atomic_notify, "Uii*Ui", "n", "atomics")
-
-// Trapping fp-to-int conversions
-BUILTIN(__builtin_wasm_trunc_s_i32_f32, "if", "nc")
-BUILTIN(__builtin_wasm_trunc_u_i32_f32, "if", "nc")
-BUILTIN(__builtin_wasm_trunc_s_i32_f64, "id", "nc")
-BUILTIN(__builtin_wasm_trunc_u_i32_f64, "id", "nc")
-BUILTIN(__builtin_wasm_trunc_s_i64_f32, "LLif", "nc")
-BUILTIN(__builtin_wasm_trunc_u_i64_f32, "LLif", "nc")
-BUILTIN(__builtin_wasm_trunc_s_i64_f64, "LLid", "nc")
-BUILTIN(__builtin_wasm_trunc_u_i64_f64, "LLid", "nc")
-
-// Saturating fp-to-int conversions
-TARGET_BUILTIN(__builtin_wasm_trunc_saturate_s_i32_f32, "if", "nc", "nontrapping-fptoint")
-TARGET_BUILTIN(__builtin_wasm_trunc_saturate_u_i32_f32, "if", "nc", "nontrapping-fptoint")
-TARGET_BUILTIN(__builtin_wasm_trunc_saturate_s_i32_f64, "id", "nc", "nontrapping-fptoint")
-TARGET_BUILTIN(__builtin_wasm_trunc_saturate_u_i32_f64, "id", "nc", "nontrapping-fptoint")
-TARGET_BUILTIN(__builtin_wasm_trunc_saturate_s_i64_f32, "LLif", "nc", "nontrapping-fptoint")
-TARGET_BUILTIN(__builtin_wasm_trunc_saturate_u_i64_f32, "LLif", "nc", "nontrapping-fptoint")
-TARGET_BUILTIN(__builtin_wasm_trunc_saturate_s_i64_f64, "LLid", "nc", "nontrapping-fptoint")
-TARGET_BUILTIN(__builtin_wasm_trunc_saturate_u_i64_f64, "LLid", "nc", "nontrapping-fptoint")
-
 // SIMD builtins
 TARGET_BUILTIN(__builtin_wasm_swizzle_i8x16, "V16ScV16ScV16Sc", "nc", "simd128")
 
