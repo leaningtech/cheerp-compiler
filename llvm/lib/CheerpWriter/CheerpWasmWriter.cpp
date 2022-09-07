@@ -341,12 +341,12 @@ void CheerpWasmWriter::encodeBinOp(const llvm::Instruction& I, WasmBuffer& code)
 
 	if (t->isVectorTy())
 	{
-    if (I.getOpcode() == Instruction::Mul)
-      encodeInst(WasmSIMDOpcode::I32x4_MUL, code);
-    if (I.getOpcode() == Instruction::Add)
-      encodeInst(WasmSIMDOpcode::I32x4_ADD, code);
-    if (I.getOpcode() == Instruction::FMul)
-      encodeInst(WasmSIMDOpcode::F32x4_MUL, code);
+		if (I.getOpcode() == Instruction::Mul)
+			encodeInst(WasmSIMDOpcode::I32x4_MUL, code);
+		if (I.getOpcode() == Instruction::Add)
+			encodeInst(WasmSIMDOpcode::I32x4_ADD, code);
+		if (I.getOpcode() == Instruction::FMul)
+			encodeInst(WasmSIMDOpcode::F32x4_MUL, code);
 		return ;
 	}
 
@@ -447,16 +447,16 @@ void CheerpWasmWriter::encodeInst(WasmU32U32Opcode opcode, uint32_t i1, uint32_t
 
 void CheerpWasmWriter::encodeInst(WasmSIMDOpcode opcode, WasmBuffer& code)
 {
-  code << static_cast<char>(WasmOpcode::SIMD);
-  encodeULEB128(static_cast<uint64_t>(opcode), code);
+	code << static_cast<char>(WasmOpcode::SIMD);
+	encodeULEB128(static_cast<uint64_t>(opcode), code);
 }
 
 void CheerpWasmWriter::encodeInst(WasmSIMDU32U32Opcode opcode, uint32_t i1, uint32_t i2, WasmBuffer& code)
 {
-  code << static_cast<char>(WasmOpcode::SIMD);
-  code << static_cast<char>(opcode);
-  encodeULEB128(i1, code);
-  encodeULEB128(i2, code);
+	code << static_cast<char>(WasmOpcode::SIMD);
+	code << static_cast<char>(opcode);
+	encodeULEB128(i1, code);
+	encodeULEB128(i2, code);
 }
 
 void CheerpWasmWriter::encodeInst(WasmInvalidOpcode opcode, WasmBuffer& code)
@@ -538,8 +538,8 @@ void CheerpWasmWriter::encodeLoad(const llvm::Type* ty, uint32_t offset,
 			encodeInst(WasmU32U32Opcode::F32_LOAD, 0x2, offset, code);
 		else if (ty->isDoubleTy())
 			encodeInst(WasmU32U32Opcode::F64_LOAD, 0x3, offset, code);
-    else if (ty->isVectorTy())
-      encodeInst(WasmSIMDU32U32Opcode::V128_LOAD, 0x2, offset, code);
+		else if (ty->isVectorTy())
+			encodeInst(WasmSIMDU32U32Opcode::V128_LOAD, 0x2, offset, code);
 		else
 			encodeInst(WasmU32U32Opcode::I32_LOAD, 0x2, offset, code);
 	}
@@ -2044,8 +2044,8 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 					encodeInst(WasmU32U32Opcode::F32_STORE, 0x2, offset, code);
 				else if (valOp->getType()->isDoubleTy())
 					encodeInst(WasmU32U32Opcode::F64_STORE, 0x3, offset, code);
-        else if (valOp->getType()->isVectorTy())
-          encodeInst(WasmSIMDU32U32Opcode::V128_STORE, 0x2, offset, code);
+				else if (valOp->getType()->isVectorTy())
+					encodeInst(WasmSIMDU32U32Opcode::V128_STORE, 0x2, offset, code);
 				else
 					encodeInst(WasmU32U32Opcode::I32_STORE, 0x2, offset, code);
 			}
