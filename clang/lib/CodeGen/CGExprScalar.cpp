@@ -2193,33 +2193,29 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
       return EmitLoadOfLValue(DestLV, CE->getExprLoc());
     }
 
-    // If both are vectors, skip directly to the cast.
-    if (!(SrcTy->isVectorTy() && DstTy->isVectorTy()))
+    bool asmjs = CGF.CurFn && CGF.CurFn->getSection() == StringRef("asmjs");
+    //We don't care about casts to functions types
+    if (SrcTy->isVectorTy() || DstTy->isVectorTy() || CGF.getTarget().isByteAddressable() || isa<llvm::ConstantPointerNull>(Src) ||
+        (isa<llvm::FunctionType>(SrcTy->getPointerElementType()) && isa<llvm::FunctionType>(DstTy->getPointerElementType())) ||
+        DstTy == SrcTy)
     {
-      bool asmjs = CGF.CurFn && CGF.CurFn->getSection() == StringRef("asmjs");
-      //We don't care about casts to functions types
-      if (CGF.getTarget().isByteAddressable() || isa<llvm::ConstantPointerNull>(Src) ||
-         (isa<llvm::FunctionType>(SrcTy->getPointerElementType()) && isa<llvm::FunctionType>(DstTy->getPointerElementType())) ||
-          DstTy == SrcTy)
+      // See below
+    }
+    else if (isa<llvm::FunctionType>(SrcTy->getPointerElementType()) &&
+		!isa<llvm::FunctionType>(DstTy->getPointerElementType()))
+    {
+      if (!asmjs)
       {
-        // See below
+        // On Cheerp in generic code we can't allow any function pointer to become any other pointer
+        CGF.CGM.getDiags().Report(CE->getBeginLoc(), diag::err_cheerp_bad_function_to_non_function_cast);
       }
-      else if (isa<llvm::FunctionType>(SrcTy->getPointerElementType()) &&
-		  !isa<llvm::FunctionType>(DstTy->getPointerElementType()))
-      {
-        if (!asmjs)
-        {
-          // On Cheerp in generic code we can't allow any function pointer to become any other pointer
-          CGF.CGM.getDiags().Report(CE->getBeginLoc(), diag::err_cheerp_bad_function_to_non_function_cast);
-        }
-      }
-      else
-      {
-        llvm::Function* intrinsic = CGF.CGM.GetUserCastIntrinsic(CE, E->getType(), DestTy, asmjs);
-        llvm::CallBase* CB = Builder.CreateCall(intrinsic, Src);
-        CB->addParamAttr(0, llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, Src->getType()->getPointerElementType()));
-        return CB;
-      }
+    }
+    else
+    {
+      llvm::Function* intrinsic = CGF.CGM.GetUserCastIntrinsic(CE, E->getType(), DestTy, asmjs);
+      llvm::CallBase* CB = Builder.CreateCall(intrinsic, Src);
+      CB->addParamAttr(0, llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, Src->getType()->getPointerElementType()));
+      return CB;
     }
     return Builder.CreateBitCast(Src, DstTy);
   }
