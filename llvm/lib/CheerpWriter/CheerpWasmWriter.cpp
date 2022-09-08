@@ -470,6 +470,37 @@ void CheerpWasmWriter::encodeInst(WasmInvalidOpcode opcode, WasmBuffer& code)
 	code << static_cast<char>(opcode);
 }
 
+void CheerpWasmWriter::encodeVectorConstantZero(WasmBuffer& code)
+{
+	code << static_cast<char>(WasmOpcode::SIMD);
+	encodeULEB128(static_cast<uint64_t>(WasmSIMDOpcode::V128_CONST), code);
+	for (int i = 0; i < 16; i++)
+		code << static_cast<char>(0);
+}
+
+void CheerpWasmWriter::encodeVectorConstant(WasmBuffer& code, const llvm::ConstantDataVector* cdv)
+{
+	// We either [somehow] access and write raw bytes.
+	// Or we have to go case by case?
+	assert(cdv->getElementType()->isIntegerTy(32));
+
+	code << static_cast<char>(WasmOpcode::SIMD);
+	encodeULEB128(static_cast<uint64_t>(WasmSIMDOpcode::V128_CONST), code);
+
+	union intToChars
+	{
+		int intVal;
+		char bytes[4];
+	};
+	intToChars un;
+	for (int i = 0; i < 4; i++)
+	{
+		un.intVal = cdv->getElementAsInteger(i);
+		for (int j = 0; j < 4; j++)
+			code << un.bytes[j];
+	}
+}
+
 void CheerpWasmWriter::encodeBranchHint(const llvm::BranchInst* BI, const bool IfNot, WasmBuffer& code)
 {
 	auto branchHint = shouldBranchBeHinted(BI, IfNot);
@@ -944,6 +975,18 @@ void CheerpWasmWriter::compileConstant(WasmBuffer& code, const Constant* c, bool
 			assert(c->getType()->isFloatTy());
 			encodeF32(f->getValueAPF().convertToFloat(), code);
 		}
+	}
+	else if(const ConstantAggregateZero* caz = dyn_cast<ConstantAggregateZero>(c))
+	{
+		// This is a zero vector.
+		assert(caz->getType()->isVectorTy());
+		encodeVectorConstantZero(code);
+	}
+	else if (const ConstantDataVector* cdv = dyn_cast<ConstantDataVector>(c))
+	{
+		// This is a vector with data.
+		assert(cdv->getType()->isVectorTy());
+		encodeVectorConstant(code, cdv);
 	}
 	else if(const GlobalVariable* GV = dyn_cast<GlobalVariable>(c))
 	{
