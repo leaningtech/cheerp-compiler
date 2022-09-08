@@ -471,7 +471,8 @@ bool PointerToImmutablePHIRemoval::runOnFunction(Function& F)
 			if(!(isa<BranchInst>(I) && cast<BranchInst>(I).isConditional()) && !isa<SelectInst>(I))
 				continue;
 			llvm::Value* cond = I.getOperand(0);
-			assert(cond->getType()->isIntegerTy(1));
+			assert(cond->getType()->isIntegerTy(1) ||
+					(cond->getType()->isVectorTy() && cond->getType()->getScalarType()->isIntegerTy(1)));
 			if(cond->hasOneUse())
 			{
 				if(FCmpInst* FC = dyn_cast<FCmpInst>(cond))
