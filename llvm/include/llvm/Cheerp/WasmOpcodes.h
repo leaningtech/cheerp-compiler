@@ -193,6 +193,11 @@ enum class WasmSIMDOpcode {
 	F32x4_MUL = 0xe6,
 };
 
+enum class WasmSIMDU32Opcode {
+	I32x4_EXTRACT_LANE = 0x1b,
+	F32x4_EXTRACT_LANE = 0x1f,
+};
+
 enum class WasmSIMDU32U32Opcode {
 	V128_LOAD = 0x0,
 	V128_STORE = 0x0B,
