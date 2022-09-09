@@ -487,25 +487,29 @@ void CheerpWasmWriter::encodeVectorConstantZero(WasmBuffer& code)
 
 void CheerpWasmWriter::encodeVectorConstant(WasmBuffer& code, const llvm::ConstantDataVector* cdv)
 {
-	// We either [somehow] access and write raw bytes.
-	// Or we have to go case by case?
-	assert(cdv->getElementType()->isIntegerTy(32));
+	assert(cdv->getElementType()->isIntegerTy(32) || cdv->getElementType()->isFloatTy());
 
 	code << static_cast<char>(WasmOpcode::SIMD);
 	encodeULEB128(static_cast<uint64_t>(WasmSIMDOpcode::V128_CONST), code);
 
-	union intToChars
+	union conversionUnion
 	{
-		int intVal;
-		char bytes[4];
-	};
-	intToChars un;
-	for (int i = 0; i < 4; i++)
+		int intVal[4];
+		float floatVal[4];
+		char bytes[16];
+	} un;
+	if (cdv->getElementType()->isIntegerTy(32))
 	{
-		un.intVal = cdv->getElementAsInteger(i);
-		for (int j = 0; j < 4; j++)
-			code << un.bytes[j];
+		for (int i = 0; i < 4; i++)
+			un.intVal[i] = cdv->getElementAsInteger(i);
 	}
+	else if (cdv->getElementType()->isFloatTy())
+	{
+		for (int i = 0; i < 4; i++)
+			un.floatVal[i] = cdv->getElementAsFloat(i);
+	}
+	for (int i = 0; i < 16; i++)
+		code << un.bytes[i];
 }
 
 void CheerpWasmWriter::encodeBranchHint(const llvm::BranchInst* BI, const bool IfNot, WasmBuffer& code)
@@ -825,6 +829,12 @@ void CheerpWasmWriter::compileUnsignedInteger(WasmBuffer& code, const llvm::Valu
 
 void CheerpWasmWriter::compileTypedZero(WasmBuffer& code, const llvm::Type* t)
 {
+	if (t->isVectorTy())
+	{
+		encodeVectorConstantZero(code);
+		return;
+	}
+
 	// Encode a literal f64, f32, i64 or i32 zero as the return value.
 	encodeLiteralType(t, code);
 	if (t->isDoubleTy()) {
