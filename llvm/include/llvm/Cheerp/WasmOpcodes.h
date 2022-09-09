@@ -194,8 +194,14 @@ enum class WasmSIMDOpcode {
 };
 
 enum class WasmSIMDU32Opcode {
+	I8x16_EXTRACT_LANE_S = 0x15,
+	I8x16_EXTRACT_LANE_U = 0x16,
+	I16x8_EXTRACT_LANE_S = 0x18,
+	I16x8_EXTRACT_LANE_U = 0x19,
 	I32x4_EXTRACT_LANE = 0x1b,
+	I64x2_EXTRACT_LANE = 0x1d,
 	F32x4_EXTRACT_LANE = 0x1f,
+	F64x2_EXTRACT_LANE = 0x21,
 };
 
 enum class WasmSIMDU32U32Opcode {
