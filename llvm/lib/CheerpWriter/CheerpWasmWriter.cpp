@@ -456,10 +456,17 @@ void CheerpWasmWriter::encodeInst(WasmSIMDOpcode opcode, WasmBuffer& code)
 	encodeULEB128(static_cast<uint64_t>(opcode), code);
 }
 
+void CheerpWasmWriter::encodeInst(WasmSIMDU32Opcode opcode, uint32_t immediate, WasmBuffer& code)
+{
+	code << static_cast<char>(WasmOpcode::SIMD);
+	encodeULEB128(static_cast<uint64_t>(opcode), code);
+	encodeULEB128(immediate, code);
+}
+
 void CheerpWasmWriter::encodeInst(WasmSIMDU32U32Opcode opcode, uint32_t i1, uint32_t i2, WasmBuffer& code)
 {
 	code << static_cast<char>(WasmOpcode::SIMD);
-	code << static_cast<char>(opcode);
+	encodeULEB128(static_cast<uint64_t>(opcode), code);
 	encodeULEB128(i1, code);
 	encodeULEB128(i2, code);
 }
