@@ -487,26 +487,52 @@ void CheerpWasmWriter::encodeVectorConstantZero(WasmBuffer& code)
 
 void CheerpWasmWriter::encodeVectorConstant(WasmBuffer& code, const llvm::ConstantDataVector* cdv)
 {
-	assert(cdv->getElementType()->isIntegerTy(32) || cdv->getElementType()->isFloatTy());
-
 	code << static_cast<char>(WasmOpcode::SIMD);
 	encodeULEB128(static_cast<uint64_t>(WasmSIMDOpcode::V128_CONST), code);
 
 	union conversionUnion
 	{
-		int intVal[4];
-		float floatVal[4];
+		int8_t i8Val[16];
+		int16_t i16Val[8];
+		int32_t i32Val[4];
+		long long i64Val[2];
+		float f32Val[4];
+		double f64Val[2];
 		char bytes[16];
 	} un;
 	if (cdv->getElementType()->isIntegerTy(32))
 	{
 		for (int i = 0; i < 4; i++)
-			un.intVal[i] = cdv->getElementAsInteger(i);
+			un.i32Val[i] = cdv->getElementAsInteger(i);
+	}
+	else if (cdv->getElementType()->isIntegerTy(64))
+	{
+		un.i64Val[0] = cdv->getElementAsInteger(0);
+		un.i64Val[1] = cdv->getElementAsInteger(1);
+	}
+	else if (cdv->getElementType()->isIntegerTy(8))
+	{
+		for (int i = 0; i < 16; i++)
+			un.i8Val[i] = cdv->getElementAsInteger(i);
+	}
+	else if (cdv->getElementType()->isIntegerTy(16))
+	{
+		for (int i = 0; i < 8; i++)
+			un.i16Val[i] = cdv->getElementAsInteger(i);
 	}
 	else if (cdv->getElementType()->isFloatTy())
 	{
 		for (int i = 0; i < 4; i++)
-			un.floatVal[i] = cdv->getElementAsFloat(i);
+			un.f32Val[i] = cdv->getElementAsFloat(i);
+	}
+	else if (cdv->getElementType()->isDoubleTy())
+	{
+		un.f64Val[0] = cdv->getElementAsDouble(0);
+		un.f64Val[1] = cdv->getElementAsDouble(1);
+	}
+	else
+	{
+		llvm::report_fatal_error("unhandled type for encode vector constant");
 	}
 	for (int i = 0; i < 16; i++)
 		code << un.bytes[i];
@@ -2414,6 +2440,28 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 		case Instruction::Unreachable:
 		{
 			encodeInst(WasmOpcode::UNREACHABLE, code);
+			break;
+		}
+		case Instruction::ExtractElement:
+		{
+			const ExtractElementInst& eei = cast<ExtractElementInst>(I);
+			assert(isa<ConstantInt>(eei.getIndexOperand()));
+			const ConstantInt* ci = dyn_cast<ConstantInt>(eei.getIndexOperand());
+			compileOperand(code, eei.getVectorOperand());
+			if (eei.getType()->isIntegerTy(32))
+				encodeInst(WasmSIMDU32Opcode::I32x4_EXTRACT_LANE, ci->getZExtValue(), code);
+			else if (eei.getType()->isIntegerTy(64))
+				encodeInst(WasmSIMDU32Opcode::I64x2_EXTRACT_LANE, ci->getZExtValue(), code);
+			else if (eei.getType()->isIntegerTy(16))
+				encodeInst(WasmSIMDU32Opcode::I16x8_EXTRACT_LANE_U, ci->getZExtValue(), code);
+			else if (eei.getType()->isIntegerTy(8))
+				encodeInst(WasmSIMDU32Opcode::I8x16_EXTRACT_LANE_U, ci->getZExtValue(), code);
+			else if (eei.getType()->isFloatTy())
+				encodeInst(WasmSIMDU32Opcode::F32x4_EXTRACT_LANE, ci->getZExtValue(), code);
+			else if (eei.getType()->isDoubleTy())
+				encodeInst(WasmSIMDU32Opcode::F64x2_EXTRACT_LANE, ci->getZExtValue(), code);
+			else
+				llvm::report_fatal_error("unhandled type for extract element");
 			break;
 		}
 		default:
