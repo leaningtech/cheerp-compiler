@@ -2447,19 +2447,20 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			const ExtractElementInst& eei = cast<ExtractElementInst>(I);
 			assert(isa<ConstantInt>(eei.getIndexOperand()));
 			const ConstantInt* ci = dyn_cast<ConstantInt>(eei.getIndexOperand());
+			uint64_t index = ci->getZExtValue();
 			compileOperand(code, eei.getVectorOperand());
 			if (eei.getType()->isIntegerTy(32))
-				encodeInst(WasmSIMDU32Opcode::I32x4_EXTRACT_LANE, ci->getZExtValue(), code);
+				encodeInst(WasmSIMDU32Opcode::I32x4_EXTRACT_LANE, index, code);
 			else if (eei.getType()->isIntegerTy(64))
-				encodeInst(WasmSIMDU32Opcode::I64x2_EXTRACT_LANE, ci->getZExtValue(), code);
+				encodeInst(WasmSIMDU32Opcode::I64x2_EXTRACT_LANE, index, code);
 			else if (eei.getType()->isIntegerTy(16))
-				encodeInst(WasmSIMDU32Opcode::I16x8_EXTRACT_LANE_U, ci->getZExtValue(), code);
+				encodeInst(WasmSIMDU32Opcode::I16x8_EXTRACT_LANE_U, index, code);
 			else if (eei.getType()->isIntegerTy(8))
-				encodeInst(WasmSIMDU32Opcode::I8x16_EXTRACT_LANE_U, ci->getZExtValue(), code);
+				encodeInst(WasmSIMDU32Opcode::I8x16_EXTRACT_LANE_U, index, code);
 			else if (eei.getType()->isFloatTy())
-				encodeInst(WasmSIMDU32Opcode::F32x4_EXTRACT_LANE, ci->getZExtValue(), code);
+				encodeInst(WasmSIMDU32Opcode::F32x4_EXTRACT_LANE, index, code);
 			else if (eei.getType()->isDoubleTy())
-				encodeInst(WasmSIMDU32Opcode::F64x2_EXTRACT_LANE, ci->getZExtValue(), code);
+				encodeInst(WasmSIMDU32Opcode::F64x2_EXTRACT_LANE, index, code);
 			else
 				llvm::report_fatal_error("unhandled type for extract element");
 			break;
