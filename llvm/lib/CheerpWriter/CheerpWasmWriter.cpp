@@ -2465,6 +2465,31 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 				llvm::report_fatal_error("unhandled type for extract element");
 			break;
 		}
+		case Instruction::InsertElement:
+		{
+			const InsertElementInst& iei = cast<InsertElementInst>(I);
+			assert(iei.getOperand(0)->getType()->isVectorTy());
+			assert(isa<ConstantInt>(iei.getOperand(2)));
+			compileOperand(code, iei.getOperand(0));
+			compileOperand(code, iei.getOperand(1));
+			const Type* ty = iei.getOperand(0)->getType()->getScalarType();
+			uint64_t index = (dyn_cast<ConstantInt>(iei.getOperand(2)))->getZExtValue();
+			if (ty->isIntegerTy(32))
+				encodeInst(WasmSIMDU32Opcode::I32x4_REPLACE_LANE, index, code);
+			else if (ty->isIntegerTy(64))
+				encodeInst(WasmSIMDU32Opcode::I64x2_REPLACE_LANE, index, code);
+			else if (ty->isIntegerTy(16))
+				encodeInst(WasmSIMDU32Opcode::I16x8_REPLACE_LANE, index, code);
+			else if (ty->isIntegerTy(8))
+				encodeInst(WasmSIMDU32Opcode::I8x16_REPLACE_LANE, index, code);
+			else if (ty->isFloatTy())
+				encodeInst(WasmSIMDU32Opcode::F32x4_REPLACE_LANE, index, code);
+			else if (ty->isDoubleTy())
+				encodeInst(WasmSIMDU32Opcode::F64x2_REPLACE_LANE, index, code);
+			else
+				llvm::report_fatal_error("unhandled type for insert element");
+			break;
+		}
 		default:
 		{
 #ifndef NDEBUG
