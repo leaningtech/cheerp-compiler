@@ -2446,8 +2446,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 		{
 			const ExtractElementInst& eei = cast<ExtractElementInst>(I);
 			assert(isa<ConstantInt>(eei.getIndexOperand()));
-			const ConstantInt* ci = dyn_cast<ConstantInt>(eei.getIndexOperand());
-			uint64_t index = ci->getZExtValue();
+			uint64_t index = (dyn_cast<ConstantInt>(eei.getIndexOperand()))->getZExtValue();
 			compileOperand(code, eei.getVectorOperand());
 			if (eei.getType()->isIntegerTy(32))
 				encodeInst(WasmSIMDU32Opcode::I32x4_EXTRACT_LANE, index, code);
