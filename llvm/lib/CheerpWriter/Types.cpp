@@ -378,36 +378,7 @@ uint32_t CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style, Str
 
 void CheerpWriter::compileType(Type* t, COMPILE_TYPE_STYLE style, StringRef varName, const AllocaStoresExtractor::OffsetToValueMap* offsetToValueMap)
 {
-	if(style == LITERAL_OBJ && isa<StructType>(t) && TypeSupport::isJSExportedType(cast<StructType>(t), module))
-	{
-		assert(offsetToValueMap == nullptr);
-		StringRef mangledName = t->getStructName();
-		if(mangledName.startswith("class."))
-			mangledName = mangledName.drop_front(6);
-		else
-		{
-			assert(mangledName.startswith("struct."));
-			mangledName = mangledName.drop_front(7);
-		}
-
-		// Special argument for only allocating the object, without calling the
-		// C++ constructor
-		stream << "new ";
-
-		bool isFirst = true;
-		demangler_iterator demangler( mangledName );
-
-		while (demangler != demangler_iterator())
-		{
-			if (!isFirst)
-				stream << ".";
-			isFirst = false;
-			stream << *demangler++;
-		}
-
-		stream << "(undefined)";
-	}
-	else if(TypeSupport::isSimpleType(t, forceTypedArrays))
+	if(TypeSupport::isSimpleType(t, forceTypedArrays))
 	{
 		llvm::Value* init = nullptr;
 		if(offsetToValueMap)
