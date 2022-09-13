@@ -1,3 +1,14 @@
+//===-- CheerpTargetTransformInfo.cpp - Cheerp helper --------------------===//
+//
+//                     Cheerp: The C++ compiler for the Web
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+// Copyright 2022 Leaning Technologies
+//
+//===----------------------------------------------------------------------===//
+
 #include "CheerpTargetTransformInfo.h"
 #include "llvm/CodeGen/CostTable.h"
 #include "llvm/Support/Debug.h"

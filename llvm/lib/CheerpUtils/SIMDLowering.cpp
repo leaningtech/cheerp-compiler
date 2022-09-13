@@ -1,3 +1,14 @@
+//===-- SIMDLowering.cpp - Cheerp helper -------------------------===//
+//
+//                     Cheerp: The C++ compiler for the Web
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+// Copyright 2022 Leaning Technologies
+//
+//===----------------------------------------------------------------------===//
+
 #include "llvm/Cheerp/SIMDLowering.h"
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
 #include "llvm/Cheerp/LinearMemoryHelper.h"
