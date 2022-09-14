@@ -29,7 +29,7 @@ bool SIMDLoweringPass::lowerExtractOrInsert(Instruction& I)
 	Function* F = I.getFunction();
 	Value* vec = I.getOperand(0);
 	assert(vec->getType()->isVectorTy());
-  Value* switchOp = I.getOpcode() == Instruction::ExtractElement ? I.getOperand(1) : I.getOperand(2);
+	Value* switchOp = I.getOpcode() == Instruction::ExtractElement ? I.getOperand(1) : I.getOperand(2);
 	const int amount = 128 / vec->getType()->getScalarSizeInBits();
 	IRBuilder<> Builder(&I);
 	IntegerType *Int32Ty = Builder.getInt32Ty();
@@ -63,7 +63,26 @@ bool SIMDLoweringPass::lowerExtractOrInsert(Instruction& I)
 
 bool SIMDLoweringPass::lowerReduceIntrinsic(Instruction& I)
 {
-	// Code to lower reduce intrinsics goes here :)
+	Value *vec = I.getOperand(0);
+	const int amount = 128 / vec->getType()->getScalarSizeInBits();
+	IRBuilder<> Builder(&I);
+	std::vector<Value*> values;
+	for (int i = 0; i < amount; i++)
+		values.push_back(Builder.CreateExtractElement(vec, i));
+	Intrinsic::ID id = cast<CallInst>(I).getCalledFunction()->getIntrinsicID();
+	bool add = (id == Intrinsic::vector_reduce_add || id == Intrinsic::vector_reduce_fadd) ? true : false;
+	// Only accept normal, not floats, for now.
+	assert(id == Intrinsic::vector_reduce_add || id == Intrinsic::vector_reduce_mul);
+	Value* total = values[0];
+	for (int i = 1; i < amount; i++)
+	{
+		if (add)
+			total = Builder.CreateAdd(total, values[i]);
+		else
+			total = Builder.CreateMul(total, values[i]);
+	}
+	I.replaceAllUsesWith(total);
+	deleteList.push_back(&I);
 	return false;
 }
 
@@ -86,6 +105,7 @@ bool SIMDLoweringPass::isReduceIntrinsic(Instruction& I)
 
 PreservedAnalyses SIMDLoweringPass::run(Function& F, FunctionAnalysisManager& FAM)
 {
+	deleteList.clear();
 	for (auto it = F.begin(); it != F.end(); it++)
 	{
 		BasicBlock& BB = *it;
@@ -106,6 +126,8 @@ PreservedAnalyses SIMDLoweringPass::run(Function& F, FunctionAnalysisManager& FA
 			}
 		}
 	}
+	for (Instruction* I: deleteList)
+		I->eraseFromParent();
 	PreservedAnalyses PA;
 	PA.preserve<cheerp::GlobalDepsAnalysis>();
 	PA.preserve<cheerp::LinearMemoryAnalysis>();
