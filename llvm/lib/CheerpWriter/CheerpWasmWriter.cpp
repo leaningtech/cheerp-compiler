@@ -2943,8 +2943,8 @@ static int getResultKind(const Token& T)
 	const int kind = T.getResultType();
 
 	//getResultType will map to the proper kind only for
-	//	NONE -> 0x40 and {I32, I64, F32 and F64} -> {0x7F, 0x7E, 0x7D, 0x7C}
-	if (kind != 0x40 && (kind > 0x7F || kind < 0x7C))
+	//	NONE -> 0x40 and {I32, I64, F32, F64, V128} -> {0x7F, 0x7E, 0x7D, 0x7C, 0x7B}
+	if (kind != 0x40 && (kind > 0x7F || kind < 0x7B))
 		llvm_unreachable("Unexpected result type");
 
 	//currently anyref or multi-values are not handled
