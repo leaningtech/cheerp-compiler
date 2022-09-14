@@ -24,6 +24,7 @@ private:
 	bool lowerReduceIntrinsic(llvm::Instruction& I);
 	bool isVariableExtractOrInsert(llvm::Instruction& I);
 	bool isReduceIntrinsic(llvm::Instruction& I);
+	std::vector<llvm::Instruction*> deleteList;
 public:
 	PreservedAnalyses run(llvm::Function& F, FunctionAnalysisManager& FAM);
 	static bool isRequired() { return true;}
