@@ -19,6 +19,11 @@ namespace cheerp{
 using namespace llvm;
 
 class SIMDLoweringPass : public llvm::PassInfoMixin<SIMDLoweringPass> {
+private:
+	bool lowerExtractOrInsert(llvm::Instruction& I);
+	bool lowerReduceIntrinsic(llvm::Instruction& I);
+	bool isVariableExtractOrInsert(llvm::Instruction& I);
+	bool isReduceIntrinsic(llvm::Instruction& I);
 public:
 	PreservedAnalyses run(llvm::Function& F, FunctionAnalysisManager& FAM);
 	static bool isRequired() { return true;}
