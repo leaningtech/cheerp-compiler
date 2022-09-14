@@ -23,47 +23,86 @@ using namespace llvm;
 namespace cheerp
 {
 
+bool SIMDLoweringPass::lowerExtractOrInsert(Instruction& I)
+{
+	BasicBlock* BB = I.getParent();
+	Function* F = I.getFunction();
+	Value* vec = I.getOperand(0);
+	assert(vec->getType()->isVectorTy());
+  Value* switchOp = I.getOpcode() == Instruction::ExtractElement ? I.getOperand(1) : I.getOperand(2);
+	const int amount = 128 / vec->getType()->getScalarSizeInBits();
+	IRBuilder<> Builder(&I);
+	IntegerType *Int32Ty = Builder.getInt32Ty();
+	BasicBlock* newBlock = BB->splitBasicBlock(&I, BB->getName() + ".afterswitch");
+	BB->getTerminator()->eraseFromParent();
+	Builder.SetInsertPoint(BB);
+	std::vector<BasicBlock*> switchBlocks;
+	for (int i = 0; i < amount; i++)
+		switchBlocks.push_back(BasicBlock::Create(Builder.getContext(), BB->getName() + ".case", F));
+	SwitchInst* Switch = Builder.CreateSwitch(switchOp, switchBlocks[0], amount);
+	for (int i = 1; i < amount; i++)
+		Switch->addCase(ConstantInt::get(Int32Ty, i), switchBlocks[i]);
+	std::vector<Value*> values;
+	for (int i = 0; i < amount; i++)
+	{
+		Builder.SetInsertPoint(switchBlocks[i]);
+		if (I.getOpcode() == Instruction::ExtractElement)
+			values.push_back(Builder.CreateExtractElement(vec, i));
+		else
+			values.push_back(Builder.CreateInsertElement(vec, I.getOperand(1), i));
+		Builder.CreateBr(newBlock);
+	}
+	Builder.SetInsertPoint(&I);
+	PHINode* phi = Builder.CreatePHI(I.getType(), amount);
+	for (int i = 0; i < amount; i++)
+		phi->addIncoming(values[i], switchBlocks[i]);
+	I.replaceAllUsesWith(phi);
+	I.eraseFromParent();
+	return true;
+}
+
+bool SIMDLoweringPass::lowerReduceIntrinsic(Instruction& I)
+{
+	// Code to lower reduce intrinsics goes here :)
+	return false;
+}
+
+bool SIMDLoweringPass::isVariableExtractOrInsert(Instruction& I)
+{
+	return (I.getOpcode() == Instruction::ExtractElement && !isa<ConstantInt>(I.getOperand(1))) || 
+			(I.getOpcode() == Instruction::InsertElement && !isa<ConstantInt>(I.getOperand(2)));
+}
+
+bool SIMDLoweringPass::isReduceIntrinsic(Instruction& I)
+{
+	if (I.getOpcode() != Instruction::Call)
+		return false;
+	Intrinsic::ID id = cast<CallInst>(I).getCalledFunction()->getIntrinsicID();
+	return (id == Intrinsic::vector_reduce_mul ||
+		id == Intrinsic::vector_reduce_add ||
+		id == Intrinsic::vector_reduce_fmul ||
+		id == Intrinsic::vector_reduce_fadd);
+}
+
 PreservedAnalyses SIMDLoweringPass::run(Function& F, FunctionAnalysisManager& FAM)
 {
-	// This pass will find certain instructions that do not allow variables as lane indexes and
-	// instead add all the versions of these instructions with a switch.
 	for (auto it = F.begin(); it != F.end(); it++)
 	{
 		BasicBlock& BB = *it;
 		for (Instruction& I: BB)
 		{
-			if (I.getOpcode() == Instruction::ExtractElement && !isa<ConstantInt>(I.getOperand(1)))
+			// This will find certain instructions that do not allow variables as lane indexes and
+			// instead add all the versions of these instructions with a switch.
+			if (isVariableExtractOrInsert(I))
 			{
-				Value* vec = I.getOperand(0);
-				assert(vec->getType()->isVectorTy());
-				const int amount = 128 / vec->getType()->getScalarSizeInBits();
-				IRBuilder<> Builder(&I);
-				IntegerType *Int32Ty = Builder.getInt32Ty();
-				BasicBlock* newBlock = BB.splitBasicBlock(&I, BB.getName() + ".afterswitch");
-				BB.getTerminator()->eraseFromParent();
-				Builder.SetInsertPoint(&BB);
-				std::vector<BasicBlock*> switchBlocks;
-				for (int i = 0; i < amount; i++)
-					switchBlocks.push_back(BasicBlock::Create(Builder.getContext(), BB.getName() + ".case", &F));
-				SwitchInst* Switch = Builder.CreateSwitch(I.getOperand(1), switchBlocks[0], amount);
-				for (int i = 1; i < amount; i++)
-					Switch->addCase(ConstantInt::get(Int32Ty, i), switchBlocks[i]);
-				std::vector<Value*> values;
-				for (int i = 0; i < amount; i++)
-				{
-					Builder.SetInsertPoint(switchBlocks[i]);
-					values.push_back(Builder.CreateExtractElement(vec, i));
-					Builder.CreateBr(newBlock);
-				}
-				Builder.SetInsertPoint(&I);
-				PHINode* phi = Builder.CreatePHI(I.getType(), amount);
-				for (int i = 0; i < amount; i++)
-					phi->addIncoming(values[i], switchBlocks[i]);
-				I.replaceAllUsesWith(phi);
-				I.eraseFromParent();
+				lowerExtractOrInsert(I);
 				// Since we split the current block, all instructions of this block that we haven't seen yet will be in the next block.
 				// We break out of the current loop since the current instruction was erased, and start looping over the next block.
 				break;
+			}
+			else if (isReduceIntrinsic(I))
+			{
+				lowerReduceIntrinsic(I);
 			}
 		}
 	}
