@@ -1437,6 +1437,8 @@ static Token::TokenResultType getTokenResultType(const llvm::Instruction* I, con
 			return Token::TokenResultType::F32;
 		case Registerize::DOUBLE:
 			return Token::TokenResultType::F64;
+		case Registerize::VECTOR:
+			return Token::TokenResultType::V128;
 		default:
 			break;
 	}
