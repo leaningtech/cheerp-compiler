@@ -347,12 +347,89 @@ void CheerpWasmWriter::encodeBinOp(const llvm::Instruction& I, WasmBuffer& code)
 
 	if (t->isVectorTy())
 	{
+		const Type *et = dyn_cast<VectorType>(t)->getElementType();
 		if (I.getOpcode() == Instruction::Mul)
-			encodeInst(WasmSIMDOpcode::I32x4_MUL, code);
+		{
+			if (et->isIntegerTy(32))
+				encodeInst(WasmSIMDOpcode::I32x4_MUL, code);
+			else if (et->isIntegerTy(64))
+				encodeInst(WasmSIMDOpcode::I64x2_MUL, code);
+			else if (et->isIntegerTy(16))
+				encodeInst(WasmSIMDOpcode::I16x8_MUL, code);
+			else
+				llvm::report_fatal_error("unsupported bit width for vector integer mul");
+			return ;
+		}
 		if (I.getOpcode() == Instruction::Add)
-			encodeInst(WasmSIMDOpcode::I32x4_ADD, code);
+		{
+			if (et->isIntegerTy(32))
+				encodeInst(WasmSIMDOpcode::I32x4_ADD, code);
+			else if (et->isIntegerTy(64))
+				encodeInst(WasmSIMDOpcode::I64x2_ADD, code);
+			else if (et->isIntegerTy(16))
+				encodeInst(WasmSIMDOpcode::I16x8_ADD, code);
+			else if (et->isIntegerTy(8))
+				encodeInst(WasmSIMDOpcode::I8x16_ADD, code);
+			else
+				llvm::report_fatal_error("unsupported bit width for vector integer add");
+			return ;
+		}
+		if (I.getOpcode() == Instruction::Sub)
+		{
+			if (et->isIntegerTy(32))
+				encodeInst(WasmSIMDOpcode::I32x4_SUB, code);
+			else if (et->isIntegerTy(64))
+				encodeInst(WasmSIMDOpcode::I64x2_SUB, code);
+			else if (et->isIntegerTy(16))
+				encodeInst(WasmSIMDOpcode::I16x8_SUB, code);
+			else if (et->isIntegerTy(8))
+				encodeInst(WasmSIMDOpcode::I8x16_SUB, code);
+			else
+				llvm::report_fatal_error("unsupported bit width for vector integer sub");
+			return ;
+		}
 		if (I.getOpcode() == Instruction::FMul)
-			encodeInst(WasmSIMDOpcode::F32x4_MUL, code);
+		{
+			if (et->isFloatTy())
+				encodeInst(WasmSIMDOpcode::F32x4_MUL, code);
+			else if (et->isDoubleTy())
+				encodeInst(WasmSIMDOpcode::F64x2_MUL, code);
+			else
+				llvm::report_fatal_error("unsupported format for vector float mul");
+			return ;
+		}
+
+		if (I.getOpcode() == Instruction::FAdd)
+		{
+			if (et->isFloatTy())
+				encodeInst(WasmSIMDOpcode::F32x4_ADD, code);
+			else if (et->isDoubleTy())
+				encodeInst(WasmSIMDOpcode::F64x2_ADD, code);
+			else
+				llvm::report_fatal_error("unsupported format for vector float add");
+			return ;
+		}
+		if (I.getOpcode() == Instruction::FSub)
+		{
+			if (et->isFloatTy())
+				encodeInst(WasmSIMDOpcode::F32x4_SUB, code);
+			else if (et->isDoubleTy())
+				encodeInst(WasmSIMDOpcode::F64x2_SUB, code);
+			else
+				llvm::report_fatal_error("unsupported format for vector float sub");
+			return ;
+		}
+		if (I.getOpcode() == Instruction::FDiv)
+		{
+			if (et->isFloatTy())
+				encodeInst(WasmSIMDOpcode::F32x4_DIV, code);
+			else if (et->isDoubleTy())
+				encodeInst(WasmSIMDOpcode::F64x2_DIV, code);
+			else
+				llvm::report_fatal_error("unsupported format for vector float div");
+			return ;
+		}
+		llvm::report_fatal_error("unhandled vector op");
 		return ;
 	}
 
@@ -1839,7 +1916,6 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 							code << static_cast<char>(num->getZExtValue());
 						}
 						return false;
-//						break ;
 					}
 					case Intrinsic::ctlz:
 					case Intrinsic::cttz:
