@@ -25,11 +25,11 @@ class CheerpTTIImpl final : public BasicTTIImplBase<CheerpTTIImpl> {
   typedef TargetTransformInfo TTI;
   friend BaseT;
 
-  const TargetSubtargetInfo *ST;
-  const TargetLoweringBase *TLI;
+  const CheerpSubtarget *ST;
+  const CheerpTargetLowering *TLI;
 
-  const TargetSubtargetInfo *getST() const { return ST; }
-  const TargetLoweringBase *getTLI() const { return TLI; }
+  const CheerpSubtarget *getST() const { return ST; }
+  const CheerpTargetLowering *getTLI() const { return TLI; }
 
 public:
   CheerpTTIImpl(const CheerpTargetMachine *TM, const Function &F)
