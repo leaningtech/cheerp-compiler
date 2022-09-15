@@ -1627,6 +1627,14 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 				encodeInst(WasmOpcode::F32_NEG, code);
 			else if (t->isDoubleTy())
 				encodeInst(WasmOpcode::F64_NEG, code);
+			else if (t->isVectorTy())
+			{
+				const Type* et = dyn_cast<VectorType>(t)->getElementType();
+				if (et->isFloatTy())
+					encodeInst(WasmSIMDOpcode::F32x4_NEG, code);
+				else if (et->isDoubleTy())
+					encodeInst(WasmSIMDOpcode::F64x2_NEG, code);
+			}
 			break;
 		}
 		case Instruction::BitCast:
