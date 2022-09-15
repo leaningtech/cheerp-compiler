@@ -22,6 +22,7 @@
 #include "llvm/Cheerp/WasmWriter.h"
 #include "llvm/Cheerp/Writer.h"
 #include "llvm/IR/Type.h"
+#include "llvm/IR/IntrinsicsWebAssembly.h"
 #include "llvm/Support/LEB128.h"
 
 using namespace cheerp;
@@ -1823,6 +1824,22 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						int id = local.getTypeIdFor(ci.getOperand(0));
 						encodeInst(WasmS32Opcode::I32_CONST, id, code);
 						return false;
+					}
+					case Intrinsic::wasm_shuffle:
+					{
+						compileOperand(code, ci.getOperand(0));
+						compileOperand(code, ci.getOperand(1));
+						encodeInst(WasmSIMDOpcode::I8x16_SHUFFLE, code);
+						assert(ci.getNumOperands() > 17);
+						for (int i = 2; i < 18; i++)
+						{
+							const Value* v = ci.getOperand(i);
+							assert(isa<ConstantInt>(v));
+							const ConstantInt *num = dyn_cast<ConstantInt>(v);
+							code << static_cast<char>(num->getZExtValue());
+						}
+						return false;
+//						break ;
 					}
 					case Intrinsic::ctlz:
 					case Intrinsic::cttz:
