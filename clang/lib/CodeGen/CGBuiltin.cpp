@@ -12519,6 +12519,20 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
     Function *F = CGM.getIntrinsic(Intrinsic::cheerp_throw, Tys);
     return EmitCallOrInvoke(F, Ops);
   }
+  else if (BuiltinID == Cheerp::BI__builtin_wasm_shuffle_i8x16) {
+    Value *Ops[18];
+    size_t OpIdx = 0;
+    Ops[OpIdx++] = EmitScalarExpr(E->getArg(0));
+    Ops[OpIdx++] = EmitScalarExpr(E->getArg(1));
+    while (OpIdx < 18) {
+      Optional<llvm::APSInt> LaneConst =
+          E->getArg(OpIdx)->getIntegerConstantExpr(getContext());
+      assert(LaneConst && "Constant arg isn't actually constant?");
+      Ops[OpIdx++] = llvm::ConstantInt::get(getLLVMContext(), *LaneConst);
+    }
+    Function *Callee = CGM.getIntrinsic(Intrinsic::wasm_shuffle);
+    return Builder.CreateCall(Callee, Ops);
+  }
   else if (BuiltinID == Builtin::BImalloc) {
     const FunctionDecl* FD=dyn_cast<FunctionDecl>(CurFuncDecl);
     assert(FD);
