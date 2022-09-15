@@ -189,9 +189,25 @@ enum class WasmU32U32Opcode {
 enum class WasmSIMDOpcode {
 	V128_CONST = 0x0c,
 	I8x16_SHUFFLE = 0x0d,
+	I8x16_ADD = 0x6e,
+	I8x16_SUB = 0x71,
+	I16x8_ADD = 0x8e,
+	I16x8_SUB = 0x91,
+	I16x8_MUL = 0x95,
 	I32x4_ADD = 0xae,
+	I32x4_SUB = 0xb1,
 	I32x4_MUL = 0xb5,
+	I64x2_ADD = 0xce,
+	I64x2_SUB = 0xd1,
+	I64x2_MUL = 0xd5,
+	F32x4_ADD = 0xe4,
+	F32x4_SUB = 0xe5,
 	F32x4_MUL = 0xe6,
+	F32x4_DIV = 0xe7,
+	F64x2_ADD = 0xf0,
+	F64x2_SUB = 0xf1,
+	F64x2_MUL = 0xf2,
+	F64x2_DIV = 0xf3,
 };
 
 enum class WasmSIMDU32Opcode {
