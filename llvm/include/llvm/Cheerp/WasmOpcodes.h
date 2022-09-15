@@ -188,6 +188,7 @@ enum class WasmU32U32Opcode {
 
 enum class WasmSIMDOpcode {
 	V128_CONST = 0x0c,
+	I8x16_SHUFFLE = 0x0d,
 	I32x4_ADD = 0xae,
 	I32x4_MUL = 0xb5,
 	F32x4_MUL = 0xe6,
