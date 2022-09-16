@@ -12533,6 +12533,12 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
     Function *Callee = CGM.getIntrinsic(Intrinsic::wasm_shuffle);
     return Builder.CreateCall(Callee, Ops);
   }
+  else if (BuiltinID == Cheerp::BI__builtin_wasm_swizzle_i8x16) {
+    Value *Src = EmitScalarExpr(E->getArg(0));
+    Value *Indices = EmitScalarExpr(E->getArg(1));
+    Function *Callee = CGM.getIntrinsic(Intrinsic::wasm_swizzle);
+    return Builder.CreateCall(Callee, {Src, Indices});
+  }
   else if (BuiltinID == Builtin::BImalloc) {
     const FunctionDecl* FD=dyn_cast<FunctionDecl>(CurFuncDecl);
     assert(FD);
