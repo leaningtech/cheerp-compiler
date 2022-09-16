@@ -526,6 +526,8 @@ public:
 	void encodeInst(WasmInvalidOpcode opcode, WasmBuffer& code);
 	void encodeVectorConstantZero(WasmBuffer& code);
 	void encodeVectorConstant(WasmBuffer& code, const llvm::ConstantDataVector* cdv);
+	void encodeExtractLane(WasmBuffer& code, const llvm::ExtractElementInst& eei);
+	void encodeReplaceLane(WasmBuffer& code, const llvm::InsertElementInst& iei);
 	void encodeBranchHint(const llvm::BranchInst* BI, const bool IfNot, WasmBuffer& code);
 	void encodeBinOp(const llvm::Instruction& I, WasmBuffer& code);
 	void encodePredicate(const llvm::Type* ty, const llvm::CmpInst::Predicate predicate, WasmBuffer& code);
