@@ -616,6 +616,52 @@ void CheerpWasmWriter::encodeVectorConstant(WasmBuffer& code, const llvm::Consta
 		code << un.bytes[i];
 }
 
+void CheerpWasmWriter::encodeExtractLane(WasmBuffer& code, const llvm::ExtractElementInst& eei)
+{
+	const Type* elementType = eei.getType();
+	assert(isa<ConstantInt>(eei.getIndexOperand()));
+	uint64_t index = (dyn_cast<ConstantInt>(eei.getIndexOperand()))->getZExtValue();
+	compileOperand(code, eei.getVectorOperand());
+	if (elementType->isIntegerTy(32))
+		encodeInst(WasmSIMDU32Opcode::I32x4_EXTRACT_LANE, index, code);
+	else if (elementType->isIntegerTy(64))
+		encodeInst(WasmSIMDU32Opcode::I64x2_EXTRACT_LANE, index, code);
+	else if (elementType->isIntegerTy(16))
+		encodeInst(WasmSIMDU32Opcode::I16x8_EXTRACT_LANE_U, index, code);
+	else if (elementType->isIntegerTy(8))
+		encodeInst(WasmSIMDU32Opcode::I8x16_EXTRACT_LANE_U, index, code);
+	else if (elementType->isFloatTy())
+		encodeInst(WasmSIMDU32Opcode::F32x4_EXTRACT_LANE, index, code);
+	else if (elementType->isDoubleTy())
+		encodeInst(WasmSIMDU32Opcode::F64x2_EXTRACT_LANE, index, code);
+	else
+		llvm::report_fatal_error("unhandled type for extract element");
+}
+
+void CheerpWasmWriter::encodeReplaceLane(WasmBuffer& code, const llvm::InsertElementInst& iei)
+{
+	assert(iei.getOperand(0)->getType()->isVectorTy());
+	const Type* elementType = iei.getOperand(0)->getType()->getScalarType();
+	assert(isa<ConstantInt>(iei.getOperand(2)));
+	uint64_t index = (dyn_cast<ConstantInt>(iei.getOperand(2)))->getZExtValue();
+	compileOperand(code, iei.getOperand(0));
+	compileOperand(code, iei.getOperand(1));
+	if (elementType->isIntegerTy(32))
+		encodeInst(WasmSIMDU32Opcode::I32x4_REPLACE_LANE, index, code);
+	else if (elementType->isIntegerTy(64))
+		encodeInst(WasmSIMDU32Opcode::I64x2_REPLACE_LANE, index, code);
+	else if (elementType->isIntegerTy(16))
+		encodeInst(WasmSIMDU32Opcode::I16x8_REPLACE_LANE, index, code);
+	else if (elementType->isIntegerTy(8))
+		encodeInst(WasmSIMDU32Opcode::I8x16_REPLACE_LANE, index, code);
+	else if (elementType->isFloatTy())
+		encodeInst(WasmSIMDU32Opcode::F32x4_REPLACE_LANE, index, code);
+	else if (elementType->isDoubleTy())
+		encodeInst(WasmSIMDU32Opcode::F64x2_REPLACE_LANE, index, code);
+	else
+		llvm::report_fatal_error("unhandled type for insert element");
+}
+
 void CheerpWasmWriter::encodeBranchHint(const llvm::BranchInst* BI, const bool IfNot, WasmBuffer& code)
 {
 	auto branchHint = shouldBranchBeHinted(BI, IfNot);
@@ -2545,49 +2591,12 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 		}
 		case Instruction::ExtractElement:
 		{
-			const ExtractElementInst& eei = cast<ExtractElementInst>(I);
-			assert(isa<ConstantInt>(eei.getIndexOperand()));
-			uint64_t index = (dyn_cast<ConstantInt>(eei.getIndexOperand()))->getZExtValue();
-			compileOperand(code, eei.getVectorOperand());
-			if (eei.getType()->isIntegerTy(32))
-				encodeInst(WasmSIMDU32Opcode::I32x4_EXTRACT_LANE, index, code);
-			else if (eei.getType()->isIntegerTy(64))
-				encodeInst(WasmSIMDU32Opcode::I64x2_EXTRACT_LANE, index, code);
-			else if (eei.getType()->isIntegerTy(16))
-				encodeInst(WasmSIMDU32Opcode::I16x8_EXTRACT_LANE_U, index, code);
-			else if (eei.getType()->isIntegerTy(8))
-				encodeInst(WasmSIMDU32Opcode::I8x16_EXTRACT_LANE_U, index, code);
-			else if (eei.getType()->isFloatTy())
-				encodeInst(WasmSIMDU32Opcode::F32x4_EXTRACT_LANE, index, code);
-			else if (eei.getType()->isDoubleTy())
-				encodeInst(WasmSIMDU32Opcode::F64x2_EXTRACT_LANE, index, code);
-			else
-				llvm::report_fatal_error("unhandled type for extract element");
+			encodeExtractLane(code, cast<ExtractElementInst>(I));
 			break;
 		}
 		case Instruction::InsertElement:
 		{
-			const InsertElementInst& iei = cast<InsertElementInst>(I);
-			assert(iei.getOperand(0)->getType()->isVectorTy());
-			assert(isa<ConstantInt>(iei.getOperand(2)));
-			compileOperand(code, iei.getOperand(0));
-			compileOperand(code, iei.getOperand(1));
-			const Type* ty = iei.getOperand(0)->getType()->getScalarType();
-			uint64_t index = (dyn_cast<ConstantInt>(iei.getOperand(2)))->getZExtValue();
-			if (ty->isIntegerTy(32))
-				encodeInst(WasmSIMDU32Opcode::I32x4_REPLACE_LANE, index, code);
-			else if (ty->isIntegerTy(64))
-				encodeInst(WasmSIMDU32Opcode::I64x2_REPLACE_LANE, index, code);
-			else if (ty->isIntegerTy(16))
-				encodeInst(WasmSIMDU32Opcode::I16x8_REPLACE_LANE, index, code);
-			else if (ty->isIntegerTy(8))
-				encodeInst(WasmSIMDU32Opcode::I8x16_REPLACE_LANE, index, code);
-			else if (ty->isFloatTy())
-				encodeInst(WasmSIMDU32Opcode::F32x4_REPLACE_LANE, index, code);
-			else if (ty->isDoubleTy())
-				encodeInst(WasmSIMDU32Opcode::F64x2_REPLACE_LANE, index, code);
-			else
-				llvm::report_fatal_error("unhandled type for insert element");
+			encodeReplaceLane(code, cast<InsertElementInst>(I));
 			break;
 		}
 		default:
