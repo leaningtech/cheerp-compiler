@@ -1971,6 +1971,13 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						}
 						return false;
 					}
+					case Intrinsic::wasm_swizzle:
+					{
+						compileOperand(code, ci.getOperand(0));
+						compileOperand(code, ci.getOperand(1));
+						encodeInst(WasmSIMDOpcode::I8x16_SWIZZLE, code);
+						return false;
+					}
 					case Intrinsic::ctlz:
 					case Intrinsic::cttz:
 					case Intrinsic::ctpop:
