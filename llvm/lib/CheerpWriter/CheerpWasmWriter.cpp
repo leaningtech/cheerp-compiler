@@ -2606,6 +2606,29 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			encodeReplaceLane(code, cast<InsertElementInst>(I));
 			break;
 		}
+		case Instruction::ShuffleVector:
+		{
+			const ShuffleVectorInst& svi = cast<ShuffleVectorInst>(I);
+			compileOperand(code, svi.getOperand(0));
+			compileOperand(code, svi.getOperand(1));
+			encodeInst(WasmSIMDOpcode::I8x16_SHUFFLE, code);
+			const Type* elementType = svi.getOperand(0)->getType();
+			int bits = elementType->getScalarSizeInBits();
+			int elements = 128 / bits;
+			int scaleFactor = 16 / elements;
+			for (int i = 0; i < elements; i++)
+			{
+				for (int j = 0; j < scaleFactor; j++)
+				{
+					int result = svi.getMaskValue(i) * scaleFactor + j;
+					if (svi.getMaskValue(i) == llvm::UndefMaskElem)
+						result = 0;
+					assert(result < 32 && result >= 0);
+					code << static_cast<char>(result);
+				}
+			}
+			break;
+		}
 		default:
 		{
 #ifndef NDEBUG
