@@ -699,6 +699,7 @@ static cheerp::CheerpWasmOpt parseWasmOpt(StringRef opt)
     .Case("externref", cheerp::ANYREF)
     .Case("returncalls", cheerp::RETURNCALLS)
     .Case("branchhinting", cheerp::BRANCHHINTS)
+    .Case("globalization", cheerp::GLOBALIZATION)
     .Default(cheerp::INVALID);
 }
 
@@ -706,8 +707,9 @@ std::vector<cheerp::CheerpWasmOpt> cheerp::getWasmFeatures(const Driver& D, cons
 {
   // Figure out which Wasm optional feature to enable/disable
   std::vector<CheerpWasmOpt> features;
-  // We enable memory growth by default
+  // We enable memory growth and globalization by default
   features.push_back(GROWMEM);
+  features.push_back(GLOBALIZATION);
   if(Arg* cheerpWasmEnable = Args.getLastArg(options::OPT_cheerp_wasm_enable_EQ)) {
     for (StringRef opt: cheerpWasmEnable->getValues())
     {
@@ -831,6 +833,7 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
   // Figure out which Wasm optional feature to enable/disable
   auto features = getWasmFeatures(D, Args);
   bool noGrowMem = true;
+  bool noGlobalization = true;
   for (CheerpWasmOpt o: features)
   {
     switch(o)
@@ -856,6 +859,9 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
       case BRANCHHINTS:
 	CmdArgs.push_back("-cheerp-wasm-branch-hinting");
 	break;
+      case GLOBALIZATION:
+        noGlobalization = false;
+        break;
       default:
         llvm_unreachable("invalid wasm option");
         break;
@@ -863,6 +869,8 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
   }
   if (noGrowMem)
     CmdArgs.push_back("-cheerp-wasm-no-grow-memory");
+  if (noGlobalization)
+    CmdArgs.push_back("-cheerp-wasm-no-globalization");
 
   if(Arg* cheerpSourceMap = Args.getLastArg(options::OPT_cheerp_sourcemap_EQ))
     cheerpSourceMap->render(Args, CmdArgs);
