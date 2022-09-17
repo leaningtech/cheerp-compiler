@@ -80,6 +80,8 @@ llvm::cl::opt<bool> WasmReturnCalls("cheerp-wasm-return-calls", llvm::cl::desc("
 
 llvm::cl::opt<bool> WasmNoGlobalization("cheerp-wasm-no-globalization", llvm::cl::desc("Disable promotion of global variables to proper wasm globals"));
 
+llvm::cl::opt<bool> WasmNoUnalignedMem("cheerp-wasm-no-unaligned-mem", llvm::cl::desc("Disable the use of unaligned load/stores in optimizations"));
+
 llvm::cl::opt<bool> UseBigInts("cheerp-use-bigints", llvm::cl::desc("Use the BigInt type in JS to represent i64 values"));
 
 llvm::cl::opt<bool> KeepInvokes("cheerp-keep-invokes", llvm::cl::desc("Don't lower invokes to calls"));
