@@ -44,6 +44,7 @@ namespace cheerp {
     ANYREF,
     RETURNCALLS,
     BRANCHHINTS,
+    GLOBALIZATION,
   };
   std::vector<CheerpWasmOpt> getWasmFeatures(const Driver& D, const llvm::opt::ArgList& Args);
 

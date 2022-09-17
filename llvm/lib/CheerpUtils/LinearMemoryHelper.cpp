@@ -446,6 +446,8 @@ void LinearMemoryHelper::generateGlobalizedGlobalsUsage()
 	// TODO: add globalizedGlobals in the JS writer
 	if (mode == FunctionAddressMode::AsmJS)
 		return;
+	if (WasmNoGlobalization)
+		return;
 	// Identify all globals which are only ever accessed with with load/store, we can promote those to globals
 	for (const GlobalVariable& GV: module->globals())
 	{
