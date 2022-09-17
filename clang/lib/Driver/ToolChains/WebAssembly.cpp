@@ -650,6 +650,8 @@ void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("-cheerp-wasm-exported-table");
   if(std::find(features.begin(), features.end(), EXPORTEDMEMORY) != features.end())
     CmdArgs.push_back("-cheerp-wasm-exported-memory");
+  if(std::find(features.begin(), features.end(), UNALIGNEDMEM) == features.end())
+    CmdArgs.push_back("-cheerp-wasm-no-unaligned-mem");
 
   addPass("function(CheerpLowerInvoke)");
   if (Args.hasArg(options::OPT_fexceptions))
@@ -700,6 +702,7 @@ static cheerp::CheerpWasmOpt parseWasmOpt(StringRef opt)
     .Case("returncalls", cheerp::RETURNCALLS)
     .Case("branchhinting", cheerp::BRANCHHINTS)
     .Case("globalization", cheerp::GLOBALIZATION)
+    .Case("unalignedmem", cheerp::UNALIGNEDMEM)
     .Default(cheerp::INVALID);
 }
 
@@ -707,9 +710,10 @@ std::vector<cheerp::CheerpWasmOpt> cheerp::getWasmFeatures(const Driver& D, cons
 {
   // Figure out which Wasm optional feature to enable/disable
   std::vector<CheerpWasmOpt> features;
-  // We enable memory growth and globalization by default
+  // We enable memory growth/globalization/unaligned memory accesses by default
   features.push_back(GROWMEM);
   features.push_back(GLOBALIZATION);
+  features.push_back(UNALIGNEDMEM);
   if(Arg* cheerpWasmEnable = Args.getLastArg(options::OPT_cheerp_wasm_enable_EQ)) {
     for (StringRef opt: cheerpWasmEnable->getValues())
     {
@@ -834,6 +838,7 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
   auto features = getWasmFeatures(D, Args);
   bool noGrowMem = true;
   bool noGlobalization = true;
+  bool noUnalignedMem = true;
   for (CheerpWasmOpt o: features)
   {
     switch(o)
@@ -862,6 +867,9 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
       case GLOBALIZATION:
         noGlobalization = false;
         break;
+      case UNALIGNEDMEM:
+        noUnalignedMem = false;
+        break;
       default:
         llvm_unreachable("invalid wasm option");
         break;
@@ -871,6 +879,8 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("-cheerp-wasm-no-grow-memory");
   if (noGlobalization)
     CmdArgs.push_back("-cheerp-wasm-no-globalization");
+  if (noUnalignedMem)
+    CmdArgs.push_back("-cheerp-wasm-no-unaligned-mem");
 
   if(Arg* cheerpSourceMap = Args.getLastArg(options::OPT_cheerp_sourcemap_EQ))
     cheerpSourceMap->render(Args, CmdArgs);

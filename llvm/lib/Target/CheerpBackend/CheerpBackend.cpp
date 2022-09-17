@@ -139,7 +139,7 @@ bool CheerpWritePass::runOnModule(Module& M)
   MPM.addPass(createModuleToFunctionPassAdaptor(cheerp::PointerArithmeticToArrayIndexingPass()));
   MPM.addPass(createModuleToFunctionPassAdaptor(cheerp::PointerToImmutablePHIRemovalPass()));
   MPM.addPass(createModuleToFunctionPassAdaptor(cheerp::GEPOptimizerPass()));
-  MPM.addPass(createModuleToFunctionPassAdaptor(cheerp::StoreMergingPass(LinearOutput == Wasm)));
+  MPM.addPass(createModuleToFunctionPassAdaptor(cheerp::StoreMergingPass(LinearOutput == Wasm && !WasmNoUnalignedMem)));
   // Remove obviously dead instruction, this avoids problems caused by inlining of effectfull instructions
   // inside not used instructions which are then not rendered.
   MPM.addPass(createModuleToFunctionPassAdaptor(cheerp::PreserveCheerpAnalysisPassWrapper<DCEPass, Function, FunctionAnalysisManager>()));

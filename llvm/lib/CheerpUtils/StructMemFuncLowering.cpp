@@ -403,7 +403,7 @@ bool StructMemFuncLowering::runOnBlock(BasicBlock& BB, bool asmjs)
 			ConstantInt *sizeConst = dyn_cast<ConstantInt>(size);
 			if (!sizeConst || sizeConst->getZExtValue() > INLINE_WRITE_LOOP_MAX)
 				continue;
-			bool useUnaligned = LinearOutput == Wasm && mode != MEMMOVE;
+			bool useUnaligned = LinearOutput == Wasm && !WasmNoUnalignedMem && mode != MEMMOVE;
 			uint32_t effectiveAlignInt = alignInt;
 			if(useUnaligned)
 			{
