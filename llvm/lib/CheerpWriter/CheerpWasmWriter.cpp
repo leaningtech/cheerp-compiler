@@ -1420,7 +1420,7 @@ void CheerpWasmWriter::compileICmp(const ICmpInst& ci, const CmpInst::Predicate 
 void CheerpWasmWriter::compileFCmp(const Value* lhs, const Value* rhs, CmpInst::Predicate p, WasmBuffer& code)
 {
 	Type* ty = lhs->getType();
-	assert(ty->isDoubleTy() || ty->isFloatTy());
+	assert(ty->isDoubleTy() || ty->isFloatTy() || ty->isVectorTy());
 	assert(ty == rhs->getType());
 
 	if (p == CmpInst::FCMP_ORD)
@@ -1495,12 +1495,20 @@ void CheerpWasmWriter::compileFCmp(const Value* lhs, const Value* rhs, CmpInst::
 		if(invertForUnordered)
 			p = CmpInst::getInversePredicate(p);
 		assert(!CmpInst::isUnordered(p));
+		const Type* elementType = nullptr;
+		if (ty->isVectorTy())
+			elementType = cast<VectorType>(ty)->getElementType();
 		switch(p)
 		{
 #define PREDICATE(Ty, name) \
 			case CmpInst::FCMP_O##Ty: \
 				if (ty->isDoubleTy()) \
 					encodeInst(WasmOpcode::F64_##name, code); \
+				else if (ty->isVectorTy()) \
+					if (elementType->isFloatTy()) \
+						encodeInst(WasmSIMDOpcode::F32x4_##name, code); \
+					else \
+						encodeInst(WasmSIMDOpcode::F64x2_##name, code); \
 				else \
 					encodeInst(WasmOpcode::F32_##name, code); \
 				break;
@@ -1518,7 +1526,10 @@ void CheerpWasmWriter::compileFCmp(const Value* lhs, const Value* rhs, CmpInst::
 		if(invertForUnordered)
 		{
 			// Invert result
-			encodeInst(WasmOpcode::I32_EQZ, code);
+			if (ty->isVectorTy())
+				encodeInst(WasmSIMDOpcode::V128_NOT, code);
+			else
+				encodeInst(WasmOpcode::I32_EQZ, code);
 		}
 	}
 }
@@ -2381,7 +2392,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 		{
 			const Value* op = I.getOperand(0);
 			compileOperand(code, op);
-			if(!isSignedLoad(op))
+			if(!I.getOperand(0)->getType()->isVectorTy() && !isSignedLoad(op))
 			{
 				uint32_t bitWidth = I.getOperand(0)->getType()->getIntegerBitWidth();
 				if (bitWidth < 32)
