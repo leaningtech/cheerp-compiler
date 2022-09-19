@@ -12544,6 +12544,13 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
     Function *Callee = CGM.getIntrinsic(Intrinsic::wasm_anytrue, Vec->getType());
     return Builder.CreateCall(Callee, {Vec});
   }
+  else if (BuiltinID == Cheerp::BI__builtin_wasm_bitselect) {
+    Value *V1 = EmitScalarExpr(E->getArg(0));
+    Value *V2 = EmitScalarExpr(E->getArg(1));
+    Value *C = EmitScalarExpr(E->getArg(2));
+    Function *Callee = CGM.getIntrinsic(Intrinsic::wasm_bitselect, ConvertType(E->getType()));
+    return Builder.CreateCall(Callee, {V1, V2, C});
+  }
   else if (BuiltinID == Builtin::BImalloc) {
     const FunctionDecl* FD=dyn_cast<FunctionDecl>(CurFuncDecl);
     assert(FD);
