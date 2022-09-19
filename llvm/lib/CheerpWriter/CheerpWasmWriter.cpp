@@ -688,6 +688,10 @@ void CheerpWasmWriter::encodePredicate(const llvm::Type* ty, const llvm::CmpInst
 			{ \
 				if (elementType->isIntegerTy(32)) \
 					encodeInst(WasmSIMDOpcode::I32x4_##name, code); \
+				else if (elementType->isIntegerTy(8))\
+					encodeInst(WasmSIMDOpcode::I8x16_##name, code); \
+				else if (elementType->isIntegerTy(16))\
+					encodeInst(WasmSIMDOpcode::I16x8_##name, code); \
 				else \
 					assert(false); \
 			} \
