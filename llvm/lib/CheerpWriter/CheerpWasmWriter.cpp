@@ -2186,6 +2186,11 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 				compileOperand(code, op->get());
 			}
 
+			if (calledFunc && calledFunc->getIntrinsicID() == Intrinsic::ctpop && ci.getOperand(0)->getType()->isVectorTy())
+			{
+				encodeInst(WasmSIMDOpcode::I8x16_POPCNT, code);
+				return false;
+			}
 			if (calledFunc)
 			{
 				if (TypedBuiltinInstr::isWasmIntrinsic(calledFunc))
