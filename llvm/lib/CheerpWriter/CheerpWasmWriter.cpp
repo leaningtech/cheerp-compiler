@@ -1360,6 +1360,13 @@ void CheerpWasmWriter::compileICmp(const Value* op0, const Value* op1, const Cmp
 		}
 		compileOperand(code, op1);
 	}
+	else if (op0->getType()->isVectorTy())
+	{
+		compileOperand(code, op0);
+		compileOperand(code, op1);
+		encodePredicate(op0->getType(), p, code);
+		return ;
+	}
 	else if(CmpInst::isSigned(p))
 	{
 		bool isOp0Signed = isSignedLoad(op0);
