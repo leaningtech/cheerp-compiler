@@ -232,6 +232,7 @@ enum class WasmSIMDOpcode {
 	F64x2_GT = 0x4a,
 	F64x2_LE = 0x4b,
 	F64x2_GE = 0x4c,
+	V128_NOT = 0x4d,
 	V128_BITSELECT = 0x52,
 	V128_ANY_TRUE = 0x53,
 	I8x16_NEG = 0x61,
