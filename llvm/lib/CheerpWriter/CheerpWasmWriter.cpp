@@ -360,7 +360,7 @@ void CheerpWasmWriter::encodeBinOp(const llvm::Instruction& I, WasmBuffer& code)
 				llvm::report_fatal_error("unsupported bit width for vector integer mul");
 			return ;
 		}
-		if (I.getOpcode() == Instruction::Add)
+		else if (I.getOpcode() == Instruction::Add)
 		{
 			if (et->isIntegerTy(32))
 				encodeInst(WasmSIMDOpcode::I32x4_ADD, code);
@@ -374,7 +374,7 @@ void CheerpWasmWriter::encodeBinOp(const llvm::Instruction& I, WasmBuffer& code)
 				llvm::report_fatal_error("unsupported bit width for vector integer add");
 			return ;
 		}
-		if (I.getOpcode() == Instruction::Sub)
+		else if (I.getOpcode() == Instruction::Sub)
 		{
 			if (et->isIntegerTy(32))
 				encodeInst(WasmSIMDOpcode::I32x4_SUB, code);
@@ -388,7 +388,7 @@ void CheerpWasmWriter::encodeBinOp(const llvm::Instruction& I, WasmBuffer& code)
 				llvm::report_fatal_error("unsupported bit width for vector integer sub");
 			return ;
 		}
-		if (I.getOpcode() == Instruction::FMul)
+		else if (I.getOpcode() == Instruction::FMul)
 		{
 			if (et->isFloatTy())
 				encodeInst(WasmSIMDOpcode::F32x4_MUL, code);
@@ -398,8 +398,7 @@ void CheerpWasmWriter::encodeBinOp(const llvm::Instruction& I, WasmBuffer& code)
 				llvm::report_fatal_error("unsupported format for vector float mul");
 			return ;
 		}
-
-		if (I.getOpcode() == Instruction::FAdd)
+		else if (I.getOpcode() == Instruction::FAdd)
 		{
 			if (et->isFloatTy())
 				encodeInst(WasmSIMDOpcode::F32x4_ADD, code);
@@ -409,7 +408,7 @@ void CheerpWasmWriter::encodeBinOp(const llvm::Instruction& I, WasmBuffer& code)
 				llvm::report_fatal_error("unsupported format for vector float add");
 			return ;
 		}
-		if (I.getOpcode() == Instruction::FSub)
+		else if (I.getOpcode() == Instruction::FSub)
 		{
 			if (et->isFloatTy())
 				encodeInst(WasmSIMDOpcode::F32x4_SUB, code);
@@ -419,7 +418,7 @@ void CheerpWasmWriter::encodeBinOp(const llvm::Instruction& I, WasmBuffer& code)
 				llvm::report_fatal_error("unsupported format for vector float sub");
 			return ;
 		}
-		if (I.getOpcode() == Instruction::FDiv)
+		else if (I.getOpcode() == Instruction::FDiv)
 		{
 			if (et->isFloatTy())
 				encodeInst(WasmSIMDOpcode::F32x4_DIV, code);
@@ -429,6 +428,22 @@ void CheerpWasmWriter::encodeBinOp(const llvm::Instruction& I, WasmBuffer& code)
 				llvm::report_fatal_error("unsupported format for vector float div");
 			return ;
 		}
+		else if (I.getOpcode() == Instruction::Xor)
+		{
+			encodeInst(WasmSIMDOpcode::V128_XOR, code);
+			return ;
+		}
+		else if (I.getOpcode() == Instruction::Or)
+		{
+			encodeInst(WasmSIMDOpcode::V128_OR, code);
+			return ;
+		}
+		else if (I.getOpcode() == Instruction::And)
+		{
+			encodeInst(WasmSIMDOpcode::V128_AND, code);
+			return ;
+		}
+		llvm::errs() << "Opcode is: " << I.getOpcodeName() << "\n";
 		llvm::report_fatal_error("unhandled vector op");
 		return ;
 	}
