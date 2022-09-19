@@ -1201,6 +1201,27 @@ void CheerpWasmWriter::compileConstant(WasmBuffer& code, const Constant* c, bool
 	{
 		compileTypedZero(code, c->getType());
 	}
+	else if (isa<ConstantVector>(c))
+	{
+		const FixedVectorType* vectorType = cast<ConstantVector>(c)->getType();
+		assert(vectorType->getElementType()->isIntegerTy(32));
+		std::vector<uint32_t> values;
+		const unsigned num = vectorType->getNumElements();
+		for (unsigned i = 0; i < num; i++)
+		{
+			unsigned result = 0;
+			const Constant *cons = c->getAggregateElement(i);
+			if (!isa<UndefValue>(cons))
+			{
+				assert(isa<ConstantInt>(cons));
+				const ConstantInt* ci = cast<ConstantInt>(cons);
+				result = ci->getZExtValue();
+			}
+			values.push_back(result);
+		}
+		const ConstantDataVector* cdv = cast<ConstantDataVector>(ConstantDataVector::get(module.getContext(), ArrayRef<uint32_t>(values)));
+		encodeVectorConstant(code, cdv);
+	}
 	else
 	{
 #ifndef NDEBUG
