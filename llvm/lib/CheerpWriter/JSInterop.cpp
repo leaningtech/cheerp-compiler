@@ -13,6 +13,7 @@
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/Cheerp/JsExport.h"
 #include <numeric>
+#include <sstream>
 
 using namespace llvm;
 using namespace cheerp;
@@ -36,6 +37,53 @@ uint32_t CheerpWriter::countJsParameters(const llvm::Function* F, bool isStatic)
 		++it;
 	}
 	return ret;
+}
+
+std::pair<std::string, std::string> argumentsUsage(const llvm::Function* F, bool isStatic, const PointerAnalyzer& PA, const std::map<const StructType*, StringRef>& toBeWrapped)
+{
+	std::ostringstream args;
+	std::ostringstream called;
+
+	uint32_t ret = 0;
+	auto it = F->arg_begin();
+	auto itE = F->arg_end();
+	if(!isStatic)
+	{
+		// The this parameter is implicit
+		++it;
+	}
+	while(it != itE)
+	{
+		bool isWrapped = false;
+		if (it->getType()->isPointerTy() && toBeWrapped.count(dyn_cast<StructType>(it->getType()->getPointerElementType())))
+			isWrapped = true;
+		if(it->getType()->isPointerTy() && PA.getPointerKind(&(*it)) == SPLIT_REGULAR)
+		{
+			args << "a" << ret << ",";
+			if (isWrapped)
+				called << "a" << ret << ".this.d," << "a" << ret << ".this.o,";
+			else
+				called << "[a" << ret << "]," << "0,";
+			ret++;
+		}
+		else
+		{
+			args << "a" << ret << ",";
+			if (isWrapped)
+				called << "a" << ret << ".this.d[" << "a" << ret << ".this.o],";
+			else
+				called << "a" << ret << ",";
+			ret++;
+		}
+		++it;
+	}
+	std::string a = args.str();
+	if (a.size())
+		a.pop_back();
+	std::string b = called.str();
+	if (b.size())
+		b.pop_back();
+	return {a, b};
 }
 
 bool CheerpWriter::hasJSExports()
@@ -71,11 +119,57 @@ static std::vector<const llvm::MDNode*> uniqueMDNodes(const llvm::NamedMDNode& n
 
 void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 {
+	std::map<const StructType*, StringRef> jsexportedTypes;
+
+	auto compileFunctionBody = [&](const Function * f, bool isStatic, const StructType* implicitThis) -> void
+	{
+		auto argsUsage = argumentsUsage(f, isStatic, PA, jsexportedTypes);
+		stream << "function(" << argsUsage.first << "){" << NewLine;
+
+		const llvm::StructType* retType = nullptr;
+		if (f->getReturnType() && f->getReturnType()->isPointerTy())
+			retType = dyn_cast<StructType>(f->getReturnType()->getPointerElementType());
+
+		if (jsexportedTypes.count(retType))
+		{
+			stream << "var _=Object.create(" << jsexportedTypes.at(retType) << ".prototype);" << NewLine;
+			stream << "_.this={d:";
+		}
+		else
+			stream << "return ";
+
+		auto internalName = namegen.getName(f);
+		stream << internalName << "(";
+		if(!isStatic && implicitThis)
+		{
+			if(PA.getPointerKind(&*f->arg_begin())==SPLIT_REGULAR)
+				stream << "this.this.d,this.this.o";
+			else
+				stream << "this.this.d[this.this.o]";
+			if(argsUsage.second.size() > 0)
+				stream << ",";
+		}
+		stream << argsUsage.second << ")";
+		if (jsexportedTypes.count(retType))
+		{
+			stream << "," << NewLine << "o:oSlot};" << NewLine;
+			stream << "return _;" << NewLine;
+		}
+		else
+		{
+			stream << ";" << NewLine;
+		}
+		stream << "};" << NewLine;
+	};
+
 	auto processFunction = [&](const Function * f, const StringRef& name) -> void
 	{
 		if (alsoDeclare && !isNamespaced(name))
 			stream << "var ";
-		stream << name << '=' << namegen.getName(f) << ';' << NewLine;
+
+		stream << name << '=';
+
+		compileFunctionBody(f, /*isStatic*/ true, nullptr);
 	};
 
 	auto processRecord = [&](const StructType* t, const llvm::NamedMDNode& namedNode, const llvm::StringRef& jsClassName) -> void
@@ -134,7 +228,8 @@ void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 		else
 			stream << jsClassName << "=function (";
 		const Function * f = NULL;
-		uint32_t fwdArgsCount = 0;
+
+		std::pair<std::string, std::string> argsUsage;
 
 		//First compile the constructor
 		if (hasConstructor)
@@ -142,42 +237,31 @@ void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 			const MDNode* node = *constructor;
 			f = cast<Function>(cast<ConstantAsMetadata>(node->getOperand(0))->getValue());
 
-			fwdArgsCount = countJsParameters(f, /*isStatic*/false);
+			argsUsage = argumentsUsage(f, /*isStatic*/false, PA, jsexportedTypes);
 		}
-		for(uint32_t i=0;i<fwdArgsCount;i++)
-		{
-			if(i!=0)
-				stream << ",";
-			stream << 'a' << i;
-		}
-		stream << "){" << NewLine;
-		compileType(const_cast<StructType*>(t), THIS_OBJ);
-		//We need to manually add the self pointer
-		stream << ';' << NewLine << "this.d=[this];" << NewLine;
+		stream << argsUsage.first << "){" << NewLine;
 
-		// Special argument for only allocating the object, without calling the
-		// C++ constructor
-		stream << "if (arguments.length===1&&arguments[0]===undefined){" << NewLine
-			<< "return;" << NewLine
-			<< "}" << NewLine;
+		stream << "this.this={d:[";
+		// Regular constructor
+		compileType(const_cast<StructType*>(t), LITERAL_OBJ);
+		//We need to manually add the self pointer
+		stream << "],"<< NewLine <<"o:0};" << NewLine;
+
 		if (hasConstructor)
 		{
 			compileOperand(f);
 			stream << '(';
-			if(PA.getPointerKind(&*f->arg_begin())==COMPLETE_OBJECT)
-				stream << "this";
-			else
-				stream << "{d:this.d,o:0}";
+				stream << "this.this.d[0]";
 
-			for(uint32_t i=0;i<fwdArgsCount;i++)
-				stream << ",a" << i;
+			if (argsUsage.second.size() > 0)
+				stream << "," << argsUsage.second;
 			stream << ");";
 
 			assert( globalDeps.isReachable(f) );
 		}
 		else
 		{
-			stream << "throw \"Class/Struct " << jsClassName << " do not have a [[cheerp::jsexport]]-ed constructor\";";
+			stream << "throw new Error(\"Class/Struct " << jsClassName << " do not have a [[cheerp::jsexport]]-ed constructor\");";
 		}
 		stream << NewLine << "};" << NewLine;
 
@@ -195,39 +279,19 @@ void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 			stream << jsClassName;
 			if (!isStatic)
 				stream << ".prototype";
-			stream << '.' << methodName << "=function (";
-			uint32_t fwdArgsCount = countJsParameters(f, isStatic);
-			for(uint32_t i=0;i<fwdArgsCount;i++)
-			{
-				if(i!=0)
-					stream << ",";
-				stream << 'a' << i;
-			}
-			stream << "){" << NewLine << "return ";
-			compileOperand(f);
-			stream << '(';
-			// If the method is not static, the first argument is the implicit `this`
-			if(!isStatic)
-			{
-				if(PA.getPointerKind(&*f->arg_begin())==COMPLETE_OBJECT)
-					stream << "this";
-				else
-					stream << "{d:this.d,o:0}";
-				if(fwdArgsCount)
-					stream << ",";
-			}
-			for(uint32_t i=0;i<fwdArgsCount;i++)
-			{
-				if(i!=0)
-					stream << ",";
-				stream << 'a' << i;
-			}
-			stream << ");" << NewLine << "};" << NewLine;
+			stream << '.' << methodName << "=";
+
+			compileFunctionBody(f, isStatic, t);
 
 			assert( globalDeps.isReachable(f) );
 		}
 	};
 
+	for (const auto& jsex : jsExportedDecls)
+	{
+		if (jsex.isClass())
+			jsexportedTypes.insert({jsex.t, jsex.name});
+	}
 
 	for (const auto& jsex : jsExportedDecls)
 	{
