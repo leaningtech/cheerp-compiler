@@ -470,6 +470,13 @@ public:
 	static bool getBasesInfo(const llvm::Module& module, const llvm::StructType* t, uint32_t& firstBase, uint32_t& baseCount);
 
 	static bool isJSExportedType(llvm::StructType* st, const llvm::Module& m);
+	static bool isJSExportedPtrType(llvm::Type* t, const llvm::Module& m)
+	{
+		if (t->isPointerTy())
+			if (llvm::StructType* st = llvm::dyn_cast<llvm::StructType>(t->getPointerElementType()))
+				return isJSExportedType(st, m);
+		return false;
+	}
 
 	static std::string getNamespacedFunctionName(llvm::StringRef name);
 
