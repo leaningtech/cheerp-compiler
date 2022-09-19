@@ -674,13 +674,23 @@ void CheerpWasmWriter::encodeBranchHint(const llvm::BranchInst* BI, const bool I
 
 void CheerpWasmWriter::encodePredicate(const llvm::Type* ty, const llvm::CmpInst::Predicate predicate, WasmBuffer& code)
 {
-	assert(ty->isIntegerTy() || ty->isPointerTy());
+	assert(ty->isIntegerTy() || ty->isPointerTy() || ty->isVectorTy());
+	const Type* elementType = nullptr;
+	if (ty->isVectorTy())
+		elementType = cast<VectorType>(ty)->getElementType();
 	switch(predicate)
 	{
 #define PREDICATE(Ty, name) \
 		case CmpInst::ICMP_##Ty: \
 			if (ty->isIntegerTy(64)) \
 				encodeInst(WasmOpcode::I64_##name, code); \
+			else if (ty->isVectorTy()) \
+			{ \
+				if (elementType->isIntegerTy(32)) \
+					encodeInst(WasmSIMDOpcode::I32x4_##name, code); \
+				else \
+					assert(false); \
+			} \
 			else \
 				encodeInst(WasmOpcode::I32_##name, code); \
 			break;
@@ -1060,7 +1070,10 @@ void CheerpWasmWriter::compileConstantExpr(WasmBuffer& code, const ConstantExpr*
 			compileOperand(code, ce->getOperand(1));
 			compileOperand(code, ce->getOperand(2));
 			compileCondition(code, ce->getOperand(0), /*booleanInvert*/false);
-			encodeInst(WasmOpcode::SELECT, code);
+			if (ce->getOperand(0)->getType()->isVectorTy())
+				encodeInst(WasmSIMDOpcode::V128_BITSELECT, code);
+			else
+				encodeInst(WasmOpcode::SELECT, code);
 			break;
 		}
 		case Instruction::ZExt:
@@ -2326,7 +2339,10 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			compileOperand(code, si.getTrueValue());
 			compileOperand(code, si.getFalseValue());
 			compileCondition(code, si.getCondition(), /*booleanInvert*/false);
-			encodeInst(WasmOpcode::SELECT, code);
+			if (si.getCondition()->getType()->isVectorTy())
+				encodeInst(WasmSIMDOpcode::V128_BITSELECT, code);
+			else
+				encodeInst(WasmOpcode::SELECT, code);
 			break;
 		}
 		case Instruction::SExt:
@@ -2960,7 +2976,15 @@ void CheerpWasmWriter::compileCondition(WasmBuffer& code, const llvm::Value* con
 {
 	bool canInvertCond = isa<Instruction>(cond) && isInlineable(*cast<Instruction>(cond));
 
-	if(canInvertCond && isa<ICmpInst>(cond))
+	if (cond->getType()->isVectorTy() && isa<ICmpInst>(cond))
+	{
+		const ICmpInst* ci = cast<ICmpInst>(cond);
+		compileOperand(code, ci->getOperand(0));
+		compileOperand(code, ci->getOperand(1));
+		CmpInst::Predicate p = ci->getPredicate();
+		encodePredicate(ci->getOperand(0)->getType(), p, code);
+	}
+	else if(canInvertCond && isa<ICmpInst>(cond))
 	{
 		const ICmpInst* ci = cast<ICmpInst>(cond);
 		CmpInst::Predicate p = ci->getPredicate();
