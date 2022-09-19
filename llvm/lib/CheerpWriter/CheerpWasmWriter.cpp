@@ -2055,6 +2055,14 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						encodeInst(WasmSIMDOpcode::V128_ANY_TRUE, code);
 						return false;
 					}
+					case Intrinsic::wasm_bitselect:
+					{
+						compileOperand(code, ci.getOperand(0));
+						compileOperand(code, ci.getOperand(1));
+						compileOperand(code, ci.getOperand(2));
+						encodeInst(WasmSIMDOpcode::V128_BITSELECT, code);
+						return false;
+					}
 					case Intrinsic::ctlz:
 					case Intrinsic::cttz:
 					case Intrinsic::ctpop:
