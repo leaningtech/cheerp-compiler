@@ -239,6 +239,7 @@ enum class WasmSIMDOpcode {
 	V128_BITSELECT = 0x52,
 	V128_ANY_TRUE = 0x53,
 	I8x16_NEG = 0x61,
+	I8x16_POPCNT = 0x62,
 	I8x16_ADD = 0x6e,
 	I8x16_SUB = 0x71,
 	I16x8_NEG = 0x81,
