@@ -13,6 +13,7 @@
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/Cheerp/JsExport.h"
 #include <numeric>
+#include <sstream>
 
 using namespace llvm;
 using namespace cheerp;
@@ -36,6 +37,81 @@ uint32_t CheerpWriter::countJsParameters(const llvm::Function* F, bool isStatic)
 		++it;
 	}
 	return ret;
+}
+
+static std::pair<std::string, std::string> buildArgumentsString(const llvm::Function* F, bool isStatic, const PointerAnalyzer& PA, const std::map<const StructType*, StringRef>& toBeWrapped)
+{
+	// While code-generating JSExported functions we need to write something like:
+	// function someName(a0,a1,a2,a3,a4,a5) {
+	// 	return equivalentInnerFunctionName(a0,a1,a2,[a3],0,a4,a5);	//very much an example, where a3 needs to be passes as SPLIT_REGULAR
+	// }
+	//
+	// This helper function will return (via a pair) two strings that will be used like:
+	// function someName(PAIR_FIRST_MEMBER)
+	// {
+	// 	return equivalentInnerFunctionName(PAIR_SECOND_MEMBER);
+	// }
+
+
+	std::ostringstream args_outer;		// args_outer will contain the comma-separated list of arguments to the outer function
+	std::ostringstream args_inner;		// args_inner will contain the comma-separated list of arguments to the inner function
+
+	uint32_t ret = 0;
+	auto it = F->arg_begin();
+	auto itE = F->arg_end();
+	if(!isStatic)
+	{
+		// The this parameter is implicit, skip it
+		++it;
+	}
+	while(it != itE)
+	{
+		std::ostringstream param;
+		param << "a" << ret;
+		const std::string aX = param.str();
+
+		bool isWrapped = false;
+		if (it->getType()->isPointerTy() && toBeWrapped.count(dyn_cast<StructType>(it->getType()->getPointerElementType())))
+			isWrapped = true;
+
+		args_inner << aX << ",";
+		if(it->getType()->isPointerTy() && PA.getPointerKind(&(*it)) == SPLIT_REGULAR)
+		{
+			assert(isWrapped);
+			{
+				// Split regular representation
+				args_outer << aX << ".this.d," << aX << ".this.o,";
+			}
+		}
+		else
+		{
+			if (isWrapped)
+			{
+				// Complete object
+				args_outer << aX << ".this.d[" << aX << ".this.o],";
+			}
+			else
+			{
+				// forward as input
+				args_outer << aX << ",";
+			}
+		}
+		++ret;
+		++it;
+	}
+
+	// Extract from stringstream
+	std::string inner = args_inner.str();
+	std::string outer = args_outer.str();
+
+	// Normalize removing (evenutal) last comma
+	if (inner.size())
+		inner.pop_back();
+	if (outer.size())
+		outer.pop_back();
+
+	// Package in pair
+	return {inner, outer};
 }
 
 bool CheerpWriter::hasJSExports()
@@ -71,11 +147,57 @@ static std::vector<const llvm::MDNode*> uniqueMDNodes(const llvm::NamedMDNode& n
 
 void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 {
+	std::map<const StructType*, StringRef> jsexportedTypes;
+
+	auto compileFunctionBody = [&](const Function * f, bool isStatic, const StructType* implicitThis) -> void
+	{
+		auto argumentsStrings = buildArgumentsString(f, isStatic, PA, jsexportedTypes);
+		stream << "function(" << argumentsStrings.first << "){" << NewLine;
+
+		const llvm::StructType* retType = nullptr;
+		if (f->getReturnType() && f->getReturnType()->isPointerTy())
+			retType = dyn_cast<StructType>(f->getReturnType()->getPointerElementType());
+
+		if (jsexportedTypes.count(retType))
+		{
+			stream << "var _=Object.create(" << jsexportedTypes.at(retType) << ".prototype);" << NewLine;
+			stream << "_.this={d:";
+		}
+		else
+			stream << "return ";
+
+		auto internalName = namegen.getName(f);
+		stream << internalName << "(";
+		if(!isStatic && implicitThis)
+		{
+			if(PA.getPointerKind(&*f->arg_begin())==SPLIT_REGULAR)
+				stream << "this.this.d,this.this.o";
+			else
+				stream << "this.this.d[this.this.o]";
+			if(argumentsStrings.second.size() > 0)
+				stream << ",";
+		}
+		stream << argumentsStrings.second << ")";
+		if (jsexportedTypes.count(retType))
+		{
+			stream << "," << NewLine << "o:oSlot};" << NewLine;
+			stream << "return _;" << NewLine;
+		}
+		else
+		{
+			stream << ";" << NewLine;
+		}
+		stream << "};" << NewLine;
+	};
+
 	auto processFunction = [&](const Function * f, const StringRef& name) -> void
 	{
 		if (alsoDeclare && !isNamespaced(name))
 			stream << "var ";
-		stream << name << '=' << namegen.getName(f) << ';' << NewLine;
+
+		stream << name << '=';
+
+		compileFunctionBody(f, /*isStatic*/ true, nullptr);
 	};
 
 	auto processRecord = [&](const StructType* t, const llvm::NamedMDNode& namedNode, const llvm::StringRef& jsClassName) -> void
@@ -134,7 +256,6 @@ void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 		else
 			stream << jsClassName << "=function (";
 		const Function * f = NULL;
-		uint32_t fwdArgsCount = 0;
 
 		//First compile the constructor
 		if (hasConstructor)
@@ -142,42 +263,29 @@ void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 			const MDNode* node = *constructor;
 			f = cast<Function>(cast<ConstantAsMetadata>(node->getOperand(0))->getValue());
 
-			fwdArgsCount = countJsParameters(f, /*isStatic*/false);
-		}
-		for(uint32_t i=0;i<fwdArgsCount;i++)
-		{
-			if(i!=0)
-				stream << ",";
-			stream << 'a' << i;
-		}
-		stream << "){" << NewLine;
-		compileType(const_cast<StructType*>(t), THIS_OBJ);
-		//We need to manually add the self pointer
-		stream << ';' << NewLine << "this.d=[this];" << NewLine;
+			const auto argumentsStrings = buildArgumentsString(f, /*isStatic*/false, PA, jsexportedTypes);
 
-		// Special argument for only allocating the object, without calling the
-		// C++ constructor
-		stream << "if (arguments.length===1&&arguments[0]===undefined){" << NewLine
-			<< "return;" << NewLine
-			<< "}" << NewLine;
-		if (hasConstructor)
-		{
+			stream << argumentsStrings.first << "){" << NewLine;
+
+			stream << "this.this={d:[";
+			// Regular constructor
+			compileType(const_cast<StructType*>(t), LITERAL_OBJ);
+			//We need to manually add the self pointer
+			stream << "],"<< NewLine <<"o:0};" << NewLine;
 			compileOperand(f);
 			stream << '(';
-			if(PA.getPointerKind(&*f->arg_begin())==COMPLETE_OBJECT)
-				stream << "this";
-			else
-				stream << "{d:this.d,o:0}";
+				stream << "this.this.d[0]";
 
-			for(uint32_t i=0;i<fwdArgsCount;i++)
-				stream << ",a" << i;
+			if (argumentsStrings.second.size() > 0)
+				stream << "," << argumentsStrings.second;
 			stream << ");";
 
 			assert( globalDeps.isReachable(f) );
 		}
 		else
 		{
-			stream << "throw \"Class/Struct " << jsClassName << " do not have a [[cheerp::jsexport]]-ed constructor\";";
+			stream << "){" << NewLine;
+			stream << "throw new Error(\"Class/Struct " << jsClassName << " do not have a [[cheerp::jsexport]]-ed constructor\");";
 		}
 		stream << NewLine << "};" << NewLine;
 
@@ -195,39 +303,19 @@ void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 			stream << jsClassName;
 			if (!isStatic)
 				stream << ".prototype";
-			stream << '.' << methodName << "=function (";
-			uint32_t fwdArgsCount = countJsParameters(f, isStatic);
-			for(uint32_t i=0;i<fwdArgsCount;i++)
-			{
-				if(i!=0)
-					stream << ",";
-				stream << 'a' << i;
-			}
-			stream << "){" << NewLine << "return ";
-			compileOperand(f);
-			stream << '(';
-			// If the method is not static, the first argument is the implicit `this`
-			if(!isStatic)
-			{
-				if(PA.getPointerKind(&*f->arg_begin())==COMPLETE_OBJECT)
-					stream << "this";
-				else
-					stream << "{d:this.d,o:0}";
-				if(fwdArgsCount)
-					stream << ",";
-			}
-			for(uint32_t i=0;i<fwdArgsCount;i++)
-			{
-				if(i!=0)
-					stream << ",";
-				stream << 'a' << i;
-			}
-			stream << ");" << NewLine << "};" << NewLine;
+			stream << '.' << methodName << "=";
+
+			compileFunctionBody(f, isStatic, t);
 
 			assert( globalDeps.isReachable(f) );
 		}
 	};
 
+	for (const auto& jsex : jsExportedDecls)
+	{
+		if (jsex.isClass())
+			jsexportedTypes.insert({jsex.t, jsex.name});
+	}
 
 	for (const auto& jsex : jsExportedDecls)
 	{
