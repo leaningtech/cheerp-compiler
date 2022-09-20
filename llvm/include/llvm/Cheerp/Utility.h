@@ -439,6 +439,8 @@ public:
 			return true;
 		if (et->isFunctionTy())
 			return true;
+		if (et->isVectorTy())
+			return true;
 		if (llvm::isa<llvm::StructType>(et) && llvm::cast<llvm::StructType>(et)->isOpaque())
 			return asmjs;
 		if (!WasmAnyref)
