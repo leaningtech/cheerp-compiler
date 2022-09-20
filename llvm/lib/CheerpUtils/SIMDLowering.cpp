@@ -25,38 +25,21 @@ namespace cheerp
 
 bool SIMDLoweringPass::lowerExtractOrInsert(Instruction& I)
 {
-	BasicBlock* BB = I.getParent();
 	Function* F = I.getFunction();
 	Value* vec = I.getOperand(0);
 	assert(vec->getType()->isVectorTy());
-	Value* switchOp = I.getOpcode() == Instruction::ExtractElement ? I.getOperand(1) : I.getOperand(2);
-	const int amount = 128 / vec->getType()->getScalarSizeInBits();
+	Type* elementType = cast<VectorType>(vec->getType())->getElementType();
+	Value* variableOp = I.getOpcode() == Instruction::ExtractElement ? I.getOperand(1) : I.getOperand(2);
 	IRBuilder<> Builder(&I);
-	IntegerType *Int32Ty = Builder.getInt32Ty();
-	BasicBlock* newBlock = BB->splitBasicBlock(&I, BB->getName() + ".afterswitch");
-	BB->getTerminator()->eraseFromParent();
-	Builder.SetInsertPoint(BB);
-	std::vector<BasicBlock*> switchBlocks;
-	for (int i = 0; i < amount; i++)
-		switchBlocks.push_back(BasicBlock::Create(Builder.getContext(), BB->getName() + ".case", F));
-	SwitchInst* Switch = Builder.CreateSwitch(switchOp, switchBlocks[0], amount);
-	for (int i = 1; i < amount; i++)
-		Switch->addCase(ConstantInt::get(Int32Ty, i), switchBlocks[i]);
-	std::vector<Value*> values;
-	for (int i = 0; i < amount; i++)
-	{
-		Builder.SetInsertPoint(switchBlocks[i]);
-		if (I.getOpcode() == Instruction::ExtractElement)
-			values.push_back(Builder.CreateExtractElement(vec, i));
-		else
-			values.push_back(Builder.CreateInsertElement(vec, I.getOperand(1), i));
-		Builder.CreateBr(newBlock);
-	}
+	Builder.SetInsertPoint(F->getEntryBlock().getFirstNonPHI());
+	AllocaInst* ai = Builder.CreateAlloca(vec->getType());
 	Builder.SetInsertPoint(&I);
-	PHINode* phi = Builder.CreatePHI(I.getType(), amount);
-	for (int i = 0; i < amount; i++)
-		phi->addIncoming(values[i], switchBlocks[i]);
-	I.replaceAllUsesWith(phi);
+	Value* indexes[] = { variableOp };
+	Value* bitcast = Builder.CreateBitCast(ai, elementType->getPointerTo());
+	Value* gep = Builder.CreateGEP(elementType, bitcast, indexes);
+	Builder.CreateStore(vec, ai);
+	Value* load = Builder.CreateLoad(elementType, gep);
+	I.replaceAllUsesWith(load);
 	I.eraseFromParent();
 	return true;
 }
