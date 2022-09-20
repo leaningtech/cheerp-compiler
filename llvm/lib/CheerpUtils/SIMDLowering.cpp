@@ -36,12 +36,12 @@ bool SIMDLoweringPass::lowerExtractOrInsert(Instruction& I)
 	Builder.SetInsertPoint(&I);
 	Value* indexes[] = { variableOp };
 	Value* bitcast = Builder.CreateBitCast(ai, elementType->getPointerTo());
-	Value* gep = Builder.CreateGEP(elementType, bitcast, indexes);
+	Value* gep = Builder.CreateInBoundsGEP(elementType, bitcast, indexes);
 	Builder.CreateStore(vec, ai);
 	Value* load = Builder.CreateLoad(elementType, gep);
 	I.replaceAllUsesWith(load);
-	I.eraseFromParent();
-	return true;
+	deleteList.push_back(&I);
+	return false;
 }
 
 bool SIMDLoweringPass::lowerReduceIntrinsic(Instruction& I)
@@ -89,6 +89,7 @@ bool SIMDLoweringPass::isReduceIntrinsic(Instruction& I)
 PreservedAnalyses SIMDLoweringPass::run(Function& F, FunctionAnalysisManager& FAM)
 {
 	deleteList.clear();
+	bool needToBreak;
 	for (auto it = F.begin(); it != F.end(); it++)
 	{
 		BasicBlock& BB = *it;
@@ -97,16 +98,11 @@ PreservedAnalyses SIMDLoweringPass::run(Function& F, FunctionAnalysisManager& FA
 			// This will find certain instructions that do not allow variables as lane indexes and
 			// instead add all the versions of these instructions with a switch.
 			if (isVariableExtractOrInsert(I))
-			{
-				lowerExtractOrInsert(I);
-				// Since we split the current block, all instructions of this block that we haven't seen yet will be in the next block.
-				// We break out of the current loop since the current instruction was erased, and start looping over the next block.
-				break;
-			}
+				needToBreak = lowerExtractOrInsert(I);
 			else if (isReduceIntrinsic(I))
-			{
-				lowerReduceIntrinsic(I);
-			}
+				needToBreak = lowerReduceIntrinsic(I);
+			if (needToBreak)
+				break ;
 		}
 	}
 	for (Instruction* I: deleteList)
