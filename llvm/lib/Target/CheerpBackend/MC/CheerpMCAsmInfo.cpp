@@ -46,7 +46,9 @@ static MCInstrInfo *createCheerpMCInstrInfo() {
 }
 
 static MCSubtargetInfo *createCheerpMCSubtargetInfo(const Triple& TheTriple, StringRef a, StringRef b) {
-  return new MCSubtargetInfo(TheTriple, a, b, "", {}, {}, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
+  // We do not pass b on to the MCSubtargetInfo, but an empty string, to make the compiler stop giving a message
+  // about +simd128 not being a recognized processor.
+  return new MCSubtargetInfo(TheTriple, a, "", "", {}, {}, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
 }
 
 extern "C" void LLVMInitializeCheerpBackendTargetMC() {
