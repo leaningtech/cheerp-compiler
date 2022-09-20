@@ -25,11 +25,12 @@ namespace cheerp
 
 bool SIMDLoweringPass::lowerExtractOrInsert(Instruction& I)
 {
+	bool extract = I.getOpcode() == Instruction::ExtractElement;
 	Function* F = I.getFunction();
 	Value* vec = I.getOperand(0);
 	assert(vec->getType()->isVectorTy());
 	Type* elementType = cast<VectorType>(vec->getType())->getElementType();
-	Value* variableOp = I.getOpcode() == Instruction::ExtractElement ? I.getOperand(1) : I.getOperand(2);
+	Value *variableOp = extract ? I.getOperand(1) : I.getOperand(2);
 	IRBuilder<> Builder(&I);
 	Builder.SetInsertPoint(F->getEntryBlock().getFirstNonPHI());
 	AllocaInst* ai = Builder.CreateAlloca(vec->getType());
@@ -38,7 +39,14 @@ bool SIMDLoweringPass::lowerExtractOrInsert(Instruction& I)
 	Value* bitcast = Builder.CreateBitCast(ai, elementType->getPointerTo());
 	Value* gep = Builder.CreateInBoundsGEP(elementType, bitcast, indexes);
 	Builder.CreateStore(vec, ai);
-	Value* load = Builder.CreateLoad(elementType, gep);
+	Value* load;
+	if (extract)
+		load = Builder.CreateLoad(elementType, gep);
+	else
+	{
+		Builder.CreateStore(I.getOperand(1), gep);
+		load = Builder.CreateLoad(vec->getType(), ai);
+	}
 	I.replaceAllUsesWith(load);
 	deleteList.push_back(&I);
 	return false;
