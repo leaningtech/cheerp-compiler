@@ -2089,6 +2089,19 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 							encodeInst(WasmSIMDOpcode::F64x2_MAX, code);
 						return false;
 					}
+					case Intrinsic::wasm_avgr_unsigned:
+					{
+						assert(ci.getOperand(0)->getType()->isVectorTy());
+						Type *et = cast<VectorType>(ci.getOperand(0)->getType())->getElementType();
+						assert(et->isIntegerTy(8) || et->isIntegerTy(16));
+						compileOperand(code, ci.getOperand(0));
+						compileOperand(code, ci.getOperand(1));
+						if (et->isIntegerTy(8))
+							encodeInst(WasmSIMDOpcode::I8x16_AVGR_U, code);
+						else
+							encodeInst(WasmSIMDOpcode::I16x8_AVGR_U, code);
+						return false;
+					}
 					case Intrinsic::ctlz:
 					case Intrinsic::cttz:
 					case Intrinsic::ctpop:
