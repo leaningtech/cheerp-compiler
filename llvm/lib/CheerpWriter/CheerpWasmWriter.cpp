@@ -2063,6 +2063,32 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						encodeInst(WasmSIMDOpcode::V128_BITSELECT, code);
 						return false;
 					}
+					case Intrinsic::minimum:
+					{
+						assert(ci.getOperand(0)->getType()->isVectorTy());
+						Type* et = cast<VectorType>(ci.getOperand(0)->getType())->getElementType();
+						assert(et->isFloatTy() || et->isDoubleTy());
+						compileOperand(code, ci.getOperand(0));
+						compileOperand(code, ci.getOperand(1));
+						if (et->isFloatTy())
+							encodeInst(WasmSIMDOpcode::F32x4_MIN, code);
+						else
+							encodeInst(WasmSIMDOpcode::F64x2_MIN, code);
+						return false;
+					}
+					case Intrinsic::maximum:
+					{
+						assert(ci.getOperand(0)->getType()->isVectorTy());
+						Type *et = cast<VectorType>(ci.getOperand(0)->getType())->getElementType();
+						assert(et->isFloatTy() || et->isDoubleTy());
+						compileOperand(code, ci.getOperand(0));
+						compileOperand(code, ci.getOperand(1));
+						if (et->isFloatTy())
+							encodeInst(WasmSIMDOpcode::F32x4_MAX, code);
+						else
+							encodeInst(WasmSIMDOpcode::F64x2_MAX, code);
+						return false;
+					}
 					case Intrinsic::ctlz:
 					case Intrinsic::cttz:
 					case Intrinsic::ctpop:
