@@ -1932,6 +1932,23 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						const llvm::Type* type = calledFunc->getReturnType();
 						const bool isI64 = type->isIntegerTy(64);
 
+						if (type->isVectorTy())
+						{
+							const llvm::Type* elementType = cast<VectorType>(type)->getElementType();
+							compileOperand(code, operand);
+							if (elementType->isIntegerTy(8))
+								encodeInst(WasmSIMDOpcode::I8x16_ABS, code);
+							else if (elementType->isIntegerTy(16))
+								encodeInst(WasmSIMDOpcode::I16x8_ABS, code);
+							else if (elementType->isIntegerTy(32))
+								encodeInst(WasmSIMDOpcode::I32x4_ABS, code);
+							else if (elementType->isIntegerTy(64))
+								encodeInst(WasmSIMDOpcode::I64x2_ABS, code);
+							else
+								assert(false && "Unsupported bit width for integer abs");
+							return false;
+						}
+
 						//Put on the stack the operand
 						compileOperand(code, operand);
 
@@ -2225,13 +2242,26 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 				compileOperand(code, op->get());
 			}
 
-			if (calledFunc && calledFunc->getIntrinsicID() == Intrinsic::ctpop && ci.getOperand(0)->getType()->isVectorTy())
-			{
-				encodeInst(WasmSIMDOpcode::I8x16_POPCNT, code);
-				return false;
-			}
 			if (calledFunc)
 			{
+				if (ci.getOperand(0)->getType()->isVectorTy())
+				{
+					if (calledFunc->getIntrinsicID() == Intrinsic::ctpop)
+					{
+						encodeInst(WasmSIMDOpcode::I8x16_POPCNT, code);
+						return false;
+					}
+					else if (calledFunc->getIntrinsicID() == Intrinsic::fabs)
+					{
+						Type* et = cast<VectorType>(ci.getOperand(0)->getType())->getElementType();
+						assert(et->isFloatTy() || et->isDoubleTy());
+						if (et->isFloatTy())
+							encodeInst(WasmSIMDOpcode::F32x4_ABS, code);
+						else
+							encodeInst(WasmSIMDOpcode::F64x2_ABS, code);
+						return false;
+					}
+				}
 				if (TypedBuiltinInstr::isWasmIntrinsic(calledFunc))
 				{
 					encodeWasmIntrinsic(code, calledFunc);
