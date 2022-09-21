@@ -12557,6 +12557,61 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
         CGM.getIntrinsic(Intrinsic::ctpop, ConvertType(E->getType()));
     return Builder.CreateCall(Callee, {Vec});
   }
+  else if (BuiltinID == Cheerp::BI__builtin_wasm_min_s_i8x16 ||
+            BuiltinID == Cheerp::BI__builtin_wasm_min_u_i8x16 ||
+            BuiltinID == Cheerp::BI__builtin_wasm_max_s_i8x16 ||
+            BuiltinID == Cheerp::BI__builtin_wasm_max_u_i8x16 ||
+            BuiltinID == Cheerp::BI__builtin_wasm_min_s_i16x8 ||
+            BuiltinID == Cheerp::BI__builtin_wasm_min_u_i16x8 ||
+            BuiltinID == Cheerp::BI__builtin_wasm_max_s_i16x8 ||
+            BuiltinID == Cheerp::BI__builtin_wasm_max_u_i16x8 ||
+            BuiltinID == Cheerp::BI__builtin_wasm_min_s_i32x4 ||
+            BuiltinID == Cheerp::BI__builtin_wasm_min_u_i32x4 ||
+            BuiltinID == Cheerp::BI__builtin_wasm_max_s_i32x4 ||
+            BuiltinID == Cheerp::BI__builtin_wasm_max_u_i32x4) {
+    Value *LHS = EmitScalarExpr(E->getArg(0));
+    Value *RHS = EmitScalarExpr(E->getArg(1));
+    Value *ICmp;
+    switch (BuiltinID) {
+      case Cheerp::BI__builtin_wasm_min_s_i8x16:
+      case Cheerp::BI__builtin_wasm_min_s_i16x8:
+      case Cheerp::BI__builtin_wasm_min_s_i32x4:
+        ICmp = Builder.CreateICmpSLT(LHS, RHS);
+        break;
+      case Cheerp::BI__builtin_wasm_min_u_i8x16:
+      case Cheerp::BI__builtin_wasm_min_u_i16x8:
+      case Cheerp::BI__builtin_wasm_min_u_i32x4:
+        ICmp = Builder.CreateICmpULT(LHS, RHS);
+        break;
+      case Cheerp::BI__builtin_wasm_max_s_i8x16:
+      case Cheerp::BI__builtin_wasm_max_s_i16x8:
+      case Cheerp::BI__builtin_wasm_max_s_i32x4:
+        ICmp = Builder.CreateICmpSGT(LHS, RHS);
+        break;
+      case Cheerp::BI__builtin_wasm_max_u_i8x16:
+      case Cheerp::BI__builtin_wasm_max_u_i16x8:
+      case Cheerp::BI__builtin_wasm_max_u_i32x4:
+        ICmp = Builder.CreateICmpUGT(LHS, RHS);
+        break;
+      default:
+        llvm_unreachable("unexpected builtin ID");
+    }
+    return Builder.CreateSelect(ICmp, LHS, RHS);
+  }
+  else if (BuiltinID == Cheerp::BI__builtin_wasm_min_f32x4 ||
+            BuiltinID == Cheerp::BI__builtin_wasm_min_f64x2) {
+    Value *LHS = EmitScalarExpr(E->getArg(0));
+    Value *RHS = EmitScalarExpr(E->getArg(1));
+    Function *Callee = CGM.getIntrinsic(Intrinsic::minimum, ConvertType(E->getType()));
+    return Builder.CreateCall(Callee, {LHS, RHS});
+  }
+  else if (BuiltinID == Cheerp::BI__builtin_wasm_max_f32x4 ||
+            BuiltinID == Cheerp::BI__builtin_wasm_max_f64x2) {
+    Value *LHS = EmitScalarExpr(E->getArg(0));
+    Value *RHS = EmitScalarExpr(E->getArg(1));
+    Function *Callee = CGM.getIntrinsic(Intrinsic::maximum, ConvertType(E->getType()));
+    return Builder.CreateCall(Callee, {LHS, RHS});
+  }
   else if (BuiltinID == Builtin::BImalloc) {
     const FunctionDecl* FD=dyn_cast<FunctionDecl>(CurFuncDecl);
     assert(FD);
