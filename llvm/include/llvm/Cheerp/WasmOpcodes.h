@@ -242,14 +242,26 @@ enum class WasmSIMDOpcode {
 	I8x16_POPCNT = 0x62,
 	I8x16_ADD = 0x6e,
 	I8x16_SUB = 0x71,
+	I8x16_MIN_S = 0x76,
+	I8x16_MIN_U = 0x77,
+	I8x16_MAX_S = 0x78,
+	I8x16_MAX_U = 0x79,
 	I16x8_NEG = 0x81,
 	I16x8_ADD = 0x8e,
 	I16x8_SUB = 0x91,
 	I16x8_MUL = 0x95,
+	I16x8_MIN_S = 0x96,
+	I16x8_MIN_U = 0x97,
+	I16x8_MAX_S = 0x98,
+	I16x8_MAX_U = 0x99,
 	I32x4_NEG = 0xa1,
 	I32x4_ADD = 0xae,
 	I32x4_SUB = 0xb1,
 	I32x4_MUL = 0xb5,
+	I32x4_MIN_S = 0xb6,
+	I32x4_MIN_U = 0xb7,
+	I32x4_MAX_S = 0xb8,
+	I32x4_MAX_U = 0xb9,
 	I64x2_NEG = 0xc1,
 	I64x2_ADD = 0xce,
 	I64x2_SUB = 0xd1,
@@ -259,11 +271,15 @@ enum class WasmSIMDOpcode {
 	F32x4_SUB = 0xe5,
 	F32x4_MUL = 0xe6,
 	F32x4_DIV = 0xe7,
+	F32x4_MIN = 0xe8,
+	F32x4_MAX = 0xe9,
 	F64x2_NEG = 0xed,
 	F64x2_ADD = 0xf0,
 	F64x2_SUB = 0xf1,
 	F64x2_MUL = 0xf2,
 	F64x2_DIV = 0xf3,
+	F64x2_MIN = 0xf4,
+	F64x2_MAX = 0xf5,
 };
 
 enum class WasmSIMDU32Opcode {
@@ -285,7 +301,7 @@ enum class WasmSIMDU32Opcode {
 
 enum class WasmSIMDU32U32Opcode {
 	V128_LOAD = 0x0,
-	V128_STORE = 0x0B,
+	V128_STORE = 0x0b,
 };
 
 enum class WasmInvalidOpcode {
