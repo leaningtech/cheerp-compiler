@@ -84,3 +84,19 @@ def int_cheerp_grow_memory : Intrinsic<[llvm_i32_ty],
 def int_cheerp_throw : Intrinsic<[],
                                 [llvm_anyptr_ty],
                                [Throws, IntrNoReturn]>;
+// SIMD left shift
+def int_cheerp_wasm_shl : Intrinsic<[llvm_anyvector_ty],
+                            [llvm_anyvector_ty, llvm_i32_ty],
+                            [IntrNoMem, IntrSpeculatable]>;
+// SIMD right shift signed
+def int_cheerp_wasm_shr_s : Intrinsic<[llvm_anyvector_ty],
+                            [llvm_anyvector_ty, llvm_i32_ty],
+                            [IntrNoMem, IntrSpeculatable]>;
+// SIMD right shift unsigned
+def int_cheerp_wasm_shr_u : Intrinsic<[llvm_anyvector_ty],
+                            [llvm_anyvector_ty, llvm_i32_ty],
+                            [IntrNoMem, IntrSpeculatable]>;
+// SIMD splat
+def int_cheerp_wasm_splat : Intrinsic<[llvm_anyvector_ty],
+                            [llvm_any_ty],
+                            [IntrNoMem, IntrSpeculatable]>;
