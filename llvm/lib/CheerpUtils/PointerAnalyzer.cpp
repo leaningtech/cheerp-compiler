@@ -1466,6 +1466,12 @@ void PointerAnalyzer::prefetchFunc(const Function& F) const
 		IndirectPointerKindConstraint returnConstraint(RETURN_CONSTRAINT, &F);
 		PACache.pointerKindData.constraintsMap[returnConstraint] = RAW;
 	}
+	else if (TypeSupport::isJSExportedPtrType(retType, *F.getParent()))
+	{
+		IndirectPointerKindConstraint returnConstraint(RETURN_CONSTRAINT, &F);
+		PACache.pointerKindData.constraintsMap[returnConstraint] = PointerKindWrapper(SPLIT_REGULAR, &F);
+	}
+
 	if(PACache.addressTakenCache.checkAddressTaken(&F))
 	{
 		IndirectPointerKindConstraint returnConstraint(RETURN_CONSTRAINT, &F);
