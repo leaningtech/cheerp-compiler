@@ -687,7 +687,6 @@ void cheerp::CheerpSemaClassData::checkRecord()
 	std::unordered_map<std::string, const clang::CXXMethodDecl*> staticJsExportedMethodNames;
 
 	staticJsExportedMethodNames.emplace("promise", nullptr);
-	staticJsExportedMethodNames.emplace("valueOf", nullptr);
 	bool isAnyNonStatic = false;
 
 	for (auto method : interface.methods)
@@ -714,8 +713,6 @@ void cheerp::CheerpSemaClassData::checkRecord()
 		{
 			if (name == "promise" && method->isStatic())
 				sema.Diag(method->getLocation(), diag::err_cheerp_jsexport_promise_static_method);
-			if (name == "valueOf" && method->isStatic())
-				sema.Diag(method->getLocation(), diag::err_cheerp_jsexport_valueOf_static_method);
 			else
 			{
 				sema.Diag(method->getLocation(), diag::err_cheerp_jsexport_same_name_methods) << method;
