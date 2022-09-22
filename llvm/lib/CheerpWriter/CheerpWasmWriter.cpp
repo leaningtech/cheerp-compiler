@@ -2119,6 +2119,44 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 							encodeInst(WasmSIMDOpcode::I16x8_AVGR_U, code);
 						return false;
 					}
+					case Intrinsic::cheerp_wasm_shl:
+					{
+						assert(ci.getOperand(0)->getType()->isVectorTy());
+						Type* et = cast<VectorType>(ci.getOperand(0)->getType())->getElementType();
+						compileOperand(code, ci.getOperand(0));
+						compileOperand(code, ci.getOperand(1));
+						if (et->isIntegerTy(8))
+							encodeInst(WasmSIMDOpcode::I8x16_SHL, code);
+						else if (et->isIntegerTy(16))
+							encodeInst(WasmSIMDOpcode::I16x8_SHL, code);
+						else if (et->isIntegerTy(32))
+							encodeInst(WasmSIMDOpcode::I32x4_SHL, code);
+						else if (et->isIntegerTy(64))
+							encodeInst(WasmSIMDOpcode::I64x2_SHL, code);
+						else
+							llvm::report_fatal_error("Unsupported bitwidth for vector shl");
+						return false;
+					}
+					case Intrinsic::cheerp_wasm_splat:
+					{
+						Type* ty = ci.getOperand(0)->getType();
+						compileOperand(code, ci.getOperand(0));
+						if (ty->isIntegerTy(8))
+							encodeInst(WasmSIMDOpcode::I8x16_SPLAT, code);
+						else if (ty->isIntegerTy(16))
+							encodeInst(WasmSIMDOpcode::I16x8_SPLAT, code);
+						else if (ty->isIntegerTy(32))
+							encodeInst(WasmSIMDOpcode::I32x4_SPLAT, code);
+						else if (ty->isIntegerTy(64))
+							encodeInst(WasmSIMDOpcode::I64x2_SPLAT, code);
+						else if (ty->isFloatTy())
+							encodeInst(WasmSIMDOpcode::F32x4_SPLAT, code);
+						else if (ty->isDoubleTy())
+							encodeInst(WasmSIMDOpcode::F64x2_SPLAT, code);
+						else
+							llvm::report_fatal_error("Unsupported type for splat");
+						return false;
+					}
 					case Intrinsic::ctlz:
 					case Intrinsic::cttz:
 					case Intrinsic::ctpop:
