@@ -90,7 +90,6 @@ bool SIMDLoweringPass::lowerLeftShift(Instruction& I)
 	const CallInst* callInst = dyn_cast<CallInst>(secondOp);
 	if (cdv && cdv->isSplat())
 	{
-		llvm::errs() << "Lowering shl from cdv\n";
 		ConstantInt* splatValue = cast<ConstantInt>(cdv->getSplatValue());
 		ConstantInt* shiftValue = Builder.getInt32(splatValue->getZExtValue());
 		std::vector<Type *> argTypes { I.getType(), I.getType() };
@@ -101,7 +100,6 @@ bool SIMDLoweringPass::lowerLeftShift(Instruction& I)
 	}
 	else if (callInst && callInst->getIntrinsicID() == Intrinsic::cheerp_wasm_splat)
 	{
-		llvm::errs() << "Lowering shl from splat\n";
 		std::vector<Type *> argTypes { I.getType(), I.getType() };
 		Function* shlIntrinsic = Intrinsic::getDeclaration(I.getModule(), Intrinsic::cheerp_wasm_shl, argTypes);
 		CallInst* ci = Builder.CreateCall(shlIntrinsic, {I.getOperand(0), callInst->getOperand(0) });
@@ -113,7 +111,6 @@ bool SIMDLoweringPass::lowerLeftShift(Instruction& I)
 		// This is the general case. We lower this to individual shl instructions.
 		// That means, for every lane: extract from both vectors,
 		// do a shift left, and then insert into the new vector.
-		llvm::errs() << "Lowering shl in general case\n";
 		Value* firstOp = I.getOperand(0);
 		Type* elementType = cast<VectorType>(secondOp->getType())->getElementType();
 		assert(elementType->isIntegerTy());
@@ -154,7 +151,6 @@ bool SIMDLoweringPass::lowerSplat(Instruction &I)
 		{
 			if (isa<UndefValue>(iei->getOperand(0)))
 			{
-				llvm::errs() << "Lowering splat\n";
 				IRBuilder<> Builder((Instruction*)iei);
 				std::vector<Type *> argTypes { iei->getType(), iei->getOperand(1)->getType() };
 				Function* splatIntrinsic = Intrinsic::getDeclaration(I.getModule(), Intrinsic::cheerp_wasm_splat, argTypes);
