@@ -22,6 +22,8 @@ class SIMDLoweringPass : public llvm::PassInfoMixin<SIMDLoweringPass> {
 private:
 	bool lowerExtractOrInsert(llvm::Instruction& I);
 	bool lowerReduceIntrinsic(llvm::Instruction& I);
+	bool lowerLeftShift(llvm::Instruction& I);
+	bool lowerSplat(llvm::Instruction& I);
 	bool isVariableExtractOrInsert(llvm::Instruction& I);
 	bool isReduceIntrinsic(llvm::Instruction& I);
 	std::vector<llvm::Instruction*> deleteList;
