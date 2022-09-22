@@ -77,6 +77,98 @@ bool SIMDLoweringPass::lowerReduceIntrinsic(Instruction& I)
 	return false;
 }
 
+bool SIMDLoweringPass::lowerLeftShift(Instruction& I)
+{
+	// This function will lower left shift operations that take a vector as their second operand,
+	// since WebAssembly does not support this.
+	Value* secondOp = I.getOperand(1);
+	if (!secondOp->getType()->isVectorTy() || !secondOp->hasOneUse())
+		return false;
+	assert(isa<ConstantDataVector>(secondOp) || isa<Instruction>(secondOp));
+	IRBuilder<> Builder(&I);
+	const ConstantDataVector* cdv = dyn_cast<ConstantDataVector>(secondOp);
+	const CallInst* callInst = dyn_cast<CallInst>(secondOp);
+	if (cdv && cdv->isSplat())
+	{
+		llvm::errs() << "Lowering shl from cdv\n";
+		ConstantInt* splatValue = cast<ConstantInt>(cdv->getSplatValue());
+		ConstantInt* shiftValue = Builder.getInt32(splatValue->getZExtValue());
+		std::vector<Type *> argTypes { I.getType(), I.getType() };
+		Function* shlIntrinsic = Intrinsic::getDeclaration(I.getModule(), Intrinsic::cheerp_wasm_shl, argTypes);
+		CallInst* ci = Builder.CreateCall(shlIntrinsic, {I.getOperand(0), shiftValue});
+		I.replaceAllUsesWith(ci);
+		deleteList.push_back(&I);
+	}
+	else if (callInst && callInst->getIntrinsicID() == Intrinsic::cheerp_wasm_splat)
+	{
+		llvm::errs() << "Lowering shl from splat\n";
+		std::vector<Type *> argTypes { I.getType(), I.getType() };
+		Function* shlIntrinsic = Intrinsic::getDeclaration(I.getModule(), Intrinsic::cheerp_wasm_shl, argTypes);
+		CallInst* ci = Builder.CreateCall(shlIntrinsic, {I.getOperand(0), callInst->getOperand(0) });
+		I.replaceAllUsesWith(ci);
+		deleteList.push_back(&I);
+	}
+	else
+	{
+		// This is the general case. We lower this to individual shl instructions.
+		// That means, for every lane: extract from both vectors,
+		// do a shift left, and then insert into the new vector.
+		llvm::errs() << "Lowering shl in general case\n";
+		Value* firstOp = I.getOperand(0);
+		Type* elementType = cast<VectorType>(secondOp->getType())->getElementType();
+		assert(elementType->isIntegerTy());
+		const int amount = 128 / elementType->getIntegerBitWidth();
+		Value* newVec;
+		for (int i = 0; i < amount; i++)
+		{
+			Value* subOp1 = Builder.CreateExtractElement(firstOp, i);
+			Value* subOp2 = Builder.CreateExtractElement(secondOp, i);
+			Value* shiftedValue = Builder.CreateShl(subOp1, subOp2);
+			if (i == 0)
+			{
+				std::vector<Type *> argTypes { secondOp->getType(), elementType };
+				Function* splatIntrinsic = Intrinsic::getDeclaration(I.getModule(), Intrinsic::cheerp_wasm_splat, argTypes);
+				newVec = Builder.CreateCall(splatIntrinsic, { shiftedValue });
+			}
+			else
+				newVec = Builder.CreateInsertElement(newVec, shiftedValue, i);
+		}
+		I.replaceAllUsesWith(newVec);
+		deleteList.push_back(&I);
+	}
+	return false;
+}
+
+bool SIMDLoweringPass::lowerSplat(Instruction &I)
+{
+	// Try to see if this instruction was originally a splat.
+	// We know this if we find a shufflevector instruction, that has a zero mask, and it's first operand
+	// is an insert element used only once, and which has an undef/poison operand.
+	const ShuffleVectorInst& svi = cast<ShuffleVectorInst>(I);
+	if (svi.isZeroEltSplat())
+	{
+		Value* firstOp = svi.getOperand(0);
+		if (!firstOp->hasOneUse())
+			return false;
+		if (const InsertElementInst* iei = dyn_cast<InsertElementInst>(firstOp))
+		{
+			if (isa<UndefValue>(iei->getOperand(0)))
+			{
+				llvm::errs() << "Lowering splat\n";
+				IRBuilder<> Builder((Instruction*)iei);
+				std::vector<Type *> argTypes { iei->getType(), iei->getOperand(1)->getType() };
+				Function* splatIntrinsic = Intrinsic::getDeclaration(I.getModule(), Intrinsic::cheerp_wasm_splat, argTypes);
+				CallInst* ci = Builder.CreateCall(splatIntrinsic, { iei->getOperand(1) });
+				I.replaceAllUsesWith(ci);
+				deleteList.push_back(&I);
+				deleteList.push_back((Instruction*)firstOp);
+			}
+		}
+	}
+
+	return false;
+}
+
 bool SIMDLoweringPass::isVariableExtractOrInsert(Instruction& I)
 {
 	return (I.getOpcode() == Instruction::ExtractElement && !isa<ConstantInt>(I.getOperand(1))) || 
@@ -109,6 +201,10 @@ PreservedAnalyses SIMDLoweringPass::run(Function& F, FunctionAnalysisManager& FA
 				needToBreak = lowerExtractOrInsert(I);
 			else if (isReduceIntrinsic(I))
 				needToBreak = lowerReduceIntrinsic(I);
+			else if (I.getOpcode() == Instruction::Shl && I.getType()->isVectorTy())
+				needToBreak = lowerLeftShift(I);
+			else if (I.getOpcode() == Instruction::ShuffleVector)
+				needToBreak = lowerSplat(I);
 			if (needToBreak)
 				break ;
 		}
