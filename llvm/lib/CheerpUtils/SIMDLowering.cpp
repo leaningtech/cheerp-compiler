@@ -80,13 +80,21 @@ bool SIMDLoweringPass::lowerReduceIntrinsic(Instruction& I)
 	return false;
 }
 
-bool SIMDLoweringPass::lowerLeftShift(Instruction& I)
+bool SIMDLoweringPass::lowerBitShift(Instruction& I)
 {
-	// This function will lower left shift operations that take a vector as their second operand,
+	// This function will lower bit shift operations that take a vector as their second operand,
 	// since WebAssembly does not support this.
 	Value* secondOp = I.getOperand(1);
 	if (!secondOp->getType()->isVectorTy() || !secondOp->hasOneUse())
 		return false;
+	Intrinsic::ID intrID;
+	unsigned opcode = I.getOpcode();
+	if (opcode == Instruction::Shl)
+		intrID = Intrinsic::cheerp_wasm_shl;
+	else if (opcode == Instruction::AShr)
+		intrID = Intrinsic::cheerp_wasm_shr_s;
+	else
+		intrID = Intrinsic::cheerp_wasm_shr_u;
 	assert(isa<ConstantDataVector>(secondOp) || isa<Instruction>(secondOp));
 	IRBuilder<> Builder(&I);
 	const ConstantDataVector* cdv = dyn_cast<ConstantDataVector>(secondOp);
@@ -95,25 +103,25 @@ bool SIMDLoweringPass::lowerLeftShift(Instruction& I)
 	{
 		ConstantInt* splatValue = cast<ConstantInt>(cdv->getSplatValue());
 		ConstantInt* shiftValue = Builder.getInt32(splatValue->getZExtValue());
-		std::vector<Type *> argTypes { I.getType(), I.getType() };
-		Function* shlIntrinsic = Intrinsic::getDeclaration(I.getModule(), Intrinsic::cheerp_wasm_shl, argTypes);
-		CallInst* ci = Builder.CreateCall(shlIntrinsic, {I.getOperand(0), shiftValue});
+		std::vector<Type *> argTypes = { I.getType(), I.getType(), shiftValue->getType() };
+		Function* intrinsic = Intrinsic::getDeclaration(I.getModule(), intrID, argTypes);
+		CallInst* ci = Builder.CreateCall(intrinsic, {I.getOperand(0), shiftValue});
 		I.replaceAllUsesWith(ci);
 		deleteList.push_back(&I);
 	}
 	else if (callInst && callInst->getIntrinsicID() == Intrinsic::cheerp_wasm_splat)
 	{
-		std::vector<Type *> argTypes { I.getType(), I.getType() };
-		Function* shlIntrinsic = Intrinsic::getDeclaration(I.getModule(), Intrinsic::cheerp_wasm_shl, argTypes);
-		CallInst* ci = Builder.CreateCall(shlIntrinsic, {I.getOperand(0), callInst->getOperand(0) });
+		std::vector<Type *> argTypes = { I.getType(), I.getType(), callInst->getOperand(0)->getType() };
+		Function* intrinsic = Intrinsic::getDeclaration(I.getModule(), intrID, argTypes);
+		CallInst* ci = Builder.CreateCall(intrinsic, {I.getOperand(0), callInst->getOperand(0) });
 		I.replaceAllUsesWith(ci);
 		deleteList.push_back(&I);
 	}
 	else
 	{
-		// This is the general case. We lower this to individual shl instructions.
+		// This is the general case. We lower this to individual bitshift instructions.
 		// That means, for every lane: extract from both vectors,
-		// do a shift left, and then insert into the new vector.
+		// do a bitshift, and then insert into the new vector.
 		Value* firstOp = I.getOperand(0);
 		Type* elementType = cast<VectorType>(secondOp->getType())->getElementType();
 		assert(elementType->isIntegerTy());
@@ -123,7 +131,8 @@ bool SIMDLoweringPass::lowerLeftShift(Instruction& I)
 		{
 			Value* subOp1 = Builder.CreateExtractElement(firstOp, i);
 			Value* subOp2 = Builder.CreateExtractElement(secondOp, i);
-			Value* shiftedValue = Builder.CreateShl(subOp1, subOp2);
+			Value* shiftedValue = Builder.CreateBinOp((Instruction::BinaryOps)opcode, subOp1, subOp2);
+			//Value* shiftedValue = Builder.CreateShl(subOp1, subOp2);
 			if (i == 0)
 			{
 				std::vector<Type *> argTypes { secondOp->getType(), elementType };
@@ -201,8 +210,9 @@ PreservedAnalyses SIMDLoweringPass::run(Function& F, FunctionAnalysisManager& FA
 				needToBreak = lowerExtractOrInsert(I);
 			else if (isReduceIntrinsic(I))
 				needToBreak = lowerReduceIntrinsic(I);
-			else if (I.getOpcode() == Instruction::Shl && I.getType()->isVectorTy())
-				needToBreak = lowerLeftShift(I);
+			else if ((I.getOpcode() == Instruction::Shl || I.getOpcode() == Instruction::AShr ||
+					I.getOpcode() == Instruction::LShr) && I.getType()->isVectorTy())
+				needToBreak = lowerBitShift(I);
 			else if (I.getOpcode() == Instruction::ShuffleVector)
 				needToBreak = lowerSplat(I);
 			if (needToBreak)
