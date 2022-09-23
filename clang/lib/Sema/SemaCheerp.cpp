@@ -98,6 +98,13 @@ template <cheerp::TypeChecker::KindOfFunction kindOfFunction, cheerp::TypeChecke
 bool cheerp::TypeChecker::checkSignature(const clang::FunctionDecl* FD, clang::Sema& sema)
 {
 	bool doesWork = true;
+	const clang::JsExportAttr* jsexportAttr = FD->getAttr<clang::JsExportAttr>();
+	const bool jsexportUnsafe = jsexportAttr &&
+		(jsexportAttr->getSemanticSpelling() == clang::JsExportAttr::CXX11_cheerp_jsexport_unsafe ||
+		 jsexportAttr->getSemanticSpelling() == clang::JsExportAttr::GNU_cheerp_jsexport_unsafe);
+
+	if (jsexportUnsafe)
+		return true;
 
 	for (auto it : FD->parameters())
 	{
