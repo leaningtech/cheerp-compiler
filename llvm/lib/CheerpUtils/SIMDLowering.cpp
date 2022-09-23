@@ -32,20 +32,23 @@ bool SIMDLoweringPass::lowerExtractOrInsert(Instruction& I)
 	Type* elementType = cast<VectorType>(vec->getType())->getElementType();
 	Value *variableOp = extract ? I.getOperand(1) : I.getOperand(2);
 	IRBuilder<> Builder(&I);
-	Builder.SetInsertPoint(F->getEntryBlock().getFirstNonPHI());
-	AllocaInst* ai = Builder.CreateAlloca(vec->getType());
-	Builder.SetInsertPoint(&I);
+	if (extractInsertAlloca == nullptr)
+	{
+		Builder.SetInsertPoint(F->getEntryBlock().getFirstNonPHI());
+		extractInsertAlloca = Builder.CreateAlloca(vec->getType());
+		Builder.SetInsertPoint(&I);
+	}
 	Value* indexes[] = { variableOp };
-	Value* bitcast = Builder.CreateBitCast(ai, elementType->getPointerTo());
+	Value* bitcast = Builder.CreateBitCast(extractInsertAlloca, elementType->getPointerTo());
 	Value* gep = Builder.CreateInBoundsGEP(elementType, bitcast, indexes);
-	Builder.CreateStore(vec, ai);
+	Builder.CreateStore(vec, extractInsertAlloca);
 	Value* load;
 	if (extract)
 		load = Builder.CreateLoad(elementType, gep);
 	else
 	{
 		Builder.CreateStore(I.getOperand(1), gep);
-		load = Builder.CreateLoad(vec->getType(), ai);
+		load = Builder.CreateLoad(vec->getType(), extractInsertAlloca);
 	}
 	I.replaceAllUsesWith(load);
 	deleteList.push_back(&I);
@@ -184,6 +187,7 @@ bool SIMDLoweringPass::isReduceIntrinsic(Instruction& I)
 
 PreservedAnalyses SIMDLoweringPass::run(Function& F, FunctionAnalysisManager& FAM)
 {
+	extractInsertAlloca = nullptr;
 	deleteList.clear();
 	bool needToBreak;
 	for (auto it = F.begin(); it != F.end(); it++)
