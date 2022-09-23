@@ -118,33 +118,8 @@ bool SIMDLoweringPass::lowerBitShift(Instruction& I)
 		deleteList.push_back(&I);
 	}
 	else
-	{
-		// This is the general case. We lower this to individual bitshift instructions.
-		// That means, for every lane: extract from both vectors,
-		// do a bitshift, and then insert into the new vector.
-		Value* firstOp = I.getOperand(0);
-		Type* elementType = cast<VectorType>(secondOp->getType())->getElementType();
-		assert(elementType->isIntegerTy());
-		const int amount = 128 / elementType->getIntegerBitWidth();
-		Value* newVec;
-		for (int i = 0; i < amount; i++)
-		{
-			Value* subOp1 = Builder.CreateExtractElement(firstOp, i);
-			Value* subOp2 = Builder.CreateExtractElement(secondOp, i);
-			Value* shiftedValue = Builder.CreateBinOp((Instruction::BinaryOps)opcode, subOp1, subOp2);
-			//Value* shiftedValue = Builder.CreateShl(subOp1, subOp2);
-			if (i == 0)
-			{
-				std::vector<Type *> argTypes { secondOp->getType(), elementType };
-				Function* splatIntrinsic = Intrinsic::getDeclaration(I.getModule(), Intrinsic::cheerp_wasm_splat, argTypes);
-				newVec = Builder.CreateCall(splatIntrinsic, { shiftedValue });
-			}
-			else
-				newVec = Builder.CreateInsertElement(newVec, shiftedValue, i);
-		}
-		I.replaceAllUsesWith(newVec);
-		deleteList.push_back(&I);
-	}
+		// General lower case.
+		return lowerGeneralUnsupportedVectorOperation(I);
 	return false;
 }
 
@@ -173,7 +148,45 @@ bool SIMDLoweringPass::lowerSplat(Instruction &I)
 			}
 		}
 	}
+	return false;
+}
 
+bool SIMDLoweringPass::lowerGeneralUnsupportedVectorOperation(Instruction& I)
+{
+	// This function will lower instructions that are not defined to be done on 2 vectors in SIMD.
+	// It will extract values 1 by 1 from both vectors, do the operation, and store the results.
+	unsigned opcode = I.getOpcode();
+	IRBuilder<> Builder(&I);
+	Value* firstOp = I.getOperand(0);
+	Value* secondOp = I.getOperand(1);
+	Type* elementType = cast<VectorType>(firstOp->getType())->getElementType();
+	assert(elementType->isIntegerTy());
+	int amount;
+	if (elementType->isIntegerTy())
+		amount = 128 / elementType->getIntegerBitWidth();
+	else if (elementType->isFloatTy())
+		amount = 4;
+	else if (elementType->isDoubleTy())
+		amount = 2;
+	else
+		llvm::report_fatal_error("Unknown elementwidth");
+	Value* newVec;
+	for (int i = 0; i < amount; i++)
+	{
+		Value* subOp1 = Builder.CreateExtractElement(firstOp, i);
+		Value* subOp2 = Builder.CreateExtractElement(secondOp, i);
+		Value* shiftedValue = Builder.CreateBinOp((Instruction::BinaryOps)opcode, subOp1, subOp2);
+		if (i == 0)
+		{
+			std::vector<Type *> argTypes { secondOp->getType(), elementType };
+			Function* splatIntrinsic = Intrinsic::getDeclaration(I.getModule(), Intrinsic::cheerp_wasm_splat, argTypes);
+			newVec = Builder.CreateCall(splatIntrinsic, { shiftedValue });
+		}
+		else
+			newVec = Builder.CreateInsertElement(newVec, shiftedValue, i);
+	}
+	I.replaceAllUsesWith(newVec);
+	deleteList.push_back(&I);
 	return false;
 }
 
@@ -215,6 +228,9 @@ PreservedAnalyses SIMDLoweringPass::run(Function& F, FunctionAnalysisManager& FA
 				needToBreak = lowerBitShift(I);
 			else if (I.getOpcode() == Instruction::ShuffleVector)
 				needToBreak = lowerSplat(I);
+			else if ((I.getOpcode() == Instruction::SDiv || I.getOpcode() == Instruction::UDiv)
+					&& I.getType()->isVectorTy())
+				needToBreak = lowerGeneralUnsupportedVectorOperation(I);
 			if (needToBreak)
 				break ;
 		}

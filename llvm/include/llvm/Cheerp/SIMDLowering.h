@@ -25,6 +25,7 @@ private:
 	bool lowerReduceIntrinsic(llvm::Instruction& I);
 	bool lowerBitShift(llvm::Instruction& I);
 	bool lowerSplat(llvm::Instruction& I);
+	bool lowerGeneralUnsupportedVectorOperation(llvm::Instruction& I);
 	bool isVariableExtractOrInsert(llvm::Instruction& I);
 	bool isReduceIntrinsic(llvm::Instruction& I);
 	std::vector<llvm::Instruction*> deleteList;
