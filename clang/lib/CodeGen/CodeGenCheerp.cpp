@@ -27,7 +27,8 @@ void cheerp::JsExportContext::addRecordJsExportMetadata(const clang::CXXMethodDe
        llvm::SmallVector<llvm::Metadata*,2> values;
        values.push_back(llvm::ConstantAsMetadata::get(F));
 
-       const MemberKind kind = clang::isa<clang::CXXConstructorDecl>(method) ? MemberKind::Constructor : MemberKind::Method;
+       const MemberKind kind = clang::isa<clang::CXXConstructorDecl>(method) ? MemberKind::Constructor :
+	       (clang::isa<clang::CXXDestructorDecl>(method) ? MemberKind::Destructor : MemberKind::Method);
        const uint32_t representation = cheerp::getRepresentation(kind, method->isStatic(), method->isConst());
        values.push_back(llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(intType, representation)));
 
