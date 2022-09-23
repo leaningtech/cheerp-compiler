@@ -240,6 +240,14 @@ void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 			return cheerp::isConstructor(value);
 		};
 
+		auto isDestructor = [&](const MDNode * node ) -> bool
+		{
+			assert(node->getNumOperands() >= 2);
+			assert( isa<ConstantInt>(cast<ConstantAsMetadata>(node->getOperand(1))->getValue()) );
+			const uint32_t value = cast<ConstantInt>(cast<ConstantAsMetadata>(node->getOperand(1))->getValue())->getZExtValue();
+			return cheerp::isDestructor(value);
+		};
+
 
 		auto constructor = std::find_if(vectorMDNode.begin(), vectorMDNode.end(), isConstructor );
 
@@ -289,6 +297,7 @@ void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 		}
 		stream << NewLine << "};" << NewLine;
 
+		bool compiledDestructor = false;
 		//Then compile other methods and add them to the prototype
 		for ( const MDNode* node : vectorMDNode)
 		{
@@ -296,6 +305,11 @@ void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 				continue;
 
 			StringRef methodName = getMethodName(node);
+			if (isDestructor(node))
+			{
+				compiledDestructor = true;
+				methodName = StringRef("delete");
+			}
 			bool isStatic = isStaticMethod(node);
 
 			const Function * f = cast<Function>(cast<ConstantAsMetadata>(node->getOperand(0))->getValue());
@@ -308,6 +322,10 @@ void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 			compileFunctionBody(f, isStatic, t);
 
 			assert( globalDeps.isReachable(f) );
+		}
+		if (!compiledDestructor)
+		{
+			stream << jsClassName << ".prototype.delete=function(){" << NewLine << "};" << NewLine;
 		}
 	};
 

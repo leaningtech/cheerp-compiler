@@ -104,6 +104,7 @@ private:
 		}
 		template <class T>
 		void addToInterface (T* item, clang::Sema& sema);
+		void addDestructor(clang::CXXDestructorDecl* decl, clang::Sema& sema);
 	};
 	clang::Sema& get_sema() const;
 	const clang::CXXRecordDecl* recordDecl;

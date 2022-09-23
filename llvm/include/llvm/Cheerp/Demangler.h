@@ -49,6 +49,7 @@ public:
 			function = true;
 			res = demangler.getFunctionDeclContextName(Buf, &N);
 			constructor = demangler.isCtorOrDtor();
+			destructor = demangler.isCtorOrDtor();
 		}
 		else
 		{

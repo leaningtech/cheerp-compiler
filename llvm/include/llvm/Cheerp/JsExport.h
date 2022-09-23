@@ -35,6 +35,10 @@ inline bool isConstructor(const uint32_t value)
 {
 	return getMemberKind(value) == MemberKind::Constructor;
 }
+inline bool isDestructor(const uint32_t value)
+{
+	return getMemberKind(value) == MemberKind::Destructor;
+}
 inline bool isStatic(const uint32_t value)
 {
 	return value & 2;
