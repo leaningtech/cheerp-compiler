@@ -41,17 +41,6 @@ static bool isInsideClass(const clang::Decl* decl)
 	return (context && context->isRecord());
 }
 
-void cheerp::checkDestructor(const clang::CXXRecordDecl* Record, clang::Sema& sema, bool& shouldContinue)
-{
-	using namespace clang;
-	//TODO: expand this check
-	if (Record->hasNonTrivialDestructor())
-	{
-		sema.Diag(Record->getLocation(), diag::err_cheerp_jsexport_with_non_trivial_destructor);
-		shouldContinue = false;
-	}
-}
-
 static void checkName(const clang::Decl* decl, const llvm::StringRef& name, clang::Sema& sema)
 {
 	if (cheerp::isForbiddenJSIdentifier(name))
@@ -77,8 +66,6 @@ void cheerp::checkCouldBeJsExported(const clang::CXXRecordDecl* Record, clang::S
 		sema.Diag(Record->getLocation(), diag::err_cheerp_jsexport_inheritance);
 	else
 		assert(Record->getNumVBases() == 0);
-
-	checkDestructor(Record, sema, shouldContinue);
 }
 
 bool cheerp::isNamespaceClientDisabledDecl(clang::FunctionDecl* FD, clang::Sema& sema)

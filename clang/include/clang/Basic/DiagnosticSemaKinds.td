@@ -11835,8 +11835,6 @@ def err_cheerp_jsexport_on_non_public_member : Error<
   "Cheerp: Only public members can be tagged [[cheerp::jsexport]]">;
 def err_cheerp_jsexport_on_class_with_multiple_user_defined_constructor : Error<
   "Cheerp: A class/struct should have no more than 1 user defined constructor tagged [[cheerp::jsexport]]">;
-def err_cheerp_jsexport_with_non_trivial_destructor : Error<
-  "Cheerp: A class/struct with non trivial destructor cannot have the [[cheerp::jsexport]] attribute">;
 def err_cheerp_memintrinsic_type_unknown : Error<
   "Cheerp: Memory operations require the actual type of the pointers. Pass the typed pointers instead of a generic void*">;
 def err_cheerp_memintrinsic_same_type : Error<
