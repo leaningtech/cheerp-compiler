@@ -2137,7 +2137,7 @@ def NoInit : InheritableAttr {
 }
 
 def JsExport : InheritableAttr {
-  let Spellings = [CXX11<"", "jsexport", 12>, CXX11<"cheerp", "jsexport">, GNU<"cheerp_jsexport">];
+  let Spellings = [CXX11<"", "jsexport", 12>, CXX11<"cheerp", "jsexport">, CXX11<"cheerp", "jsexport_unsafe">, GNU<"cheerp_jsexport">, GNU<"cheerp_jsexport_unsafe">];
   let Documentation = [Undocumented];
 }
 
