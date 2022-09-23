@@ -86,15 +86,15 @@ def int_cheerp_throw : Intrinsic<[],
                                [Throws, IntrNoReturn]>;
 // SIMD left shift
 def int_cheerp_wasm_shl : Intrinsic<[llvm_anyvector_ty],
-                            [llvm_anyvector_ty, llvm_i32_ty],
+                            [llvm_anyvector_ty, llvm_anyint_ty],
                             [IntrNoMem, IntrSpeculatable]>;
 // SIMD right shift signed
 def int_cheerp_wasm_shr_s : Intrinsic<[llvm_anyvector_ty],
-                            [llvm_anyvector_ty, llvm_i32_ty],
+                            [llvm_anyvector_ty, llvm_anyint_ty],
                             [IntrNoMem, IntrSpeculatable]>;
 // SIMD right shift unsigned
 def int_cheerp_wasm_shr_u : Intrinsic<[llvm_anyvector_ty],
-                            [llvm_anyvector_ty, llvm_i32_ty],
+                            [llvm_anyvector_ty, llvm_anyint_ty],
                             [IntrNoMem, IntrSpeculatable]>;
 // SIMD splat
 def int_cheerp_wasm_splat : Intrinsic<[llvm_anyvector_ty],
