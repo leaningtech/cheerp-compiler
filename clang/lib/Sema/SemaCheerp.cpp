@@ -639,6 +639,12 @@ void cheerp::CheerpSemaClassData::Interface::addToInterface(T* item, clang::Sema
 	}
 }
 
+void cheerp::CheerpSemaClassData::Interface::addDestructor(clang::CXXDestructorDecl* decl, clang::Sema& sema)
+{
+	if (decl)
+		insert(decl);
+}
+
 void cheerp::CheerpSemaClassData::checkRecord()
 {
 	using namespace std;
@@ -682,6 +688,8 @@ void cheerp::CheerpSemaClassData::checkRecord()
 		}
 	}
 
+	interface.addDestructor(recordDecl->getDestructor(), sema);
+
 	std::vector<const CXXConstructorDecl*> JsExportedConstructors;
 	std::unordered_map<std::string, const clang::CXXMethodDecl*> JsExportedMethodNames;
 	std::unordered_map<std::string, const clang::CXXMethodDecl*> staticJsExportedMethodNames;
@@ -698,6 +706,11 @@ void cheerp::CheerpSemaClassData::checkRecord()
 		{
 			isAnyNonStatic = true;
 			JsExportedConstructors.push_back(constructor);
+			continue;
+		}
+		if (CXXDestructorDecl* destructor = clang::dyn_cast<CXXDestructorDecl>(method))
+		{
+			destructor->setExplicitlyDefaulted(true);
 			continue;
 		}
 		if (!method->isStatic())
@@ -744,6 +757,8 @@ void cheerp::CheerpSemaClassData::addMethod(clang::CXXMethodDecl* method)
 	//Methods here are only added to the classes/struct, and only later they are checked
 	//They have to be added here since this is the only moment that will capture templated methods (that possibly will never be instantiated)
 	//But the actual checks have to be performed later when all methods are known
+	if (method->isImplicit())
+		return;
 	declared_methods.insert(method);
 }
 
