@@ -13,6 +13,7 @@
 #define CHEERP_SIMD_LOWERING_H
 
 #include "llvm/IR/PassManager.h"
+#include "llvm/IR/Instructions.h"
 
 namespace cheerp{
 
@@ -27,6 +28,7 @@ private:
 	bool isVariableExtractOrInsert(llvm::Instruction& I);
 	bool isReduceIntrinsic(llvm::Instruction& I);
 	std::vector<llvm::Instruction*> deleteList;
+	AllocaInst* extractInsertAlloca;
 public:
 	PreservedAnalyses run(llvm::Function& F, FunctionAnalysisManager& FAM);
 	static bool isRequired() { return true;}
