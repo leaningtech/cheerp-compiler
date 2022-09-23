@@ -2137,6 +2137,40 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 							llvm::report_fatal_error("Unsupported bitwidth for vector shl");
 						return false;
 					}
+					case Intrinsic::cheerp_wasm_shr_s:
+					{
+						Type* et = cast<VectorType>(ci.getOperand(0)->getType())->getElementType();
+						compileOperand(code, ci.getOperand(0));
+						compileOperand(code, ci.getOperand(1));
+						if (et->isIntegerTy(8))
+							encodeInst(WasmSIMDOpcode::I8x16_SHR_S, code);
+						else if (et->isIntegerTy(16))
+							encodeInst(WasmSIMDOpcode::I16x8_SHR_S, code);
+						else if (et->isIntegerTy(32))
+							encodeInst(WasmSIMDOpcode::I32x4_SHR_S, code);
+						else if (et->isIntegerTy(64))
+							encodeInst(WasmSIMDOpcode::I64x2_SHR_S, code);
+						else
+							llvm::report_fatal_error("Unsupported bitwidth for vector shr_s");
+						return false;
+					}
+					case Intrinsic::cheerp_wasm_shr_u:
+					{
+						Type* et = cast<VectorType>(ci.getOperand(0)->getType())->getElementType();
+						compileOperand(code, ci.getOperand(0));
+						compileOperand(code, ci.getOperand(1));
+						if (et->isIntegerTy(8))
+							encodeInst(WasmSIMDOpcode::I8x16_SHR_U, code);
+						else if (et->isIntegerTy(16))
+							encodeInst(WasmSIMDOpcode::I16x8_SHR_U, code);
+						else if (et->isIntegerTy(32))
+							encodeInst(WasmSIMDOpcode::I32x4_SHR_U, code);
+						else if (et->isIntegerTy(64))
+							encodeInst(WasmSIMDOpcode::I64x2_SHR_U, code);
+						else
+							llvm::report_fatal_error("Unsupported bitwidth for vector shr_u");
+						return false;
+					}
 					case Intrinsic::cheerp_wasm_splat:
 					{
 						Type* ty = ci.getOperand(0)->getType();
