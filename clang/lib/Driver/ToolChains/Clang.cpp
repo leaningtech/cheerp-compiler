@@ -5910,6 +5910,10 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (std::binary_search(wasmFeatures.begin(), wasmFeatures.end(), cheerp::ANYREF)) {
     CmdArgs.push_back("-cheerp-wasm-externref");
   }
+  if (std::binary_search(wasmFeatures.begin(), wasmFeatures.end(), cheerp::SIMD)) {
+    CmdArgs.push_back("-target-feature");
+    CmdArgs.push_back("+simd128");
+  }
 
   // GCC's behavior for -Wwrite-strings is a bit strange:
   //  * In C, this "warning flag" changes the types of string literals from
