@@ -209,6 +209,8 @@ bool SIMDLoweringPass::isReduceIntrinsic(Instruction& I)
 
 PreservedAnalyses SIMDLoweringPass::run(Function& F, FunctionAnalysisManager& FAM)
 {
+	if (!WasmSIMD)
+		return PreservedAnalyses::all();
 	extractInsertAlloca = nullptr;
 	deleteList.clear();
 	bool needToBreak;
