@@ -317,16 +317,27 @@ void CheerpTargetInfo::getTargetDefines(const LangOptions &Opts,
 
 bool CheerpTargetInfo::hasFeature(StringRef Feature) const {
   return llvm::StringSwitch<bool>(Feature)
-      .Case("simd128", true)
+      .Case("simd128", hasSIMD)
       .Default(false);
 }
 
-bool CheerpTargetInfo::initFeatureMap(
-    llvm::StringMap<bool> &Features, DiagnosticsEngine &Diags, StringRef CPU,
-    const std::vector<std::string> &FeaturesVec) const {
-  Features["simd128"] = true;
+bool CheerpTargetInfo::handleTargetFeatures(
+    std::vector<std::string> &Features, DiagnosticsEngine &Diags) {
+  for (const auto &Feature : Features) {
+    if (Feature == "+simd128") {
+      hasSIMD = true;
+      continue;
+    }
+    if (Feature == "-simd128") {
+      hasSIMD = false;
+      continue;
+    }
 
-  return TargetInfo::initFeatureMap(Features, Diags, CPU, FeaturesVec);
+    Diags.Report(diag::err_opt_not_valid_with_opt)
+        << Feature << "-target-feature";
+    return false;
+  }
+  return true;
 }
 
 const Builtin::Info CheerpTargetInfo::BuiltinInfo[] = {
