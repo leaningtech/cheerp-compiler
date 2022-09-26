@@ -192,6 +192,7 @@ protected:
 class CheerpTargetInfo : public TargetInfo {
 private:
     static const Builtin::Info BuiltinInfo[];
+    bool hasSIMD = false;
 public:
   CheerpTargetInfo(const llvm::Triple &triple) : TargetInfo(triple) {
     resetDataLayout("b-e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i24:8:8-i32:32:32-"
@@ -227,8 +228,8 @@ public:
                                 MacroBuilder &Builder) const override;
 
   bool hasFeature(StringRef Feature) const final;
-  bool initFeatureMap(llvm::StringMap<bool> &Features, DiagnosticsEngine &Diags,
-                 StringRef CPU, const std::vector<std::string> &FeaturesVec) const override;
+  bool handleTargetFeatures(std::vector<std::string> &Features,
+                            DiagnosticsEngine &Diags) final;
 
   virtual BuiltinVaListKind getBuiltinVaListKind() const override{
     return TargetInfo::CharPtrBuiltinVaList;
