@@ -44,6 +44,7 @@ namespace cheerp {
     ANYREF,
     RETURNCALLS,
     BRANCHHINTS,
+    SIMD,
     GLOBALIZATION,
     UNALIGNEDMEM
   };
