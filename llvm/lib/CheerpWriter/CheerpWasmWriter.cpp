@@ -1223,23 +1223,51 @@ void CheerpWasmWriter::compileConstant(WasmBuffer& code, const Constant* c, bool
 	else if (isa<ConstantVector>(c))
 	{
 		const FixedVectorType* vectorType = cast<ConstantVector>(c)->getType();
-		assert(vectorType->getElementType()->isIntegerTy(32));
-		std::vector<uint32_t> values;
+		const Type* elementType = vectorType->getElementType();
+		Constant* createdVector;
 		const unsigned num = vectorType->getNumElements();
-		for (unsigned i = 0; i < num; i++)
+		if (elementType->isIntegerTy(32))
 		{
-			unsigned result = 0;
-			const Constant *cons = c->getAggregateElement(i);
-			if (!isa<UndefValue>(cons))
+			std::vector<uint32_t> values;
+			for (unsigned i = 0; i < num; i++)
 			{
-				assert(isa<ConstantInt>(cons));
-				const ConstantInt* ci = cast<ConstantInt>(cons);
-				result = ci->getZExtValue();
+				unsigned result = 0;
+				const Constant *cons = c->getAggregateElement(i);
+				if (!isa<UndefValue>(cons))
+				{
+					assert(isa<ConstantInt>(cons));
+					const ConstantInt* ci = cast<ConstantInt>(cons);
+					result = ci->getZExtValue();
+				}
+				values.push_back(result);
 			}
-			values.push_back(result);
+			createdVector = ConstantDataVector::get(module.getContext(), ArrayRef<uint32_t>(values));
 		}
-		const ConstantDataVector* cdv = cast<ConstantDataVector>(ConstantDataVector::get(module.getContext(), ArrayRef<uint32_t>(values)));
-		encodeVectorConstant(code, cdv);
+		else if (elementType->isIntegerTy(64))
+		{
+			std::vector<uint64_t> values;
+			for (unsigned i = 0; i < num; i++)
+			{
+				unsigned result = 0;
+				const Constant* cons = c->getAggregateElement(i);
+				if (!isa<UndefValue>(cons))
+				{
+					assert(isa<ConstantInt>(cons));
+					const ConstantInt* ci = cast<ConstantInt>(cons);
+					result = ci->getZExtValue();
+				}
+				values.push_back(result);
+			}
+			createdVector = ConstantDataVector::get(module.getContext(), ArrayRef<uint64_t>(values));
+		}
+		else
+			llvm::report_fatal_error("Unhandled type for compile constant from datavector");
+		if (const ConstantDataVector* cdv = dyn_cast<ConstantDataVector>(createdVector))
+			encodeVectorConstant(code, cdv);
+		else if (const ConstantAggregateZero* caz = dyn_cast<ConstantAggregateZero>(createdVector))
+			encodeVectorConstantZero(code);
+		else
+			llvm::report_fatal_error("Unknown type for created vector");
 	}
 	else
 	{
