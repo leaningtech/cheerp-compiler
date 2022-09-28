@@ -50,6 +50,7 @@
 #include "clang/Basic/AddressSpaces.h"
 #include "clang/Basic/Builtins.h"
 #include "clang/Basic/CommentOptions.h"
+#include "clang/Basic/DiagnosticSema.h"
 #include "clang/Basic/ExceptionSpecificationType.h"
 #include "clang/Basic/IdentifierTable.h"
 #include "clang/Basic/LLVM.h"
@@ -13370,6 +13371,9 @@ void ASTContext::getFunctionFeatureMap(llvm::StringMap<bool> &FeatureMap,
     // the attribute.
     Target->initFeatureMap(FeatureMap, getDiagnostics(), TargetCPU,
                            ParsedAttr.Features);
+    if (FD->hasAttr<GenericJSAttr>() && FeatureMap.find("simd128") != FeatureMap.end())
+      getDiagnostics().Report(FD->getLocation(), diag::err_cheerp_incompatible_attributes) << FD->getAttr<GenericJSAttr>() << "method" << FD <<
+                                        "__target__(\"simd128\")" << "method" << FD;
   } else if (const auto *SD = FD->getAttr<CPUSpecificAttr>()) {
     llvm::SmallVector<StringRef, 32> FeaturesTmp;
     Target->getCPUSpecificCPUDispatchFeatures(
@@ -13390,6 +13394,8 @@ void ASTContext::getFunctionFeatureMap(llvm::StringMap<bool> &FeatureMap,
     Target->initFeatureMap(FeatureMap, getDiagnostics(), TargetCPU, Features);
   } else {
     FeatureMap = Target->getTargetOpts().FeatureMap;
+    if (FD->hasAttr<GenericJSAttr>())
+      FeatureMap.erase(StringRef("simd128"));
   }
 }
 
