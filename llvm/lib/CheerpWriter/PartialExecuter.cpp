@@ -1423,7 +1423,7 @@ public:
 			visitAll();
 			return;
 		}
-		if (false) if (data.anyOutgoingMissing(blocks) == false)
+		if (data.anyOutgoingMissing(blocks) == false)
 		{
 			visitAll();
 			return;
