@@ -158,10 +158,16 @@ void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 		if (f->getReturnType() && f->getReturnType()->isPointerTy())
 			retType = dyn_cast<StructType>(f->getReturnType()->getPointerElementType());
 
+		bool representationPA = false;
 		if (jsexportedTypes.count(retType))
 		{
 			stream << "var _=Object.create(" << jsexportedTypes.at(retType) << ".prototype);" << NewLine;
-			stream << "_.this={d:";
+			stream << "_.this=";
+			if (PA.getPointerKindForReturn(f) == SPLIT_REGULAR)
+			{
+				representationPA = true;
+				stream << "{d:";
+			}
 		}
 		else
 			stream << "return ";
@@ -170,17 +176,33 @@ void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 		stream << internalName << "(";
 		if(!isStatic && implicitThis)
 		{
-			if(PA.getPointerKind(&*f->arg_begin())==SPLIT_REGULAR)
+			const bool argSplitReg = PA.getPointerKind(&*f->arg_begin())==SPLIT_REGULAR;
+			const bool innerThisSplitReg = PA.getPointerKindForJSExportedType(const_cast<StructType*>(implicitThis)) == SPLIT_REGULAR;
+
+			if (argSplitReg && innerThisSplitReg)
 				stream << "this.this.d,this.this.o";
-			else
+			else if (!argSplitReg && innerThisSplitReg)
 				stream << "this.this.d[this.this.o]";
+			else if (argSplitReg && !innerThisSplitReg)
+				stream << "[this.this],0";
+			else if (!argSplitReg && !innerThisSplitReg)
+				stream << "this.this";
+			else
+				assert(false);
 			if(argumentsStrings.second.size() > 0)
 				stream << ",";
 		}
 		stream << argumentsStrings.second << ")";
 		if (jsexportedTypes.count(retType))
 		{
-			stream << "," << NewLine << "o:oSlot};" << NewLine;
+			if (representationPA)
+			{
+				stream << "," << NewLine << "o:oSlot};" << NewLine;
+			}
+			else
+			{
+				stream << ";" << NewLine;
+			}
 			stream << "return _;" << NewLine;
 		}
 		else
@@ -271,18 +293,26 @@ void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 			const MDNode* node = *constructor;
 			f = cast<Function>(cast<ConstantAsMetadata>(node->getOperand(0))->getValue());
 
+			const bool innerThisSplitReg = PA.getPointerKindForJSExportedType(const_cast<StructType*>(t)) == SPLIT_REGULAR;
+
 			const auto argumentsStrings = buildArgumentsString(f, /*isStatic*/false, PA, jsexportedTypes);
 
 			stream << argumentsStrings.first << "){" << NewLine;
 
-			stream << "this.this={d:[";
+			stream << "this.this=";
+			if (innerThisSplitReg)
+				stream << "{d:[";
 			// Regular constructor
 			compileType(const_cast<StructType*>(t), LITERAL_OBJ);
 			//We need to manually add the self pointer
-			stream << "],"<< NewLine <<"o:0};" << NewLine;
+			if (innerThisSplitReg)
+				stream << "],"<< NewLine <<"o:0}";
+			stream << ";" << NewLine;
 			compileOperand(f);
 			stream << '(';
-				stream << "this.this.d[0]";
+			stream << "this.this";
+			if (innerThisSplitReg)
+				stream << ".d[0]";
 
 			if (argumentsStrings.second.size() > 0)
 				stream << "," << argumentsStrings.second;
