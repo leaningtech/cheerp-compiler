@@ -247,8 +247,10 @@ PreservedAnalyses SIMDLoweringPass::run(Function& F, FunctionAnalysisManager& FA
 		for (Instruction& I: BB)
 		{
 			// Check correctness of vector types. Can only be 128 bits, or in some cases 64.
+#ifndef NDEBUG
 			if (I.getType()->isVectorTy())
 				checkVectorCorrectness(I);
+#endif
 			// This will find certain instructions that do not allow variables as lane indexes and
 			// instead add all the versions of these instructions with a switch.
 			if (isVariableExtractOrInsert(I))
