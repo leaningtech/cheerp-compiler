@@ -1635,7 +1635,7 @@ bool PartialExecuter::runOnModule( llvm::Module & module )
 		{
 			GlobalVariable* GV = p.first;
 			const uint32_t requiredAlign = p.second;
-			if (module.getDataLayout().getPreferredAlign(GV) < requiredAlign)
+			if (std::max(module.getDataLayout().getPreferredAlign(GV).value(), GV->getAlign().valueOrOne().value()) < requiredAlign)
 			{
 				GV->setAlignment(Align(requiredAlign));
 				NumTimesBumbedGlobals++;
