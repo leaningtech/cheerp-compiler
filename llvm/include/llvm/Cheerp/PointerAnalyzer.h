@@ -42,7 +42,7 @@ enum POINTER_KIND : uint8_t {
 enum REGULAR_POINTER_PREFERENCE { PREF_NONE, PREF_SPLIT_REGULAR, PREF_REGULAR };
 
 enum INDIRECT_POINTER_KIND_CONSTRAINT { RETURN_CONSTRAINT, DIRECT_ARG_CONSTRAINT, STORED_TYPE_CONSTRAINT, RETURN_TYPE_CONSTRAINT, BASE_AND_INDEX_CONSTRAINT,
-	INDIRECT_ARG_CONSTRAINT, DIRECT_ARG_CONSTRAINT_IF_ADDRESS_TAKEN };
+	INDIRECT_ARG_CONSTRAINT, DIRECT_ARG_CONSTRAINT_IF_ADDRESS_TAKEN, JSEXPORT_TYPE_CONSTRAINT};
 
 struct IndirectPointerKindConstraint
 {
@@ -59,7 +59,8 @@ struct IndirectPointerKindConstraint
 	IndirectPointerKindConstraint(INDIRECT_POINTER_KIND_CONSTRAINT k, const void* p):ptr(p),i(0xffffffff),kind(k),isBeingVisited(false)
 	{
 		assert(k == RETURN_CONSTRAINT || k == DIRECT_ARG_CONSTRAINT || k == STORED_TYPE_CONSTRAINT ||
-			k == RETURN_TYPE_CONSTRAINT || k == DIRECT_ARG_CONSTRAINT_IF_ADDRESS_TAKEN);
+			k == RETURN_TYPE_CONSTRAINT || k == DIRECT_ARG_CONSTRAINT_IF_ADDRESS_TAKEN ||
+			k == JSEXPORT_TYPE_CONSTRAINT);
 	}
 	IndirectPointerKindConstraint(INDIRECT_POINTER_KIND_CONSTRAINT k, const TypeAndIndex& typeAndIndex):ptr(typeAndIndex.type),i(typeAndIndex.index),
 														kind(k),isBeingVisited(false)
@@ -282,6 +283,7 @@ public:
 	POINTER_KIND getPointerKindForMember( const TypeAndIndex& baseAndIndex ) const;
 	POINTER_KIND getPointerKindForArgumentTypeAndIndex( const TypeAndIndex& argTypeAndIndex ) const;
 	POINTER_KIND getPointerKindForArgument( const llvm::Argument* A ) const;
+	POINTER_KIND getPointerKindForJSExportedType (llvm::Type* pointerType) const;
 	const PointerKindWrapper& getFinalPointerKindWrapper(const llvm::Value* v ) const;
 	static TypeAndIndex getBaseStructAndIndexFromGEP( const llvm::Value* v );
 	const llvm::ConstantInt* getConstantOffsetForPointer( const llvm::Value* ) const;
