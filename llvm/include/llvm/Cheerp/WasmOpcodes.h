@@ -327,6 +327,12 @@ enum class WasmSIMDU32Opcode {
 
 enum class WasmSIMDU32U32Opcode {
 	V128_LOAD = 0x0,
+	V128_LOAD8x8_S = 0x1,
+	V128_LOAD8x8_U = 0x2,
+	V128_LOAD16x4_S = 0x3,
+	V128_LOAD16x4_U = 0x4,
+	V128_LOAD32x2_S = 0x5,
+	V128_LOAD32x2_U = 0x6,
 	V128_STORE = 0x0b,
 };
 
