@@ -43,6 +43,7 @@ void IndirectPointerKindConstraint::dump() const
 		case STORED_TYPE_CONSTRAINT:
 			dbgs() << "Depends on stored type " << *typePtr << "\n";
 			break;
+		case JSEXPORT_TYPE_CONSTRAINT:
 		case RETURN_TYPE_CONSTRAINT:
 			dbgs() << "Depends on returned type " << *typePtr << "\n";
 			break;
@@ -1022,6 +1023,7 @@ const T& PointerResolverBaseVisitor<T>::resolveConstraint(const IndirectPointerK
 		case RETURN_CONSTRAINT:
 		case STORED_TYPE_CONSTRAINT:
 		case RETURN_TYPE_CONSTRAINT:
+		case JSEXPORT_TYPE_CONSTRAINT:
 		case BASE_AND_INDEX_CONSTRAINT:
 		case INDIRECT_ARG_CONSTRAINT:
 		{
@@ -1068,6 +1070,7 @@ void PointerResolverForKindVisitor::cacheResolvedConstraint(const IndirectPointe
 		case RETURN_CONSTRAINT:
 		case STORED_TYPE_CONSTRAINT:
 		case RETURN_TYPE_CONSTRAINT:
+		case JSEXPORT_TYPE_CONSTRAINT:
 		case BASE_AND_INDEX_CONSTRAINT:
 		case INDIRECT_ARG_CONSTRAINT:
 		{
@@ -1448,7 +1451,16 @@ void PointerAnalyzer::prefetchFunc(const Function& F) const
 {
 	for(const Argument & arg : F.args())
 		if(arg.getType()->isPointerTy())
+		{
 			getFinalPointerKindWrapper(&arg);
+			const Argument* A = &arg;
+			if (TypeSupport::isJSExportedPtrType(A->getType(), *A->getParent()->getParent()))
+			{
+				IndirectPointerKindConstraint argConstraint(DIRECT_ARG_CONSTRAINT, A);
+				IndirectPointerKindConstraint jsexportConstraint(JSEXPORT_TYPE_CONSTRAINT, A->getType()->getPointerElementType());
+				PACache.pointerKindData.constraintsMap[jsexportConstraint] |= PACache.pointerKindData.getConstraintPtr(argConstraint);
+			}
+		}
 	for(const BasicBlock & BB : F)
 	{
 		for(auto it=BB.rbegin();it != BB.rend();++it)
@@ -1468,8 +1480,9 @@ void PointerAnalyzer::prefetchFunc(const Function& F) const
 	}
 	else if (TypeSupport::isJSExportedPtrType(retType, *F.getParent()))
 	{
+		IndirectPointerKindConstraint jsexportConstraint(JSEXPORT_TYPE_CONSTRAINT, retType->getPointerElementType());
 		IndirectPointerKindConstraint returnConstraint(RETURN_CONSTRAINT, &F);
-		PACache.pointerKindData.constraintsMap[returnConstraint] = PointerKindWrapper(SPLIT_REGULAR, &F);
+		PACache.pointerKindData.constraintsMap[returnConstraint] |= PACache.pointerKindData.getConstraintPtr(jsexportConstraint);
 	}
 
 	if(PACache.addressTakenCache.checkAddressTaken(&F))
@@ -1612,6 +1625,19 @@ POINTER_KIND PointerAnalyzer::getPointerKindForArgumentTypeAndIndex( const TypeA
 	return PointerResolverForKindVisitor(PACache).resolvePointerKind(k).getPointerKind(regularPreference);
 }
 
+POINTER_KIND PointerAnalyzer::getPointerKindForJSExportedType (Type* jsexportedType) const
+{
+	IndirectPointerKindConstraint c(JSEXPORT_TYPE_CONSTRAINT, jsexportedType);
+	const PointerKindWrapper& k=PointerResolverForKindVisitor(PACache).resolveConstraint(c);
+	assert(k.isKnown());
+	REGULAR_POINTER_PREFERENCE regularPreference = getRegularPreference(c, PACache);
+
+	if (k!=INDIRECT)
+		return k.getPointerKind(regularPreference);
+
+	return PointerResolverForKindVisitor(PACache).resolvePointerKind(k).getPointerKind(regularPreference);
+}
+
 POINTER_KIND PointerAnalyzer::getPointerKindForArgument( const llvm::Argument* A ) const
 {
 	if(TypeSupport::hasByteLayout(A->getType()->getPointerElementType()))
@@ -1709,6 +1735,7 @@ REGULAR_POINTER_PREFERENCE PointerAnalyzer::getRegularPreference(const IndirectP
 		case DIRECT_ARG_CONSTRAINT:
 		case RETURN_CONSTRAINT:
 		case RETURN_TYPE_CONSTRAINT:
+		case JSEXPORT_TYPE_CONSTRAINT:
 		case INDIRECT_ARG_CONSTRAINT:
 		case DIRECT_ARG_CONSTRAINT_IF_ADDRESS_TAKEN:
 			return PREF_SPLIT_REGULAR;
