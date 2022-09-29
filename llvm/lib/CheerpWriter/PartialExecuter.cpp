@@ -117,7 +117,17 @@ class PartialInterpreter : public llvm::Interpreter {
 			return false;
 		if (const GlobalVariable* GVar = dyn_cast_or_null<GlobalVariable>(V))
 		{
-			return isGlobalVariablePartiallyExecutable(*GVar);
+			const bool res = isGlobalVariablePartiallyExecutable(*GVar);
+			if (res)
+			{
+				// We are required to bump GlobalVariables alignment only if they are used (potentially indirectly)
+				// by a PtrToInt, since that makes aligment observable, but here we are going with the simpler solution
+				// to mark them as always observable.
+				// Note that the only missing cases are basically Load of GEPs of constant strings, for which we may end up
+				// wasting some bytes by having a higher alignment
+				newAlignmentData.insert({const_cast<GlobalVariable*>(GVar), 4});
+			}
+			return res;
 		}
 		if (const ConstantExpr* CE = dyn_cast_or_null<ConstantExpr>(V))
 		{
