@@ -765,7 +765,27 @@ void CheerpWasmWriter::encodeLoad(const llvm::Type* ty, uint32_t offset,
 		else if (ty->isDoubleTy())
 			encodeInst(WasmU32U32Opcode::F64_LOAD, 0x3, offset, code);
 		else if (ty->isVectorTy())
-			encodeInst(WasmSIMDU32U32Opcode::V128_LOAD, 0x2, offset, code);
+		{
+			assert(isa<FixedVectorType>(ty));
+			const FixedVectorType* vecTy = cast<FixedVectorType>(ty);
+			const unsigned elements = vecTy->getNumElements();
+			const unsigned elSize = vecTy->getScalarSizeInBits();
+			const unsigned total = elements * elSize;
+			if (total == 128)
+				encodeInst(WasmSIMDU32U32Opcode::V128_LOAD, 0x2, offset, code);
+			else
+			{
+				assert(total == 64);
+				if (elSize == 8)
+					encodeInst(signExtend ? WasmSIMDU32U32Opcode::V128_LOAD8x8_S : WasmSIMDU32U32Opcode::V128_LOAD8x8_U, 0x2, offset, code);
+				else if (elSize == 16)
+					encodeInst(signExtend ? WasmSIMDU32U32Opcode::V128_LOAD16x4_S : WasmSIMDU32U32Opcode::V128_LOAD16x4_U, 0x2, offset, code);
+				else if (elSize == 32)
+					encodeInst(signExtend ? WasmSIMDU32U32Opcode::V128_LOAD32x2_S : WasmSIMDU32U32Opcode::V128_LOAD32x2_U, 0x2, offset, code);
+				else
+					llvm::report_fatal_error("unknown vector load bitwidth");
+			}
+		}
 		else
 			encodeInst(WasmU32U32Opcode::I32_LOAD, 0x2, offset, code);
 	}
