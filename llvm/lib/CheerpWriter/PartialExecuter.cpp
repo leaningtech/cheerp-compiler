@@ -69,39 +69,6 @@ namespace cheerp {
 
 const uint32_t MAX_NUMBER_OF_VISITS_PER_BB = 100u;
 
-static bool isGlobalVariablePartiallyExecutable(const GlobalVariable& GVar)
-{
-	if (!GVar.hasInitializer())
-		return false;
-	if (!GVar.hasInternalLinkage())
-		return false;
-
-	assert(GVar.isExternallyInitialized() == false);
-
-	return true;
-}
-
-//Compute whether a given Value is a constant & it's value can be executed beforehand
-static bool isValueComputedConstant(const llvm::Value* V)
-{
-	// TODO(carlo): this can easily be memoized since there is no state
-	if (!isa<Constant>(V))
-		return false;
-	if (const GlobalVariable* GVar = dyn_cast_or_null<GlobalVariable>(V))
-	{
-		return isGlobalVariablePartiallyExecutable(*GVar);
-	}
-	if (const ConstantExpr* CE = dyn_cast_or_null<ConstantExpr>(V))
-	{
-		for (auto& op : CE->operands())
-		{
-			if (!isValueComputedConstant(op))
-				return false;
-		}
-	}
-	return true;
-}
-
 class FunctionData;
 class ModuleData;
 
@@ -130,6 +97,38 @@ class PartialInterpreter : public llvm::Interpreter {
 	NewAlignmentData newAlignmentData;
 
 	std::map<const llvm::Function*, uint32_t> functionCounters;
+	bool isGlobalVariablePartiallyExecutable(const GlobalVariable& GVar)
+	{
+		if (!GVar.hasInitializer())
+			return false;
+		if (!GVar.hasInternalLinkage())
+			return false;
+
+		assert(GVar.isExternallyInitialized() == false);
+
+		return true;
+	}
+
+	//Compute whether a given Value is a constant & it's value can be executed beforehand
+	bool isValueComputedConstant(const llvm::Value* V)
+	{
+		// TODO(carlo): this can easily be memoized since there is no state
+		if (!isa<Constant>(V))
+			return false;
+		if (const GlobalVariable* GVar = dyn_cast_or_null<GlobalVariable>(V))
+		{
+			return isGlobalVariablePartiallyExecutable(*GVar);
+		}
+		if (const ConstantExpr* CE = dyn_cast_or_null<ConstantExpr>(V))
+		{
+			for (auto& op : CE->operands())
+			{
+				if (!isValueComputedConstant(op))
+					return false;
+			}
+		}
+		return true;
+	}
 public:
 	// While visiting PHINodes of a BasicBlock, incomingBB will hold the incoming (if uniquely identified) or nullptr
 	const llvm::BasicBlock* incomingBB{nullptr};
@@ -313,7 +312,7 @@ public:
 
 		return BitMask::NONE;
 	}
-	bool isValueComputed(const llvm::Value* V) const
+	bool isValueComputed(const llvm::Value* V)
 	{
 		if (isValueComputedConstant(V))
 			return true;
@@ -808,8 +807,11 @@ llvm::BasicBlock* PartialInterpreter::visitBasicBlock(llvm::BasicBlock& BB)
 	return findNextBasicBlock(*BB.getTerminator());
 }
 
+class FunctionData;
+
 class ModuleData
 {
+	friend class FunctionData;
 	// This strings is passed to PartialInterpreter factory method (and via that to Interpreter / ExecutionEngine constructors)
 	//  that might report some recoverable error via the string.
 	std::string error;
@@ -891,7 +893,7 @@ class FunctionData
 			// Filter out not computed arguments
 			for (auto& v : args)
 			{
-				if (isValueComputedConstant(v) == false)
+				if (moduleData.currentEE->isValueComputedConstant(v) == false)
 					v = nullptr;
 			}
 		}
