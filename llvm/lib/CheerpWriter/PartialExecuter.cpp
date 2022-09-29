@@ -449,9 +449,11 @@ public:
 				GenericValue SRC = getOperandValue(LI.getPointerOperand());
 				GenericValue *Ptr = (GenericValue*)GVTORP(SRC);
 
+				const long long loadSize = getDataLayout().getTypeAllocSize(LI.getType());
+
 				for (const auto& interval : immutableLoadIntervals)
 				{
-					if ((long long)Ptr >= interval.first && (long long)Ptr < interval.second)
+					if ((long long)Ptr >= interval.first && ((long long)Ptr+loadSize) <= interval.second)
 						return false;
 				}
 
