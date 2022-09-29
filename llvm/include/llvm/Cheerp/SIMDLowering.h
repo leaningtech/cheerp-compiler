@@ -21,6 +21,7 @@ using namespace llvm;
 
 class SIMDLoweringPass : public llvm::PassInfoMixin<SIMDLoweringPass> {
 private:
+	void checkVectorCorrectness(llvm::Instruction& I);
 	bool lowerExtractOrInsert(llvm::Instruction& I);
 	bool lowerReduceIntrinsic(llvm::Instruction& I);
 	bool lowerBitShift(llvm::Instruction& I);

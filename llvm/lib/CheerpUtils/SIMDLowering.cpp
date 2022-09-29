@@ -23,6 +23,33 @@ using namespace llvm;
 namespace cheerp
 {
 
+void SIMDLoweringPass::checkVectorCorrectness(Instruction& I)
+{
+	assert(isa<FixedVectorType>(I.getType()));
+	const FixedVectorType* vecTy = cast<FixedVectorType>(I.getType());
+	const unsigned vectorBitwidth = vecTy->getNumElements() * vecTy->getScalarSizeInBits();
+	if (vectorBitwidth != 128)
+	{
+		// Verify that 64 is produced by a load, and only used to extend.
+		if (vectorBitwidth == 64)
+		{
+			assert(isa<LoadInst>(I));
+			for (User* U: I.users())
+			{
+				assert(isa<Instruction>(U));
+				const Instruction* useI = cast<Instruction>(U);
+				assert(useI->getOpcode() == Instruction::SExt);
+			}
+			return ;
+		}
+		// Verify that the element size is 1, it's from a comparison,
+		// and this result is only used in select instructions.
+		assert(vecTy->getScalarSizeInBits() == 1);
+		assert(isa<CmpInst>(I));
+		for (User* U: I.users())
+			assert(isa<SelectInst>(U));
+	}
+}
 bool SIMDLoweringPass::lowerExtractOrInsert(Instruction& I)
 {
 	bool extract = I.getOpcode() == Instruction::ExtractElement;
@@ -219,6 +246,9 @@ PreservedAnalyses SIMDLoweringPass::run(Function& F, FunctionAnalysisManager& FA
 		BasicBlock& BB = *it;
 		for (Instruction& I: BB)
 		{
+			// Check correctness of vector types. Can only be 128 bits, or in some cases 64.
+			if (I.getType()->isVectorTy())
+				checkVectorCorrectness(I);
 			// This will find certain instructions that do not allow variables as lane indexes and
 			// instead add all the versions of these instructions with a switch.
 			if (isVariableExtractOrInsert(I))
