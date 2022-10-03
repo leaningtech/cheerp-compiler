@@ -2861,6 +2861,15 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 		}
 		case Instruction::ZExt:
 		{
+			if (I.getType()->isVectorTy())
+			{
+				// If this is only used by a load, skip this.
+				if (I.hasOneUse() && isa<LoadInst>(I.getOperand(0)))
+				{
+					compileOperand(code, I.getOperand(0));
+					break ;
+				}
+			}
 			compileUnsignedInteger(code, I.getOperand(0));
 			if (I.getType()->isIntegerTy(64))
 				encodeInst(WasmOpcode::I64_EXTEND_I32_U, code);
