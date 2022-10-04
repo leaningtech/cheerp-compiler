@@ -62,8 +62,13 @@ inline llvm::Type* getElementType(llvm::Type* t, llvm::Type* candidate)
 		assert(candidate && candidate->getPointerTo() == t);
 		return candidate;
 	}
+	else if (t->isVectorTy())
+		return t->getScalarType();
 	else
+	{
+		assert(t->isArrayTy());
 		return t->getArrayElementType();
+	}
 }
 
 class InlineableCache
