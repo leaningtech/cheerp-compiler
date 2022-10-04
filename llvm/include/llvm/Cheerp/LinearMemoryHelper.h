@@ -130,6 +130,8 @@ public:
 					return 'd';
 				case TypeKind::Float:
 					return 'f';
+				case TypeKind::Vector:
+					break;
 			}
 			llvm_unreachable("");
 		};
@@ -314,6 +316,7 @@ private:
 		Float,
 		RawPointer,
 		RefPointer,
+		Vector,
 	};
 	template<bool isStrict = false>
 	static TypeKind typeKindOf(const llvm::Type* type)
@@ -332,6 +335,8 @@ private:
 			return TypeKind::RefPointer;
 		if (type->isVoidTy())
 			return TypeKind::Void;
+		if (type->isVectorTy())
+			return TypeKind::Vector;
 		llvm_unreachable("unrecognized type kind");
 	}
 
