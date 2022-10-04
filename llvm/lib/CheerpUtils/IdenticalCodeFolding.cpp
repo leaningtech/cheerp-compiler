@@ -482,6 +482,15 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 		{
 			return CacheAndReturn(false);
 		}
+		case Instruction::InsertElement:
+		{
+			const InsertElementInst* a = cast<InsertElementInst>(A);
+			const InsertElementInst* b = cast<InsertElementInst>(B);
+			return CacheAndReturn(equivalentType(a->getType(), b->getType()) &&
+				equivalentOperand(A->getOperand(0), B->getOperand(0)) &&
+				equivalentOperand(A->getOperand(1), B->getOperand(1)) &&
+				equivalentOperand(A->getOperand(2), B->getOperand(2)));
+		}
 		default:
 		{
 #ifndef NDEBUG
@@ -623,6 +632,18 @@ bool IdenticalCodeFolding::equivalentConstant(const llvm::Constant* A, const llv
 
 	if (isa<UndefValue>(A) || isa<UndefValue>(B))
 		return isa<UndefValue>(A) && isa<UndefValue>(B);
+
+	if (isa<ConstantVector>(A) || isa<ConstantVector>(B))
+	{
+		if (!isa<ConstantVector>(A) || !isa<ConstantVector>(B))
+			return false;
+		for (unsigned i = 0; i < A->getNumOperands(); i++)
+		{
+			if (!equivalentOperand(A->getOperand(i), B->getOperand(i)))
+				return false;
+		}
+		return true;
+	}
 
 #ifndef NDEBUG
 	A->dump();
