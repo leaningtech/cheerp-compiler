@@ -38,16 +38,20 @@ void SIMDLoweringPass::checkVectorCorrectness(Instruction& I)
 			{
 				assert(isa<Instruction>(U));
 				const Instruction* useI = cast<Instruction>(U);
-				assert(useI->getOpcode() == Instruction::SExt);
+				assert(useI->getOpcode() == Instruction::SExt || useI->getOpcode() == Instruction::ZExt);
 			}
 			return ;
 		}
-		// Verify that the element size is 1, it's from a comparison,
+		// Verify that if the element size is 1, it's from a comparison,
 		// and this result is only used in select instructions.
-		assert(vecTy->getScalarSizeInBits() == 1);
-		assert(isa<CmpInst>(I));
-		for (User* U: I.users())
-			assert(isa<SelectInst>(U));
+		if (vecTy->getScalarSizeInBits() == 1)
+		{
+			assert(isa<CmpInst>(I));
+			for (User* U: I.users())
+				assert(isa<SelectInst>(U) || isa<SExtInst>(U));
+			return ;
+		}
+		assert(false);
 	}
 }
 bool SIMDLoweringPass::lowerExtractOrInsert(Instruction& I)
