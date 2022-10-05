@@ -116,7 +116,7 @@ bool SIMDLoweringPass::lowerBitShift(Instruction& I)
 	// This function will lower bit shift operations that take a vector as their second operand,
 	// since WebAssembly does not support this.
 	Value* secondOp = I.getOperand(1);
-	if (!secondOp->getType()->isVectorTy() || !secondOp->hasOneUse())
+	if (!secondOp->getType()->isVectorTy())
 		return false;
 	Intrinsic::ID intrID;
 	unsigned opcode = I.getOpcode();
@@ -256,7 +256,7 @@ PreservedAnalyses SIMDLoweringPass::run(Function& F, FunctionAnalysisManager& FA
 				checkVectorCorrectness(I);
 #endif
 			// This will find certain instructions that do not allow variables as lane indexes and
-			// instead add all the versions of these instructions with a switch.
+			// instead use a store and a load.
 			if (isVariableExtractOrInsert(I))
 				needToBreak = lowerExtractOrInsert(I);
 			else if (isReduceIntrinsic(I))
