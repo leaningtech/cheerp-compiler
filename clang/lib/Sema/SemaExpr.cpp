@@ -2763,6 +2763,11 @@ Sema::ActOnIdExpression(Scope *S, CXXScopeSpec &SS,
             << FD->getAttr<AsmJSAttr>() << "function" << FD
             << Found->getAttr<GenericJSAttr>() << "global variable" << Found;
         }
+        if (FD->hasAttr<GenericJSAttr>() && Found->hasAttr<AsmJSAttr>() && Found->hasGlobalStorage()
+            && Found->getType()->isVectorType()) {
+          Diag(R.getLookupNameInfo().getLoc(), diag::err_cheerp_vector_from_genericjs)
+            << "use global variable" << Found << FD << FD->getAttr<GenericJSAttr>();
+        }
       }
     }
   }
@@ -21170,6 +21175,12 @@ void Sema::CheckCheerpFFICall(const FunctionDecl* Parent, const FunctionDecl* FD
           << Parent << Parent->getAttr<GenericJSAttr>()
           << *p
           << "reference";
+      } else if (pt && pt->isVectorType())
+      {
+        Diag((*a)->getBeginLoc(), diag::err_cheerp_wrong_vector_param)
+          << FDecl << FDecl->getAttr<AsmJSAttr>()
+          << Parent << Parent->getAttr<GenericJSAttr>()
+          << *p;
       }
     }
   } else if (Parent->hasAttr<AsmJSAttr>() && FDecl->hasAttr<GenericJSAttr>()) {

@@ -8104,6 +8104,13 @@ NamedDecl *Sema::ActOnVariableDeclarator(
         Diag(NewVD->getLocation(), diag::err_cheerp_client_layout_lvalue);
       }
     }
+    // CHEERP: Disallow variables of vector type in genericjs functions
+    if (FunctionDecl* FD = dyn_cast<FunctionDecl>(NewVD->getDeclContext())) {
+      if (FD->hasAttr<GenericJSAttr>() && NewVD->getType()->isVectorType()) {
+        Diag(NewVD->getLocation(), diag::err_cheerp_vector_from_genericjs)
+          << "declare local variable" << NewVD << FD << FD->getAttr<GenericJSAttr>();
+      }
+    }
 
   }
   return NewVD;
