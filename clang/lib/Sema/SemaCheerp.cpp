@@ -479,6 +479,14 @@ void cheerp::checkFunctionOnDeclaration(clang::FunctionDecl* FD, clang::Sema& se
 		if (!isAlsoDefinition)
 			TypeChecker::checkSignature<cheerp::TypeChecker::KindOfFunction::NamespaceClient, cheerp::TypeChecker::FailureMode::Diagnostic>(FD, sema);
 	}
+	// Check if any parameters to a function with genericJS attribute are vectors.
+	if (FD->hasAttr<clang::GenericJSAttr>()) {
+		for (clang::ParmVarDecl* P: FD->parameters())
+		{
+			if (P->getType()->isVectorType())
+				sema.Diag(P->getLocation(), clang::diag::err_cheerp_vector_from_genericjs) << "have parameter" << P << FD << FD->getAttr<clang::GenericJSAttr>();
+		}
+	}
 
 	sema.cheerpSemaData.addFunction(FD, isClient);
 }
