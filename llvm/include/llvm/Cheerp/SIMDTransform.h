@@ -1,4 +1,4 @@
-//===-- SIMDLowering.h - Cheerp helper -------------------------===//
+//===-- SIMDTransform.h - Cheerp helper -------------------------===//
 //
 //                     Cheerp: The C++ compiler for the Web
 //
@@ -9,8 +9,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef CHEERP_SIMD_LOWERING_H
-#define CHEERP_SIMD_LOWERING_H
+#ifndef CHEERP_SIMD_TRANSFORM_H
+#define CHEERP_SIMD_TRANSFORM_H
 
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/Instructions.h"
@@ -19,7 +19,7 @@ namespace cheerp{
 
 using namespace llvm;
 
-class SIMDLoweringPass : public llvm::PassInfoMixin<SIMDLoweringPass> {
+class SIMDTransformPass : public llvm::PassInfoMixin<SIMDTransformPass> {
 private:
 	void checkVectorCorrectness(llvm::Instruction& I);
 	bool lowerExtractOrInsert(llvm::Instruction& I);
