@@ -1,4 +1,4 @@
-//===-- SIMDLowering.cpp - Cheerp helper -------------------------===//
+//===-- SIMDTransform.cpp - Cheerp helper -------------------------===//
 //
 //                     Cheerp: The C++ compiler for the Web
 //
@@ -9,7 +9,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Cheerp/SIMDLowering.h"
+#include "llvm/Cheerp/SIMDTransform.h"
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
 #include "llvm/Cheerp/LinearMemoryHelper.h"
 #include "llvm/IR/Instruction.h"
@@ -23,7 +23,7 @@ using namespace llvm;
 namespace cheerp
 {
 
-void SIMDLoweringPass::checkVectorCorrectness(Instruction& I)
+void SIMDTransformPass::checkVectorCorrectness(Instruction& I)
 {
 	assert(isa<FixedVectorType>(I.getType()));
 	const FixedVectorType* vecTy = cast<FixedVectorType>(I.getType());
@@ -55,7 +55,7 @@ void SIMDLoweringPass::checkVectorCorrectness(Instruction& I)
 	}
 }
 
-bool SIMDLoweringPass::lowerExtractOrInsert(Instruction& I)
+bool SIMDTransformPass::lowerExtractOrInsert(Instruction& I)
 {
 	bool extract = I.getOpcode() == Instruction::ExtractElement;
 	Function* F = I.getFunction();
@@ -87,7 +87,7 @@ bool SIMDLoweringPass::lowerExtractOrInsert(Instruction& I)
 	return false;
 }
 
-bool SIMDLoweringPass::lowerReduceIntrinsic(Instruction& I)
+bool SIMDTransformPass::lowerReduceIntrinsic(Instruction& I)
 {
 	Value *vec = I.getOperand(0);
 	const int amount = 128 / vec->getType()->getScalarSizeInBits();
@@ -112,7 +112,7 @@ bool SIMDLoweringPass::lowerReduceIntrinsic(Instruction& I)
 	return false;
 }
 
-bool SIMDLoweringPass::lowerBitShift(Instruction& I)
+bool SIMDTransformPass::lowerBitShift(Instruction& I)
 {
 	// This function will lower bit shift operations that take a vector as their second operand,
 	// since WebAssembly does not support this.
@@ -155,7 +155,7 @@ bool SIMDLoweringPass::lowerBitShift(Instruction& I)
 	return false;
 }
 
-bool SIMDLoweringPass::lowerSplat(Instruction &I)
+bool SIMDTransformPass::lowerSplat(Instruction &I)
 {
 	// Try to see if this instruction was originally a splat.
 	// We know this if we find a shufflevector instruction, that has a zero mask, and it's first operand
@@ -185,7 +185,7 @@ bool SIMDLoweringPass::lowerSplat(Instruction &I)
 	return false;
 }
 
-bool SIMDLoweringPass::lowerGeneralUnsupportedVectorOperation(Instruction& I)
+bool SIMDTransformPass::lowerGeneralUnsupportedVectorOperation(Instruction& I)
 {
 	// This function will lower instructions that are not defined to be done on 2 vectors in SIMD.
 	// It will extract values 1 by 1 from both vectors, do the operation, and store the results.
@@ -224,13 +224,13 @@ bool SIMDLoweringPass::lowerGeneralUnsupportedVectorOperation(Instruction& I)
 	return false;
 }
 
-bool SIMDLoweringPass::isVariableExtractOrInsert(Instruction& I)
+bool SIMDTransformPass::isVariableExtractOrInsert(Instruction& I)
 {
 	return (I.getOpcode() == Instruction::ExtractElement && !isa<ConstantInt>(I.getOperand(1))) || 
 			(I.getOpcode() == Instruction::InsertElement && !isa<ConstantInt>(I.getOperand(2)));
 }
 
-bool SIMDLoweringPass::isReduceIntrinsic(Instruction& I)
+bool SIMDTransformPass::isReduceIntrinsic(Instruction& I)
 {
 	if (I.getOpcode() != Instruction::Call)
 		return false;
@@ -241,7 +241,7 @@ bool SIMDLoweringPass::isReduceIntrinsic(Instruction& I)
 		id == Intrinsic::vector_reduce_fadd);
 }
 
-PreservedAnalyses SIMDLoweringPass::run(Function& F, FunctionAnalysisManager& FAM)
+PreservedAnalyses SIMDTransformPass::run(Function& F, FunctionAnalysisManager& FAM)
 {
 	if (!WasmSIMD)
 		return PreservedAnalyses::all();
