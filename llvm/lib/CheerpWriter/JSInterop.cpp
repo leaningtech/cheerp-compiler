@@ -77,15 +77,10 @@ static std::pair<std::string, std::string> buildArgumentsString(const llvm::Func
 		args_inner << aX << ",";
 		if(it->getType()->isPointerTy() && PA.getPointerKind(&(*it)) == SPLIT_REGULAR)
 		{
-			if (isWrapped)
+			assert(isWrapped);
 			{
 				// Split regular representation
 				args_outer << aX << ".this.d," << aX << ".this.o,";
-			}
-			else
-			{
-				// Implicitly split regular
-				args_outer << "[" << aX << "]," << "0,";
 			}
 		}
 		else
