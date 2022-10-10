@@ -3731,6 +3731,10 @@ void CheerpWasmWriter::compileDataSection()
 	uint32_t count = 0;
 
 	auto globals = linearHelper.addressableGlobals();
+	// Concatenate global variables into one big binary blob.
+	Chunk<128> bytes;
+	uint32_t starting_address = 0;
+	WasmBytesWriter bytesWriter(bytes, *this);
 	for (auto g = globals.begin(), e = globals.end(); g != e; ++g)
 	{
 		const GlobalVariable* GV = *g;
@@ -3741,56 +3745,34 @@ void CheerpWasmWriter::compileDataSection()
 		const Constant* init = GV->getInitializer();
 
 		uint32_t address = linearHelper.getGlobalVariableAddress(GV);
+		long written = bytes.tell();
+		if (written == 0)
+			starting_address = address;
+		uint32_t padding = address - (starting_address + written);
+		// Determine amount of padding bytes necessary for the alignment.
+		for (uint32_t i = 0; i < padding; i++)
+			bytes << (char)0;
 
-		// Concatenate global variables into one big binary blob. This
-		// optimization omits the data section item header, and that will save
-		// a minimum of 5 bytes per global variable.
-		Chunk<128> bytes;
-		WasmBytesWriter bytesWriter(bytes, *this);
+		linearHelper.compileConstantAsBytes(init,/* asmjs */ true, &bytesWriter);
 
-		for (; g != e; ++g) {
-			GV = *g;
-
-			// Do not concatenate global variables that have no initialiser or
-			// are zero-initialised.
-			if (!linearHelper.hasNonZeroInitialiser(GV))
-				break;
-			init = GV->getInitializer();
-
-			// Determine amount of padding bytes necessary for the alignment.
-			long written = bytes.tell();
-			uint32_t nextAddress = linearHelper.getGlobalVariableAddress(GV);
-			uint32_t padding = nextAddress - (address + written);
-			for (uint32_t i = 0; i < padding; i++)
-				bytes << (char)0;
-
-			linearHelper.compileConstantAsBytes(init,/* asmjs */ true, &bytesWriter);
-		}
-
-		StringRef buf = bytes.str();
-
-		// Strip leading and trailing zeros.
-		size_t pos = 0, len = buf.size();
-		for (unsigned i = 0; i < buf.size() && !buf[i]; i++) {
-			pos++;
-			len--;
-		}
-		for (unsigned i = buf.size(); i > 0 && !buf[--i];)
-			len--;
-		buf = buf.substr(pos, len);
-		assert(len > 0 && "found a zero-initialised variable");
-
-		address += pos;
-
-		count += encodeDataSectionChunks(data, address, buf);
-
-		// Break the outer loop when the last global variable is concatenated.
-		// Without this check, the outer loop will increment `g` as well, which
-		// will cause the condition `g != e` to pass, resulting in an
-		// out-of-bounds access on the iterator.
-		if (g == e)
-			break;
 	}
+
+	StringRef buf = bytes.str();
+
+	// Strip leading and trailing zeros.
+	size_t pos = 0, len = buf.size();
+	for (unsigned i = 0; i < buf.size() && !buf[i]; i++) {
+		pos++;
+		len--;
+	}
+	for (unsigned i = buf.size(); i > 0 && !buf[--i];)
+		len--;
+	buf = buf.substr(pos, len);
+
+	starting_address += pos;
+
+	if (len)
+		count = encodeDataSectionChunks(data, starting_address, buf);
 
 	encodeULEB128(count, section);
 	section << data.str();
