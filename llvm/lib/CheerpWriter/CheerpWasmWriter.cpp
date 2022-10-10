@@ -3701,6 +3701,11 @@ uint32_t CheerpWasmWriter::encodeDataSectionChunks(WasmBuffer& data, uint32_t ad
 	size_t cur = 0, last = 0, end = 0;
 	std::string delimiter(6, '0');
 	while ((cur = buf.find(delimiter, last)) != std::string::npos) {
+		if (chunks + 1 == 1e5)
+		{
+			// V8 and SpiderMonkey have an hard limit of 1e5 chunks, and we potentially need a last one to encode the remaining bytes
+			break;
+		}
 		std::string chunk(buf.substr(last, cur - last));
 		assert(chunk.size() == cur - last);
 		assert(address + last > end);
