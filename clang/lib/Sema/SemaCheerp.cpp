@@ -521,10 +521,6 @@ void cheerp::CheerpSemaData::checkFunctionToBeJsExported(const clang::FunctionDe
 	if (isMethod)
 	{
 		//Method specific checks
-		if (FD->hasAttr<AsmJSAttr>())
-			sema.Diag(FD->getLocation(), diag::err_cheerp_incompatible_attributes) << FD->getAttr<AsmJSAttr>() << "method" << FD <<
-					"[[cheerp::jsexport]]" << "method" << FD;
-
 		if (FD->isOverloadedOperator())
 			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_with_operators);
 	}
@@ -795,11 +791,7 @@ cheerp::CheerpAttributeToAdd cheerp::getCheerpAttributeToAdd(const clang::Decl*&
 void cheerp::checksOnAsmJSAttributeInjection(clang::Sema& sema, const clang::Decl* decl)
 {
 	using namespace clang;
-	if (decl->hasAttr<JsExportAttr>() && isa<CXXRecordDecl>(decl))
-		sema.Diag(decl->getBeginLoc(), diag::err_attributes_are_not_compatible)
-			<< (sema.LangOpts.getCheerpLinearOutput() == LangOptions::CheerpLinearOutputTy::CHEERP_LINEAR_OUTPUT_AsmJs ? "'asmjs'" : "'wasm'")
-			<< decl->getAttr<JsExportAttr>();
-	else if (decl->hasAttr<PackedAttr>() && (sema.LangOpts.getCheerpLinearOutput() == LangOptions::CheerpLinearOutputTy::CHEERP_LINEAR_OUTPUT_AsmJs))
+	if (decl->hasAttr<PackedAttr>() && (sema.LangOpts.getCheerpLinearOutput() == LangOptions::CheerpLinearOutputTy::CHEERP_LINEAR_OUTPUT_AsmJs))
 		sema.Diag(decl->getBeginLoc(), diag::err_attributes_are_not_compatible)
 			<< "'asmjs'"
 			<< decl->getAttr<PackedAttr>();
