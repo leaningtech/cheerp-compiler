@@ -3681,8 +3681,8 @@ void CheerpWasmWriter::compileCodeSection()
 
 void CheerpWasmWriter::encodeDataSectionChunk(WasmBuffer& data, uint32_t address, StringRef buf)
 {
-	// In the current version of WebAssembly, at most one memory is
-	// allowed in a module. Consequently, the only valid memidx is 0.
+	// In the current version of WebAssembly, 0x00 encodes an active data segment on memory 0
+	// (0x01 encodes passive data segment, and 0x02 an active data segment followed by actual memory index)
 	encodeULEB128(0, data);
 	// The offset into memory, which is the address
 	encodeLiteralType(Type::getInt32Ty(Ctx), data);
