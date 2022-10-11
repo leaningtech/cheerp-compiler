@@ -701,7 +701,7 @@ void CheerpWasmWriter::compileSignedInteger(WasmBuffer& code, const llvm::Value*
 	uint32_t shiftAmount = std::max(32-(int)v->getType()->getIntegerBitWidth(), 0);
 	if(const ConstantInt* C = dyn_cast<ConstantInt>(v))
 	{
-		int32_t value = C->getSExtValue();
+		int64_t value = C->getSExtValue();
 		if(forComparison)
 			value <<= shiftAmount;
 		if (v->getType()->isIntegerTy(64))
