@@ -75,7 +75,9 @@ typedef pthread_once_t __libcpp_exec_once_flag;
 #define _LIBCPP_EXEC_ONCE_INITIALIZER PTHREAD_ONCE_INIT
 
 // Thread id
-#if defined(__MVS__)
+#if defined(__CHEERP__)
+  typedef int __libcpp_thread_id;
+#elif defined(__MVS__)
   typedef unsigned long long __libcpp_thread_id;
 #else
   typedef pthread_t __libcpp_thread_id;
@@ -150,7 +152,11 @@ typedef long __libcpp_thread_id;
 // Thread
 #define _LIBCPP_NULL_THREAD 0U
 
+#if defined(__CHEERP__)
+typedef int __libcpp_thread_t;
+#elif
 typedef void* __libcpp_thread_t;
+#endif
 
 // Thread Local Storage
 typedef long __libcpp_tls_key;
@@ -612,11 +618,7 @@ class _LIBCPP_TEMPLATE_VIS __thread_id
     // FIXME: pthread_t is a pointer on Darwin but a long on Linux.
     // NULL is the no-thread value on Darwin.  Someone needs to check
     // on other platforms.  We assume 0 works everywhere for now.
-#ifdef __CHEERP__
-    int __id_;
-#else
     __libcpp_thread_id __id_;
-#endif
 
 public:
     _LIBCPP_INLINE_VISIBILITY
@@ -627,11 +629,7 @@ public:
         { // don't pass id==0 to underlying routines
         if (__x.__id_ == 0) return __y.__id_ == 0;
         if (__y.__id_ == 0) return false;
-#ifdef __CHEERP__
-        return __x.__id_ == __y.__id_;
-#else
         return __libcpp_thread_id_equal(__x.__id_, __y.__id_);
-#endif
         }
     friend _LIBCPP_INLINE_VISIBILITY
         bool operator!=(__thread_id __x, __thread_id __y) _NOEXCEPT
@@ -641,11 +639,7 @@ public:
         { // id==0 is always less than any other thread_id
         if (__x.__id_ == 0) return __y.__id_ != 0;
         if (__y.__id_ == 0) return false;
-#ifdef __CHEERP__
-        return  __x.__id_ < __y.__id_;
-#else
         return  __libcpp_thread_id_less(__x.__id_, __y.__id_);
-#endif
         }
     friend _LIBCPP_INLINE_VISIBILITY
         bool operator<=(__thread_id __x, __thread_id __y) _NOEXCEPT
@@ -668,11 +662,7 @@ public:
 
 private:
     _LIBCPP_INLINE_VISIBILITY
-#ifdef __CHEERP__
-    __thread_id(int __id) : __id_(__id) {}
-#else
     __thread_id(__libcpp_thread_id __id) : __id_(__id) {}
-#endif
 
     friend __thread_id this_thread::get_id() _NOEXCEPT;
     friend class _LIBCPP_TYPE_VIS thread;
