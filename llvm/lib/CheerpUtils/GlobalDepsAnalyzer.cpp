@@ -195,6 +195,14 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 
 					unsigned II = calledFunc->getIntrinsicID();
 
+					if (II == Intrinsic::prefetch)
+					{
+						--instructionIterator;
+						advance = false;
+						ci->eraseFromParent();
+						continue;
+					}
+
 					if(asmjs)
 					{
 						if(II == Intrinsic::cheerp_allocate)
