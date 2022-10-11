@@ -3732,6 +3732,13 @@ void CheerpWasmWriter::compileDataSection()
 
 	auto globals = linearHelper.addressableGlobals();
 	// Concatenate global variables into one big binary blob.
+	//
+	// NOTE(carlo): To avoid the intermediate buffer, that potentially could be bigger than
+	// the resulting Wasm file (since there might be big segments that are zero-initialized),
+	// a solution could be iterating twice on globals.
+	// First iteration to to find the (ordered) boundaries of the segments to be initialized;
+	// Second iteration then to then directly write in the Wasm buffer
+
 	Chunk<128> bytes;
 	uint32_t starting_address = 0;
 	WasmBytesWriter bytesWriter(bytes, *this);
