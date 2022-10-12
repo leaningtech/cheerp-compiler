@@ -637,7 +637,7 @@ void CheerpWasmWriter::encodeExtractLane(WasmBuffer& code, const llvm::ExtractEl
 	assert(isa<ConstantInt>(eei.getIndexOperand()));
 	uint64_t index = (dyn_cast<ConstantInt>(eei.getIndexOperand()))->getZExtValue();
 	compileOperand(code, eei.getVectorOperand());
-	if (elementType->isIntegerTy(32))
+	if (elementType->isIntegerTy(32) || elementType->isPointerTy())
 		encodeInst(WasmSIMDU32Opcode::I32x4_EXTRACT_LANE, index, code);
 	else if (elementType->isIntegerTy(64))
 		encodeInst(WasmSIMDU32Opcode::I64x2_EXTRACT_LANE, index, code);
