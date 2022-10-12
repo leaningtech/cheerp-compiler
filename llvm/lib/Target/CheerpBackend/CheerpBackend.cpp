@@ -27,6 +27,7 @@
 #include "llvm/Cheerp/WasmWriter.h"
 #include "llvm/Cheerp/PassRegistry.h"
 #include "llvm/Cheerp/PassUtility.h"
+#include "llvm/Cheerp/SIMDLowering.h"
 #include "llvm/Cheerp/SIMDTransform.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Passes/PassBuilder.h"
@@ -124,6 +125,7 @@ bool CheerpWritePass::runOnModule(Module& M)
     FunctionPassManager FPM;
 
     FPM.addPass(cheerp::SIMDTransformPass());
+    FPM.addPass(cheerp::SIMDLoweringPass());
     FPM.addPass(cheerp::CheerpLowerSwitchPass(/*onlyLowerI64*/false));
     FPM.addPass(cheerp::LowerAndOrBranchesPass());
     FPM.addPass(cheerp::StructMemFuncLoweringPass());
