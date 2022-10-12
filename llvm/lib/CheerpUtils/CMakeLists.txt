@@ -29,6 +29,7 @@ add_llvm_component_library(LLVMCheerpUtils
   CheerpLowerInvoke.cpp
   SinkGenerator.cpp
   CallConstructors.cpp
+  SIMDLowering.cpp
   SIMDTransform.cpp
   )
 
