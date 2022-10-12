@@ -285,6 +285,11 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 	}
 	else if(I.getOpcode()==Instruction::BitCast)
 	{
+		if (!I.getType()->isPointerTy())
+		{
+			assert(I.getType()->isVectorTy());
+			return !hasMoreThan1Use || !isa<Instruction>(I.getOperand(0)) || !isInlineableRecursion(*cast<Instruction>(I.getOperand(0)));
+		}
 		POINTER_KIND IPointerKind = PA.getPointerKind(&I);
 		if(IPointerKind == RAW)
 		{
