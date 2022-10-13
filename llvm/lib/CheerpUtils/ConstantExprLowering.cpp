@@ -18,6 +18,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/Analysis/ConstantFolding.h"
 
 using namespace llvm;
@@ -25,211 +26,187 @@ using namespace llvm;
 namespace cheerp
 {
 
-Constant* ConstantExprLowering::visitConstantExpr(const ConstantExpr *CE, SmallDenseMap<Constant *, Constant *> &FoldedOps)
-{
-	SmallVector<Constant *, 8> Ops;
-	for (const Use &NewU : CE->operands())
-	{
-		auto *NewC = cast<Constant>(&NewU);
-		// Recursively fold the ConstantExpr's operands. If we have already folded
-		// a ConstantExpr, we don't have to process it again.
-		if (auto *NewCE = dyn_cast<ConstantExpr>(NewC))
-		{
-			auto It = FoldedOps.find(NewC);
-			if (It == FoldedOps.end())
-			{
-				if (auto *FoldedC = visitConstantExpr(NewCE, FoldedOps))
-				{
-					FoldedOps.insert({NewC, FoldedC});
-					NewC = FoldedC;
-				}
-				else
-				{
-					FoldedOps.insert({NewC, NewC});
-				}
-			}
-			else
-			{
-				NewC = It->second;
-			}
-		}
-		else if (auto *GV = dyn_cast<GlobalVariable>(NewC))
-		{
-			// In asmjs, addresses of globals  are just integers
-			// Ask LinearMemoryHelper for the value and cast to the pointer type
-			if (GV->GlobalValue::getSection() == StringRef("asmjs"))
-			{
-				auto *CI = ConstantInt::get(IntegerType::get(CE->getContext(), 32), LH->getGlobalVariableAddress(GV));
-				NewC = ConstantExpr::getIntToPtr(CI, NewC->getType());
-			}
-		}
-		else if (isa<UndefValue>(NewC) && NewC->getType()->isFloatingPointTy())
-		{
-			// For some reason, undef floating points are not folded
-			// So we replace them with NaNs
-			NewC = ConstantFP::getNaN(NewC->getType());
-		}
-		Ops.push_back(NewC);
-	}
-	auto Opcode = CE->getOpcode();
-	// Handle easy binops first.
-	if (Instruction::isBinaryOp(Opcode))
-		return ConstantFoldBinaryOpOperands(Opcode, Ops[0], Ops[1], *DL);
-	if (CE->isCompare())
-		return ConstantFoldCompareInstOperands(CE->getPredicate(), Ops[0], Ops[1], *DL);
-	if (Instruction::isCast(Opcode))
-		return ConstantFoldCastOperand(Opcode, Ops[0], CE->getType(), *DL);
-	if (Opcode == Instruction::Select)
-		return ConstantFoldSelectInstruction(Ops[0], Ops[1], Ops[2]);
-
-	// Manually fold GEPs of globals. Maybe we can let llvm do this too
-	if (auto *GEP = dyn_cast<GEPOperator>(CE)) {
-		ArrayRef<Constant*> Indices = Ops;
-		Indices = Indices.slice(1);
-		ConstantExpr* ITP = dyn_cast<ConstantExpr>(Ops[0]);
-		if (ITP && ITP->getOpcode() == Instruction::IntToPtr)
-		{
-			if (auto *Base = dyn_cast<ConstantInt>(ITP->getOperand(0)))
-			{
-				uint32_t Addr = Base->getValue().getZExtValue();
-				Type* curTy = CE->getOperand(0)->getType();
-
-				for (Constant* idx: Indices)
-				{
-					int64_t index = cast<ConstantInt>(idx)->getZExtValue();
-					//curTy is modifyed by partialOffset
-					Addr += partialOffset(curTy, GEP->getSourceElementType(), *DL, index);
-				}
-				auto *CI = ConstantInt::get(IntegerType::get(CE->getContext(), 32), Addr);
-				return ConstantExpr::getIntToPtr(CI, CE->getType());
-			}
-		}
-		return ConstantExpr::getGetElementPtr(GEP->getSourceElementType(), Ops[0],
-			Indices, GEP->isInBounds(),
-			GEP->getInRangeIndex());
-	}
-
-	return nullptr;
-}
-
-bool ConstantExprLowering::runOnInstruction(Instruction* I, bool& hasI64)
-{
-	if(isa<LandingPadInst>(I))
-		return false;
-	bool Changed = false;
-	std::vector<Instruction*> Stack;
-	Stack.push_back(I);
-	while(!Stack.empty())
-	{
-		Instruction* Cur = Stack.back();
-		Stack.pop_back();
-		SmallDenseMap<BasicBlock*, Instruction*> PHICache;
-		SmallDenseMap<Constant*, Constant*> FoldedOps;
-		for (auto& O: Cur->operands())
-		{
-			if (ConstantExpr* CE = dyn_cast<ConstantExpr>(O.get()))
-			{
-				// Leave alone casts of globals. We don't gain anything
-				// and it is harder to track globals later (e.g. to extract type info)
-				if (isa<GlobalVariable>(CE->stripPointerCastsSafe()))
-				{
-					continue;
-				}
-				if (CE->getType()->isIntegerTy(64))
-					hasI64 |= true;
-
-				if (Constant* C = visitConstantExpr(CE, FoldedOps))
-				{
-					if (isa<ConstantExpr>(C))
-						CE = cast<ConstantExpr>(C);
-					else
-					{
-						O.set(C);
-						Changed = true;
-						continue;
-					}
-				}
-
-				Instruction* Conv;
-
-				if (PHINode* P = dyn_cast<PHINode>(Cur))
-				{
-					BasicBlock* Incoming = P->getIncomingBlock(O);
-					auto it = PHICache.find(Incoming);
-					if (it != PHICache.end())
-					{
-						Conv = it->second;
-					}
-					else
-					{
-						Conv = CE->getAsInstruction();
-						Conv->insertBefore(Incoming->getTerminator());
-						PHICache.insert(std::make_pair(Incoming, Conv));
-					}
-				}
-				else
-				{
-					Conv = CE->getAsInstruction();
-					Conv->insertBefore(Cur);
-				}
-				Stack.push_back(Conv);
-				O.set(Conv);
-				Changed = true;
-			}
-		}
-	}
-	return Changed;
-}
-bool ConstantExprLowering::runOnFunction(Function& F, bool& hasI64)
+bool ConstantExprLowering::runOnFunction(Function& F, bool& hasI64, const TargetLibraryInfo& TLI)
 {
 	bool Changed = false;
 	hasI64 = false;
 
 	DL = &F.getParent()->getDataLayout();
 
-	for (BasicBlock& BB: F)
+	std::set<ConstantExpr*> visitedCE;
+	std::deque<ConstantExpr*> toBeInstructionized;
+
+	// 1. Iterate on instructions, collecting referenced ConstantExpr
+	for (Instruction& I : instructions(F))
 	{
-		for (Instruction& I: BB)
+		for (auto& O: I.operands())
 		{
-			Changed = runOnInstruction(&I, hasI64);
+			if (ConstantExpr* CE = dyn_cast<ConstantExpr>(O.get()))
+			{
+				std::deque<ConstantExpr*> workList;
+
+				if (visitedCE.insert(CE).second)
+					workList.push_back(CE);
+
+				for (uint32_t i=0; i<workList.size(); i++)
+				{
+					ConstantExpr* CE = workList[i];
+					for (const Use &NewU : CE->operands())
+					{
+						// Recursively visit the ConstantExpr's operands. If we have already visited
+						// a ConstantExpr, we don't have to process it again.
+						if (auto *NewCE = dyn_cast<ConstantExpr>(&NewU))
+						{
+							if (visitedCE.insert(NewCE).second)
+								workList.push_back(NewCE);
+						}
+					}
+				}
+				std::reverse(workList.begin(), workList.end());
+
+				for (ConstantExpr* CE : workList)
+					toBeInstructionized.push_back(CE);
+			}
 		}
 	}
+
+	std::reverse(toBeInstructionized.begin(), toBeInstructionized.end());
+
+	std::map<ConstantExpr*, Value*> mapCEToValue;
+	std::map<GlobalValue*, Instruction*> mapGVToInst;
+
+	// 2. Iterate on the collected ConstantExpr, converting them to Instructions
+	// 	Note that given the specific order of the visit, operands will be processed later (= will end up dominating their users)
+	for (ConstantExpr* CE : toBeInstructionized)
+	{
+		Instruction* Conv = CE->getAsInstruction();
+	        for (auto& O: Conv->operands())
+		{
+			Value* NewC = O.get();
+			if (auto *GV = dyn_cast<GlobalVariable>(NewC))
+			{
+				// In asmjs, addresses of globals  are just integers
+				// Ask LinearMemoryHelper for the value and cast to the pointer type
+				if (GV->GlobalValue::getSection() == StringRef("asmjs"))
+				{
+					if (mapGVToInst.count(GV) == 0)
+					{
+						auto *CI = ConstantInt::get(IntegerType::get(Conv->getContext(), 32), LH->getGlobalVariableAddress(GV));
+						mapGVToInst[GV] = CastInst::Create(Instruction::IntToPtr, CI, NewC->getType());
+					}
+
+					NewC = mapGVToInst.at(GV);
+				}
+			}
+			else if (isa<UndefValue>(NewC) && NewC->getType()->isFloatingPointTy())
+			{
+				// For some reason, undef floating points are not folded
+				// So we replace them with NaNs
+				NewC = ConstantFP::getNaN(NewC->getType());
+			}
+			O.set(NewC);
+		}
+		Conv->insertBefore(F.getEntryBlock().getFirstNonPHI());
+		Changed = true;
+		mapCEToValue[CE] = Conv;
+	}
+
+	// 3. Insert also PtrToIntInst that has been created while folding GV
+	for (auto& pair : mapGVToInst)
+	{
+		pair.second->insertBefore(F.getEntryBlock().getFirstNonPHI());
+	}
+
+	// 4. Actually substitute any ConstantExpr operand with the mapped Instruction (that will be in the Function entry BB)
+	for (Instruction& I : instructions(F))
+	{
+		if (isa<LandingPadInst>(I))
+			continue;
+		if (I.getType()->isIntegerTy(64))
+			hasI64 |= true;
+		for (auto& O: I.operands())
+		{
+			if (O.get()->getType()->isIntegerTy(64))
+				hasI64 |= true;
+
+			if (ConstantExpr* CE = dyn_cast<ConstantExpr>(O.get()))
+			{
+				assert(mapCEToValue.count(CE));
+				O.set(mapCEToValue.at(CE));
+				Changed = true;
+			}
+		}
+	}
+
+	std::vector<Instruction*> deleteList;
+
+	// 5. Optimization: Fold Instruction into Constants (but NOT ConstantExpr)
+	for (Instruction& I: instructions(F))
+	{
+		if (Constant *C = ConstantFoldInstruction(&I, F.getParent()->getDataLayout(), &TLI))
+		{
+			if (isa<ConstantExpr>(C))
+			{
+				//Avoid adding CE back
+				continue;
+			}
+			I.replaceAllUsesWith(C);
+			deleteList.push_back(&I);
+		}
+	}
+
+	for (Instruction* D : deleteList)
+		D->eraseFromParent();
+
+	// 6. Check for I64 instructions
+	for (Instruction& I : instructions(F))
+	{
+		if (I.getType()->isIntegerTy(64))
+			hasI64 |= true;
+		for (auto& O: I.operands())
+		{
+			if (O.get()->getType()->isIntegerTy(64))
+				hasI64 |= true;
+		}
+	}
+
 	return Changed;
 }
 
 llvm::PreservedAnalyses ConstantExprLoweringPass::run(llvm::Module& M, llvm::ModuleAnalysisManager& MAM)
 {
-const LinearMemoryHelper& AR = MAM.getResult<LinearMemoryAnalysis>(M);
-FunctionAnalysisManager& FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+	const LinearMemoryHelper& AR = MAM.getResult<LinearMemoryAnalysis>(M);
+	FunctionAnalysisManager& FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
 	ConstantExprLowering inner(&AR);
 
-		FunctionPassManager FPM;
-		FPM.addPass(I64LoweringPass());
-bool moduleChanged = false;
+	FunctionPassManager FPM;
+	FPM.addPass(I64LoweringPass());
+	bool moduleChanged = false;
 
-		for (Function& F : M)
+	for (Function& F : M)
+	{
+		if (F.isDeclaration())
+			continue;
+
+		bool hasI64 = false;
+		const llvm::TargetLibraryInfo& TLI = FAM.getResult<TargetLibraryAnalysis>(F);
+		bool Changed = inner.runOnFunction(F, hasI64, TLI);
+		if (Changed)
 		{
-			if (F.isDeclaration())
-				continue;
-
-			bool hasI64 = false;
-			bool Changed = inner.runOnFunction(F, hasI64);
-			if (Changed)
-			{
-				FAM.invalidate(F, PreservedAnalyses::none());
-				moduleChanged = true;
-			}
-			if (hasI64)
-			{
-				PreservedAnalyses PA = FPM.run(F, FAM);
-				if (!PA.areAllPreserved())
-					moduleChanged = true;
-				FAM.invalidate(F, PA);
-			}
+			FAM.invalidate(F, PreservedAnalyses::none());
+			moduleChanged = true;
 		}
+		if (hasI64)
+		{
+			PreservedAnalyses PA = FPM.run(F, FAM);
+			if (!PA.areAllPreserved())
+				moduleChanged = true;
+			FAM.invalidate(F, PA);
+		}
+	}
 
-		if (!moduleChanged)
-			return PreservedAnalyses::all();
+	if (!moduleChanged)
+		return PreservedAnalyses::all();
 
 	PreservedAnalyses PA;
 	PA.preserve<LinearMemoryAnalysis>();
