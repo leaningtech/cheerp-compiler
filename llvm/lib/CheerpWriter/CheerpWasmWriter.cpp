@@ -1994,6 +1994,11 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 								encodeInst(WasmSIMDOpcode::I64x2_ABS, code);
 							else
 								assert(false && "Unsupported bit width for integer abs");
+							if (useTailCall)
+							{
+								encodeInst(WasmOpcode::RETURN, code);
+								return true;
+							}
 							return false;
 						}
 
@@ -2105,6 +2110,11 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 							const ConstantInt *num = dyn_cast<ConstantInt>(v);
 							code << static_cast<char>(num->getZExtValue());
 						}
+						if (useTailCall)
+						{
+							encodeInst(WasmOpcode::RETURN, code);
+							return true;
+						}
 						return false;
 					}
 					case Intrinsic::wasm_swizzle:
@@ -2112,12 +2122,22 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						compileOperand(code, ci.getOperand(0));
 						compileOperand(code, ci.getOperand(1));
 						encodeInst(WasmSIMDOpcode::I8x16_SWIZZLE, code);
+						if (useTailCall)
+						{
+							encodeInst(WasmOpcode::RETURN, code);
+							return true;
+						}
 						return false;
 					}
 					case Intrinsic::wasm_anytrue:
 					{
 						compileOperand(code, ci.getOperand(0));
 						encodeInst(WasmSIMDOpcode::V128_ANY_TRUE, code);
+						if (useTailCall)
+						{
+							encodeInst(WasmOpcode::RETURN, code);
+							return true;
+						}
 						return false;
 					}
 					case Intrinsic::wasm_bitselect:
@@ -2126,6 +2146,11 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						compileOperand(code, ci.getOperand(1));
 						compileOperand(code, ci.getOperand(2));
 						encodeInst(WasmSIMDOpcode::V128_BITSELECT, code);
+						if (useTailCall)
+						{
+							encodeInst(WasmOpcode::RETURN, code);
+							return true;
+						}
 						return false;
 					}
 					case Intrinsic::minimum:
@@ -2139,6 +2164,11 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 							encodeInst(WasmSIMDOpcode::F32x4_MIN, code);
 						else
 							encodeInst(WasmSIMDOpcode::F64x2_MIN, code);
+						if (useTailCall)
+						{
+							encodeInst(WasmOpcode::RETURN, code);
+							return true;
+						}
 						return false;
 					}
 					case Intrinsic::maximum:
@@ -2152,6 +2182,11 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 							encodeInst(WasmSIMDOpcode::F32x4_MAX, code);
 						else
 							encodeInst(WasmSIMDOpcode::F64x2_MAX, code);
+						if (useTailCall)
+						{
+							encodeInst(WasmOpcode::RETURN, code);
+							return true;
+						}
 						return false;
 					}
 					case Intrinsic::wasm_avgr_unsigned:
@@ -2165,6 +2200,11 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 							encodeInst(WasmSIMDOpcode::I8x16_AVGR_U, code);
 						else
 							encodeInst(WasmSIMDOpcode::I16x8_AVGR_U, code);
+						if (useTailCall)
+						{
+							encodeInst(WasmOpcode::RETURN, code);
+							return true;
+						}
 						return false;
 					}
 					case Intrinsic::cheerp_wasm_shl:
@@ -2183,6 +2223,11 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 							encodeInst(WasmSIMDOpcode::I64x2_SHL, code);
 						else
 							llvm::report_fatal_error("Unsupported bitwidth for vector shl");
+						if (useTailCall)
+						{
+							encodeInst(WasmOpcode::RETURN, code);
+							return true;
+						}
 						return false;
 					}
 					case Intrinsic::cheerp_wasm_shr_s:
@@ -2200,6 +2245,11 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 							encodeInst(WasmSIMDOpcode::I64x2_SHR_S, code);
 						else
 							llvm::report_fatal_error("Unsupported bitwidth for vector shr_s");
+						if (useTailCall)
+						{
+							encodeInst(WasmOpcode::RETURN, code);
+							return true;
+						}
 						return false;
 					}
 					case Intrinsic::cheerp_wasm_shr_u:
@@ -2217,6 +2267,11 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 							encodeInst(WasmSIMDOpcode::I64x2_SHR_U, code);
 						else
 							llvm::report_fatal_error("Unsupported bitwidth for vector shr_u");
+						if (useTailCall)
+						{
+							encodeInst(WasmOpcode::RETURN, code);
+							return true;
+						}
 						return false;
 					}
 					case Intrinsic::cheerp_wasm_splat:
@@ -2237,6 +2292,11 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 							encodeInst(WasmSIMDOpcode::F64x2_SPLAT, code);
 						else
 							llvm::report_fatal_error("Unsupported type for splat");
+						if (useTailCall)
+						{
+							encodeInst(WasmOpcode::RETURN, code);
+							return true;
+						}
 						return false;
 					}
 					case Intrinsic::ctlz:
