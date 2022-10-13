@@ -29,7 +29,7 @@ public:
 		: DL(nullptr), LH(LH)
 	{ }
 
-	bool runOnFunction(llvm::Function &F, bool& hasI64);
+	bool runOnFunction(llvm::Function &F, bool& hasI64, const llvm::TargetLibraryInfo& TLI);
 private:
 	bool runOnInstruction(llvm::Instruction* I, bool& hasI64);
 	llvm::Constant* visitConstantExpr(const llvm::ConstantExpr *CE, llvm::SmallDenseMap<llvm::Constant *, llvm::Constant *> &FoldedOps);
