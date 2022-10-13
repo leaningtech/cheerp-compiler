@@ -54,6 +54,7 @@ void SIMDLoweringPass::checkVectorCorrectness(Instruction& I)
 		assert(false);
 	}
 }
+
 bool SIMDLoweringPass::lowerExtractOrInsert(Instruction& I)
 {
 	bool extract = I.getOpcode() == Instruction::ExtractElement;
@@ -246,7 +247,7 @@ PreservedAnalyses SIMDLoweringPass::run(Function& F, FunctionAnalysisManager& FA
 		return PreservedAnalyses::all();
 	extractInsertAlloca = nullptr;
 	deleteList.clear();
-	bool needToBreak;
+	bool needToBreak = false;
 	for (auto it = F.begin(); it != F.end(); it++)
 	{
 		BasicBlock& BB = *it;
@@ -277,6 +278,8 @@ PreservedAnalyses SIMDLoweringPass::run(Function& F, FunctionAnalysisManager& FA
 	}
 	for (Instruction* I: deleteList)
 		I->eraseFromParent();
+	if (deleteList.empty())
+		return PreservedAnalyses::all();
 	PreservedAnalyses PA;
 	PA.preserve<cheerp::GlobalDepsAnalysis>();
 	PA.preserve<cheerp::LinearMemoryAnalysis>();
