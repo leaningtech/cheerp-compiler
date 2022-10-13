@@ -4378,7 +4378,7 @@ uint32_t CheerpWasmWriter::encodeDataSectionChunks(WasmBuffer& data, uint32_t ad
 	// Split data section buffer into chunks based on 9 (or more) zero bytes.
 	uint32_t chunks = 0;
 	size_t cur = 0, last = 0, end = 0;
-	std::string delimiter(9, '0');
+	std::string delimiter(9, '\0');
 	while ((cur = buf.find(delimiter, last)) != std::string::npos) {
 		if (chunks + 1 == 1e5)
 		{
