@@ -158,7 +158,7 @@ bool SIMDLoweringPass::lowerSplat(Instruction &I)
 {
 	// Try to see if this instruction was originally a splat.
 	// We know this if we find a shufflevector instruction, that has a zero mask, and it's first operand
-	// is an insert element used only once, and which has an undef/poison operand.
+	// is an insert element used only once, which inserts into the first element of a vector.
 	const ShuffleVectorInst& svi = cast<ShuffleVectorInst>(I);
 	if (svi.isZeroEltSplat())
 	{
@@ -167,8 +167,10 @@ bool SIMDLoweringPass::lowerSplat(Instruction &I)
 			return false;
 		if (const InsertElementInst* iei = dyn_cast<InsertElementInst>(firstOp))
 		{
-			if (isa<UndefValue>(iei->getOperand(0)))
+			if (const ConstantInt* index = dyn_cast<ConstantInt>(iei->getOperand(2)))
 			{
+				if (index->getZExtValue() != 0)
+					return false;
 				IRBuilder<> Builder((Instruction*)iei);
 				std::vector<Type *> argTypes { iei->getType(), iei->getOperand(1)->getType() };
 				Function* splatIntrinsic = Intrinsic::getDeclaration(I.getModule(), Intrinsic::cheerp_wasm_splat, argTypes);
