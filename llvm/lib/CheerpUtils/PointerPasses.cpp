@@ -996,6 +996,18 @@ void DelayInsts::calculatePlacementOfInstructions(const Module& M, cheerp::Point
 		const DominatorTree& DT = FAM.getResult<DominatorTreeAnalysis>(FF);
 		const PostDominatorTree& PDT = FAM.getResult<PostDominatorTreeAnalysis>(FF);
 
+		bool isPDTValid = false;
+		for (auto* X : PDT.roots())
+		{
+			const Instruction* term = (*X).getTerminator();
+			if (isa<ReturnInst>(term) || isa<UnreachableInst>(term))
+				isPDTValid = true;
+			// Any Return or Unreachable as terminators of a root nodes makes the PostDominatorTree non-degenerate
+		}
+
+		if (!isPDTValid)
+			continue;
+
 		// Calculate where all the function should be placed
 		// TODO: this should become a function pass!!
 		calculatePlacementOfInstructions(F, inlineableCache, &LI, &DT, &PDT);
