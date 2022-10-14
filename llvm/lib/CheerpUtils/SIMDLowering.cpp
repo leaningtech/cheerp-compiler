@@ -31,6 +31,7 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 {
 	bool changed;
 	SmallVector<Instruction*, 16> toDelete;
+	SmallVector<PHINode*, 16> PHIs;
 	DenseMap<Value*, VectorParts> cache;
 	Type* Int32Ty;
 	Type* Int64Ty;
@@ -50,6 +51,30 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 			I->eraseFromParent();
 		}
 		toDelete.clear();
+	}
+
+	VectorParts visitPHINode(PHINode& I)
+	{
+		if (!I.getType()->isVectorTy())
+			return VectorParts();
+
+		const FixedVectorType* vecType = cast<FixedVectorType>(I.getType());
+		Type* elType = vecType->getElementType();
+		const unsigned amount = vecType->getNumElements();
+
+		IRBuilder<> Builder(&I);
+		unsigned inc = I.getNumIncomingValues();
+		VectorParts result;
+
+		// Create the PHI instructions, but populate them later
+		// because PHIs can recursively depend on each other.
+		for (unsigned i = 0; i < amount; i++)
+		{
+			Value* newPHI = Builder.CreatePHI(elType, inc);
+			result.values.push_back(newPHI);
+		}
+		PHIs.push_back(&I);
+		return result;
 	}
 
 	VectorParts visitLoadInst(LoadInst& I)
@@ -325,6 +350,82 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 		return result;
 	}
 
+	VectorParts visitCmpInst(CmpInst& I)
+	{
+		if (!I.getType()->isVectorTy())
+			return VectorParts();
+
+		const FixedVectorType* vecType = cast<FixedVectorType>(I.getType());
+		const unsigned num = vecType->getNumElements();
+		IRBuilder<> Builder(&I);
+		VectorParts lhs = visitValue(I.getOperand(0));
+		VectorParts rhs = visitValue(I.getOperand(1));
+		CmpInst::Predicate Pred = I.getPredicate();
+
+		VectorParts result;
+		for (unsigned i = 0; i < num; i++)
+		{
+			Value* cmp = Builder.CreateCmp(Pred, lhs.values[i], rhs.values[i]);
+			result.values.push_back(cmp);
+		}
+		toDelete.push_back(&I);
+		changed = true;
+		return result;
+	}
+
+	VectorParts visitSelectInst(SelectInst& I)
+	{
+		if (!I.getType()->isVectorTy())
+			return VectorParts();
+
+		const FixedVectorType* vecType = cast<FixedVectorType>(I.getType());
+		const unsigned num = vecType->getNumElements();
+		IRBuilder<> Builder(&I);
+		VectorParts trueVector = visitValue(I.getTrueValue());
+		VectorParts falseVector = visitValue(I.getFalseValue());
+		VectorParts condition = visitValue(I.getCondition());
+
+		VectorParts result;
+		for (unsigned i = 0; i < num; i++)
+		{
+			Value* select = Builder.CreateSelect(condition.values[i], trueVector.values[i], falseVector.values[i]);
+			result.values.push_back(select);
+		}
+		toDelete.push_back(&I);
+		changed = true;
+		return result;
+	}
+
+	VectorParts visitIntrinsicInst(IntrinsicInst& I)
+	{
+		// Here we are specifically interested in reduce intrinsics.
+		Intrinsic::ID id = I.getIntrinsicID();
+		if (id != Intrinsic::vector_reduce_mul &&
+			id != Intrinsic::vector_reduce_add &&
+			id != Intrinsic::vector_reduce_fmul &&
+			id != Intrinsic::vector_reduce_fadd)
+			return VectorParts();
+
+		assert(id == Intrinsic::vector_reduce_mul || id == Intrinsic::vector_reduce_add);
+		const FixedVectorType* vecType = cast<FixedVectorType>(I.getOperand(0)->getType());
+		const unsigned num = vecType->getNumElements();
+		IRBuilder<> Builder(&I);
+		VectorParts v = visitValue(I.getOperand(0));
+
+		Value* total = v.values[0];
+		for (unsigned i = 1; i < num; i++)
+		{
+			if (id == Intrinsic::vector_reduce_add)
+				total = Builder.CreateAdd(total, v.values[i]);
+			else
+				total = Builder.CreateMul(total, v.values[i]);
+		}
+		I.replaceAllUsesWith(total);
+		toDelete.push_back(&I);
+		changed = true;
+		return VectorParts();
+	}
+
 	VectorParts visitInstruction(Instruction& I)
 	{
 		if (I.getType()->isVectorTy())
@@ -349,6 +450,23 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 	void visit(Function& F)
 	{
 		InstVisitor::visit(F);
+		for (PHINode* p: PHIs)
+		{
+			VectorParts newPHIs = visitValue(p);
+			const unsigned numElements = newPHIs.values.size();
+			const unsigned incomingAmount = p->getNumIncomingValues();
+			for (unsigned i = 0; i < incomingAmount; i++)
+			{
+				VectorParts orig = visitValue(p->getIncomingValue(i));
+				BasicBlock* BB = p->getIncomingBlock(i);
+				for (unsigned j = 0; j < numElements; j++)
+				{
+					PHINode* newPHI = cast<PHINode>(newPHIs.values[j]);
+					newPHI->addIncoming(orig.values[j] , BB);
+				}
+			}
+			toDelete.push_back(p);
+		}
 	}
 	using InstVisitor::visit;
 
