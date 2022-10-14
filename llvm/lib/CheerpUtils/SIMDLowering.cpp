@@ -185,6 +185,70 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 		return result;
 	}
 
+	VectorParts visitInsertElementInst(InsertElementInst& I)
+	{
+		VectorParts v = visitValue(I.getOperand(0));
+		Value* val = I.getOperand(1);
+		const ConstantInt* ci = cast<ConstantInt>(I.getOperand(2));
+		const unsigned idx = ci->getZExtValue();
+		const unsigned num = v.values.size();
+		assert(idx < num);
+
+		VectorParts result;
+		// Simply propagate the values being passed on,
+		// and change the value at idx.
+		for (unsigned i = 0; i < num; i++)
+		{
+			if (i == idx)
+				result.values.push_back(val);
+			else
+				result.values.push_back(v.values[i]);
+		}
+		toDelete.push_back(&I);
+		changed = true;
+		return result;
+	}
+
+	VectorParts visitExtractElementInst(ExtractElementInst& I)
+	{
+		VectorParts v = visitValue(I.getOperand(0));
+		const ConstantInt* ci = cast<ConstantInt>(I.getOperand(1));
+		const unsigned idx = ci->getZExtValue();
+		const unsigned num = v.values.size();
+		assert(idx < num);
+
+		// Replace the use of this instruction with the value at place idx.
+		I.replaceAllUsesWith(v.values[idx]);
+		toDelete.push_back(&I);
+		changed = true;
+		return VectorParts();
+	}
+
+	VectorParts visitShuffleVectorInst(ShuffleVectorInst& I)
+	{
+		VectorParts v1 = visitValue(I.getOperand(0));
+		VectorParts v2 = visitValue(I.getOperand(1));
+		auto shuffleMask = I.getShuffleMask();
+		VectorParts result;
+
+		const int v1size = v1.values.size();
+		const int v2size = v2.values.size();
+		const unsigned num = shuffleMask.size();
+		// We only need to shuffle the elements from the inputs into the output.
+		for (unsigned i = 0; i < num; i++)
+		{
+			const int idx = shuffleMask[i];
+			assert(idx != UndefMaskElem && idx < v1size + v2size);
+			if (idx < v1size)
+				result.values.push_back(v1.values[idx]);
+			else
+				result.values.push_back(v2.values[idx - v1size]);
+		}
+		toDelete.push_back(&I);
+		changed = true;
+		return result;
+	}
+
 	VectorParts visitGetElementPtrInst(GetElementPtrInst& I)
 	{
 		if (!I.getResultElementType()->isVectorTy())
@@ -304,11 +368,35 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 			ret = visit(*I);
 			return ret;
 		}
+		else if (const ConstantAggregateZero* caz = dyn_cast<ConstantAggregateZero>(V))
+		{
+			Constant* el = caz->getSequentialElement();
+			const unsigned amount = caz->getElementCount().getFixedValue();
+			for (unsigned i = 0; i < amount; i++)
+				ret.values.push_back(el);
+		}
+		else if (const ConstantDataVector* cdv = dyn_cast<ConstantDataVector>(V))
+		{
+			const FixedVectorType* vecType = cdv->getType();
+			const unsigned amount = vecType->getNumElements();
+			for (unsigned i = 0; i < amount; i++)
+				ret.values.push_back(cdv->getElementAsConstant(i));
+		}
+		else if (const UndefValue* uv = dyn_cast<UndefValue>(V))
+		{
+			UndefValue* uvElement = uv->getSequentialElement();
+			const unsigned amount = uv->getNumElements();
+			for (unsigned i = 0; i < amount; i++)
+				ret.values.push_back(uvElement);
+		}
 		else
 		{
 			llvm::errs() << *V << "\n";
 			llvm::report_fatal_error("not implemented yet");
 		}
+		if (!ret.isNull())
+			cache.insert(std::make_pair(V, ret));
+		return ret;
 	}
 };
 
