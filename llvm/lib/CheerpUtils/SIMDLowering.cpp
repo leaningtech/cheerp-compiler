@@ -210,6 +210,55 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 		return result;
 	}
 
+	VectorParts visitCastInst(CastInst& I)
+	{
+		if (!I.getDestTy()->isVectorTy())
+			return VectorParts();
+
+		const FixedVectorType* vecType = cast<FixedVectorType>(I.getDestTy());
+		Type* newType = vecType->getElementType();
+		VectorParts v = visitValue(I.getOperand(0));
+		unsigned amount = v.values.size();
+		IRBuilder<> Builder(&I);
+
+		VectorParts result;
+		for (unsigned i = 0; i < amount; i++)
+		{
+			Value* cast = Builder.CreateCast(I.getOpcode(), v.values[i], newType);
+			result.values.push_back(cast);
+		}
+		toDelete.push_back(&I);
+		changed = true;
+		return result;
+	}
+
+	VectorParts visitAllocaInst(AllocaInst& I)
+	{
+		if (!I.getType()->getPointerElementType()->isVectorTy())
+			return VectorParts();
+
+		const FixedVectorType* vecType = cast<FixedVectorType>(I.getType()->getPointerElementType());
+		Type* newType = vecType->getElementType();
+		unsigned amount = vecType->getNumElements();
+		IRBuilder<> Builder(&I);
+		VectorParts result;
+
+		// Allocate an array of values instead of a vector.
+		ArrayType* arr = ArrayType::get(newType, amount);
+		Value* alloca = Builder.CreateAlloca(arr);
+		Value* bitcast = Builder.CreateBitCast(alloca, newType->getPointerTo());
+		result.values.push_back(bitcast);
+		for (unsigned i = 1; i < amount; i++)
+		{
+			Value* index[] = {ConstantInt::get(Int32Ty, i)};
+			Value* gep = Builder.CreateInBoundsGEP(newType, bitcast, index);
+			result.values.push_back(gep);
+		}
+		toDelete.push_back(&I);
+		changed = true;
+		return result;
+	}
+
 	VectorParts visitInsertElementInst(InsertElementInst& I)
 	{
 		VectorParts v = visitValue(I.getOperand(0));
@@ -384,6 +433,14 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 		VectorParts trueVector = visitValue(I.getTrueValue());
 		VectorParts falseVector = visitValue(I.getFalseValue());
 		VectorParts condition = visitValue(I.getCondition());
+		if (condition.values.size() == 0)
+		{
+			// The condition was a boolean instead of a vector boolean.
+			// Create a vector from the single condition.
+			Value* cond = I.getCondition();
+			for (unsigned i = 0; i < num; i++)
+				condition.values.push_back(cond);
+		}
 
 		VectorParts result;
 		for (unsigned i = 0; i < num; i++)
@@ -396,16 +453,11 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 		return result;
 	}
 
-	VectorParts visitIntrinsicInst(IntrinsicInst& I)
+	VectorParts lowerReduceIntrinsic(IntrinsicInst& I)
 	{
-		// Here we are specifically interested in reduce intrinsics.
+		// Reduce intrinsics take a vector and return a scalar.
+		// Lower this to do the operation on the separate elements.
 		Intrinsic::ID id = I.getIntrinsicID();
-		if (id != Intrinsic::vector_reduce_mul &&
-			id != Intrinsic::vector_reduce_add &&
-			id != Intrinsic::vector_reduce_fmul &&
-			id != Intrinsic::vector_reduce_fadd)
-			return VectorParts();
-
 		assert(id == Intrinsic::vector_reduce_mul || id == Intrinsic::vector_reduce_add);
 		const FixedVectorType* vecType = cast<FixedVectorType>(I.getOperand(0)->getType());
 		const unsigned num = vecType->getNumElements();
@@ -423,6 +475,70 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 		I.replaceAllUsesWith(total);
 		toDelete.push_back(&I);
 		changed = true;
+		return VectorParts();
+	}
+
+	VectorParts lowerSplatIntrinsic(IntrinsicInst& I)
+	{
+		// Splat intrinsics take a scalar and return a vector of elements
+		// with all elements being the scalar.
+		const FixedVectorType* vecType = cast<FixedVectorType>(I.getType());
+		const unsigned num = vecType->getNumElements();
+		IRBuilder<> Builder(&I);
+
+		VectorParts result;
+		for (unsigned i = 0; i < num; i++)
+			result.values.push_back(I.getOperand(0));
+		toDelete.push_back(&I);
+		changed = true;
+		return result;
+	}
+
+	VectorParts lowerShiftIntrinsic(IntrinsicInst& I)
+	{
+		// Lower the bitshift intrinsics to separate bitshifts.
+		const FixedVectorType* vecType = cast<FixedVectorType>(I.getType());
+		const unsigned num = vecType->getNumElements();
+		IRBuilder<> Builder(&I);
+		VectorParts v = visitValue(I.getOperand(0));
+		Value* amount = I.getOperand(1);
+
+		Instruction::BinaryOps opcode;
+		Intrinsic::ID id = I.getIntrinsicID();
+		if (id == Intrinsic::cheerp_wasm_shl)
+			opcode = Instruction::Shl;
+		else if (id == Intrinsic::cheerp_wasm_shr_s)
+			opcode = Instruction::AShr;
+		else
+			opcode = Instruction::LShr;
+		VectorParts result;
+		for (unsigned i = 0; i < num; i++)
+		{
+			Value* shift = Builder.CreateBinOp(opcode, v.values[i], amount);
+			result.values.push_back(shift);
+		}
+		toDelete.push_back(&I);
+		changed = true;
+		return result;
+
+	}
+
+	VectorParts visitIntrinsicInst(IntrinsicInst& I)
+	{
+		// Here we are looking for a few specific intrinsics.
+		Intrinsic::ID id = I.getIntrinsicID();
+		if (id == Intrinsic::vector_reduce_mul ||
+			id == Intrinsic::vector_reduce_add ||
+			id == Intrinsic::vector_reduce_fmul ||
+			id == Intrinsic::vector_reduce_fadd)
+			return lowerReduceIntrinsic(I);
+		if (id == Intrinsic::cheerp_wasm_splat)
+			return lowerSplatIntrinsic(I);
+		if (id == Intrinsic::cheerp_wasm_shl ||
+			id == Intrinsic::cheerp_wasm_shr_s ||
+			id == Intrinsic::cheerp_wasm_shr_u)
+			return lowerShiftIntrinsic(I);
+
 		return VectorParts();
 	}
 
@@ -499,6 +615,13 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 			const unsigned amount = vecType->getNumElements();
 			for (unsigned i = 0; i < amount; i++)
 				ret.values.push_back(cdv->getElementAsConstant(i));
+		}
+		else if (const ConstantVector* cv = dyn_cast<ConstantVector>(V))
+		{
+			const FixedVectorType* vecType = cv->getType();
+			const unsigned amount = vecType->getNumElements();
+			for (unsigned i = 0; i < amount; i++)
+				ret.values.push_back(cv->getAggregateElement(i));
 		}
 		else if (const UndefValue* uv = dyn_cast<UndefValue>(V))
 		{
