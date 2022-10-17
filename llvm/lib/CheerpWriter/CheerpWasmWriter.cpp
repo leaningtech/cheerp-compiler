@@ -2093,7 +2093,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 					case Intrinsic::eh_typeid_for:
 					{
 						auto& local = landingPadTable.getLocalTypeIdMap(currentFun);
-						int id = local.getTypeIdFor(ci.getOperand(0));
+						int id = local.getTypeIdFor(ci.getOperand(0), linearHelper);
 						encodeInst(WasmS32Opcode::I32_CONST, id, code);
 						return false;
 					}

@@ -67,6 +67,7 @@ static GlobalVariable* getOrInsertHelperGlobal(Module& M)
 
 int LandingPadTable::LocalTypeIdMap::getTypeIdFor(Value* V)
 {
+	assert(isa<Constant>(V));
 	GlobalValue* GV = llvm::ExtractTypeInfo(V);
 	if(GV == nullptr)
 	{
@@ -81,8 +82,26 @@ int LandingPadTable::LocalTypeIdMap::getTypeIdFor(Value* V)
 	typeIdMap.insert(std::make_pair(GV, id));
 	return id;
 }
-int LandingPadTable::LocalTypeIdMap::getTypeIdFor(Value* V) const
+int LandingPadTable::LocalTypeIdMap::getTypeIdFor(Value* V, const LinearMemoryHelper& LH) const
 {
+	while (isa<BitCastOperator>(V))
+	{
+		V = cast<BitCastOperator>(V)->getOperand(0);
+	}
+
+	llvm::Value* intToPtrOp = nullptr;
+	if (isa<Instruction>(V) && cast<Instruction>(V)->getOpcode() == Instruction::IntToPtr)
+	{
+		intToPtrOp = cast<Instruction>(V)->getOperand(0);
+	}
+	else if (isa<ConstantExpr>(V) && cast<ConstantExpr>(V)->getOpcode() == Instruction::IntToPtr)
+	{
+		intToPtrOp = cast<ConstantExpr>(V)->getOperand(0);
+	}
+
+	if (intToPtrOp)
+		V = const_cast<GlobalVariable*>(LH.getGlobalVariableFromAddress(intToPtrOp));
+
 	GlobalValue* GV = llvm::ExtractTypeInfo(V);
 	if(GV == nullptr)
 	{

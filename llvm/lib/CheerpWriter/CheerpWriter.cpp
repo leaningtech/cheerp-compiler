@@ -1742,7 +1742,7 @@ void CheerpWriter::compileRawPointer(const Value* p, PARENT_PRIORITY parentPrio,
 int CheerpWriter::getTypeIdFor(Value* V)
 {
 	auto& local = landingPadTable.getLocalTypeIdMap(currentFun);
-	return local.getTypeIdFor(V);
+	return local.getTypeIdFor(V, linearHelper);
 }
 
 int CheerpWriter::getHeapShiftForType(Type* et)
