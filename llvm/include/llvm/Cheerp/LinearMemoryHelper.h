@@ -160,6 +160,7 @@ public:
 	 * Used to assign asm.js globals
 	 */
 	typedef std::unordered_map<const llvm::GlobalVariable*, int32_t> GlobalAddressesMap;
+	typedef std::unordered_map<int32_t, const llvm::GlobalVariable*> InverseGlobalAddressesMap;
 
 	typedef std::unordered_map<const llvm::FunctionType*, size_t,
 		FunctionSignatureHash<>,FunctionSignatureCmp<>> FunctionTypeIndicesMap;
@@ -185,6 +186,7 @@ public:
 	}
 
 	uint32_t getGlobalVariableAddress(const llvm::GlobalVariable* G) const;
+	const llvm::GlobalVariable* getGlobalVariableFromAddress(llvm::Value* C) const;
 	uint32_t getFunctionAddress(const llvm::Function* F) const;
 	bool functionHasAddress(const llvm::Function* F) const;
 	uint32_t getFunctionAddressMask(const llvm::FunctionType* Fty) const;
@@ -368,6 +370,7 @@ private:
 
 	FunctionAddressesMap functionAddresses;
 	GlobalAddressesMap globalAddresses;
+	InverseGlobalAddressesMap inverseGlobalAddresses;
 	// The next address available to allocate global variables.
 	// The heap space will start after the last global variable allocation
 	uint32_t heapStart{8};

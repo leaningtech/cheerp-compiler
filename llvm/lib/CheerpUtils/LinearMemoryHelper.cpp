@@ -437,6 +437,7 @@ void LinearMemoryHelper::addGlobals()
 		// The following is correct if alignment is a power of 2 (which it should be)
 		heapStart = (heapStart + alignment - 1) & ~(alignment - 1);
 		globalAddresses.emplace(G, heapStart);
+		inverseGlobalAddresses.emplace(heapStart, G);
 		heapStart += size;
 	}
 }
@@ -683,6 +684,22 @@ uint32_t LinearMemoryHelper::getGlobalVariableAddress(const GlobalVariable* G) c
 	assert(globalAddresses.count(G));
 	return globalAddresses.find(G)->second;
 }
+
+const llvm::GlobalVariable* LinearMemoryHelper::getGlobalVariableFromAddress(Value* C) const
+{
+	int addr = 0;
+	if (isa<ConstantInt>(C))
+		addr = cast<ConstantInt>(C)->getZExtValue();
+	else
+		return nullptr;
+
+	auto it = inverseGlobalAddresses.find(addr);
+	if (it != inverseGlobalAddresses.end())
+		return it->second;
+
+	return nullptr;
+}
+
 uint32_t LinearMemoryHelper::getFunctionAddress(const llvm::Function* F) const
 {
 	if (F->getName() == StringRef("__genericjs__free"))
