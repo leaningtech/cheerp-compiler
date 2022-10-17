@@ -4801,7 +4801,7 @@ void CheerpWriter::compileBB(const BasicBlock& BB)
 		}
 		if(!I.use_empty())
 		{
-			if(I.getType()->isPointerTy() && (!isa<CallBase>(I) || isDowncast) && PA.getPointerKindAssert(&I) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&I))
+			if(I.getType()->isPointerTy() && (!isa<CallBase>(I) || isDowncast) && PA.getPointerKind(&I) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&I))
 			{
 				stream << getSecondaryName(&I) << '=';
 			}
