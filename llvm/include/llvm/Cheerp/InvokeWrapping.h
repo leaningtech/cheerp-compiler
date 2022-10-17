@@ -16,6 +16,7 @@
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
+#include "llvm/Cheerp/LinearMemoryHelper.h"
 
 namespace cheerp {
 
@@ -33,7 +34,7 @@ public:
 		llvm::DenseMap<llvm::GlobalValue*, int> typeIdMap;
 	public:
 		int getTypeIdFor(llvm::Value* V);
-		int getTypeIdFor(llvm::Value* V) const;
+		int getTypeIdFor(llvm::Value* V, const LinearMemoryHelper& LH) const;
 	};
 
 	LandingPadTable(): table(nullptr)
