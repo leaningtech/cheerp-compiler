@@ -148,6 +148,8 @@ bool SIMDTransformPass::lowerBitShift(Instruction& I)
 		CallInst* ci = Builder.CreateCall(intrinsic, {I.getOperand(0), callInst->getOperand(0) });
 		I.replaceAllUsesWith(ci);
 		deleteList.push_back(&I);
+		if (secondOp->hasOneUse())
+			deleteList.push_back(cast<Instruction>(secondOp));
 	}
 	else
 		// General lower case.
