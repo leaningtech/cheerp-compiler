@@ -33,12 +33,12 @@ void SIMDTransformPass::checkVectorCorrectness(Instruction& I)
 		// Verify that 64 is produced by a load, and only used to extend.
 		if (vectorBitwidth == 64)
 		{
-			assert(isa<LoadInst>(I));
+			assert(isa<LoadInst>(I) || isa<BinaryOperator>(I) || isa<IntrinsicInst>(I) || isa<FPTruncInst>(I) || isa<InsertElementInst>(I) || isa<ShuffleVectorInst>(I));
 			for (User* U: I.users())
 			{
 				assert(isa<Instruction>(U));
 				const Instruction* useI = cast<Instruction>(U);
-				assert(useI->getOpcode() == Instruction::SExt || useI->getOpcode() == Instruction::ZExt);
+				assert(isa<SExtInst>(useI) || isa<ZExtInst>(useI) || isa<TruncInst>(useI) || isa<FPExtInst>(useI) || isa<BinaryOperator>(useI) || isa<CmpInst>(useI) || isa<IntrinsicInst>(useI) || isa<ExtractElementInst>(useI) || isa<StoreInst>(useI) || isa<ShuffleVectorInst>(useI));
 			}
 			return ;
 		}
@@ -46,11 +46,15 @@ void SIMDTransformPass::checkVectorCorrectness(Instruction& I)
 		// and this result is only used in select instructions.
 		if (vecTy->getScalarSizeInBits() == 1)
 		{
-			assert(isa<CmpInst>(I));
+			assert(isa<CmpInst>(I) || isa<PHINode>(I) || isa<BinaryOperator>(I));
 			for (User* U: I.users())
-				assert(isa<SelectInst>(U) || isa<SExtInst>(U));
+				assert(isa<SelectInst>(U) || isa<SExtInst>(U) || isa<BitCastInst>(U) || isa<PHINode>(U) || isa<BinaryOperator>(U) || isa<ExtractElementInst>(U));
 			return ;
 		}
+		if (vectorBitwidth == 32 && (isa<TruncInst>(I) || isa<SelectInst>(I) || isa<PHINode>(I) || isa<BinaryOperator>(I) || isa<InsertElementInst>(I) || isa<ShuffleVectorInst>(I)))
+			return ;
+		if (vectorBitwidth == 256 && isa<ZExtInst>(I))
+			return ;
 		assert(false);
 	}
 }
