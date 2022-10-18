@@ -287,7 +287,7 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 	{
 		if (!I.getType()->isPointerTy())
 		{
-			assert(I.getType()->isVectorTy());
+			assert(I.getType()->isVectorTy() || I.getOperand(0)->getType()->isVectorTy());
 			return !hasMoreThan1Use || !isa<Instruction>(I.getOperand(0)) || !isInlineableRecursion(*cast<Instruction>(I.getOperand(0)));
 		}
 		POINTER_KIND IPointerKind = PA.getPointerKind(&I);
