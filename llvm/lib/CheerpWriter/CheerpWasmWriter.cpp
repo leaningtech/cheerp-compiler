@@ -649,6 +649,22 @@ void CheerpWasmWriter::encodeExtractLane(WasmBuffer& code, const llvm::ExtractEl
 		encodeInst(WasmSIMDU32Opcode::F32x4_EXTRACT_LANE, index, code);
 	else if (elementType->isDoubleTy())
 		encodeInst(WasmSIMDU32Opcode::F64x2_EXTRACT_LANE, index, code);
+	else if (elementType->isIntegerTy(1))
+	{
+		// For boolean vectors, we have to know how many elements the vector has.
+		const FixedVectorType* vecType = cast<FixedVectorType>(eei.getVectorOperand()->getType());
+		const unsigned num = vecType->getNumElements();
+		if (num == 2)
+			encodeInst(WasmSIMDU32Opcode::I32x4_EXTRACT_LANE, index * 2, code);
+		else if (num == 4)
+			encodeInst(WasmSIMDU32Opcode::I32x4_EXTRACT_LANE, index, code);
+		else if (num == 8)
+			encodeInst(WasmSIMDU32Opcode::I16x8_EXTRACT_LANE_U, index, code);
+		else if (num == 16)
+			encodeInst(WasmSIMDU32Opcode::I8x16_EXTRACT_LANE_U, index, code);
+		else
+			llvm::report_fatal_error("Unknown element amount for boolean vector");
+	}
 	else
 		llvm::report_fatal_error("unhandled type for extract element");
 }
@@ -692,7 +708,27 @@ void CheerpWasmWriter::encodePredicate(const llvm::Type* ty, const llvm::CmpInst
 	assert(ty->isIntegerTy() || ty->isPointerTy() || ty->isVectorTy());
 	const Type* elementType = nullptr;
 	if (ty->isVectorTy())
+	{
 		elementType = cast<VectorType>(ty)->getElementType();
+		if (elementType->isIntegerTy(64))
+		{
+			if (predicate == CmpInst::ICMP_EQ)
+				encodeInst(WasmSIMDOpcode::I64x2_EQ, code);
+			else if (predicate == CmpInst::ICMP_NE)
+				encodeInst(WasmSIMDOpcode::I64x2_NE, code);
+			else if (predicate == CmpInst::ICMP_SLT)
+				encodeInst(WasmSIMDOpcode::I64x2_LT_S, code);
+			else if (predicate == CmpInst::ICMP_SGT)
+				encodeInst(WasmSIMDOpcode::I64x2_GT_S, code);
+			else if (predicate == CmpInst::ICMP_SLE)
+				encodeInst(WasmSIMDOpcode::I64x2_LE_S, code);
+			else if (predicate == CmpInst::ICMP_SGE)
+				encodeInst(WasmSIMDOpcode::I64x2_GE_S, code);
+			else
+				llvm::report_fatal_error("Unsupported predicate for 64-bit icmp");
+			return ;
+		}
+	}
 	switch(predicate)
 	{
 #define PREDICATE(Ty, name) \
@@ -1246,7 +1282,8 @@ void CheerpWasmWriter::compileConstant(WasmBuffer& code, const Constant* c, bool
 		const Type* elementType = vectorType->getElementType();
 		Constant* createdVector;
 		const unsigned num = vectorType->getNumElements();
-		if (elementType->isIntegerTy(32))
+		assert(elementType->isIntegerTy());
+		if (num == 4)
 		{
 			std::vector<uint32_t> values;
 			for (unsigned i = 0; i < num; i++)
@@ -1261,9 +1298,9 @@ void CheerpWasmWriter::compileConstant(WasmBuffer& code, const Constant* c, bool
 				}
 				values.push_back(result);
 			}
-			createdVector = ConstantDataVector::get(module.getContext(), ArrayRef<uint32_t>(values));
+			createdVector = ConstantDataVector::get(module.getContext(), values);
 		}
-		else if (elementType->isIntegerTy(64))
+		else if (num == 2)
 		{
 			std::vector<uint64_t> values;
 			for (unsigned i = 0; i < num; i++)
@@ -1278,7 +1315,41 @@ void CheerpWasmWriter::compileConstant(WasmBuffer& code, const Constant* c, bool
 				}
 				values.push_back(result);
 			}
-			createdVector = ConstantDataVector::get(module.getContext(), ArrayRef<uint64_t>(values));
+			createdVector = ConstantDataVector::get(module.getContext(), values);
+		}
+		else if (num == 8)
+		{
+			std::vector<uint16_t> values;
+			for (unsigned i = 0; i < num; i++)
+			{
+				unsigned result = 0;
+				const Constant* cons = c->getAggregateElement(i);
+				if (!isa<UndefValue>(cons))
+				{
+					assert(isa<ConstantInt>(cons));
+					const ConstantInt* ci = cast<ConstantInt>(cons);
+					result = ci->getZExtValue();
+				}
+				values.push_back(result);
+			}
+			createdVector = ConstantDataVector::get(module.getContext(), values);
+		}
+		else if (num == 16)
+		{
+			std::vector<uint8_t> values;
+			for (unsigned i = 0; i < num; i++)
+			{
+				unsigned result = 0;
+				const Constant* cons = c->getAggregateElement(i);
+				if (!isa<UndefValue>(cons))
+				{
+					assert(isa<ConstantInt>(cons));
+					const ConstantInt* ci = cast<ConstantInt>(cons);
+					result = ci->getZExtValue();
+				}
+				values.push_back(result);
+			}
+			createdVector = ConstantDataVector::get(module.getContext(), values);
 		}
 		else
 			llvm::report_fatal_error("Unhandled type for compile constant from datavector");
