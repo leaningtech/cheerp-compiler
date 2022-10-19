@@ -230,6 +230,39 @@ bool SIMDTransformPass::lowerGeneralUnsupportedVectorOperation(Instruction& I)
 	return false;
 }
 
+bool SIMDTransformPass::lowerVectorBooleanBitcast(Instruction& I)
+{
+	// This function will lower a bitcast from a vector of booleans to an integer type.
+	IRBuilder<> Builder(&I);
+	Value* srcVec = I.getOperand(0);
+	const FixedVectorType* vecType = cast<FixedVectorType>(srcVec->getType());
+	const unsigned num = vecType->getNumElements();
+	Type* destType = I.getType();
+	assert(vecType->getScalarSizeInBits() == 1);
+	assert(num == destType->getIntegerBitWidth());
+
+	// We need to extract 'num' elements from the vector first.
+	SmallVector<Value*, 16> values;
+	for (unsigned i = 0; i < num; i++)
+	{
+		Value* extract = Builder.CreateExtractElement(srcVec, i);
+		values.push_back(extract);
+	}
+
+	// Then we zero-extend each element to the right size, bitshift them and OR them together.
+	Value* newValue = Builder.CreateZExt(values[num - 1], destType);
+	for (unsigned i = 1; i < num; i++)
+	{
+		Value* currentValue = Builder.CreateZExt(values[num - 1 - i], destType);
+		Value* bitshift = Builder.CreateShl(currentValue, i);
+		newValue = Builder.CreateOr(newValue, bitshift);
+	}
+	// Replace the uses of the bitcast with the newly created value.
+	I.replaceAllUsesWith(newValue);
+	deleteList.push_back(&I);
+	return false;
+}
+
 bool SIMDTransformPass::isVariableExtractOrInsert(Instruction& I)
 {
 	return (I.getOpcode() == Instruction::ExtractElement && !isa<ConstantInt>(I.getOperand(1))) || 
@@ -278,6 +311,9 @@ PreservedAnalyses SIMDTransformPass::run(Function& F, FunctionAnalysisManager& F
 			else if ((I.getOpcode() == Instruction::SDiv || I.getOpcode() == Instruction::UDiv)
 					&& I.getType()->isVectorTy())
 				needToBreak = lowerGeneralUnsupportedVectorOperation(I);
+			else if (isa<BitCastInst>(I) && I.getOperand(0)->getType()->isVectorTy()
+					&& !I.getType()->isVectorTy())
+				needToBreak = lowerVectorBooleanBitcast(I);
 			if (needToBreak)
 				break ;
 		}
