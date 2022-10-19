@@ -845,7 +845,18 @@ static bool isNaturalFlow(TokenList::iterator From, TokenList::iterator To, cons
 {
 	if (From == To)
 		return true;
+
+	// When following branches, isNaturalFlow might loop into itself
+	// We count the distance From->To (aumented by 2), and declare we are looping
+	// if we exaust that number of steps.
+	//
+	// (+2 is done to ensure stepBudget will be exausted only in looping conditions)
+	// (note that with !allowBranches, loops are impossible, so it will never be triggered)
+	uint32_t stepBudget = 2;
 	for (auto it = ++From; it != To; it++)
+		stepBudget++;
+
+	for (auto it = ++From; stepBudget != 0 && it != To; it++, stepBudget--)
 	{
 		switch (it->getKind())
 		{
@@ -874,6 +885,12 @@ static bool isNaturalFlow(TokenList::iterator From, TokenList::iterator To, cons
 			default:
 				return false;
 		}
+	}
+	if (stepBudget == 0)
+	{
+		assert(allowBranches);
+		// Loops into itselfs are NOT a natural flow From -> To
+		return false;
 	}
 	return true;
 }
