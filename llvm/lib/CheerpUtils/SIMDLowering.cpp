@@ -650,6 +650,8 @@ namespace cheerp
 
 PreservedAnalyses SIMDLoweringPass::run(Function& F, FunctionAnalysisManager& FAM)
 {
+	if (WasmSIMD)
+		return PreservedAnalyses::all();
 	// Check if the parameters or return type are vector.
 	assert(!F.getReturnType()->isVectorTy());
 	for (auto it = F.arg_begin(); it != F.arg_end(); it++)
