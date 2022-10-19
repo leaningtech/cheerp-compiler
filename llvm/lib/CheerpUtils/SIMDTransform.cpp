@@ -282,8 +282,6 @@ bool SIMDTransformPass::isReduceIntrinsic(Instruction& I)
 
 PreservedAnalyses SIMDTransformPass::run(Function& F, FunctionAnalysisManager& FAM)
 {
-	if (!WasmSIMD)
-		return PreservedAnalyses::all();
 	extractInsertAlloca = nullptr;
 	deleteList.clear();
 	bool needToBreak = false;
