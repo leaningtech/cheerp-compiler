@@ -36,8 +36,9 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 	Type* Int32Ty;
 	Type* Int64Ty;
 	AllocaInst* bitcastAlloca;
+	const bool lowerAll;
 
-	SIMDLoweringVisitor(Module& M): changed(false), bitcastAlloca(nullptr)
+	SIMDLoweringVisitor(Module& M, bool lowerAll): changed(false), bitcastAlloca(nullptr), lowerAll(lowerAll)
 	{
 		Int32Ty = IntegerType::get(M.getContext(), 32);
 		Int64Ty = IntegerType::get(M.getContext(), 64);
@@ -53,9 +54,22 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 		toDelete.clear();
 	}
 
+	bool shouldLower(const Type* type)
+	{
+		if (!type->isVectorTy())
+			return false;
+		const FixedVectorType* vecType = cast<FixedVectorType>(type);
+		const unsigned vectorSize = vecType->getNumElements() * vecType->getScalarSizeInBits();
+		if (vectorSize == 128 && !lowerAll)
+			return false;
+		if (vecType->getScalarSizeInBits() == 1 && !lowerAll)
+			return false;
+		return true;
+	}
+
 	VectorParts visitPHINode(PHINode& I)
 	{
-		if (!I.getType()->isVectorTy())
+		if (!shouldLower(I.getType()))
 			return VectorParts();
 
 		const FixedVectorType* vecType = cast<FixedVectorType>(I.getType());
@@ -79,7 +93,7 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 
 	VectorParts visitLoadInst(LoadInst& I)
 	{
-		if (!I.getType()->isVectorTy())
+		if (!shouldLower(I.getType()))
 			return VectorParts();
 
 		const FixedVectorType* vecType = cast<FixedVectorType>(I.getType());
@@ -103,7 +117,7 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 
 	VectorParts visitStoreInst(StoreInst& I)
 	{
-		if (!I.getValueOperand()->getType()->isVectorTy())
+		if (!shouldLower(I.getValueOperand()->getType()))
 			return VectorParts();
 
 		const FixedVectorType* vecType = cast<FixedVectorType>(I.getValueOperand()->getType());
@@ -128,7 +142,7 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 		if (I.getDestTy()->isPointerTy())
 		{
 			const Type* pointedType = I.getDestTy()->getPointerElementType();
-			if (!pointedType->isVectorTy())
+			if (!shouldLower(pointedType))
 				return VectorParts();
 
 			// If we're casting to a pointer to a vector, instead create
@@ -153,70 +167,69 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 			changed = true;
 			return result;
 		}
-		else if (I.getDestTy()->isVectorTy())
-		{
-			// Assert we're casting from one type of vector to another.
-			assert(I.getDestTy()->isVectorTy() && I.getSrcTy()->isVectorTy());
-			const FixedVectorType* vecDestTy = cast<FixedVectorType>(I.getDestTy());
-			const unsigned destN = vecDestTy->getNumElements();
-			Type* destType = vecDestTy->getElementType();
-			const FixedVectorType* vecSrcTy = cast<FixedVectorType>(I.getSrcTy());
-			const unsigned srcN = vecSrcTy->getNumElements();
-			Type* srcType = vecSrcTy->getElementType();
-			IRBuilder<> Builder(&I);
-			VectorParts srcVec = visitValue(I.getOperand(0));
-			VectorParts result;
+		if (!shouldLower(I.getDestTy()))
+			return VectorParts();
 
-			// Make an alloca, if one doesn't exist for this function.
-			if (bitcastAlloca == nullptr)
-			{
-				Function* F = I.getFunction();
-				Builder.SetInsertPoint(F->getEntryBlock().getFirstNonPHI());
-				bitcastAlloca = Builder.CreateAlloca(Int64Ty);
-				Builder.SetInsertPoint(&I);
-			}
-			// Prepare store and load locations before the loop
-			SmallVector<Value*, 8> srcLocations;
-			Value* firstSrcElement = bitcastAlloca;
-			if (srcType != Int64Ty)
-				firstSrcElement = Builder.CreateBitCast(bitcastAlloca, srcType->getPointerTo());
-			srcLocations.push_back(firstSrcElement);
-			for (unsigned i = 1; i < srcN / 2; i++)
-			{
-				Value* index[] = {ConstantInt::get(Int32Ty, i)};
-				srcLocations.push_back(Builder.CreateInBoundsGEP(srcType, firstSrcElement, index));
-			}
-			SmallVector<Value*, 8> destLocations;
-			Value* firstDestElement = bitcastAlloca;
-			if (destType != Int64Ty)
-				firstDestElement = Builder.CreateBitCast(bitcastAlloca, destType->getPointerTo());
-			destLocations.push_back(firstDestElement);
-			for (unsigned i = 1; i < destN / 2; i++)
-			{
-				Value* index[] = {ConstantInt::get(Int32Ty, i)};
-				destLocations.push_back(Builder.CreateInBoundsGEP(destType, firstDestElement, index));
-			}
-			// Now do this process twice (we're dealing with a 64-bit alloca)
-			for (unsigned i = 0; i < 2; i++)
-			{
-				unsigned srcOffset = i * (srcN / 2);
-				// Store the elements that fit.
-				for (unsigned j = 0; j < srcN / 2; j++)
-					Builder.CreateStore(srcVec.values[srcOffset + j], srcLocations[j]);
-				// Load the elements.
-				for (unsigned j = 0; j < destN / 2; j++)
-					result.values.push_back(Builder.CreateLoad(destType, destLocations[j]));
-			}
-			toDelete.push_back(&I);
-			changed = true;
-			return result;
+		// Assert we're casting from one type of vector to another.
+		assert(I.getDestTy()->isVectorTy() && I.getSrcTy()->isVectorTy());
+		const FixedVectorType* vecDestTy = cast<FixedVectorType>(I.getDestTy());
+		const unsigned destN = vecDestTy->getNumElements();
+		Type* destType = vecDestTy->getElementType();
+		const FixedVectorType* vecSrcTy = cast<FixedVectorType>(I.getSrcTy());
+		const unsigned srcN = vecSrcTy->getNumElements();
+		Type* srcType = vecSrcTy->getElementType();
+		IRBuilder<> Builder(&I);
+		VectorParts srcVec = visitValue(I.getOperand(0));
+		VectorParts result;
+
+		// Make an alloca, if one doesn't exist for this function.
+		if (bitcastAlloca == nullptr)
+		{
+			Function* F = I.getFunction();
+			Builder.SetInsertPoint(F->getEntryBlock().getFirstNonPHI());
+			bitcastAlloca = Builder.CreateAlloca(Int64Ty);
+			Builder.SetInsertPoint(&I);
 		}
-		return VectorParts();
+		// Prepare store and load locations before the loop
+		SmallVector<Value*, 8> srcLocations;
+		Value* firstSrcElement = bitcastAlloca;
+		if (srcType != Int64Ty)
+			firstSrcElement = Builder.CreateBitCast(bitcastAlloca, srcType->getPointerTo());
+		srcLocations.push_back(firstSrcElement);
+		for (unsigned i = 1; i < srcN / 2; i++)
+		{
+			Value* index[] = {ConstantInt::get(Int32Ty, i)};
+			srcLocations.push_back(Builder.CreateInBoundsGEP(srcType, firstSrcElement, index));
+		}
+		SmallVector<Value*, 8> destLocations;
+		Value* firstDestElement = bitcastAlloca;
+		if (destType != Int64Ty)
+			firstDestElement = Builder.CreateBitCast(bitcastAlloca, destType->getPointerTo());
+		destLocations.push_back(firstDestElement);
+		for (unsigned i = 1; i < destN / 2; i++)
+		{
+			Value* index[] = {ConstantInt::get(Int32Ty, i)};
+			destLocations.push_back(Builder.CreateInBoundsGEP(destType, firstDestElement, index));
+		}
+		// Now do this process twice (we're dealing with a 64-bit alloca)
+		for (unsigned i = 0; i < 2; i++)
+		{
+			unsigned srcOffset = i * (srcN / 2);
+			// Store the elements that fit.
+			for (unsigned j = 0; j < srcN / 2; j++)
+				Builder.CreateStore(srcVec.values[srcOffset + j], srcLocations[j]);
+			// Load the elements.
+			for (unsigned j = 0; j < destN / 2; j++)
+				result.values.push_back(Builder.CreateLoad(destType, destLocations[j]));
+		}
+		toDelete.push_back(&I);
+		changed = true;
+		return result;
 	}
 
 	VectorParts visitCastInst(CastInst& I)
 	{
-		if (!I.getDestTy()->isVectorTy())
+		if (!shouldLower(I.getDestTy()))
 			return VectorParts();
 
 		const FixedVectorType* vecType = cast<FixedVectorType>(I.getDestTy());
@@ -238,7 +251,7 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 
 	VectorParts visitAllocaInst(AllocaInst& I)
 	{
-		if (!I.getType()->getPointerElementType()->isVectorTy())
+		if (!shouldLower(I.getType()->getPointerElementType()))
 			return VectorParts();
 
 		const FixedVectorType* vecType = cast<FixedVectorType>(I.getType()->getPointerElementType());
@@ -265,6 +278,9 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 
 	VectorParts visitInsertElementInst(InsertElementInst& I)
 	{
+		if (!shouldLower(I.getType()))
+			return VectorParts();
+
 		VectorParts v = visitValue(I.getOperand(0));
 		Value* val = I.getOperand(1);
 		const ConstantInt* ci = cast<ConstantInt>(I.getOperand(2));
@@ -289,6 +305,9 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 
 	VectorParts visitExtractElementInst(ExtractElementInst& I)
 	{
+		if (!shouldLower(I.getOperand(0)->getType()))
+			return VectorParts();
+
 		VectorParts v = visitValue(I.getOperand(0));
 		const ConstantInt* ci = cast<ConstantInt>(I.getOperand(1));
 		const unsigned idx = ci->getZExtValue();
@@ -304,6 +323,9 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 
 	VectorParts visitShuffleVectorInst(ShuffleVectorInst& I)
 	{
+		if (!shouldLower(I.getType()) && !shouldLower(I.getOperand(0)->getType()))
+			return VectorParts();
+
 		VectorParts v1 = visitValue(I.getOperand(0));
 		VectorParts v2 = visitValue(I.getOperand(1));
 		auto shuffleMask = I.getShuffleMask();
@@ -329,7 +351,7 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 
 	VectorParts visitGetElementPtrInst(GetElementPtrInst& I)
 	{
-		if (!I.getResultElementType()->isVectorTy())
+		if (!I.getType()->isVectorTy())
 			return VectorParts();
 
 		const FixedVectorType* vecType = cast<FixedVectorType>(I.getType());
@@ -383,7 +405,7 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 
 	VectorParts visitBinaryOperator(BinaryOperator& I)
 	{
-		if (!I.getType()->isVectorTy())
+		if (!shouldLower(I.getType()))
 			return VectorParts();
 
 		const FixedVectorType* vecType = cast<FixedVectorType>(I.getType());
@@ -405,7 +427,7 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 
 	VectorParts visitCmpInst(CmpInst& I)
 	{
-		if (!I.getType()->isVectorTy())
+		if (!shouldLower(I.getType()))
 			return VectorParts();
 
 		const FixedVectorType* vecType = cast<FixedVectorType>(I.getType());
@@ -428,7 +450,7 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 
 	VectorParts visitSelectInst(SelectInst& I)
 	{
-		if (!I.getType()->isVectorTy())
+		if (!shouldLower(I.getType()))
 			return VectorParts();
 
 		const FixedVectorType* vecType = cast<FixedVectorType>(I.getType());
@@ -529,6 +551,9 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 
 	VectorParts visitIntrinsicInst(IntrinsicInst& I)
 	{
+		if (!lowerAll)
+			return VectorParts();
+
 		// Here we are looking for a few specific intrinsics.
 		Intrinsic::ID id = I.getIntrinsicID();
 		if (id == Intrinsic::vector_reduce_mul ||
@@ -548,7 +573,7 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 
 	VectorParts visitInstruction(Instruction& I)
 	{
-		if (I.getType()->isVectorTy())
+		if (shouldLower(I.getType()))
 		{
 			llvm::errs() << I << "\n";
 			llvm::report_fatal_error("Missing instruction");
@@ -592,8 +617,8 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 
 	VectorParts visitValue(Value* V)
 	{
-		if (!V->getType()->isVectorTy() &&
-			!(V->getType()->isPointerTy() && V->getType()->getPointerElementType()->isVectorTy()))
+		if (!shouldLower(V->getType()) &&
+			!(V->getType()->isPointerTy() && shouldLower(V->getType()->getPointerElementType())))
 			return VectorParts();
 
 		auto it = cache.find(V);
@@ -650,14 +675,15 @@ namespace cheerp
 
 PreservedAnalyses SIMDLoweringPass::run(Function& F, FunctionAnalysisManager& FAM)
 {
-	if (WasmSIMD)
-		return PreservedAnalyses::all();
-	// Check if the parameters or return type are vector.
-	assert(!F.getReturnType()->isVectorTy());
-	for (auto it = F.arg_begin(); it != F.arg_end(); it++)
-		assert(!it->getType()->isVectorTy());
+	if (!WasmSIMD)
+	{
+		// Check if the parameters or return type are vector.
+		assert(!F.getReturnType()->isVectorTy());
+		for (auto it = F.arg_begin(); it != F.arg_end(); it++)
+			assert(!it->getType()->isVectorTy());
+	}
 
-	SIMDLoweringVisitor Visitor(*F.getParent());
+	SIMDLoweringVisitor Visitor(*F.getParent(), !WasmSIMD);
 	Visitor.visit(F);
 
 	if (!Visitor.changed)
