@@ -486,11 +486,16 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 
 	VectorParts visitCmpInst(CmpInst& I)
 	{
-		if (!shouldLower(I.getType()))
+		if (!I.getType()->isVectorTy())
 			return VectorParts();
 
+		// Only lower cmpinst when they are not created from a 128-bit vector comparison.
 		const FixedVectorType* vecType = cast<FixedVectorType>(I.getType());
 		const unsigned num = vecType->getNumElements();
+		const FixedVectorType* vecOp = cast<FixedVectorType>(I.getOperand(0)->getType());
+		if (!lowerAll && (num * vecOp->getScalarSizeInBits() == 128))
+			return VectorParts();
+
 		IRBuilder<> Builder(&I);
 		VectorParts lhs = visitValue(I.getOperand(0));
 		VectorParts rhs = visitValue(I.getOperand(1));
@@ -676,13 +681,13 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 
 	VectorParts visitValue(Value* V)
 	{
-		if (!shouldLower(V->getType()) &&
-			!(V->getType()->isPointerTy() && shouldLower(V->getType()->getPointerElementType())))
-			return VectorParts();
-
 		auto it = cache.find(V);
 		if (it != cache.end())
 			return it->second;
+
+		if (!shouldLower(V->getType()) &&
+			!(V->getType()->isPointerTy() && shouldLower(V->getType()->getPointerElementType())))
+			return VectorParts();
 
 		VectorParts ret;
 		if (Instruction* I = dyn_cast<Instruction>(V))
