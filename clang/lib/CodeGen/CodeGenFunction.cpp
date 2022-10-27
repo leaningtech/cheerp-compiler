@@ -1153,9 +1153,13 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
     //Cheerp: Emit metadata to know about member methods in the backend
      if (cheerp::shouldBeJsExported(D, /*isMethod*/true))
      {
-       //The following line seems to avoid certaint cases of walking over a constructor twice
-       //TODO: factor it away somehow
-       if (!CXXConstructorDecl::classof(GD.getDecl()) || GD.getCtorType()==Ctor_Complete)
+       // In LLVM metadata only (static) methods or free functions are there
+       // 'delete' will act as equivalent of {delete this;}
+       //    and will be codegenerated as regular member function
+       // 'new' will act as equivalent of {return new Obj(params...);}
+       //    and will be codegenerated as JS operator new / constructor
+       //  And that means that Constructor and Destructor should be skipped
+       if (!isa<CXXConstructorDecl>(D) && !isa<CXXDestructorDecl>(D))
        {
 	 const CXXMethodDecl *MD = cast<CXXMethodDecl>(D);
 	 const llvm::StringRef className = clang::cast<llvm::StructType>(ConvertType(MD->getParent()))->getName();
