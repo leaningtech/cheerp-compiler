@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2015-2020 Leaning Technologies
+// Copyright 2015-2022 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -74,10 +74,20 @@ static std::pair<std::string, std::string> buildArgumentsString(const llvm::Func
 		if (it->getType()->isPointerTy() && toBeWrapped.count(dyn_cast<StructType>(it->getType()->getPointerElementType())))
 			isWrapped = true;
 
+		bool isRawPointer = false;
+		if (isWrapped)
+			if (TypeSupport::isRawPointer(it->getType(), F->getSection() == StringRef("asmjs")))
+				isRawPointer = true;
+
+
+		if (it->getType()->isPointerTy() && PA.getPointerKind(&(*it)) == RAW)
+			isRawPointer = true;
+
 		args_inner << aX << ",";
 		if(it->getType()->isPointerTy() && PA.getPointerKind(&(*it)) == SPLIT_REGULAR)
 		{
 			assert(isWrapped);
+			assert(!isRawPointer);
 			{
 				// Split regular representation
 				args_outer << aX << ".this.d," << aX << ".this.o,";
@@ -85,7 +95,12 @@ static std::pair<std::string, std::string> buildArgumentsString(const llvm::Func
 		}
 		else
 		{
-			if (isWrapped)
+			if (isRawPointer)
+			{
+				// RAW
+				args_outer << aX << ".this,";
+			}
+			else if (isWrapped)
 			{
 				// Complete object
 				args_outer << aX << ".this.d[" << aX << ".this.o],";
@@ -254,71 +269,54 @@ void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 			return cheerp::isStatic(value);
 		};
 
-		auto isConstructor = [&](const MDNode * node ) -> bool
+		auto isNewHelper = [&](const MDNode * node ) -> bool
 		{
 			assert(node->getNumOperands() >= 2);
 			assert( isa<ConstantInt>(cast<ConstantAsMetadata>(node->getOperand(1))->getValue()) );
+			assert( isa<Function>(cast<ConstantAsMetadata>(node->getOperand(0))->getValue()) );
+
 			const uint32_t value = cast<ConstantInt>(cast<ConstantAsMetadata>(node->getOperand(1))->getValue())->getZExtValue();
-			return cheerp::isConstructor(value);
+			if ( cheerp::isConstructor(value) || cheerp::isDestructor(value))
+				return false;
+			StringRef methodName = getMethodName(node);
+			if (methodName.str() == std::string("new"))
+					return true;
+			return false;
 		};
 
-		auto isDestructor = [&](const MDNode * node ) -> bool
-		{
-			assert(node->getNumOperands() >= 2);
-			assert( isa<ConstantInt>(cast<ConstantAsMetadata>(node->getOperand(1))->getValue()) );
-			const uint32_t value = cast<ConstantInt>(cast<ConstantAsMetadata>(node->getOperand(1))->getValue())->getZExtValue();
-			return cheerp::isDestructor(value);
-		};
+		auto newHelper = std::find_if(vectorMDNode.begin(), vectorMDNode.end(), isNewHelper );
 
-
-		auto constructor = std::find_if(vectorMDNode.begin(), vectorMDNode.end(), isConstructor );
-
-		const bool hasConstructor = (constructor != vectorMDNode.end());
-
-		if (hasConstructor && std::find_if( std::next(constructor), vectorMDNode.end(), isConstructor ) != vectorMDNode.end() )
-		{
-			llvm::report_fatal_error( Twine("More than one constructor defined for class: ", jsClassName) );
-			return;
-		}
+		const bool hasNewHelper = (newHelper != vectorMDNode.end());
 
 		if (alsoDeclare && !isNamespaced(jsClassName))
 			stream << "function " << jsClassName << '(';
 		else
 			stream << jsClassName << "=function (";
-		const Function * f = NULL;
 
 		//First compile the constructor
-		if (hasConstructor)
+		if (hasNewHelper)
 		{
-			const MDNode* node = *constructor;
-			f = cast<Function>(cast<ConstantAsMetadata>(node->getOperand(0))->getValue());
+			const MDNode* node = *newHelper;
+			const Function * newFunc = cast<Function>(cast<ConstantAsMetadata>(node->getOperand(0))->getValue());
+			assert( globalDeps.isReachable(newFunc) );
 
 			const bool innerThisSplitReg = PA.getPointerKindForJSExportedType(const_cast<StructType*>(t)) == SPLIT_REGULAR;
 
-			const auto argumentsStrings = buildArgumentsString(f, /*isStatic*/false, PA, jsexportedTypes);
+			const auto argumentsStrings = buildArgumentsString(newFunc, /*isStatic*/true, PA, jsexportedTypes);
 
 			stream << argumentsStrings.first << "){" << NewLine;
 
 			stream << "this.this=";
 			if (innerThisSplitReg)
-				stream << "{d:[";
-			// Regular constructor
-			compileType(const_cast<StructType*>(t), LITERAL_OBJ);
+				stream << "{d:";
+
+			stream << namegen.getName(newFunc);
+			stream << "(" << argumentsStrings.second<< ")";
+
 			//We need to manually add the self pointer
 			if (innerThisSplitReg)
-				stream << "],"<< NewLine <<"o:0}";
-			stream << ";" << NewLine;
-			compileOperand(f);
-			stream << '(';
-			stream << "this.this";
-			if (innerThisSplitReg)
-				stream << ".d[0]";
-
-			if (argumentsStrings.second.size() > 0)
-				stream << "," << argumentsStrings.second;
-			stream << ");";
-
-			assert( globalDeps.isReachable(f) );
+				stream << ","<< NewLine <<"o:oSlot}";
+			stream << ";";
 		}
 		else
 		{
@@ -327,35 +325,22 @@ void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 		}
 		stream << NewLine << "};" << NewLine;
 
-		bool compiledDestructor = false;
 		//Then compile other methods and add them to the prototype
 		for ( const MDNode* node : vectorMDNode)
 		{
-			if ( isConstructor(node) )
+			if (isNewHelper(node))
 				continue;
 
 			StringRef methodName = getMethodName(node);
-			if (isDestructor(node))
-			{
-				compiledDestructor = true;
-				methodName = StringRef("delete");
-			}
-			bool isStatic = isStaticMethod(node);
-
+			const bool isStatic = isStaticMethod(node);
 			const Function * f = cast<Function>(cast<ConstantAsMetadata>(node->getOperand(0))->getValue());
+			assert( globalDeps.isReachable(f) );
 
 			stream << jsClassName;
 			if (!isStatic)
 				stream << ".prototype";
 			stream << '.' << methodName << "=";
-
 			compileFunctionBody(f, isStatic, t);
-
-			assert( globalDeps.isReachable(f) );
-		}
-		if (!compiledDestructor)
-		{
-			stream << jsClassName << ".prototype.delete=function(){" << NewLine << "};" << NewLine;
 		}
 	};
 
