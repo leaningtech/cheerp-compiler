@@ -1535,6 +1535,8 @@ public:
   /// declaring. If this process recursively triggers the declaration of the
   /// same special member, we should act as if it is not yet declared.
   llvm::SmallPtrSet<SpecialMemberDecl, 4> SpecialMembersBeingDeclared;
+  llvm::SmallPtrSet<CXXRecordDecl*, 4> JsExportNewDeclaredOnClass;
+  llvm::SmallPtrSet<CXXRecordDecl*, 4> JsExportDeleteDeclaredOnClass;
 
   /// Kinds of defaulted comparison operator functions.
   enum class DefaultedComparisonKind : unsigned char {
@@ -6362,6 +6364,12 @@ public:
   ///
   /// \returns The implicitly-declared destructor.
   CXXDestructorDecl *DeclareImplicitDestructor(CXXRecordDecl *ClassDecl);
+
+  // Declare and define the new and the delete helper for JsExported classes
+  template <bool isNewHelper>
+  CXXMethodDecl *DeclareImplicitJsExportHelper(CXXRecordDecl *ClassDecl, CXXConstructorDecl* Constructor);
+  template <bool isNewHelper>
+  void DefineImplicitJsExportHelper(CXXRecordDecl *ClassDecl, CXXMethodDecl* Helper, CXXConstructorDecl* Constructor);
 
   /// DefineImplicitDestructor - Checks for feasibility of
   /// defining this destructor as the default destructor.

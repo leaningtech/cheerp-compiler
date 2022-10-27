@@ -7184,6 +7184,36 @@ void Sema::CheckCompletedCXXClass(Scope *S, CXXRecordDecl *Record) {
     //This function will also tag all [[cheerp::jsexport]]-ed methods, so after this point we can rely on the tag existing on the relevant methods
     cheerpSemaData.checkRecord(Record);
 
+    CXXConstructorDecl* constructorJsExported = nullptr;
+    CXXDestructorDecl* destructorJsExported = nullptr;
+    {
+      CXXRecordDecl::method_iterator it=Record->method_begin();
+      CXXRecordDecl::method_iterator itE=Record->method_end();
+      for(;it!=itE;++it) {
+        //Skip non-tagged methods
+        if (!(*it)->hasAttr<JsExportAttr>())
+          continue;
+        if (isa<CXXConstructorDecl>(*it))
+          constructorJsExported = cast<CXXConstructorDecl>(*it);
+	if (isa<CXXDestructorDecl>(*it))
+	  destructorJsExported = cast<CXXDestructorDecl>(*it);
+      }
+    }
+
+    CXXMethodDecl* newHelper = nullptr;
+    CXXMethodDecl * deleteHelper = nullptr;
+
+    if (constructorJsExported) {
+      // New helper (and consequently JS constructor) will be there only when a constructor is part of the jsexport-ed interface
+      newHelper = DeclareImplicitJsExportHelper</*isNewHelper*/true>(Record, constructorJsExported);
+    }
+    if (constructorJsExported || destructorJsExported) {
+      // Delete helper (and consequently JS delete method) will be there in 2 cases:
+      //    * when a new is present
+      //    * when a destructor is part of the jsexport-ed interface
+      deleteHelper = DeclareImplicitJsExportHelper</*isNewHelper*/false>(Record, /*Constructor*/nullptr);
+    }
+
     //Mark all methods as used
     CXXRecordDecl::method_iterator it=Record->method_begin();
     CXXRecordDecl::method_iterator itE=Record->method_end();
@@ -7198,6 +7228,14 @@ void Sema::CheckCompletedCXXClass(Scope *S, CXXRecordDecl *Record) {
       if((*it)->isExplicitlyDefaulted()) {
         Consumer.HandleTopLevelDecl(DeclGroupRef(*it));
      }
+    }
+    if (deleteHelper) {
+      DefineImplicitJsExportHelper</*isNewHelper*/false>(Record, deleteHelper, /*Constructor*/nullptr);
+      deleteHelper->setReferenced();
+    }
+    if (newHelper) {
+      DefineImplicitJsExportHelper</*isNewHelper*/true>(Record, newHelper, constructorJsExported);
+      newHelper->setReferenced();
     }
   }
   if(Record->hasAttr<ByteLayoutAttr>())
@@ -14647,6 +14685,225 @@ CXXMethodDecl *Sema::DeclareImplicitCopyAssignment(CXXRecordDecl *ClassDecl) {
   MaybeInjectCheerpModeAttr(CopyAssignment);
 
   return CopyAssignment;
+}
+
+// Declare and define the new and the delete helper for JsExported classes
+template <bool isNewHelper>
+CXXMethodDecl *Sema::DeclareImplicitJsExportHelper(CXXRecordDecl *ClassDecl, CXXConstructorDecl* Constructor)
+{
+  assert(!!Constructor == isNewHelper);
+  assert(ClassDecl->hasAttr<JsExportAttr>());
+
+  if (isNewHelper) {
+    if (!JsExportNewDeclaredOnClass.insert(ClassDecl).second)
+      return nullptr;
+  }
+  else {
+    if (!JsExportDeleteDeclaredOnClass.insert(ClassDecl).second)
+      return nullptr;
+  }
+
+  QualType RetType;
+  if (isNewHelper) {
+    // new return a pointer to the object just being constructed
+    RetType = Context.getTypeDeclType(ClassDecl);
+    LangAS AS = getDefaultCXXMethodAddrSpace();
+    if (AS != LangAS::Default)
+      RetType = Context.getAddrSpaceQualType(RetType, AS);
+    RetType = Context.getPointerType(RetType);
+  }
+  else {
+    // delete has no return value
+    RetType = Context.VoidTy;
+  }
+
+  const bool Constexpr = false;
+
+  // Set the name
+  DeclarationName Name =  DeclarationName(&PP.getIdentifierTable().get(isNewHelper ? "new" : "delete"));
+
+  SourceLocation ClassLoc = ClassDecl->getLocation();
+  DeclarationNameInfo NameInfo(Name, ClassLoc);
+
+  CXXMethodDecl *Helper = CXXMethodDecl::Create(
+      Context, ClassDecl, ClassLoc, NameInfo, QualType(),
+      /*TInfo=*/nullptr, /*StorageClass=*/ isNewHelper ? SC_Static : SC_None,
+      getCurFPFeatures().isFPConstrained(),
+      /*isInline=*/true,
+      Constexpr ? ConstexprSpecKind::Constexpr : ConstexprSpecKind::Unspecified,
+      SourceLocation());
+  Helper->setAccess(AS_public);
+  // Are those two of any use:
+  Helper->setDefaulted();
+  Helper->setImplicit();
+
+  std::vector<clang::QualType> ArgTypes;
+  SmallVector<ParmVarDecl *, 16> ParamDecls;
+  if (isNewHelper) {
+    // new forwards the parameters of the relevant constructor (while delete will use this implicitly
+    for (auto& p : Constructor->parameters()) {
+      QualType paramType(p->getType());
+      ArgTypes.push_back(paramType);
+      ParamDecls.push_back(ParmVarDecl::Create(Context, Helper, ClassLoc, ClassLoc, nullptr, paramType, nullptr, SC_None, nullptr));
+    }
+  }
+  setupImplicitSpecialMemberType(Helper, RetType, ArgTypes);
+
+  FunctionProtoType::ExtProtoInfo EPI;
+  Helper->setParams(ParamDecls);
+  Helper->setType(Context.getFunctionType(RetType, ArgTypes,
+					 EPI));
+
+  Scope *S = getScopeForContext(ClassDecl);
+  CheckImplicitSpecialMemberDeclaration(S, Helper);
+  if (S)
+    PushOnScopeChains(Helper, S, false);
+  ClassDecl->addDecl(Helper);
+
+  Helper->addAttr(JsExportAttr::CreateImplicit(Context));
+
+  // CHEERP: Inject asmjs/genericjs attribute
+  // This will use the class's one for deleteHelper and
+  // the Constructor's one for newHelper
+  MaybeInjectCheerpModeAttr(Helper, Constructor);
+
+  return Helper;
+}
+
+template <bool isNewHelper>
+void Sema::DefineImplicitJsExportHelper(CXXRecordDecl *ClassDecl, CXXMethodDecl* Helper, CXXConstructorDecl* Constructor)
+{
+  assert(!!Constructor == isNewHelper);
+  auto CurrentLocation = Helper->getLocation();
+
+  if (Helper->willHaveBody() || Helper->isInvalidDecl())
+    return;
+
+  SynthesizedFunctionScope Scope(*this, Helper);
+
+  // The exception specification is needed because we are defining the
+  // function.
+  ResolveExceptionSpec(CurrentLocation,
+                       Helper->getType()->castAs<FunctionProtoType>());
+
+  // Add a context note for diagnostics produced after this point.
+  Scope.addContextNote(CurrentLocation);
+
+  // C++11 [class.copy]p18:
+  //   The [definition of an implicitly declared copy assignment operator] is
+  //   deprecated if the class has a user-declared copy constructor or a
+  //   user-declared destructor.
+
+  // C++0x [class.copy]p30:
+  //   The implicitly-defined or explicitly-defaulted copy assignment operator
+  //   for a non-union class X performs memberwise copy assignment of its
+  //   subobjects. The direct base classes of X are assigned first, in the
+  //   order of their declaration in the base-specifier-list, and then the
+  //   immediate non-static data members of X are assigned, in the order in
+  //   which they were declared in the class definition.
+
+  // The statements that form the synthesized function body.
+  SmallVector<Stmt*, 8> Statements;
+
+  // Our location for everything implicitly-generated.
+  SourceLocation Loc = Helper->getEndLoc().isValid()
+                           ? Helper->getEndLoc()
+                           : Helper->getLocation();
+
+  if (isNewHelper) {
+    // Build AST code for new helper, by populating Statements
+    // will be equivalent to:
+    // static Class* new(params...) {
+    //   return new Class(params...);
+    // }
+    // Here we will use knowledge of which constructor we will have to call (the only jsexported one), and forward the right parameters to it.
+    // Operator new will be selected automatically by CodeGen to be either the class one, the global one, or the default one.
+    //
+    // Note that we take advantage of new being a forbidden identifier
+
+    FunctionDecl *OperatorNew = nullptr;
+    FunctionDecl *OperatorDelete = nullptr;
+    bool PassAlignment = false;
+    QualType ClassType = Context.getTypeDeclType(ClassDecl);
+
+    QualType PointerToClass = Context.getPointerType(ClassType);
+
+    std::vector<clang::Expr*> Arguments;
+
+    for (unsigned i=0; i<Helper->getNumParams(); i++) {
+      ParmVarDecl *param = Helper->getParamDecl(i);
+      Qualifiers OtherQuals = param->getType().getQualifiers();
+      QualType OtherRefType = param->getType();
+
+      if (const LValueReferenceType *OtherRef
+                                = OtherRefType->getAs<LValueReferenceType>()) {
+        OtherRefType = OtherRef->getPointeeType();
+	OtherQuals = OtherRefType.getQualifiers();
+      }
+
+      RefBuilder OtherRef(param, OtherRefType);
+      LvalueConvBuilder IterationVarRefRVal(OtherRef);
+      Arguments.push_back(IterationVarRefRVal.build(*this, Loc));
+    }
+    MultiExprArg PlacementArgsConstructor = Arguments;
+    MultiExprArg PlacementArgsAlloc;
+
+    bool RES =FindAllocationFunctions(
+          Loc, SourceRange(Loc, Loc), AFS_Global,  AFS_Global,
+          ClassType, false, PassAlignment, PlacementArgsAlloc,
+          OperatorNew, OperatorDelete);
+    (void)RES;
+    assert(OperatorNew);
+
+    CXXConstructExpr * Init = CXXConstructExpr::Create(Context, ClassType, Constructor->getLocation(),
+         Constructor, false, PlacementArgsConstructor,
+	 false, false, false, false,
+         CXXConstructExpr::ConstructionKind::CK_Complete, SourceRange());
+
+    TypeSourceInfo *TSI = Context.getTrivialTypeSourceInfo(ClassType);
+
+    CXXNewExpr * Result = CXXNewExpr::Create(Context, true, OperatorNew, OperatorDelete, PassAlignment,
+         false, PlacementArgsAlloc, SourceRange(ClassDecl->getLocation(), ClassDecl->getLocation()),
+         None, CXXNewExpr::InitializationStyle::CallInit, Init, PointerToClass, TSI,
+         SourceRange(Helper->getLocation(), Helper->getLocation()), SourceRange(Helper->getLocation(), Helper->getLocation()), false);
+
+    StmtResult Return = BuildReturnStmt(Helper->getLocation(), Result);
+    Statements.push_back(Return.getAs<Stmt>());
+  } else {
+    // Build AST code for delete helper, by populating Statements
+    // will be equivalent to:
+    // void delete() {
+    //   delete this;
+    // }
+    // Operator delete will be selected automatically by CodeGen to be either the class one, the global one, or the default one.
+    // Note that we take advantage of delete being a forbidden identifier
+
+    ThisBuilder This;
+
+    FunctionDecl *OperatorDelete =
+      FindDeallocationFunctionForDestructor(Loc, ClassDecl);
+    assert(OperatorDelete);
+    CXXDeleteExpr *Result = new (Context) CXXDeleteExpr(
+         Context.VoidTy, true, false, false,
+         false, OperatorDelete, This.build(*this, Loc), Loc);
+
+    Statements.push_back(Result);
+  }
+
+  // Given Statements, generate the Body of the function
+  StmtResult Body;
+  {
+    CompoundScopeRAII CompoundScope(*this);
+    Body = ActOnCompoundStmt(Loc, Loc, Statements,
+                             /*isStmtExpr=*/false);
+    assert(!Body.isInvalid() && "Compound statement creation cannot fail");
+  }
+  Helper->setBody(Body.getAs<Stmt>());
+  Helper->markUsed(Context);
+
+  if (ASTMutationListener *L = getASTMutationListener()) {
+    L->CompletedImplicitDefinition(Helper);
+  }
 }
 
 /// Diagnose an implicit copy operation for a class which is odr-used, but
