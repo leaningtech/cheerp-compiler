@@ -39,7 +39,7 @@ public:
 class LowerAndOrBranches
 {
 private:
-	void fixTargetPhis(llvm::BasicBlock* originalPred, llvm::BasicBlock* newBlock, llvm::BasicBlock* singleBlock, llvm::BasicBlock* doubleBlock);
+	static void fixTargetPhis(llvm::BasicBlock* originalPred, llvm::BasicBlock* newBlock, llvm::BasicBlock* singleBlock, llvm::BasicBlock* doubleBlock);
 public:
 	explicit LowerAndOrBranches() { }
 	bool runOnFunction(llvm::Function &F);
