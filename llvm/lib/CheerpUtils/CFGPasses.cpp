@@ -118,21 +118,17 @@ bool LowerAndOrBranches::runOnFunction(Function& F)
 
 	const Type* boolean = Type::getInt1Ty(F.getContext());
 	std::vector<Instruction*> toBeErased;
+	std::vector<SelectInst*> badSelects;
 	for (llvm::BasicBlock& BB: F)
 	{
 		for (Instruction& I : BB)
 		{
-			if (I.getType() != boolean)
-				continue;
-			if (I.getOpcode() != Instruction::And)
-				continue;
-
-			ICmpInst* A = dyn_cast<ICmpInst>(I.getOperand(0));
-			ICmpInst* B = dyn_cast<ICmpInst>(I.getOperand(1));
-
 			//Consider only integer aritmethics
-			if (A && B)
+			if (I.getOpcode() == Instruction::And && isa<ICmpInst>(I.getOperand(0)) && isa<ICmpInst>(I.getOperand(1)))
 			{
+				ICmpInst* A = cast<ICmpInst>(I.getOperand(0));
+				ICmpInst* B = cast<ICmpInst>(I.getOperand(1));
+
 				//Consider only ( a==b && c==d)
 				if (A->getPredicate() != ICmpInst::ICMP_EQ)
 					continue;
@@ -217,7 +213,53 @@ bool LowerAndOrBranches::runOnFunction(Function& F)
 
 				Changed = true;
 			}
+			else if(I.getOpcode() == llvm::Instruction::Select)
+			{
+				SelectInst& SI = cast<SelectInst>(I);
+				// LLVM finds it fashionable to create horrible selects instead of plain and/or of booleans
+				if(I.getType() == boolean && isa<Constant>(SI.getTrueValue()) && cast<Constant>(SI.getTrueValue())->isAllOnesValue())
+				{
+					llvm::Instruction* newOr = BinaryOperator::CreateOr(SI.getCondition(), SI.getFalseValue());
+					newOr->insertAfter(&SI);
+					I.replaceAllUsesWith(newOr);
+					toBeErased.push_back(&I);
+					Changed = true;
+				}
+				else if(I.getType() == boolean && isa<Constant>(SI.getFalseValue()) && cast<Constant>(SI.getFalseValue())->isNullValue())
+				{
+					llvm::Instruction* newAnd = BinaryOperator::CreateAnd(SI.getCondition(), SI.getTrueValue());
+					newAnd->insertAfter(&SI);
+					I.replaceAllUsesWith(newAnd);
+					toBeErased.push_back(&I);
+					Changed = true;
+				}
+				else if(isa<BinaryOperator>(SI.getCondition()))
+				{
+					// Select that force the materialization of and/or are better handled by forging control flow
+					badSelects.push_back(&SI);
+				}
+			}
 		}
+	}
+
+	for (SelectInst* SI: badSelects)
+	{
+		// Create 2 new blocks
+		llvm::BasicBlock* trueBlock = llvm::BasicBlock::Create(F.getContext(), "select.true", &F);
+		llvm::BasicBlock* falseBlock = llvm::BasicBlock::Create(F.getContext(), "select.false", &F);
+		llvm::BasicBlock* curBlock = SI->getParent();
+		llvm::BasicBlock* nextBlock = curBlock->splitBasicBlock(SI, "select.next");
+		llvm::Instruction* oldTerminator = curBlock->getTerminator();
+		llvm::BranchInst* BI = BranchInst::Create(trueBlock, falseBlock, SI->getCondition(), oldTerminator);
+		oldTerminator->eraseFromParent();
+		BranchInst::Create(nextBlock, trueBlock);
+		BranchInst::Create(nextBlock, falseBlock);
+		llvm::PHINode* newPhi = PHINode::Create(SI->getType(), 2, "select.phi", SI);
+		newPhi->addIncoming(SI->getTrueValue(), trueBlock);
+		newPhi->addIncoming(SI->getFalseValue(), falseBlock);
+		SI->replaceAllUsesWith(newPhi);
+		SI->eraseFromParent();
+		Changed = true;
 	}
 
 	for (Instruction* I : toBeErased)
