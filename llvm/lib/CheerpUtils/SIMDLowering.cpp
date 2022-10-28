@@ -543,34 +543,6 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 		return result;
 	}
 
-	VectorParts lowerReduceIntrinsic(IntrinsicInst& I)
-	{
-		if (!lowerAll)
-			return VectorParts();
-
-		// Reduce intrinsics take a vector and return a scalar.
-		// Lower this to do the operation on the separate elements.
-		Intrinsic::ID id = I.getIntrinsicID();
-		assert(id == Intrinsic::vector_reduce_mul || id == Intrinsic::vector_reduce_add);
-		const FixedVectorType* vecType = cast<FixedVectorType>(I.getOperand(0)->getType());
-		const unsigned num = vecType->getNumElements();
-		IRBuilder<> Builder(&I);
-		VectorParts v = visitValue(I.getOperand(0));
-
-		Value* total = v.values[0];
-		for (unsigned i = 1; i < num; i++)
-		{
-			if (id == Intrinsic::vector_reduce_add)
-				total = Builder.CreateAdd(total, v.values[i]);
-			else
-				total = Builder.CreateMul(total, v.values[i]);
-		}
-		I.replaceAllUsesWith(total);
-		toDelete.push_back(&I);
-		changed = true;
-		return VectorParts();
-	}
-
 	VectorParts lowerSplatIntrinsic(IntrinsicInst& I)
 	{
 		if (!lowerAll)
@@ -652,8 +624,17 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 		if (id == Intrinsic::vector_reduce_mul ||
 			id == Intrinsic::vector_reduce_add ||
 			id == Intrinsic::vector_reduce_fmul ||
-			id == Intrinsic::vector_reduce_fadd)
-			return lowerReduceIntrinsic(I);
+			id == Intrinsic::vector_reduce_fadd ||
+			id == Intrinsic::vector_reduce_and ||
+			id == Intrinsic::vector_reduce_or ||
+			id == Intrinsic::vector_reduce_xor ||
+			id == Intrinsic::vector_reduce_smin ||
+			id == Intrinsic::vector_reduce_smax ||
+			id == Intrinsic::vector_reduce_umin ||
+			id == Intrinsic::vector_reduce_umax ||
+			id == Intrinsic::vector_reduce_fmin ||
+			id == Intrinsic::vector_reduce_fmax)
+			llvm::report_fatal_error("Reduce intrinsics should have been removed in the SIMDTransformPass.");
 		if (id == Intrinsic::cheerp_wasm_splat)
 			return lowerSplatIntrinsic(I);
 		if (id == Intrinsic::cheerp_wasm_shl ||
