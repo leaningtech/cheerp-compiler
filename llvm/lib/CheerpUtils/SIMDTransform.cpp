@@ -91,28 +91,94 @@ bool SIMDTransformPass::lowerExtractOrInsert(Instruction& I)
 	return false;
 }
 
-bool SIMDTransformPass::lowerReduceIntrinsic(Instruction& I)
+bool SIMDTransformPass::lowerReduceIntrinsic(IntrinsicInst& I)
 {
-	Value *vec = I.getOperand(0);
-	const int amount = 128 / vec->getType()->getScalarSizeInBits();
+	// Reduce intrinsics are either a simple binary operation done multiple times,
+	// or an intrinsic done multiple times. None are supported in SIMD. We extract
+	// all of the elements, and do the operations on the elements.
+	Intrinsic::ID id = I.getIntrinsicID();
+	bool fBinOp = (id == Intrinsic::vector_reduce_fadd || id == Intrinsic::vector_reduce_fmul);
+	Value* vecOp = fBinOp ? I.getOperand(1) : I.getOperand(0);
+	const FixedVectorType* vecType = cast<FixedVectorType>(vecOp->getType());
+	const unsigned amount = vecType->getNumElements();
+	Type* elType = vecType->getElementType();
 	IRBuilder<> Builder(&I);
-	std::vector<Value*> values;
-	for (int i = 0; i < amount; i++)
-		values.push_back(Builder.CreateExtractElement(vec, i));
-	Intrinsic::ID id = cast<CallInst>(I).getCalledFunction()->getIntrinsicID();
-	bool add = (id == Intrinsic::vector_reduce_add || id == Intrinsic::vector_reduce_fadd) ? true : false;
-	// Only accept normal, not floats, for now.
-	assert(id == Intrinsic::vector_reduce_add || id == Intrinsic::vector_reduce_mul);
-	Value* total = values[0];
-	for (int i = 1; i < amount; i++)
+	SmallVector<Value*, 16> values;
+	for (unsigned i = 0; i < amount; i++)
+		values.push_back(Builder.CreateExtractElement(vecOp, i));
+	Value* total = fBinOp ? I.getOperand(0) : values[0];
+	bool binop = (id == Intrinsic::vector_reduce_fadd || id == Intrinsic::vector_reduce_fmul ||
+				id == Intrinsic::vector_reduce_add || id == Intrinsic::vector_reduce_mul ||
+				id == Intrinsic::vector_reduce_and || id == Intrinsic::vector_reduce_or ||
+				id == Intrinsic::vector_reduce_xor);
+	if (binop)
 	{
-		if (add)
-			total = Builder.CreateAdd(total, values[i]);
+		Instruction::BinaryOps opcode;
+		if (id == Intrinsic::vector_reduce_fadd)
+			opcode = Instruction::FAdd;
+		else if (id == Intrinsic::vector_reduce_fmul)
+			opcode = Instruction::FMul;
+		else if (id == Intrinsic::vector_reduce_add)
+			opcode = Instruction::Add;
+		else if (id == Intrinsic::vector_reduce_mul)
+			opcode = Instruction::Mul;
+		else if (id == Intrinsic::vector_reduce_and)
+			opcode = Instruction::And;
+		else if (id == Intrinsic::vector_reduce_or)
+			opcode = Instruction::Or;
+		else if (id == Intrinsic::vector_reduce_xor)
+			opcode = Instruction::Xor;
+		unsigned start = fBinOp ? 0 : 1;
+		for (unsigned i = start; i < amount; i++)
+			total = Builder.CreateBinOp(opcode, total, values[i]);
+	}
+	else
+	{
+		Intrinsic::ID loweredID;
+		if (id == Intrinsic::vector_reduce_smax)
+			loweredID = Intrinsic::smax;
+		else if (id == Intrinsic::vector_reduce_smin)
+			loweredID = Intrinsic::smin;
+		else if (id == Intrinsic::vector_reduce_umax)
+			loweredID = Intrinsic::umax;
+		else if (id == Intrinsic::vector_reduce_umin)
+			loweredID = Intrinsic::umin;
+		else if (id == Intrinsic::vector_reduce_fmax)
+			loweredID = Intrinsic::maxnum;
+		else if (id == Intrinsic::vector_reduce_fmin)
+			loweredID = Intrinsic::minnum;
 		else
-			total = Builder.CreateMul(total, values[i]);
+			llvm::report_fatal_error("Unrecognized intrinsic");
+		std::vector<Type *> argTypes = { elType };
+		Function* intrinsic = Intrinsic::getDeclaration(I.getModule(), loweredID, argTypes);
+		for (unsigned i = 1; i < amount; i++)
+			total = Builder.CreateCall(intrinsic, {total, values[i]});
 	}
 	I.replaceAllUsesWith(total);
 	deleteList.push_back(&I);
+	return false;
+}
+
+bool SIMDTransformPass::lowerIntrinsic(Instruction& I)
+{
+	IntrinsicInst& ii = cast<IntrinsicInst>(I);
+	switch (ii.getIntrinsicID())
+	{
+		case Intrinsic::vector_reduce_fadd:
+		case Intrinsic::vector_reduce_fmul:
+		case Intrinsic::vector_reduce_add:
+		case Intrinsic::vector_reduce_mul:
+		case Intrinsic::vector_reduce_and:
+		case Intrinsic::vector_reduce_or:
+		case Intrinsic::vector_reduce_xor:
+		case Intrinsic::vector_reduce_smax:
+		case Intrinsic::vector_reduce_smin:
+		case Intrinsic::vector_reduce_umax:
+		case Intrinsic::vector_reduce_umin:
+		case Intrinsic::vector_reduce_fmax:
+		case Intrinsic::vector_reduce_fmin:
+			return lowerReduceIntrinsic(ii);
+	}
 	return false;
 }
 
@@ -269,17 +335,6 @@ bool SIMDTransformPass::isVariableExtractOrInsert(Instruction& I)
 			(I.getOpcode() == Instruction::InsertElement && !isa<ConstantInt>(I.getOperand(2)));
 }
 
-bool SIMDTransformPass::isReduceIntrinsic(Instruction& I)
-{
-	if (I.getOpcode() != Instruction::Call)
-		return false;
-	Intrinsic::ID id = cast<CallInst>(I).getCalledFunction()->getIntrinsicID();
-	return (id == Intrinsic::vector_reduce_mul ||
-		id == Intrinsic::vector_reduce_add ||
-		id == Intrinsic::vector_reduce_fmul ||
-		id == Intrinsic::vector_reduce_fadd);
-}
-
 PreservedAnalyses SIMDTransformPass::run(Function& F, FunctionAnalysisManager& FAM)
 {
 	extractInsertAlloca = nullptr;
@@ -299,8 +354,8 @@ PreservedAnalyses SIMDTransformPass::run(Function& F, FunctionAnalysisManager& F
 			// instead use a store and a load.
 			if (isVariableExtractOrInsert(I))
 				needToBreak = lowerExtractOrInsert(I);
-			else if (isReduceIntrinsic(I))
-				needToBreak = lowerReduceIntrinsic(I);
+			else if (isa<IntrinsicInst>(I))
+				needToBreak = lowerIntrinsic(I);
 			else if ((I.getOpcode() == Instruction::Shl || I.getOpcode() == Instruction::AShr ||
 					I.getOpcode() == Instruction::LShr) && I.getType()->isVectorTy())
 				needToBreak = lowerBitShift(I);

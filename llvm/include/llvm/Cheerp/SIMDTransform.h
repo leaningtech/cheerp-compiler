@@ -14,6 +14,7 @@
 
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/IntrinsicInst.h"
 
 namespace cheerp{
 
@@ -23,13 +24,13 @@ class SIMDTransformPass : public llvm::PassInfoMixin<SIMDTransformPass> {
 private:
 	void checkVectorCorrectness(llvm::Instruction& I);
 	bool lowerExtractOrInsert(llvm::Instruction& I);
-	bool lowerReduceIntrinsic(llvm::Instruction& I);
+	bool lowerReduceIntrinsic(llvm::IntrinsicInst& I);
+	bool lowerIntrinsic(llvm::Instruction& I);
 	bool lowerBitShift(llvm::Instruction& I);
 	bool lowerSplat(llvm::Instruction& I);
 	bool lowerGeneralUnsupportedVectorOperation(llvm::Instruction& I);
 	bool lowerVectorBooleanBitcast(Instruction& I);
 	bool isVariableExtractOrInsert(llvm::Instruction& I);
-	bool isReduceIntrinsic(llvm::Instruction& I);
 	std::vector<llvm::Instruction*> deleteList;
 	AllocaInst* extractInsertAlloca;
 public:
