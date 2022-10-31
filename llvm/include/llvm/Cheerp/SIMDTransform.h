@@ -25,6 +25,8 @@ private:
 	void checkVectorCorrectness(llvm::Instruction& I);
 	bool lowerExtractOrInsert(llvm::Instruction& I);
 	bool lowerReduceIntrinsic(llvm::IntrinsicInst& I);
+	bool lowerBinaryIntrinsic(llvm::IntrinsicInst& I);
+	bool lowerUnaryIntrinsic(llvm::IntrinsicInst& I);
 	bool lowerIntrinsic(llvm::Instruction& I);
 	bool lowerBitShift(llvm::Instruction& I);
 	bool lowerSplat(llvm::Instruction& I);

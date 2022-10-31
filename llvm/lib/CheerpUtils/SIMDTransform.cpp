@@ -159,8 +159,58 @@ bool SIMDTransformPass::lowerReduceIntrinsic(IntrinsicInst& I)
 	return false;
 }
 
+bool SIMDTransformPass::lowerBinaryIntrinsic(IntrinsicInst& I)
+{
+	// Lower this to extract elements on both input vectors.
+	// Then do the intrinsic on the individual elements.
+	// Then insert element into a result vector.
+	Intrinsic::ID id = I.getIntrinsicID();
+	const FixedVectorType* vecType = cast<FixedVectorType>(I.getType());
+	Type* elType = vecType->getElementType();
+	const unsigned amount = vecType->getNumElements();
+	IRBuilder<> Builder(&I);
+	std::vector<Type *> argTypes = { elType };
+	Function* intrinsic = Intrinsic::getDeclaration(I.getModule(), id, argTypes);
+	Value* newVector = UndefValue::get(I.getType());
+	for (unsigned i = 0; i < amount; i++)
+	{
+		Value* extract1 = Builder.CreateExtractElement(I.getOperand(0), i);
+		Value* extract2 = Builder.CreateExtractElement(I.getOperand(1), i);
+		Value* call = Builder.CreateCall(intrinsic, {extract1, extract2});
+		newVector = Builder.CreateInsertElement(newVector, call, i);
+	}
+	I.replaceAllUsesWith(newVector);
+	deleteList.push_back(&I);
+	return false;
+}
+
+bool SIMDTransformPass::lowerUnaryIntrinsic(IntrinsicInst& I)
+{
+	// Lower this to extract every element, do the intrinsic on
+	// the individual elements, and insert into a result vector.
+	Intrinsic::ID id = I.getIntrinsicID();
+	const FixedVectorType* vecType = cast<FixedVectorType>(I.getType());
+	Type* elType = vecType->getElementType();
+	const unsigned amount = vecType->getNumElements();
+	IRBuilder<> Builder(&I);
+	std::vector<Type *> argTypes = { elType };
+	Function* intrinsic = Intrinsic::getDeclaration(I.getModule(), id, argTypes);
+	Value* newVector = UndefValue::get(I.getType());
+	for (unsigned i = 0; i < amount; i++)
+	{
+		Value* extract = Builder.CreateExtractElement(I.getOperand(0), i);
+		Value* call = Builder.CreateCall(intrinsic, {extract});
+		newVector = Builder.CreateInsertElement(newVector, call, i);
+	}
+	I.replaceAllUsesWith(newVector);
+	deleteList.push_back(&I);
+	return false;
+}
+
 bool SIMDTransformPass::lowerIntrinsic(Instruction& I)
 {
+	// This function will pick up on intrinsics that are not supported
+	// by Wasm SIMD and lower them.
 	IntrinsicInst& ii = cast<IntrinsicInst>(I);
 	switch (ii.getIntrinsicID())
 	{
@@ -178,6 +228,34 @@ bool SIMDTransformPass::lowerIntrinsic(Instruction& I)
 		case Intrinsic::vector_reduce_fmax:
 		case Intrinsic::vector_reduce_fmin:
 			return lowerReduceIntrinsic(ii);
+		case Intrinsic::smax:
+		case Intrinsic::smin:
+		case Intrinsic::umax:
+		case Intrinsic::umin:
+		{
+			// Max and min intrinsics are not supported for i64x2 vectors.
+			if (!ii.getType()->isVectorTy())
+				return false;
+			const FixedVectorType* vecType = cast<FixedVectorType>(ii.getType());
+			if (!vecType->getElementType()->isIntegerTy(64))
+				return false;
+			return lowerBinaryIntrinsic(ii);
+		}
+		case Intrinsic::pow:
+		case Intrinsic::copysign:
+			if (!ii.getType()->isVectorTy())
+				return false;
+			return lowerBinaryIntrinsic(ii);
+		case Intrinsic::sin:
+		case Intrinsic::cos:
+		case Intrinsic::exp:
+		case Intrinsic::exp2:
+		case Intrinsic::log:
+		case Intrinsic::log10:
+		case Intrinsic::log2:
+			if (!ii.getType()->isVectorTy())
+				return false;
+			return lowerUnaryIntrinsic(ii);
 	}
 	return false;
 }
