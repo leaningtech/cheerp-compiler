@@ -736,8 +736,9 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 
 	VectorParts visit(Instruction& I)
 	{
-		if (cache.count(&I))
-			return VectorParts();
+		auto it = cache.find(&I);
+		if (it != cache.end())
+			return it->second;
 
 		VectorParts ret = InstVisitor::visit(I);
 		if (!ret.isNull())
