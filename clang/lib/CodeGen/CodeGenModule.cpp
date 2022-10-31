@@ -6336,6 +6336,20 @@ void CodeGenModule::EmitTopLevelDecl(Decl *D) {
     for (auto *I : CRD->decls())
       if (isa<VarDecl>(I) || isa<CXXRecordDecl>(I))
         EmitTopLevelDecl(I);
+    // Add special JsExported delete/new as deferred
+    if (CRD->hasAttr<JsExportAttr>()) {
+      for (auto *I : CRD->decls()) {
+        if (!I->hasAttr<JsExportAttr>())
+          continue;
+	if (CXXMethodDecl* method = dyn_cast<CXXMethodDecl>(I)) {
+          if (!isa<CXXConstructorDecl>(I) && !isa<CXXDestructorDecl>(I)) {
+	    // Here we are interessed in Emitting free and delete helper methods
+	    // but adding other JSExported methods (that will already be in the queue) will do no harm
+	    EmitTopLevelDecl(I);
+          }
+        }
+      }
+    }
     break;
   }
     // No code generation needed.
