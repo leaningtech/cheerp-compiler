@@ -593,7 +593,31 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 		return result;
 	}
 
-	VectorParts lowerMinMaxIntrinsic(IntrinsicInst& I)
+	VectorParts lowerAbsIntrinsic(IntrinsicInst& I)
+	{
+		if (!shouldLower(I.getType()))
+			return VectorParts();
+
+		const FixedVectorType* vecType = cast<FixedVectorType>(I.getType());
+		const unsigned num = vecType->getNumElements();
+		IRBuilder<> Builder(&I);
+		VectorParts v = visitValue(I.getOperand(0));
+		Value* isIntMinPoison = I.getOperand(1);
+
+		VectorParts result;
+		std::vector<Type *> argTypes = { vecType->getElementType() };
+		Function* intrinsic = Intrinsic::getDeclaration(I.getModule(), I.getIntrinsicID(), argTypes);
+		for (unsigned i = 0; i < num; i++)
+		{
+			CallInst* call = Builder.CreateCall(intrinsic, {v.values[i], isIntMinPoison});
+			result.values.push_back(call);
+		}
+		toDelete.push_back(&I);
+		changed = true;
+		return result;
+	}
+
+	VectorParts lowerBinaryOpIntrinsic(IntrinsicInst& I)
 	{
 		if (!shouldLower(I.getType()))
 			return VectorParts();
@@ -617,36 +641,86 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 		return result;
 	}
 
+	VectorParts lowerUnaryOpIntrinsic(IntrinsicInst& I)
+	{
+		if (!shouldLower(I.getType()))
+			return VectorParts();
+
+		const FixedVectorType* vecType = cast<FixedVectorType>(I.getType());
+		const unsigned num = vecType->getNumElements();
+		IRBuilder<> Builder(&I);
+		VectorParts v = visitValue(I.getOperand(0));
+
+		VectorParts result;
+		std::vector<Type *> argTypes = { vecType->getElementType() };
+		Function* intrinsic = Intrinsic::getDeclaration(I.getModule(), I.getIntrinsicID(), argTypes);
+		for (unsigned i = 0; i < num; i++)
+		{
+			CallInst* call = Builder.CreateCall(intrinsic, {v.values[i]});
+			result.values.push_back(call);
+		}
+		toDelete.push_back(&I);
+		changed = true;
+		return result;
+	}
+
 	VectorParts visitIntrinsicInst(IntrinsicInst& I)
 	{
 		// Here we are looking for a few specific intrinsics.
 		Intrinsic::ID id = I.getIntrinsicID();
-		if (id == Intrinsic::vector_reduce_mul ||
-			id == Intrinsic::vector_reduce_add ||
-			id == Intrinsic::vector_reduce_fmul ||
-			id == Intrinsic::vector_reduce_fadd ||
-			id == Intrinsic::vector_reduce_and ||
-			id == Intrinsic::vector_reduce_or ||
-			id == Intrinsic::vector_reduce_xor ||
-			id == Intrinsic::vector_reduce_smin ||
-			id == Intrinsic::vector_reduce_smax ||
-			id == Intrinsic::vector_reduce_umin ||
-			id == Intrinsic::vector_reduce_umax ||
-			id == Intrinsic::vector_reduce_fmin ||
-			id == Intrinsic::vector_reduce_fmax)
-			llvm::report_fatal_error("Reduce intrinsics should have been removed in the SIMDTransformPass.");
-		if (id == Intrinsic::cheerp_wasm_splat)
-			return lowerSplatIntrinsic(I);
-		if (id == Intrinsic::cheerp_wasm_shl ||
-			id == Intrinsic::cheerp_wasm_shr_s ||
-			id == Intrinsic::cheerp_wasm_shr_u)
-			return lowerShiftIntrinsic(I);
-		if (id == Intrinsic::umax ||
-			id == Intrinsic::umin ||
-			id == Intrinsic::smax ||
-			id == Intrinsic::smin)
-			return lowerMinMaxIntrinsic(I);
-
+		switch(id)
+		{
+			case Intrinsic::vector_reduce_mul:
+			case Intrinsic::vector_reduce_add:
+			case Intrinsic::vector_reduce_fmul:
+			case Intrinsic::vector_reduce_fadd:
+			case Intrinsic::vector_reduce_and:
+			case Intrinsic::vector_reduce_or:
+			case Intrinsic::vector_reduce_xor:
+			case Intrinsic::vector_reduce_smin:
+			case Intrinsic::vector_reduce_smax:
+			case Intrinsic::vector_reduce_umin:
+			case Intrinsic::vector_reduce_umax:
+			case Intrinsic::vector_reduce_fmin:
+			case Intrinsic::vector_reduce_fmax:
+				llvm::report_fatal_error("Reduce intrinsics should have been removed in the SIMDTransformPass.");
+			case Intrinsic::cheerp_wasm_splat:
+				return lowerSplatIntrinsic(I);
+			case Intrinsic::cheerp_wasm_shl:
+			case Intrinsic::cheerp_wasm_shr_s:
+			case Intrinsic::cheerp_wasm_shr_u:
+				return lowerShiftIntrinsic(I);
+			case Intrinsic::abs:
+				return lowerAbsIntrinsic(I);
+			case Intrinsic::umax:
+			case Intrinsic::umin:
+			case Intrinsic::smax:
+			case Intrinsic::smin:
+			case Intrinsic::pow:
+			case Intrinsic::minnum:
+			case Intrinsic::maxnum:
+			case Intrinsic::minimum:
+			case Intrinsic::maximum:
+			case Intrinsic::copysign:
+				return lowerBinaryOpIntrinsic(I);
+			case Intrinsic::sqrt:
+			case Intrinsic::sin:
+			case Intrinsic::cos:
+			case Intrinsic::exp:
+			case Intrinsic::exp2:
+			case Intrinsic::log:
+			case Intrinsic::log10:
+			case Intrinsic::log2:
+			case Intrinsic::fabs:
+			case Intrinsic::floor:
+			case Intrinsic::ceil:
+			case Intrinsic::trunc:
+			case Intrinsic::rint:
+			case Intrinsic::nearbyint:
+			case Intrinsic::round:
+			case Intrinsic::roundeven:
+				return lowerUnaryOpIntrinsic(I);
+		}
 		return VectorParts();
 	}
 
