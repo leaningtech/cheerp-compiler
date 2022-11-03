@@ -13400,8 +13400,8 @@ private:
   bool SemaValueIsRunOfOnes(CallExpr *TheCall, unsigned ArgNum);
 
   void CheckCheerpAttributesConsistency(NamedDecl* New, NamedDecl* Old, bool newIsDefinition);
-  // CHEERP: Inject asmjs/genericjs attribute if required
-  void MaybeInjectCheerpModeAttr(Decl* D);
+  // CHEERP: Inject asmjs/genericjs attribute if required, optionally using inheritFrom's one
+  void MaybeInjectCheerpModeAttr(Decl* D, const Decl* inheritFrom = nullptr);
 public:
   // Used by C++ template instantiation.
   ExprResult SemaBuiltinShuffleVector(CallExpr *TheCall);

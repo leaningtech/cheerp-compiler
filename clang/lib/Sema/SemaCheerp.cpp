@@ -764,6 +764,12 @@ bool cheerp::shouldBeJsExported(const clang::Decl *D, const bool isMethod)
 
 cheerp::CheerpAttributeToAdd cheerp::getCheerpAttributeToAdd(const clang::Decl*& decl, clang::ASTContext& Context)
 {
+	// If already present, return the current decl's attribute
+	if (decl->hasAttr<clang::AsmJSAttr>())
+		return CheerpAttributeToAdd::AsmJSLike;
+	else if (decl->hasAttr<clang::GenericJSAttr>())
+		return CheerpAttributeToAdd::GenericJS;
+
 	// Inherit from context (possibly walking up in the tree until a DeclContext is tagged or no DeclContext exists)
 	while (const clang::DeclContext* ctx = decl->getDeclContext())
 	{
