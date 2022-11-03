@@ -3033,11 +3033,10 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			compileOperand(code, svi.getOperand(0));
 			compileOperand(code, svi.getOperand(1));
 			encodeInst(WasmSIMDOpcode::I8x16_SHUFFLE, code);
-			const Type* elementType = svi.getOperand(0)->getType();
-			int bits = elementType->getScalarSizeInBits();
-			int elements = 128 / bits;
-			int scaleFactor = 16 / elements;
-			for (int i = 0; i < elements; i++)
+			const FixedVectorType* vecType = cast<FixedVectorType>(svi.getOperand(0)->getType());
+			int numElements = vecType->getNumElements();
+			int scaleFactor = 16 / numElements;
+			for (int i = 0; i < numElements; i++)
 			{
 				for (int j = 0; j < scaleFactor; j++)
 				{
