@@ -677,7 +677,7 @@ void CheerpWasmWriter::encodeReplaceLane(WasmBuffer& code, const llvm::InsertEle
 	uint64_t index = (dyn_cast<ConstantInt>(iei.getOperand(2)))->getZExtValue();
 	compileOperand(code, iei.getOperand(0));
 	compileOperand(code, iei.getOperand(1));
-	if (elementType->isIntegerTy(32))
+	if (elementType->isIntegerTy(32) || elementType->isPointerTy())
 		encodeInst(WasmSIMDU32Opcode::I32x4_REPLACE_LANE, index, code);
 	else if (elementType->isIntegerTy(64))
 		encodeInst(WasmSIMDU32Opcode::I64x2_REPLACE_LANE, index, code);
@@ -737,7 +737,7 @@ void CheerpWasmWriter::encodePredicate(const llvm::Type* ty, const llvm::CmpInst
 				encodeInst(WasmOpcode::I64_##name, code); \
 			else if (ty->isVectorTy()) \
 			{ \
-				if (elementType->isIntegerTy(32)) \
+				if (elementType->isIntegerTy(32) || elementType->isPointerTy()) \
 					encodeInst(WasmSIMDOpcode::I32x4_##name, code); \
 				else if (elementType->isIntegerTy(8))\
 					encodeInst(WasmSIMDOpcode::I8x16_##name, code); \
@@ -804,19 +804,18 @@ void CheerpWasmWriter::encodeLoad(const llvm::Type* ty, uint32_t offset,
 		{
 			assert(isa<FixedVectorType>(ty));
 			const FixedVectorType* vecTy = cast<FixedVectorType>(ty);
-			const unsigned elements = vecTy->getNumElements();
-			const unsigned elSize = vecTy->getScalarSizeInBits();
-			const unsigned total = elements * elSize;
-			if (total == 128)
+			const unsigned vectorBitwidth = getVectorBitwidth(vecTy);
+			if (vectorBitwidth == 128)
 				encodeInst(WasmSIMDU32U32Opcode::V128_LOAD, 0x2, offset, code);
 			else
 			{
-				assert(total == 64);
-				if (elSize == 8)
+				assert(vectorBitwidth == 64);
+				const unsigned elementSize = vecTy->getScalarSizeInBits();
+				if (elementSize == 8)
 					encodeInst(signExtend ? WasmSIMDU32U32Opcode::V128_LOAD8x8_S : WasmSIMDU32U32Opcode::V128_LOAD8x8_U, 0x2, offset, code);
-				else if (elSize == 16)
+				else if (elementSize == 16)
 					encodeInst(signExtend ? WasmSIMDU32U32Opcode::V128_LOAD16x4_S : WasmSIMDU32U32Opcode::V128_LOAD16x4_U, 0x2, offset, code);
-				else if (elSize == 32)
+				else if (elementSize == 32)
 					encodeInst(signExtend ? WasmSIMDU32U32Opcode::V128_LOAD32x2_S : WasmSIMDU32U32Opcode::V128_LOAD32x2_U, 0x2, offset, code);
 				else
 					llvm::report_fatal_error("unknown vector load bitwidth");
@@ -1282,7 +1281,7 @@ void CheerpWasmWriter::compileConstant(WasmBuffer& code, const Constant* c, bool
 		const Type* elementType = vectorType->getElementType();
 		Constant* createdVector;
 		const unsigned num = vectorType->getNumElements();
-		assert(elementType->isIntegerTy());
+		assert(elementType->isIntegerTy() || elementType->isPointerTy());
 		if (num == 4)
 		{
 			std::vector<uint32_t> values;
@@ -2353,7 +2352,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 							encodeInst(WasmSIMDOpcode::I8x16_SPLAT, code);
 						else if (ty->isIntegerTy(16))
 							encodeInst(WasmSIMDOpcode::I16x8_SPLAT, code);
-						else if (ty->isIntegerTy(32))
+						else if (ty->isIntegerTy(32) || ty->isPointerTy())
 							encodeInst(WasmSIMDOpcode::I32x4_SPLAT, code);
 						else if (ty->isIntegerTy(64))
 							encodeInst(WasmSIMDOpcode::I64x2_SPLAT, code);

@@ -27,7 +27,7 @@ void SIMDTransformPass::checkVectorCorrectness(Instruction& I)
 {
 	assert(isa<FixedVectorType>(I.getType()));
 	const FixedVectorType* vecTy = cast<FixedVectorType>(I.getType());
-	const unsigned vectorBitwidth = vecTy->getNumElements() * vecTy->getScalarSizeInBits();
+	const unsigned vectorBitwidth = getVectorBitwidth(vecTy);
 	if (vectorBitwidth != 128)
 	{
 		// Verify that 64 is produced by a load, and only used to extend.
