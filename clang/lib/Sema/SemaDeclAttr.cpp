@@ -9239,7 +9239,7 @@ void Sema::ProcessPragmaWeak(Scope *S, Decl *D) {
   }
 }
 
-void Sema::MaybeInjectCheerpModeAttr(Decl* D) {
+void Sema::MaybeInjectCheerpModeAttr(Decl* D, const Decl* inheritFrom) {
   // We inject the attributes only for the cheerp target
   if (Context.getTargetInfo().isByteAddressable())
     return;
@@ -9250,7 +9250,7 @@ void Sema::MaybeInjectCheerpModeAttr(Decl* D) {
   if (D->hasAttr<AsmJSAttr>() || D->hasAttr<GenericJSAttr>())
     return;
 
-  const Decl* referenceDecl = D;
+  const Decl* referenceDecl = inheritFrom ? inheritFrom : D;
   const auto attributeToAdd = cheerp::getCheerpAttributeToAdd(referenceDecl, Context);
 
   if (attributeToAdd == cheerp::CheerpAttributeToAdd::AsmJSLike) {
