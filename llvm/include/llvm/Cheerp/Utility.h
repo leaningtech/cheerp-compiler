@@ -893,6 +893,8 @@ struct PairHash
 		}
 };
 
+unsigned getVectorBitwidth(const llvm::FixedVectorType* vecType);
+
 }
 
 #endif //_CHEERP_UTILITY_H

@@ -1376,4 +1376,15 @@ void setForceRawAttribute(Module& M, Function* Wrapper)
 	Wrapper->setAttributes(Attrs);
 }
 
+unsigned getVectorBitwidth(const FixedVectorType* vecType)
+{
+	unsigned elementSize;
+	if (vecType->getElementType()->isPointerTy())
+		elementSize = 32;
+	else
+		elementSize = vecType->getScalarSizeInBits();
+	const unsigned vectorBitwidth = vecType->getNumElements() * elementSize;
+	return vectorBitwidth;
+}
+
 }
