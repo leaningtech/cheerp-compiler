@@ -12,6 +12,7 @@
 #include "llvm/Cheerp/SIMDLowering.h"
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
 #include "llvm/Cheerp/LinearMemoryHelper.h"
+#include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/IR/IRBuilder.h"
 
@@ -59,8 +60,8 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 		if (!type->isVectorTy())
 			return false;
 		const FixedVectorType* vecType = cast<FixedVectorType>(type);
-		const unsigned vectorSize = vecType->getNumElements() * vecType->getScalarSizeInBits();
-		if (vectorSize == 128 && !lowerAll)
+		const unsigned vectorBitwidth = cheerp::getVectorBitwidth(vecType);
+		if (vectorBitwidth == 128 && !lowerAll)
 			return false;
 		if (vecType->getScalarSizeInBits() == 1 && !lowerAll)
 			return false;
@@ -233,10 +234,10 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 		// because they are not (currently) supported by the Wasm SIMD instructions.
 		const FixedVectorType* destType = cast<FixedVectorType>(I.getDestTy());
 		const unsigned amount = destType->getNumElements();
-		const unsigned destWidth = amount * destType->getScalarSizeInBits();
+		const unsigned destWidth = cheerp::getVectorBitwidth(destType);
 		Type* newType = destType->getElementType();
 		const FixedVectorType* srcType = cast<FixedVectorType>(I.getSrcTy());
-		const unsigned srcWidth = amount * srcType->getScalarSizeInBits();
+		const unsigned srcWidth = cheerp::getVectorBitwidth(srcType);
 		IRBuilder<> Builder(&I);
 
 		if (destWidth == 128)
@@ -493,7 +494,8 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 		const FixedVectorType* vecType = cast<FixedVectorType>(I.getType());
 		const unsigned num = vecType->getNumElements();
 		const FixedVectorType* vecOp = cast<FixedVectorType>(I.getOperand(0)->getType());
-		if (!lowerAll && (num * vecOp->getScalarSizeInBits() == 128))
+		const unsigned vectorBitwidth = cheerp::getVectorBitwidth(vecOp);
+		if (!lowerAll && vectorBitwidth == 128)
 			return VectorParts();
 
 		IRBuilder<> Builder(&I);
