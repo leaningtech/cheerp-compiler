@@ -35,6 +35,47 @@ bool ConstantExprLowering::runOnFunction(Function& F, bool& hasI64, const Target
 
 	std::set<ConstantExpr*> visitedCE;
 	std::deque<ConstantExpr*> toBeInstructionized;
+	auto recursivelyVisitOperands = [&visitedCE, &toBeInstructionized](ConstantExpr* CE)
+	{
+		std::deque<ConstantExpr*> workList;
+
+		if (visitedCE.insert(CE).second)
+			workList.push_back(CE);
+
+		for (uint32_t i=0; i<workList.size(); i++)
+		{
+			ConstantExpr* CE = workList[i];
+			for (const Use &NewU : CE->operands())
+			{
+				// Recursively visit the ConstantExpr's operands. If we have already visited
+				// a ConstantExpr, we don't have to process it again.
+				if (auto *NewCE = dyn_cast<ConstantExpr>(&NewU))
+				{
+					if (visitedCE.insert(NewCE).second)
+						workList.push_back(NewCE);
+				}
+				// Do the same for the vectors of ConstantExpr
+				else if (ConstantVector* CV = dyn_cast<ConstantVector>(&NewU))
+				{
+					const unsigned num = CV->getType()->getNumElements();
+					for (unsigned i = 0; i < num; i++)
+					{
+						Constant* element = CV->getAggregateElement(i);
+						if (ConstantExpr* CVE = dyn_cast<ConstantExpr>(element))
+						{
+							if (visitedCE.insert(CVE).second)
+								workList.push_back(CVE);
+						}
+					}
+				}
+			}
+		}
+		std::reverse(workList.begin(), workList.end());
+
+		for (ConstantExpr* CE : workList)
+			toBeInstructionized.push_back(CE);
+	};
+	Instruction* insertionPoint = F.getEntryBlock().getFirstNonPHI();
 
 	// 1. Iterate on instructions, collecting referenced ConstantExpr
 	for (Instruction& I : instructions(F))
@@ -42,30 +83,17 @@ bool ConstantExprLowering::runOnFunction(Function& F, bool& hasI64, const Target
 		for (auto& O: I.operands())
 		{
 			if (ConstantExpr* CE = dyn_cast<ConstantExpr>(O.get()))
+				recursivelyVisitOperands(CE);
+			// If this is a vector of ConstantExpr, loop over it and add the ConstExpr's
+			else if (ConstantVector* CV = dyn_cast<ConstantVector>(O.get()))
 			{
-				std::deque<ConstantExpr*> workList;
-
-				if (visitedCE.insert(CE).second)
-					workList.push_back(CE);
-
-				for (uint32_t i=0; i<workList.size(); i++)
+				const unsigned num = CV->getType()->getNumElements();
+				for (unsigned i = 0; i < num; i++)
 				{
-					ConstantExpr* CE = workList[i];
-					for (const Use &NewU : CE->operands())
-					{
-						// Recursively visit the ConstantExpr's operands. If we have already visited
-						// a ConstantExpr, we don't have to process it again.
-						if (auto *NewCE = dyn_cast<ConstantExpr>(&NewU))
-						{
-							if (visitedCE.insert(NewCE).second)
-								workList.push_back(NewCE);
-						}
-					}
+					Constant* element = CV->getAggregateElement(i);
+					if (ConstantExpr* CE = dyn_cast<ConstantExpr>(element))
+						recursivelyVisitOperands(CE);
 				}
-				std::reverse(workList.begin(), workList.end());
-
-				for (ConstantExpr* CE : workList)
-					toBeInstructionized.push_back(CE);
 			}
 		}
 	}
@@ -80,7 +108,7 @@ bool ConstantExprLowering::runOnFunction(Function& F, bool& hasI64, const Target
 	for (ConstantExpr* CE : toBeInstructionized)
 	{
 		Instruction* Conv = CE->getAsInstruction();
-	        for (auto& O: Conv->operands())
+		for (auto& O: Conv->operands())
 		{
 			Value* NewC = O.get();
 			if (auto *GV = dyn_cast<GlobalVariable>(NewC))
@@ -118,6 +146,7 @@ bool ConstantExprLowering::runOnFunction(Function& F, bool& hasI64, const Target
 	}
 
 	// 4. Actually substitute any ConstantExpr operand with the mapped Instruction (that will be in the Function entry BB)
+	std::map<ConstantVector*, Value*> mapCVToValue;
 	for (Instruction& I : instructions(F))
 	{
 		if (isa<LandingPadInst>(I))
@@ -133,6 +162,56 @@ bool ConstantExprLowering::runOnFunction(Function& F, bool& hasI64, const Target
 			{
 				assert(mapCEToValue.count(CE));
 				O.set(mapCEToValue.at(CE));
+				Changed = true;
+			}
+			if (ConstantVector* CV = dyn_cast<ConstantVector>(O.get()))
+			{
+				auto it = mapCVToValue.find(CV);
+				if (it != mapCVToValue.end())
+				{
+					O.set(it->second);
+					Changed = true;
+					continue;
+				}
+				// First, collect the elements in a vector and keep track of whether we find a ConstantExpr in there.
+				SmallVector<Value *, 16> values;
+				bool vectorHasConstantExpr = false;
+				Value* currentElement;
+				const unsigned num = CV->getType()->getNumElements();
+				for (unsigned i = 0; i < num; i++)
+				{
+					currentElement = CV->getAggregateElement(i);
+					if (ConstantExpr* CEelement = dyn_cast<ConstantExpr>(currentElement))
+					{
+						// If the element is a ConstantExpr, replace it with the mapped value.
+						values.push_back(mapCEToValue.at(CEelement));
+						vectorHasConstantExpr = true;
+					}
+					else
+						values.push_back(currentElement);
+				}
+				if (!vectorHasConstantExpr)
+					continue;
+
+				IRBuilder<> Builder(insertionPoint);
+				Value* newVector;
+				if (Value* splatElement = CV->getSplatValue())
+				{
+					// If this is a splat vector, create with a splat.
+					std::vector<Type *> argTypes = {CV->getType(), splatElement->getType()};
+					ConstantExpr* CEelement = dyn_cast<ConstantExpr>(splatElement);
+					Function *splatIntrinsic = Intrinsic::getDeclaration(I.getModule(), Intrinsic::cheerp_wasm_splat, argTypes);
+					newVector = Builder.CreateCall(splatIntrinsic, {mapCEToValue.at(CEelement)});
+				}
+				else
+				{
+					// Otherwise, create the vector by inserting elements into an empty vector.
+					newVector = UndefValue::get(CV->getType());
+					for (unsigned i = 0; i < num; i++)
+						newVector = Builder.CreateInsertElement(newVector, values[i], i);
+				}
+				mapCVToValue[CV] = newVector;
+				O.set(newVector);
 				Changed = true;
 			}
 		}
