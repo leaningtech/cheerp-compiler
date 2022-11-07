@@ -2497,12 +2497,13 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			{
 				if (ci.getOperand(0)->getType()->isVectorTy())
 				{
-					if (calledFunc->getIntrinsicID() == Intrinsic::ctpop)
+					Intrinsic::ID id = calledFunc->getIntrinsicID();
+					if (id == Intrinsic::ctpop)
 					{
 						encodeInst(WasmSIMDOpcode::I8x16_POPCNT, code);
 						return false;
 					}
-					else if (calledFunc->getIntrinsicID() == Intrinsic::fabs)
+					else if (id == Intrinsic::fabs)
 					{
 						Type* et = cast<VectorType>(ci.getOperand(0)->getType())->getElementType();
 						assert(et->isFloatTy() || et->isDoubleTy());
@@ -2510,6 +2511,16 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 							encodeInst(WasmSIMDOpcode::F32x4_ABS, code);
 						else
 							encodeInst(WasmSIMDOpcode::F64x2_ABS, code);
+						return false;
+					}
+					else if (id == Intrinsic::sqrt)
+					{
+						Type* et = cast<FixedVectorType>(ci.getOperand(0)->getType())->getElementType();
+						assert(et->isFloatTy() || et->isDoubleTy());
+						if (et->isFloatTy())
+							encodeInst(WasmSIMDOpcode::F32x4_SQRT, code);
+						else
+							encodeInst(WasmSIMDOpcode::F64x2_SQRT, code);
 						return false;
 					}
 				}
