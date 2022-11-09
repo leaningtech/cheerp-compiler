@@ -327,7 +327,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 					}
 					if(II == Intrinsic::smin)
 					{
-						if (!llcPass)
+						if (!llcPass || ci->getOperand(0)->getType()->isVectorTy())
 							continue;
 
 						Value* A = ci->getOperand(0);
@@ -348,7 +348,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 					}
 					if(II == Intrinsic::smax)
 					{
-						if (!llcPass)
+						if (!llcPass || ci->getOperand(0)->getType()->isVectorTy())
 							continue;
 
 						Value* A = ci->getOperand(0);
@@ -369,7 +369,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 					}
 					if(II == Intrinsic::umin)
 					{
-						if (!llcPass)
+						if (!llcPass || ci->getOperand(0)->getType()->isVectorTy())
 							continue;
 
 						Value* A = ci->getOperand(0);
@@ -390,7 +390,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 					}
 					if(II == Intrinsic::umax)
 					{
-						if (!llcPass)
+						if (!llcPass || ci->getOperand(0)->getType()->isVectorTy())
 							continue;
 
 						Value* A = ci->getOperand(0);

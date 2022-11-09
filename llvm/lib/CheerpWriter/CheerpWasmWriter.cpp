@@ -2370,6 +2370,43 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						}
 						return false;
 					}
+					case Intrinsic::umax:
+					case Intrinsic::umin:
+					case Intrinsic::smax:
+					case Intrinsic::smin:
+					{
+						const FixedVectorType* vecType = cast<FixedVectorType>(ci.getOperand(0)->getType());
+						Type* ty = vecType->getElementType();
+						// These intrinsics are not supported for 64-bit integers.
+						assert(!ty->isIntegerTy(64));
+						compileOperand(code, ci.getOperand(0));
+						compileOperand(code, ci.getOperand(1));
+						switch (intrinsicId)
+						{
+#define MINMAX(Ty, name) \
+							case Intrinsic::Ty: \
+								if (ty->isIntegerTy(8)) \
+									encodeInst(WasmSIMDOpcode::I8x16_##name, code); \
+								else if (ty->isIntegerTy(16)) \
+									encodeInst(WasmSIMDOpcode::I16x8_##name, code);\
+								else \
+									encodeInst(WasmSIMDOpcode::I32x4_##name, code); \
+								break;
+							MINMAX(umax, MAX_U);
+							MINMAX(umin, MIN_U);
+							MINMAX(smax, MAX_S);
+							MINMAX(smin, MIN_S);
+#undef MINMAX
+							default:
+								llvm::report_fatal_error("This should be unreachable");
+						}
+						if (useTailCall)
+						{
+							encodeInst(WasmOpcode::RETURN, code);
+							return true;
+						}
+						return false;
+					}
 					case Intrinsic::ctlz:
 					case Intrinsic::cttz:
 					case Intrinsic::ctpop:
