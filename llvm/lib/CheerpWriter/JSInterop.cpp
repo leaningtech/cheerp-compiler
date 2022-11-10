@@ -76,12 +76,12 @@ static std::pair<std::string, std::string> buildArgumentsString(const llvm::Func
 
 		bool isRawPointer = false;
 		if (isWrapped)
+		{
 			if (TypeSupport::isRawPointer(it->getType(), F->getSection() == StringRef("asmjs")))
 				isRawPointer = true;
-
-
-		if (it->getType()->isPointerTy() && PA.getPointerKind(&(*it)) == RAW)
-			isRawPointer = true;
+			if (PA.getPointerKind(&(*it)) == RAW)
+				isRawPointer = true;
+		}
 
 		args_inner << aX << ",";
 		if(it->getType()->isPointerTy() && PA.getPointerKind(&(*it)) == SPLIT_REGULAR)
