@@ -713,8 +713,9 @@ std::vector<cheerp::CheerpWasmOpt> cheerp::getWasmFeatures(const Driver& D, cons
 {
   // Figure out which Wasm optional feature to enable/disable
   std::vector<CheerpWasmOpt> features;
-  // We enable memory growth/globalization/unaligned memory accesses by default
+  // We enable memory growth/simd/globalization/unaligned memory accesses by default
   features.push_back(GROWMEM);
+  features.push_back(SIMD);
   features.push_back(GLOBALIZATION);
   features.push_back(UNALIGNEDMEM);
   if(Arg* cheerpWasmEnable = Args.getLastArg(options::OPT_cheerp_wasm_enable_EQ)) {
