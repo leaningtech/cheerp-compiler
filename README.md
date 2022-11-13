@@ -31,7 +31,7 @@ This is only one of the components of Cheerp. Please see https://docs.leaningtec
 ### Build LLVM
 
 ```
-cmake -S llvm -B build -C llvm/CheerpCmakeConf.cmake -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_PROJECTS=clang -G Ninja
+cmake -S llvm -B build -C llvm/CheerpCmakeConf.cmake -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_PROJECTS=clang -DCLANG_ENABLE_OPAQUE_POINTERS=OFF -G Ninja
 ninja -C build
 ninja -C build install
 ```
