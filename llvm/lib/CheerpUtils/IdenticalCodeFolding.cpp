@@ -637,11 +637,46 @@ bool IdenticalCodeFolding::equivalentConstant(const llvm::Constant* A, const llv
 	{
 		if (!isa<ConstantVector>(A) || !isa<ConstantVector>(B))
 			return false;
-		for (unsigned i = 0; i < A->getNumOperands(); i++)
+		const ConstantVector* CVA = cast<ConstantVector>(A);
+		const ConstantVector* CVB = cast<ConstantVector>(B);
+		if (CVA->getType()->getNumElements() != CVB->getType()->getNumElements())
+			return false;
+		const unsigned amount = CVA->getType()->getNumElements();
+		for (unsigned i = 0; i < amount; i++)
 		{
-			if (!equivalentOperand(A->getOperand(i), B->getOperand(i)))
+			if (!equivalentOperand(A->getAggregateElement(i), B->getAggregateElement(i)))
 				return false;
 		}
+		return true;
+	}
+
+	if (isa<ConstantDataVector>(A) || isa<ConstantDataVector>(B))
+	{
+		if (!isa<ConstantDataVector>(A) || !isa<ConstantDataVector>(B))
+			return false;
+		const ConstantDataVector* CDVA = cast<ConstantDataVector>(A);
+		const ConstantDataVector* CDVB = cast<ConstantDataVector>(B);
+		if (CDVA->getType()->getNumElements() != CDVB->getType()->getNumElements())
+			return false;
+		const unsigned amount = CDVA->getType()->getNumElements();
+		for (unsigned i = 0; i < amount; i++)
+		{
+			if (!equivalentOperand(A->getAggregateElement(i), B->getAggregateElement(i)))
+				return false;
+		}
+		return true;
+	}
+
+	if (isa<ConstantAggregateZero>(A) || isa<ConstantAggregateZero>(B))
+	{
+		if (!isa<ConstantAggregateZero>(A) || !isa<ConstantAggregateZero>(B))
+			return false;
+		const ConstantAggregateZero* ZA = cast<ConstantAggregateZero>(A);
+		const ConstantAggregateZero* ZB = cast<ConstantAggregateZero>(B);
+		if (ZA->getElementCount() != ZB->getElementCount())
+			return false;
+		if (ZA->getElementValue(0u) != ZB->getElementValue(0u))
+			return false;
 		return true;
 	}
 
