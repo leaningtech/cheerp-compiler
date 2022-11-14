@@ -498,7 +498,7 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 				const uint32_t nextPaddedSize = padStruct(currentSize, alignmentInfo.second);
 
 				const uint32_t toAdd = originalPaddedSize - currentSize;
-				assert(toAdd < 8);
+				assert(toAdd < 32);
 
 				//Padding bytes are inserted only if adding them actually change the size
 				//eg. {i8, i32, i64} -> {i8, i32, padding?? ,[2 x i32]}
