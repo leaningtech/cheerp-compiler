@@ -5896,6 +5896,8 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                     options::OPT_fno_trigraphs);
   }
 
+  if (getToolChain().getArch() == llvm::Triple::cheerp)
+  {
   // Forward cheerp-linear-output argument
   if (Arg *CheerpLinearOutput = Args.getLastArg(options::OPT_cheerp_linear_output_EQ))
     CheerpLinearOutput->render(Args, CmdArgs);
@@ -5913,6 +5915,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (std::binary_search(wasmFeatures.begin(), wasmFeatures.end(), cheerp::SIMD)) {
     CmdArgs.push_back("-target-feature");
     CmdArgs.push_back("+simd128");
+  }
   }
 
   // GCC's behavior for -Wwrite-strings is a bit strange:
