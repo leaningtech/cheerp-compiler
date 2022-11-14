@@ -10535,12 +10535,12 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
                       NewFD->getType(), BuiltinType))
                 NewFD->addAttr(BuiltinAttr::CreateImplicit(Context, BuiltinID));
             }
+          } else if (Context.BuiltinInfo.isFullyTyped(BuiltinID)) {
+            // Make sure Cheerp fully typed builtins are marked as such
+            NewFD->addAttr(BuiltinAttr::CreateImplicit(Context, BuiltinID));
           }
         } else if (InStdNamespace && NewFD->isInStdNamespace() &&
                    isStdBuiltin(Context, NewFD, BuiltinID)) {
-          NewFD->addAttr(BuiltinAttr::CreateImplicit(Context, BuiltinID));
-        } else if (Context.BuiltinInfo.isFullyTyped(BuiltinID)) {
-          // Make sure Cheerp fully typed builtins are marked as such
           NewFD->addAttr(BuiltinAttr::CreateImplicit(Context, BuiltinID));
         }
       }

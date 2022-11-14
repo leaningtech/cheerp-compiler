@@ -182,7 +182,7 @@ public:
 
   /// Determines whether this builtin types are defined in the header as it is.
   bool isFullyTyped(unsigned ID) const {
-    return strchr(getRecord(ID).Attributes, 'T') != 0;
+    return strchr(getRecord(ID).Attributes, 'B') != 0;
   }
 
   /// Determines whether this builtin has custom typechecking.
