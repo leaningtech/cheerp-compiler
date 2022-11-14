@@ -311,6 +311,9 @@ bool SIMDTransformPass::lowerSplat(Instruction &I)
 	// We know this if we find a shufflevector instruction, that has a zero mask, and it's first operand
 	// is an insert element used only once, which inserts into the first element of a vector.
 	const ShuffleVectorInst& svi = cast<ShuffleVectorInst>(I);
+	const FixedVectorType* vecType = cast<FixedVectorType>(svi.getType());
+	if (getVectorBitwidth(vecType) != 128)
+		return false;
 	if (svi.isZeroEltSplat())
 	{
 		Value* firstOp = svi.getOperand(0);
