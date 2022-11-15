@@ -635,11 +635,13 @@ _LIBCPP_HIDDEN void __sort(_RandomAccessIterator __first, _RandomAccessIterator 
   std::__introsort<_AlgPolicy, _Compare>(__first, __last, __comp, __depth_limit);
 }
 
+#ifndef __CHEERP__
 template <class _Compare, class _Tp>
 inline _LIBCPP_INLINE_VISIBILITY void __sort(_Tp** __first, _Tp** __last, __less<_Tp*>&) {
   __less<uintptr_t> __comp;
   std::__sort<__less<uintptr_t>&, uintptr_t*>((uintptr_t*)__first, (uintptr_t*)__last, __comp);
 }
+#endif
 
 extern template _LIBCPP_FUNC_VIS void __sort<__less<char>&, char*>(char*, char*, __less<char>&);
 #ifndef _LIBCPP_HAS_NO_WIDE_CHARACTERS
