@@ -173,6 +173,11 @@ public:
 
     const void* __ptr_;
     void (*__format_)(basic_format_parse_context<_CharT>&, _Context&, const void*);
+#ifdef __CHEERP__
+  _LIBCPP_HIDE_FROM_ABI __handle() noexcept
+      : __ptr_(nullptr),
+        __format_(nullptr) {}
+#endif
   };
 
 #ifdef __CHEERP__
@@ -274,11 +279,6 @@ public:
       : __handle_(__handle) {}
 
 private:
-#ifdef __CHEERP__
-  _LIBCPP_HIDE_FROM_ABI handle() noexcept
-      : __ptr_(nullptr),
-        __format_(nullptr) {}
-#endif
 
   typename __basic_format_arg_value<_Context>::__handle& __handle_;
 };

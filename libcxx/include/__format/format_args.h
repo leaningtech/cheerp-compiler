@@ -63,7 +63,11 @@ private:
   // basic_format_args for small number of formatting arguments by storing
   // indices of type alternatives separately from values and packing the
   // former. - end note]
+#ifdef __CHEERP__
+  struct {
+#else
   union {
+#endif
     struct {
       const __basic_format_arg_value<_Context>* __values_;
       uint64_t __types_;
