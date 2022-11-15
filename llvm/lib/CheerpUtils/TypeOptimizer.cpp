@@ -1983,6 +1983,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 				case Instruction::Select:
 				case Instruction::LandingPad:
 				case Instruction::Resume:
+				case Instruction::Freeze:
 					break;
 			}
 			if(needsDefaultHandling && !I.getType()->isVoidTy() && !isI64ToRewrite(I.getType()))
