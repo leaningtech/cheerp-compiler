@@ -22,7 +22,6 @@ using namespace llvm;
 
 class SIMDTransformPass : public llvm::PassInfoMixin<SIMDTransformPass> {
 private:
-	void checkVectorCorrectness(llvm::Instruction& I);
 	bool lowerExtractOrInsert(llvm::Instruction& I);
 	bool lowerReduceIntrinsic(llvm::IntrinsicInst& I);
 	bool lowerBinaryIntrinsic(llvm::IntrinsicInst& I);
