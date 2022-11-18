@@ -409,6 +409,66 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 						ci->eraseFromParent();
 						continue;
 					}
+					if(II == Intrinsic::umul_with_overflow)
+					{
+						if (!llcPass)
+							continue;
+
+						Value* A = ci->getOperand(0);
+						Value* B = ci->getOperand(1);
+
+						assert(A->getType()->isIntegerTy());
+						Value* mul = BinaryOperator::CreateMul(A, B, "umul_with_overflow_mul", ci);
+						// To check for overflow:
+						// If A is zero there can be no overflow.
+						// If c divided by a is not equal to b, there was overflow.
+						Value* firstCondition = ICmpInst::Create(Instruction::ICmp, ICmpInst::ICMP_NE, A, Constant::getNullValue(A->getType()), "umul_with_overflow_check1", ci);
+						Value* CoverA = BinaryOperator::CreateUDiv(mul, A, "", ci);
+						Value* secondCondition = ICmpInst::Create(Instruction::ICmp, ICmpInst::ICMP_NE, CoverA, B, "umul_with_overflow_check2", ci);
+						Value* overflow = BinaryOperator::CreateAnd(firstCondition, secondCondition, "umul_with_overflow_overflow", ci);
+
+						SmallVector<Instruction*, 16> deleteList;
+						for (User* U: ci->users())
+						{
+							assert(isa<ExtractValueInst>(U) || isa<InsertValueInst>(U));
+							if (ExtractValueInst* EVI = dyn_cast<ExtractValueInst>(U))
+							{
+								ArrayRef<unsigned> indices = EVI->getIndices();
+								if (indices[0] == 0)
+									U->replaceAllUsesWith(mul);
+								else
+									U->replaceAllUsesWith(overflow);
+								deleteList.push_back(cast<Instruction>(EVI));
+							}
+							else if (InsertValueInst* IVI = dyn_cast<InsertValueInst>(U))
+							{
+								// Create an aggregate with the original value and the one being inserted.
+								ArrayRef<unsigned> indices = IVI->getIndices();
+								Value *newAggregate = UndefValue::get(IVI->getType());
+								if (indices[0] == 0)
+								{
+									newAggregate = InsertValueInst::Create(newAggregate, IVI->getInsertedValueOperand(), { 0 }, "", ci);
+									newAggregate = InsertValueInst::Create(newAggregate, overflow, { 1 }, "", ci);
+								}
+								else
+								{
+									newAggregate = InsertValueInst::Create(newAggregate, mul, { 0 }, "", ci);
+									newAggregate = InsertValueInst::Create(newAggregate, IVI->getInsertedValueOperand(), { 1 }, "", ci);
+								}
+								U->replaceAllUsesWith(newAggregate);
+								deleteList.push_back(cast<Instruction>(EVI));
+							}
+						}
+
+						for (Instruction* I: deleteList)
+							I->eraseFromParent();
+
+						//Set up loop variable, so the next loop will check and possibly expand newCall
+						--instructionIterator;
+						advance = false;
+
+						ci->eraseFromParent();
+					}
 
 					// Replace math intrinsics with C library calls if necessary
 					if(llcPass)
