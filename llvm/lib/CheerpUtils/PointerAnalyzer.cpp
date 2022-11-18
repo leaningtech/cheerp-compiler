@@ -397,6 +397,8 @@ struct PointerResolverForKindVisitor: public PointerResolverBaseVisitor<PointerK
 bool PointerUsageVisitor::visitRawChain( const Value * p)
 {
 	const Value * origP = p;
+	if (p->getType()->isVectorTy())
+		return true;
 	while(true)
 	{
 		if (TypeSupport::isAsmJSPointer(p->getType()))
@@ -500,7 +502,7 @@ bool PointerUsageVisitor::visitByteLayoutChain( const Value * p )
 
 PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, const Value* p, bool first)
 {
-	if (p->getType()->isPointerTy())
+	if (p->getType()->isPointerTy() || p->getType()->isVectorTy())
 	{
 		if (isa<ConstantPointerNull>(p) || isa<UndefValue>(p))
 		{
