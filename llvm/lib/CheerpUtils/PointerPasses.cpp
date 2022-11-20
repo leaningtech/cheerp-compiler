@@ -325,7 +325,7 @@ Value* PHIVisitor::rewrite(Instruction* I, Value* base)
 			newPHI->addIncoming(index, phi->getIncomingBlock(i));
 		}
 		Value* newOffset = newPHI;
-		if(Value* n= SimplifyInstruction(newPHI, I->getModule()->getDataLayout()))
+		if(Value* n = simplifyInstruction(newPHI, I->getModule()->getDataLayout()))
 		{
 			newOffset = n;
 			newPHI->replaceAllUsesWith(n);
