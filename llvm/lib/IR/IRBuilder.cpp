@@ -230,14 +230,6 @@ CallInst *IRBuilderBase::CreateElementUnorderedAtomicMemSet(
   if (NoAliasTag)
     CI->setMetadata(LLVMContext::MD_noalias, NoAliasTag);
 
-  if (cheerpInfo.isCheerp) {
-    Type* elementType = cheerpInfo.needsInt8PtrCast ? getInt8Ty() : cheerpInfo.elementType;
-    CI->addParamAttr(0, llvm::Attribute::get(CI->getContext(), llvm::Attribute::ElementType, elementType));
-
-    if (!Ops[0]->getType()->isOpaquePointerTy())
-      assert(elementType == Ops[0]->getType()->getNonOpaquePointerElementType());
-  }
-
   return CI;
 }
 
@@ -277,6 +269,14 @@ CallInst *IRBuilderBase::CreateMemTransferInst(
 
   if (NoAliasTag)
     CI->setMetadata(LLVMContext::MD_noalias, NoAliasTag);
+
+  if (cheerpInfo.isCheerp) {
+    Type* elementType = cheerpInfo.needsInt8PtrCast ? getInt8Ty() : cheerpInfo.elementType;
+    CI->addParamAttr(0, llvm::Attribute::get(CI->getContext(), llvm::Attribute::ElementType, elementType));
+
+    if (!Ops[0]->getType()->isOpaquePointerTy())
+      assert(elementType == Ops[0]->getType()->getNonOpaquePointerElementType());
+  }
 
   return CI;
 }
@@ -368,14 +368,6 @@ CallInst *IRBuilderBase::CreateElementUnorderedAtomicMemCpy(
   if (NoAliasTag)
     CI->setMetadata(LLVMContext::MD_noalias, NoAliasTag);
 
-  if (cheerpInfo.isCheerp) {
-    Type* elementType = cheerpInfo.needsInt8PtrCast ? getInt8Ty() : cheerpInfo.elementType;
-    CI->addParamAttr(0, llvm::Attribute::get(CI->getContext(), llvm::Attribute::ElementType, elementType));
-
-    if (!Ops[0]->getType()->isOpaquePointerTy())
-      assert(elementType == Ops[0]->getType()->getNonOpaquePointerElementType());
-  }
-
   return CI;
 }
 
@@ -412,6 +404,14 @@ CallInst *IRBuilderBase::CreateMemMove(Value *Dst, MaybeAlign DstAlign,
 
   if (NoAliasTag)
     CI->setMetadata(LLVMContext::MD_noalias, NoAliasTag);
+
+  if (cheerpInfo.isCheerp) {
+    Type* elementType = cheerpInfo.needsInt8PtrCast ? getInt8Ty() : cheerpInfo.elementType;
+    CI->addParamAttr(0, llvm::Attribute::get(CI->getContext(), llvm::Attribute::ElementType, elementType));
+
+    if (!Ops[0]->getType()->isOpaquePointerTy())
+      assert(elementType == Ops[0]->getType()->getNonOpaquePointerElementType());
+  }
 
   return CI;
 }
