@@ -152,12 +152,12 @@ static void ProcessLoadOrStoreAttrs(InstType *Dest, InstType *Src,
     report_fatal_error("Atomic struct loads/stores not supported");
   }
 
-  if (!Src->getAlignment()) {
+  if (!Src->getAlign().value()) {
     return;
   }
 
   const StructLayout *SL = DL->getStructLayout(STy);
-  const unsigned Alignment = Src->getAlignment();
+  const unsigned Alignment = Src->getAlign().value();
   Dest->setAlignment(Align(MinAlign(Alignment, SL->getElementOffset(Index))));
 }
 
@@ -172,11 +172,11 @@ static void ProcessArrayLoadOrStoreAttrs(InstType *Dest, InstType *Src,
     report_fatal_error("Atomic struct loads/stores not supported");
   }
 
-  if (!Src->getAlignment()) {
+  if (!Src->getAlign().value()) {
     return;
   }
 
-  const unsigned Alignment = Src->getAlignment();
+  const unsigned Alignment = Src->getAlign().value();
   Dest->setAlignment(Align(MinAlign(Alignment, Index * DL->getTypeSizeInBits(ATy->getElementType()))));
 }
 

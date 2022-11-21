@@ -176,7 +176,7 @@ void StoreMerging::processBlockOfStores(const uint32_t dim, std::vector<std::pai
 		if ((int)dim + groupedSamePointer[a].second != groupedSamePointer[b].second)
 			continue;
 
-		const uint32_t alignment = groupedSamePointer[a].first->getAlignment();
+		const uint32_t alignment = groupedSamePointer[a].first->getAlign().value();
 
 		if (!isWasm && alignment < dim * 2)
 			continue;
