@@ -3486,6 +3486,10 @@ const SCEV *ScalarEvolution::getURemExpr(const SCEV *LHS,
 /// possible.
 const SCEV *ScalarEvolution::getUDivExpr(const SCEV *LHS,
                                          const SCEV *RHS) {
+  if (isa<SCEVCouldNotCompute>(LHS))
+	  return LHS;
+  if (isa<SCEVCouldNotCompute>(RHS))
+	  return RHS;
   assert(!LHS->getType()->isPointerTy() &&
          "SCEVUDivExpr operand can't be pointer!");
   assert(LHS->getType() == RHS->getType() &&
