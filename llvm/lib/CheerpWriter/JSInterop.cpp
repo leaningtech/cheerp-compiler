@@ -39,7 +39,7 @@ uint32_t CheerpWriter::countJsParameters(const llvm::Function* F, bool isStatic)
 	return ret;
 }
 
-static std::pair<std::string, std::string> buildArgumentsString(const llvm::Function* F, bool isStatic, const PointerAnalyzer& PA, const std::map<const StructType*, StringRef>& toBeWrapped)
+static std::pair<std::string, std::string> buildArgumentsString(const llvm::Function* F, bool isStatic, const PointerAnalyzer& PA, const std::map<const StructType*, StringRef>& toBeWrapped, StringRef nameGenerated)
 {
 	// While code-generating JSExported functions we need to write something like:
 	// function someName(a0,a1,a2,a3,a4,a5) {
@@ -68,7 +68,10 @@ static std::pair<std::string, std::string> buildArgumentsString(const llvm::Func
 	{
 		std::ostringstream param;
 		param << "a" << ret;
+		++ret;
 		const std::string aX = param.str();
+		if (aX == nameGenerated)
+			continue;
 
 		bool isWrapped = false;
 		if (it->getType()->isPointerTy() && toBeWrapped.count(dyn_cast<StructType>(it->getType()->getPointerElementType())))
@@ -111,7 +114,6 @@ static std::pair<std::string, std::string> buildArgumentsString(const llvm::Func
 				args_outer << aX << ",";
 			}
 		}
-		++ret;
 		++it;
 	}
 
@@ -166,7 +168,7 @@ void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 
 	auto compileFunctionBody = [&](const Function * f, bool isStatic, const StructType* implicitThis) -> void
 	{
-		auto argumentsStrings = buildArgumentsString(f, isStatic, PA, jsexportedTypes);
+		auto argumentsStrings = buildArgumentsString(f, isStatic, PA, jsexportedTypes, namegen.getName(f));
 		stream << "function(" << argumentsStrings.first << "){" << NewLine;
 
 		const llvm::StructType* retType = nullptr;
@@ -302,7 +304,7 @@ void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 
 			const bool innerThisSplitReg = PA.getPointerKindForJSExportedType(const_cast<StructType*>(t)) == SPLIT_REGULAR;
 
-			const auto argumentsStrings = buildArgumentsString(newFunc, /*isStatic*/true, PA, jsexportedTypes);
+			const auto argumentsStrings = buildArgumentsString(newFunc, /*isStatic*/true, PA, jsexportedTypes, namegen.getName(newFunc));
 
 			stream << argumentsStrings.first << "){" << NewLine;
 
