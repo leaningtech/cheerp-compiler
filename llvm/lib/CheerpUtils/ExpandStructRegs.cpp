@@ -440,7 +440,7 @@ static bool ExpandExtractValue(ExtractValueInst *EV,
     } else if (Constant *C = dyn_cast<Constant>(StructVal)) {
       SmallVector<unsigned, 4> Indices(EV->getIndices().begin() + EVIndex,
                                        EV->getIndices().end());
-      ResultField = ConstantExpr::getExtractValue(C, Indices);
+      ResultField = ConstantFoldExtractValueInstruction(C, Indices);
       break;
     } else if (isa<LoadInst>(StructVal)) {
       ResultField = StructVal;
