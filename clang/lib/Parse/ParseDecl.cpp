@@ -3270,6 +3270,9 @@ void Parser::ParseDeclarationSpecifiers(
           if (PA.isTypeAttr() && PA.getKind() != ParsedAttr::AT_LifetimeBound &&
               PA.getKind() != ParsedAttr::AT_AnyX86NoCfCheck)
             continue;
+          if (PA.getKind() == ParsedAttr::AT_NoInit || PA.getKind() == ParsedAttr::AT_SafeCast ||
+		PA.getKind() == ParsedAttr::AT_GenericJS || PA.getKind() == ParsedAttr::AT_AsmJS || PA.getKind() == ParsedAttr::AT_JsExport)
+            continue;
           Diag(PA.getLoc(), diag::err_attribute_not_type_attr) << PA;
           PA.setInvalid();
         }

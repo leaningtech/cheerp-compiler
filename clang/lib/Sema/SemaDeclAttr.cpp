@@ -9639,7 +9639,6 @@ void Sema::ProcessDeclAttributes(Scope *S, Decl *D, const Declarator &PD) {
   if (!PD.getDeclSpec().getAttributes().empty()) {
     ProcessDeclAttributeList(S, D, PD.getDeclSpec().getAttributes(),
                              ProcessDeclAttributeOptions()
-                                 .WithIncludeCXX11Attributes(false)
                                  .WithIgnoreTypeAttributes(true));
   }
 
