@@ -1181,7 +1181,7 @@ _LIBCPP_BEGIN_NAMESPACE_STD _LIBCPP_END_NAMESPACE_STD
 #    define _LIBCPP_PACKED_BYTE_FOR_AIX_END /* empty */
 #  endif
 
-#  if __has_attribute(__packed__)
+#  if __has_attribute(__packed__) && !defined(__CHEERP__)
 #    define _LIBCPP_PACKED __attribute__((__packed__))
 #  else
 #    define _LIBCPP_PACKED
