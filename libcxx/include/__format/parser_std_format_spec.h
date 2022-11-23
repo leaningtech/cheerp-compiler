@@ -233,10 +233,14 @@ struct __parsed_specifications {
 
 // Validate the struct is small and cheap to copy since the struct is passed by
 // value in formatting functions.
+#ifndef __CHEERP__
 static_assert(sizeof(__parsed_specifications<char>) == 16);
+#endif
 static_assert(is_trivially_copyable_v<__parsed_specifications<char>>);
 #  ifndef _LIBCPP_HAS_NO_WIDE_CHARACTERS
+#ifndef __CHEERP__
 static_assert(sizeof(__parsed_specifications<wchar_t>) == 16);
+#endif
 static_assert(is_trivially_copyable_v<__parsed_specifications<wchar_t>>);
 #  endif
 
@@ -571,10 +575,12 @@ private:
 };
 
 // Validates whether the reserved bitfields don't change the size.
+#ifndef __CHEERP__
 static_assert(sizeof(__parser<char>) == 16);
 #  ifndef _LIBCPP_HAS_NO_WIDE_CHARACTERS
 static_assert(sizeof(__parser<wchar_t>) == 16);
 #  endif
+#endif
 
 _LIBCPP_HIDE_FROM_ABI constexpr void __process_display_type_string(__format_spec::__type __type) {
   switch (__type) {
