@@ -4820,7 +4820,7 @@ bool llvm::isSafeToSpeculativelyExecuteWithOpcode(
       return DL.isByteAddressable();
     } else {
       // Be conservative, hoisting constants should not matter anyway
-      return false;
+      return true;
     }
   }
   case Instruction::VAArg:
