@@ -337,6 +337,21 @@ llvm::MDNode *CodeGenTBAA::getBaseTypeInfoHelper(const Type *Ty) {
     const ASTRecordLayout &Layout = Context.getASTRecordLayout(RD);
     using TBAAStructField = llvm::MDBuilder::TBAAStructField;
     SmallVector<TBAAStructField, 4> Fields;
+    for (FieldDecl *Field : RD->fields()) {
+      if (Field->isZeroSize(Context) || Field->isUnnamedBitfield())
+        continue;
+      QualType FieldQTy = Field->getType();
+      llvm::MDNode *TypeNode = isValidBaseType(FieldQTy) ?
+          getBaseTypeInfo(FieldQTy) : getTypeInfo(FieldQTy);
+      if (!TypeNode)
+        return BaseTypeMetadataCache[Ty] = nullptr;
+
+      uint64_t BitOffset = Layout.getFieldOffset(Field->getFieldIndex());
+      uint64_t Offset = Context.toCharUnitsFromBits(BitOffset).getQuantity();
+      uint64_t Size = Context.getTypeSizeInChars(FieldQTy).getQuantity();
+      Fields.push_back(llvm::MDBuilder::TBAAStructField(Offset, Size,
+                                                        TypeNode));
+    }
     if (const CXXRecordDecl *CXXRD = dyn_cast<CXXRecordDecl>(RD)) {
       // Handle C++ base classes. Non-virtual bases can treated a kind of
       // field. Virtual bases are more complex and omitted, but avoid an
@@ -370,21 +385,6 @@ llvm::MDNode *CodeGenTBAA::getBaseTypeInfoHelper(const Type *Ty) {
                  [](const TBAAStructField &A, const TBAAStructField &B) {
                    return A.Offset < B.Offset;
                  });
-    }
-    for (FieldDecl *Field : RD->fields()) {
-      if (Field->isZeroSize(Context) || Field->isUnnamedBitfield())
-        continue;
-      QualType FieldQTy = Field->getType();
-      llvm::MDNode *TypeNode = isValidBaseType(FieldQTy) ?
-          getBaseTypeInfo(FieldQTy) : getTypeInfo(FieldQTy);
-      if (!TypeNode)
-        return BaseTypeMetadataCache[Ty] = nullptr;
-
-      uint64_t BitOffset = Layout.getFieldOffset(Field->getFieldIndex());
-      uint64_t Offset = Context.toCharUnitsFromBits(BitOffset).getQuantity();
-      uint64_t Size = Context.getTypeSizeInChars(FieldQTy).getQuantity();
-      Fields.push_back(llvm::MDBuilder::TBAAStructField(Offset, Size,
-                                                        TypeNode));
     }
 
     SmallString<256> OutName;
