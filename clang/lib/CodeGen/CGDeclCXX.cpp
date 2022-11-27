@@ -885,9 +885,9 @@ CodeGenModule::EmitCXXGlobalInitFunc() {
         FTy, llvm::Twine(InitFnName), FI, SourceLocation(), false,
         llvm::GlobalVariable::ExternalLinkage);
   } else if (!getTarget().isByteAddressable()) {
-    for (unsigned i = 0, e = CXXGlobalInits.size(); i != e; ++i)
-      if (CXXGlobalInits[i])
-        AddGlobalCtor(CXXGlobalInits[i]);
+    for (unsigned i = 0, e = ModuleInits.size(); i != e; ++i)
+      if (ModuleInits[i])
+        AddGlobalCtor(ModuleInits[i]);
   } else {
     Fn = CreateGlobalInitOrCleanUpFunction(
         FTy,
