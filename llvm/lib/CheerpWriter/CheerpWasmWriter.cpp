@@ -21,8 +21,9 @@
 #include "llvm/Cheerp/NameGenerator.h"
 #include "llvm/Cheerp/WasmWriter.h"
 #include "llvm/Cheerp/Writer.h"
-#include "llvm/IR/Type.h"
 #include "llvm/IR/IntrinsicsWebAssembly.h"
+#include "llvm/IR/ProfDataUtils.h"
+#include "llvm/IR/Type.h"
 #include "llvm/Support/LEB128.h"
 
 using namespace cheerp;
@@ -150,7 +151,7 @@ static BranchHint shouldBranchBeHinted(const llvm::BranchInst* bi, const bool If
 {
 	uint64_t weight_false = 0;
 	uint64_t weight_true = 0;
-	if (bi->extractProfMetadata(weight_true, weight_false))
+	if (extractBranchWeights(*bi, weight_true, weight_false))
 	{
 		if (IfNot)
 			std::swap(weight_false, weight_true);
