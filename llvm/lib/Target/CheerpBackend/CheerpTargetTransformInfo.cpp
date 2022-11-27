@@ -93,6 +93,12 @@ InstructionCost CheerpTTIImpl::getVectorInstrCost(unsigned Opcode,
   return Cost;
 }
 
+InstructionCost CheerpTTIImpl::getVectorInstrCost(const Instruction& I,
+                                                       Type *Val,
+                                                       unsigned Index) {
+  return getVectorInstrCost(I.getOpcode(), Val, Index);
+}
+
 bool CheerpTTIImpl::areInlineCompatible(const Function *Caller,
                                              const Function *Callee) const {
   // Allow inlining only when the Callee has a subset of the Caller's

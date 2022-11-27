@@ -48,6 +48,8 @@ public:
       const Instruction *CxtI = nullptr);
   InstructionCost getVectorInstrCost(unsigned Opcode, Type *Val,
                                      unsigned Index);
+  InstructionCost getVectorInstrCost(const Instruction& I, Type *Val,
+                                     unsigned Index);
 
   bool areInlineCompatible(const Function *Caller,
                            const Function *Callee) const;
