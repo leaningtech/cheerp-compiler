@@ -411,9 +411,46 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 
 	VectorParts visitGetElementPtrInst(GetElementPtrInst& I)
 	{
-		if (!I.getType()->isVectorTy())
+		if (!I.getType()->isVectorTy() && !(I.getType()->isPointerTy() && I.getType()->getPointerElementType()->isVectorTy()))
 			return VectorParts();
 
+		if (I.getType()->isPointerTy())
+		{
+			const FixedVectorType* vecType = cast<FixedVectorType>(I.getType()->getPointerElementType());
+			if (!lowerAll && cheerp::getVectorBitwidth(vecType) != 128)
+				return VectorParts();
+
+			// This is a pointer to a vector. We lower this to several GEPs to the first element.
+			const unsigned num = vecType->getNumElements();
+			Type* elementType = vecType->getElementType();
+			const unsigned elementByteSize = vecType->getScalarSizeInBits() / 8;
+			IRBuilder<> Builder(&I);
+			VectorParts result;
+			VectorParts v = visitValue(I.getPointerOperand());
+			Value *pointerOp = v.values[0];
+
+			for (unsigned i = 0; i < num; i++)
+			{
+				SmallVector<Value*, 4> indices;
+				for (auto it = I.idx_begin(); it != I.idx_end(); it++)
+				{
+					if (it == I.idx_end() - 1)
+					{
+						Value* add = Builder.CreateAdd(*it, ConstantInt::get(Int32Ty, elementByteSize * i));
+						indices.push_back(add);
+					}
+					else
+						indices.push_back(*it);
+				}
+				if (I.isInBounds())
+					result.values.push_back(Builder.CreateInBoundsGEP(elementType, pointerOp, indices));
+				else
+					result.values.push_back(Builder.CreateGEP(elementType, pointerOp, indices));
+			}
+			toDelete.push_back(&I);
+			changed = true;
+			return result;
+		}
 		const FixedVectorType* vecType = cast<FixedVectorType>(I.getType());
 		const unsigned num = vecType->getNumElements();
 		IRBuilder<> Builder(I.getNextNode());
