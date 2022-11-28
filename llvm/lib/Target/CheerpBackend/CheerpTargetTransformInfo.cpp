@@ -50,14 +50,14 @@ TypeSize CheerpTTIImpl::getRegisterBitWidth(
 
 InstructionCost CheerpTTIImpl::getArithmeticInstrCost(
     unsigned Opcode, Type *Ty, TTI::TargetCostKind CostKind,
-    TTI::OperandValueKind Opd1Info, TTI::OperandValueKind Opd2Info,
-    TTI::OperandValueProperties Opd1PropInfo,
-    TTI::OperandValueProperties Opd2PropInfo, ArrayRef<const Value *> Args,
+    TTI::OperandValueInfo Opd1Info,
+    TTI::OperandValueInfo Opd2Info,
+    ArrayRef<const Value *> Args,
     const Instruction *CxtI) {
 
   InstructionCost Cost =
       BasicTTIImplBase<CheerpTTIImpl>::getArithmeticInstrCost(
-          Opcode, Ty, CostKind, Opd1Info, Opd2Info, Opd1PropInfo, Opd2PropInfo);
+          Opcode, Ty, CostKind, Opd1Info, Opd2Info);
 
   if (auto *VTy = dyn_cast<VectorType>(Ty)) {
     switch (Opcode) {
@@ -67,8 +67,7 @@ InstructionCost CheerpTTIImpl::getArithmeticInstrCost(
       // SIMD128's shifts currently only accept a scalar shift count. For each
       // element, we'll need to extract, op, insert. The following is a rough
       // approxmation.
-      if (Opd2Info != TTI::OK_UniformValue &&
-          Opd2Info != TTI::OK_UniformConstantValue)
+      if (!Opd2Info.isUniform())
         Cost =
             cast<FixedVectorType>(VTy)->getNumElements() *
             (TargetTransformInfo::TCC_Basic +
