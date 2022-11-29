@@ -280,6 +280,34 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 						ci->eraseFromParent();
 						continue;
 					}
+					if(II == Intrinsic::cttz)
+					{
+						if (mathMode == WASM_BUILTINS)
+							continue;
+
+						Type* t = ci->getType();
+						Value* X = ci->getOperand(0);
+
+						Value* bitWidth = ConstantInt::get(t, t->isIntegerTy(32) ? 32 : 64);
+						Value* bitWidthMin1 = ConstantInt::get(t, t->isIntegerTy(32) ? 31 : 63);
+
+						Instruction* negateX = BinaryOperator::CreateSub(ConstantInt::get(t, 0), X, "cttz_neg", ci);
+						Instruction* andNegX = BinaryOperator::CreateAnd(X, negateX, "cttz_and", ci);
+						Instruction* ctlz = CallInst::Create(Intrinsic::getDeclaration(&module, Intrinsic::ctlz, {t}), {andNegX, ci->getOperand(1)}, "cttz_call", ci);
+						Instruction* sub = BinaryOperator::CreateSub(bitWidthMin1, ctlz, "cttz_sub", ci);
+                                                Instruction* cmp = ICmpInst::Create(Instruction::ICmp, ICmpInst::ICMP_NE, ConstantInt::get(t, 0), ci->getOperand(0), "cttz_cmp", ci);
+						Instruction* res = SelectInst::Create(cmp, sub, bitWidth, "cttz_select", ci);
+
+						ci->replaceAllUsesWith(res);
+
+						//Set up loop variable, so the next loop will check and possibly expand newCall
+						--instructionIterator;
+						advance = false;
+						assert(&*instructionIterator == res);
+
+						ci->eraseFromParent();
+						continue;
+					}
 
 					if(II == Intrinsic::usub_sat)
 					{
