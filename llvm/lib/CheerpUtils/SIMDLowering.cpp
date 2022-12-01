@@ -869,6 +869,20 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 			for (unsigned i = 0; i < amount; i++)
 				ret.values.push_back(uvElement);
 		}
+		else if (ConstantExpr* ce = dyn_cast<ConstantExpr>(V))
+		{
+			const FixedVectorType* vecType = cast<FixedVectorType>(ce->getType()->getPointerElementType());
+			const unsigned num = vecType->getNumElements();
+			Type* elementType = vecType->getElementType()->getPointerTo();
+			Constant* bitcast = ConstantExpr::getBitCast(ce, elementType);
+			ret.values.push_back(bitcast);
+			for (unsigned i = 1; i < num; i++)
+			{
+				Value* index[] = {ConstantInt::get(Int32Ty, i)};
+				Value* gep = ConstantExpr::getGetElementPtr(vecType->getElementType(), bitcast, index);
+				ret.values.push_back(gep);
+			}
+		}
 		else
 		{
 			llvm::errs() << *V << "\n";
