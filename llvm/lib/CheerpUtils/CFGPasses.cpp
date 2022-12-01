@@ -250,7 +250,7 @@ bool LowerAndOrBranches::runOnFunction(Function& F)
 		llvm::BasicBlock* curBlock = SI->getParent();
 		llvm::BasicBlock* nextBlock = curBlock->splitBasicBlock(SI, "select.next");
 		llvm::Instruction* oldTerminator = curBlock->getTerminator();
-		llvm::BranchInst* BI = BranchInst::Create(trueBlock, falseBlock, SI->getCondition(), oldTerminator);
+		BranchInst::Create(trueBlock, falseBlock, SI->getCondition(), oldTerminator);
 		oldTerminator->eraseFromParent();
 		BranchInst::Create(nextBlock, trueBlock);
 		BranchInst::Create(nextBlock, falseBlock);
