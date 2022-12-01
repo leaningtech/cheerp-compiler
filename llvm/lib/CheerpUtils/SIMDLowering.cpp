@@ -409,6 +409,21 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 		return result;
 	}
 
+	Type* recursiveCreateType(Type* originalType)
+	{
+		Type* newType;
+		if (const FixedVectorType* vecType = dyn_cast<FixedVectorType>(originalType))
+			newType = ArrayType::get(vecType->getElementType(), vecType->getNumElements());
+		else if (const ArrayType* arrayType = dyn_cast<ArrayType>(originalType))
+		{
+			Type* subType = recursiveCreateType(arrayType->getElementType());
+			newType = ArrayType::get(subType, arrayType->getNumElements());
+		}
+		else
+			llvm::report_fatal_error("Not implemented");
+		return newType;
+	};
+
 	VectorParts visitGetElementPtrInst(GetElementPtrInst& I)
 	{
 		if (!I.getType()->isVectorTy() && !(I.getType()->isPointerTy() && I.getType()->getPointerElementType()->isVectorTy()))
@@ -417,35 +432,37 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 		if (I.getType()->isPointerTy())
 		{
 			const FixedVectorType* vecType = cast<FixedVectorType>(I.getType()->getPointerElementType());
-			if (!lowerAll && cheerp::getVectorBitwidth(vecType) != 128)
+			if (!lowerAll && cheerp::getVectorBitwidth(vecType) == 128)
 				return VectorParts();
 
 			// This is a pointer to a vector. We lower this to several GEPs to the first element.
 			const unsigned num = vecType->getNumElements();
 			Type* elementType = vecType->getElementType();
-			const unsigned elementByteSize = vecType->getScalarSizeInBits() / 8;
-			IRBuilder<> Builder(&I);
-			VectorParts result;
-			VectorParts v = visitValue(I.getPointerOperand());
-			Value *pointerOp = v.values[0];
+			Type* arrayType = ArrayType::get(elementType, num);
 
+			// Has the pointed operand been lowered?
+			VectorParts v = visitValue(I.getPointerOperand());
+			Value* pointerOp = I.getPointerOperand();
+			Value* bitcastBase = pointerOp;
+			if (v.values.size() > 0)
+				bitcastBase = v.values[0];
+
+			// Create a bitcast to a new type that has an array instead of a vector for the innermost part.
+			IRBuilder<> Builder(&I);
+			Type* newType = recursiveCreateType(pointerOp->getType()->getPointerElementType());
+			Value* bitcast = Builder.CreateBitCast(bitcastBase, newType->getPointerTo());
+			// Create a new GEP using the same indices as before.
+			SmallVector<Value*, 4> indices;
+			for (auto it = I.idx_begin(); it != I.idx_end(); it++)
+				indices.push_back(*it);
+			Value* gep = Builder.CreateInBoundsGEP(newType, bitcast, indices);
+
+			// Now we create GEPs into this latest GEP to get the elements.
+			VectorParts result;
 			for (unsigned i = 0; i < num; i++)
 			{
-				SmallVector<Value*, 4> indices;
-				for (auto it = I.idx_begin(); it != I.idx_end(); it++)
-				{
-					if (it == I.idx_end() - 1)
-					{
-						Value* add = Builder.CreateAdd(*it, ConstantInt::get(Int32Ty, elementByteSize * i));
-						indices.push_back(add);
-					}
-					else
-						indices.push_back(*it);
-				}
-				if (I.isInBounds())
-					result.values.push_back(Builder.CreateInBoundsGEP(elementType, pointerOp, indices));
-				else
-					result.values.push_back(Builder.CreateGEP(elementType, pointerOp, indices));
+				SmallVector<Value*, 4> index = { ConstantInt::get(Int32Ty, 0), ConstantInt::get(Int32Ty, i) };
+				result.values.push_back(Builder.CreateInBoundsGEP(arrayType, gep, index));
 			}
 			toDelete.push_back(&I);
 			changed = true;
