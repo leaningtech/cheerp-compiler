@@ -1511,7 +1511,7 @@ bool CoroutineStmtBuilder::makeNewAndDeleteExpr() {
 
     FrameAlignment = S.BuildCXXNamedCast(Loc, tok::kw_static_cast, AlignValTy,
                                          FrameAlignment, SourceRange(Loc, Loc),
-                                         SourceRange(Loc, Loc))
+                                         SourceRange(Loc, Loc), /*isCheerpSafe*/false)
                          .get();
   }
 
