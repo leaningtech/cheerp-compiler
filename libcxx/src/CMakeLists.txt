@@ -90,11 +90,8 @@ if (LIBCXX_ENABLE_LOCALIZATION)
     )
 endif()
 
-# Cheerp: Remove pthread related stuff
-list(REMOVE_ITEM LIBCXX_SOURCES "${CMAKE_CURRENT_LIST_DIR}/../src/debug.cpp")
-list(REMOVE_ITEM LIBCXX_SOURCES "${CMAKE_CURRENT_LIST_DIR}/../src/thread.cpp")
-list(REMOVE_ITEM LIBCXX_SOURCES "${CMAKE_CURRENT_LIST_DIR}/../src/future.cpp")
-list(REMOVE_ITEM LIBCXX_SOURCES "${CMAKE_CURRENT_LIST_DIR}/../src/shared_mutex.cpp")
+# Cheerp: Remove unsupported features
+list(REMOVE_ITEM LIBCXX_SOURCES "memory_resource.cpp")
 if(WIN32)
   list(APPEND LIBCXX_SOURCES
     support/win32/locale_win32.cpp
