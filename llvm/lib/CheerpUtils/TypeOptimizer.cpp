@@ -17,6 +17,7 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Operator.h"
+#include "llvm/IR/ModRef.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Support/raw_ostream.h"
 #include <set>
@@ -1551,10 +1552,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 					Builder.CreateRet(Low);
 					// Since we are writing to global memory,
 					// remove attributes that say otherwise
-					F->removeFnAttr(Attribute::ReadNone);
-					F->removeFnAttr(Attribute::ReadOnly);
-					F->removeFnAttr(Attribute::InaccessibleMemOnly);
-					F->removeFnAttr(Attribute::InaccessibleMemOrArgMemOnly);
+					F->setMemoryEffects(MemoryEffects::unknown());
 
 					InstsToDelete.push_back(&I);
 					needsDefaultHandling = false;
@@ -1838,9 +1836,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 							Ret = AssembleI64(Low, High, Builder);
 							// Since we are reading from global memory,
 							// remove attributes that say otherwise
-							F->removeFnAttr(Attribute::ReadNone);
-							F->removeFnAttr(Attribute::InaccessibleMemOnly);
-							F->removeFnAttr(Attribute::InaccessibleMemOrArgMemOnly);
+							F->setMemoryEffects(MemoryEffects::unknown());
 							// We have alreaded the return type, drop range info
 							NewCall->setMetadata(LLVMContext::MD_range, nullptr);
 						}
