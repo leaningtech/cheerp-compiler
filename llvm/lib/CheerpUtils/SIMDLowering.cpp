@@ -386,24 +386,76 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 		if (!shouldLower(I.getType()) && !shouldLower(I.getOperand(0)->getType()))
 			return VectorParts();
 
-		VectorParts v1 = visitValue(I.getOperand(0));
-		VectorParts v2 = visitValue(I.getOperand(1));
+		const FixedVectorType* resultVecType = cast<FixedVectorType>(I.getType());
+		const FixedVectorType* opVecType = cast<FixedVectorType>(I.getOperand(0)->getType());
+		const unsigned resultWidth = cheerp::getVectorBitwidth(resultVecType);
+		const unsigned opWidth = cheerp::getVectorBitwidth(opVecType);
 		auto shuffleMask = I.getShuffleMask();
-		VectorParts result;
 
-		const int v1size = v1.values.size();
-		const int v2size = v2.values.size();
-		const unsigned num = shuffleMask.size();
-		// We only need to shuffle the elements from the inputs into the output.
-		for (unsigned i = 0; i < num; i++)
+		auto shuffleElements = [&shuffleMask](VectorParts& v1, VectorParts& v2) -> VectorParts
 		{
-			const int idx = shuffleMask[i];
-			assert(idx != UndefMaskElem && idx < v1size + v2size);
-			if (idx < v1size)
-				result.values.push_back(v1.values[idx]);
-			else
-				result.values.push_back(v2.values[idx - v1size]);
+			VectorParts result;
+
+			const int vsize = v1.values.size();
+			const unsigned num = shuffleMask.size();
+			// We shuffle the elements from the inputs into the output.
+			for (unsigned i = 0; i < num; i++)
+			{
+				const int idx = shuffleMask[i];
+				assert(idx != UndefMaskElem && idx < vsize * 2);
+				if (idx < vsize)
+					result.values.push_back(v1.values[idx]);
+				else
+					result.values.push_back(v2.values[idx - vsize]);
+			}
+			return result;
+		};
+
+		// Since a ShuffleVector instruction can change the size of a vector, we have 3 possible cases.
+		// 1. The result vector is 128 bits wide, the operand vectors are not, and we are in SIMD mode.
+		//    We create a vector from the lowered elements.
+		// 2. The result vector is not 128 bits, the operand vectors are, and we are in SIMD mode.
+		//    We extract the elements from the previous instruction and pass them on.
+		// 3. Both result and operand vectors are not 128 bits wide, or we are not in SIMD mode.
+		//    We just shuffle the elements around and pass them on.
+		VectorParts result;
+		if (!lowerAll && resultWidth == 128 && opWidth != 128)
+		{
+			// We have previously lowered instructions, that we need to put into a result vector.
+			VectorParts v1 = visitValue(I.getOperand(0));
+			VectorParts v2 = visitValue(I.getOperand(1));
+			result = shuffleElements(v1, v2);
+
+			// Insert the newly shuffled elements into a vector.
+			IRBuilder<> Builder(&I);
+			const unsigned num = shuffleMask.size();
+			Value* newVector = UndefValue::get(I.getType());
+			for (unsigned i = 0; i < num; i++)
+				newVector = Builder.CreateInsertElement(newVector, result.values[i], i);
+			I.replaceAllUsesWith(newVector);
+			result = VectorParts();
 		}
+		else if (!lowerAll && resultWidth != 128 && opWidth == 128)
+		{
+			// We have two vectors whose elements need to be extracted and passed on after shuffling.
+			VectorParts v1;
+			VectorParts v2;
+			IRBuilder<> Builder(&I);
+			for (unsigned i = 0; i < opVecType->getNumElements(); i++)
+			{
+				v1.values.push_back(Builder.CreateExtractElement(I.getOperand(0), i));
+				v2.values.push_back(Builder.CreateExtractElement(I.getOperand(1), i));
+			}
+			result = shuffleElements(v1, v2);
+		}
+		else
+		{
+			// We just shuffle the lowered elements and return them.
+			VectorParts v1 = visitValue(I.getOperand(0));
+			VectorParts v2 = visitValue(I.getOperand(1));
+			VectorParts result = shuffleElements(v1, v2);
+		}
+
 		toDelete.push_back(&I);
 		changed = true;
 		return result;
