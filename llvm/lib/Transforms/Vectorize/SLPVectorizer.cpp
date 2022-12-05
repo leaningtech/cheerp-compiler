@@ -8705,9 +8705,6 @@ bool SLPVectorizerPass::runImpl(Function &F, ScalarEvolution *SE_,
     return false;
   }
 
-  if (!DL->isByteAddressable())
-    return false;
-
   // Don't vectorize when the attribute NoImplicitFloat is used.
   if (F.hasFnAttribute(Attribute::NoImplicitFloat))
     return false;
