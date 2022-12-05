@@ -5916,6 +5916,8 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("-target-feature");
     CmdArgs.push_back("+simd128");
   }
+    // Enable typed pointers
+    CmdArgs.push_back("-no-opaque-pointers");
   }
 
   // GCC's behavior for -Wwrite-strings is a bit strange:
