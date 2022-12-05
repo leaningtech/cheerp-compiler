@@ -629,6 +629,9 @@ bool ConstStructBuilder::AppendBytes(CharUnits FieldOffsetInChars,
 bool ConstStructBuilder::AppendBitField(
     const FieldDecl *Field, uint64_t FieldOffset, llvm::ConstantInt *CI,
     bool AllowOverwrite) {
+  // Cheerp: The custom bitfield layout is not supported here
+  if (!CGM.getTarget().isByteAddressable())
+    return false;
   const CGRecordLayout &RL =
       CGM.getTypes().getCGRecordLayout(Field->getParent());
   const CGBitFieldInfo &Info = RL.getBitFieldInfo(Field);
@@ -866,8 +869,10 @@ bool ConstStructBuilder::Build(const APValue &Val, const RecordDecl *RD,
       bool IsPrimaryBase = Layout.getPrimaryBase() == Base.Decl;
       if (!CGM.getTarget().isByteAddressable() && I != 0)
         continue;
-      Build(Val.getStructBase(Base.Index), Base.Decl, IsPrimaryBase,
-            VTableClass, Offset + Base.Offset);
+      if(!Build(Val.getStructBase(Base.Index), Base.Decl, IsPrimaryBase,
+            VTableClass, Offset + Base.Offset)) {
+        return false;
+      }
     }
   }
 
@@ -921,6 +926,8 @@ bool ConstStructBuilder::Build(const APValue &Val, const RecordDecl *RD,
       BaseInfo &Base = Bases[I];
 
       llvm::Constant* BaseConstant = ConstStructBuilder::BuildStruct(Emitter, Val.getStructBase(Base.Index), Base.Decl);
+      if (!BaseConstant)
+        return false;
       AppendBytes(Base.Offset, BaseConstant);
     }
   }
