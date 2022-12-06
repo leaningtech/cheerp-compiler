@@ -16,6 +16,7 @@
 #include "llvm/CodeGen/BasicTTIImpl.h"
 #include "llvm/CodeGen/TargetLowering.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
+#include "llvm/Cheerp/Utility.h"
 #include <algorithm>
 
 namespace llvm {
@@ -31,10 +32,15 @@ class CheerpTTIImpl final : public BasicTTIImplBase<CheerpTTIImpl> {
   const CheerpSubtarget *getST() const { return ST; }
   const CheerpTargetLowering *getTLI() const { return TLI; }
 
+  bool SIMD;
+
 public:
   CheerpTTIImpl(const CheerpTargetMachine *TM, const Function &F)
       : BaseT(TM, F.getParent()->getDataLayout()), ST(TM->getSubtargetImpl(F)),
-        TLI(ST->getTargetLowering()) {}
+        TLI(ST->getTargetLowering()), SIMD(false) {
+    if (cheerp::hasSIMDAttribute(&F))
+      SIMD = true;
+  }
 
   unsigned getNumberOfRegisters(unsigned ClassID) const;
   TypeSize getRegisterBitWidth(TargetTransformInfo::RegisterKind K) const;
