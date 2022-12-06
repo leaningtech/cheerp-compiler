@@ -24,7 +24,7 @@ unsigned CheerpTTIImpl::getNumberOfRegisters(unsigned ClassID) const {
   bool Vector = (ClassID == 1);
   if (Vector)
   {
-    if (!WasmSIMD)
+    if (!SIMD)
       return 0;
     if (LinearOutput == LinearOutputTy::AsmJs)
       return 0;
