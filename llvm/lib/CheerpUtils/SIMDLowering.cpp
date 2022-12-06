@@ -958,8 +958,8 @@ PreservedAnalyses SIMDLoweringPass::run(Function& F, FunctionAnalysisManager& FA
 		for (auto it = F.arg_begin(); it != F.arg_end(); it++)
 			assert(!it->getType()->isVectorTy());
 	}
-
-	SIMDLoweringVisitor Visitor(*F.getParent(), !WasmSIMD);
+	bool lowerAll = !WasmSIMD || LinearOutput == LinearOutputTy::AsmJs;
+	SIMDLoweringVisitor Visitor(*F.getParent(), lowerAll);
 	Visitor.visit(F);
 
 	if (!Visitor.changed)
