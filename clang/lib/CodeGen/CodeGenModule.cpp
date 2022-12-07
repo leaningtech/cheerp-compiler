@@ -133,7 +133,7 @@ CodeGenModule::CodeGenModule(ASTContext &C,
   SizeSizeInBytes =
     C.toCharUnitsFromBits(C.getTargetInfo().getMaxPointerWidth()).getQuantity();
   PointerSizeInBytes =
-    C.toCharUnitsFromBits(C.getTargetInfo().getPointerWidth(0)).getQuantity();
+    C.toCharUnitsFromBits(C.getTargetInfo().getMaxPointerWidth()).getQuantity();
   IntAlignInBytes =
     C.toCharUnitsFromBits(C.getTargetInfo().getIntAlign()).getQuantity();
   CharTy =
