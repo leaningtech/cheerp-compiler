@@ -12,6 +12,7 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Cheerp/CommandLine.h"
 #include "llvm/Cheerp/StructMemFuncLowering.h"
+#include "llvm/Cheerp/Utility.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Intrinsics.h"
@@ -174,6 +175,27 @@ void StructMemFuncLowering::recursiveReset(IRBuilder<>* IRB, Value* baseDst, Val
 		{
 			computedResetVal=IRB->CreateShl(computedResetVal, 8);
 			computedResetVal=IRB->CreateOr(computedResetVal, expandedResetVal);
+		}
+		assert(containingType->getPointerTo() == baseDst->getType());
+		Value* elementDst = IRB->CreateGEP(containingType, baseDst, indexes);
+		IRB->CreateAlignedStore(computedResetVal, elementDst, MaybeAlign(baseAlign));
+	}
+	else if(FixedVectorType* VT = dyn_cast<FixedVectorType>(curType))
+	{
+		int bitWidth = cheerp::getVectorBitwidth(VT);
+		assert(bitWidth == 128);
+
+		// Create a vector from this 8-bit value
+		Value* computedResetVal;
+		if (ConstantInt* ci = dyn_cast<ConstantInt>(resetVal))
+			computedResetVal = ConstantDataVector::getSplat(16, ci);
+		else
+		{
+			// Create a vector from splatting the resetValue
+			std::vector<Type*> argTypes = { curType, resetVal->getType() };
+			BasicBlock* BB = IRB->GetInsertBlock();
+			Function* splatIntrinsic = Intrinsic::getDeclaration(BB->getModule(), Intrinsic::cheerp_wasm_splat, argTypes);
+			computedResetVal = IRB->CreateCall(splatIntrinsic, { resetVal });
 		}
 		assert(containingType->getPointerTo() == baseDst->getType());
 		Value* elementDst = IRB->CreateGEP(containingType, baseDst, indexes);
@@ -414,7 +436,14 @@ bool StructMemFuncLowering::runOnBlock(BasicBlock& BB, bool asmjs)
 			}
 			uint32_t sizeInt = sizeConst->getZExtValue();
 			uint32_t elemSize = 1;
-			if (LinearOutput == Wasm && effectiveAlignInt % 8 == 0 && sizeInt >= 8) {
+			if (WasmSIMD && LinearOutput == Wasm && effectiveAlignInt % 16 == 0 && sizeInt >= 16) {
+				if (mode == MEMSET)
+					pointedType = FixedVectorType::get(IntegerType::get(BB.getContext(), 8), 16);
+				else
+					pointedType = FixedVectorType::get(IntegerType::get(BB.getContext(), 64), 2);
+				elemSize = 16;
+			}
+			else if (LinearOutput == Wasm && effectiveAlignInt % 8 == 0 && sizeInt >= 8) {
 				// i64 can only be used in wasm mode
 				Type* int64Type = IntegerType::get(BB.getContext(), 64);
 				pointedType = int64Type;
