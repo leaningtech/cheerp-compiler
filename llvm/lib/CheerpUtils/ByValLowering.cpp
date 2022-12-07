@@ -40,9 +40,9 @@ static bool ExpandCall(const DataLayout& DL, CallBase* Call)
 				Call->getContext(), APInt(64, DL.getTypeStoreSize(ArgType)));
 			unsigned AllocAlignment = DL.getABITypeAlignment(ArgType);
 			auto Alignment = Attrs.getParamAlignment(ArgIdx);
-			if(Alignment.hasValue())
+			if(Alignment.has_value())
 			{
-				Align a = Alignment.getValue();
+				Align a = Alignment.value();
 				if(a.value() > AllocAlignment)
 					AllocAlignment = a.value();
 			}
