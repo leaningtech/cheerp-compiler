@@ -73,7 +73,7 @@ bool CheerpWritePass::runOnModule(Module& M)
   PrintPassOptions PrintPassOpts;
   PrintPassOpts.Indent = VerbosePassManager;
   PrintPassOpts.SkipAnalyses = false;
-  StandardInstrumentations SI(VerbosePassManager,
+  StandardInstrumentations SI(M.getContext(), VerbosePassManager,
                               /*VerifyEach*/ false, PrintPassOpts);
   SI.registerCallbacks(PIC, &FAM);
 
