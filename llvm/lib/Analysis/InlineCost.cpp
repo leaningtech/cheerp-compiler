@@ -3013,6 +3013,8 @@ bool llvm::isInlineViableCheerp(Function &F, Function &Caller) {
           return false;
         if (si->getValueOperand()->getType()->isIntegerTy(64))
           return false;
+        if (si->getValueOperand()->getType()->isVectorTy())
+          return false;
       }
       // No 64bit integers or vectors.
       if (II->getType()->isIntegerTy(64) || II->getType()->isVectorTy())
