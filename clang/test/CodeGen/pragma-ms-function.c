@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -emit-llvm -fms-extensions -o - %s | FileCheck %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -emit-llvm -fms-extensions -o - %s | FileCheck %s
 
 typedef typeof(sizeof(0)) size_t;
 

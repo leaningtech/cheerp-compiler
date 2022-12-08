@@ -21,14 +21,14 @@ void zeroInit() { int Z[3] = {0, 0, 0}; }
 // CHECK:       %Z = alloca [3 x i32], align 4, !DIAssignID ![[ID_0:[0-9]+]]
 // CHECK-NEXT:  call void @llvm.dbg.assign(metadata i1 undef, metadata ![[VAR_0:[0-9]+]], metadata !DIExpression(), metadata ![[ID_0]], metadata ptr %Z, metadata !DIExpression())
 // CHECK:        @llvm.memset{{.*}}, !DIAssignID ![[ID_1:[0-9]+]]
-// CHECK-NEXT:   call void @llvm.dbg.assign(metadata i8 0, metadata ![[VAR_0]], metadata !DIExpression(), metadata ![[ID_1]], metadata ptr %Z, metadata !DIExpression())
+// CHECK-NEXT:   call void @llvm.dbg.assign(metadata i8 0, metadata ![[VAR_0]], metadata !DIExpression(), metadata ![[ID_1]], metadata ptr %0, metadata !DIExpression())
 
 void memcpyInit() { int A[4] = {0, 1, 2, 3}; }
 // CHECK-LABEL: define dso_local void @_Z10memcpyInitv
 // CHECK:       %A = alloca [4 x i32], align 16, !DIAssignID ![[ID_2:[0-9]+]]
 // CHECK-NEXT:  call void @llvm.dbg.assign(metadata i1 undef, metadata ![[VAR_1:[0-9]+]], metadata !DIExpression(), metadata ![[ID_2]], metadata ptr %A, metadata !DIExpression())
 // CHECK:        @llvm.memcpy{{.*}}, !DIAssignID ![[ID_3:[0-9]+]]
-// CHECK-NEXT:   call void @llvm.dbg.assign(metadata i1 undef, metadata ![[VAR_1]], metadata !DIExpression(), metadata ![[ID_3]], metadata ptr %A, metadata !DIExpression())
+// CHECK-NEXT:   call void @llvm.dbg.assign(metadata i1 undef, metadata ![[VAR_1]], metadata !DIExpression(), metadata ![[ID_3]], metadata ptr %0, metadata !DIExpression())
 
 void setField() {
   Outer O;

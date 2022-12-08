@@ -29,7 +29,7 @@
 @OBJC_METH_VAR_NAME_.2 = private unnamed_addr constant [18 x i8] c"stringWithFormat:\00", section "__TEXT,__objc_methname,cstring_literals", align 1
 @OBJC_SELECTOR_REFERENCES_.3 = internal externally_initialized global i8* getelementptr inbounds ([18 x i8], [18 x i8]* @OBJC_METH_VAR_NAME_.2, i32 0, i32 0), section "__DATA,__objc_selrefs,literal_pointers,no_dead_strip", align 8
 @global1 = external local_unnamed_addr constant i8*, align 8
-@llvm.compiler.used = appending global [5 x i8*] [i8* getelementptr inbounds ([25 x i8], [25 x i8]* @OBJC_METH_VAR_NAME_, i32 0, i32 0), i8* bitcast (i8** @OBJC_SELECTOR_REFERENCES_ to i8*), i8* bitcast (%struct._class_t** @"OBJC_CLASSLIST_REFERENCES_$_" to i8*), i8* getelementptr inbounds ([18 x i8], [18 x i8]* @OBJC_METH_VAR_NAME_.2, i32 0, i32 0), i8* bitcast (i8** @OBJC_SELECTOR_REFERENCES_.3 to i8*)], section "llvm.metadata"
+@llvm.compiler.used = appending global [5 x i8*] [i8* bitcast ([25 x i8]* @OBJC_METH_VAR_NAME_ to i8*), i8* bitcast (i8** @OBJC_SELECTOR_REFERENCES_ to i8*), i8* bitcast (%struct._class_t** @"OBJC_CLASSLIST_REFERENCES_$_" to i8*), i8* bitcast ([18 x i8]* @OBJC_METH_VAR_NAME_.2 to i8*), i8* bitcast (i8** @OBJC_SELECTOR_REFERENCES_.3 to i8*)], section "llvm.metadata"
 
 ; Function Attrs: optsize ssp uwtable(sync)
 define i32 @main(i32 noundef %argc, i8** nocapture noundef readnone %argv) local_unnamed_addr #1 {

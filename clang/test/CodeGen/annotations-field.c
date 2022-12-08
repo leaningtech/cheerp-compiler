@@ -13,7 +13,7 @@ static struct foo gf;
 int main(int argc, char **argv) {
     struct foo f;
     f.v = argc;
-// CHECK: getelementptr inbounds %struct.foo, ptr %f, i32 0, i32 0
+// CHECK: getelementptr inbounds %struct._Z3foo, ptr %f, i32 0, i32 0
 // CHECK-NEXT: call ptr @llvm.ptr.annotation.p0({{.*}}str{{.*}}str{{.*}}i32 8, ptr null)
 // CHECK-NEXT: call ptr @llvm.ptr.annotation.p0({{.*}}str{{.*}}str{{.*}}i32 8, ptr null)
     gf.v = argc;

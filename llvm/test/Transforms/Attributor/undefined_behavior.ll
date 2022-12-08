@@ -733,7 +733,7 @@ define void @arg_nonnull_violation2_1(i1 %c) {
 ; CGSCC-SAME: (i1 [[C:%.*]]) #[[ATTR2]] {
 ; CGSCC-NEXT:    unreachable
 ;
-  %null = getelementptr i32, i32* null, i32 0
+  %null = bitcast i32* null to i32*
   %mustnull = select i1 %c, i32* null, i32* %null
   call void @arg_nonnull_1(i32* %mustnull)
   ret void
@@ -750,7 +750,7 @@ define void @arg_nonnull_violation2_2(i1 %c) {
 ; CGSCC-SAME: (i1 [[C:%.*]]) #[[ATTR2]] {
 ; CGSCC-NEXT:    unreachable
 ;
-  %null = getelementptr i32, i32* null, i32 0
+  %null = bitcast i32* null to i32*
   %mustnull = select i1 %c, i32* null, i32* %null
   call void @arg_nonnull_1_noundef_1(i32* %mustnull)
   ret void

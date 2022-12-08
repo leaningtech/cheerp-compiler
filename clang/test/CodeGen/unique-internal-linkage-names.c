@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 %s -S -emit-llvm -funique-internal-linkage-names -o - | FileCheck %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple %s -S -emit-llvm -funique-internal-linkage-names -o - | FileCheck %s
 
 // Check that we do not crash when overloading extern functions.
 

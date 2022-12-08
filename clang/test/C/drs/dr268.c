@@ -1,8 +1,8 @@
-/* RUN: %clang_cc1 -std=c89 -pedantic -verify -emit-llvm -o -  %s | FileCheck %s
-   RUN: %clang_cc1 -std=c99 -pedantic -verify -emit-llvm -o -  %s | FileCheck %s
-   RUN: %clang_cc1 -std=c11 -pedantic -verify -emit-llvm -o -  %s | FileCheck %s
-   RUN: %clang_cc1 -std=c17 -pedantic -verify -emit-llvm -o -  %s | FileCheck %s
-   RUN: %clang_cc1 -std=c2x -pedantic -verify -emit-llvm -o -  %s | FileCheck %s
+/* RUN: %clang_cc1 -triple %itanium_abi_triple -std=c89 -pedantic -verify -emit-llvm -o -  %s | FileCheck %s
+   RUN: %clang_cc1 -triple %itanium_abi_triple -std=c99 -pedantic -verify -emit-llvm -o -  %s | FileCheck %s
+   RUN: %clang_cc1 -triple %itanium_abi_triple -std=c11 -pedantic -verify -emit-llvm -o -  %s | FileCheck %s
+   RUN: %clang_cc1 -triple %itanium_abi_triple -std=c17 -pedantic -verify -emit-llvm -o -  %s | FileCheck %s
+   RUN: %clang_cc1 -triple %itanium_abi_triple -std=c2x -pedantic -verify -emit-llvm -o -  %s | FileCheck %s
  */
 
 /* expected-no-diagnostics */

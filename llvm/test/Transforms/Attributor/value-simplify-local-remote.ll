@@ -342,7 +342,8 @@ define %S.2 @t3.helper() {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[RETVAL:%.*]] = alloca [[S_2:%.*]], align 8
 ; CHECK-NEXT:    call void @ext1(ptr noundef nonnull align 8 dereferenceable(24) [[RETVAL]])
-; CHECK-NEXT:    [[DOTFCA_0_LOAD:%.*]] = load ptr, ptr [[RETVAL]], align 8
+; CHECK-NEXT:    [[DOTFCA_0_GEP:%.*]] = getelementptr inbounds [[S_2]], ptr [[RETVAL]], i32 0, i32 0
+; CHECK-NEXT:    [[DOTFCA_0_LOAD:%.*]] = load ptr, ptr [[DOTFCA_0_GEP]], align 8
 ; CHECK-NEXT:    [[DOTFCA_0_INSERT:%.*]] = insertvalue [[S_2]] poison, ptr [[DOTFCA_0_LOAD]], 0
 ; CHECK-NEXT:    [[DOTFCA_1_GEP:%.*]] = getelementptr inbounds [[S_2]], ptr [[RETVAL]], i32 0, i32 1
 ; CHECK-NEXT:    [[DOTFCA_1_LOAD:%.*]] = load i64, ptr [[DOTFCA_1_GEP]], align 8
@@ -376,14 +377,16 @@ define dso_local void @spam() {
 ; TUNIT-SAME: () #[[ATTR2:[0-9]+]] {
 ; TUNIT-NEXT:  bb:
 ; TUNIT-NEXT:    [[TMP:%.*]] = alloca i32, align 4
+; TUNIT-NEXT:    [[TMP2:%.*]] = getelementptr inbounds i32, ptr [[TMP]], i64 0
 ; TUNIT-NEXT:    [[X:%.*]] = fptosi float undef to i32
-; TUNIT-NEXT:    store i32 [[X]], ptr [[TMP]], align 4
+; TUNIT-NEXT:    store i32 [[X]], ptr [[TMP2]], align 4
 ; TUNIT-NEXT:    br label [[BB16:%.*]]
 ; TUNIT:       bb16:
 ; TUNIT-NEXT:    [[TMP18:%.*]] = icmp eq i32 [[X]], 0
 ; TUNIT-NEXT:    br i1 [[TMP18]], label [[BB35:%.*]], label [[BB19:%.*]]
 ; TUNIT:       bb19:
-; TUNIT-NEXT:    [[TMP21:%.*]] = load float, ptr [[TMP]], align 4
+; TUNIT-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i32, ptr [[TMP]], i64 0
+; TUNIT-NEXT:    [[TMP21:%.*]] = load float, ptr [[TMP3]], align 4
 ; TUNIT-NEXT:    [[TMP22:%.*]] = fadd fast float [[TMP21]], 0.000000e+00
 ; TUNIT-NEXT:    br label [[BB23:%.*]]
 ; TUNIT:       bb23:
@@ -407,14 +410,16 @@ define dso_local void @spam() {
 ; CGSCC-SAME: () #[[ATTR5:[0-9]+]] {
 ; CGSCC-NEXT:  bb:
 ; CGSCC-NEXT:    [[TMP:%.*]] = alloca i32, align 4
+; CGSCC-NEXT:    [[TMP2:%.*]] = getelementptr inbounds i32, ptr [[TMP]], i64 0
 ; CGSCC-NEXT:    [[X:%.*]] = fptosi float undef to i32
-; CGSCC-NEXT:    store i32 [[X]], ptr [[TMP]], align 4
+; CGSCC-NEXT:    store i32 [[X]], ptr [[TMP2]], align 4
 ; CGSCC-NEXT:    br label [[BB16:%.*]]
 ; CGSCC:       bb16:
 ; CGSCC-NEXT:    [[TMP18:%.*]] = icmp eq i32 [[X]], 0
 ; CGSCC-NEXT:    br i1 [[TMP18]], label [[BB35:%.*]], label [[BB19:%.*]]
 ; CGSCC:       bb19:
-; CGSCC-NEXT:    [[TMP21:%.*]] = load float, ptr [[TMP]], align 4
+; CGSCC-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i32, ptr [[TMP]], i64 0
+; CGSCC-NEXT:    [[TMP21:%.*]] = load float, ptr [[TMP3]], align 4
 ; CGSCC-NEXT:    [[TMP22:%.*]] = fadd fast float [[TMP21]], 0.000000e+00
 ; CGSCC-NEXT:    br label [[BB23:%.*]]
 ; CGSCC:       bb23:

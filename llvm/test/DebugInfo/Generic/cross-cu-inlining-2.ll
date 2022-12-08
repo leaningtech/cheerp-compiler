@@ -3,6 +3,7 @@
 ; RUN: llvm-dwarfdump %t.o --debug-info --verbose | FileCheck %s --implicit-check-not "{{DW_TAG|NULL}}"
 ; RUN: llvm-dwarfdump %t.o --debug-info --verify
 
+target triple = "x86_64-apple-macosx10.12.0"
 ; Test that we can inline from a different CU in a way that has triggered a bug.
 
 define void @foo() !dbg !24 {

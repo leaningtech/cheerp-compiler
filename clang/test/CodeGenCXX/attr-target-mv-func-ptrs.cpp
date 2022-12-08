@@ -39,7 +39,7 @@ int bar() {
 // Store to Free of ifunc
 // LINUX: store ptr @_Z3fooi.ifunc
 // Store to Member of ifunc
-// LINUX: store { i64, i64 } { i64 ptrtoint (ptr @_ZN1S3fooEi.ifunc to i64), i64 0 }, ptr [[MEMBER:%[a-z]+]]
+// LINUX: store %memberptr { i64 ptrtoint (ptr @_ZN1S3fooEi.ifunc to i64), i64 0 }, ptr [[MEMBER:%[a-z]+]]
 
 // Call to 'f' with the ifunc
 // LINUX: call void @_Z1fPFiiEM1SFiiE(ptr noundef @_Z3fooi.ifunc

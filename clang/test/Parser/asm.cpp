@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fsyntax-only -verify -std=c++11 %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -fsyntax-only -verify -std=c++11 %s
 
 int foo1 asm ("bar1");
 int foo2 asm (L"bar2"); // expected-error {{cannot use wide string literal in 'asm'}}

@@ -10,7 +10,7 @@ declare void @use32(ptr)
 define void @test_alloca() sanitize_hwaddress {
 ; CHECK-LABEL: @test_alloca(
 ; CHECK: %[[X_TAG:[^ ]*]] = trunc i64 {{.*}} to i8
-; CHECK: call void @llvm.memset.p0.i64(ptr align 1 {{.*}}, i8 %[[X_TAG]], i64 1, i1 false)
+; CHECK: call void @llvm.memset.p0.i32(ptr align 1 {{.*}}, i8 %[[X_TAG]], i32 1, i1 false)
   %x = alloca i32, align 4
   call void @use32(ptr nonnull %x)
   ret void

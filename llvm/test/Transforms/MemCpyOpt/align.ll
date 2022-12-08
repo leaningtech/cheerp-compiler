@@ -13,7 +13,7 @@ define void @foo(ptr %p) {
 ; CHECK-NEXT:    [[A1:%.*]] = getelementptr i32, ptr [[P:%.*]], i64 1
 ; CHECK-NEXT:    [[A2:%.*]] = getelementptr i32, ptr [[P]], i64 2
 ; CHECK-NEXT:    [[A3:%.*]] = getelementptr i32, ptr [[P]], i64 3
-; CHECK-NEXT:    call void @llvm.memset.p0.i64(ptr align 4 [[P]], i8 0, i64 16, i1 false)
+; CHECK-NEXT:    call void @llvm.memset.p0.i32(ptr align 4 [[P]], i8 0, i32 16, i1 false)
 ; CHECK-NEXT:    ret void
 ;
   store i32 0, ptr %p, align 4

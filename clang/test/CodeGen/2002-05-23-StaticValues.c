@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -emit-llvm %s  -o /dev/null
+// RUN: %clang_cc1 -triple %itanium_abi_triple -emit-llvm %s  -o /dev/null
 
 /* Make sure the frontend is correctly marking static stuff as internal! */
 

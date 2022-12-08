@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -emit-llvm-only %s -verify
+// RUN: %clang_cc1 -triple %itanium_abi_triple -emit-llvm-only %s -verify
 // expected-no-diagnostics
 // PR5882
 

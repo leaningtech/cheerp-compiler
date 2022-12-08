@@ -5,6 +5,7 @@
 ; CHECK-LABEL: @f
 ; CHECK-LABEL: @g
 
+target triple = "x86_64-apple-macosx10.12.0"
 ; Stack realignment not supported.
 ; XFAIL: sparc
 

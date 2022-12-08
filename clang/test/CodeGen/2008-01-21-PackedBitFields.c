@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 %s -emit-llvm -o -
+// RUN: %clang_cc1 -triple %itanium_abi_triple %s -emit-llvm -o -
 
 typedef double Al1Double __attribute__((aligned(1)));
 struct x { int a:23; Al1Double v; };

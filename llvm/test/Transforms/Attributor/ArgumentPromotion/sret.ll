@@ -16,7 +16,7 @@ define internal void @add({i32, i32}* %this, i32* sret(i32) %r) {
 ; CGSCC: Function Attrs: nofree norecurse nosync nounwind willreturn memory(argmem: readwrite)
 ; CGSCC-LABEL: define {{[^@]+}}@add
 ; CGSCC-SAME: ({ i32, i32 }* noalias nocapture nofree noundef nonnull readonly align 8 dereferenceable(8) [[THIS:%.*]], i32* noalias nocapture nofree noundef nonnull writeonly sret(i32) align 4 dereferenceable(4) [[R:%.*]]) #[[ATTR0:[0-9]+]] {
-; CGSCC-NEXT:    [[AP:%.*]] = getelementptr { i32, i32 }, { i32, i32 }* [[THIS]], i32 0, i32 0
+; CGSCC-NEXT:    [[AP:%.*]] = bitcast { i32, i32 }* [[THIS]] to
 ; CGSCC-NEXT:    [[BP:%.*]] = getelementptr { i32, i32 }, { i32, i32 }* [[THIS]], i32 0, i32 1
 ; CGSCC-NEXT:    [[A:%.*]] = load i32, i32* [[AP]], align 4
 ; CGSCC-NEXT:    [[B:%.*]] = load i32, i32* [[BP]], align 4

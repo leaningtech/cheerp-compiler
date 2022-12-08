@@ -31,8 +31,8 @@ __kernel void test_printf_int(int i) {
 // CHECK-NEXT:    store i32 [[I:%.*]], i32 addrspace(5)* [[I_ADDR]], align 4, !tbaa [[TBAA8]]
 // CHECK-NEXT:    [[TMP0:%.*]] = bitcast [4 x i8] addrspace(5)* [[S]] to i8 addrspace(5)*
 // CHECK-NEXT:    call void @llvm.lifetime.start.p5i8(i64 4, i8 addrspace(5)* [[TMP0]]) #[[ATTR5:[0-9]+]]
-// CHECK-NEXT:    [[TMP1:%.*]] = bitcast [4 x i8] addrspace(5)* [[S]] to i8 addrspace(5)*
-// CHECK-NEXT:    call void @llvm.memcpy.p5i8.p4i8.i64(i8 addrspace(5)* align 1 [[TMP1]], i8 addrspace(4)* align 1 getelementptr inbounds ([4 x i8], [4 x i8] addrspace(4)* @__const.test_printf_str_int.s, i32 0, i32 0), i64 4, i1 false)
+// CHECK-NEXT:    [[TMP1:%.*]] = getelementptr inbounds [4 x i8], [4 x i8] addrspace(5)* [[S]]
+// CHECK-NEXT:    call void @llvm.memcpy.p5i8.p4i8.i64(i8 addrspace(5)* align 1 [[TMP1]], i8 addrspace(4)* align 1 getelementptr inbounds ([4 x i8], [4 x i8] addrspace(4)* @__const.test_printf_str_int.s, i64 0, i64 0), i64 4, i1 false)
 // CHECK-NEXT:    [[ARRAYDECAY:%.*]] = getelementptr inbounds [4 x i8], [4 x i8] addrspace(5)* [[S]], i64 0, i64 0
 // CHECK-NEXT:    [[TMP2:%.*]] = load i32, i32 addrspace(5)* [[I_ADDR]], align 4, !tbaa [[TBAA8]]
 // CHECK-NEXT:    [[CALL:%.*]] = call i32 (i8 addrspace(4)*, ...) @printf(i8 addrspace(4)* noundef getelementptr inbounds ([6 x i8], [6 x i8] addrspace(4)* @.str.2, i64 0, i64 0), i8 addrspace(5)* noundef [[ARRAYDECAY]], i32 noundef [[TMP2]]) #[[ATTR4]]

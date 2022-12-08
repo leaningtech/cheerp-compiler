@@ -1,5 +1,5 @@
-// RUN: %clang_cc1 -fsyntax-only -fdouble-square-bracket-attributes -verify=expected,notc2x -Wno-strict-prototypes %s
-// RUN: %clang_cc1 -fsyntax-only -std=gnu2x -verify=expected,c2x %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -fsyntax-only -fdouble-square-bracket-attributes -verify=expected,notc2x -Wno-strict-prototypes %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -fsyntax-only -std=gnu2x -verify=expected,c2x %s
 
 enum [[]] E {
   One [[]],

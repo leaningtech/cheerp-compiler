@@ -1,13 +1,13 @@
 // XFAIL: aix, -zos
 // RUN: rm -rf %t
 // RUN: split-file %s %t
-// RUN: %clang_cc1 -emit-llvm -o %t/test.bc -I %t/include %t/test.m -verify \
+// RUN: %clang_cc1 -triple %itanium_abi_triple -emit-llvm -o %t/test.bc -I %t/include %t/test.m -verify \
 // RUN:            -fmodules -fimplicit-module-maps -fmodules-cache-path=%t/modules.cache
-// RUN: %clang_cc1 -emit-llvm -o %t/test.bc -I %t/include %t/test.m -verify -DTEST_MAKE_HIDDEN_VISIBLE=1 \
+// RUN: %clang_cc1 -triple %itanium_abi_triple -emit-llvm -o %t/test.bc -I %t/include %t/test.m -verify -DTEST_MAKE_HIDDEN_VISIBLE=1 \
 // RUN:            -fmodules -fimplicit-module-maps -fmodules-cache-path=%t/modules.cache
-// RUN: %clang_cc1 -emit-llvm -o %t/test.bc -I %t/include %t/test.m -verify -x objective-c++ \
+// RUN: %clang_cc1 -triple %itanium_abi_triple -emit-llvm -o %t/test.bc -I %t/include %t/test.m -verify -x objective-c++ \
 // RUN:            -fmodules -fimplicit-module-maps -fmodules-cache-path=%t/modules.cache
-// RUN: %clang_cc1 -emit-llvm -o %t/test.bc -I %t/include %t/test.m -verify -DTEST_MAKE_HIDDEN_VISIBLE=1 -x objective-c++ \
+// RUN: %clang_cc1 -triple %itanium_abi_triple -emit-llvm -o %t/test.bc -I %t/include %t/test.m -verify -DTEST_MAKE_HIDDEN_VISIBLE=1 -x objective-c++ \
 // RUN:            -fmodules -fimplicit-module-maps -fmodules-cache-path=%t/modules.cache
 
 // Test parsing duplicate Objective-C entities when a previous entity is defined

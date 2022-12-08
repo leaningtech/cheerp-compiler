@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -emit-llvm -o - -std=c2x %s | FileCheck %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -emit-llvm -o - -std=c2x %s | FileCheck %s
 
 // C2x 6.7.2.5 EXAMPLE 5
 unsigned long long vla_size(int n) {

@@ -1,8 +1,8 @@
-/* RUN: %clang_cc1 -std=c89 %s -emit-llvm -o - | FileCheck %s
-   RUN: %clang_cc1 -std=c99 %s -emit-llvm -o - | FileCheck %s
-   RUN: %clang_cc1 -std=c11 %s -emit-llvm -o - | FileCheck %s
-   RUN: %clang_cc1 -std=c17 %s -emit-llvm -o - | FileCheck %s
-   RUN: %clang_cc1 -std=c2x %s -emit-llvm -o - | FileCheck %s
+/* RUN: %clang_cc1 -triple %itanium_abi_triple -std=c89 %s -emit-llvm -o - | FileCheck %s
+   RUN: %clang_cc1 -triple %itanium_abi_triple -std=c99 %s -emit-llvm -o - | FileCheck %s
+   RUN: %clang_cc1 -triple %itanium_abi_triple -std=c11 %s -emit-llvm -o - | FileCheck %s
+   RUN: %clang_cc1 -triple %itanium_abi_triple -std=c17 %s -emit-llvm -o - | FileCheck %s
+   RUN: %clang_cc1 -triple %itanium_abi_triple -std=c2x %s -emit-llvm -o - | FileCheck %s
  */
 
 /* WG14 DR494: yes

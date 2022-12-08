@@ -38,8 +38,8 @@ namespace PR42276 {
   // CHECK-LABEL: define{{.*}} void @_ZN7PR422765State16syncDirtyObjectsEv(
   void State::syncDirtyObjects() {
     for (int i = 0; i < sizeof(m) / sizeof(m[0]); ++i)
-      // CHECK-CXX11: getelementptr inbounds [2 x { i64, i64 }], ptr @_ZN7PR422765State1mE.const, i64 0, i64 %
-      // CHECK-CXX2A: getelementptr inbounds [2 x { i64, i64 }], ptr @_ZN7PR422765State1mE, i64 0, i64 %
+      // CHECK-CXX11: getelementptr inbounds [2 x %memberptr], ptr @_ZN7PR422765State1mE.const, i64 0, i64 %
+      // CHECK-CXX2A: getelementptr inbounds [2 x %memberptr], ptr @_ZN7PR422765State1mE, i64 0, i64 %
       (this->*m[i])();
   }
 }

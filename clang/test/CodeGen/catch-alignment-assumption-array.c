@@ -11,7 +11,7 @@ void *caller(void) {
   // CHECK:                           define{{.*}}
   // CHECK-NEXT:                      entry:
   // CHECK-NEXT:                        %[[STR:.*]] = alloca [1 x i8], align 1
-  // CHECK-NEXT:                        %[[BITCAST:.*]] = bitcast [1 x i8]* %[[STR]] to i8*
+  // CHECK-NEXT:                        %[[BITCAST:.*]] = getelementptr inbounds [1 x i8], [1 x i8]* %[[STR]]
   // CHECK-NEXT:                        call void @llvm.memset.p0i8.i64(i8* align 1 %[[BITCAST]], i8 0, i64 1, i1 false)
   // CHECK-NEXT:                        %[[ARRAYDECAY:.*]] = getelementptr inbounds [1 x i8], [1 x i8]* %[[STR]], i64 0, i64 0
   // CHECK-SANITIZE-NEXT:               %[[PTRINT:.*]] = ptrtoint i8* %[[ARRAYDECAY]] to i64

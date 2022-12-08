@@ -45,8 +45,7 @@ define internal void @callee(i32* noalias %arg) {
 ; CHECK-NEXT:    [[ARG_PRIV_0_2:%.*]] = getelementptr [3 x i32], [3 x i32]* [[ARG_PRIV]], i64 0, i64 2
 ; CHECK-NEXT:    store i32 [[TMP2]], i32* [[ARG_PRIV_0_2]], align 4
 ; CHECK-NEXT:    [[TMP3:%.*]] = bitcast [3 x i32]* [[ARG_PRIV]] to i32*
-; CHECK-NEXT:    call void @use(i32* noalias nocapture noundef nonnull readonly align 4 dereferenceable(12) [[TMP3]])
-; CHECK-NEXT:    ret void
+; CHECK:    ret void
 ;
 entry:
   call void @use(i32* %arg)

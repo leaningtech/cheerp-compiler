@@ -40,7 +40,7 @@ define ptr @foo(ptr returned %0, i32 %1, i64 %2) {
 ; CHECK-NEXT:    [[TMP33:%.*]] = getelementptr inbounds i8, ptr [[TMP20]], i64 13
 ; CHECK-NEXT:    [[TMP34:%.*]] = getelementptr inbounds i8, ptr [[TMP20]], i64 14
 ; CHECK-NEXT:    [[TMP35:%.*]] = getelementptr inbounds i8, ptr [[TMP20]], i64 15
-; CHECK-NEXT:    call void @llvm.memset.p0.i64(ptr align 1 [[TMP4]], i8 [[VV]], i64 32, i1 false)
+; CHECK-NEXT:    call void @llvm.memset.p0.i32(ptr align 1 [[TMP4]], i8 [[VV]], i32 32, i1 false)
 ; CHECK-NEXT:    ret ptr [[TMP0]]
 ;
 entry:

@@ -1,6 +1,8 @@
 ; RUN: %llc_dwarf %s -O0 -filetype=obj -o %t.o
 ; RUN: llvm-dwarfdump %t.o --debug-info --verify
 
+target triple = "x86_64-apple-macosx10.12.0"
+
 ; We want to check that when the CU attaches ranges use the correct ContextCU.
 ; In the following example, after accessing `@foo`, `bar` an `inlined_baz` are created in `foo.swift` CU.
 ; Setting ranges in `@bar` will then use `bar.swift` CU.

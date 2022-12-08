@@ -27,10 +27,10 @@ declare i8  @llvm.umax.i8 (i8 , i8 )
 
 define void @umax_v8i64() {
 ; SSE-LABEL: @umax_v8i64(
-; SSE-NEXT:    [[TMP1:%.*]] = load <2 x i64>, <2 x i64>* bitcast ([8 x i64]* @a64 to <2 x i64>*), align 8
-; SSE-NEXT:    [[TMP2:%.*]] = load <2 x i64>, <2 x i64>* bitcast ([8 x i64]* @b64 to <2 x i64>*), align 8
+; SSE-NEXT:    [[TMP1:%.*]] = load <2 x i64>, <2 x i64>* bitcast (i64* getelementptr inbounds ([8 x i64], [8 x i64]* @a64, i32 0, i64 0) to <2 x i64>*), align 8
+; SSE-NEXT:    [[TMP2:%.*]] = load <2 x i64>, <2 x i64>* bitcast (i64* getelementptr inbounds ([8 x i64], [8 x i64]* @b64, i32 0, i64 0) to <2 x i64>*), align 8
 ; SSE-NEXT:    [[TMP3:%.*]] = call <2 x i64> @llvm.umax.v2i64(<2 x i64> [[TMP1]], <2 x i64> [[TMP2]])
-; SSE-NEXT:    store <2 x i64> [[TMP3]], <2 x i64>* bitcast ([8 x i64]* @c64 to <2 x i64>*), align 8
+; SSE-NEXT:    store <2 x i64> [[TMP3]], <2 x i64>* bitcast (i64* getelementptr inbounds ([8 x i64], [8 x i64]* @c64, i32 0, i64 0) to <2 x i64>*), align 8
 ; SSE-NEXT:    [[TMP4:%.*]] = load <2 x i64>, <2 x i64>* bitcast (i64* getelementptr inbounds ([8 x i64], [8 x i64]* @a64, i32 0, i64 2) to <2 x i64>*), align 8
 ; SSE-NEXT:    [[TMP5:%.*]] = load <2 x i64>, <2 x i64>* bitcast (i64* getelementptr inbounds ([8 x i64], [8 x i64]* @b64, i32 0, i64 2) to <2 x i64>*), align 8
 ; SSE-NEXT:    [[TMP6:%.*]] = call <2 x i64> @llvm.umax.v2i64(<2 x i64> [[TMP4]], <2 x i64> [[TMP5]])

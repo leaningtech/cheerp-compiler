@@ -32,7 +32,7 @@ define void @test() {
 ; CHECK-NEXT:    [[TMP13:%.*]] = fadd fast <2 x double> [[TMP9]], [[TMP6]]
 ; CHECK-NEXT:    [[TMP14:%.*]] = fadd fast <2 x double> [[TMP3]], [[TMP12]]
 ; CHECK-NEXT:    [[TMP15:%.*]] = fadd fast <2 x double> [[TMP13]], [[TMP14]]
-; CHECK-NEXT:    store <2 x double> [[TMP15]], <2 x double>* bitcast ([8 x double]* @dst to <2 x double>*), align 8
+; CHECK-NEXT:    store <2 x double> [[TMP15]], <2 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @dst, i32 0, i64 0) to <2 x double>*), align 8
 ; CHECK-NEXT:    ret void
 ;
   %a0 = load double, double* getelementptr inbounds ([8 x double], [8 x double]* @src, i32 0, i64 0), align 8

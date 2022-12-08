@@ -23,7 +23,7 @@ define internal void @vfu1(%struct.MYstr* byval(%struct.MYstr) align 4 %u) nounw
 ; CHECK-NEXT:    store i32 [[TMP1]], i32* [[U_PRIV_0_1]], align 4
 ; CHECK-NEXT:    [[TMP2:%.*]] = getelementptr [[STRUCT_MYSTR]], %struct.MYstr* [[U_PRIV]], i32 0, i32 1
 ; CHECK-NEXT:    store i32 99, i32* [[TMP2]], align 4
-; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr [[STRUCT_MYSTR]], %struct.MYstr* [[U_PRIV]], i32 0, i32 0
+; CHECK-NEXT:    [[TMP3:%.*]] = bitcast %struct.MYstr* [[U_PRIV]] to i8*
 ; CHECK-NEXT:    store i8 97, i8* [[TMP3]], align 4
 ; CHECK-NEXT:    [[L:%.*]] = load i8, i8* [[TMP3]], align 4
 ; CHECK-NEXT:    call void @use(i8 [[L]])
@@ -56,7 +56,7 @@ define internal i32 @vfu2(%struct.MYstr* byval(%struct.MYstr) align 4 %u) nounwi
 ; CHECK-NEXT:    store i32 [[TMP1]], i32* [[U_PRIV_0_1]], align 4
 ; CHECK-NEXT:    [[TMP2:%.*]] = getelementptr [[STRUCT_MYSTR]], %struct.MYstr* [[U_PRIV]], i32 0, i32 1
 ; CHECK-NEXT:    [[TMP3:%.*]] = load i32, i32* [[TMP2]], align 4
-; CHECK-NEXT:    [[TMP4:%.*]] = getelementptr [[STRUCT_MYSTR]], %struct.MYstr* [[U_PRIV]], i32 0, i32 0
+; CHECK-NEXT:    [[TMP4:%.*]] = bitcast %struct.MYstr* [[U_PRIV]] to i8*
 ; CHECK-NEXT:    [[TMP5:%.*]] = load i8, i8* [[TMP4]], align 4
 ; CHECK-NEXT:    [[TMP6:%.*]] = zext i8 [[TMP5]] to i32
 ; CHECK-NEXT:    [[TMP7:%.*]] = add i32 [[TMP6]], [[TMP3]]
@@ -93,11 +93,11 @@ define i32 @unions() nounwind {
 ; CGSCC-LABEL: define {{[^@]+}}@unions
 ; CGSCC-SAME: () #[[ATTR0]] {
 ; CGSCC-NEXT:  entry:
-; CGSCC-NEXT:    [[TMP0:%.*]] = load i8, i8* getelementptr inbounds ([[STRUCT_MYSTR:%.*]], %struct.MYstr* @mystr, i32 0, i32 0), align 8
+; CGSCC-NEXT:    [[TMP0:%.*]] = load i8, i8* bitcast (%struct.MYstr* @mystr to i8*), align 8
 ; CGSCC-NEXT:    [[MYSTR_0_1:%.*]] = getelementptr [[STRUCT_MYSTR]], %struct.MYstr* @mystr, i64 0, i32 1
 ; CGSCC-NEXT:    [[TMP1:%.*]] = load i32, i32* [[MYSTR_0_1]], align 8
 ; CGSCC-NEXT:    call void @vfu1(i8 [[TMP0]], i32 [[TMP1]]) #[[ATTR0]]
-; CGSCC-NEXT:    [[TMP2:%.*]] = load i8, i8* getelementptr inbounds ([[STRUCT_MYSTR]], %struct.MYstr* @mystr, i32 0, i32 0), align 8
+; CGSCC-NEXT:    [[TMP2:%.*]] = load i8, i8* bitcast (%struct.MYstr* @mystr to i8*), align 8
 ; CGSCC-NEXT:    [[MYSTR_0_12:%.*]] = getelementptr [[STRUCT_MYSTR]], %struct.MYstr* @mystr, i64 0, i32 1
 ; CGSCC-NEXT:    [[TMP3:%.*]] = load i32, i32* [[MYSTR_0_12]], align 8
 ; CGSCC-NEXT:    [[RESULT:%.*]] = call i32 @vfu2(i8 [[TMP2]], i32 [[TMP3]]) #[[ATTR0]]
@@ -123,7 +123,7 @@ define internal i32 @vfu2_v2(%struct.MYstr* byval(%struct.MYstr) align 4 %u) nou
 ; CHECK-NEXT:    store i32 99, i32* [[Z]], align 4
 ; CHECK-NEXT:    [[TMP2:%.*]] = getelementptr [[STRUCT_MYSTR]], %struct.MYstr* [[U_PRIV]], i32 0, i32 1
 ; CHECK-NEXT:    [[TMP3:%.*]] = load i32, i32* [[TMP2]], align 4
-; CHECK-NEXT:    [[TMP4:%.*]] = getelementptr [[STRUCT_MYSTR]], %struct.MYstr* [[U_PRIV]], i32 0, i32 0
+; CHECK-NEXT:    [[TMP4:%.*]] = bitcast %struct.MYstr* [[U_PRIV]] to i8*
 ; CHECK-NEXT:    [[TMP5:%.*]] = load i8, i8* [[TMP4]], align 4
 ; CHECK-NEXT:    [[TMP6:%.*]] = zext i8 [[TMP5]] to i32
 ; CHECK-NEXT:    [[TMP7:%.*]] = add i32 [[TMP6]], [[TMP3]]

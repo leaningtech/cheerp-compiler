@@ -195,9 +195,9 @@ define void @fptosi_8f64_8i16() #0 {
 
 define void @fptosi_8f64_8i8() #0 {
 ; CHECK-LABEL: @fptosi_8f64_8i8(
-; CHECK-NEXT:    [[TMP1:%.*]] = load <8 x double>, <8 x double>* bitcast ([8 x double]* @src64 to <8 x double>*), align 8
+; CHECK-NEXT:    [[TMP1:%.*]] = load <8 x double>, <8 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 0) to <8 x double>*), align 8
 ; CHECK-NEXT:    [[TMP2:%.*]] = fptosi <8 x double> [[TMP1]] to <8 x i8>
-; CHECK-NEXT:    store <8 x i8> [[TMP2]], <8 x i8>* bitcast ([64 x i8]* @dst8 to <8 x i8>*), align 1
+; CHECK-NEXT:    store <8 x i8> [[TMP2]], <8 x i8>* bitcast (i8* getelementptr inbounds ([64 x i8], [64 x i8]* @dst8, i32 0, i64 0) to <8 x i8>*), align 1
 ; CHECK-NEXT:    ret void
 ;
   %a0 = load double, double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 0), align 8
@@ -407,9 +407,9 @@ define void @fptosi_8f32_8i16() #0 {
 
 define void @fptosi_8f32_8i8() #0 {
 ; CHECK-LABEL: @fptosi_8f32_8i8(
-; CHECK-NEXT:    [[TMP1:%.*]] = load <8 x float>, <8 x float>* bitcast ([16 x float]* @src32 to <8 x float>*), align 4
+; CHECK-NEXT:    [[TMP1:%.*]] = load <8 x float>, <8 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 0) to <8 x float>*), align 4
 ; CHECK-NEXT:    [[TMP2:%.*]] = fptosi <8 x float> [[TMP1]] to <8 x i8>
-; CHECK-NEXT:    store <8 x i8> [[TMP2]], <8 x i8>* bitcast ([64 x i8]* @dst8 to <8 x i8>*), align 1
+; CHECK-NEXT:    store <8 x i8> [[TMP2]], <8 x i8>* bitcast (i8* getelementptr inbounds ([64 x i8], [64 x i8]* @dst8, i32 0, i64 0) to <8 x i8>*), align 1
 ; CHECK-NEXT:    ret void
 ;
   %a0 = load float, float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 0), align 4

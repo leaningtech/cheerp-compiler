@@ -63,7 +63,7 @@ define i1 @test_slt_gep_1(ptr %base) {
 ; CHECK-NEXT:    [[T_0:%.*]] = icmp slt ptr [[BASE]], [[GEP_1]]
 ; CHECK-NEXT:    [[GEP_0:%.*]] = getelementptr inbounds i8, ptr [[BASE]], i8 0
 ; CHECK-NEXT:    [[F_0:%.*]] = icmp slt ptr [[BASE]], [[GEP_0]]
-; CHECK-NEXT:    [[RES_1:%.*]] = xor i1 [[T_0]], false
+; CHECK-NEXT:    [[RES_1:%.*]] = xor i1 [[T_0]], [[F_0]]
 ; CHECK-NEXT:    [[C_1:%.*]] = icmp slt ptr [[GEP_1]], [[BASE]]
 ; CHECK-NEXT:    [[RES_2:%.*]] = xor i1 [[RES_1]], [[C_1]]
 ; CHECK-NEXT:    ret i1 [[RES_2]]

@@ -1,5 +1,5 @@
 // RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -std=c++20 %s -emit-llvm -o - | FileCheck %s
-// RUN: %clang_cc1 -emit-obj -debug-info-kind=constructor -std=c++20 %s -o -
+// RUN: %clang_cc1 -triple %itanium_abi_triple -emit-obj -debug-info-kind=constructor -std=c++20 %s -o -
 
 namespace PR50787 {
 // This code would previously cause a crash.

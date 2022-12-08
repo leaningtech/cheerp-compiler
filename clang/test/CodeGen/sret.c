@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 %s -Wno-strict-prototypes -emit-llvm -o - | FileCheck %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple %s -Wno-strict-prototypes -emit-llvm -o - | FileCheck %s
 
 struct abc {
  long a;

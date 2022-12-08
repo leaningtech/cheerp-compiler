@@ -18,7 +18,7 @@ void (A::*volatile vpa)();
 void (B::*pb)();
 void (C::*pc)();
 
-// GLOBAL-LP64: @pa2 ={{.*}} global { i64, i64 } { i64 ptrtoint (ptr @_ZN1A1fEv to i64), i64 0 }, align 8
+// GLOBAL-LP64: @pa2 ={{.*}} global %memberptr { i64 ptrtoint (ptr @_ZN1A1fEv to i64), i64 0 }, align 8
 void (A::*pa2)() = &A::f;
 
 // GLOBAL-LP64: @pa3 ={{.*}} global %memberptr { i64 1, i64 0 }, align 8
@@ -29,37 +29,37 @@ void (A::*pa3)() = &A::vf1;
 // GLOBAL-LP32: @pa4 ={{.*}} global %memberptr { i32 5, i32 0 }, align 4
 void (A::*pa4)() = &A::vf2;
 
-// GLOBAL-LP64: @pc2 ={{.*}} global { i64, i64 } { i64 ptrtoint (ptr @_ZN1A1fEv to i64), i64 16 }, align 8
+// GLOBAL-LP64: @pc2 ={{.*}} global %memberptr { i64 ptrtoint (ptr @_ZN1A1fEv to i64), i64 16 }, align 8
 void (C::*pc2)() = &C::f;
 
 // GLOBAL-LP64: @pc3 ={{.*}} global %memberptr { i64 1, i64 0 }, align 8
 void (A::*pc3)() = &A::vf1;
 
 void f() {
-  // CODE-LP64: store { i64, i64 } zeroinitializer, ptr @pa
+  // CODE-LP64: store %memberptr zeroinitializer, ptr @pa
   pa = 0;
 
   // Is this okay?  What are LLVM's volatile semantics for structs?
-  // CODE-LP64: store volatile { i64, i64 } zeroinitializer, ptr @vpa
+  // CODE-LP64: store volatile %memberptr zeroinitializer, ptr @vpa
   vpa = 0;
 
-  // CODE-LP64: [[TMP:%.*]] = load { i64, i64 }, ptr @pa, align 8
-  // CODE-LP64: [[TMPADJ:%.*]] = extractvalue { i64, i64 } [[TMP]], 1
+  // CODE-LP64: [[TMP:%.*]] = load %memberptr, ptr @pa, align 8
+  // CODE-LP64: [[TMPADJ:%.*]] = extractvalue %memberptr [[TMP]], 1
   // CODE-LP64: [[ADJ:%.*]] = add nsw i64 [[TMPADJ]], 16
-  // CODE-LP64: [[RES:%.*]] = insertvalue { i64, i64 } [[TMP]], i64 [[ADJ]], 1
-  // CODE-LP64: store { i64, i64 } [[RES]], ptr @pc, align 8
+  // CODE-LP64: [[RES:%.*]] = insertvalue %memberptr [[TMP]], i64 [[ADJ]], 1
+  // CODE-LP64: store %memberptr [[RES]], ptr @pc, align 8
   pc = pa;
 
-  // CODE-LP64: [[TMP:%.*]] = load { i64, i64 }, ptr @pc, align 8
-  // CODE-LP64: [[TMPADJ:%.*]] = extractvalue { i64, i64 } [[TMP]], 1
+  // CODE-LP64: [[TMP:%.*]] = load %memberptr, ptr @pc, align 8
+  // CODE-LP64: [[TMPADJ:%.*]] = extractvalue %memberptr [[TMP]], 1
   // CODE-LP64: [[ADJ:%.*]] = sub nsw i64 [[TMPADJ]], 16
-  // CODE-LP64: [[RES:%.*]] = insertvalue { i64, i64 } [[TMP]], i64 [[ADJ]], 1
-  // CODE-LP64: store { i64, i64 } [[RES]], ptr @pa, align 8
+  // CODE-LP64: [[RES:%.*]] = insertvalue %memberptr [[TMP]], i64 [[ADJ]], 1
+  // CODE-LP64: store %memberptr [[RES]], ptr @pa, align 8
   pa = static_cast<void (A::*)()>(pc);
 }
 
 void f2() {
-  // CODE-LP64: store { i64, i64 } { i64 ptrtoint (ptr @_ZN1A1fEv to i64), i64 0 }
+  // CODE-LP64: store %memberptr { i64 ptrtoint (ptr @_ZN1A1fEv to i64), i64 0 }
   void (A::*pa2)() = &A::f;
   
   // CODE-LP64: store %memberptr { i64 1, i64 0 }
@@ -261,24 +261,24 @@ namespace test10 {
 
 // It's not that the offsets are doubled on ARM, it's that they're left-shifted by 1.
 
-// GLOBAL-LP64: @_ZN6test101aE ={{.*}} global { i64, i64 } { i64 ptrtoint (ptr @_ZN6test101A3fooEv to i64), i64 0 }, align 8
-// GLOBAL-LP32: @_ZN6test101aE ={{.*}} global { i32, i32 } { i32 ptrtoint (ptr @_ZN6test101A3fooEv to i32), i32 0 }, align 4
-// GLOBAL-ARM:  @_ZN6test101aE ={{.*}} global { i32, i32 } { i32 ptrtoint (ptr @_ZN6test101A3fooEv to i32), i32 0 }, align 4
+// GLOBAL-LP64: @_ZN6test101aE ={{.*}} global %memberptr { i64 ptrtoint (ptr @_ZN6test101A3fooEv to i64), i64 0 }, align 8
+// GLOBAL-LP32: @_ZN6test101aE ={{.*}} global %memberptr { i32 ptrtoint (ptr @_ZN6test101A3fooEv to i32), i32 0 }, align 4
+// GLOBAL-ARM:  @_ZN6test101aE ={{.*}} global %memberptr { i32 ptrtoint (ptr @_ZN6test101A3fooEv to i32), i32 0 }, align 4
   void (A::*a)() = &A::foo;
 
-// GLOBAL-LP64: @_ZN6test101bE ={{.*}} global { i64, i64 } { i64 ptrtoint (ptr @_ZN6test101A3fooEv to i64), i64 8 }, align 8
-// GLOBAL-LP32: @_ZN6test101bE ={{.*}} global { i32, i32 } { i32 ptrtoint (ptr @_ZN6test101A3fooEv to i32), i32 4 }, align 4
-// GLOBAL-ARM:  @_ZN6test101bE ={{.*}} global { i32, i32 } { i32 ptrtoint (ptr @_ZN6test101A3fooEv to i32), i32 8 }, align 4
+// GLOBAL-LP64: @_ZN6test101bE ={{.*}} global %memberptr { i64 ptrtoint (ptr @_ZN6test101A3fooEv to i64), i64 8 }, align 8
+// GLOBAL-LP32: @_ZN6test101bE ={{.*}} global %memberptr { i32 ptrtoint (ptr @_ZN6test101A3fooEv to i32), i32 4 }, align 4
+// GLOBAL-ARM:  @_ZN6test101bE ={{.*}} global %memberptr { i32 ptrtoint (ptr @_ZN6test101A3fooEv to i32), i32 8 }, align 4
   void (B::*b)() = (void (B::*)()) &A::foo;
 
-// GLOBAL-LP64: @_ZN6test101cE ={{.*}} global { i64, i64 } { i64 ptrtoint (ptr @_ZN6test101A3fooEv to i64), i64 8 }, align 8
-// GLOBAL-LP32: @_ZN6test101cE ={{.*}} global { i32, i32 } { i32 ptrtoint (ptr @_ZN6test101A3fooEv to i32), i32 4 }, align 4
-// GLOBAL-ARM:  @_ZN6test101cE ={{.*}} global { i32, i32 } { i32 ptrtoint (ptr @_ZN6test101A3fooEv to i32), i32 8 }, align 4
+// GLOBAL-LP64: @_ZN6test101cE ={{.*}} global %memberptr { i64 ptrtoint (ptr @_ZN6test101A3fooEv to i64), i64 8 }, align 8
+// GLOBAL-LP32: @_ZN6test101cE ={{.*}} global %memberptr { i32 ptrtoint (ptr @_ZN6test101A3fooEv to i32), i32 4 }, align 4
+// GLOBAL-ARM:  @_ZN6test101cE ={{.*}} global %memberptr { i32 ptrtoint (ptr @_ZN6test101A3fooEv to i32), i32 8 }, align 4
   void (C::*c)() = (void (C::*)()) (void (B::*)()) &A::foo;
 
-// GLOBAL-LP64: @_ZN6test101dE ={{.*}} global { i64, i64 } { i64 ptrtoint (ptr @_ZN6test101A3fooEv to i64), i64 16 }, align 8
-// GLOBAL-LP32: @_ZN6test101dE ={{.*}} global { i32, i32 } { i32 ptrtoint (ptr @_ZN6test101A3fooEv to i32), i32 8 }, align 4
-// GLOBAL-ARM:  @_ZN6test101dE ={{.*}} global { i32, i32 } { i32 ptrtoint (ptr @_ZN6test101A3fooEv to i32), i32 16 }, align 4
+// GLOBAL-LP64: @_ZN6test101dE ={{.*}} global %memberptr { i64 ptrtoint (ptr @_ZN6test101A3fooEv to i64), i64 16 }, align 8
+// GLOBAL-LP32: @_ZN6test101dE ={{.*}} global %memberptr { i32 ptrtoint (ptr @_ZN6test101A3fooEv to i32), i32 8 }, align 4
+// GLOBAL-ARM:  @_ZN6test101dE ={{.*}} global %memberptr { i32 ptrtoint (ptr @_ZN6test101A3fooEv to i32), i32 16 }, align 4
   void (D::*d)() = (void (C::*)()) (void (B::*)()) &A::foo;
 }
 

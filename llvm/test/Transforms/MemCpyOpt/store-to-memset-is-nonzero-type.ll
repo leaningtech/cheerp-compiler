@@ -5,7 +5,7 @@
 
 define void @array_zero(ptr %p) {
 ; CHECK-LABEL: @array_zero(
-; CHECK-NEXT:    call void @llvm.memset.p0.i64(ptr align 1 [[P:%.*]], i8 undef, i64 0, i1 false)
+; CHECK-NEXT:    call void @llvm.memset.p0.i32(ptr align 1 [[P:%.*]], i8 undef, i32 0, i1 false)
 ; CHECK-NEXT:    ret void
 ;
   store [0 x i8] zeroinitializer, ptr %p
@@ -14,7 +14,7 @@ define void @array_zero(ptr %p) {
 
 define void @array_nonzero(ptr %p) {
 ; CHECK-LABEL: @array_nonzero(
-; CHECK-NEXT:    call void @llvm.memset.p0.i64(ptr align 1 [[P:%.*]], i8 0, i64 1, i1 false)
+; CHECK-NEXT:    call void @llvm.memset.p0.i32(ptr align 1 [[P:%.*]], i8 0, i32 1, i1 false)
 ; CHECK-NEXT:    ret void
 ;
   store [1 x i8] zeroinitializer, ptr %p
@@ -25,7 +25,7 @@ define void @array_nonzero(ptr %p) {
 
 define void @struct_zero(ptr %p) {
 ; CHECK-LABEL: @struct_zero(
-; CHECK-NEXT:    call void @llvm.memset.p0.i64(ptr align 1 [[P:%.*]], i8 undef, i64 0, i1 false)
+; CHECK-NEXT:    call void @llvm.memset.p0.i32(ptr align 1 [[P:%.*]], i8 undef, i32 0, i1 false)
 ; CHECK-NEXT:    ret void
 ;
   store { } zeroinitializer, ptr %p
@@ -33,7 +33,7 @@ define void @struct_zero(ptr %p) {
 }
 define void @struct_nonzero(ptr %p) {
 ; CHECK-LABEL: @struct_nonzero(
-; CHECK-NEXT:    call void @llvm.memset.p0.i64(ptr align 1 [[P:%.*]], i8 0, i64 1, i1 false)
+; CHECK-NEXT:    call void @llvm.memset.p0.i32(ptr align 1 [[P:%.*]], i8 0, i32 1, i1 false)
 ; CHECK-NEXT:    ret void
 ;
   store { i8 } zeroinitializer, ptr %p
@@ -47,7 +47,7 @@ define void @struct_nonzero(ptr %p) {
 define void @vector_fixed_length_nonzero(ptr %p) {
 ; CHECK-LABEL: @vector_fixed_length_nonzero(
 ; CHECK-NEXT:    [[TMP1:%.*]] = getelementptr <16 x i8>, ptr [[P]], i64 1
-; CHECK-NEXT:    call void @llvm.memset.p0.i64(ptr align 16 [[P:%.*]], i8 0, i64 32, i1 false)
+; CHECK-NEXT:    call void @llvm.memset.p0.i32(ptr align 16 [[P:%.*]], i8 0, i32 32, i1 false)
 ; CHECK-NEXT:    ret void
 ;
   store <16 x i8> zeroinitializer, ptr %p

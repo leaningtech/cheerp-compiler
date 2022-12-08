@@ -79,7 +79,7 @@ define i32 @bar6(ptr %arg) {
 }
 
 ; CHECK-LABEL: @bar6
-; CHECK: call void @llvm.memcpy.p0.p0.i64(ptr align 8 @__msan_va_arg_tls, ptr align 8 {{.*}}, i64 16, i1 false)
+; CHECK: call void @llvm.memcpy.p0.p0.i32(ptr align 8 @__msan_va_arg_tls, ptr align 8 {{.*}}, i32 16, i1 false)
 ; CHECK: store {{.*}} 16, {{.*}} @__msan_va_arg_overflow_size_tls
 
 ; Check 16-aligned byval.
@@ -89,7 +89,7 @@ define i32 @bar7(ptr %arg) {
 }
 
 ; CHECK-LABEL: @bar7
-; CHECK: call void @llvm.memcpy.p0.p0.i64(ptr align 8 inttoptr (i64 add (i64 ptrtoint (ptr @__msan_va_arg_tls to i64), i64 8) to ptr), ptr align 8 {{.*}}, i64 32, i1 false)
+; CHECK: call void @llvm.memcpy.p0.p0.i32(ptr align 8 inttoptr (i64 add (i64 ptrtoint (ptr @__msan_va_arg_tls to i64), i64 8) to ptr), ptr align 8 {{.*}}, i32 32, i1 false)
 ; CHECK: store {{.*}} 40, {{.*}} @__msan_va_arg_overflow_size_tls
 
 ; Test that MSan doesn't generate code overflowing __msan_va_arg_tls when too many arguments are

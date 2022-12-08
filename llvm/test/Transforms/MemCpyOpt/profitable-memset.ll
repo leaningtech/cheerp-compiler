@@ -8,7 +8,7 @@ define void @foo(ptr nocapture %P) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds i16, ptr [[P:%.*]], i64 1
 ; CHECK-NEXT:    [[ARRAYIDX1:%.*]] = getelementptr inbounds i16, ptr [[P:%.*]], i64 3
-; CHECK-NEXT:    call void @llvm.memset.p0.i64(ptr align 2 [[P:%.*]], i8 0, i64 8, i1 false)
+; CHECK-NEXT:    call void @llvm.memset.p0.i32(ptr align 2 [[P:%.*]], i8 0, i32 8, i1 false)
 ; CHECK-NEXT:    ret void
 ;
 entry:

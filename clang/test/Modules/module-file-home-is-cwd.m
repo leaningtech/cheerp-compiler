@@ -1,6 +1,6 @@
 // UNSUPPORTED: -zos, -aix
 // RUN: cd %S
-// RUN: %clang_cc1 -x objective-c -fmodules -fno-implicit-modules \
+// RUN: %clang_cc1 -triple %itanium_abi_triple -x objective-c -fmodules -fno-implicit-modules \
 // RUN:     -fmodule-file-home-is-cwd -fmodule-name=libA -emit-module \
 // RUN:     -fmodules-embed-all-files %S/Inputs/normal-module-map/module.map \
 // RUN:     -o %t/mod.pcm
@@ -14,7 +14,7 @@
 @import libA;
 
 // RUN: cd %t
-// RUN: %clang_cc1 -x objective-c -fmodules -fno-implicit-modules -debug-info-kind=limited \
+// RUN: %clang_cc1 -triple %itanium_abi_triple -x objective-c -fmodules -fno-implicit-modules -debug-info-kind=limited \
 // RUN:     -debugger-tuning=lldb -dwarf-ext-refs -fmodule-file-home-is-cwd \
 // RUN:     -fmodule-map-file=%S/Inputs/normal-module-map/module.map \
 // RUN:     -fmodule-file=libA=mod.pcm -emit-llvm -o %t-mod.ll %s

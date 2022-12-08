@@ -14,8 +14,8 @@ define i32 @test1(ptr %ptr) {
 ; CHECK-NEXT:  invoke.cont6:
 ; CHECK-NEXT:    [[P_2:%.*]] = getelementptr inbounds [[T:%.*]], ptr [[PTR:%.*]], i64 0, i32 4
 ; CHECK-NEXT:    [[P_3:%.*]] = getelementptr inbounds [[T]], ptr [[PTR]], i64 0, i32 5, i64 0
-; CHECK-NEXT:    call void @llvm.memset.p0.i64(ptr align 8 [[PTR]], i8 0, i64 20, i1 false)
-; CHECK-NEXT:    call void @llvm.memset.p0.i64(ptr align 8 [[P_2]], i8 0, i64 8195, i1 false)
+; CHECK-NEXT:    call void @llvm.memset.p0.i32(ptr align 8 [[PTR]], i8 0, i32 20, i1 false)
+; CHECK-NEXT:    call void @llvm.memset.p0.i32(ptr align 8 [[P_2]], i8 0, i32 8195, i1 false)
 ; CHECK-NEXT:    ret i32 0
 ;
 invoke.cont6:
@@ -115,7 +115,7 @@ define void @test7(ptr %ptr) {
 ; CHECK-NEXT:    [[TMP0:%.*]] = getelementptr inbounds [4 x i32], ptr [[PTR:%.*]], i64 0, i32 1
 ; CHECK-NEXT:    [[TMP1:%.*]] = getelementptr inbounds [4 x i32], ptr [[PTR]], i64 0, i32 2
 ; CHECK-NEXT:    [[TMP2:%.*]] = getelementptr inbounds [4 x i32], ptr [[PTR]], i64 0, i32 3
-; CHECK-NEXT:    call void @llvm.memset.p0.i64(ptr align 1 [[PTR]], i8 0, i64 16, i1 false)
+; CHECK-NEXT:    call void @llvm.memset.p0.i32(ptr align 1 [[PTR]], i8 0, i32 16, i1 false)
 ; CHECK-NEXT:    call void @clobber()
 ; CHECK-NEXT:    ret void
 ;
@@ -133,8 +133,8 @@ entry:
 
 define void @test8(ptr noalias %src, ptr %dst) {
 ; CHECK-LABEL: @test8(
-; CHECK-NEXT:    call void @llvm.memcpy.p0.p0.i64(ptr align 1 [[DST:%.*]], ptr align 1 [[SRC:%.*]], i64 8224, i1 false)
-; CHECK-NEXT:    call void @llvm.memset.p0.i64(ptr align 1 [[SRC]], i8 0, i64 8224, i1 false)
+; CHECK-NEXT:    call void @llvm.memcpy.p0.p0.i32(ptr align 1 [[DST:%.*]], ptr align 1 [[SRC:%.*]], i32 8224, i1 false)
+; CHECK-NEXT:    call void @llvm.memset.p0.i32(ptr align 1 [[SRC]], i8 0, i32 8224, i1 false)
 ; CHECK-NEXT:    ret void
 ;
   %1 = load %t, ptr %src

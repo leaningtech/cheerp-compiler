@@ -567,7 +567,7 @@ define void @complicated_args_byval() {
 ; CGSCC: Function Attrs: nofree nosync nounwind willreturn
 ; CGSCC-LABEL: define {{[^@]+}}@complicated_args_byval
 ; CGSCC-SAME: () #[[ATTR3]] {
-; CGSCC-NEXT:    [[TMP1:%.*]] = load i8*, i8** getelementptr inbounds ([[STRUCT_X:%.*]], %struct.X* @S, i32 0, i32 0), align 8
+; CGSCC-NEXT:    [[TMP1:%.*]] = load i8*, i8** bitcast (%struct.X* @S to i8**), align 8
 ; CGSCC-NEXT:    call void @test_byval(i8* nofree writeonly [[TMP1]]) #[[ATTR13]]
 ; CGSCC-NEXT:    ret void
 ;
@@ -602,7 +602,7 @@ define i8* @complicated_args_byval2() {
 ; TUNIT-NEXT:    ret i8* [[C]]
 ;
 ; CGSCC-LABEL: define {{[^@]+}}@complicated_args_byval2() {
-; CGSCC-NEXT:    [[TMP1:%.*]] = load i8*, i8** getelementptr inbounds ([[STRUCT_X:%.*]], %struct.X* @S, i32 0, i32 0), align 8
+; CGSCC-NEXT:    [[TMP1:%.*]] = load i8*, i8** bitcast (%struct.X* @S to i8**), align 8
 ; CGSCC-NEXT:    [[C:%.*]] = call i8* @test_byval2(i8* [[TMP1]])
 ; CGSCC-NEXT:    ret i8* [[C]]
 ;
@@ -978,14 +978,14 @@ define internal void @f1(i8*** %a) {
 ; TUNIT-LABEL: define {{[^@]+}}@f1
 ; TUNIT-SAME: (i8*** nocapture nofree noundef nonnull writeonly align 8 dereferenceable(8) [[A:%.*]]) #[[ATTR3]] {
 ; TUNIT-NEXT:  entry:
-; TUNIT-NEXT:    store i8** getelementptr inbounds ({ [2 x i8*] }, { [2 x i8*] }* @g, i32 0, i32 0, i32 0), i8*** [[A]], align 8
+; TUNIT:    store i8** {{.*}}, i8*** [[A]], align 8
 ; TUNIT-NEXT:    ret void
 ;
 ; CGSCC: Function Attrs: nofree norecurse nosync nounwind willreturn memory(argmem: write)
 ; CGSCC-LABEL: define {{[^@]+}}@f1
 ; CGSCC-SAME: (i8*** nocapture nofree noundef nonnull writeonly align 8 dereferenceable(8) [[A:%.*]]) #[[ATTR4]] {
 ; CGSCC-NEXT:  entry:
-; CGSCC-NEXT:    store i8** getelementptr inbounds ({ [2 x i8*] }, { [2 x i8*] }* @g, i32 0, i32 0, i32 0), i8*** [[A]], align 8
+; CGSCC:    store i8** {{.*}}, i8*** [[A]], align 8
 ; CGSCC-NEXT:    ret void
 ;
 entry:

@@ -8,6 +8,7 @@
 ;   int * __tag1 * __tag2 *g;
 ; Compilation flag:
 ;   clang -target x86_64 -g -S -emit-llvm t.c
+target triple = "x86_64-apple-macosx10.12.0"
 
 @g = dso_local global ptr null, align 8, !dbg !0
 

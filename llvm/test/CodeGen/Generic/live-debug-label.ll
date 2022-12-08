@@ -2,6 +2,7 @@
 ;
 ; NVPTX produces a different order of the BBs
 ; XFAIL: nvptx
+target triple = "x86_64-apple-macosx10.12.0"
 
 ; Generated with "clang++ -g -O1 -S -emit-llvm"
 ;

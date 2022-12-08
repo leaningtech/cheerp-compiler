@@ -1,4 +1,4 @@
-# RUN: llc -run-pass=mir-debugify,mir-check-debugify -o - %s 2>&1 | FileCheck %s
+# RUN: llc -mtriple x86_64-unknown-linux -run-pass=mir-debugify,mir-check-debugify -o - %s 2>&1 | FileCheck %s
 
 # CHECK: Machine IR debug info check: PASS
 # CHECK-NOT: Assertion `Var <= NumVars && "Unexpected name for DILocalVariable"'

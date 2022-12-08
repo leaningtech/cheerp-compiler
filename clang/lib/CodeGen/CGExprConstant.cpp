@@ -1989,7 +1989,9 @@ private:
       CurType = base.getTypeInfoType();
 
 
-  llvm::Type* CurrentType = C->getType()->getPointerElementType();
+  llvm::Type* CurrentType = nullptr;
+  if (!C->getType()->isOpaquePointerTy())
+    CurrentType = C->getType()->getPointerElementType();
   llvm::Type* CElementType = CurrentType;
 
   if(Value.hasLValuePath() && CGM.getTypes().ConvertTypeForMem(CurType) == CurrentType) {
@@ -2037,7 +2039,7 @@ private:
       Indexes.back() = llvm::ConstantInt::get(CGM.Int32Ty, cast<llvm::ConstantInt>(Indexes.back())->getZExtValue()+1);
     }
     OffsetVal = 0;
-  } else {
+  } else if (CurrentType) {
     // Try to build a naturally looking GEP from the returned expression to the
     // required type
     while(DestTy->isPointerTy() && (OffsetVal || CurrentType!=DestTy->getPointerElementType()))

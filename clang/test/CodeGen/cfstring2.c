@@ -1,5 +1,5 @@
 // UNSUPPORTED: -zos, -aix
-// RUN: %clang_cc1 -emit-llvm %s -o %t
+// RUN: %clang_cc1 -triple %itanium_abi_triple -emit-llvm %s -o %t
 
 typedef const struct __CFString * CFStringRef;
 

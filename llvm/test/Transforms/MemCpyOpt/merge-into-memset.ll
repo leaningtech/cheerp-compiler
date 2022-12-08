@@ -12,10 +12,10 @@ define void @foo(i1 %c, ptr %d, ptr %e, ptr %f) {
 ; CHECK-NEXT:    [[TMP:%.*]] = alloca [50 x i8], align 8
 ; CHECK-NEXT:    [[TMP1:%.*]] = getelementptr inbounds i8, ptr [[TMP]], i64 1
 ; CHECK-NEXT:    call void @llvm.memset.p0.i64(ptr nonnull [[D:%.*]], i8 0, i64 10, i1 false)
-; CHECK-NEXT:    call void @llvm.memset.p0.i64(ptr align 8 [[TMP]], i8 0, i64 11, i1 false)
+; CHECK-NEXT:    call void @llvm.memset.p0.i32(ptr align 8 [[TMP]], i8 0, i32 11, i1 false)
 ; CHECK-NEXT:    br i1 [[C:%.*]], label [[IF_THEN:%.*]], label [[EXIT:%.*]]
 ; CHECK:       if.then:
-; CHECK-NEXT:    call void @llvm.memset.p0.i64(ptr align 8 [[F:%.*]], i8 0, i64 11, i1 false)
+; CHECK-NEXT:    call void @llvm.memset.p0.i32(ptr align 8 [[F:%.*]], i8 0, i32 11, i1 false)
 ; CHECK-NEXT:    br label [[EXIT]]
 ; CHECK:       exit:
 ; CHECK-NEXT:    ret void

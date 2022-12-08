@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -emit-llvm %s  -o /dev/null
+// RUN: %clang_cc1 -triple %itanium_abi_triple -emit-llvm %s  -o /dev/null
 
 typedef __SIZE_TYPE__ size_t;
 void *alloca(size_t size);

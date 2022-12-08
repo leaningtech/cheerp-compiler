@@ -500,15 +500,15 @@ define void @uitofp_2i64_2f32() #0 {
 ; AVX2-NEXT:    ret void
 ;
 ; AVX512-LABEL: @uitofp_2i64_2f32(
-; AVX512-NEXT:    [[TMP1:%.*]] = load <2 x i64>, <2 x i64>* bitcast ([8 x i64]* @src64 to <2 x i64>*), align 64
+; AVX512-NEXT:    [[TMP1:%.*]] = load <2 x i64>, <2 x i64>* bitcast (i64* getelementptr inbounds ([8 x i64], [8 x i64]* @src64, i32 0, i64 0) to <2 x i64>*), align 64
 ; AVX512-NEXT:    [[TMP2:%.*]] = uitofp <2 x i64> [[TMP1]] to <2 x float>
-; AVX512-NEXT:    store <2 x float> [[TMP2]], <2 x float>* bitcast ([16 x float]* @dst32 to <2 x float>*), align 64
+; AVX512-NEXT:    store <2 x float> [[TMP2]], <2 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @dst32, i32 0, i64 0) to <2 x float>*), align 64
 ; AVX512-NEXT:    ret void
 ;
 ; AVX256DQ-LABEL: @uitofp_2i64_2f32(
-; AVX256DQ-NEXT:    [[TMP1:%.*]] = load <2 x i64>, <2 x i64>* bitcast ([8 x i64]* @src64 to <2 x i64>*), align 64
+; AVX256DQ-NEXT:    [[TMP1:%.*]] = load <2 x i64>, <2 x i64>* bitcast (i64* getelementptr inbounds ([8 x i64], [8 x i64]* @src64, i32 0, i64 0) to <2 x i64>*), align 64
 ; AVX256DQ-NEXT:    [[TMP2:%.*]] = uitofp <2 x i64> [[TMP1]] to <2 x float>
-; AVX256DQ-NEXT:    store <2 x float> [[TMP2]], <2 x float>* bitcast ([16 x float]* @dst32 to <2 x float>*), align 64
+; AVX256DQ-NEXT:    store <2 x float> [[TMP2]], <2 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @dst32, i32 0, i64 0) to <2 x float>*), align 64
 ; AVX256DQ-NEXT:    ret void
 ;
   %ld0 = load i64, i64* getelementptr inbounds ([8 x i64], [8 x i64]* @src64, i32 0, i64 0), align 64

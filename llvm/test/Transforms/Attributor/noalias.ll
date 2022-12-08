@@ -448,11 +448,13 @@ define void @test12_4(){
 ; CHECK-LABEL: define {{[^@]+}}@test12_4() {
 ; CHECK-NEXT:    [[A:%.*]] = tail call noalias i8* @malloc(i64 noundef 4)
 ; CHECK-NEXT:    [[B:%.*]] = tail call noalias i8* @malloc(i64 noundef 4)
+; CHECK-NEXT:    [[A_0:%.*]] = getelementptr i8, i8* [[A]], i64 0
 ; CHECK-NEXT:    [[A_1:%.*]] = getelementptr i8, i8* [[A]], i64 1
+; CHECK-NEXT:    [[B_0:%.*]] = getelementptr i8, i8* [[B]], i64 0
 ; CHECK-NEXT:    tail call void @two_args(i8* noalias nocapture [[A]], i8* noalias nocapture [[B]])
-; CHECK-NEXT:    tail call void @two_args(i8* nocapture [[A]], i8* nocapture [[A]])
+; CHECK-NEXT:    tail call void @two_args(i8* nocapture [[A]], i8* nocapture [[A_0]])
 ; CHECK-NEXT:    tail call void @two_args(i8* nocapture [[A]], i8* nocapture [[A_1]])
-; CHECK-NEXT:    tail call void @two_args(i8* nocapture [[A]], i8* nocapture [[B]])
+; CHECK-NEXT:    tail call void @two_args(i8* nocapture [[A_0]], i8* nocapture [[B_0]])
 ; CHECK-NEXT:    ret void
 ;
   %A = tail call noalias i8* @malloc(i64 4)

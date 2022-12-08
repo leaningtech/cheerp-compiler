@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -no-opaque-pointers -emit-llvm -o %t %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -no-opaque-pointers -emit-llvm -o %t %s
 
 @interface BaseClass {
     id _delegate;

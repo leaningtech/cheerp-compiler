@@ -3,6 +3,8 @@
 ; RUN:   | FileCheck %s --check-prefix=STRICT --implicit-check-not DW_AT_calling_convention
 ;
 
+target triple = "x86_64-apple-macosx10.12.0"
+
 ; // S is not trivially copyable.
 ; struct S {
 ;    ~S() {}

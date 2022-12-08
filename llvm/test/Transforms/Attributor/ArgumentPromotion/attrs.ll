@@ -18,7 +18,7 @@ define internal i32 @f(%struct.ss* byval(%struct.ss) %b, i32* byval(i32) %X, i32
 ; CHECK-NEXT:    store i32 [[TMP0]], i32* [[B_PRIV_CAST]], align 4
 ; CHECK-NEXT:    [[B_PRIV_0_1:%.*]] = getelementptr [[STRUCT_SS]], %struct.ss* [[B_PRIV]], i64 0, i32 1
 ; CHECK-NEXT:    store i64 [[TMP1]], i64* [[B_PRIV_0_1]], align 4
-; CHECK-NEXT:    [[TMP:%.*]] = getelementptr [[STRUCT_SS]], %struct.ss* [[B_PRIV]], i32 0, i32 0
+; CHECK-NEXT:    [[TMP:%.*]] = bitcast %struct.ss* [[B_PRIV]] to
 ; CHECK-NEXT:    [[TMP1:%.*]] = load i32, i32* [[TMP]], align 4
 ; CHECK-NEXT:    [[TMP2:%.*]] = add i32 [[TMP1]], 1
 ; CHECK-NEXT:    store i32 [[TMP2]], i32* [[TMP]], align 4

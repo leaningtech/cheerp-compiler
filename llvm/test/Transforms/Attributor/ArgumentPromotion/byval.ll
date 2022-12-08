@@ -16,7 +16,7 @@ define internal i32 @f(%struct.ss* byval(%struct.ss)  %b) nounwind  {
 ; CHECK-NEXT:    store i32 [[TMP0]], i32* [[B_PRIV_CAST]], align 4
 ; CHECK-NEXT:    [[B_PRIV_0_1:%.*]] = getelementptr [[STRUCT_SS]], %struct.ss* [[B_PRIV]], i64 0, i32 1
 ; CHECK-NEXT:    store i64 [[TMP1]], i64* [[B_PRIV_0_1]], align 4
-; CHECK-NEXT:    [[TMP:%.*]] = getelementptr [[STRUCT_SS]], %struct.ss* [[B_PRIV]], i32 0, i32 0
+; CHECK-NEXT:    [[TMP:%.*]] = bitcast %struct.ss* [[B_PRIV]] to
 ; CHECK-NEXT:    [[TMP1:%.*]] = load i32, i32* [[TMP]], align 4
 ; CHECK-NEXT:    [[TMP2:%.*]] = add i32 [[TMP1]], 1
 ; CHECK-NEXT:    store i32 [[TMP2]], i32* [[TMP]], align 4
@@ -41,7 +41,7 @@ define internal i32 @g(%struct.ss* byval(%struct.ss) align 32 %b) nounwind {
 ; CHECK-NEXT:    store i32 [[TMP0]], i32* [[B_PRIV_CAST]], align 4
 ; CHECK-NEXT:    [[B_PRIV_0_1:%.*]] = getelementptr [[STRUCT_SS]], %struct.ss* [[B_PRIV]], i64 0, i32 1
 ; CHECK-NEXT:    store i64 [[TMP1]], i64* [[B_PRIV_0_1]], align 4
-; CHECK-NEXT:    [[TMP:%.*]] = getelementptr [[STRUCT_SS]], %struct.ss* [[B_PRIV]], i32 0, i32 0
+; CHECK-NEXT:    [[TMP:%.*]] = bitcast %struct.ss* [[B_PRIV]] to
 ; CHECK-NEXT:    [[TMP1:%.*]] = load i32, i32* [[TMP]], align 32
 ; CHECK-NEXT:    [[TMP2:%.*]] = add i32 [[TMP1]], 1
 ; CHECK-NEXT:    store i32 [[TMP2]], i32* [[TMP]], align 32
@@ -62,7 +62,7 @@ define i32 @main() nounwind  {
 ; TUNIT-SAME: () #[[ATTR1:[0-9]+]] {
 ; TUNIT-NEXT:  entry:
 ; TUNIT-NEXT:    [[S:%.*]] = alloca [[STRUCT_SS:%.*]], align 4
-; TUNIT-NEXT:    [[TMP1:%.*]] = getelementptr [[STRUCT_SS]], %struct.ss* [[S]], i32 0, i32 0
+; TUNIT-NEXT:    [[TMP1:%.*]] = bitcast %struct.ss* [[S]] to
 ; TUNIT-NEXT:    store i32 1, i32* [[TMP1]], align 8
 ; TUNIT-NEXT:    [[TMP4:%.*]] = getelementptr [[STRUCT_SS]], %struct.ss* [[S]], i32 0, i32 1
 ; TUNIT-NEXT:    [[S_CAST:%.*]] = bitcast %struct.ss* [[S]] to i32*
@@ -83,7 +83,7 @@ define i32 @main() nounwind  {
 ; CGSCC-SAME: () #[[ATTR1:[0-9]+]] {
 ; CGSCC-NEXT:  entry:
 ; CGSCC-NEXT:    [[S:%.*]] = alloca [[STRUCT_SS:%.*]], align 4
-; CGSCC-NEXT:    [[TMP1:%.*]] = getelementptr [[STRUCT_SS]], %struct.ss* [[S]], i32 0, i32 0
+; CGSCC-NEXT:    [[TMP1:%.*]] = bitcast %struct.ss* [[S]] to
 ; CGSCC-NEXT:    [[TMP4:%.*]] = getelementptr [[STRUCT_SS]], %struct.ss* [[S]], i32 0, i32 1
 ; CGSCC-NEXT:    [[C0:%.*]] = call i32 @f(i32 noundef 1, i64 noundef 2) #[[ATTR2:[0-9]+]]
 ; CGSCC-NEXT:    [[C1:%.*]] = call i32 @g(i32 noundef 1, i64 noundef 2) #[[ATTR2]]

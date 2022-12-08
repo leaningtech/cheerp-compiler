@@ -97,10 +97,10 @@ define void @add_v8i64() {
 ; SLM-NEXT:    ret void
 ;
 ; AVX1-LABEL: @add_v8i64(
-; AVX1-NEXT:    [[TMP1:%.*]] = load <2 x i64>, <2 x i64>* bitcast ([8 x i64]* @a64 to <2 x i64>*), align 8
-; AVX1-NEXT:    [[TMP2:%.*]] = load <2 x i64>, <2 x i64>* bitcast ([8 x i64]* @b64 to <2 x i64>*), align 8
+; AVX1-NEXT:    [[TMP1:%.*]] = load <2 x i64>, <2 x i64>* bitcast (i64* getelementptr inbounds ([8 x i64], [8 x i64]* @a64, i32 0, i64 0) to <2 x i64>*), align 8
+; AVX1-NEXT:    [[TMP2:%.*]] = load <2 x i64>, <2 x i64>* bitcast (i64* getelementptr inbounds ([8 x i64], [8 x i64]* @b64, i32 0, i64 0) to <2 x i64>*), align 8
 ; AVX1-NEXT:    [[TMP3:%.*]] = call <2 x i64> @llvm.sadd.sat.v2i64(<2 x i64> [[TMP1]], <2 x i64> [[TMP2]])
-; AVX1-NEXT:    store <2 x i64> [[TMP3]], <2 x i64>* bitcast ([8 x i64]* @c64 to <2 x i64>*), align 8
+; AVX1-NEXT:    store <2 x i64> [[TMP3]], <2 x i64>* bitcast (i64* getelementptr inbounds ([8 x i64], [8 x i64]* @c64, i32 0, i64 0) to <2 x i64>*), align 8
 ; AVX1-NEXT:    [[TMP4:%.*]] = load <2 x i64>, <2 x i64>* bitcast (i64* getelementptr inbounds ([8 x i64], [8 x i64]* @a64, i32 0, i64 2) to <2 x i64>*), align 8
 ; AVX1-NEXT:    [[TMP5:%.*]] = load <2 x i64>, <2 x i64>* bitcast (i64* getelementptr inbounds ([8 x i64], [8 x i64]* @b64, i32 0, i64 2) to <2 x i64>*), align 8
 ; AVX1-NEXT:    [[TMP6:%.*]] = call <2 x i64> @llvm.sadd.sat.v2i64(<2 x i64> [[TMP4]], <2 x i64> [[TMP5]])
@@ -116,10 +116,10 @@ define void @add_v8i64() {
 ; AVX1-NEXT:    ret void
 ;
 ; AVX2-LABEL: @add_v8i64(
-; AVX2-NEXT:    [[TMP1:%.*]] = load <4 x i64>, <4 x i64>* bitcast ([8 x i64]* @a64 to <4 x i64>*), align 8
-; AVX2-NEXT:    [[TMP2:%.*]] = load <4 x i64>, <4 x i64>* bitcast ([8 x i64]* @b64 to <4 x i64>*), align 8
+; AVX2-NEXT:    [[TMP1:%.*]] = load <4 x i64>, <4 x i64>* bitcast (i64* getelementptr inbounds ([8 x i64], [8 x i64]* @a64, i32 0, i64 0) to <4 x i64>*), align 8
+; AVX2-NEXT:    [[TMP2:%.*]] = load <4 x i64>, <4 x i64>* bitcast (i64* getelementptr inbounds ([8 x i64], [8 x i64]* @b64, i32 0, i64 0) to <4 x i64>*), align 8
 ; AVX2-NEXT:    [[TMP3:%.*]] = call <4 x i64> @llvm.sadd.sat.v4i64(<4 x i64> [[TMP1]], <4 x i64> [[TMP2]])
-; AVX2-NEXT:    store <4 x i64> [[TMP3]], <4 x i64>* bitcast ([8 x i64]* @c64 to <4 x i64>*), align 8
+; AVX2-NEXT:    store <4 x i64> [[TMP3]], <4 x i64>* bitcast (i64* getelementptr inbounds ([8 x i64], [8 x i64]* @c64, i32 0, i64 0) to <4 x i64>*), align 8
 ; AVX2-NEXT:    [[TMP4:%.*]] = load <4 x i64>, <4 x i64>* bitcast (i64* getelementptr inbounds ([8 x i64], [8 x i64]* @a64, i32 0, i64 4) to <4 x i64>*), align 8
 ; AVX2-NEXT:    [[TMP5:%.*]] = load <4 x i64>, <4 x i64>* bitcast (i64* getelementptr inbounds ([8 x i64], [8 x i64]* @b64, i32 0, i64 4) to <4 x i64>*), align 8
 ; AVX2-NEXT:    [[TMP6:%.*]] = call <4 x i64> @llvm.sadd.sat.v4i64(<4 x i64> [[TMP4]], <4 x i64> [[TMP5]])

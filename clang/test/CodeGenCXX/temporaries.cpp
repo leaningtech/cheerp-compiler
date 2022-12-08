@@ -59,7 +59,6 @@ namespace RefTempSubobject {
     int ints[3] = {1, 2, 3};
   };
 
-  // CHECK: @_ZGRN16RefTempSubobject2srE_ = internal global { ptr, [3 x i32] } { {{.*}} getelementptr {{.*}} @_ZGRN16RefTempSubobject2srE_, {{.*}}, [3 x i32] [i32 1, i32 2, i32 3] }
   // CHECK: @_ZN16RefTempSubobject2srE = constant {{.*}} @_ZGRN16RefTempSubobject2srE_
   constexpr const SelfReferential &sr = SelfReferential();
 }

@@ -190,7 +190,7 @@ getAllocationDataForFunction(const Function *Callee, AllocType AllocTy,
   // cheerp.allocate[.array] is CallocLike if it is allocating memory in genericjs,
   // otherwise it is MallocLike
   bool callerIsGeneric = Caller && Caller->getSection() != StringRef("asmjs");
-  bool typeIsAsmJSPointer = cheerp::TypeSupport::isAsmJSPointer(Callee->getReturnType());
+  bool typeIsAsmJSPointer = !Callee->getReturnType()->isOpaquePointerTy() && cheerp::TypeSupport::isAsmJSPointer(Callee->getReturnType());
   bool callocLike = callerIsGeneric && !typeIsAsmJSPointer;
   const AllocFnsTy *FnData = nullptr;
   if (Callee->getIntrinsicID() == Intrinsic::cheerp_allocate && callocLike)

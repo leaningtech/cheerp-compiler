@@ -26,8 +26,8 @@ define void @test1(ptr %this) {
 ; CHECK-NEXT:    [[TMP12:%.*]] = getelementptr inbounds [[STRUCT_BAR]], ptr [[THIS]], i32 0, i32 4, i32 0, i32 2
 ; CHECK-NEXT:    [[TMP13:%.*]] = getelementptr inbounds [[STRUCT_BAR]], ptr [[THIS]], i32 0, i32 4, i32 0, i32 3
 ; CHECK-NEXT:    [[TMP14:%.*]] = getelementptr inbounds [[STRUCT_BAR]], ptr [[THIS]], i32 0, i32 5
-; CHECK-NEXT:    call void @llvm.memset.p0.i64(ptr align 4 [[THIS]], i8 0, i64 32, i1 false)
-; CHECK-NEXT:    call void @llvm.memset.p0.i64(ptr align 4 [[TMP7]], i8 0, i64 32, i1 false)
+; CHECK-NEXT:    call void @llvm.memset.p0.i32(ptr align 4 [[THIS]], i8 0, i32 32, i1 false)
+; CHECK-NEXT:    call void @llvm.memset.p0.i32(ptr align 4 [[TMP7]], i8 0, i32 32, i1 false)
 ; CHECK-NEXT:    unreachable
 ;
 entry:

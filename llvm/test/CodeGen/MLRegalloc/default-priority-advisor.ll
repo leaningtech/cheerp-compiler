@@ -6,6 +6,7 @@
 ; RUN: not llc -O2 -regalloc-enable-priority-advisor=development < %s 2>&1 | FileCheck %s
 ; RUN: not llc -O2 -regalloc-enable-priority-advisor=release < %s 2>&1 | FileCheck %s
 ; RUN: llc -O2 -regalloc-enable-priority-advisor=default < %s 2>&1 | FileCheck %s --check-prefix=DEFAULT
+target triple = "x86_64-apple-macosx10.12.0"
 
 ; regalloc-enable-priority-advisor is not enabled for NVPTX
 ; UNSUPPORTED: nvptx

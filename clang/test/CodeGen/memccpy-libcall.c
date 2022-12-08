@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fno-builtin-memccpy -emit-llvm < %s| FileCheck %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -fno-builtin-memccpy -emit-llvm < %s| FileCheck %s
 
 typedef __SIZE_TYPE__ size_t;
 

@@ -1,5 +1,5 @@
-// RUN: %clang_cc1 %s -verify
-// RUN: %clang_cc1 %s -DCODEGEN -emit-llvm -o - | FileCheck %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple %s -verify
+// RUN: %clang_cc1 -triple %itanium_abi_triple %s -DCODEGEN -emit-llvm -o - | FileCheck %s
 
 #define O_CREAT 0x100
 typedef int mode_t;

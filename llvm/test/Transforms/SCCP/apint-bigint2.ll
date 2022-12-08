@@ -54,7 +54,7 @@ define i101 @large_aggregate_2() {
 
 define void @index_too_large() {
 ; CHECK-LABEL: @index_too_large(
-; CHECK-NEXT:    store ptr getelementptr ([6 x i101], ptr @Y, i101 1537416322793603071, i101 4), ptr undef, align 8
+; CHECK-NEXT:    store ptr getelementptr ([6 x i101], ptr @Y, i32 0, i101 9224497936761618430), ptr undef, align 8
 ; CHECK-NEXT:    ret void
 ;
   %ptr1 = getelementptr [6 x i101], ptr @Y, i32 0, i32 -1

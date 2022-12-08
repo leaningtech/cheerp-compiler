@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 %s -emit-llvm-only -verify
+// RUN: %clang_cc1 -triple %itanium_abi_triple %s -emit-llvm-only -verify
 // expected-no-diagnostics
 
 struct A {int a;};

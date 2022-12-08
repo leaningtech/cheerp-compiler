@@ -69,7 +69,7 @@ TC
 // CHECK: [[FUNTYPE:![0-9]*]] = !DISubroutineType(types: [[FUNARGS:![0-9]*]])
 // CHECK: [[FUNARGS]] = !{null}
   &foo::e,
-// CHECK: [[TCARG5]] = !DITemplateValueParameter(name: "b", type: [[MEMFUNPTR:![0-9]*]], value: { i64, i64 } { i64 ptrtoint (ptr @_ZN3foo1fEv to i64), i64 0 })
+// CHECK: [[TCARG5]] = !DITemplateValueParameter(name: "b", type: [[MEMFUNPTR:![0-9]*]], value: %memberptr { i64 ptrtoint (ptr @_ZN3foo1fEv to i64), i64 0 })
 // CHECK: [[MEMFUNPTR]] = !DIDerivedType(tag: DW_TAG_ptr_to_member_type, {{.*}}baseType: [[FTYPE]], {{.*}}extraData: ![[FOO]])
   &foo::f,
 // CHECK: [[TCARG6]] = !DITemplateValueParameter(name: "f", type: [[FUNPTR:![0-9]*]], value: ptr @_ZN3foo1gEv)
@@ -106,7 +106,7 @@ TC
   nullptr,
 //
 // In some future iteration we could possibly emit the value of a null member
-// function pointer as '{ i64, i64 } zeroinitializer' as it may be handled
+// function pointer as '%memberptr zeroinitializer' as it may be handled
 // naturally from the LLVM CodeGen side once we decide how to handle non-null
 // member function pointers. For now, it's simpler just to emit the 'i8 0'.
 //

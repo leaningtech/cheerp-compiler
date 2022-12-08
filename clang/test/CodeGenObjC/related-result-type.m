@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -no-opaque-pointers -emit-llvm -o - %s | FileCheck %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -no-opaque-pointers -emit-llvm -o - %s | FileCheck %s
 
 @interface NSObject
 + (id)alloc;

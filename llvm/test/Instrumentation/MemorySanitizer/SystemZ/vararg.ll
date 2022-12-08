@@ -25,7 +25,7 @@ define i64 @foo(i64 %guard, ...) {
 ; We expect two memcpy operations: one for the register save area, and one for
 ; the overflow arg area.
 
-; CHECK: call void @llvm.memcpy.p0.p0.i64(ptr align 8 {{%.*}}, ptr align 8 {{%.*}}, i64 160, i1 false)
+; CHECK: call void @llvm.memcpy.p0.p0.i32(ptr align 8 {{%.*}}, ptr align 8 {{%.*}}, i32 160, i1 false)
 ; CHECK: call void @llvm.memcpy.p0.p0.i64(ptr align 8 {{%.*}}, ptr align 8 {{%.*}}, i64 [[A]], i1 false)
 
 declare void @llvm.lifetime.start.p0(i64, ptr nocapture) #1
