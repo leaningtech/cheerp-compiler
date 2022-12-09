@@ -2904,7 +2904,7 @@ private:
   bool visitMemSetInst(MemSetInst &II) {
     LLVM_DEBUG(dbgs() << "    original: " << II << "\n");
     assert(II.getRawDest() == OldPtr);
-    Type *RealPtrTy = OldPtr->stripPointerCastsSafe()->getType();
+    Type *RealPtrTy = OldPtr->getType();
 
     AAMDNodes AATags = II.getAAMetadata();
 
