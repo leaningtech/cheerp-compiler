@@ -48,6 +48,7 @@ opt/cheerp/lib/clang/16/include/__wmmintrin_pclmul.h
 opt/cheerp/lib/clang/16/include/mm3dnow.h
 opt/cheerp/lib/clang/16/include/ia32intrin.h
 opt/cheerp/lib/clang/16/include/stdarg.h
+opt/cheerp/lib/clang/16/include/__stddef_max_align_t.h
 opt/cheerp/bin/
 opt/cheerp/bin/clang-16
 opt/cheerp/bin/opt
