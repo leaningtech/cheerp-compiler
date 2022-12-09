@@ -10577,13 +10577,6 @@ LoopVectorizeResult LoopVectorizePass::runImpl(
       TTI->getMaxInterleaveFactor(1) < 2)
     return LoopVectorizeResult(false, false);
 
-  //Cheerp: currently JS does not support vector instructions,
-  //they might be supported in the future though.
-  const DataLayout &DL = F.getParent()->getDataLayout();
-  if (!DL.isByteAddressable() && F.getSection() != "asmjs") {
-    LLVM_DEBUG(dbgs() << "LV: Not vectorizing on NBA target");
-    return LoopVectorizeResult(false, false);
-  }
   bool Changed = false, CFGChanged = false;
 
   // The vectorizer requires loops to be in simplified form.
