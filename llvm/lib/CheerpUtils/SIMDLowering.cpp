@@ -965,6 +965,9 @@ PreservedAnalyses SIMDLoweringPass::run(Function& F, FunctionAnalysisManager& FA
 			assert(!it->getType()->isVectorTy());
 	}
 	bool lowerAll = !WasmSIMD || LinearOutput == LinearOutputTy::AsmJs;
+	if (lowerAll)
+		removeSIMDAttribute(&F);
+
 	SIMDLoweringVisitor Visitor(*F.getParent(), lowerAll);
 	Visitor.visit(F);
 
