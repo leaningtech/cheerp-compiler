@@ -1387,4 +1387,55 @@ unsigned getVectorBitwidth(const FixedVectorType* vecType)
 	return vectorBitwidth;
 }
 
+bool hasSIMDAttribute(const Function* F)
+{
+	if (!F->hasFnAttribute("target-features"))
+		return false;
+	Attribute Attr = F->getFnAttribute("target-features");
+	if (!Attr.isStringAttribute())
+		return false;
+	StringRef allFeatures = Attr.getValueAsString();
+	size_t pos = 0;
+	size_t len = 0;
+	StringRef feature;
+	while (len != std::string::npos)
+	{
+		len = allFeatures.find(",", pos);
+		feature = allFeatures.substr(pos, len - pos);
+		if (feature == "+simd128")
+			return true;
+		pos = len + 1;
+	}
+	return false;
+}
+
+void removeSIMDAttribute(Function* F)
+{
+	if (!F->hasFnAttribute("target-features"))
+		return;
+	Attribute Attr = F->getFnAttribute("target-features");
+	if (!Attr.isStringAttribute())
+		return;
+	StringRef allFeatures = Attr.getValueAsString();
+	std::vector<StringRef> features;
+	size_t pos = 0;
+	size_t len = 0;
+	StringRef feature;
+	while (len != std::string::npos)
+	{
+		len = allFeatures.find(",", pos);
+		feature = allFeatures.substr(pos, len - pos);
+		features.push_back(feature);
+		pos = len + 1;
+	}
+	auto it = std::find(features.begin(), features.end(), "+simd128");
+	if (it == features.end())
+		return;
+	features.erase(it);
+	F->removeFnAttr("target-features");
+	if (features.empty())
+		return;
+	F->addFnAttr("target-features", llvm::join(features, ","));
+}
+
 }
