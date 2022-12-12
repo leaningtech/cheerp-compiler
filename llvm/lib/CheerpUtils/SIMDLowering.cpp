@@ -951,14 +951,14 @@ namespace cheerp
 
 PreservedAnalyses SIMDLoweringPass::run(Function& F, FunctionAnalysisManager& FAM)
 {
-	if (!WasmSIMD)
+	if (WasmNoSIMD)
 	{
 		// Check if the parameters or return type are vector.
 		assert(!F.getReturnType()->isVectorTy());
 		for (auto it = F.arg_begin(); it != F.arg_end(); it++)
 			assert(!it->getType()->isVectorTy());
 	}
-	bool lowerAll = !WasmSIMD || LinearOutput == LinearOutputTy::AsmJs;
+	bool lowerAll = WasmNoSIMD || LinearOutput == LinearOutputTy::AsmJs;
 	if (lowerAll)
 		removeSIMDAttribute(&F);
 

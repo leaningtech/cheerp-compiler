@@ -650,8 +650,8 @@ void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("-cheerp-wasm-exported-table");
   if(std::find(features.begin(), features.end(), EXPORTEDMEMORY) != features.end())
     CmdArgs.push_back("-cheerp-wasm-exported-memory");
-  if(std::find(features.begin(), features.end(), SIMD) != features.end())
-    CmdArgs.push_back("-cheerp-wasm-simd");
+  if(std::find(features.begin(), features.end(), SIMD) == features.end())
+    CmdArgs.push_back("-cheerp-wasm-no-simd");
   if(std::find(features.begin(), features.end(), UNALIGNEDMEM) == features.end())
     CmdArgs.push_back("-cheerp-wasm-no-unaligned-mem");
 
@@ -840,6 +840,7 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
   // Figure out which Wasm optional feature to enable/disable
   auto features = getWasmFeatures(D, Args);
   bool noGrowMem = true;
+  bool noSIMD = true;
   bool noGlobalization = true;
   bool noUnalignedMem = true;
   for (CheerpWasmOpt o: features)
@@ -868,7 +869,7 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
 	CmdArgs.push_back("-cheerp-wasm-branch-hinting");
 	break;
       case SIMD:
-        CmdArgs.push_back("-cheerp-wasm-simd");
+        noSIMD = false;
         break;
       case GLOBALIZATION:
         noGlobalization = false;
@@ -883,6 +884,8 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
   }
   if (noGrowMem)
     CmdArgs.push_back("-cheerp-wasm-no-grow-memory");
+  if (noSIMD)
+    CmdArgs.push_back("-cheerp-wasm-no-simd");
   if (noGlobalization)
     CmdArgs.push_back("-cheerp-wasm-no-globalization");
   if (noUnalignedMem)
