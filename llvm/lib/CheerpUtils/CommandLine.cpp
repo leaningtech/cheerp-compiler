@@ -78,7 +78,7 @@ llvm::cl::opt<bool> WasmAnyref("cheerp-wasm-externref", llvm::cl::desc("Enable s
 
 llvm::cl::opt<bool> WasmReturnCalls("cheerp-wasm-return-calls", llvm::cl::desc("Enable return-call and return-call-indirect opcodes"));
 
-llvm::cl::opt<bool> WasmSIMD("cheerp-wasm-simd", llvm::cl::desc("Enable SIMD support"));
+llvm::cl::opt<bool> WasmNoSIMD("cheerp-wasm-no-simd", llvm::cl::desc("Disable SIMD support"));
 
 llvm::cl::opt<bool> WasmNoGlobalization("cheerp-wasm-no-globalization", llvm::cl::desc("Disable promotion of global variables to proper wasm globals"));
 

@@ -52,7 +52,7 @@ extern llvm::cl::opt<bool> WasmExportedMemory;
 extern llvm::cl::opt<bool> WasmBranchHints;
 extern llvm::cl::opt<bool> WasmAnyref;
 extern llvm::cl::opt<bool> WasmReturnCalls;
-extern llvm::cl::opt<bool> WasmSIMD;
+extern llvm::cl::opt<bool> WasmNoSIMD;
 extern llvm::cl::opt<bool> WasmNoGlobalization;
 extern llvm::cl::opt<bool> WasmNoUnalignedMem;
 extern llvm::cl::opt<bool> UseBigInts;

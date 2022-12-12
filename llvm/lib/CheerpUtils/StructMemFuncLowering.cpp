@@ -436,7 +436,7 @@ bool StructMemFuncLowering::runOnBlock(BasicBlock& BB, bool asmjs)
 			}
 			uint32_t sizeInt = sizeConst->getZExtValue();
 			uint32_t elemSize = 1;
-			if (WasmSIMD && LinearOutput == Wasm && effectiveAlignInt % 16 == 0 && sizeInt >= 16) {
+			if (!WasmNoSIMD && LinearOutput == Wasm && effectiveAlignInt % 16 == 0 && sizeInt >= 16) {
 				if (mode == MEMSET)
 					pointedType = FixedVectorType::get(IntegerType::get(BB.getContext(), 8), 16);
 				else
