@@ -2106,6 +2106,12 @@ bool CodeGenModule::GetCPUAndFeaturesAttributes(GlobalDecl GD,
     // Otherwise just add the existing target cpu and target features to the
     // function.
     Features = getTarget().getTargetOpts().Features;
+    if (FD && FD->hasAttr<GenericJSAttr>())
+    {
+      auto it = std::find(Features.begin(), Features.end(), "+simd128");
+      if (it != Features.end())
+        Features.erase(it);
+    }
   }
 
   if (!TargetCPU.empty()) {
