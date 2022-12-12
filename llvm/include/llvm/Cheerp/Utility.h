@@ -894,6 +894,8 @@ struct PairHash
 };
 
 unsigned getVectorBitwidth(const llvm::FixedVectorType* vecType);
+bool hasSIMDAttribute(const llvm::Function* F);
+void removeSIMDAttribute(llvm::Function* F);
 
 }
 
