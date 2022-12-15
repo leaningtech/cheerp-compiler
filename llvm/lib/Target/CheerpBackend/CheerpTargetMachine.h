@@ -19,24 +19,29 @@
 #include "llvm/MC/SectionKind.h"
 #include "llvm/Target/TargetLoweringObjectFile.h"
 #include "llvm/Target/TargetMachine.h"
+#include "CheerpRegisterInfo.h"
 
 namespace llvm {
 
 class formatted_raw_ostream;
+class CheerpSubtarget;
 
 class CheerpTargetLowering: public TargetLowering {
+  const CheerpSubtarget* Subtarget;
 public:
-  CheerpTargetLowering(const TargetMachine &TM) : TargetLowering(TM) {}
+  CheerpTargetLowering(const TargetMachine& TM, const CheerpSubtarget& STI);
 };
 
 class CheerpSubtarget: public TargetSubtargetInfo {
 private:
+  const CheerpRegisterInfo RI;
   CheerpTargetLowering targetLowering;
 public:
   CheerpSubtarget(const TargetMachine &TM, const Target &T, const Triple& TT, StringRef CPU, StringRef FS) :
         TargetSubtargetInfo(TT, CPU, CPU, FS, None, None, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr),
-        targetLowering(TM) { }
+        targetLowering(TM, *this) { }
   virtual const CheerpTargetLowering *getTargetLowering() const override;
+  virtual const CheerpRegisterInfo* getRegisterInfo() const override;
 };
 
 class CheerpTargetLoweringObjectFile: public TargetLoweringObjectFile {

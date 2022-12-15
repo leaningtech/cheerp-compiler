@@ -298,9 +298,33 @@ bool CheerpTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
   return false;
 }
 
+CheerpTargetLowering::CheerpTargetLowering(const TargetMachine& TM, const CheerpSubtarget& STI)
+      : TargetLowering(TM), Subtarget(&STI) {
+    setBooleanContents(ZeroOrOneBooleanContent);
+    setBooleanVectorContents(ZeroOrNegativeOneBooleanContent);
+    setSchedulingPreference(Sched::RegPressure);
+    setStackPointerRegisterToSaveRestore(CheerpBackend::SP64);
+    addRegisterClass(MVT::i32, &CheerpBackend::I32RegClass);
+    addRegisterClass(MVT::i64, &CheerpBackend::I64RegClass);
+    addRegisterClass(MVT::f32, &CheerpBackend::F32RegClass);
+    addRegisterClass(MVT::f64, &CheerpBackend::F64RegClass);
+    addRegisterClass(MVT::v16i8, &CheerpBackend::V128RegClass);
+    addRegisterClass(MVT::v8i16, &CheerpBackend::V128RegClass);
+    addRegisterClass(MVT::v4i32, &CheerpBackend::V128RegClass);
+    addRegisterClass(MVT::v4f32, &CheerpBackend::V128RegClass);
+    addRegisterClass(MVT::v2i64, &CheerpBackend::V128RegClass);
+    addRegisterClass(MVT::v2f64, &CheerpBackend::V128RegClass);
+    computeRegisterProperties(Subtarget->getRegisterInfo());
+}
+
 const CheerpTargetLowering* CheerpSubtarget::getTargetLowering() const
 {
   return &targetLowering;
+}
+
+const CheerpRegisterInfo* CheerpSubtarget::getRegisterInfo() const
+{
+  return &RI;
 }
 
 const CheerpSubtarget* CheerpTargetMachine::getSubtargetImpl(const Function &F) const
