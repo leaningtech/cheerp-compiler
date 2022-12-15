@@ -310,33 +310,17 @@ bool SIMDTransformPass::lowerGeneralUnsupportedVectorOperation(Instruction& I)
 	IRBuilder<> Builder(&I);
 	Value* firstOp = I.getOperand(0);
 	Value* secondOp = I.getOperand(1);
-	Type* elementType = cast<VectorType>(firstOp->getType())->getElementType();
-	assert(elementType->isIntegerTy());
-	int amount;
-	if (elementType->isIntegerTy())
-		amount = 128 / elementType->getIntegerBitWidth();
-	else if (elementType->isFloatTy())
-		amount = 4;
-	else if (elementType->isDoubleTy())
-		amount = 2;
-	else
-		llvm::report_fatal_error("Unknown elementwidth");
-	Value* newVec;
+	const FixedVectorType* vecType = cast<FixedVectorType>(I.getType());
+	int amount = vecType->getNumElements();
+	Value* newVector = UndefValue::get(I.getType());
 	for (int i = 0; i < amount; i++)
 	{
 		Value* subOp1 = Builder.CreateExtractElement(firstOp, i);
 		Value* subOp2 = Builder.CreateExtractElement(secondOp, i);
 		Value* shiftedValue = Builder.CreateBinOp((Instruction::BinaryOps)opcode, subOp1, subOp2);
-		if (i == 0)
-		{
-			std::vector<Type *> argTypes { secondOp->getType(), elementType };
-			Function* splatIntrinsic = Intrinsic::getDeclaration(I.getModule(), Intrinsic::cheerp_wasm_splat, argTypes);
-			newVec = Builder.CreateCall(splatIntrinsic, { shiftedValue });
-		}
-		else
-			newVec = Builder.CreateInsertElement(newVec, shiftedValue, i);
+		newVector = Builder.CreateInsertElement(newVector, shiftedValue, i);
 	}
-	I.replaceAllUsesWith(newVec);
+	I.replaceAllUsesWith(newVector);
 	deleteList.push_back(&I);
 	return false;
 }
@@ -401,7 +385,8 @@ PreservedAnalyses SIMDTransformPass::run(Function& F, FunctionAnalysisManager& F
 				needToBreak = lowerBitShift(I);
 			else if (I.getOpcode() == Instruction::ShuffleVector)
 				needToBreak = lowerSplat(I);
-			else if ((I.getOpcode() == Instruction::SDiv || I.getOpcode() == Instruction::UDiv)
+			else if ((I.getOpcode() == Instruction::SDiv || I.getOpcode() == Instruction::UDiv ||
+					I.getOpcode() == Instruction::URem || I.getOpcode() == Instruction::SRem)
 					&& I.getType()->isVectorTy())
 				needToBreak = lowerGeneralUnsupportedVectorOperation(I);
 			else if (isa<BitCastInst>(I) && I.getOperand(0)->getType()->isVectorTy()
