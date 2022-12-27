@@ -288,7 +288,7 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 
 	VectorParts visitCastInst(CastInst& I)
 	{
-		if (!lowerAll && I.getType()->isVectorTy() && (isa<SExtInst>(I) || isa<ZExtInst>(I) || isa<TruncInst>(I) || isa<FPExtInst>(I) || isa<FPTruncInst>(I)))
+		if (!lowerAll && I.getType()->isVectorTy() && (isa<SExtInst>(I) || isa<ZExtInst>(I) || isa<TruncInst>(I) || isa<FPExtInst>(I) || isa<FPTruncInst>(I) || isa<SIToFPInst>(I)))
 			return visitSizeChangingCast(I);
 		if (!shouldLower(I.getDestTy()) && !shouldLower(I.getSrcTy()))
 			return VectorParts();
