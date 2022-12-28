@@ -1146,7 +1146,7 @@ const SCEV *ScalarEvolution::getLosslessPtrToIntExpr(const SCEV *Op,
     return S;
 
   if (!getDataLayout().isByteAddressable())
-    return Op;
+    return getCouldNotCompute();
 
   // It isn't legal for optimizations to construct new ptrtoint expressions
   // for non-integral pointers.
