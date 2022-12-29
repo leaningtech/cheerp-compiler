@@ -1037,6 +1037,24 @@ GenericValue ExecutionEngine::getConstantValue(const Constant *C) {
 
       break;
     }
+    // Check if vector holds pointers.
+    if (ElemTy->isPointerTy()) {
+      for (unsigned i = 0; i < elemNum; ++i) {
+        Constant* elem = C->getAggregateElement(i);
+        while (auto *A = dyn_cast<GlobalAlias>(elem)) {
+          elem = A->getAliasee();
+        }
+        if (isa<ConstantPointerNull>(elem))
+          Result.AggregateVal[i].PointerVal = nullptr;
+        else if (const Function *F = dyn_cast<Function>(elem))
+          Result.AggregateVal[i] = PTOGV(getPointerToFunctionOrStub(const_cast<Function*>(F)));
+        else if (const GlobalVariable *GV = dyn_cast<GlobalVariable>(elem))
+          Result.AggregateVal[i] = RPTOGV(getOrEmitGlobalVariable(const_cast<GlobalVariable*>(GV)));
+        else
+          llvm_unreachable("Unknown constant pointer type!");
+      }
+      break;
+    }
     llvm_unreachable("Unknown constant pointer type!");
   } break;
   case Type::StructTyID: {

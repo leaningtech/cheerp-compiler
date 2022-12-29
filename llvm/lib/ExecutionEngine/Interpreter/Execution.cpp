@@ -1942,6 +1942,9 @@ void Interpreter::visitInsertElementInst(InsertElementInst &I) {
     case Type::DoubleTyID:
       Dest.AggregateVal[indx].DoubleVal = Src2.DoubleVal;
       break;
+    case Type::PointerTyID:
+      Dest.AggregateVal[indx].PointerVal = Src2.PointerVal;
+      break;
   }
   SetValue(&I, Dest, SF);
 }
@@ -2005,6 +2008,18 @@ void Interpreter::visitShuffleVectorInst(ShuffleVectorInst &I){
         else if(j < src1Size + src2Size)
           Dest.AggregateVal[i].DoubleVal =
             Src2.AggregateVal[j-src1Size].DoubleVal;
+        else
+          llvm_unreachable("Invalid mask in shufflevector instruction");
+      }
+      break;
+    case Type::PointerTyID:
+      for( unsigned i=0; i<src3Size; i++) {
+        unsigned j = std::max(0, I.getMaskValue(i));
+        if(j < src1Size)
+          Dest.AggregateVal[i].PointerVal = Src1.AggregateVal[j].PointerVal;
+        else if(j < src1Size + src2Size)
+          Dest.AggregateVal[i].PointerVal =
+            Src2.AggregateVal[j-src1Size].PointerVal;
         else
           llvm_unreachable("Invalid mask in shufflevector instruction");
       }
