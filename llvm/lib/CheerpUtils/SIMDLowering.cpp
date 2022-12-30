@@ -169,17 +169,9 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 			changed = true;
 			return result;
 		}
-		if (!shouldLower(I.getDestTy()))
+		if (!shouldLower(I.getDestTy()) && !shouldLower(I.getSrcTy()))
 			return VectorParts();
 
-		// Assert we're casting from one type of vector to another.
-		assert(I.getDestTy()->isVectorTy() && I.getSrcTy()->isVectorTy());
-		const FixedVectorType* vecDestTy = cast<FixedVectorType>(I.getDestTy());
-		const unsigned destN = vecDestTy->getNumElements();
-		Type* destType = vecDestTy->getElementType();
-		const FixedVectorType* vecSrcTy = cast<FixedVectorType>(I.getSrcTy());
-		const unsigned srcN = vecSrcTy->getNumElements();
-		Type* srcType = vecSrcTy->getElementType();
 		IRBuilder<> Builder(&I);
 		VectorParts srcVec = visitValue(I.getOperand(0));
 		VectorParts result;
@@ -192,38 +184,81 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 			bitcastAlloca = Builder.CreateAlloca(Int64Ty);
 			Builder.SetInsertPoint(&I);
 		}
+
+		assert(I.getDestTy()->isVectorTy() || I.getSrcTy()->isVectorTy());
+
+		// Decide source type and amount.
+		bool srcIsVector = I.getSrcTy()->isVectorTy();
+		const FixedVectorType* vecSrcTy = dyn_cast<FixedVectorType>(I.getSrcTy());
+		Type* srcType = srcIsVector ? vecSrcTy->getElementType() : I.getSrcTy();
+		const unsigned srcN = srcIsVector ? vecSrcTy->getNumElements() : 1;
+		assert(srcType->getScalarSizeInBits() <= 64);
+		// Decide dest type and amount.
+		bool dstIsVector = I.getDestTy()->isVectorTy();
+		const FixedVectorType* vecDestTy = dyn_cast<FixedVectorType>(I.getDestTy());
+		Type* destType = dstIsVector ? vecDestTy->getElementType() : I.getDestTy();
+		const unsigned destN = dstIsVector ? vecDestTy->getNumElements() : 1;
+		assert(destType->getScalarSizeInBits() <= 64);
+
 		// Prepare store and load locations before the loop
+		const unsigned srcSize = srcType->isPointerTy() ? 32 : srcType->getScalarSizeInBits();
+		const unsigned numSrcLocations = 64 / srcSize;
 		SmallVector<Value*, 8> srcLocations;
 		Value* firstSrcElement = bitcastAlloca;
 		if (srcType != Int64Ty)
 			firstSrcElement = Builder.CreateBitCast(bitcastAlloca, srcType->getPointerTo());
 		srcLocations.push_back(firstSrcElement);
-		for (unsigned i = 1; i < srcN / 2; i++)
+		for (unsigned i = 1; i < numSrcLocations; i++)
 		{
 			Value* index[] = {ConstantInt::get(Int32Ty, i)};
 			srcLocations.push_back(Builder.CreateInBoundsGEP(srcType, firstSrcElement, index));
 		}
+		const unsigned dstSize = destType->isPointerTy() ? 32 : destType->getScalarSizeInBits();
+		const unsigned numDstLocations = 64 / dstSize;
 		SmallVector<Value*, 8> destLocations;
 		Value* firstDestElement = bitcastAlloca;
 		if (destType != Int64Ty)
 			firstDestElement = Builder.CreateBitCast(bitcastAlloca, destType->getPointerTo());
 		destLocations.push_back(firstDestElement);
-		for (unsigned i = 1; i < destN / 2; i++)
+		for (unsigned i = 1; i < numDstLocations; i++)
 		{
 			Value* index[] = {ConstantInt::get(Int32Ty, i)};
 			destLocations.push_back(Builder.CreateInBoundsGEP(destType, firstDestElement, index));
 		}
-		// Now do this process twice (we're dealing with a 64-bit alloca)
-		for (unsigned i = 0; i < 2; i++)
+		// Now store/load as many times as necessary, using 64 bits per loop.
+		const unsigned numLoops = (dstIsVector && srcIsVector) ? cheerp::getVectorBitwidth(vecDestTy) / 64 : 1;
+		unsigned srcOffset = 0;
+		for (unsigned i = 0; i < numLoops; i++)
 		{
-			unsigned srcOffset = i * (srcN / 2);
 			// Store the elements that fit.
-			for (unsigned j = 0; j < srcN / 2; j++)
-				Builder.CreateStore(srcVec.values[srcOffset + j], srcLocations[j]);
+			if (srcIsVector)
+			{
+				for (unsigned j = 0; j < numSrcLocations; j++)
+				{
+					Builder.CreateStore(srcVec.values[srcOffset], srcLocations[j]);
+					srcOffset++;
+					if (srcOffset == srcN)
+						break;
+				}
+			}
+			else
+				Builder.CreateStore(I.getOperand(0), srcLocations[0]);
+
 			// Load the elements.
-			for (unsigned j = 0; j < destN / 2; j++)
-				result.values.push_back(Builder.CreateLoad(destType, destLocations[j]));
+			if (dstIsVector)
+			{
+				for (unsigned j = 0; j < numDstLocations; j++)
+				{
+					result.values.push_back(Builder.CreateLoad(destType, destLocations[j]));
+					if (result.values.size() == destN)
+						break;
+				}
+			}
+			else
+				result.values.push_back(Builder.CreateLoad(destType, destLocations[0]));
 		}
+		if (!dstIsVector)
+			I.replaceAllUsesWith(result.values[0]);
 		toDelete.push_back(&I);
 		changed = true;
 		return result;
