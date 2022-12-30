@@ -597,6 +597,27 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 		return result;
 	}
 
+	VectorParts visitUnaryOperator(UnaryOperator& I)
+	{
+		if (!shouldLower(I.getType()))
+			return VectorParts();
+
+		const FixedVectorType* vecType = cast<FixedVectorType>(I.getType());
+		const unsigned num = vecType->getNumElements();
+		IRBuilder<> Builder(&I);
+		VectorParts v = visitValue(I.getOperand(0));
+
+		VectorParts result;
+		for (unsigned i = 0; i < num; i++)
+		{
+			Value* unOp = Builder.CreateUnOp(I.getOpcode(), v.values[i]);
+			result.values.push_back(unOp);
+		}
+		toDelete.push_back(&I);
+		changed = true;
+		return result;
+	}
+
 	VectorParts visitCmpInst(CmpInst& I)
 	{
 		if (!I.getType()->isVectorTy())
