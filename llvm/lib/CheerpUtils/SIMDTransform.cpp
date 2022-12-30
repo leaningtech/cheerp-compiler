@@ -231,6 +231,10 @@ bool SIMDTransformPass::lowerBitShift(Instruction& I)
 	Value* secondOp = I.getOperand(1);
 	if (!secondOp->getType()->isVectorTy())
 		return false;
+	const FixedVectorType* vecType = cast<FixedVectorType>(I.getType());
+	if (getVectorBitwidth(vecType) != 128)
+		return false;
+
 	Intrinsic::ID intrID;
 	unsigned opcode = I.getOpcode();
 	if (opcode == Instruction::Shl)
