@@ -454,7 +454,7 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 			// We just shuffle the lowered elements and return them.
 			VectorParts v1 = visitValue(I.getOperand(0));
 			VectorParts v2 = visitValue(I.getOperand(1));
-			VectorParts result = shuffleElements(v1, v2);
+			result = shuffleElements(v1, v2);
 		}
 
 		toDelete.push_back(&I);
