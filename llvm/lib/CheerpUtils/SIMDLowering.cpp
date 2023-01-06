@@ -423,12 +423,13 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 			return VectorParts();
 
 		const FixedVectorType* resultVecType = cast<FixedVectorType>(I.getType());
+		Type* elementType = resultVecType->getElementType();
 		const FixedVectorType* opVecType = cast<FixedVectorType>(I.getOperand(0)->getType());
 		const unsigned resultWidth = cheerp::getVectorBitwidth(resultVecType);
 		const unsigned opWidth = cheerp::getVectorBitwidth(opVecType);
 		auto shuffleMask = I.getShuffleMask();
 
-		auto shuffleElements = [&shuffleMask](VectorParts& v1, VectorParts& v2) -> VectorParts
+		auto shuffleElements = [&shuffleMask, &elementType](VectorParts& v1, VectorParts& v2) -> VectorParts
 		{
 			VectorParts result;
 
@@ -438,8 +439,10 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 			for (unsigned i = 0; i < num; i++)
 			{
 				const int idx = shuffleMask[i];
-				assert(idx != UndefMaskElem && idx < vsize * 2);
-				if (idx < vsize)
+				assert(idx == UndefMaskElem || idx < vsize * 2);
+				if (idx == UndefMaskElem)
+					result.values.push_back(UndefValue::get(elementType));
+				else if (idx < vsize)
 					result.values.push_back(v1.values[idx]);
 				else
 					result.values.push_back(v2.values[idx - vsize]);
