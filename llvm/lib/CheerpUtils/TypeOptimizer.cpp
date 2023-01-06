@@ -741,6 +741,18 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 		t = ArrayType::get(IntegerType::get(t->getContext(), 32), 2);
 		return CacheAndReturn(t, TypeMappingInfo::IDENTICAL);
 	}
+	if (FixedVectorType* vt=dyn_cast<FixedVectorType>(t))
+	{
+		Type* elementType = vt->getElementType();
+		if (elementType->isIntegerTy())
+			return CacheAndReturn(vt, TypeMappingInfo::IDENTICAL);
+		const TypeMappingInfo& newInfo = rewriteType(elementType);
+		Type* newType = newInfo.mappedType;
+		if (newType == elementType)
+			return CacheAndReturn(vt, TypeMappingInfo::IDENTICAL);
+		else
+			return CacheAndReturn(FixedVectorType::get(newType, vt->getNumElements()), TypeMappingInfo::IDENTICAL);
+	}
 	return CacheAndReturn(t, TypeMappingInfo::IDENTICAL);
 }
 
