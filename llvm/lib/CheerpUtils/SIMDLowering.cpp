@@ -713,6 +713,27 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 		return result;
 	}
 
+	VectorParts visitFreezeInst(FreezeInst& I)
+	{
+		if (!shouldLower(I.getType()))
+			return VectorParts();
+
+		const FixedVectorType* vecType = cast<FixedVectorType>(I.getType());
+		const unsigned num = vecType->getNumElements();
+		IRBuilder<> Builder(&I);
+		VectorParts v = visitValue(I.getOperand(0));
+
+		VectorParts result;
+		for (unsigned i = 0; i < num; i++)
+		{
+			Value* freeze = Builder.CreateFreeze(v.values[i]);
+			result.values.push_back(freeze);
+		}
+		toDelete.push_back(&I);
+		changed = true;
+		return result;
+	}
+
 	VectorParts lowerSplatIntrinsic(IntrinsicInst& I)
 	{
 		if (!lowerAll)
