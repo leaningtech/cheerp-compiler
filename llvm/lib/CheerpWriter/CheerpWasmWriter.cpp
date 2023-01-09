@@ -2973,8 +2973,24 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 		}
 		case Instruction::SIToFP:
 		{
-			assert(I.getOperand(0)->getType()->isIntegerTy());
+			assert(I.getOperand(0)->getType()->isIntegerTy() || I.getOperand(0)->getType()->isVectorTy());
 			compileOperand(code, I.getOperand(0));
+			if (I.getOperand(0)->getType()->isVectorTy())
+			{
+				const FixedVectorType* opType = cast<FixedVectorType>(I.getOperand(0)->getType());
+				const FixedVectorType* resultType = cast<FixedVectorType>(I.getType());
+				assert(opType->getElementType()->isIntegerTy(32));
+				if (resultType->getElementType()->isFloatTy())
+					encodeInst(WasmSIMDOpcode::F32x4_CONVERT_I32x4_S, code);
+				else if (resultType->getElementType()->isDoubleTy())
+					encodeInst(WasmSIMDOpcode::F64x2_CONVERT_LOW_I32x4_S, code);
+				else
+				{
+					llvm::errs() << I << "\n";
+					llvm::report_fatal_error("Instruction not supported");
+				}
+				break;
+			}
 			uint32_t bitWidth = I.getOperand(0)->getType()->getIntegerBitWidth();
 			if(bitWidth < 32)
 			{
@@ -3000,8 +3016,24 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 		}
 		case Instruction::UIToFP:
 		{
-			assert(I.getOperand(0)->getType()->isIntegerTy());
+			assert(I.getOperand(0)->getType()->isIntegerTy() || I.getOperand(0)->getType()->isVectorTy());
 			compileOperand(code, I.getOperand(0));
+			if (I.getOperand(0)->getType()->isVectorTy())
+			{
+				const FixedVectorType* opType = cast<FixedVectorType>(I.getOperand(0)->getType());
+				const FixedVectorType* resultType = cast<FixedVectorType>(I.getType());
+				assert(opType->getElementType()->isIntegerTy(32));
+				if (resultType->getElementType()->isFloatTy())
+					encodeInst(WasmSIMDOpcode::F32x4_CONVERT_I32x4_U, code);
+				else if (resultType->getElementType()->isDoubleTy())
+					encodeInst(WasmSIMDOpcode::F64x2_CONVERT_LOW_I32x4_U, code);
+				else
+				{
+					llvm::errs() << I << "\n";
+					llvm::report_fatal_error("Instruction not supported");
+				}
+				break;
+			}
 			uint32_t bitWidth = I.getOperand(0)->getType()->getIntegerBitWidth();
 			if(bitWidth < 32)
 			{

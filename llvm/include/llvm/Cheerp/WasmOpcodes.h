@@ -314,6 +314,10 @@ enum class WasmSIMDOpcode {
 	F64x2_DIV = 0xf3,
 	F64x2_MIN = 0xf4,
 	F64x2_MAX = 0xf5,
+	F32x4_CONVERT_I32x4_S = 0xfa,
+	F32x4_CONVERT_I32x4_U = 0xfb,
+	F64x2_CONVERT_LOW_I32x4_S = 0xfe,
+	F64x2_CONVERT_LOW_I32x4_U = 0xff,
 };
 
 enum class WasmSIMDU32Opcode {
