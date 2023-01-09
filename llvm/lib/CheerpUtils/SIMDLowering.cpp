@@ -896,6 +896,8 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 			case Intrinsic::minimum:
 			case Intrinsic::maximum:
 			case Intrinsic::copysign:
+			case Intrinsic::usub_sat:
+			case Intrinsic::uadd_sat:
 				return lowerBinaryOpIntrinsic(I);
 			case Intrinsic::sqrt:
 			case Intrinsic::sin:
