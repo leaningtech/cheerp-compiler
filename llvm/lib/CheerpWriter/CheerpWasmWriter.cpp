@@ -1564,38 +1564,72 @@ void CheerpWasmWriter::compileFCmp(const Value* lhs, const Value* rhs, CmpInst::
 		// resulting comparison.
 		compileOperand(code, lhs);
 		compileOperand(code, lhs);
-		if (ty->isDoubleTy())
+		if (ty->isVectorTy())
+		{
+			if (ty->isDoubleTy())
+				encodeInst(WasmSIMDOpcode::F64x2_EQ, code);
+			else
+				encodeInst(WasmSIMDOpcode::F32x4_EQ, code);
+		}
+		else if (ty->isDoubleTy())
 			encodeInst(WasmOpcode::F64_EQ, code);
 		else
 			encodeInst(WasmOpcode::F32_EQ, code);
 
 		compileOperand(code, rhs);
 		compileOperand(code, rhs);
-		if (ty->isDoubleTy())
+		if (ty->isVectorTy())
+		{
+			if (ty->isDoubleTy())
+				encodeInst(WasmSIMDOpcode::F64x2_EQ, code);
+			else
+				encodeInst(WasmSIMDOpcode::F32x4_EQ, code);
+		}
+		else if (ty->isDoubleTy())
 			encodeInst(WasmOpcode::F64_EQ, code);
 		else
 			encodeInst(WasmOpcode::F32_EQ, code);
 
-		encodeInst(WasmOpcode::I32_AND, code);
+		if (ty->isVectorTy())
+			encodeInst(WasmSIMDOpcode::V128_AND, code);
+		else
+			encodeInst(WasmOpcode::I32_AND, code);
 	} else if (p == CmpInst::FCMP_UNO) {
 		// Check if at least one operand is not equal to itself.
 		// A nan-value is never equal to itself. Use a logical
 		// or operator for the resulting comparison.
 		compileOperand(code, lhs);
 		compileOperand(code, lhs);
-		if (ty->isDoubleTy())
+		if (ty->isVectorTy())
+		{
+			if (ty->isDoubleTy())
+				encodeInst(WasmSIMDOpcode::F64x2_NE, code);
+			else
+				encodeInst(WasmSIMDOpcode::F32x4_NE, code);
+		}
+		else if (ty->isDoubleTy())
 			encodeInst(WasmOpcode::F64_NE, code);
 		else
 			encodeInst(WasmOpcode::F32_NE, code);
 
 		compileOperand(code, rhs);
 		compileOperand(code, rhs);
-		if (ty->isDoubleTy())
+		if (ty->isVectorTy())
+		{
+			if (ty->isDoubleTy())
+				encodeInst(WasmSIMDOpcode::F64x2_NE, code);
+			else
+				encodeInst(WasmSIMDOpcode::F32x4_NE, code);
+		}
+		else if (ty->isDoubleTy())
 			encodeInst(WasmOpcode::F64_NE, code);
 		else
 			encodeInst(WasmOpcode::F32_NE, code);
 
-		encodeInst(WasmOpcode::I32_OR, code);
+		if (ty->isVectorTy())
+			encodeInst(WasmSIMDOpcode::V128_OR, code);
+		else
+			encodeInst(WasmOpcode::I32_OR, code);
 	} else if (p == CmpInst::FCMP_ONE || p == CmpInst::FCMP_UEQ) {
 		// Check whether either is bigger than the other
 		// If there is a NaN operad, both will fail
