@@ -382,7 +382,7 @@ jobs:
             tar -xvf cheerp-llvm-clang_${VERSION_NO}.orig.tar.gz > /dev/null
             cd cheerp-llvm-clang-${VERSION_NO}
             dch -D ${DISTRO} -b -v ${VERSION_NO}-1~${DISTRO} "${CHANGELOG_MESSAGE}" -m
-            env -i HOME="$HOME" LC_CTYPE="${LC_ALL:-${LC_CTYPE:-$LANG}}" PATH="$PATH" USER="$USER" debuild -sa -S -k88C3C876D1AE3E3C --lintian-opts -v
+            env -i HOME="$HOME" LC_CTYPE="${LC_ALL:-${LC_CTYPE:-$LANG}}" PATH="$PATH" USER="$USER" debuild -sa -S -kB5208673E6848661 --lintian-opts -v
       - run:
           name: Prepare cheerp-utils sources
           working_directory: cheerp-utils
@@ -397,7 +397,7 @@ jobs:
             cd cheerp-utils-${VERSION_NO}
             dch -b -v ${VERSION_NO}-1~${DISTRO} "${CHANGELOG_MESSAGE}" -D ${DISTRO} -m
             sed -i "s/\${source:Version}/${VERSION_NO}/g" debian/control
-            debuild -sa -S -k88C3C876D1AE3E3C -d
+            debuild -sa -S -kB5208673E6848661 -d
       - run:
           name: Prepare cheerp-musl sources
           working_directory: cheerp-musl
@@ -412,7 +412,7 @@ jobs:
             cd cheerp-musl-${VERSION_NO}
             dch -b -v ${VERSION_NO}-1~${DISTRO} "${CHANGELOG_MESSAGE}" -D ${DISTRO} -m
             sed -i "s/\${source:Version}/${VERSION_NO}/g" debian/control
-            debuild -sa -S -k88C3C876D1AE3E3C -d
+            debuild -sa -S -kB5208673E6848661 -d
       - run:
           name: Prepare libcxx-libcxxabi sources
           working_directory: cheerp-compiler
@@ -429,7 +429,7 @@ jobs:
             cp -rv runtimes/debian/ debian/
             dch -b -v ${VERSION_NO}-1~${DISTRO} "${CHANGELOG_MESSAGE}" -D ${DISTRO} -m
             sed -i "s/\${source:Version}/${VERSION_NO}/g" debian/control
-            debuild -sa -S -k88C3C876D1AE3E3C -d
+            debuild -sa -S -kB5208673E6848661 -d
       - run:
           name: Prepare cheerp-libs sources
           working_directory: cheerp-libs
@@ -444,7 +444,7 @@ jobs:
             cd cheerp-libs-${VERSION_NO}
             dch -b -v ${VERSION_NO}-1~${DISTRO} "${CHANGELOG_MESSAGE}" -D ${DISTRO} -m
             sed -i "s/\${source:Version}/${VERSION_NO}/g" debian/control
-            debuild -sa -S -k88C3C876D1AE3E3C -d
+            debuild -sa -S -kB5208673E6848661 -d
       - run:
           name: Prepare cheerp metapackage sources
           working_directory: cheerp-internal/tools/releasing
@@ -453,7 +453,7 @@ jobs:
             cd cheerp-core
             dch -b -v ${VERSION_NO}-1~${DISTRO} "${CHANGELOG_MESSAGE}" -D ${DISTRO} -m
             sed -i "s/\${source:Version}/${VERSION_NO}/g" debian/control
-            debuild -sa -S -k88C3C876D1AE3E3C -d
+            debuild -sa -S -kB5208673E6848661 -d
       - run:
           name: Publish
           working_directory: pkg
