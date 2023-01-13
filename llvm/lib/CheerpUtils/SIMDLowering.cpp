@@ -294,7 +294,7 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 			changed = true;
 			return VectorParts();
 		}
-		else if (srcWidth == 128)
+		else if (srcWidth == 128 || srcType->getElementType()->isIntegerTy(1))
 		{
 			// Are we casting from 128 bit? Extract all the elements and put into a VectorParts struct.
 			VectorParts result;
@@ -682,12 +682,23 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 		}
 		toDelete.push_back(&I);
 		changed = true;
+
+		// If SIMD mode is enabled, build a well-formed vector with the results.
+		if (!lowerAll)
+		{
+			Value* newVector = UndefValue::get(I.getType());
+			for (unsigned i = 0; i < num; i++)
+				newVector = Builder.CreateInsertElement(newVector, result.values[i], i);
+			newVector = Builder.CreateICmpNE(newVector, ConstantAggregateZero::get(I.getType()));
+			I.replaceAllUsesWith(newVector);
+			return VectorParts();
+		}
 		return result;
 	}
 
 	VectorParts visitSelectInst(SelectInst& I)
 	{
-		if (!shouldLower(I.getType()))
+		if (!shouldLower(I.getType()) && !shouldLower(I.getTrueValue()->getType()))
 			return VectorParts();
 
 		const FixedVectorType* vecType = cast<FixedVectorType>(I.getType());
@@ -698,11 +709,23 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 		VectorParts condition = visitValue(I.getCondition());
 		if (condition.values.size() == 0)
 		{
-			// The condition was a boolean instead of a vector boolean.
-			// Create a vector from the single condition.
-			Value* cond = I.getCondition();
-			for (unsigned i = 0; i < num; i++)
-				condition.values.push_back(cond);
+			// If the condition is a vector that wasn't lowered, extract the elements.
+			if (I.getCondition()->getType()->isVectorTy())
+			{
+				for (unsigned i = 0; i < num; i++)
+				{
+					Value* element = Builder.CreateExtractElement(I.getCondition(), i);
+					condition.values.push_back(element);
+				}
+			}
+			else
+			{
+				// The condition was a boolean instead of a vector boolean.
+				// Create a vector from the single condition.
+				Value* cond = I.getCondition();
+				for (unsigned i = 0; i < num; i++)
+					condition.values.push_back(cond);
+			}
 		}
 
 		VectorParts result;
