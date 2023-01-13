@@ -493,10 +493,11 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 			case Instruction::FPToUI:
 			case Instruction::PtrToInt:
 			case Instruction::IntToPtr:
-			case Instruction::ExtractElement:
-			case Instruction::InsertElement:
 			case Instruction::ShuffleVector:
 				return true;
+			case Instruction::ExtractElement:
+			case Instruction::InsertElement:
+				return false;
 			default:
 				llvm::report_fatal_error(Twine("Unsupported opcode: ",StringRef(I.getOpcodeName())), false);
 				return true;
