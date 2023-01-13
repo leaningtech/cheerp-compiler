@@ -1037,7 +1037,7 @@ commands:
             rpm --import public
             rm public
             echo "%_signature gpg" >> ~/.rpmmacros
-            echo "%_gpg_name Alessandro Pignotti" >> ~/.rpmmacros
+            echo "%_gpg_name ci@leaningtech.com" >> ~/.rpmmacros
   get-rpm-repo:
     steps:
      - run:
