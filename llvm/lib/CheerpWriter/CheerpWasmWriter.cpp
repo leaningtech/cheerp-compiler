@@ -673,12 +673,19 @@ void CheerpWasmWriter::encodeExtractLane(WasmBuffer& code, const llvm::ExtractEl
 void CheerpWasmWriter::encodeReplaceLane(WasmBuffer& code, const llvm::InsertElementInst& iei)
 {
 	assert(iei.getOperand(0)->getType()->isVectorTy());
-	const Type* elementType = iei.getOperand(0)->getType()->getScalarType();
+	const FixedVectorType* vecType = cast<FixedVectorType>(iei.getOperand(0)->getType());
+	const Type* elementType = vecType->getElementType();
+	if (cheerp::getVectorBitwidth(cast<FixedVectorType>(vecType)) != 128)
+		assert(elementType->isIntegerTy(1));
 	assert(isa<ConstantInt>(iei.getOperand(2)));
-	uint64_t index = (dyn_cast<ConstantInt>(iei.getOperand(2)))->getZExtValue();
+	uint64_t index = (cast<ConstantInt>(iei.getOperand(2)))->getZExtValue();
 	compileOperand(code, iei.getOperand(0));
 	compileOperand(code, iei.getOperand(1));
-	if (elementType->isIntegerTy(32) || elementType->isPointerTy())
+	if (elementType->isFloatTy())
+		encodeInst(WasmSIMDU32Opcode::F32x4_REPLACE_LANE, index, code);
+	else if (elementType->isDoubleTy())
+		encodeInst(WasmSIMDU32Opcode::F64x2_REPLACE_LANE, index, code);
+	else if (elementType->isIntegerTy(32) || elementType->isPointerTy())
 		encodeInst(WasmSIMDU32Opcode::I32x4_REPLACE_LANE, index, code);
 	else if (elementType->isIntegerTy(64))
 		encodeInst(WasmSIMDU32Opcode::I64x2_REPLACE_LANE, index, code);
@@ -686,10 +693,23 @@ void CheerpWasmWriter::encodeReplaceLane(WasmBuffer& code, const llvm::InsertEle
 		encodeInst(WasmSIMDU32Opcode::I16x8_REPLACE_LANE, index, code);
 	else if (elementType->isIntegerTy(8))
 		encodeInst(WasmSIMDU32Opcode::I8x16_REPLACE_LANE, index, code);
-	else if (elementType->isFloatTy())
-		encodeInst(WasmSIMDU32Opcode::F32x4_REPLACE_LANE, index, code);
-	else if (elementType->isDoubleTy())
-		encodeInst(WasmSIMDU32Opcode::F64x2_REPLACE_LANE, index, code);
+	else if (elementType->isIntegerTy(1))
+	{
+		const unsigned num = vecType->getNumElements();
+		if (num == 2)
+		{
+			encodeInst(WasmOpcode::I64_EXTEND_S_I32, code);
+			encodeInst(WasmSIMDU32Opcode::I64x2_REPLACE_LANE, index, code);
+		}
+		else if (num == 4)
+			encodeInst(WasmSIMDU32Opcode::I32x4_REPLACE_LANE, index, code);
+		else if (num == 8)
+			encodeInst(WasmSIMDU32Opcode::I16x8_REPLACE_LANE, index, code);
+		else if (num == 16)
+			encodeInst(WasmSIMDU32Opcode::I8x16_REPLACE_LANE, index, code);
+		else
+			llvm::report_fatal_error("Unknown vector boolean width");
+	}
 	else
 		llvm::report_fatal_error("unhandled type for insert element");
 }
@@ -708,10 +728,15 @@ void CheerpWasmWriter::encodePredicate(const llvm::Type* ty, const llvm::CmpInst
 {
 	assert(ty->isIntegerTy() || ty->isPointerTy() || ty->isVectorTy());
 	const Type* elementType = nullptr;
+	unsigned num = 0;
+	bool booleanCompare = false;
 	if (ty->isVectorTy())
 	{
-		elementType = cast<VectorType>(ty)->getElementType();
-		if (elementType->isIntegerTy(64))
+		const FixedVectorType* vecType = cast<FixedVectorType>(ty);
+		elementType = vecType->getElementType();
+		num = vecType->getNumElements();
+		booleanCompare = elementType->isIntegerTy(1);
+		if (elementType->isIntegerTy(64) || (booleanCompare && num == 2))
 		{
 			if (predicate == CmpInst::ICMP_EQ)
 				encodeInst(WasmSIMDOpcode::I64x2_EQ, code);
@@ -738,11 +763,11 @@ void CheerpWasmWriter::encodePredicate(const llvm::Type* ty, const llvm::CmpInst
 				encodeInst(WasmOpcode::I64_##name, code); \
 			else if (ty->isVectorTy()) \
 			{ \
-				if (elementType->isIntegerTy(32) || elementType->isPointerTy()) \
+				if (elementType->isIntegerTy(32) || elementType->isPointerTy() || (booleanCompare && num == 4)) \
 					encodeInst(WasmSIMDOpcode::I32x4_##name, code); \
-				else if (elementType->isIntegerTy(8))\
+				else if (elementType->isIntegerTy(8) || (booleanCompare && num == 16))\
 					encodeInst(WasmSIMDOpcode::I8x16_##name, code); \
-				else if (elementType->isIntegerTy(16))\
+				else if (elementType->isIntegerTy(16) || (booleanCompare && num == 8))\
 					encodeInst(WasmSIMDOpcode::I16x8_##name, code); \
 				else \
 					assert(false); \
