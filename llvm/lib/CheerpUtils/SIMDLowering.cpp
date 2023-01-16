@@ -280,6 +280,18 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 		{
 			// Are we casting to 128 bit? Create a vector with the elements from the previous instruction.
 			VectorParts v = visitValue(I.getOperand(0));
+			// If we're zero-extending a vector of booleans, add a masking instruction.
+			// This is necessary because in WebAssembly, vectors of booleans are all ones for true.
+			if (srcType->getElementType()->isIntegerTy(1) && isa<ZExtInst>(I))
+			{
+				Value* ZExtCast = &I;
+				Constant* singleOne = ConstantInt::get(destType->getElementType(), 1);
+				Constant* vectorOne = ConstantDataVector::getSplat(amount, singleOne);
+				Builder.SetInsertPoint(I.getNextNode());
+				Instruction* mask = cast<Instruction>(Builder.CreateAnd(ZExtCast, vectorOne));
+				I.replaceAllUsesWith(mask);
+				mask->setOperand(0, ZExtCast);
+			}
 			// If the previous instruction was not lowered, ignore this cast.
 			if (v.values.size() == 0)
 				return VectorParts();
