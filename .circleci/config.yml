@@ -188,7 +188,7 @@ jobs:
       - run: cat ~/version >> $BASH_ENV
       - add_ssh_keys:
           fingerprints:
-            - "8f:3f:25:98:2e:d5:1e:9f:0f:e9:dc:8a:fc:46:90:50"
+            - "86:3b:c9:a6:d1:b9:a8:dc:0e:00:db:99:8d:19:c4:3e"
       - run:
           name: Add known hosts
           command: |
@@ -246,7 +246,7 @@ jobs:
       - run: cat ~/version >> $BASH_ENV
       - add_ssh_keys:
           fingerprints:
-            - "8f:3f:25:98:2e:d5:1e:9f:0f:e9:dc:8a:fc:46:90:50"
+            - "86:3b:c9:a6:d1:b9:a8:dc:0e:00:db:99:8d:19:c4:3e"
       - run:
           name: Add known hosts
           command: |
@@ -488,7 +488,7 @@ jobs:
             mkdir -p /opt/cheerp/
       - add_ssh_keys:
           fingerprints:
-            - "8f:3f:25:98:2e:d5:1e:9f:0f:e9:dc:8a:fc:46:90:50"
+            - "86:3b:c9:a6:d1:b9:a8:dc:0e:00:db:99:8d:19:c4:3e"
       - run:
           name: Add known hosts
           command: |
