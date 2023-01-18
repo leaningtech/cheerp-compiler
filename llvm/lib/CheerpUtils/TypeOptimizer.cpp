@@ -1001,6 +1001,22 @@ std::pair<Constant*, uint8_t> TypeOptimizer::rewriteConstant(Constant* C, bool r
 		}
 		return std::make_pair(ConstantArray::get(cast<ArrayType>(newTypeInfo.mappedType), newElements), 0);
 	}
+	else if (ConstantVector* CV = dyn_cast<ConstantVector>(C))
+	{
+		assert(newTypeInfo.mappedType->isVectorTy());
+		SmallVector<Constant*, 4> newElements;
+		for (unsigned i = 0; i < CV->getType()->getNumElements(); i++)
+		{
+			Constant* element = CV->getAggregateElement(i);
+			auto rewrittenOperand = rewriteConstant(element, false);
+			assert(rewrittenOperand.second == 0);
+			Constant* newElement = rewrittenOperand.first;
+			newElements.push_back(newElement);
+		}
+		return std::make_pair(ConstantVector::get(newElements), 0);
+	}
+	else if (ConstantDataVector* CDV = dyn_cast<ConstantDataVector>(C))
+		return std::make_pair(C, 0);
 	else if(C->getType() == newTypeInfo.mappedType)
 		return std::make_pair(C, 0);
 	else if(ConstantDataArray* CA=dyn_cast<ConstantDataArray>(C))
