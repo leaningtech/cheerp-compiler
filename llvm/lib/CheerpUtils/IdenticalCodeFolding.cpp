@@ -491,6 +491,14 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 				equivalentOperand(A->getOperand(1), B->getOperand(1)) &&
 				equivalentOperand(A->getOperand(2), B->getOperand(2)));
 		}
+		case Instruction::ExtractElement:
+		{
+			const ExtractElementInst* a = cast<ExtractElementInst>(A);
+			const ExtractElementInst* b = cast<ExtractElementInst>(B);
+			return CacheAndReturn(equivalentType(a->getType(), b->getType()) &&
+				equivalentOperand(A->getOperand(0), B->getOperand(0)) &&
+				equivalentOperand(A->getOperand(1), B->getOperand(1)));
+		}
 		default:
 		{
 #ifndef NDEBUG
