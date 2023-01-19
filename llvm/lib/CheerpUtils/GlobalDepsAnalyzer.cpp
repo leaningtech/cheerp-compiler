@@ -1177,6 +1177,18 @@ void GlobalDepsAnalyzer::visitConstant( const Constant * C, VisitedSet & visited
 			subexpr.pop_back();
 		}
 	}
+	else if (const ConstantVector* CV = dyn_cast<const ConstantVector>(C))
+	{
+		assert(CV->getType()->getNumElements() == CV->getNumOperands());
+
+		for (auto it = CV->op_begin(); it != CV->op_end(); it++)
+		{
+			assert(isa<Constant>(it));
+			subexpr.push_back(it);
+			visitConstant(cast<Constant>(it), visited, subexpr);
+			subexpr.pop_back();
+		}
+	}
 }
 
 void GlobalDepsAnalyzer::visitDynSizedAlloca( llvm::Type* pointedType )
