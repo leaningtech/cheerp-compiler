@@ -525,7 +525,8 @@ public:
 	static void encodeInst(WasmU32U32Opcode opcode, uint32_t i1, uint32_t i2, WasmBuffer& code);
 	void encodeInst(WasmInvalidOpcode opcode, WasmBuffer& code);
 	void encodeVectorConstantZero(WasmBuffer& code);
-	void encodeVectorConstant(WasmBuffer& code, const llvm::ConstantDataVector* cdv);
+	void encodeConstantDataVector(WasmBuffer& code, const llvm::ConstantDataVector* cdv);
+	void encodeConstantVector(WasmBuffer& code, const llvm::ConstantVector* cv);
 	void encodeExtractLane(WasmBuffer& code, const llvm::ExtractElementInst& eei);
 	void encodeReplaceLane(WasmBuffer& code, const llvm::InsertElementInst& iei);
 	void encodeBranchHint(const llvm::BranchInst* BI, const bool IfNot, WasmBuffer& code);
