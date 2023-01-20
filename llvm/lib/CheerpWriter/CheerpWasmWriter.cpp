@@ -3164,12 +3164,8 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 		{
 			if (I.getType()->isVectorTy())
 			{
-				// If this is only used by a load, skip this.
-				if (I.hasOneUse() && isa<LoadInst>(I.getOperand(0)))
-				{
-					compileOperand(code, I.getOperand(0));
-					break ;
-				}
+				compileOperand(code, I.getOperand(0));
+				break;
 			}
 			compileUnsignedInteger(code, I.getOperand(0));
 			if (I.getType()->isIntegerTy(64))
