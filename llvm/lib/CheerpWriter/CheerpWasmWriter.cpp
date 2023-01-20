@@ -579,57 +579,175 @@ void CheerpWasmWriter::encodeVectorConstantZero(WasmBuffer& code)
 		code << static_cast<char>(0);
 }
 
-void CheerpWasmWriter::encodeVectorConstant(WasmBuffer& code, const llvm::ConstantDataVector* cdv)
+void CheerpWasmWriter::encodeConstantDataVector(WasmBuffer& code, const llvm::ConstantDataVector* cdv)
 {
-	code << static_cast<char>(WasmOpcode::SIMD);
-	encodeULEB128(static_cast<uint64_t>(WasmSIMDOpcode::V128_CONST), code);
-
-	union conversionUnion
-	{
-		int8_t i8Val[16];
-		int16_t i16Val[8];
-		int32_t i32Val[4];
-		long long i64Val[2];
-		float f32Val[4];
-		double f64Val[2];
-		char bytes[16];
-	} un;
+	char bytes[16];
+	memset(bytes, 0, 16);
+	const unsigned amount = cdv->getNumElements();
+	const unsigned fakeWidth = 128 / amount;
+	unsigned offset = 0;
 	if (cdv->getElementType()->isIntegerTy(32))
 	{
-		for (int i = 0; i < 4; i++)
-			un.i32Val[i] = cdv->getElementAsInteger(i);
+		for (unsigned i = 0; i < amount; i++)
+		{
+			support::endian::write32le(bytes + offset, cdv->getElementAsInteger(i));
+			offset += fakeWidth / 8;
+		}
 	}
 	else if (cdv->getElementType()->isIntegerTy(64))
 	{
-		un.i64Val[0] = cdv->getElementAsInteger(0);
-		un.i64Val[1] = cdv->getElementAsInteger(1);
+		support::endian::write64le(bytes, cdv->getElementAsInteger(0));
+		support::endian::write64le(bytes + 8, cdv->getElementAsInteger(1));
 	}
 	else if (cdv->getElementType()->isIntegerTy(8))
 	{
-		for (int i = 0; i < 16; i++)
-			un.i8Val[i] = cdv->getElementAsInteger(i);
+		for (unsigned i = 0; i < amount; i++)
+		{
+			bytes[offset] = cdv->getElementAsInteger(i);
+			offset += fakeWidth / 8;
+		}
 	}
 	else if (cdv->getElementType()->isIntegerTy(16))
 	{
-		for (int i = 0; i < 8; i++)
-			un.i16Val[i] = cdv->getElementAsInteger(i);
+		for (unsigned i = 0; i < amount; i++)
+		{
+			support::endian::write16le(bytes + offset, cdv->getElementAsInteger(i));
+			offset += fakeWidth / 8;
+		}
 	}
 	else if (cdv->getElementType()->isFloatTy())
 	{
-		for (int i = 0; i < 4; i++)
-			un.f32Val[i] = cdv->getElementAsFloat(i);
+		for (unsigned i = 0; i < amount; i++)
+		{
+			float floatElement = cdv->getElementAsFloat(i);
+			uint32_t intReinterpret = *reinterpret_cast<uint32_t*>(&floatElement);
+			support::endian::write32le(bytes + offset, intReinterpret);
+			offset += fakeWidth / 8;
+		}
 	}
 	else if (cdv->getElementType()->isDoubleTy())
 	{
-		un.f64Val[0] = cdv->getElementAsDouble(0);
-		un.f64Val[1] = cdv->getElementAsDouble(1);
+		for (unsigned i = 0; i < 2; i++)
+		{
+			double doubleElement = cdv->getElementAsDouble(i);
+			uint64_t intReinterpret = *reinterpret_cast<uint64_t*>(&doubleElement);
+			support::endian::write64le(bytes + i * 8, intReinterpret);
+		}
 	}
 	else
-	{
 		llvm::report_fatal_error("unhandled type for encode vector constant");
-	}
+
+	code << static_cast<char>(WasmOpcode::SIMD);
+	encodeULEB128(static_cast<uint64_t>(WasmSIMDOpcode::V128_CONST), code);
 	for (int i = 0; i < 16; i++)
-		code << un.bytes[i];
+		code << bytes[i];
+}
+
+void CheerpWasmWriter::encodeConstantVector(WasmBuffer& code, const llvm::ConstantVector* cv)
+{
+	// Loop over each element, encode it into the bytes array, then write the bytes array
+	const FixedVectorType* vecType = cv->getType();
+	const unsigned num = vecType->getNumElements();
+	char bytes[16];
+	memset(bytes, 0, 16);
+	int offset = 0;
+	Constant* element;
+	Type* type;
+	for (unsigned i = 0; i < num; i++)
+	{
+		element = cv->getAggregateElement(i);
+		if (ConstantInt* ci = dyn_cast<ConstantInt>(element))
+		{
+			int width = ci->getBitWidth();
+			// If it's a boolean, calculate the correct size by the number of elements.
+			if (width == 1)
+				width = 128 / vecType->getNumElements();
+			if (width == 8)
+				bytes[offset] = ci->getZExtValue();
+			else if (width == 16)
+				support::endian::write16le(bytes + offset, ci->getZExtValue());
+			else if (width == 32)
+				support::endian::write32le(bytes + offset, ci->getZExtValue());
+			else if (width == 64)
+				support::endian::write64le(bytes + offset, ci->getZExtValue());
+			offset += width / 8;
+		}
+		else if (ConstantFP* cf = dyn_cast<ConstantFP>(element))
+		{
+			if (cf->getType()->isDoubleTy())
+			{
+				support::endian::write64le(bytes + offset, cf->getValueAPF().convertToDouble());
+				offset += 8;
+			}
+			else
+			{
+				assert(cf->getType()->isFloatTy());
+				support::endian::write32le(bytes + offset, cf->getValueAPF().convertToFloat());
+				offset += 4;
+			}
+		}
+		else if (isa<ConstantPointerNull>(element))
+		{
+			support::endian::write32le(bytes + offset, 0);
+			offset += 4;
+		}
+		else if (UndefValue* uv = dyn_cast<UndefValue>(element))
+		{
+			type = uv->getType();
+			if (type->isIntegerTy(32) || type->isFloatTy() || type->isPointerTy())
+			{
+				support::endian::write32le(bytes + offset, 0);
+				offset += 4;
+			}
+			else if (type->isIntegerTy(64) || type->isDoubleTy())
+			{
+				support::endian::write64le(bytes + offset, 0);
+				offset += 8;
+			}
+			else if (type->isIntegerTy(16))
+			{
+				support::endian::write16le(bytes + offset, 0);
+				offset += 2;
+			}
+			else if (type->isIntegerTy(8))
+			{
+				bytes[offset] = 0;
+				offset++;
+			}
+			else
+				llvm::report_fatal_error("Unimplemented type for UndefValue");
+		}
+		else if (GlobalVariable* gv = dyn_cast<GlobalVariable>(element))
+		{
+			uint32_t address = linearHelper.getGlobalVariableAddress(gv);
+			support::endian::write32le(bytes + offset, address);
+			offset += 4;
+		}
+		else if (Function* f = dyn_cast<Function>(element))
+		{
+			if (linearHelper.functionHasAddress(f))
+			{
+				uint32_t addr = linearHelper.getFunctionAddress(f);
+				assert(addr && "function address is zero (aka nullptr conflict)");
+				encodeInst(WasmS32Opcode::I32_CONST, addr, code);
+			}
+			else
+			{
+				// When dealing with indirectly used undefined functions forward them to the null function
+				// TODO: This improve the robustness of the compiler, but it might generate unexpected behavor
+				//       if the address is ever explicitly compared to 0
+				assert(f->empty());
+				encodeInst(WasmS32Opcode::I32_CONST, 0, code);
+			}
+			offset += 4;
+		}
+		else
+			llvm::report_fatal_error("Unimplemented type for encodeConstantVector");
+	}
+	code << static_cast<char>(WasmOpcode::SIMD);
+	encodeULEB128(static_cast<uint64_t>(WasmSIMDOpcode::V128_CONST), code);
+	for (int i = 0; i < 16; i++)
+		code << bytes[i];
 }
 
 void CheerpWasmWriter::encodeExtractLane(WasmBuffer& code, const llvm::ExtractElementInst& eei)
@@ -1258,16 +1376,13 @@ void CheerpWasmWriter::compileConstant(WasmBuffer& code, const Constant* c, bool
 	}
 	else if(const ConstantAggregateZero* caz = dyn_cast<ConstantAggregateZero>(c))
 	{
-		// This is a zero vector.
 		assert(caz->getType()->isVectorTy());
 		encodeVectorConstantZero(code);
 	}
 	else if (const ConstantDataVector* cdv = dyn_cast<ConstantDataVector>(c))
-	{
-		// This is a vector with data.
-		assert(cdv->getType()->isVectorTy());
-		encodeVectorConstant(code, cdv);
-	}
+		encodeConstantDataVector(code, cdv);
+	else if (const ConstantVector* cv = dyn_cast<ConstantVector>(c))
+		encodeConstantVector(code, cv);
 	else if(const GlobalVariable* GV = dyn_cast<GlobalVariable>(c))
 	{
 		uint32_t address = linearHelper.getGlobalVariableAddress(GV);
@@ -1300,90 +1415,6 @@ void CheerpWasmWriter::compileConstant(WasmBuffer& code, const Constant* c, bool
 	else if (isa<UndefValue>(c))
 	{
 		compileTypedZero(code, c->getType());
-	}
-	else if (isa<ConstantVector>(c))
-	{
-		const FixedVectorType* vectorType = cast<ConstantVector>(c)->getType();
-		const Type* elementType = vectorType->getElementType();
-		Constant* createdVector;
-		const unsigned num = vectorType->getNumElements();
-		assert(elementType->isIntegerTy() || elementType->isPointerTy());
-		if (num == 4)
-		{
-			std::vector<uint32_t> values;
-			for (unsigned i = 0; i < num; i++)
-			{
-				unsigned result = 0;
-				const Constant *cons = c->getAggregateElement(i);
-				if (!isa<UndefValue>(cons))
-				{
-					assert(isa<ConstantInt>(cons));
-					const ConstantInt* ci = cast<ConstantInt>(cons);
-					result = ci->getZExtValue();
-				}
-				values.push_back(result);
-			}
-			createdVector = ConstantDataVector::get(module.getContext(), values);
-		}
-		else if (num == 2)
-		{
-			std::vector<uint64_t> values;
-			for (unsigned i = 0; i < num; i++)
-			{
-				unsigned result = 0;
-				const Constant* cons = c->getAggregateElement(i);
-				if (!isa<UndefValue>(cons))
-				{
-					assert(isa<ConstantInt>(cons));
-					const ConstantInt* ci = cast<ConstantInt>(cons);
-					result = ci->getZExtValue();
-				}
-				values.push_back(result);
-			}
-			createdVector = ConstantDataVector::get(module.getContext(), values);
-		}
-		else if (num == 8)
-		{
-			std::vector<uint16_t> values;
-			for (unsigned i = 0; i < num; i++)
-			{
-				unsigned result = 0;
-				const Constant* cons = c->getAggregateElement(i);
-				if (!isa<UndefValue>(cons))
-				{
-					assert(isa<ConstantInt>(cons));
-					const ConstantInt* ci = cast<ConstantInt>(cons);
-					result = ci->getZExtValue();
-				}
-				values.push_back(result);
-			}
-			createdVector = ConstantDataVector::get(module.getContext(), values);
-		}
-		else if (num == 16)
-		{
-			std::vector<uint8_t> values;
-			for (unsigned i = 0; i < num; i++)
-			{
-				unsigned result = 0;
-				const Constant* cons = c->getAggregateElement(i);
-				if (!isa<UndefValue>(cons))
-				{
-					assert(isa<ConstantInt>(cons));
-					const ConstantInt* ci = cast<ConstantInt>(cons);
-					result = ci->getZExtValue();
-				}
-				values.push_back(result);
-			}
-			createdVector = ConstantDataVector::get(module.getContext(), values);
-		}
-		else
-			llvm::report_fatal_error("Unhandled type for compile constant from datavector");
-		if (const ConstantDataVector* cdv = dyn_cast<ConstantDataVector>(createdVector))
-			encodeVectorConstant(code, cdv);
-		else if (const ConstantAggregateZero* caz = dyn_cast<ConstantAggregateZero>(createdVector))
-			encodeVectorConstantZero(code);
-		else
-			llvm::report_fatal_error("Unknown type for created vector");
 	}
 	else
 	{
