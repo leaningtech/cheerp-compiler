@@ -6375,7 +6375,6 @@ void CheerpWriter::compileDeclareExports()
 	}
 	areAsmJSExportsDeclared = true;
 
-	if (makeModule != MODULE_TYPE::ES6 && makeModule != MODULE_TYPE::COMMONJS)
 	{
 		//Set all jsExportedDecls equal to DUMMY / {}
 		for (auto jsex: jsExportedDecls)
