@@ -202,6 +202,49 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinNamespace(
 		stream << funcName;
 		compileMethodArgs(it,callV.arg_end(), callV, /*forceBoolean*/ true);
 	}
+	Type* retTy = callV.getType();
+	if (!retTy->isPointerTy())
+		return COMPILE_OK;
+	Type* ty = retTy->getPointerElementType();
+	if(!jsExportedTypes.count(ty))
+		return COMPILE_OK;
+	POINTER_KIND retKind = PA.getPointerKindAssert(&callV);
+	POINTER_KIND wrapperKind = PA.getPointerKindForJSExportedType(ty);
+	if (wrapperKind == COMPLETE_OBJECT || wrapperKind == RAW)
+	{
+		assert(retKind != SPLIT_REGULAR);
+		stream << ".this";
+	}
+	else
+	{
+		assert(wrapperKind == REGULAR);
+		if (retKind ==  SPLIT_REGULAR)
+		{
+			stream
+				<< ';' << NewLine
+				<< getSecondaryName(&callV)
+				<< '='
+				<< getName(&callV)
+				<< ".this.o;"
+				<< NewLine
+				<< getName(&callV)
+				<< '='
+				<< getName(&callV)
+				<< ".this.d";
+		}
+		else
+		{
+			assert(retKind == COMPLETE_OBJECT);
+			stream
+				<< ';' << NewLine
+				<< getName(&callV)
+				<< '='
+				<< getName(&callV)
+				<< ".this.d["
+				<< getName(&callV)
+				<< ".this.o]";
+		}
+	}
 	return COMPILE_OK;
 }
 
@@ -2836,7 +2879,7 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 	}
 
 	bool isImport = F && asmjs && globalDeps.asmJSImports().count(F);
-	bool isClientF = TypeSupport::isClientFunc(F);
+	bool isClientF = F && TypeSupport::isClientFunc(F);
 	uint32_t opCount = 0;
 	for(User::const_op_iterator cur=it; cur!=itE; ++cur, ++opCount)
 	{
