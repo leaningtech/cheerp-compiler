@@ -39,7 +39,7 @@ uint32_t CheerpWriter::countJsParameters(const llvm::Function* F, bool isStatic)
 	return ret;
 }
 
-static std::pair<std::string, std::string> buildArgumentsString(const llvm::Function* F, bool isStatic, const PointerAnalyzer& PA, const std::map<const StructType*, StringRef>& toBeWrapped, StringRef nameGenerated)
+static std::pair<std::string, std::string> buildArgumentsString(const llvm::Function* F, bool isStatic, const PointerAnalyzer& PA, const DenseMap<const Type*, StringRef>& toBeWrapped, StringRef nameGenerated)
 {
 	// While code-generating JSExported functions we need to write something like:
 	// function someName(a0,a1,a2,a3,a4,a5) {
@@ -73,47 +73,35 @@ static std::pair<std::string, std::string> buildArgumentsString(const llvm::Func
 		if (aX == nameGenerated)
 			continue;
 
-		bool isWrapped = false;
-		if (it->getType()->isPointerTy() && toBeWrapped.count(dyn_cast<StructType>(it->getType()->getPointerElementType())))
-			isWrapped = true;
-
-		bool isRawPointer = false;
-		if (isWrapped)
+		args_inner << aX << ",";
+		Type* ty = it->getType();
+		if (!ty->isPointerTy() || !toBeWrapped.count(ty->getPointerElementType()))
 		{
-			if (TypeSupport::isRawPointer(it->getType(), F->getSection() == StringRef("asmjs")))
-				isRawPointer = true;
-			if (PA.getPointerKind(&(*it)) == RAW)
-				isRawPointer = true;
+			args_outer << aX << ",";
+			it++;
+			continue;
 		}
 
-		args_inner << aX << ",";
-		if(it->getType()->isPointerTy() && PA.getPointerKind(&(*it)) == SPLIT_REGULAR)
+		POINTER_KIND innerKind = PA.getPointerKind(&(*it));
+		POINTER_KIND outerKind = innerKind;
+		Type* tp = it->getType()->getPointerElementType();
+		if (toBeWrapped.count(tp))
+			outerKind = PA.getPointerKindForJSExportedType(const_cast<Type*>(tp));
+
+		if (outerKind == REGULAR && innerKind == SPLIT_REGULAR)
 		{
-			assert(isWrapped);
-			assert(!isRawPointer);
-			{
-				// Split regular representation
-				args_outer << aX << ".this.d," << aX << ".this.o,";
-			}
+			args_outer << aX << ".this.d," << aX << ".this.o";
+		}
+		else if (outerKind == REGULAR && innerKind == COMPLETE_OBJECT)
+		{
+			args_outer << aX << ".this.d[" << aX << ".this.o]";
 		}
 		else
 		{
-			if (isRawPointer)
-			{
-				// RAW
-				args_outer << aX << ".this,";
-			}
-			else if (isWrapped)
-			{
-				// Complete object
-				args_outer << aX << ".this.d[" << aX << ".this.o],";
-			}
-			else
-			{
-				// forward as input
-				args_outer << aX << ",";
-			}
+			assert(outerKind == innerKind && (outerKind == RAW || outerKind == COMPLETE_OBJECT));
+			args_outer << aX << ".this";
 		}
+		args_outer << ",";
 		++it;
 	}
 
@@ -164,11 +152,9 @@ static std::vector<const llvm::MDNode*> uniqueMDNodes(const llvm::NamedMDNode& n
 
 void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 {
-	std::map<const StructType*, StringRef> jsexportedTypes;
-
 	auto compileFunctionBody = [&](const Function * f, bool isStatic, const StructType* implicitThis) -> void
 	{
-		auto argumentsStrings = buildArgumentsString(f, isStatic, PA, jsexportedTypes, namegen.getName(f));
+		auto argumentsStrings = buildArgumentsString(f, isStatic, PA, jsExportedTypes, namegen.getName(f));
 		stream << "function(" << argumentsStrings.first << "){" << NewLine;
 
 		const llvm::StructType* retType = nullptr;
@@ -176,9 +162,9 @@ void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 			retType = dyn_cast<StructType>(f->getReturnType()->getPointerElementType());
 
 		bool representationPA = false;
-		if (jsexportedTypes.count(retType))
+		if (jsExportedTypes.count(retType))
 		{
-			stream << "var _=Object.create(" << jsexportedTypes.at(retType) << ".prototype);" << NewLine;
+			stream << "var _=Object.create(" << jsExportedTypes.find(retType)->getSecond() << ".prototype);" << NewLine;
 			stream << "_.this=";
 			if (PA.getPointerKindForReturn(f) == SPLIT_REGULAR)
 			{
@@ -193,24 +179,27 @@ void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 		stream << internalName << "(";
 		if(!isStatic && implicitThis)
 		{
-			const bool argSplitReg = PA.getPointerKind(&*f->arg_begin())==SPLIT_REGULAR;
-			const bool innerThisSplitReg = PA.getPointerKindForJSExportedType(const_cast<StructType*>(implicitThis)) == SPLIT_REGULAR;
-
-			if (argSplitReg && innerThisSplitReg)
+			POINTER_KIND argKind = PA.getPointerKind(&*f->arg_begin());
+			POINTER_KIND thisKind = PA.getPointerKindForJSExportedType(const_cast<StructType*>(implicitThis));
+			if (thisKind == REGULAR && argKind == SPLIT_REGULAR)
+			{
 				stream << "this.this.d,this.this.o";
-			else if (!argSplitReg && innerThisSplitReg)
+			}
+			else if (thisKind == REGULAR && argKind == COMPLETE_OBJECT)
+			{
 				stream << "this.this.d[this.this.o]";
-			else if (argSplitReg && !innerThisSplitReg)
-				stream << "[this.this],0";
-			else if (!argSplitReg && !innerThisSplitReg)
-				stream << "this.this";
+			}
 			else
-				assert(false);
+			{
+				assert(thisKind == argKind && (thisKind == RAW || thisKind == COMPLETE_OBJECT));
+				stream << "this.this";
+			}
+
 			if(argumentsStrings.second.size() > 0)
 				stream << ",";
 		}
 		stream << argumentsStrings.second << ")";
-		if (jsexportedTypes.count(retType))
+		if (jsExportedTypes.count(retType))
 		{
 			if (representationPA)
 			{
@@ -302,21 +291,20 @@ void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 			const Function * newFunc = cast<Function>(cast<ConstantAsMetadata>(node->getOperand(0))->getValue());
 			assert( globalDeps.isReachable(newFunc) );
 
-			const bool innerThisSplitReg = PA.getPointerKindForJSExportedType(const_cast<StructType*>(t)) == SPLIT_REGULAR;
-
-			const auto argumentsStrings = buildArgumentsString(newFunc, /*isStatic*/true, PA, jsexportedTypes, namegen.getName(newFunc));
+			POINTER_KIND thisKind = PA.getPointerKindForJSExportedType(const_cast<StructType*>(t));
+			const auto argumentsStrings = buildArgumentsString(newFunc, /*isStatic*/true, PA, jsExportedTypes, namegen.getName(newFunc));
 
 			stream << argumentsStrings.first << "){" << NewLine;
 
 			stream << "this.this=";
-			if (innerThisSplitReg)
+			if (thisKind == REGULAR)
 				stream << "{d:";
 
 			stream << namegen.getName(newFunc);
 			stream << "(" << argumentsStrings.second<< ")";
 
 			//We need to manually add the self pointer
-			if (innerThisSplitReg)
+			if (thisKind == REGULAR)
 				stream << ","<< NewLine <<"o:oSlot}";
 			stream << ";";
 		}
@@ -345,12 +333,6 @@ void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 			compileFunctionBody(f, isStatic, t);
 		}
 	};
-
-	for (const auto& jsex : jsExportedDecls)
-	{
-		if (jsex.isClass())
-			jsexportedTypes.insert({jsex.t, jsex.name});
-	}
 
 	for (const auto& jsex : jsExportedDecls)
 	{
@@ -395,7 +377,7 @@ void CheerpWriter::prependRootToNames(std::deque<CheerpWriter::JSExportedNamedDe
 	}
 }
 
-void CheerpWriter::normalizeDeclList(std::deque<CheerpWriter::JSExportedNamedDecl> & exportedDecls)
+void CheerpWriter::normalizeDeclList(std::deque<CheerpWriter::JSExportedNamedDecl> exportedDecls)
 {
 	auto comparator = [](const JSExportedNamedDecl& a, const JSExportedNamedDecl& b) -> bool {return a.name < b.name;};
 	auto equality = [](const JSExportedNamedDecl& a, const JSExportedNamedDecl& b) -> bool {return a.name == b.name;};
@@ -406,6 +388,12 @@ void CheerpWriter::normalizeDeclList(std::deque<CheerpWriter::JSExportedNamedDec
 	{
 		llvm::report_fatal_error( Twine("Name clash on [[cheerp::jsexport]]-ed items on the name: ", it->name));
 	}
+	for(auto& d: exportedDecls)
+	{
+		if (d.isClass())
+			jsExportedTypes.try_emplace(d.t, d.name);
+	}
+	jsExportedDecls = std::move(exportedDecls);
 }
 
 void CheerpWriter::compileInlineAsm(const CallInst& ci)

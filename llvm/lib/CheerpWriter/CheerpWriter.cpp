@@ -6176,6 +6176,11 @@ void CheerpWriter::compileAsmJSTopLevel()
 
 void CheerpWriter::compileGenericJS()
 {
+	auto decls = buildJsExportedNamedDecl(module);
+	if (isRootNeeded)
+		prependRootToNames(decls);
+	normalizeDeclList(std::move(decls));
+
 	for (const Function& F: module.functions())
 	{
 		if (F.getSection() == "asmjs")
@@ -6230,11 +6235,6 @@ void CheerpWriter::compileGenericJS()
 	//Compile growLinearMemory if needed
 	if (globalDeps.needsBuiltin(BuiltinInstr::BUILTIN::GROW_MEM))
 		compileGrowMem();
-
-	jsExportedDecls = buildJsExportedNamedDecl(module);
-	if (isRootNeeded)
-		prependRootToNames(jsExportedDecls);
-	normalizeDeclList(jsExportedDecls);
 }
 
 void CheerpWriter::compileDummies()

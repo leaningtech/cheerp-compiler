@@ -1458,9 +1458,17 @@ void PointerAnalyzer::prefetchFunc(const Function& F) const
 			const Argument* A = &arg;
 			if (TypeSupport::isJSExportedPtrType(A->getType(), *A->getParent()->getParent()))
 			{
-				IndirectPointerKindConstraint argConstraint(DIRECT_ARG_CONSTRAINT, A);
 				IndirectPointerKindConstraint jsexportConstraint(JSEXPORT_TYPE_CONSTRAINT, A->getType()->getPointerElementType());
-				PACache.pointerKindData.constraintsMap[jsexportConstraint] |= PACache.pointerKindData.getConstraintPtr(argConstraint);
+
+				if (TypeSupport::isRawPointer(A->getType(), false))
+				{
+					PACache.pointerKindData.constraintsMap[jsexportConstraint] = RAW;
+				}
+				else
+				{
+					IndirectPointerKindConstraint argConstraint(DIRECT_ARG_CONSTRAINT, A);
+					PACache.pointerKindData.constraintsMap[jsexportConstraint] |= PACache.pointerKindData.getConstraintPtr(argConstraint);
+				}
 			}
 		}
 	for(const BasicBlock & BB : F)
@@ -1737,10 +1745,10 @@ REGULAR_POINTER_PREFERENCE PointerAnalyzer::getRegularPreference(const IndirectP
 		case DIRECT_ARG_CONSTRAINT:
 		case RETURN_CONSTRAINT:
 		case RETURN_TYPE_CONSTRAINT:
-		case JSEXPORT_TYPE_CONSTRAINT:
 		case INDIRECT_ARG_CONSTRAINT:
 		case DIRECT_ARG_CONSTRAINT_IF_ADDRESS_TAKEN:
 			return PREF_SPLIT_REGULAR;
+		case JSEXPORT_TYPE_CONSTRAINT:
 		case STORED_TYPE_CONSTRAINT:
 			return PREF_REGULAR;
 	}
