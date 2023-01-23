@@ -563,7 +563,7 @@ public:
 	};
 	static std::deque<JSExportedNamedDecl> buildJsExportedNamedDecl(const llvm::Module& M);
 	static void prependRootToNames(std::deque<CheerpWriter::JSExportedNamedDecl> & exportedDecls);
-	static void normalizeDeclList(std::deque<CheerpWriter::JSExportedNamedDecl> & exportedDecls);
+	void normalizeDeclList(std::deque<CheerpWriter::JSExportedNamedDecl> exportedDecls);
 
 	static bool isNamespaced(const llvm::StringRef str)
 	{
@@ -572,7 +572,10 @@ public:
 
 private:
 	// Names of js-exported items
-	std::deque<CheerpWriter::JSExportedNamedDecl> jsExportedDecls;
+	
+	using JSExportedTypesMap = llvm::DenseMap<const llvm::Type*, llvm::StringRef>;
+	JSExportedTypesMap jsExportedTypes;
+	std::deque<JSExportedNamedDecl> jsExportedDecls;
 
 	bool hasJSExports();
 	void compileInlineAsm(const llvm::CallInst& ci);
