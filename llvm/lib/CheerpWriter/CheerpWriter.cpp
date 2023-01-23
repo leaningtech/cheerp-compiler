@@ -169,6 +169,14 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinNamespace(
 		compileAsPointerOrAsOperand(callV.getOperand(1));
 		stream << ']';
 	}
+	else if(funcName == StringRef("operator()"))
+	{
+		// operator()
+		User::const_op_iterator it = callV.arg_begin();
+		compilePointerAs(*it, COMPLETE_OBJECT, HIGHEST);
+		it++;
+		compileMethodArgs(it,callV.arg_end(), callV, /*forceBoolean*/ true);
+	}
 	else
 	{
 		if (auto* X = callV.getCalledFunction()->getMetadata("cheerp.interfacename"))
@@ -2827,6 +2835,8 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 		}
 	}
 
+	bool isImport = F && asmjs && globalDeps.asmJSImports().count(F);
+	bool isClientF = TypeSupport::isClientFunc(F);
 	uint32_t opCount = 0;
 	for(User::const_op_iterator cur=it; cur!=itE; ++cur, ++opCount)
 	{
@@ -2835,12 +2845,19 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 
 		Type* tp = (*cur)->getType();
 
-		bool isImport = F && asmjs && globalDeps.asmJSImports().count(F);
 		bool asmjsCalleeArg = asmjsCallee || (F && arg_it != F->arg_end() && F->getAttributes().hasParamAttr(arg_it->getArgNo(), "force-raw"));
 		if(isImport && tp->isFloatTy())
 		{
 			stream << "+";
 			compileOperand(*cur,LOWEST);
+		}
+		else if(isClientF && tp->isPointerTy() && jsExportedTypes.count(tp->getPointerElementType()))
+		{
+			const auto& name = jsExportedTypes.find(tp->getPointerElementType())->getSecond();
+			stream << "Object.create(" << name << ".prototype,{this:{value:";
+			POINTER_KIND kind = PA.getPointerKindForJSExportedType(tp);
+			compilePointerAs(*cur, kind);
+			stream << "}})";
 		}
 		else if(tp->isPointerTy() && !TypeSupport::isRawPointer(tp, asmjsCalleeArg))
 		{
