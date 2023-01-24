@@ -161,19 +161,18 @@ void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 		if (f->getReturnType() && f->getReturnType()->isPointerTy())
 			retType = dyn_cast<StructType>(f->getReturnType()->getPointerElementType());
 
-		bool representationPA = false;
+		stream << "return ";
+		bool isRegular = false;
 		if (jsExportedTypes.count(retType))
 		{
-			stream << "var _=Object.create(" << jsExportedTypes.find(retType)->getSecond() << ".prototype);" << NewLine;
-			stream << "_.this=";
-			if (PA.getPointerKindForReturn(f) == SPLIT_REGULAR)
+			stream << "Object.create(" << jsExportedTypes.find(retType)->getSecond() << ".prototype,{this:{value:";
+			if (PA.getPointerKindForJSExportedType(const_cast<StructType*>(retType)) == REGULAR)
 			{
-				representationPA = true;
+				assert(PA.getPointerKindForReturn(f) == SPLIT_REGULAR);
+				isRegular = true;
 				stream << "{d:";
 			}
 		}
-		else
-			stream << "return ";
 
 		auto internalName = namegen.getName(f);
 		stream << internalName << "(";
@@ -201,20 +200,13 @@ void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 		stream << argumentsStrings.second << ")";
 		if (jsExportedTypes.count(retType))
 		{
-			if (representationPA)
+			if (isRegular)
 			{
-				stream << "," << NewLine << "o:oSlot};" << NewLine;
+				stream << ",o:oSlot}";
 			}
-			else
-			{
-				stream << ";" << NewLine;
-			}
-			stream << "return _;" << NewLine;
+			stream << "}})";
 		}
-		else
-		{
-			stream << ";" << NewLine;
-		}
+		stream << ";" << NewLine;
 		stream << "};" << NewLine;
 	};
 
