@@ -2898,7 +2898,7 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 		{
 			const auto& name = jsExportedTypes.find(tp->getPointerElementType())->getSecond();
 			stream << "Object.create(" << name << ".prototype,{this:{value:";
-			POINTER_KIND kind = PA.getPointerKindForJSExportedType(tp);
+			POINTER_KIND kind = PA.getPointerKindForJSExportedType(tp->getPointerElementType());
 			compilePointerAs(*cur, kind);
 			stream << "}})";
 		}
