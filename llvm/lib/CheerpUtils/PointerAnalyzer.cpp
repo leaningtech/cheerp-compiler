@@ -965,9 +965,10 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 
 		Function::const_arg_iterator arg = calledFunction->arg_begin();
 		std::advance(arg, argNo);
-		if (TypeSupport::isClientFunc(calledFunction))
+		Type* argTy = arg->getType();
+		if (TypeSupport::isClientFunc(calledFunction) && TypeSupport::isJSExportedPtrType(argTy, *calledFunction->getParent()))
 		{
-			IndirectPointerKindConstraint jsexportConstraint(JSEXPORT_TYPE_CONSTRAINT, arg->getType()->getPointerElementType());
+			IndirectPointerKindConstraint jsexportConstraint(JSEXPORT_TYPE_CONSTRAINT, argTy->getPointerElementType());
 			return ret |= pointerKindData.getConstraintPtr(jsexportConstraint);
 		}
 		else
