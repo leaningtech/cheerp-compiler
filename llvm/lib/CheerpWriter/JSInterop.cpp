@@ -155,11 +155,22 @@ void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 	auto compileFunctionBody = [&](const Function * f, bool isStatic, const StructType* implicitThis) -> void
 	{
 		auto argumentsStrings = buildArgumentsString(f, isStatic, PA, jsExportedTypes, namegen.getName(f));
-		stream << "function(" << argumentsStrings.first << "){" << NewLine;
-
 		const llvm::StructType* retType = nullptr;
 		if (f->getReturnType() && f->getReturnType()->isPointerTy())
 			retType = dyn_cast<StructType>(f->getReturnType()->getPointerElementType());
+		auto internalName = namegen.getName(f);
+
+		if(argumentsStrings.first == argumentsStrings.second)
+		{
+			// The arguments used internally and externally are identical, no mapping is required
+			// check if we can use the function directly without a wrapper
+			if(isStatic && !jsExportedTypes.count(retType))
+			{
+				stream << internalName << ";" << NewLine;
+				return;
+			}
+		}
+		stream << "function(" << argumentsStrings.first << "){" << NewLine;
 
 		stream << "return ";
 		bool isRegular = false;
@@ -174,7 +185,6 @@ void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 			}
 		}
 
-		auto internalName = namegen.getName(f);
 		stream << internalName << "(";
 		if(!isStatic && implicitThis)
 		{
