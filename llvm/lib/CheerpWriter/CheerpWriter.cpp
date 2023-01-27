@@ -2491,6 +2491,11 @@ void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio
 				else if(parentPrio > LOWEST && f->getValueAPF().isNegative())
 					stream << ' ';
 			}
+			else
+			{
+				if(parentPrio > LOWEST && f->getValueAPF().isNegative())
+					stream << ' ';
+			}
 			// asm.js require the floating point literals to have a dot
 			if(asmjs && buf.find('.') == StringRef::npos)
 			{
