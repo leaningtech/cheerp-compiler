@@ -264,68 +264,41 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 		return result;
 	}
 
-	VectorParts visitSizeChangingCast(CastInst& I)
+	VectorParts visitExtensionCast(CastInst& I)
 	{
-		// This function lowers size changing casts for vectors even when SIMD is enabled,
-		// because they are not (currently) supported by the Wasm SIMD instructions.
-		const FixedVectorType* destType = cast<FixedVectorType>(I.getDestTy());
-		const unsigned amount = destType->getNumElements();
-		const unsigned destWidth = cheerp::getVectorBitwidth(destType);
-		Type* newType = destType->getElementType();
-		const FixedVectorType* srcType = cast<FixedVectorType>(I.getSrcTy());
-		const unsigned srcWidth = cheerp::getVectorBitwidth(srcType);
+		// This is an extension cast with the source vector being lower or equal to 128 bits.
+		// If the destination vector is also lower than or equal to 128 bits,
+		// we don't have to do anything, unless it the source was a vector of booleans.
+		// If however, the destination vector is larger than 128 bits, we need to lower.
+		FixedVectorType* destVecType = cast<FixedVectorType>(I.getDestTy());
+		const unsigned destWidth = cheerp::getVectorBitwidth(destVecType);
 		IRBuilder<> Builder(&I);
-
-		if (destWidth == 128)
+		if (destWidth <= 128)
 		{
-			// Are we casting to 128 bit? Create a vector with the elements from the previous instruction.
-			VectorParts v = visitValue(I.getOperand(0));
 			// If we're zero-extending a vector of booleans, add a masking instruction.
 			// This is necessary because in WebAssembly, vectors of booleans are all ones for true.
-			if (srcType->getElementType()->isIntegerTy(1) && isa<ZExtInst>(I))
+			const FixedVectorType* srcVecType = cast<FixedVectorType>(I.getSrcTy());
+			if (srcVecType->getElementType()->isIntegerTy(1) && isa<ZExtInst>(I))
 			{
 				Value* ZExtCast = &I;
-				Constant* singleOne = ConstantInt::get(destType->getElementType(), 1);
-				Constant* vectorOne = ConstantDataVector::getSplat(amount, singleOne);
+				Constant* singleOne = ConstantInt::get(destVecType->getElementType(), 1);
+				Constant* vectorOne = ConstantDataVector::getSplat(destVecType->getNumElements(), singleOne);
 				Builder.SetInsertPoint(I.getNextNode());
 				Instruction* mask = cast<Instruction>(Builder.CreateAnd(ZExtCast, vectorOne));
 				I.replaceAllUsesWith(mask);
+				changed = true;
 				mask->setOperand(0, ZExtCast);
 			}
-			// If the previous instruction was not lowered, ignore this cast.
-			if (v.values.size() == 0)
-				return VectorParts();
-			Value* newVector = UndefValue::get(I.getDestTy());
-			for (unsigned i = 0; i < amount; i++)
-			{
-				Value* cast = Builder.CreateCast(I.getOpcode(), v.values[i], newType);
-				newVector = Builder.CreateInsertElement(newVector, cast, i);
-			}
-			I.replaceAllUsesWith(newVector);
-			toDelete.push_back(&I);
-			changed = true;
 			return VectorParts();
 		}
-		else if (srcWidth == 128 || srcType->getElementType()->isIntegerTy(1))
-		{
-			// Are we casting from 128 bit? Extract all the elements and put into a VectorParts struct.
-			VectorParts result;
-			for (unsigned i = 0; i < amount; i++)
-			{
-				Value* extract = Builder.CreateExtractElement(I.getOperand(0), i);
-				Value* cast = Builder.CreateCast(I.getOpcode(), extract, newType);
-				result.values.push_back(cast);
-			}
-			toDelete.push_back(&I);
-			changed = true;
-			return result;
-		}
-		// This is a size-changing cast where both src and dest are not 128 bit. Lower completely.
-		VectorParts v = visitValue(I.getOperand(0));
+
+		const unsigned amount = destVecType->getNumElements();
+		Type* newType = destVecType->getElementType();
 		VectorParts result;
 		for (unsigned i = 0; i < amount; i++)
 		{
-			Value* cast = Builder.CreateCast(I.getOpcode(), v.values[i], newType);
+			Value* extract = Builder.CreateExtractElement(I.getOperand(0), i);
+			Value* cast = Builder.CreateCast(I.getOpcode(), extract, newType);
 			result.values.push_back(cast);
 		}
 		toDelete.push_back(&I);
@@ -333,15 +306,62 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 		return result;
 	}
 
-	VectorParts visitCastInst(CastInst& I)
+	VectorParts visitTruncationCast(CastInst& I)
 	{
-		if (!lowerAll && I.getType()->isVectorTy() && (isa<SExtInst>(I) || isa<ZExtInst>(I) || isa<TruncInst>(I) || isa<FPExtInst>(I) || isa<FPTruncInst>(I) || isa<SIToFPInst>(I)))
-			return visitSizeChangingCast(I);
-		if (!shouldLower(I.getDestTy()) && !shouldLower(I.getSrcTy()))
+		// This is a truncation cast with the destination vector being lower or equal to 128 bits.
+		// If the source vector is also lower or equal to 128 bits, we have to zero out
+		// the unused lanes, but this can only be done in the writer.
+		// Otherwise, if the source vector is larger than 128 bits, we construct a new vector
+		// from the previously lowered elements.
+		FixedVectorType* srcVecType = cast<FixedVectorType>(I.getSrcTy());
+		const unsigned srcWidth = cheerp::getVectorBitwidth(srcVecType);
+		if (srcWidth <= 128)
 			return VectorParts();
 
-		const FixedVectorType* vecType = cast<FixedVectorType>(I.getDestTy());
-		Type* newType = vecType->getElementType();
+		FixedVectorType* destVecType = cast<FixedVectorType>(I.getDestTy());
+		const unsigned amount = srcVecType->getNumElements();
+		IRBuilder<> Builder(&I);
+		VectorParts v = visitValue(I.getOperand(0));
+		Type* newType = destVecType->getElementType();
+		// If the previous instruction was not lowered, ignore this cast.
+		if (v.values.size() == 0)
+			return VectorParts();
+		Value* newVector = UndefValue::get(I.getDestTy());
+		for (unsigned i = 0; i < amount; i++)
+		{
+			Value* cast = Builder.CreateCast(I.getOpcode(), v.values[i], newType);
+			newVector = Builder.CreateInsertElement(newVector, cast, i);
+		}
+		I.replaceAllUsesWith(newVector);
+		toDelete.push_back(&I);
+		changed = true;
+		return VectorParts();
+
+	}
+
+	VectorParts visitCastInst(CastInst& I)
+	{
+		// Custom logic to decide which action to take.
+		if (!I.getType()->isVectorTy())
+			return VectorParts();
+		const FixedVectorType* destVecType = cast<FixedVectorType>(I.getDestTy());
+		const unsigned destWidth = cheerp::getVectorBitwidth(destVecType);
+		const FixedVectorType* srcVecType = cast<FixedVectorType>(I.getSrcTy());
+		const unsigned srcWidth = cheerp::getVectorBitwidth(srcVecType);
+
+		if (!lowerAll)
+		{
+			if (srcWidth <= 128 && destWidth > srcWidth)
+				return visitExtensionCast(I);
+			else if (destWidth <= 128 && destWidth < srcWidth)
+				return visitTruncationCast(I);
+			else if (destWidth == srcWidth && destWidth <= 128)
+				return VectorParts();
+		}
+
+		// This code lowers a cast in general, either because there is no SIMD support
+		// or both vectors are over 128 bits wide.
+		Type* newType = destVecType->getElementType();
 		VectorParts v = visitValue(I.getOperand(0));
 		unsigned amount = v.values.size();
 		IRBuilder<> Builder(&I);
