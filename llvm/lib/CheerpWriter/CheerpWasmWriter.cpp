@@ -752,84 +752,98 @@ void CheerpWasmWriter::encodeConstantVector(WasmBuffer& code, const llvm::Consta
 
 void CheerpWasmWriter::encodeExtractLane(WasmBuffer& code, const llvm::ExtractElementInst& eei)
 {
-	const Type* elementType = eei.getType();
+	const FixedVectorType* vecType = cast<FixedVectorType>(eei.getVectorOperandType());
+	const unsigned num = vecType->getNumElements();
+	const Type* elementType = vecType->getElementType();
 	assert(isa<ConstantInt>(eei.getIndexOperand()));
 	uint64_t index = (dyn_cast<ConstantInt>(eei.getIndexOperand()))->getZExtValue();
+	if (getVectorBitwidth(vecType) != 128 && !elementType->isIntegerTy(1))
+	{
+		// We need to recalculate the index if the vector is not 128 bits in size.
+		const unsigned scaleFactor = 128 / getVectorBitwidth(vecType);
+		index *= scaleFactor;
+	}
 	compileOperand(code, eei.getVectorOperand());
-	if (elementType->isIntegerTy(32) || elementType->isPointerTy())
+	if (elementType->isIntegerTy(32) || elementType->isPointerTy() || (elementType->isIntegerTy(1) && num == 4))
 		encodeInst(WasmSIMDU32Opcode::I32x4_EXTRACT_LANE, index, code);
-	else if (elementType->isIntegerTy(64))
+	else if (elementType->isIntegerTy(64) || (elementType->isIntegerTy(1) && num == 2))
+	{
 		encodeInst(WasmSIMDU32Opcode::I64x2_EXTRACT_LANE, index, code);
-	else if (elementType->isIntegerTy(16))
+		// If the vector holds booleans, resize to i32.
+		if (elementType->isIntegerTy(1))
+			encodeInst(WasmOpcode::I32_WRAP_I64, code);
+	}
+	else if (elementType->isIntegerTy(16) || (elementType->isIntegerTy(1) && num == 8))
 		encodeInst(WasmSIMDU32Opcode::I16x8_EXTRACT_LANE_U, index, code);
-	else if (elementType->isIntegerTy(8))
+	else if (elementType->isIntegerTy(8) || (elementType->isIntegerTy(1) && num == 16))
 		encodeInst(WasmSIMDU32Opcode::I8x16_EXTRACT_LANE_U, index, code);
 	else if (elementType->isFloatTy())
 		encodeInst(WasmSIMDU32Opcode::F32x4_EXTRACT_LANE, index, code);
 	else if (elementType->isDoubleTy())
 		encodeInst(WasmSIMDU32Opcode::F64x2_EXTRACT_LANE, index, code);
-	else if (elementType->isIntegerTy(1))
-	{
-		// For boolean vectors, we have to know how many elements the vector has.
-		const FixedVectorType* vecType = cast<FixedVectorType>(eei.getVectorOperand()->getType());
-		const unsigned num = vecType->getNumElements();
-		if (num == 2)
-			encodeInst(WasmSIMDU32Opcode::I32x4_EXTRACT_LANE, index * 2, code);
-		else if (num == 4)
-			encodeInst(WasmSIMDU32Opcode::I32x4_EXTRACT_LANE, index, code);
-		else if (num == 8)
-			encodeInst(WasmSIMDU32Opcode::I16x8_EXTRACT_LANE_U, index, code);
-		else if (num == 16)
-			encodeInst(WasmSIMDU32Opcode::I8x16_EXTRACT_LANE_U, index, code);
-		else
-			llvm::report_fatal_error("Unknown element amount for boolean vector");
-	}
 	else
 		llvm::report_fatal_error("unhandled type for extract element");
 }
 
 void CheerpWasmWriter::encodeReplaceLane(WasmBuffer& code, const llvm::InsertElementInst& iei)
 {
-	assert(iei.getOperand(0)->getType()->isVectorTy());
-	const FixedVectorType* vecType = cast<FixedVectorType>(iei.getOperand(0)->getType());
+	const FixedVectorType* vecType = cast<FixedVectorType>(iei.getType());
+	const unsigned num = vecType->getNumElements();
 	const Type* elementType = vecType->getElementType();
-	if (cheerp::getVectorBitwidth(cast<FixedVectorType>(vecType)) != 128)
-		assert(elementType->isIntegerTy(1));
 	assert(isa<ConstantInt>(iei.getOperand(2)));
 	uint64_t index = (cast<ConstantInt>(iei.getOperand(2)))->getZExtValue();
+	if (getVectorBitwidth(vecType) != 128 && !elementType->isIntegerTy(1))
+	{
+		// We need to recalculate the index if the vector is not 128 bits in size.
+		const unsigned scaleFactor = 128 / getVectorBitwidth(vecType);
+		index *= scaleFactor;
+	}
 	compileOperand(code, iei.getOperand(0));
 	compileOperand(code, iei.getOperand(1));
-	if (elementType->isFloatTy())
+	if (elementType->isIntegerTy(32) || elementType->isPointerTy() || (elementType->isIntegerTy(1) && num == 4))
+		encodeInst(WasmSIMDU32Opcode::I32x4_REPLACE_LANE, index, code);
+	else if (elementType->isIntegerTy(64) || (elementType->isIntegerTy(1) && num == 2))
+	{
+		// If the insert is from a boolean value, extend to i64 first.
+		if (elementType->isIntegerTy(1))
+			encodeInst(WasmOpcode::I64_EXTEND_S_I32, code);
+		encodeInst(WasmSIMDU32Opcode::I64x2_REPLACE_LANE, index, code);
+	}
+	else if (elementType->isIntegerTy(16) || (elementType->isIntegerTy(1) && num == 8))
+		encodeInst(WasmSIMDU32Opcode::I16x8_REPLACE_LANE, index, code);
+	else if (elementType->isIntegerTy(8) || (elementType->isIntegerTy(1) && num == 16))
+		encodeInst(WasmSIMDU32Opcode::I8x16_REPLACE_LANE, index, code);
+	else if (elementType->isFloatTy())
 		encodeInst(WasmSIMDU32Opcode::F32x4_REPLACE_LANE, index, code);
 	else if (elementType->isDoubleTy())
 		encodeInst(WasmSIMDU32Opcode::F64x2_REPLACE_LANE, index, code);
-	else if (elementType->isIntegerTy(32) || elementType->isPointerTy())
-		encodeInst(WasmSIMDU32Opcode::I32x4_REPLACE_LANE, index, code);
-	else if (elementType->isIntegerTy(64))
-		encodeInst(WasmSIMDU32Opcode::I64x2_REPLACE_LANE, index, code);
-	else if (elementType->isIntegerTy(16))
-		encodeInst(WasmSIMDU32Opcode::I16x8_REPLACE_LANE, index, code);
-	else if (elementType->isIntegerTy(8))
-		encodeInst(WasmSIMDU32Opcode::I8x16_REPLACE_LANE, index, code);
-	else if (elementType->isIntegerTy(1))
-	{
-		const unsigned num = vecType->getNumElements();
-		if (num == 2)
-		{
-			encodeInst(WasmOpcode::I64_EXTEND_S_I32, code);
-			encodeInst(WasmSIMDU32Opcode::I64x2_REPLACE_LANE, index, code);
-		}
-		else if (num == 4)
-			encodeInst(WasmSIMDU32Opcode::I32x4_REPLACE_LANE, index, code);
-		else if (num == 8)
-			encodeInst(WasmSIMDU32Opcode::I16x8_REPLACE_LANE, index, code);
-		else if (num == 16)
-			encodeInst(WasmSIMDU32Opcode::I8x16_REPLACE_LANE, index, code);
-		else
-			llvm::report_fatal_error("Unknown vector boolean width");
-	}
 	else
 		llvm::report_fatal_error("unhandled type for insert element");
+}
+
+void CheerpWasmWriter::encodeVectorTruncation(WasmBuffer& code, const llvm::Instruction& I)
+{
+	// We zero out the now unused lanes.
+	const CastInst& ci = cast<CastInst>(I);
+	const FixedVectorType* destVecType = cast<FixedVectorType>(ci.getDestTy());
+	const unsigned amount = destVecType->getNumElements();
+	const unsigned elementWidth = destVecType->getScalarSizeInBits();
+	const unsigned fakeWidth = 128 / amount;
+	// We need to create a vector to function as a mask. This will be a vector with 16 bytes.
+	unsigned currentWidth = 0;
+	SmallVector<uint8_t, 16> mask;
+	for (unsigned i = 0; i < 16; i++)
+	{
+		if (currentWidth < elementWidth)
+			mask.push_back(-1);
+		else
+			mask.push_back(0);
+		currentWidth = (currentWidth + 8) % fakeWidth;
+	}
+	Value* maskVector = ConstantDataVector::get(module.getContext(), mask);
+	const ConstantDataVector* cdv = cast<ConstantDataVector>(maskVector);
+	encodeConstantDataVector(code, cdv);
+	encodeInst(WasmSIMDOpcode::V128_AND, code);
 }
 
 void CheerpWasmWriter::encodeBranchHint(const llvm::BranchInst* BI, const bool IfNot, WasmBuffer& code)
@@ -2851,6 +2865,8 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			compileOperand(code, I.getOperand(0));
 			if (I.getOperand(0)->getType()->isIntegerTy(64))
 				encodeInst(WasmOpcode::I32_WRAP_I64, code);
+			else if (I.getOperand(0)->getType()->isVectorTy())
+				encodeVectorTruncation(code, I);
 			break;
 		}
 		case Instruction::Ret:
@@ -3146,6 +3162,17 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 		}
 		case Instruction::FPTrunc:
 		{
+			if (I.getType()->isVectorTy())
+			{
+				const FixedVectorType* srcVecType = cast<FixedVectorType>(I.getOperand(0)->getType());
+				const FixedVectorType* destVecType = cast<FixedVectorType>(I.getType());
+				assert(destVecType->getElementType()->isFloatTy());
+				assert(srcVecType->getElementType()->isDoubleTy());
+				compileOperand(code, I.getOperand(0));
+				encodeInst(WasmSIMDOpcode::F32x4_DEMOTE_F64x2_ZERO, code);
+				encodeLoadingShuffle(code, destVecType);
+				break;
+			}
 			assert(I.getType()->isFloatTy());
 			assert(I.getOperand(0)->getType()->isDoubleTy());
 			compileOperand(code, I.getOperand(0));
@@ -3154,6 +3181,17 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 		}
 		case Instruction::FPExt:
 		{
+			if (I.getType()->isVectorTy())
+			{
+				const FixedVectorType* srcVecType = cast<FixedVectorType>(I.getOperand(0)->getType());
+				const FixedVectorType* destVecType = cast<FixedVectorType>(I.getType());
+				assert(srcVecType->getElementType()->isFloatTy());
+				assert(destVecType->getElementType()->isDoubleTy());
+				compileOperand(code, I.getOperand(0));
+				encodeStoringShuffle(code, srcVecType);
+				encodeInst(WasmSIMDOpcode::F64x2_PROMOTE_LOW_F32x4, code);
+				break;
+			}
 			assert(I.getType()->isDoubleTy());
 			assert(I.getOperand(0)->getType()->isFloatTy());
 			compileOperand(code, I.getOperand(0));
