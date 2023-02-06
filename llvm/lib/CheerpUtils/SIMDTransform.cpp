@@ -232,7 +232,7 @@ bool SIMDTransformPass::lowerBitShift(Instruction& I)
 	if (!secondOp->getType()->isVectorTy())
 		return false;
 	const FixedVectorType* vecType = cast<FixedVectorType>(I.getType());
-	if (getVectorBitwidth(vecType) != 128)
+	if (getVectorBitwidth(vecType) > 128)
 		return false;
 
 	Intrinsic::ID intrID;
@@ -280,7 +280,7 @@ bool SIMDTransformPass::lowerSplat(Instruction &I)
 	// is an insert element used only once, which inserts into the first element of a vector.
 	const ShuffleVectorInst& svi = cast<ShuffleVectorInst>(I);
 	const FixedVectorType* vecType = cast<FixedVectorType>(svi.getType());
-	if (getVectorBitwidth(vecType) != 128)
+	if (getVectorBitwidth(vecType) > 128)
 		return false;
 	if (svi.isZeroEltSplat())
 	{

@@ -62,7 +62,7 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 			return false;
 		const FixedVectorType* vecType = cast<FixedVectorType>(type);
 		const unsigned vectorBitwidth = cheerp::getVectorBitwidth(vecType);
-		if (vectorBitwidth == 128 && !lowerAll)
+		if (vectorBitwidth <= 128 && !lowerAll)
 			return false;
 		if (vecType->getScalarSizeInBits() == 1 && !lowerAll)
 			return false;
@@ -560,7 +560,7 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 		if (I.getType()->isPointerTy())
 		{
 			const FixedVectorType* vecType = cast<FixedVectorType>(I.getType()->getPointerElementType());
-			if (!lowerAll && cheerp::getVectorBitwidth(vecType) == 128)
+			if (!lowerAll && cheerp::getVectorBitwidth(vecType) <= 128)
 				return VectorParts();
 
 			// This is a pointer to a vector. We lower this to several GEPs to the first element.
@@ -635,7 +635,7 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 
 		toDelete.push_back(&I);
 		changed = true;
-		if (lowerAll || cheerp::getVectorBitwidth(vecType) != 128)
+		if (lowerAll || cheerp::getVectorBitwidth(vecType) > 128)
 			return result;
 
 		Value* newValue = UndefValue::get(I.getType());
@@ -698,7 +698,7 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 		const unsigned num = vecType->getNumElements();
 		const FixedVectorType* vecOp = cast<FixedVectorType>(I.getOperand(0)->getType());
 		const unsigned vectorBitwidth = cheerp::getVectorBitwidth(vecOp);
-		if (!lowerAll && vectorBitwidth == 128)
+		if (!lowerAll && vectorBitwidth <= 128)
 			return VectorParts();
 
 		IRBuilder<> Builder(&I);
