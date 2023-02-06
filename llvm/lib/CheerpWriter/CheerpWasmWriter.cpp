@@ -565,6 +565,15 @@ void CheerpWasmWriter::encodeInst(WasmSIMDU32U32Opcode opcode, uint32_t i1, uint
 	encodeULEB128(i2, code);
 }
 
+void CheerpWasmWriter::encodeInst(WasmSIMDU32U32U32Opcode opcode, uint32_t i1, uint32_t i2, uint32_t i3, WasmBuffer& code)
+{
+	code << static_cast<char>(WasmOpcode::SIMD);
+	encodeULEB128(static_cast<uint64_t>(opcode), code);
+	encodeULEB128(i1, code);
+	encodeULEB128(i2, code);
+	encodeULEB128(i3, code);
+}
+
 void CheerpWasmWriter::encodeInst(WasmInvalidOpcode opcode, WasmBuffer& code)
 {
 	nopLocations.push_back(code.tell());
@@ -846,6 +855,62 @@ void CheerpWasmWriter::encodeVectorTruncation(WasmBuffer& code, const llvm::Inst
 	encodeInst(WasmSIMDOpcode::V128_AND, code);
 }
 
+void CheerpWasmWriter::encodeLoadingShuffle(WasmBuffer& code, const llvm::FixedVectorType* vecType)
+{
+	// This function will encode a shuffle instruction that is used to support vectors
+	// smaller than 128 bits. Only the first bits are loaded, and need to be shuffled
+	// to the correct spots in the vector.
+	encodeVectorConstantZero(code);
+	encodeInst(WasmSIMDOpcode::I8x16_SHUFFLE, code);
+
+	const unsigned num = vecType->getNumElements();
+	const Type* elementType = vecType->getElementType();
+	const unsigned elementWidth = elementType->isPointerTy() ? 32 : vecType->getScalarSizeInBits();
+	const unsigned fakeWidth = 128 / num;
+	unsigned currentWidth = 0;
+	unsigned index = 0;
+	for (unsigned i = 0; i < 16; i++)
+	{
+		if (currentWidth < elementWidth)
+			code << static_cast<char>(index++);
+		else
+			code << static_cast<char>(8);
+		currentWidth = (currentWidth + 8) % fakeWidth;
+	}
+}
+
+void CheerpWasmWriter::encodeStoringShuffle(WasmBuffer& code, const llvm::FixedVectorType* vecType)
+{
+	// This function will encode a shuffle instruction that is used to support vector
+	// smaller than 128 bits. It will shuffle the elements from the various lanes into
+	// a single bigger lane, so they can be stored all at once.
+	encodeVectorConstantZero(code);
+	encodeInst(WasmSIMDOpcode::I8x16_SHUFFLE, code);
+
+	const unsigned num = vecType->getNumElements();
+	const Type* elementType = vecType->getElementType();
+	const unsigned elementWidth = elementType->isPointerTy() ? 32 : vecType->getScalarSizeInBits();
+	const unsigned fakeLaneWidth = 16 / num;
+	unsigned elementsHandled = 0;
+	unsigned currentWidth = 0;
+	for (unsigned i = 0; i < 16; i++)
+	{
+		if (elementsHandled < num)
+		{
+			unsigned laneNum = elementsHandled * fakeLaneWidth + (currentWidth / 8);
+			code << static_cast<char>(laneNum);
+			currentWidth += 8;
+			if (currentWidth == elementWidth)
+			{
+				currentWidth = 0;
+				elementsHandled++;
+			}
+		}
+		else
+			code << static_cast<char>(15);
+	}
+}
+
 void CheerpWasmWriter::encodeBranchHint(const llvm::BranchInst* BI, const bool IfNot, WasmBuffer& code)
 {
 	auto branchHint = shouldBranchBeHinted(BI, IfNot);
@@ -953,32 +1018,39 @@ void CheerpWasmWriter::encodeLoad(const llvm::Type* ty, uint32_t offset,
 				llvm::errs() << "bit width: " << bitWidth << '\n';
 				llvm_unreachable("unknown integer bit width");
 		}
+	} else if (ty->isVectorTy()) {
+		const FixedVectorType* vecTy = cast<FixedVectorType>(ty);
+		const unsigned vectorBitwidth = getVectorBitwidth(vecTy);
+		if (vectorBitwidth == 128)
+			encodeInst(WasmSIMDU32U32Opcode::V128_LOAD, 0x2, offset, code);
+		else
+		{
+			if (vectorBitwidth == 64)
+			{
+				encodeInst(WasmSIMDU32U32Opcode::V128_LOAD64_ZERO, 0x2, offset, code);
+				encodeLoadingShuffle(code, vecTy);
+			}
+			else if (vectorBitwidth == 32)
+			{
+				encodeInst(WasmSIMDU32U32Opcode::V128_LOAD32_ZERO, 0x2, offset, code);
+				encodeLoadingShuffle(code, vecTy);
+			}
+			else if (vectorBitwidth == 16)
+			{
+				// There is no opcode equivalent for LOAD16_ZERO, so we have to use LOAD16_LANE
+				// on a zeroed out vector.
+				encodeVectorConstantZero(code);
+				encodeInst(WasmSIMDU32U32U32Opcode::V128_LOAD16_LANE, 0x0, offset, 0, code);
+				encodeLoadingShuffle(code, vecTy);
+			}
+			else
+				llvm::report_fatal_error("vector bitwidth not supported");
+		}
 	} else {
 		if (ty->isFloatTy())
 			encodeInst(WasmU32U32Opcode::F32_LOAD, 0x2, offset, code);
 		else if (ty->isDoubleTy())
 			encodeInst(WasmU32U32Opcode::F64_LOAD, 0x3, offset, code);
-		else if (ty->isVectorTy())
-		{
-			assert(isa<FixedVectorType>(ty));
-			const FixedVectorType* vecTy = cast<FixedVectorType>(ty);
-			const unsigned vectorBitwidth = getVectorBitwidth(vecTy);
-			if (vectorBitwidth == 128)
-				encodeInst(WasmSIMDU32U32Opcode::V128_LOAD, 0x2, offset, code);
-			else
-			{
-				assert(vectorBitwidth == 64);
-				const unsigned elementSize = vecTy->getScalarSizeInBits();
-				if (elementSize == 8)
-					encodeInst(signExtend ? WasmSIMDU32U32Opcode::V128_LOAD8x8_S : WasmSIMDU32U32Opcode::V128_LOAD8x8_U, 0x2, offset, code);
-				else if (elementSize == 16)
-					encodeInst(signExtend ? WasmSIMDU32U32Opcode::V128_LOAD16x4_S : WasmSIMDU32U32Opcode::V128_LOAD16x4_U, 0x2, offset, code);
-				else if (elementSize == 32)
-					encodeInst(signExtend ? WasmSIMDU32U32Opcode::V128_LOAD32x2_S : WasmSIMDU32U32Opcode::V128_LOAD32x2_U, 0x2, offset, code);
-				else
-					llvm::report_fatal_error("unknown vector load bitwidth");
-			}
-		}
 		else
 			encodeInst(WasmU32U32Opcode::I32_LOAD, 0x2, offset, code);
 	}
@@ -1979,7 +2051,43 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 		}
 		case Instruction::BitCast:
 		{
-			//assert(I.getType()->isPointerTy());
+			if (I.getType()->isVectorTy())
+			{
+				const BitCastInst& bci = cast<BitCastInst>(I);
+				const FixedVectorType* destVecTy = cast<FixedVectorType>(bci.getDestTy());
+				if (bci.getSrcTy()->isVectorTy())
+				{
+					// If we're casting from a vector to a vector, if the number of
+					// elements are the same, we don't need to do anything.
+					const FixedVectorType* srcVecTy = cast<FixedVectorType>(bci.getSrcTy());
+					if (srcVecTy->getNumElements() == destVecTy->getNumElements())
+					{
+						compileOperand(code, I.getOperand(0));
+						break;
+					}
+					assert(false && "Bitcasting between different vector formats not supported yet");
+				}
+
+				// If this is a bitcast from a non-pointer value to a vector, we have to encode it
+				// as with a load on a smaller-than-128 bits vector. We load the value into a vector
+				// and then apply a shuffle mask.
+				const unsigned vecWidth = getVectorBitwidth(destVecTy);
+				encodeVectorConstantZero(code);
+				compileOperand(code, I.getOperand(0));
+				// Encode the correct replace lane with index 0
+				if (vecWidth == 64)
+					encodeInst(WasmSIMDU32Opcode::I64x2_REPLACE_LANE, 0, code);
+				else if (vecWidth == 32)
+					encodeInst(WasmSIMDU32Opcode::I32x4_REPLACE_LANE, 0, code);
+				else if (vecWidth == 16)
+					encodeInst(WasmSIMDU32Opcode::I16x8_REPLACE_LANE, 0, code);
+				else
+					llvm::report_fatal_error("Incorrect bitwidth for bitcast to vector");
+				encodeLoadingShuffle(code, destVecTy);
+				break;
+			}
+			else if (I.getOperand(0)->getType()->isVectorTy())
+				assert(false && "Bitcasting from vector to integer not supported yet");
 			compileOperand(code, I.getOperand(0));
 			break;
 		}
@@ -2846,13 +2954,40 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						llvm::errs() << "bit width: " << bitWidth << '\n';
 						llvm_unreachable("unknown integer bit width");
 				}
-			} else {
+			}
+			else if (valOp->getType()->isVectorTy())
+			{
+				const FixedVectorType* vecType = cast<FixedVectorType>(valOp->getType());
+				const unsigned vecWidth = getVectorBitwidth(vecType);
+				if (vecWidth == 128)
+					encodeInst(WasmSIMDU32U32Opcode::V128_STORE, 0x2, offset, code);
+				else if (vecWidth == 64)
+				{
+					encodeStoringShuffle(code, vecType);
+					encodeInst(WasmSIMDU32U32U32Opcode::V128_STORE64_LANE, 0x3, offset, 0, code);
+				}
+				else if (vecWidth == 32)
+				{
+					encodeStoringShuffle(code, vecType);
+					encodeInst(WasmSIMDU32U32U32Opcode::V128_STORE32_LANE, 0x2, offset, 0, code);
+				}
+				else if (vecWidth == 16)
+				{
+					encodeStoringShuffle(code, vecType);
+					encodeInst(WasmSIMDU32U32U32Opcode::V128_STORE16_LANE, 0x1, offset, 0, code);
+				}
+				else
+				{
+					llvm::errs() << "bit width: " << vecWidth << "\n";
+					llvm_unreachable("unknown vector bit width");
+				}
+			}
+			else
+			{
 				if (valOp->getType()->isFloatTy())
 					encodeInst(WasmU32U32Opcode::F32_STORE, 0x2, offset, code);
 				else if (valOp->getType()->isDoubleTy())
 					encodeInst(WasmU32U32Opcode::F64_STORE, 0x3, offset, code);
-				else if (valOp->getType()->isVectorTy())
-					encodeInst(WasmSIMDU32U32Opcode::V128_STORE, 0x2, offset, code);
 				else
 					encodeInst(WasmU32U32Opcode::I32_STORE, 0x2, offset, code);
 			}

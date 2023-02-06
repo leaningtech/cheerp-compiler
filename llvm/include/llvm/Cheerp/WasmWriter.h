@@ -522,6 +522,7 @@ public:
 	static void encodeInst(WasmSIMDOpcode opcode, WasmBuffer& code);
 	static void encodeInst(WasmSIMDU32Opcode opcode, uint32_t immediate, WasmBuffer& code);
 	static void encodeInst(WasmSIMDU32U32Opcode opcode, uint32_t i1, uint32_t i2, WasmBuffer& code);
+	static void encodeInst(WasmSIMDU32U32U32Opcode opcode, uint32_t i1, uint32_t i2, uint32_t i3, WasmBuffer& code);
 	static void encodeInst(WasmU32U32Opcode opcode, uint32_t i1, uint32_t i2, WasmBuffer& code);
 	void encodeInst(WasmInvalidOpcode opcode, WasmBuffer& code);
 	void encodeVectorConstantZero(WasmBuffer& code);
@@ -530,6 +531,8 @@ public:
 	void encodeExtractLane(WasmBuffer& code, const llvm::ExtractElementInst& eei);
 	void encodeReplaceLane(WasmBuffer& code, const llvm::InsertElementInst& iei);
 	void encodeVectorTruncation(WasmBuffer& code, const llvm::Instruction& I);
+	void encodeLoadingShuffle(WasmBuffer& code, const llvm::FixedVectorType* vecType);
+	void encodeStoringShuffle(WasmBuffer& code, const llvm::FixedVectorType* vecType);
 	void encodeBranchHint(const llvm::BranchInst* BI, const bool IfNot, WasmBuffer& code);
 	void encodeBinOp(const llvm::Instruction& I, WasmBuffer& code);
 	void encodePredicate(const llvm::Type* ty, const llvm::CmpInst::Predicate predicate, WasmBuffer& code);
