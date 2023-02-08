@@ -82,8 +82,8 @@ InstructionCost CheerpTTIImpl::getArithmeticInstrCost(
 InstructionCost CheerpTTIImpl::getVectorInstrCost(unsigned Opcode,
                                                        Type *Val,
                                                        unsigned Index) {
-  InstructionCost Cost =
-      BasicTTIImplBase::getVectorInstrCost(Opcode, Val, Index);
+  std::pair<InstructionCost, MVT> LT = getTypeLegalizationCost(Val->getScalarType());
+  InstructionCost Cost = LT.first;
 
   // SIMD128's insert/extract currently only take constant indices.
   if (Index == -1u)
