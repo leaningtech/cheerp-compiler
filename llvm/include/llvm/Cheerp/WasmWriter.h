@@ -513,6 +513,8 @@ public:
 	static void encodeInst(WasmSIMDU32U32Opcode opcode, uint32_t i1, uint32_t i2, WasmBuffer& code);
 	static void encodeInst(WasmSIMDU32U32U32Opcode opcode, uint32_t i1, uint32_t i2, uint32_t i3, WasmBuffer& code);
 	static void encodeInst(WasmU32U32Opcode opcode, uint32_t i1, uint32_t i2, WasmBuffer& code);
+	static void encodeInst(WasmThreadsU32Opcode opcode, uint32_t immediate, WasmBuffer& code);
+	static void encodeInst(WasmThreadsU32U32Opcode opcode, uint32_t i1, uint32_t i2, WasmBuffer& code);
 	void encodeInst(WasmInvalidOpcode opcode, WasmBuffer& code);
 	void encodeVectorConstantZero(WasmBuffer& code);
 	void encodeConstantDataVector(WasmBuffer& code, const llvm::ConstantDataVector* cdv);
@@ -528,7 +530,7 @@ public:
 	void compileICmp(const llvm::ICmpInst& ci, const llvm::CmpInst::Predicate p, WasmBuffer& code);
 	void compileICmp(const llvm::Value* op0, const llvm::Value* op1, const llvm::CmpInst::Predicate p, WasmBuffer& code);
 	void compileFCmp(const llvm::Value* lhs, const llvm::Value* rhs, const llvm::CmpInst::Predicate p, WasmBuffer& code);
-	void encodeLoad(llvm::Type* ty, uint32_t offset, WasmBuffer& code, bool signExtend);
+	void encodeLoad(llvm::Type* ty, uint32_t offset, WasmBuffer& code, bool signExtend, bool atomic);
 	void encodeWasmIntrinsic(WasmBuffer& code, const llvm::Function* F);
 	void encodeBranchTable(WasmBuffer& code, std::vector<uint32_t> table, int32_t defaultBlock);
 	void encodeDataSectionChunk(WasmBuffer& data, uint32_t address, llvm::StringRef buf);

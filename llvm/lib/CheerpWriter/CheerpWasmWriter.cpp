@@ -589,6 +589,21 @@ void CheerpWasmWriter::encodeInst(WasmSIMDU32U32U32Opcode opcode, uint32_t i1, u
 	encodeULEB128(i3, code);
 }
 
+void CheerpWasmWriter::encodeInst(WasmThreadsU32Opcode opcode, uint32_t immediate, WasmBuffer& code)
+{
+	code << static_cast<char>(WasmOpcode::Threads);
+	encodeULEB128(static_cast<uint64_t>(opcode), code);
+	encodeULEB128(immediate, code);
+}
+
+void CheerpWasmWriter::encodeInst(WasmThreadsU32U32Opcode opcode, uint32_t i1, uint32_t i2, WasmBuffer& code)
+{
+	code << static_cast<char>(WasmOpcode::Threads);
+	encodeULEB128(static_cast<uint64_t>(opcode), code);
+	encodeULEB128(i1, code);
+	encodeULEB128(i2, code);
+}
+
 void CheerpWasmWriter::encodeInst(WasmInvalidOpcode opcode, WasmBuffer& code)
 {
 	nopLocations.push_back(code.tell());
@@ -1005,8 +1020,9 @@ void CheerpWasmWriter::encodePredicate(const llvm::Type* ty, const llvm::CmpInst
 }
 
 void CheerpWasmWriter::encodeLoad(llvm::Type* ty, uint32_t offset,
-		WasmBuffer& code, bool signExtend)
+		WasmBuffer& code, bool signExtend, bool atomic)
 {
+	assert(!(atomic && signExtend));
 	if(ty->isIntegerTy())
 	{
 		uint32_t bitWidth = targetData.getTypeStoreSizeInBits(ty);
@@ -1016,16 +1032,32 @@ void CheerpWasmWriter::encodeLoad(llvm::Type* ty, uint32_t offset,
 			// Currently assume unsigned, like Cheerp. We may optimize
 			// this be looking at a following sext or zext instruction.
 			case 8:
-				encodeInst(signExtend ? WasmU32U32Opcode::I32_LOAD8_S : WasmU32U32Opcode::I32_LOAD8_U, 0x0, offset, code);
+				if (atomic)
+					encodeInst(WasmThreadsU32U32Opcode::I32_ATOMIC_LOAD8_U, 0x0, offset, code);
+				else if (signExtend)
+					encodeInst(WasmU32U32Opcode::I32_LOAD8_S, 0x0, offset, code);
+				else
+					encodeInst(WasmU32U32Opcode::I32_LOAD8_U, 0x0, offset, code);
 				break;
 			case 16:
-				encodeInst(signExtend ? WasmU32U32Opcode::I32_LOAD16_S : WasmU32U32Opcode::I32_LOAD16_U, 0x1, offset, code);
+				if (atomic)
+					encodeInst(WasmThreadsU32U32Opcode::I32_ATOMIC_LOAD16_U, 0x1, offset, code);
+				else if (signExtend)
+					encodeInst(WasmU32U32Opcode::I32_LOAD16_S, 0x1, offset, code);
+				else
+					encodeInst(WasmU32U32Opcode::I32_LOAD16_U, 0x1, offset, code);
 				break;
 			case 32:
-				encodeInst(WasmU32U32Opcode::I32_LOAD, 0x2, offset, code);
+				if (atomic)
+					encodeInst(WasmThreadsU32U32Opcode::I32_ATOMIC_LOAD, 0x2, offset, code);
+				else
+					encodeInst(WasmU32U32Opcode::I32_LOAD, 0x2, offset, code);
 				break;
 			case 64:
-				encodeInst(WasmU32U32Opcode::I64_LOAD, 0x2, offset, code);
+				if (atomic)
+					encodeInst(WasmThreadsU32U32Opcode::I64_ATOMIC_LOAD, 0x2, offset, code);
+				else
+					encodeInst(WasmU32U32Opcode::I64_LOAD, 0x2, offset, code);
 				break;
 			default:
 				llvm::errs() << "bit width: " << bitWidth << '\n';
@@ -1060,6 +1092,7 @@ void CheerpWasmWriter::encodeLoad(llvm::Type* ty, uint32_t offset,
 				llvm::report_fatal_error("vector bitwidth not supported");
 		}
 	} else {
+		assert(!atomic && "atomic loads only supported on integers");
 		if (ty->isFloatTy())
 			encodeInst(WasmU32U32Opcode::F32_LOAD, 0x2, offset, code);
 		else if (ty->isDoubleTy())
@@ -1982,7 +2015,7 @@ void CheerpWasmWriter::compileLoad(WasmBuffer& code, const LoadInst& li, bool si
 			offset += elementOffset;
 		}
 		// 2) Load
-		encodeLoad(Ty, offset, code, signExtend);
+		encodeLoad(Ty, offset, code, signExtend, li.isAtomic());
 	}
 }
 
@@ -2030,6 +2063,7 @@ void CheerpWasmWriter::compileStore(WasmBuffer& code, const StoreInst& si)
 		}
 		// 3) Store
 		// When storing values with size less than 32-bit we need to truncate them
+		bool atomic = si.isAtomic();
 		if(Ty->isIntegerTy())
 		{
 			uint32_t bitWidth = targetData.getTypeStoreSizeInBits(Ty);
@@ -2037,16 +2071,28 @@ void CheerpWasmWriter::compileStore(WasmBuffer& code, const StoreInst& si)
 			switch (bitWidth)
 			{
 				case 8:
-					encodeInst(WasmU32U32Opcode::I32_STORE8, 0x0, offset, code);
+					if (atomic)
+						encodeInst(WasmThreadsU32U32Opcode::I32_ATOMIC_STORE8, 0x0, offset, code);
+					else
+						encodeInst(WasmU32U32Opcode::I32_STORE8, 0x0, offset, code);
 					break;
 				case 16:
-					encodeInst(WasmU32U32Opcode::I32_STORE16, 0x1, offset, code);
+					if (atomic)
+						encodeInst(WasmThreadsU32U32Opcode::I32_ATOMIC_STORE16, 0x1, offset, code);
+					else
+						encodeInst(WasmU32U32Opcode::I32_STORE16, 0x1, offset, code);
 					break;
 				case 32:
-					encodeInst(WasmU32U32Opcode::I32_STORE, 0x2, offset, code);
+					if (atomic)
+						encodeInst(WasmThreadsU32U32Opcode::I32_ATOMIC_STORE, 0x2, offset, code);
+					else
+						encodeInst(WasmU32U32Opcode::I32_STORE, 0x2, offset, code);
 					break;
 				case 64:
-					encodeInst(WasmU32U32Opcode::I64_STORE, 0x2, offset, code);
+					if (atomic)
+						encodeInst(WasmThreadsU32U32Opcode::I64_ATOMIC_STORE, 0x3, offset, code);
+					else
+						encodeInst(WasmU32U32Opcode::I64_STORE, 0x2, offset, code);
 					break;
 				default:
 					llvm::errs() << "bit width: " << bitWidth << '\n';
@@ -2055,6 +2101,7 @@ void CheerpWasmWriter::compileStore(WasmBuffer& code, const StoreInst& si)
 		}
 		else if (Ty->isVectorTy())
 		{
+			assert(!atomic && "atomic stores only supported on integers");
 			const FixedVectorType* vecType = cast<FixedVectorType>(Ty);
 			const unsigned vecWidth = getVectorBitwidth(vecType);
 			if (vecWidth == 128)
@@ -2082,6 +2129,7 @@ void CheerpWasmWriter::compileStore(WasmBuffer& code, const StoreInst& si)
 		}
 		else
 		{
+			assert(!atomic && "atomic stores only supported on integers");
 			if (Ty->isFloatTy())
 				encodeInst(WasmU32U32Opcode::F32_STORE, 0x2, offset, code);
 			else if (Ty->isDoubleTy())
@@ -2298,7 +2346,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			// Load the current argument
 			compileOperand(code, vi.getPointerOperand());
 			encodeInst(WasmU32U32Opcode::I32_LOAD, 0x2, 0x0, code);
-			encodeLoad(vi.getType(), 0, code, /*signExtend*/false);
+			encodeLoad(vi.getType(), 0, code, /*signExtend*/false, /*atomic*/false);
 
 			// Move varargs pointer to next argument
 			compileOperand(code, vi.getPointerOperand());
@@ -3564,6 +3612,95 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 					code << static_cast<char>(result);
 				}
 			}
+			break;
+		}
+		case Instruction::AtomicRMW:
+		{
+			const AtomicRMWInst& ai = cast<AtomicRMWInst>(I);
+			const Type* opType = ai.getOperand(1)->getType();
+			assert(opType->isIntegerTy());
+			const Value* ptrOp = ai.getPointerOperand();
+			const Value* valOp = ai.getValOperand();
+			uint32_t offset = compileLoadStorePointer(code, ptrOp);
+			compileOperand(code, valOp);
+			switch (ai.getOperation())
+			{
+#define ATOMICBINOP(Ty, name) \
+				case AtomicRMWInst::Ty: \
+				{ \
+					if (opType->isIntegerTy(64)) \
+						encodeInst(WasmThreadsU32U32Opcode::I64_ATOMIC_RMW_##name, 0x3, offset, code); \
+					else if (opType->isIntegerTy(32)) \
+						encodeInst(WasmThreadsU32U32Opcode::I32_ATOMIC_RMW_##name, 0x2, offset, code); \
+					else if (opType->isIntegerTy(16)) \
+						encodeInst(WasmThreadsU32U32Opcode::I32_ATOMIC_RMW16_##name##_U, 0x1, offset, code); \
+					else if (opType->getPrimitiveSizeInBits() <= 8) \
+						encodeInst(WasmThreadsU32U32Opcode::I32_ATOMIC_RMW8_##name##_U, 0x0, offset, code); \
+					else \
+						llvm::report_fatal_error("Unknown bitwidth for AtomicRMW inst"); \
+					break; \
+				}
+				ATOMICBINOP( Add,  ADD)
+				ATOMICBINOP( Sub,  SUB)
+				ATOMICBINOP( And,  AND)
+				ATOMICBINOP(  Or,   OR)
+				ATOMICBINOP( Xor,  XOR)
+				ATOMICBINOP(Xchg, XCHG)
+#undef ATOMICBINOP
+				default:
+				{
+					llvm::report_fatal_error("Atomic opcode not supported");
+				}
+			}
+			break;
+		}
+		case Instruction::AtomicCmpXchg:
+		{
+			const AtomicCmpXchgInst& ai = cast<AtomicCmpXchgInst>(I);
+			const Value* ptrOp = ai.getPointerOperand();
+			const Value* compareOp = ai.getCompareOperand();
+			const Value* newValOp = ai.getNewValOperand();
+			const Type* t = compareOp->getType();
+			uint32_t offset = compileLoadStorePointer(code, ptrOp);
+			// We use compileOperand on the compareOp twice, but this is safe because
+			// the compareOp of a cmpxchg instruction will never be inlined.
+			compileOperand(code, compareOp);
+			compileOperand(code, newValOp);
+			if (t->isIntegerTy(8))
+				encodeInst(WasmThreadsU32U32Opcode::I32_ATOMIC_RMW8_CMPXCHG_U, 0x0, offset, code);
+			else if (t->isIntegerTy(16))
+				encodeInst(WasmThreadsU32U32Opcode::I32_ATOMIC_RMW16_CMPXCHG_U, 0x1, offset, code);
+			else if (t->isIntegerTy(32))
+				encodeInst(WasmThreadsU32U32Opcode::I32_ATOMIC_RMW_CMPXCHG, 0x2, offset, code);
+			else if (t->isIntegerTy(64))
+				encodeInst(WasmThreadsU32U32Opcode::I64_ATOMIC_RMW_CMPXCHG, 0x3, offset, code);
+			else
+				llvm::report_fatal_error("Atomic cmpxchg only allowed on integers");
+			// Do not duplicate the result and render the comparison if this instruction has no uses.
+			// We do however have to push a garbage constant onto the stack, because
+			// compileInstructionAndSet will drop 2 times (since there are 2 registers for this).
+			if (I.use_empty())
+			{
+				encodeInst(WasmS32Opcode::I32_CONST, 0, code);
+				break;
+			}
+			// Now compile the second part of this two-register operation, the comparison between
+			// the original (loaded) value and the comparison value.
+			uint32_t idx = registerize.getRegisterId(&ai, 0, edgeContext);
+			uint32_t localId = localMap.at(idx);
+			encodeInst(WasmU32Opcode::TEE_LOCAL, localId, code);
+			encodeInst(WasmU32Opcode::GET_LOCAL, localId, code);
+			compileOperand(code, compareOp);
+			if (t->isIntegerTy(64))
+				encodeInst(WasmOpcode::I64_EQ, code);
+			else
+				encodeInst(WasmOpcode::I32_EQ, code);
+			break;
+		}
+		case Instruction::Fence:
+		{
+			// The FENCE opcode currently requires an immediate set to 0.
+			encodeInst(WasmThreadsU32Opcode::ATOMIC_FENCE, 0, code);
 			break;
 		}
 		default:
