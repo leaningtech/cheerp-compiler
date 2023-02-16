@@ -856,7 +856,7 @@ std::pair<Constant*, uint8_t> TypeOptimizer::rewriteConstant(Constant* C, bool r
 				}
 				if (isa<ArrayType>(srcType))
 					srcType = cast<ArrayType>(srcType)->getElementType();
-				uint8_t mergedIntegerOffset=rewriteGEPIndexes(newIndexes, ptrType, cast<GEPOperator>(CE)->getSourceElementType(), idxs, targetType, NULL);
+				uint8_t mergedIntegerOffset=rewriteGEPIndexes(newIndexes, ptrType, cast<GEPOperator>(CE)->getSourceElementType(), idxs, targetType, NULL, CE->getType());
 				return std::make_pair(ConstantExpr::getGetElementPtr(srcType, ptrOperand, newIndexes), mergedIntegerOffset);
 			}
 			case Instruction::BitCast:
@@ -1166,7 +1166,17 @@ Function* TypeOptimizer::rewriteIntrinsic(Function* F, FunctionType* FT)
 	return newF;
 }
 
-uint8_t TypeOptimizer::rewriteGEPIndexes(SmallVector<Value*, 4>& newIndexes, Type* ptrType, Type* srcType, ArrayRef<Value*> idxs, Type* targetType, Instruction* insertionPoint)
+Value* TypeOptimizer::getConstantForGEP(Type* Int32Ty, uint32_t constant, Type* returnType)
+{
+	Constant* ci = ConstantInt::get(Int32Ty, constant);
+	if (!returnType->isVectorTy())
+		return ci;
+	const FixedVectorType* vecType = cast<FixedVectorType>(returnType);
+	const unsigned num = vecType->getNumElements();
+	return ConstantDataVector::getSplat(num, ci);
+}
+
+uint8_t TypeOptimizer::rewriteGEPIndexes(SmallVector<Value*, 4>& newIndexes, Type* ptrType, Type* srcType, ArrayRef<Value*> idxs, Type* targetType, Instruction* insertionPoint, Type* returnType)
 {
 	// The addToLastIndex flag should be set to true if the following index should be added to the previouly pushed one
 	bool addToLastIndex = false;
@@ -1214,7 +1224,7 @@ uint8_t TypeOptimizer::rewriteGEPIndexes(SmallVector<Value*, 4>& newIndexes, Typ
 				uint32_t elementIndex = cast<ConstantInt>(idxs[i])->getZExtValue();
 				assert(membersMappingData.count(oldStruct));
 				const uint32_t newIndex = membersMappingData[oldStruct][elementIndex].first;
-				AddIndex(ConstantInt::get(Int32Ty, newIndex));
+				AddIndex(getConstantForGEP(Int32Ty, newIndex, returnType));
 				break;
 			}
 			case TypeMappingInfo::COLLAPSED:
@@ -1228,7 +1238,7 @@ uint8_t TypeOptimizer::rewriteGEPIndexes(SmallVector<Value*, 4>& newIndexes, Typ
 					if(targetType->isArrayTy())
 					{
 						// We are transforming all pointers to arrays to pointers to elements
-						Value* Zero = ConstantInt::get(Int32Ty, 0);
+						Value* Zero = getConstantForGEP(Int32Ty, 0, returnType);
 						AddIndex(Zero);
 					}
 					return 0;
@@ -1253,7 +1263,7 @@ uint8_t TypeOptimizer::rewriteGEPIndexes(SmallVector<Value*, 4>& newIndexes, Typ
 						uint32_t elementOffset = DL->getStructLayout(ST)->getElementOffset(elementIndex);
 						// All offsets should be multiple of the base type size
 						assert(!(elementOffset % baseTypeSize));
-						AddIndex(ConstantInt::get(Int32Ty, elementOffset / baseTypeSize));
+						AddIndex(getConstantForGEP(Int32Ty, elementOffset / baseTypeSize, returnType));
 						curType = ST->getElementType(elementIndex);
 					}
 					else
@@ -1272,7 +1282,7 @@ uint8_t TypeOptimizer::rewriteGEPIndexes(SmallVector<Value*, 4>& newIndexes, Typ
 				if(targetType->isArrayTy())
 				{
 					// We are transforming all pointers to arrays to pointers to elements
-					Value* Zero = ConstantInt::get(Int32Ty, 0);
+					Value* Zero = getConstantForGEP(Int32Ty, 0, returnType);
 					AddIndex(Zero);
 				}
 				return 0;
@@ -1328,7 +1338,7 @@ uint8_t TypeOptimizer::rewriteGEPIndexes(SmallVector<Value*, 4>& newIndexes, Typ
 				if(curTypeMappingInfo.elementMappingKind == TypeMappingInfo::MERGED_MEMBER_ARRAYS)
 				{
 					// The new index is mappedMember.first
-					AddIndex(ConstantInt::get(Int32Ty, mappedMember.first));
+					AddIndex(getConstantForGEP(Int32Ty, mappedMember.first, returnType));
 				}
 				else
 					assert(mappedMember.first == 0);
@@ -1341,7 +1351,7 @@ uint8_t TypeOptimizer::rewriteGEPIndexes(SmallVector<Value*, 4>& newIndexes, Typ
 					integerOffset += mappedMember.second;
 				else if(mappedMember.second)
 				{
-					AddIndex(ConstantInt::get(Int32Ty, mappedMember.second));
+					AddIndex(getConstantForGEP(Int32Ty, mappedMember.second, returnType));
 					addToLastIndex = true;
 				}
 				break;
@@ -1360,7 +1370,7 @@ uint8_t TypeOptimizer::rewriteGEPIndexes(SmallVector<Value*, 4>& newIndexes, Typ
 	if(targetType->isArrayTy())
 	{
 		// We are transforming all pointers to arrays to pointers to elements
-		Value* Zero = ConstantInt::get(Int32Ty, 0);
+		Value* Zero = getConstantForGEP(Int32Ty, 0, returnType);
 		AddIndex(Zero);
 	}
 	return integerOffset;
@@ -1606,6 +1616,8 @@ void TypeOptimizer::rewriteFunction(Function* F)
 				{
 					Value* ptrOperand = I.getOperand(0);
 					Type* ptrType = localTypeMapping.getOriginalOperandType(ptrOperand);
+					if (ptrType->isVectorTy())
+						ptrType = ptrType->getScalarType();
 					Type* newPtrType = rewriteType(ptrType);
 					if(newPtrType != ptrType || rewriteType(I.getType()) != I.getType())
 					{
@@ -1616,7 +1628,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 						{
 							idxs.push_back(localInstMapping.getMappedOperand(*Op).first);
 						}
-						uint8_t mergedIntegerOffset=rewriteGEPIndexes(newIndexes, ptrType, cast<GEPOperator>(&I)->getSourceElementType(), idxs, targetType, &I);
+						uint8_t mergedIntegerOffset=rewriteGEPIndexes(newIndexes, ptrType, cast<GEPOperator>(&I)->getSourceElementType(), idxs, targetType, &I, I.getType());
 						auto rewrittenOperand = localInstMapping.getMappedOperand(ptrOperand);
 						if (auto A = dyn_cast<Argument>(rewrittenOperand.first))
 						{
