@@ -146,22 +146,25 @@ public:
 	// Auxiliary map to determin whether a value can be queried to the Interpreter and how many bits are actually known
 	std::deque<llvm::DenseMap<const llvm::Value*, BitMask>> stronglyKnownBits;
 
+	std::deque<llvm::DenseMap<const llvm::Value*, GlobalVariable*>> pointerBases;
+
 	GenericValue getOperandValue(Value* V)
 	{
 		return Interpreter::getOperandValue(V, getTopCallFrame());
 	}
-	void assignToMaps(const Value* V, const BitMask bitMask)
+	void assignToMaps(const Value* V, const BitMask bitMask, GlobalVariable* pointerBase)
 	{
 		stronglyKnownBits.back()[V] = bitMask;
+		pointerBases.back()[V] = pointerBase;
 	}
-	void assignToMaps(Value* V, const BitMask bitMask, GenericValue GV)
+	void assignToMaps(Value* V, const BitMask bitMask, GenericValue GV, GlobalVariable* pointerBase)
 	{
-		assignToMaps(V, bitMask);
+		assignToMaps(V, bitMask, pointerBase);
 		getTopCallFrame().Values[V] = GV;
 	}
 	void assignToMaps(Value* V, Value* toAssign)
 	{
-		assignToMaps(V, getBitMask(toAssign), getOperandValue(toAssign));
+		assignToMaps(V, getBitMask(toAssign), getOperandValue(toAssign), getPointerBase(toAssign));
 	}
 	void removeFromMaps(Value* V)
 	{
@@ -171,10 +174,12 @@ public:
 	void addStackFrame()
 	{
 		stronglyKnownBits.push_back(llvm::DenseMap<const llvm::Value*, BitMask>());
+		pointerBases.push_back(llvm::DenseMap<const llvm::Value*, GlobalVariable*>());
 	}
 	void popStackFrame()
 	{
 		stronglyKnownBits.pop_back();
+		pointerBases.pop_back();
 		Interpreter::popCallFrame();
 	}
 	uint32_t getSizeStackFrame() const
@@ -201,13 +206,21 @@ public:
 			case Instruction::Or:
 			case Instruction::Xor:
 			case Instruction::Add:
-			case Instruction::Sub:
 			case Instruction::Mul:
 			case Instruction::PtrToInt:
 			case Instruction::BitCast:
 			case Instruction::GetElementPtr:
 			{
 				//Those all work modulo 2^k
+				return min;
+			}
+			case Instruction::Sub:
+			{
+				if(min == BitMask::ALL)
+					return BitMask::ALL;
+				// If both sides of the operation are based on the same global we can recover all the bits
+				if(getPointerBase(I.getOperand(0)) == getPointerBase(I.getOperand(1)))
+					return BitMask::ALL;
 				return min;
 			}
 			case Instruction::And:
@@ -273,10 +286,51 @@ public:
 
 		return BitMask::NONE;
 	}
+	GlobalVariable* computePointerBase(const Instruction& I)
+	{
+		switch(I.getOpcode())
+		{
+			case Instruction::PtrToInt:
+				return getPointerBase(I.getOperand(0));
+			default:
+				break;
+		}
+		return nullptr;
+	}
 	llvm::BasicBlock* visitBasicBlock(llvm::BasicBlock& BB);
 	explicit PartialInterpreter(std::unique_ptr<llvm::Module> M)
 		: llvm::Interpreter(std::move(M), /*preExecute*/false)
 	{
+	}
+	GlobalVariable* getPointerBase(Value* V)
+	{
+		assert(V);
+
+		if (GlobalVariable* GV = dyn_cast<GlobalVariable>(V))
+		{
+			return GV;
+		}
+
+		if (ConstantExpr* CE = dyn_cast<ConstantExpr>(V))
+		{
+			if (CE->getOpcode() == Instruction::GetElementPtr)
+			{
+				GEPOperator *GEP = cast<GEPOperator>(CE);
+				if (GEP->hasAllZeroIndices())
+					return getPointerBase(CE->getOperand(0));
+			}
+		}
+
+		if (GetElementPtrInst* GEP = dyn_cast<GetElementPtrInst>(V))
+		{
+			return getPointerBase(GEP->getOperand(0));
+		}
+
+		auto it = pointerBases.back().find(V);
+		if(it != pointerBases.back().end())
+			return it->second;
+
+		return nullptr;
 	}
 	BitMask getBitMask(llvm::Value* V)
 	{
@@ -399,7 +453,7 @@ public:
 		addStackFrame();
 
 		for (auto& pair : knownArgs)
-			assignToMaps(pair.first, pair.second);
+			assignToMaps(pair.first, pair.second, nullptr);
 	}
 
 	bool hasToBeSkipped(llvm::Instruction& I)
@@ -611,6 +665,7 @@ public:
 			Interpreter::visit(I);
 
 			stronglyKnownBits.pop_back();
+			pointerBases.pop_back();
 			if (retVal)
 				stronglyKnownBits.back()[caller] = BITMASK;
 
@@ -667,7 +722,7 @@ public:
 		if (!isa<CallInst>(I))
 		{
 			//Add  knownBits information
-			assignToMaps(&I, computeStronglyKnownBits(I));
+			assignToMaps(&I, computeStronglyKnownBits(I), computePointerBase(I));
 		}
 	}
 
