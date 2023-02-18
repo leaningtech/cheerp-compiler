@@ -1437,12 +1437,6 @@ public:
 			visitAll();
 			return;
 		}
-		if (data.anyOutgoingMissing(blocks) == false)
-		{
-			visitAll();
-			return;
-		}
-
 		if (parentNode)
 		{
 			for (auto& p : minVisitIndex)
