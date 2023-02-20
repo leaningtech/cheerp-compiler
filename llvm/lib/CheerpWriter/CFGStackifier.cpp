@@ -1055,11 +1055,16 @@ void TokenListOptimizer::createBrIfs()
 		Token* Branch = T->getNextNode();
 		if (Branch->getKind() != Token::TK_Branch || Branch->getNextNode() != End)
 			return;
-		bool IsIfNot = T->getKind() == Token::TK_IfNot;
-		Token* BrIf = IsIfNot
-			? Token::createBrIfNot(T->getBB(), Branch->getMatch())
-			: Token::createBrIf(T->getBB(), Branch->getMatch());
-		Tokens.insert(T->getIter(), BrIf);
+		// If End == Branch->getMatch(), the whole IF is useless, so just remove it
+		// without replacement
+		if (End != Branch->getMatch())
+		{
+			bool IsIfNot = T->getKind() == Token::TK_IfNot;
+			Token* BrIf = IsIfNot
+				? Token::createBrIfNot(T->getBB(), Branch->getMatch())
+				: Token::createBrIf(T->getBB(), Branch->getMatch());
+			Tokens.insert(T->getIter(), BrIf);
+		}
 		erase(T);
 		erase(Branch);
 		erase(End);
