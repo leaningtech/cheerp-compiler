@@ -186,16 +186,16 @@ public:
 	{
 		return stronglyKnownBits.size();
 	}
-	BitMask computeStronglyKnownBits(const llvm::Instruction& I)
+	BitMask computeStronglyKnownBits(uint32_t opcode, const llvm::User& U)
 	{
 		BitMask min = BitMask::ALL;
 
-		for (auto& op : I.operands())
+		for (auto& op : U.operands())
 		{
 			min = BitMask(min & getBitMask(op));
 		}
 
-		switch (I.getOpcode())
+		switch (opcode)
 		{
 			case Instruction::Load:
 			{
@@ -219,19 +219,19 @@ public:
 				if(min == BitMask::ALL)
 					return BitMask::ALL;
 				// If both sides of the operation are based on the same global we can recover all the bits
-				if(getPointerBase(I.getOperand(0)) == getPointerBase(I.getOperand(1)))
+				if(getPointerBase(U.getOperand(0)) == getPointerBase(U.getOperand(1)))
 					return BitMask::ALL;
 				return min;
 			}
 			case Instruction::And:
 			{
 				//If either is Constant && less than equal min -> ALL
-				if (const ConstantInt* CI = dyn_cast<ConstantInt>(I.getOperand(0)))
+				if (const ConstantInt* CI = dyn_cast<ConstantInt>(U.getOperand(0)))
 				{
 					if (CI->getZExtValue() <= min)
 						return BitMask::ALL;
 				}
-				if (const ConstantInt* CI = dyn_cast<ConstantInt>(I.getOperand(1)))
+				if (const ConstantInt* CI = dyn_cast<ConstantInt>(U.getOperand(1)))
 				{
 					if (CI->getZExtValue() <= min)
 						return BitMask::ALL;
@@ -248,7 +248,7 @@ public:
 
 		if (min == BitMask::ALL)
 		{
-			switch (I.getOpcode())
+			switch (opcode)
 			{
 				case Instruction::ICmp:
 				case Instruction::FCmp:
@@ -362,12 +362,7 @@ public:
 		}
 		if (ConstantExpr* CE = dyn_cast<ConstantExpr>(V))
 		{
-			if (CE->getOpcode() == Instruction::GetElementPtr)
-			{
-				GEPOperator *GEP = cast<GEPOperator>(CE);
-				if (GEP->hasAllZeroIndices())
-					return getBitMask(CE->getOperand(0));
-			}
+			return computeStronglyKnownBits(CE->getOpcode(), *CE);
 		}
 
 		auto it = stronglyKnownBits.back().find(V);
@@ -722,7 +717,7 @@ public:
 		if (!isa<CallInst>(I))
 		{
 			//Add  knownBits information
-			assignToMaps(&I, computeStronglyKnownBits(I), computePointerBase(I));
+			assignToMaps(&I, computeStronglyKnownBits(I.getOpcode(), I), computePointerBase(I));
 		}
 	}
 
