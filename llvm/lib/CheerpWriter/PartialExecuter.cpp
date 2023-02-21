@@ -48,6 +48,7 @@
 #include "llvm/ExecutionEngine/GenericValue.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/InstIterator.h"
+#include "llvm/IR/ValueMap.h"
 #include "llvm/InitializePasses.h"
 #include <map>
 #include <unordered_map>
@@ -95,6 +96,7 @@ class PartialInterpreter : public llvm::Interpreter {
 	// 	that no store to those GlobalVariable have been performed
 	std::vector<std::pair<long long,long long>> immutableLoadIntervals;
 	NewAlignmentData newAlignmentData;
+	llvm::ValueMap<llvm::Constant*, int> fullyKnownCEs;
 
 	std::map<const llvm::Function*, uint32_t> functionCounters;
 	bool isGlobalVariablePartiallyExecutable(const GlobalVariable& GVar)
@@ -362,7 +364,11 @@ public:
 		}
 		if (ConstantExpr* CE = dyn_cast<ConstantExpr>(V))
 		{
-			return computeStronglyKnownBits(CE->getOpcode(), *CE);
+			BitMask ret = computeStronglyKnownBits(CE->getOpcode(), *CE);
+			// TODO: Support other types
+			if(ret == BitMask::ALL && CE->getType()->isIntegerTy())
+				fullyKnownCEs.insert(std::make_pair(CE, 0));
+			return ret;
 		}
 
 		auto it = stronglyKnownBits.back().find(V);
@@ -721,6 +727,30 @@ public:
 		}
 	}
 
+	bool replaceKnownCEs()
+	{
+		if(fullyKnownCEs.empty())
+			return false;
+		// We need to allocate a virtual frame for the sake of resolving CEs
+		createStartingCallFrame();
+		bool changed = false;
+		for(const auto& it: fullyKnownCEs)
+		{
+			llvm::ConstantExpr* CE = dyn_cast<llvm::ConstantExpr>(it.first);
+			if(CE == nullptr)
+			{
+				// CEs might have already collapse due to previous replacements
+				continue;
+			}
+			GenericValue GV = getOperandValue(CE);
+			llvm::Constant* CI = ConstantInt::get(CE->getType(), GV.IntVal);
+			CE->replaceAllUsesWith(CI);
+			changed = true;
+		}
+		popCallFrame();
+		return changed;
+	}
+
 	/// Create a new interpreter object.
 	///
 	static ExecutionEngine* create(Module& M, std::string *ErrStr)
@@ -926,6 +956,10 @@ public:
 		(void)removed;
 		assert(removed);
 		delete currentEE;
+	}
+	bool replaceKnownCEs()
+	{
+		return currentEE->replaceKnownCEs();
 	}
 };
 
@@ -1658,7 +1692,7 @@ bool PartialExecuter::runOnModule( llvm::Module & module )
 		processFunction(F, data);
 	}
 
-	bool changed = false;
+	bool changed = data.replaceKnownCEs();
 
 	// Second part: actually remove the missing Edges
 	for (Function& F : module)
