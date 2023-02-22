@@ -14,6 +14,7 @@
 
 enum class WasmOpcode {
 	UNREACHABLE = 0x00,
+	NOP = 0x01,
 	ELSE = 0x05,
 	END = 0x0b,
 	BR_TABLE = 0x0e,
