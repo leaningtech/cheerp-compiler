@@ -780,8 +780,8 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	};
 
 	std::vector<Function*> toUnreachable;
-	std::unordered_map<FunctionType*, IndirectFunctionsData, LinearMemoryHelper::FunctionSignatureHash<true>, LinearMemoryHelper::FunctionSignatureCmp<true>> validIndirectCallTypesMap;
-	std::unordered_set<FunctionType*, LinearMemoryHelper::FunctionSignatureHash<true>, LinearMemoryHelper::FunctionSignatureCmp<true>> validTargetOfIndirectCall;
+	std::unordered_map<FunctionType*, IndirectFunctionsData, LinearMemoryHelper::FunctionSignatureHash<false>, LinearMemoryHelper::FunctionSignatureCmp<false>> validIndirectCallTypesMap;
+	std::unordered_set<FunctionType*, LinearMemoryHelper::FunctionSignatureHash<false>, LinearMemoryHelper::FunctionSignatureCmp<false>> validTargetOfIndirectCall;
 	for (Function& F : module.getFunctionList())
 	{
 		if (F.getSection() != StringRef("asmjs"))
