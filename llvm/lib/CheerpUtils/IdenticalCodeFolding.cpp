@@ -117,6 +117,9 @@ bool IdenticalCodeFolding::equivalentFunction(const llvm::Function* A, const llv
 		&& A->getReturnType() != B->getReturnType())
 		return false;
 
+	if (!equivalentType(A->getReturnType(), B->getReturnType()))
+		return false;
+
 	if (A->empty() || B->empty())
 		return A->empty() == B->empty();
 
