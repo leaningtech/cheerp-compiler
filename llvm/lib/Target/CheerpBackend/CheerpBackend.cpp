@@ -144,8 +144,6 @@ bool CheerpWritePass::runOnModule(Module& M)
   MPM.addPass(cheerp::FreeAndDeleteRemovalPass());
   MPM.addPass(cheerp::GlobalDepsAnalyzerPass(mathMode, /*resolveAliases*/true, WasmOnly));
   MPM.addPass(cheerp::AllocaLoweringPass());
-  if (!CheerpNoICF)
-    MPM.addPass(cheerp::IdenticalCodeFoldingPass());
   MPM.addPass(cheerp::InvokeWrappingPass());
   MPM.addPass(cheerp::FFIWrappingPass());
   MPM.addPass(createModuleToFunctionPassAdaptor(cheerp::FixIrreducibleControlFlowPass()));
