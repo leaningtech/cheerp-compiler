@@ -112,8 +112,8 @@ bool IdenticalCodeFolding::equivalentFunction(const llvm::Function* A, const llv
 	// Do not fold functions that return different pointer types and are
 	// exported from asmjs.
 	// We need the correct return type to properly convert RAW pointers to REGULAR.
-	if (((A->getReturnType()->isPointerTy() && GDA->asmJSExports().count(A))
-		|| (B->getReturnType()->isPointerTy() && GDA->asmJSExports().count(B)))
+	if (((A->getReturnType()->isPointerTy() && A->getLinkage() == GlobalValue::ExternalLinkage)
+		|| (B->getReturnType()->isPointerTy() && B->getLinkage() == GlobalValue::ExternalLinkage))
 		&& A->getReturnType() != B->getReturnType())
 		return false;
 
@@ -844,10 +844,9 @@ bool IdenticalCodeFolding::isStaticIndirectFunction(const llvm::Value* A)
 	return ce && ce->isCast() && isa<Function>(ce->getOperand(0));
 }
 
-bool IdenticalCodeFolding::runOnModule(llvm::Module& module, cheerp::GlobalDepsAnalyzer& GDA)
+bool IdenticalCodeFolding::runOnModule(llvm::Module& module)
 {
 	DL = &module.getDataLayout();
-	this->GDA = &GDA;
 
 	// First, compute an hash of each function.
 	std::unordered_map<uint64_t, std::vector<Function*>> functionHashes;
@@ -947,10 +946,6 @@ bool IdenticalCodeFolding::runOnModule(llvm::Module& module, cheerp::GlobalDepsA
 				replacement->setName(replacement->getName() + "_icf");
 			}
 
-			if (GDA.asmJSExports().find(item.first) != GDA.asmJSExports().end())
-				GDA.insertAsmJSExport(replacement);
-
-			GDA.eraseFunction(item.first);
 			delete item.first;
 		}
 	}
@@ -1001,9 +996,8 @@ void IdenticalCodeFolding::mergeTwoFunctions(Function *F, Function *G) {
 
 PreservedAnalyses IdenticalCodeFoldingPass::run(Module& M, ModuleAnalysisManager& MAM)
 {
-	cheerp::GlobalDepsAnalyzer& GDA = MAM.getResult<cheerp::GlobalDepsAnalysis>(M);
 	IdenticalCodeFolding inner;
-	if (!inner.runOnModule(M, GDA))
+	if (!inner.runOnModule(M))
 		return PreservedAnalyses::all();
 	PreservedAnalyses PA;
 	PA.preserve<InvokeWrappingAnalysis>();

@@ -42,7 +42,7 @@ class IdenticalCodeFolding
 public:
 	IdenticalCodeFolding();
 
-	bool runOnModule(llvm::Module&, cheerp::GlobalDepsAnalyzer& GDA);
+	bool runOnModule(llvm::Module&);
 
 private:
 	std::unordered_map<std::pair<const llvm::Instruction*, const llvm::Instruction*>, bool, pair_hash> equivalenceCache;
@@ -62,7 +62,6 @@ private:
 	void mergeTwoFunctions(llvm::Function* F, llvm::Function* G);
 
 	const llvm::DataLayout *DL;
-	const cheerp::GlobalDepsAnalyzer* GDA;
 
 	llvm::SmallSet<const llvm::PHINode*, 16> visitedPhis;
 	std::unordered_map<std::pair<const llvm::Function*, const llvm::Function*>, bool, pair_hash> functionEquivalence;
