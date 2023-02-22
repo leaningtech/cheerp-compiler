@@ -657,6 +657,9 @@ void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
   if(std::find(features.begin(), features.end(), UNALIGNEDMEM) == features.end())
     CmdArgs.push_back("-cheerp-wasm-no-unaligned-mem");
 
+  if (Args.hasArg(options::OPT_cheerp_no_icf))
+    CmdArgs.push_back("-cheerp-no-icf");
+
   addPass("function(CheerpLowerInvoke)");
   if (Args.hasArg(options::OPT_fexceptions))
     CmdArgs.push_back("-cheerp-keep-invokes");

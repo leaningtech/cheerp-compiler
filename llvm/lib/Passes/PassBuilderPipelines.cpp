@@ -24,6 +24,7 @@
 #include "llvm/Analysis/ScopedNoAliasAA.h"
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
 #include "llvm/Cheerp/StructMemFuncLowering.h"
+#include "llvm/Cheerp/IdenticalCodeFolding.h"
 #include "llvm/Cheerp/CFGPasses.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Passes/OptimizationLevel.h"
@@ -830,6 +831,10 @@ PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
   ModuleInlinerWrapperPass MIWP(IP, PerformMandatoryInliningsFirst,
                                 InlineContext{Phase, InlinePass::CGSCCInliner},
                                 UseInlineAdvisor, MaxDevirtIterations);
+
+  if (CheerpLTO && !CheerpNoICF) {
+    MIWP.addModulePass(cheerp::IdenticalCodeFoldingPass());
+  }
 
   // Require the GlobalsAA analysis for the module so we can query it within
   // the CGSCC pipeline.
