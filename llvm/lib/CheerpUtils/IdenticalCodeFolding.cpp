@@ -224,7 +224,11 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 	{
 		case Instruction::Alloca:
 		{
-			llvm::report_fatal_error("Allocas in wasm should be removed in the AllocaLowering pass. This is a bug");
+			const AllocaInst* a = cast<AllocaInst>(A);
+			const AllocaInst* b = cast<AllocaInst>(B);
+			return CacheAndReturn(equivalentType(a->getAllocatedType(), b->getAllocatedType()) &&
+				equivalentOperand(a->getArraySize(), b->getArraySize()) &&
+				a->getAlign() == b->getAlign());
 		}
 		case Instruction::Unreachable:
 		{
@@ -326,7 +330,7 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 					}
 					case Intrinsic::vastart:
 					{
-						llvm::report_fatal_error("Vastart in wasm should be removed in the AllocaLowering pass. This is a bug");
+						return CacheAndReturn(equivalentOperand(A->getOperand(0), B->getOperand(0)));
 					}
 					case Intrinsic::not_intrinsic:
 						break;
