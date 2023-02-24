@@ -17406,11 +17406,12 @@ CreateNewDecl:
     New->startDefinition();
 
   ProcessDeclAttributeList(S, New, Attrs);
+
+  AddPragmaAttributes(S, New);
+
   // CHEERP: Inject asmjs/genericjs attribute if required
   MaybeInjectCheerpModeAttr(New);
   CheckCheerpAttributesConsistency(New, New->getPreviousDecl(), TUK == TUK_Definition);
-
-  AddPragmaAttributes(S, New);
 
   // If this has an identifier, add it to the scope stack.
   if (TUK == TUK_Friend) {
