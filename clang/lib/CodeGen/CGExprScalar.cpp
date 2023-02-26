@@ -2041,13 +2041,13 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
   case CK_ObjCObjectLValueCast: {
     Address Addr = EmitLValue(E).getAddress(CGF);
     llvm::Type* DestType = ConvertType(CGF.getContext().getPointerType(DestTy));
-    if (CGF.getTarget().isByteAddressable() || DestType==Addr.getType())
+    bool asmjs = CGF.CurFn && CGF.CurFn->getSection()==StringRef("asmjs");
+    if (CGF.getTarget().isByteAddressable() || DestType==Addr.getType() || asmjs)
     {
       Addr = Builder.CreateElementBitCast(Addr, CGF.ConvertTypeForMem(DestTy));
     }
     else
     {
-      bool asmjs = CGF.CurFn && CGF.CurFn->getSection()==StringRef("asmjs");
 	
       llvm::Function* intrinsic = CGF.CGM.GetUserCastIntrinsic(CE,
 		      CGF.getContext().getPointerType(E->getType()),
@@ -2197,7 +2197,7 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
     //We don't care about casts to functions types
     if (SrcTy->isVectorTy() || DstTy->isVectorTy() || CGF.getTarget().isByteAddressable() || isa<llvm::ConstantPointerNull>(Src) ||
         (isa<llvm::FunctionType>(SrcTy->getPointerElementType()) && isa<llvm::FunctionType>(DstTy->getPointerElementType())) ||
-        DstTy == SrcTy)
+        DstTy == SrcTy || asmjs)
     {
       // See below
     }
