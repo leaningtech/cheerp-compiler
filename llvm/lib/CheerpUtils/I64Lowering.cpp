@@ -198,6 +198,46 @@ struct I64LoweringVisitor: public InstVisitor<I64LoweringVisitor, HighInt>
 		return HighInt();
 	}
 
+	HighInt visitBitCastInst(BitCastInst& I)
+	{
+		if(I.getType()->isIntegerTy(64))
+		{
+			// Bitcast to 64-bit int
+			IRBuilder<> Builder(&I);
+			Type* SlotType = ArrayType::get(IntegerType::get(Ctx, 8), 8);
+			GlobalVariable* Mslot = cast<GlobalVariable>(M.getOrInsertGlobal("cheerpMSlot", SlotType));
+			Value* CastSrc = Builder.CreateBitCast(Mslot, I.getOperand(0)->getType()->getPointerTo());
+			Builder.CreateStore(I.getOperand(0), CastSrc);
+			Value* CastDst = Builder.CreateBitCast(Mslot, Int32Ty->getPointerTo());
+			Value* Low = Builder.CreateLoad(Int32Ty, CastDst);
+			Value* High = Builder.CreateLoad(Int32Ty, Builder.CreateConstGEP1_32(Int32Ty, CastDst, 1));
+			ToDelete.push_back(&I);
+			Changed = true;
+			return HighInt(Low, High);
+		}
+		else if(I.getOperand(0)->getType()->isIntegerTy(64))
+		{
+			// Bitcast from 64-bit int
+			IRBuilder<> Builder(&I);
+			Type* SlotType = ArrayType::get(IntegerType::get(Ctx, 8), 8);
+			GlobalVariable* Mslot = cast<GlobalVariable>(M.getOrInsertGlobal("cheerpMSlot", SlotType));
+			HighInt V = visitValue(I.getOperand(0));
+			Value* CastSrc = Builder.CreateBitCast(Mslot, Int32Ty->getPointerTo());
+			Builder.CreateStore(V.low, CastSrc);
+			Builder.CreateStore(V.high, Builder.CreateConstGEP1_32(Int32Ty, CastSrc, 1));
+			Value* CastDst = Builder.CreateBitCast(Mslot, I.getType()->getPointerTo());
+			Value* result = Builder.CreateLoad(I.getType(), CastDst);
+			I.replaceAllUsesWith(result);
+			ToDelete.push_back(&I);
+			Changed = true;
+			return HighInt();
+		}
+		else
+		{
+			// Unrelated bitcast
+			return HighInt();
+		}
+	}
 
 	HighInt visitShl(BinaryOperator& I)
 	{

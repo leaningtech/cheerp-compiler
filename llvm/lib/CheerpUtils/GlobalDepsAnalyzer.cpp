@@ -672,6 +672,16 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 			Sret->setInitializer(ConstantInt::get(Type::getInt32Ty(module.getContext()), 0));
 	}
 
+	// We expect the mslot (used to implement value-bitcasts) to only be required if there is some asmjs code
+	GlobalVariable* Mslot = module.getGlobalVariable("cheerpMSlot");
+	if (Mslot)
+	{
+		if (hasAsmJSCode)
+			Mslot->setSection(StringRef("asmjs"));
+		if (llcPass && !Mslot->hasInitializer())
+			Mslot->setInitializer(ConstantAggregateZero::get(Mslot->getValueType()));
+	}
+
 	auto markAsReachableIfPresent = [this, &visited](Function* F)
 	{
 		if (F) {

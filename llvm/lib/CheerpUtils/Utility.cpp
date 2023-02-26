@@ -287,7 +287,6 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 	{
 		if (!I.getType()->isPointerTy())
 		{
-			assert(I.getType()->isVectorTy() || I.getOperand(0)->getType()->isVectorTy());
 			return !hasMoreThan1Use || !isa<Instruction>(I.getOperand(0)) || !isInlineableRecursion(*cast<Instruction>(I.getOperand(0)));
 		}
 		POINTER_KIND IPointerKind = PA.getPointerKind(&I);
@@ -1147,7 +1146,7 @@ const Instruction* getUniqueIncomingInst(const Value* v, const PointerAnalyzer& 
 			return I;
 		else if(I->getOpcode() == Instruction::Trunc)
 			v = I->getOperand(0);
-		else if(I->getOpcode() == Instruction::BitCast && PA.getPointerKind(I) == RAW)
+		else if(I->getOpcode() == Instruction::BitCast && I->getType()->isPointerTy() && PA.getPointerKind(I) == RAW)
 		{
 			// TODO: Expand this logic to support other cases where a bitcast is a nop (when no kind conversion is required?)
 			v = I->getOperand(0);
