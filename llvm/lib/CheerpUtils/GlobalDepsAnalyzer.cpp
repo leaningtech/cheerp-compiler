@@ -311,7 +311,45 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 						ci->eraseFromParent();
 						continue;
 					}
+					if(II == Intrinsic::ctpop)
+					{
+						if (!llcPass)
+							continue;
 
+						if (mathMode == WASM_BUILTINS)
+							continue;
+
+						Type* t = ci->getType();
+						Value* X = ci->getOperand(0);
+						// https://graphics.stanford.edu/%7Eseander/bithacks.html#CountBitsSetParallel
+						// Somewhat surprising the code takes the same number of operations independently of the width,
+						// thanks to a final summation step via a single multiplication that scales with the width
+						APInt allOnes = APInt::getAllOnes(t->getIntegerBitWidth());
+						X = BinaryOperator::CreateSub(X,
+							BinaryOperator::CreateAnd(
+								BinaryOperator::CreateLShr(X, ConstantInt::get(t, 1), "", ci),
+								ConstantInt::get(t, allOnes.udiv(3)), "", ci), "", ci);
+						X = BinaryOperator::CreateAdd(
+							BinaryOperator::CreateAnd(X, ConstantInt::get(t, allOnes.udiv(15) * 3), "", ci),
+							BinaryOperator::CreateAnd(
+								BinaryOperator::CreateLShr(X, ConstantInt::get(t, 2), "", ci),
+								ConstantInt::get(t, allOnes.udiv(15) * 3), "", ci), "", ci);
+						X = BinaryOperator::CreateAnd(ConstantInt::get(t, allOnes.udiv(255) * 15),
+							BinaryOperator::CreateAdd(X,
+								BinaryOperator::CreateLShr(X, ConstantInt::get(t, 4), "", ci), "", ci), "", ci);
+						X = BinaryOperator::CreateMul(X, ConstantInt::get(t, allOnes.udiv(255)), "", ci);
+						Instruction* res = BinaryOperator::CreateLShr(X, ConstantInt::get(t, (t->getIntegerBitWidth() - 8)), "", ci);
+
+						ci->replaceAllUsesWith(res);
+
+						//Set up loop variable, so the next loop will check and possibly expand newCall
+						--instructionIterator;
+						advance = false;
+						assert(&*instructionIterator == res);
+
+						ci->eraseFromParent();
+						continue;
+					}
 					if(II == Intrinsic::usub_sat)
 					{
 						if (!llcPass)
