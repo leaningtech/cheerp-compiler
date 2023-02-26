@@ -31,6 +31,7 @@ add_llvm_component_library(LLVMCheerpUtils
   CallConstructors.cpp
   SIMDLowering.cpp
   SIMDTransform.cpp
+  BitCastLowering.cpp
   )
 
 add_dependencies(LLVMCheerpUtils intrinsics_gen)

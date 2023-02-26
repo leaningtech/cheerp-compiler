@@ -703,7 +703,7 @@ private:
     if (BC.use_empty())
       return markAsDead(BC);
 
-    if (!DL.isByteAddressable()) {
+    if (!DL.isByteAddressable() && BC.getParent()->getParent()->getSection() != StringRef("asmjs")) {
       // Do not handle unions. This limitation may be removed by having a global temporary DataView
       if(AllocaTy->isStructTy() && cast<StructType>(AllocaTy)->hasByteLayout())
         return PI.setAborted(&BC);

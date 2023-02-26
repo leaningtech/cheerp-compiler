@@ -672,6 +672,22 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 			Sret->setInitializer(ConstantInt::get(Type::getInt32Ty(module.getContext()), 0));
 	}
 
+	// Create a global slot to bitcast float <-> int.
+	// It will only be needed for asmjs code.
+	if (!llcPass)
+	{
+		Type* SlotType = ArrayType::get(IntegerType::get(module.getContext(), 8), 8);
+		GlobalVariable* BitCastSlot = cast<GlobalVariable>(module.getOrInsertGlobal("cheerpBitCastSlot", SlotType));
+		assert(!BitCastSlot->hasInitializer() && "cheerpBitCastSlot already defined");
+		BitCastSlot->setSection("asmjs");
+		BitCastSlot->setInitializer(ConstantAggregateZero::get(BitCastSlot->getValueType()));
+		BitCastSlot->setAlignment(Align(8));
+		SubExprVec vec;
+		visitGlobal(BitCastSlot, visited, vec );
+		// Ensure external linkage to prevent GlobalOpts to remove it
+		externals.push_back(BitCastSlot);
+	}
+
 	auto markAsReachableIfPresent = [this, &visited](Function* F)
 	{
 		if (F) {

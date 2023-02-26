@@ -2088,7 +2088,33 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			}
 			else if (I.getOperand(0)->getType()->isVectorTy())
 				assert(false && "Bitcasting from vector to integer not supported yet");
-			compileOperand(code, I.getOperand(0));
+			Value* operand = I.getOperand(0);
+			compileOperand(code, operand);
+			if(I.getType()->isIntegerTy())
+			{
+				uint32_t bitWidth = I.getType()->getIntegerBitWidth();
+				if(bitWidth == 32)
+				{
+					assert(operand->getType()->isFloatTy());
+					encodeInst(WasmOpcode::I32_REINTERPRET_F32, code);
+				}
+				else
+				{
+					assert(bitWidth == 64);
+					assert(operand->getType()->isDoubleTy());
+					encodeInst(WasmOpcode::I64_REINTERPRET_F64, code);
+				}
+			}
+			else if(I.getType()->isFloatTy())
+			{
+				assert(operand->getType()->isIntegerTy(32));
+				encodeInst(WasmOpcode::F32_REINTERPRET_I32, code);
+			}
+			else if(I.getType()->isDoubleTy())
+			{
+				assert(operand->getType()->isIntegerTy(64));
+				encodeInst(WasmOpcode::F64_REINTERPRET_I64, code);
+			}
 			break;
 		}
 		case Instruction::Br:

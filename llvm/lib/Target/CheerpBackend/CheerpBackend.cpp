@@ -27,9 +27,12 @@
 #include "llvm/Cheerp/WasmWriter.h"
 #include "llvm/Cheerp/PassRegistry.h"
 #include "llvm/Cheerp/PassUtility.h"
+#include "llvm/Cheerp/I64Lowering.h"
 #include "llvm/Cheerp/SIMDLowering.h"
 #include "llvm/Cheerp/SIMDTransform.h"
+#include "llvm/Cheerp/BitCastLowering.h"
 #include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Scalar/EarlyCSE.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Pass.h"
 #include "llvm/Passes/StandardInstrumentations.h"
@@ -124,6 +127,11 @@ bool CheerpWritePass::runOnModule(Module& M)
     //Wrap these in a FunctionPassManager
     FunctionPassManager FPM;
 
+    FPM.addPass(cheerp::I64LoweringPass());
+    // Run a simple constant elimination pass to clean up suboptimal code left
+    // by I64Lowering.
+    FPM.addPass(EarlyCSEPass());
+    FPM.addPass(cheerp::BitCastLoweringPass());
     FPM.addPass(cheerp::SIMDTransformPass());
     FPM.addPass(cheerp::SIMDLoweringPass());
     FPM.addPass(cheerp::CheerpLowerSwitchPass(/*onlyLowerI64*/false));
