@@ -509,6 +509,13 @@ bool PointerToImmutablePHIRemoval::runOnFunction(Function& F)
 				}
 			}
 		}
+
+	}
+	// With linear memory there is no special concern with exposing interior pointers so there is no point in hoisting return blocks
+	if (F.getSection() == StringRef("asmjs"))
+		return Changed;
+	for ( BasicBlock* BB : blocks )
+	{
 		for ( BasicBlock::iterator it = BB->begin(); it != BB->end(); )
 		{
 			PHINode * phi = dyn_cast<PHINode>(it++);
