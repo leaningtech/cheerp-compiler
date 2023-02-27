@@ -989,8 +989,11 @@ class FunctionData
 			// Filter out not computed arguments
 			for (auto& v : args)
 			{
-				if (moduleData.currentEE->isValueComputedConstant(v) == false)
-					v = nullptr;
+				if (moduleData.currentEE->isValueComputedConstant(v))
+					continue;
+				if (isa<Argument>(v))
+					continue;
+				v = nullptr;
 			}
 		}
 
@@ -1078,10 +1081,24 @@ public:
 		for (const llvm::Value* arg : arguments)
 		{
 			if (arg)
+			{
 				// Found a non-null argument!
 				return false;
+			}
 		}
 		return true;
+	}
+	// Return the function for all the Argument's used in the callsite
+	const Function* hasArgumentsToReplace(const VectorOfArgs& arguments) const
+	{
+		for (const llvm::Value* arg : arguments)
+		{
+			if (arg && isa<Argument>(arg))
+			{
+				return cast<Argument>(arg)->getParent();
+			}
+		}
+		return nullptr;
 	}
 	void visitCallEquivalent(const VectorOfArgs& arguments)
 	{
@@ -1093,6 +1110,7 @@ public:
 			llvm::Value* x = arguments[i];
 			if (!x)
 				continue;
+			assert(!isa<Argument>(x));
 			llvm::Argument* ith_arg = F.getArg(i);
 			currentEE->assignToMaps(ith_arg, x);
 		}
@@ -1103,7 +1121,55 @@ public:
 		// Cleanup
 		doneVisitCallBase();
 	}
-	void visitAllCallSites()
+	void resolveArgumentsInCallSites(ModuleData* moduleData)
+	{
+		// Augment the queue by resolving arguments
+		for(uint32_t i=0;i<callEquivalentQueue.size();i++)
+		{
+			// For a given call-site all the arguments (if any) must come from the same function.
+			// (i.e.) Argument's are local things, they cannot be used outside their parent
+			// This makes the logic non-combinatorial, for each call sites with Argument's
+			// we can, at most, expand the table by the same of the Argument's parent table
+			const Function* argParent = hasArgumentsToReplace(callEquivalentQueue[i]);
+			if(!argParent)
+				continue;
+			const FunctionData& otherData = moduleData->getFunctionData(*argParent);
+			// No specific concerns are needed regarding recursion. Although we might traverse
+			// a long chain of (potentially recursive) call-sites we need to eventually reach
+			// an entry point that will either mark the parameters as null or get us some useful info
+			for(const auto& otherArgs: otherData.callEquivalentQueue)
+			{
+				// Make a copy of the current args, and replace Argument* with the corresponding values.
+				// We then queue the new args back for further analysis
+				VectorOfArgs newArgs = callEquivalentQueue[i];
+				for(uint32_t j=0;j<newArgs.size();j++)
+				{
+					Argument* a = dyn_cast_or_null<Argument>(newArgs[j]);
+					if(a == nullptr)
+						continue;
+					assert(a->getParent() == argParent);
+					assert(a->getArgNo() < otherArgs.size());
+					newArgs[j] = otherArgs[a->getArgNo()];
+				}
+				enqueCallEquivalent(newArgs);
+			}
+		}
+		// Remove all the entries having any arguments, they are left around to make sure
+		// we don't get into infinite loops on recursive call graphs.
+		// The second visit cannot give us any better information anyway.
+		auto firstErase = std::remove_if(callEquivalentQueue.begin(), callEquivalentQueue.end(),
+						[](const VectorOfArgs& args) -> bool
+						{
+							for(Value* v: args)
+							{
+								if(v && isa<Argument>(v))
+									return true;
+							}
+							return false;
+						});
+		callEquivalentQueue.erase(firstErase, callEquivalentQueue.end());
+	}
+	void visitAllCallSites(ModuleData* moduleData)
 	{
 		bool needsNoInfoCallSite = false;
 
@@ -1119,6 +1185,10 @@ public:
 			// Remove all call-sites and substitute them with one with no information at all
 			callEquivalentQueue.clear();
 			callEquivalentQueue.push_back(VectorOfArgs(F.getFunctionType()->getNumParams(), nullptr));
+		}
+		else
+		{
+			resolveArgumentsInCallSites(moduleData);
 		}
 
 		// Visit all collected callEquivalent
@@ -1203,7 +1273,7 @@ FunctionData& ModuleData::getFunctionData(const llvm::Function& F)
 void ModuleData::visitCallSitesOfAllFunctions()
 {
 	for(auto& it: functionData)
-		it.second.visitAllCallSites();
+		it.second.visitAllCallSites(this);
 }
 
 }//cheerp
