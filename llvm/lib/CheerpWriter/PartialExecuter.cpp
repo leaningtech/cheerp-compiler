@@ -939,6 +939,7 @@ public:
 		assert(currentEE->getSizeStackFrame() == 0);
 	}
 	FunctionData& getFunctionData(const llvm::Function& F);
+	const FunctionData& getFunctionData(const llvm::Function& F) const;
 	PartialInterpreter* setUpPartialInterpreter(llvm::Function& F)
 	{
 		assert(currentEE->getSizeStackFrame() == 0);
@@ -1121,7 +1122,7 @@ public:
 		// Cleanup
 		doneVisitCallBase();
 	}
-	void resolveArgumentsInCallSites(ModuleData* moduleData)
+	void resolveArgumentsInCallSites(const ModuleData* moduleData)
 	{
 		// Augment the queue by resolving arguments
 		for(uint32_t i=0;i<callEquivalentQueue.size();i++)
@@ -1169,7 +1170,7 @@ public:
 						});
 		callEquivalentQueue.erase(firstErase, callEquivalentQueue.end());
 	}
-	void visitAllCallSites(ModuleData* moduleData)
+	void visitAllCallSites(const ModuleData* moduleData)
 	{
 		bool needsNoInfoCallSite = false;
 
@@ -1266,6 +1267,11 @@ void ModuleData::initFunctionData()
 }
 
 FunctionData& ModuleData::getFunctionData(const llvm::Function& F)
+{
+	return functionData.at(&F);
+}
+
+const FunctionData& ModuleData::getFunctionData(const llvm::Function& F) const
 {
 	return functionData.at(&F);
 }
