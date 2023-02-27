@@ -1118,7 +1118,7 @@ public:
 		{
 			// Remove all call-sites and substitute them with one with no information at all
 			callEquivalentQueue.clear();
-			callEquivalentQueue.push_back(VectorOfArgs());
+			callEquivalentQueue.push_back(VectorOfArgs(F.getFunctionType()->getNumParams(), nullptr));
 		}
 
 		// Visit all collected callEquivalent
