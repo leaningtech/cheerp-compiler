@@ -961,6 +961,7 @@ public:
 	{
 		return currentEE->replaceKnownCEs();
 	}
+	void visitCallSitesOfAllFunctions();
 };
 
 class FunctionData
@@ -1197,6 +1198,12 @@ void ModuleData::initFunctionData()
 FunctionData& ModuleData::getFunctionData(const llvm::Function& F)
 {
 	return functionData.at(&F);
+}
+
+void ModuleData::visitCallSitesOfAllFunctions()
+{
+	for(auto& it: functionData)
+		it.second.visitAllCallSites();
 }
 
 }//cheerp
@@ -1628,8 +1635,6 @@ static void processFunction(const llvm::Function& F, ModuleData& moduleData)
 	{
 		data.enqueVisitNoInfo();
 	}
-
-	data.visitAllCallSites();
 }
 
 static bool modifyFunction(llvm::Function& F, ModuleData& moduleData)
@@ -1663,6 +1668,8 @@ bool PartialExecuter::runOnModule( llvm::Module & module )
 	{
 		processFunction(F, data);
 	}
+
+	data.visitCallSitesOfAllFunctions();
 
 	bool changed = data.replaceKnownCEs();
 
