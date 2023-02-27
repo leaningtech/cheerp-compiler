@@ -679,7 +679,8 @@ void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
     addPass("default<Os>");
     addPass("PartialExecuter");
     // -Os converts loops to canonical form, which may causes empty forwarding branches, remove those
-    addPass("function(simplifycfg)");
+    // Also cleanup any constants instruced by PartialExecuter
+    addPass("function(simplifycfg,instcombine)");
   }
   CmdArgs.push_back(Args.MakeArgString(std::string("-passes=")+optPasses));
   CmdArgs.push_back("-o");
