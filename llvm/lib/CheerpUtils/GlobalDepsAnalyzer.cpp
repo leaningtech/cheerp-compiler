@@ -282,6 +282,9 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 					}
 					if(II == Intrinsic::cttz)
 					{
+						if (!llcPass)
+							continue;
+
 						if (mathMode == WASM_BUILTINS)
 							continue;
 
