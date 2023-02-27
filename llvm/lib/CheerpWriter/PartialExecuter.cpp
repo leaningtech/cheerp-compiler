@@ -1026,7 +1026,7 @@ class FunctionData
 		}
 		return true;
 	}
-	void enqueCallEquivalent(const VectorOfArgs& arguments)
+	void enqueCallEquivalent(VectorOfArgs&& arguments)
 	{
 		// Insert the arguments in the map
 
@@ -1039,7 +1039,7 @@ class FunctionData
 			}
 		}
 
-		callEquivalentQueue.push_back(arguments);
+		callEquivalentQueue.emplace_back(std::move(arguments));
 	}
 	void actualVisit();
 	void doneVisitCallBase()
@@ -1152,7 +1152,7 @@ public:
 					assert(a->getArgNo() < otherArgs.size());
 					newArgs[j] = otherArgs[a->getArgNo()];
 				}
-				enqueCallEquivalent(newArgs);
+				enqueCallEquivalent(std::move(newArgs));
 			}
 		}
 		// Remove all the entries having any arguments, they are left around to make sure
@@ -1201,18 +1201,18 @@ public:
 	}
 	void visitCallBase(const llvm::CallBase* callBase)
 	{
-		const auto& equivalentArgs = getArguments(callBase);
+		VectorOfArgs equivalentArgs = getArguments(callBase);
 
-		enqueCallEquivalent(equivalentArgs);
+		enqueCallEquivalent(std::move(equivalentArgs));
 	}
 	void enqueVisitNoInfo()
 	{
 		// Cleaun-up whatever is already in the queue, since this is guaranteed to dominate it
 		callEquivalentQueue.clear();
 
-		const auto& equivalentArgs = getArguments(nullptr);
+		VectorOfArgs equivalentArgs = getArguments(nullptr);
 
-		enqueCallEquivalent(equivalentArgs);
+		enqueCallEquivalent(std::move(equivalentArgs));
 	}
 	void cleanupBB()
 	{
