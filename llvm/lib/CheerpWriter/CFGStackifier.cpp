@@ -853,7 +853,7 @@ static bool isNaturalFlow(TokenList::iterator From, TokenList::iterator To, cons
 	// (+2 is done to ensure stepBudget will be exausted only in looping conditions)
 	// (note that with !allowBranches, loops are impossible, so it will never be triggered)
 	uint32_t stepBudget = 2;
-	for (auto it = ++From; it != To; it++)
+	for (auto it = std::next(From); it != To; it++)
 		stepBudget++;
 
 	for (auto it = ++From; stepBudget != 0 && it != To; it++, stepBudget--)
