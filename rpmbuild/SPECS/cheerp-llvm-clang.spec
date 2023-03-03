@@ -1,9 +1,9 @@
 Name: cheerp-llvm-clang
-Version: 2.6
+Version: 3.0
 Release:        1%{?dist}
 Summary: A C++ compiler for the Web
 
-License:  NCSA and MIT
+License: Apache-2.0 WITH LLVM-exception OR NCSA
 URL: https://leaningtech.com/cheerp
 Source0: %{NAME}_%{VERSION}.orig.tar.gz
 
@@ -54,6 +54,8 @@ rm -rf $RPM_BUILD_ROOT
 /opt/cheerp/
 
 %changelog
+* Fri Mar 03 2023 Yuri Iozzelli <yuri@leaningtech.com>
+- Update license
 * Wed Feb 03 2021 Yuri Iozzelli <yuri@leaningtech.com>
 - Update to new monorepo
 * Tue Dec 10 2019 Yuri Iozzelli <yuri@leaningtech.com>
