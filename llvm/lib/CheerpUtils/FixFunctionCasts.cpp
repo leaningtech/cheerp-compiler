@@ -85,7 +85,7 @@ bool FixFunctionCasts::runOnModule(Module& M)
 					continue;
 				auto SrcIt = Src->param_begin();
 				auto DstIt = Dst->param_begin();
-				auto cmp = cheerp::LinearMemoryHelper::FunctionSignatureCmp<>();
+				auto cmp = cheerp::LinearMemoryHelper::FunctionSignatureCmp(/*isStrict*/false);
 				for (; SrcIt != Src->param_end(); ++SrcIt, ++DstIt)
 				{
 				}

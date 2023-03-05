@@ -632,7 +632,7 @@ if (!functionTypeIndices.count(fTy)) { \
 		
 		size_t typeIndex = 0;
 		for (auto& fTy : functionTypes) {
-			if (FunctionSignatureCmp<>()(t.first, fTy))
+			if (FunctionSignatureCmp(/*isStrict*/false)(t.first, fTy))
 				break;
 			typeIndex++;
 		}

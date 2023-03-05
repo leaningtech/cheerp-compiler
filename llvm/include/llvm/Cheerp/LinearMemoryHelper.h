@@ -68,32 +68,39 @@ public:
 	 * they return equivalent types and they have parameters with equivalent
 	 * types in the same order
 	 */
-	template<bool isStrict = false>
 	struct FunctionSignatureHash
 	{
+		bool isStrict;
+		FunctionSignatureHash(bool isStrict):isStrict(isStrict)
+		{
+		}
 		std::size_t operator()(const llvm::FunctionType* const& fTy) const 
 		{
 			const llvm::Type* retTy = fTy->getReturnType();
 			size_t hash = 31;
-			hash = hash*31 + std::hash<size_t>()(typeKindOf<isStrict>(retTy));
+			hash = hash*31 + std::hash<size_t>()(typeKindOf(retTy, isStrict));
 			for (const auto& pTy: fTy->params())
 			{
-				hash = hash*31 + std::hash<size_t>()(typeKindOf<isStrict>(pTy));
+				hash = hash*31 + std::hash<size_t>()(typeKindOf(pTy, isStrict));
 			}
 			return hash;
 		}
 	};
-	template<bool isStrict = false>
 	struct FunctionSignatureCmp
 	{
+	private:
+		bool isStrict;
 	public:
+		FunctionSignatureCmp(bool isStrict):isStrict(isStrict)
+		{
+		}
 		bool operator()(const llvm::FunctionType* const& lhs, const llvm::FunctionType* const& rhs) const
 		{
 			if (isStrict && lhs->isVarArg() != rhs->isVarArg())
 				return false;
 
-			size_t r1 = typeKindOf<isStrict>(lhs->getReturnType());
-			size_t r2 = typeKindOf<isStrict>(rhs->getReturnType());
+			size_t r1 = typeKindOf(lhs->getReturnType(), isStrict);
+			size_t r2 = typeKindOf(rhs->getReturnType(), isStrict);
 			if (r1 != r2)
 				return false;
 			if (lhs->getNumParams() != rhs->getNumParams())
@@ -102,8 +109,8 @@ public:
 			auto rit = rhs->param_begin();
 			for (;lit != lhs->param_end(); lit++,rit++)
 			{
-				r1 = typeKindOf<isStrict>(*lit);
-				r2 = typeKindOf<isStrict>(*rit);
+				r1 = typeKindOf(*lit, isStrict);
+				r2 = typeKindOf(*rit, isStrict);
 				if (r1 != r2)
 					return false;
 			}
@@ -115,7 +122,7 @@ public:
 	{
 		auto getTypeKindChar = [](const llvm::Type* ty)
 		{
-			switch (typeKindOf(ty))
+			switch (typeKindOf(ty, /*isStrict*/true))
 			{
 				case TypeKind::Void:
 					return 'v';
@@ -150,7 +157,7 @@ public:
 	 * function tables for indirect calls
 	 */
 	typedef std::unordered_map<const llvm::FunctionType*,FunctionTableInfo,
-		  FunctionSignatureHash<>,FunctionSignatureCmp<>> FunctionTableInfoMap;
+		  FunctionSignatureHash,FunctionSignatureCmp> FunctionTableInfoMap;
 	typedef std::vector<const llvm::FunctionType*> FunctionTableOrder;
 	/**
 	 * Used to assign asm.js function pointers
@@ -163,11 +170,13 @@ public:
 	typedef std::unordered_map<int32_t, const llvm::GlobalVariable*> InverseGlobalAddressesMap;
 
 	typedef std::unordered_map<const llvm::FunctionType*, size_t,
-		FunctionSignatureHash<>,FunctionSignatureCmp<>> FunctionTypeIndicesMap;
+		FunctionSignatureHash,FunctionSignatureCmp> FunctionTypeIndicesMap;
 
 	LinearMemoryHelper(const LinearMemoryHelperInitializer& data) :
 			module(nullptr), globalDeps(nullptr),
-		mode(data.mode), maxFunctionId(0), memorySize(data.memorySize*1024*1024),
+		mode(data.mode), functionTables(3, FunctionSignatureHash(/*isStrict*/false), FunctionSignatureCmp(/*isStrict*/false)),
+		functionTypeIndices(3, FunctionSignatureHash(/*isStrict*/false), FunctionSignatureCmp(/*isStrict*/false)),
+		maxFunctionId(0), memorySize(data.memorySize*1024*1024),
 		stackSize(data.stackSize*1024*1024), wasmOnly(data.wasmOnly), growMem(data.growMem)
 	{
 	}
@@ -320,8 +329,7 @@ private:
 		RefPointer,
 		Vector,
 	};
-	template<bool isStrict = false>
-	static TypeKind typeKindOf(const llvm::Type* type)
+	static TypeKind typeKindOf(const llvm::Type* type, bool isStrict)
 	{
 		if (type->isIntegerTy(64))
 			return TypeKind::Integer64;
