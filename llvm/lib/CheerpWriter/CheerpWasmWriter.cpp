@@ -5115,7 +5115,7 @@ uint32_t CheerpWasmWriter::WasmGepWriter::compileValues(bool positiveOffsetAllow
 
 	auto initializeYetToBeEncodedOffset = [this, &positiveOffsetAllowed](std::vector<GroupedValuesToAdd>& V2, bool& first) -> uint32_t
 	{
-		if (!positiveOffsetAllowed || avoidOffsetOpt)
+		if (!positiveOffsetAllowed)
 		{
 			uint32_t toBeHandled = constPart;
 			//In these cases constantPart should not be used, so it has to be merged in the GroupedValuesToAdd's vector
@@ -5228,6 +5228,14 @@ uint32_t CheerpWasmWriter::WasmGepWriter::compileValues(bool positiveOffsetAllow
 
 	//In any case we have put something on the stack
 	assert(!first);
+
+	// We assume no access to the first 4k is legal, so a small offset can be safely encoded in the load/store
+	if(yetToBeEncodedOffset > 4096)
+	{
+		writer.encodeInst(WasmS32Opcode::I32_CONST, yetToBeEncodedOffset, code);
+		writer.encodeInst(WasmOpcode::I32_ADD, code);
+		return 0;
+	}
 
 	return yetToBeEncodedOffset;
 }

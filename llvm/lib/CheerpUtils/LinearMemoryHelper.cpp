@@ -349,14 +349,6 @@ const llvm::Value* LinearMemoryHelper::compileGEP(const llvm::Module* module, co
 				}
 				else
 				{
-					bool mightBeNegative = true;
-					if (const ConstantInt* C = dyn_cast<ConstantInt>(indices[i]))
-						if (!C->isNegative())
-							mightBeNegative = false;
-
-					if (mightBeNegative)
-						listener->avoidOffsetOptimization();
-
 					curType = getElementType(curType, cast<const GEPOperator>(p)->getSourceElementType());
 					uint32_t size = targetData.getTypeAllocSize(curType);
 					constPart += compileGEPOperand(indices[i], size, listener, false);
