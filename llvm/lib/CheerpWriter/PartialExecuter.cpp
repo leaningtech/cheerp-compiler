@@ -1196,6 +1196,7 @@ public:
 		// Note that currently callEquivalentQueue is immutable during this loop (basically CallEquivalents are know beforehand)
 		for (const FunctionData::VectorOfArgs& toBeVisited : callEquivalentQueue)
 		{
+			visitCounter.clear();
 			visitCallEquivalent(toBeVisited);
 		}
 	}
