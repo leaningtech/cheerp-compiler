@@ -1151,6 +1151,10 @@ const Instruction* getUniqueIncomingInst(const Value* v, const PointerAnalyzer& 
 			// TODO: Expand this logic to support other cases where a bitcast is a nop (when no kind conversion is required?)
 			v = I->getOperand(0);
 		}
+		else if(I->getOpcode() == Instruction::GetElementPtr && PA.getPointerKind(I) == RAW && cast<GetElementPtrInst>(I)->hasAllZeroIndices())
+		{
+			v = I->getOperand(0);
+		}
 		else
 			break;
 	}
