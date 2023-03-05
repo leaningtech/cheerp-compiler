@@ -693,7 +693,7 @@ bool FreeAndDeleteRemoval::runOnModule(Module& M)
 				}
 			}
 		}
-		else
+
 		{
 			// TODO: Move to a proper pass
 			for(BasicBlock& BB: f)
@@ -701,10 +701,15 @@ bool FreeAndDeleteRemoval::runOnModule(Module& M)
 				for ( BasicBlock::iterator it = BB.begin(); it != BB.end(); )
 				{
 					Instruction * Inst = &*it++;
-					if( !isa<FreezeInst>(Inst) )
-						continue;
-					Inst->replaceAllUsesWith(Inst->getOperand(0));
-					Inst->eraseFromParent();
+					if(isa<FreezeInst>(Inst))
+					{
+						Inst->replaceAllUsesWith(Inst->getOperand(0));
+						Inst->eraseFromParent();
+					}
+					else if(isa<AssumeInst>(Inst))
+					{
+						deleteInstructionAndUnusedOperands(Inst);
+					}
 				}
 			}
 		}
