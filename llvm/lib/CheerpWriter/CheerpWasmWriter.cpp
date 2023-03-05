@@ -3981,6 +3981,7 @@ const BasicBlock* CheerpWasmWriter::compileTokens(WasmBuffer& code,
 			{
 				const int Depth = getDepth(T.getMatch());
 				teeLocals.clearTopmostCandidates(code, Depth+1);
+				assert(Depth || T.getMatch()->getKind() == Token::TK_Loop);
 				encodeInst(WasmU32Opcode::BR, Depth, code);
 				break;
 			}
