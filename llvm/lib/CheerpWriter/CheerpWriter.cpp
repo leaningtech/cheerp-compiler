@@ -2660,6 +2660,8 @@ bool CheerpWriter::needsPointerKindConversion(const PHINode* phi, const Value* i
 {
 	if(canDelayPHI(phi, PA, registerize))
 		return false;
+	if(isa<UndefValue>(incoming))
+		return false;
 	Type* phiType=phi->getType();
 	const Instruction* incomingInst=getUniqueIncomingInst(incoming, PA);
 	if(!incomingInst)
