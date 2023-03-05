@@ -54,7 +54,9 @@ public:
                                      unsigned Index);
   InstructionCost getVectorInstrCost(const Instruction& I, Type *Val,
                                      unsigned Index);
-
+  void getUnrollingPreferences(Loop *L, ScalarEvolution &SE,
+                               TTI::UnrollingPreferences &UP,
+                               OptimizationRemarkEmitter *ORE);
   bool areInlineCompatible(const Function *Caller,
                            const Function *Callee) const;
 };
