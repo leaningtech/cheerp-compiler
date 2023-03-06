@@ -1676,17 +1676,25 @@ HoistTerminator:
     return Changed;
 
   for (BasicBlock *Succ : successors(BB1)) {
+    uint32_t selectNeeded = 0;
     for (PHINode &PN : Succ->phis()) {
       Value *BB1V = PN.getIncomingValueForBlock(BB1);
       Value *BB2V = PN.getIncomingValueForBlock(BB2);
       if (BB1V == BB2V)
         continue;
 
+      selectNeeded++;
+
       // Check for passingValueIsAlwaysUndefined here because we would rather
       // eliminate undefined control flow then converting it to a select.
       if (passingValueIsAlwaysUndefined(BB1V, &PN) ||
           passingValueIsAlwaysUndefined(BB2V, &PN))
         return Changed;
+    }
+
+    // Do not create more than 1 PHI for the same condition, it will cause flag materialization
+    if (selectNeeded > 1) {
+      return Changed;
     }
   }
 
