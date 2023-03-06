@@ -221,15 +221,15 @@ static uint32_t blockLikeTokens(const CFGStackifier::Mode& mode)
 	switch (mode)
 	{
 		case CFGStackifier::GenericJS:
-			BlockLikeTokens |= Token::TK_If|Token::TK_IfNot|Token::TK_Switch|Token::TK_Loop;
+			BlockLikeTokens |= Token::TK_If|Token::TK_IfNot|Token::TK_Else|Token::TK_Switch|Token::TK_Loop;
 			break;
 		case CFGStackifier::AsmJS:
-			// TODO: there should be also TK_If|TK_IfNot and TK_Loop here,
+			// TODO: there should be also TK_If|TK_IfNot|TK_Else and TK_Loop here,
 			// but there are 2 bugs in V8 that prevent it.
 			BlockLikeTokens |= Token::TK_Switch;
 			break;
 		case CFGStackifier::Wasm:
-			BlockLikeTokens |= Token::TK_If|Token::TK_IfNot;
+			BlockLikeTokens |= Token::TK_If|Token::TK_IfNot|Token::TK_Else;
 			break;
 	}
 	return BlockLikeTokens;
@@ -897,7 +897,7 @@ static bool isNaturalFlow(TokenList::iterator From, TokenList::iterator To, cons
 void TokenListOptimizer::removeRedundantBranches(const bool removeAlsoBlockAndEnd)
 {
 	passStart();
-	const uint32_t BlockLikeTokens = removeAlsoBlockAndEnd ? blockLikeTokens(Mode) : Token::TK_Block;
+	const uint32_t BlockLikeTokens = blockLikeTokens(Mode);
 	for_each_kind<Token::TK_Branch>([&](Token* Branch)
 	{
 		Token* End = Branch->getMatch();
@@ -908,10 +908,7 @@ void TokenListOptimizer::removeRedundantBranches(const bool removeAlsoBlockAndEn
 
 
 		Token* Block = End->getMatch();
-		if ((Block->getKind() & BlockLikeTokens) == 0)
-		{
-			return;
-		}
+		assert(Block->getKind() & BlockLikeTokens);
 
 		assert(Branch->getNextNode() != nullptr);
 		if (isNaturalFlow(Branch->getIter(), End->getIter(), /*allowBranches*/true))
