@@ -1027,8 +1027,9 @@ public:
 			// No specific concerns are needed regarding recursion. Although we might traverse
 			// a long chain of (potentially recursive) call-sites we need to eventually reach
 			// an entry point that will either mark the parameters as null or get us some useful info
-			for(const auto& otherArgs: otherData.callEquivalentQueue)
+			for(uint32_t j=0;j<otherData.callEquivalentQueue.size();j++)
 			{
+				const VectorOfArgs& otherArgs = otherData.callEquivalentQueue[j];
 				// Make a copy of the current args, and replace Argument* with the corresponding values.
 				// We then queue the new args back for further analysis
 				VectorOfArgs newArgs = callEquivalentQueue[i];
