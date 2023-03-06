@@ -604,129 +604,7 @@ public:
 	{
 		return (++functionCounters[F] > 0x1000);
 	}
-	void visitOuter(llvm::Instruction& I)
-	{
-		if (PHINode* phi = dyn_cast<PHINode>(&I))
-		{
-			// PHI have to be execute concurrently (since they may cross-reference themselves)
-			// So while visiting PHI we don't modify the state of the map, but only take note
-			// of what values should be in the map AFTER all phis have been processed
-			if (incomingBB)
-			{
-				llvm::Value* incomingVal = phi->getIncomingValueForBlock(incomingBB);
-				assert(incomingVal);
-				if (isValueComputed(incomingVal))
-				{
-					computedPhisValues.push_back({phi, incomingVal});
-					return;
-				}
-			}
-			notComputedPhis.push_back(phi);
-			return;
-		}
-		else if (&I == I.getParent()->getFirstNonPHI())
-		{
-			// Then, while visiting the first NonPhi instruction, we set the maps state correctly
-			// computedPhisValues will hold pairs phi -> value to be assigned
-			for (auto& p : computedPhisValues)
-				assignToMaps(p.first, p.second);
-
-			// notComputedPhis will hold phi to be removed from the mapping
-			for (auto& p : notComputedPhis)
-				   removeFromMaps(p);
-
-			//Then we clear the vectors
-			computedPhisValues.clear();
-			notComputedPhis.clear();
-		}
-
-		//Here PHI have been properly processed
-
-		bool skip = hasToBeSkipped(I);
-
-		if (isInitialCallFrame())
-		{
-			// Execution in the lowest call-frame is guided externally
-			if (I.isTerminator())
-				return;
-
-			//Skip Instructions we don't have enough information to execute
-			if (skip)
-			{
-				removeFromMaps(&I);
-				return;
-			}
-		}
-		else if (const ReturnInst* RI = dyn_cast<ReturnInst>(&I))
-		{
-			const Value* retVal = RI->getReturnValue();
-			const BitMask BITMASK = (retVal && !skip) ? getBitMask(RI->getReturnValue()) : NONE;
-			Value* caller = getCurrentCallSite();
-
-			Interpreter::visit(I);
-
-			stronglyKnownBits.pop_back();
-			pointerBases.pop_back();
-			if (retVal)
-				stronglyKnownBits.back()[caller] = BITMASK;
-
-			if (skip)
-				removeFromMaps(caller);
-			//Note that here we return
-			return;
-		}
-		else
-		{
-			//Terminators have special handling done here explicitly
-			if (I.isTerminator())
-			{
-				BasicBlock* next = findNextBasicBlock(I);
-
-				if (next)
-				{
-					// We know where execution should proceed
-					incomingBB = I.getParent();
-					getTopCallFrame().CurBB = next;
-					getTopCallFrame().CurInst = getTopCallFrame().CurBB->begin();
-
-					// Also here we have set the proper state for the execution so we can return
-					return;
-				}
-				else
-				{
-					skip = true;
-				}
-			}
-
-			if (addToCounter(I.getFunction()))
-				skip = true;
-
-			//We are inside a call, here we assume all failure to execute are non-recoverable (as in no information could be gained)
-			if (skip)
-			{
-				//Pop current stack (will happen recursively over the call-stack)
-				popStackFrame();
-				removeFromMaps(getTopCallFrame().Caller);
-
-				return;
-			}
-		}
-		//If we are here it means we have to actually perform the execution via Interpreter
-
-		//Iff it's a call, set up the next stack frame
-		if (CallInst* CI = dyn_cast<CallInst>(&I))
-			forwardArgumentsToNextFrame(*CI);
-
-		//Dispatch to the Interpreter's visitor for the given Instructon
-		Interpreter::visit(I);
-
-		if (!isa<CallInst>(I))
-		{
-			//Add  knownBits information
-			assignToMaps(&I, computeStronglyKnownBits(I.getOpcode(), I), computePointerBase(I));
-		}
-	}
-
+	void visitOuter(llvm::Instruction& I);
 	bool replaceKnownCEs()
 	{
 		if(fullyKnownCEs.empty())
@@ -1665,6 +1543,131 @@ void FunctionData::actualVisit()
 {
 	BasicBlockGroupNode groupData(*this);
 	groupData.recursiveVisit();
+}
+
+void PartialInterpreter::visitOuter(llvm::Instruction& I)
+{
+	if (PHINode* phi = dyn_cast<PHINode>(&I))
+	{
+		// PHI have to be execute concurrently (since they may cross-reference themselves)
+		// So while visiting PHI we don't modify the state of the map, but only take note
+		// of what values should be in the map AFTER all phis have been processed
+		if (incomingBB)
+		{
+			llvm::Value* incomingVal = phi->getIncomingValueForBlock(incomingBB);
+			assert(incomingVal);
+			if (isValueComputed(incomingVal))
+			{
+				computedPhisValues.push_back({phi, incomingVal});
+				return;
+			}
+		}
+		notComputedPhis.push_back(phi);
+		return;
+	}
+	else if (&I == I.getParent()->getFirstNonPHI())
+	{
+		// Then, while visiting the first NonPhi instruction, we set the maps state correctly
+		// computedPhisValues will hold pairs phi -> value to be assigned
+		for (auto& p : computedPhisValues)
+			assignToMaps(p.first, p.second);
+
+		// notComputedPhis will hold phi to be removed from the mapping
+		for (auto& p : notComputedPhis)
+			   removeFromMaps(p);
+
+		//Then we clear the vectors
+		computedPhisValues.clear();
+		notComputedPhis.clear();
+	}
+
+	//Here PHI have been properly processed
+
+	bool skip = hasToBeSkipped(I);
+
+	if (isInitialCallFrame())
+	{
+		// Execution in the lowest call-frame is guided externally
+		if (I.isTerminator())
+			return;
+
+		//Skip Instructions we don't have enough information to execute
+		if (skip)
+		{
+			removeFromMaps(&I);
+			return;
+		}
+	}
+	else if (const ReturnInst* RI = dyn_cast<ReturnInst>(&I))
+	{
+		const Value* retVal = RI->getReturnValue();
+		const BitMask BITMASK = (retVal && !skip) ? getBitMask(RI->getReturnValue()) : NONE;
+		Value* caller = getCurrentCallSite();
+
+		Interpreter::visit(I);
+
+		stronglyKnownBits.pop_back();
+		pointerBases.pop_back();
+		if (retVal)
+			stronglyKnownBits.back()[caller] = BITMASK;
+
+		if (skip)
+			removeFromMaps(caller);
+		//Note that here we return
+		return;
+	}
+	else
+	{
+		//Terminators have special handling done here explicitly
+		if (I.isTerminator())
+		{
+			BasicBlock* next = findNextBasicBlock(I);
+
+			if (next)
+			{
+				// We know where execution should proceed
+				incomingBB = I.getParent();
+				getTopCallFrame().CurBB = next;
+				getTopCallFrame().CurInst = getTopCallFrame().CurBB->begin();
+
+				// Also here we have set the proper state for the execution so we can return
+				return;
+			}
+			else
+			{
+				skip = true;
+			}
+		}
+
+		if (addToCounter(I.getFunction()))
+			skip = true;
+
+		//We are inside a call, here we assume all failure to execute are non-recoverable (as in no information could be gained)
+		if (skip)
+		{
+			//Pop current stack (will happen recursively over the call-stack)
+			popStackFrame();
+			removeFromMaps(getTopCallFrame().Caller);
+
+			return;
+		}
+	}
+	//If we are here it means we have to actually perform the execution via Interpreter
+
+	//Iff it's a call, set up the next stack frame
+	if (CallInst* CI = dyn_cast<CallInst>(&I))
+		forwardArgumentsToNextFrame(*CI);
+
+	//Dispatch to the Interpreter's visitor for the given Instructon
+	Interpreter::visit(I);
+
+	BitMask strongBits = computeStronglyKnownBits(I.getOpcode(), I);
+
+	if (!isa<CallInst>(I))
+	{
+		//Add  knownBits information
+		assignToMaps(&I, strongBits, computePointerBase(I));
+	}
 }
 
 static void processFunction(const llvm::Function& F, ModuleData& moduleData)
