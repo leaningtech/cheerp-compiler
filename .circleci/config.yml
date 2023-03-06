@@ -499,7 +499,6 @@ jobs:
           name: Clone dependencies
           command: |
             git clone git@github.com:leaningtech/cheerp-libs-addon.git
-            git clone git@github.com:leaningtech/cheerp-internal.git
       - install-deb:
           package-name: llvm-clang
       - install-deb:
@@ -550,28 +549,6 @@ jobs:
           working_directory: ~/project
           command: |
             tar -cvjf packages/cheerp-headers-and-libs-${VERSION_NO}.tar.bz2 -C opt/cheerp .
-
-            cheerp-internal/tools/releasing/header_switch.sh opt/cheerp/include/c++/v1/__functional_03 19 cheerp-internal/tools/releasing/Cheerp_header_proprietary.txt
-            cheerp-internal/tools/releasing/header_switch.sh opt/cheerp/include/c++/v1/string 19 cheerp-internal/tools/releasing/Cheerp_header_proprietary.txt
-            cheerp-internal/tools/releasing/header_switch.sh opt/cheerp/include/c++/v1/random 19 cheerp-internal/tools/releasing/Cheerp_header_proprietary.txt
-            cheerp-internal/tools/releasing/header_switch.sh opt/cheerp/include/c++/v1/functional 19 cheerp-internal/tools/releasing/Cheerp_header_proprietary.txt
-
-            cheerp-internal/tools/releasing/header_switch.sh opt/cheerp/include/GLES2/webgles.h 20 cheerp-internal/tools/releasing/Cheerp_header_proprietary.txt
-            cheerp-internal/tools/releasing/header_switch.sh opt/cheerp/include/GLES2/gl2.h 20 cheerp-internal/tools/releasing/Cheerp_header_proprietary.txt
-
-            cheerp-internal/tools/releasing/header_switch.sh opt/cheerp/include/client/cheerp/client.h 20 cheerp-internal/tools/releasing/Cheerp_header_proprietary.txt
-            cheerp-internal/tools/releasing/header_switch.sh opt/cheerp/include/client/cheerp/clientlib.h 20 cheerp-internal/tools/releasing/Cheerp_header_proprietary.txt
-            cheerp-internal/tools/releasing/header_switch.sh opt/cheerp/include/client/cheerp/jsobject.h 20 cheerp-internal/tools/releasing/Cheerp_header_proprietary.txt
-            cheerp-internal/tools/releasing/header_switch.sh opt/cheerp/include/client/cheerp/memory.h 20 cheerp-internal/tools/releasing/Cheerp_header_proprietary.txt
-            cheerp-internal/tools/releasing/header_switch.sh opt/cheerp/include/client/cheerp/types.h 20 cheerp-internal/tools/releasing/Cheerp_header_proprietary.txt
-            cheerp-internal/tools/releasing/header_switch.sh opt/cheerp/include/client/cheerp/webgl.h 20 cheerp-internal/tools/releasing/Cheerp_header_proprietary.txt
-            cheerp-internal/tools/releasing/header_switch.sh opt/cheerp/include/sys/dirent.h 20 cheerp-internal/tools/releasing/Cheerp_header_proprietary.txt
-
-            rm opt/cheerp/COPYING
-
-            cp cheerp-internal/tools/releasing/LICENSE.TXT.cheerp-libcxx.proprietary opt/cheerp/LICENSE.TXT.cheerp-libcxx
-            cp cheerp-internal/tools/releasing/LICENSE.TXT.cheerp-libcxxabi.proprietary opt/cheerp/LICENSE.TXT.cheerp-libcxxabi
-
             tar -cvjf packages/cheerp-headers-and-libs-${VERSION_NO}-proprietary.tar.bz2 -C opt/cheerp .
       - persist_to_workspace:
           root: packages
