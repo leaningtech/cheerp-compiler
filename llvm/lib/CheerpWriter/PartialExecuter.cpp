@@ -299,7 +299,7 @@ public:
 		}
 		return nullptr;
 	}
-	llvm::BasicBlock* visitBasicBlock(llvm::BasicBlock& BB);
+	llvm::BasicBlock* visitBasicBlock(FunctionData& data, llvm::BasicBlock& BB);
 	explicit PartialInterpreter(std::unique_ptr<llvm::Module> M)
 		: llvm::Interpreter(std::move(M), /*preExecute*/false)
 	{
@@ -604,7 +604,7 @@ public:
 	{
 		return (++functionCounters[F] > 0x1000);
 	}
-	void visitOuter(llvm::Instruction& I);
+	void visitOuter(FunctionData& data, llvm::Instruction& I);
 	bool replaceKnownCEs()
 	{
 		if(fullyKnownCEs.empty())
@@ -758,7 +758,7 @@ static void removeEdgeBetweenBlocks(llvm::BasicBlock* from, llvm::BasicBlock* to
 	}
 }
 
-llvm::BasicBlock* PartialInterpreter::visitBasicBlock(llvm::BasicBlock& BB)
+llvm::BasicBlock* PartialInterpreter::visitBasicBlock(FunctionData& data, llvm::BasicBlock& BB)
 {
 	ExecutionContext& executionContext = getTopCallFrame();
 	executionContext.CurBB = &BB;
@@ -769,7 +769,7 @@ llvm::BasicBlock* PartialInterpreter::visitBasicBlock(llvm::BasicBlock& BB)
 		// Note that here we could also execute a Call, and that implies adding a CallFrame
 		// executing there (possibly also in depth)
 		// So getTopCallFrame() has to be called since it will possibly change
-		visitOuter(*getTopCallFrame().CurInst++);
+		visitOuter(data, *getTopCallFrame().CurInst++);
 	}
 
 	// Find (if there are enough information) the next BB to be visited
@@ -845,12 +845,23 @@ public:
 
 class FunctionData
 {
+	struct KnownValue
+	{
+		GenericValue value;
+		// NOTE: This is marked true also in the case non-consistent known value
+		//       We cannot replace it anyway in such a case
+		bool everSkipped;
+		KnownValue():everSkipped(false)
+		{
+		}
+	};
 	llvm::Function& F;
 	std::vector<std::pair<llvm::BasicBlock*, llvm::BasicBlock*>> existingEdges;
 	typedef std::vector<Value*> VectorOfArgs;
 
 	llvm::DenseMap<const llvm::BasicBlock*, int> visitCounter;
 	llvm::DenseSet<std::pair<const llvm::BasicBlock*, const llvm::BasicBlock*> > visitedEdges;
+	llvm::DenseMap<llvm::Instruction*, KnownValue> knownValues;
 	ModuleData& moduleData;
 
 	std::vector<VectorOfArgs> callEquivalentQueue;
@@ -1134,6 +1145,48 @@ public:
 		}
 		return false;
 	}
+	void markInstSkipped(llvm::Instruction& I)
+	{
+		knownValues[&I].everSkipped = true;
+	}
+	void registerValueForInst(llvm::Instruction& I, const GenericValue& GV, PartialInterpreter::BitMask strongBits)
+	{
+		// Only support integers for now, to simplify the handling of GVs
+		if(!I.getType()->isIntegerTy())
+			return;
+		// Do not attempt tracking of partially known values
+		if(strongBits != PartialInterpreter::BitMask::ALL)
+			return markInstSkipped(I);
+		auto it = knownValues.find(&I);
+		if(it == knownValues.end())
+		{
+			// Never registered any value before, save the current one
+			knownValues[&I].value = GV;
+		}
+		else if(it->second.everSkipped)
+		{
+			// Nothing we can do anymore
+		}
+		else if(it->second.value.IntVal != GV.IntVal)
+		{
+			// Different value observed, bailout
+			it->second.everSkipped = true;
+		}
+	}
+	void replaceKnownValues() const
+	{
+		// See if we can replace any instruction with an integer constant,
+		// we can do so if across all executions the inst was never skipped
+		// and always had the same value
+		for(const auto& kv: knownValues)
+		{
+			if(kv.second.everSkipped)
+				continue;
+			llvm::Instruction* I = kv.first;
+			llvm::Constant* CI = llvm::ConstantInt::get(I->getType(), kv.second.value.IntVal);
+			I->replaceAllUsesWith(CI);
+		}
+	}
 };
 
 void ModuleData::initFunctionData()
@@ -1358,13 +1411,13 @@ public:
 	// Do the visit of the BB, with 'from' (possibly nullptr if unknown) as predecessor
 	// Loop backs will be directed to another BBgroup
 	// The visit will return the set of reachable BBs, to be added into visitNext
-	void runVisitBasicBlock(llvm::BasicBlock& BB, std::vector<llvm::BasicBlock*>& visitNext)
+	void runVisitBasicBlock(FunctionData& data, llvm::BasicBlock& BB, std::vector<llvm::BasicBlock*>& visitNext)
 	{
 		assert(visitNext.empty());
 
 		PartialInterpreter& interpreter = data.getInterpreter();
 		interpreter.incomingBB = from;
-		BasicBlock* ret = interpreter.visitBasicBlock(BB);
+		BasicBlock* ret = interpreter.visitBasicBlock(data, BB);
 
 		if (ret)
 		{
@@ -1415,7 +1468,10 @@ public:
 		for (llvm::BasicBlock* bb : blocks)
 		{
 			for (llvm::Instruction& I : *bb)
+			{
 				interpreter.removeFromMaps(&I);
+				data.markInstSkipped(I);
+			}
 
 			for (llvm::BasicBlock* succ : successors(bb))
 				registerEdge(bb, succ);
@@ -1478,7 +1534,7 @@ public:
 		std::vector<llvm::BasicBlock*> visitNext;
 
 		// Do the actual visit for start, while populating visitNext
-		runVisitBasicBlock(*start, visitNext);
+		runVisitBasicBlock(data, *start, visitNext);
 		for (llvm::BasicBlock* succ : visitNext)
 			registerEdge(start, succ);
 
@@ -1545,7 +1601,7 @@ void FunctionData::actualVisit()
 	groupData.recursiveVisit();
 }
 
-void PartialInterpreter::visitOuter(llvm::Instruction& I)
+void PartialInterpreter::visitOuter(FunctionData& data, llvm::Instruction& I)
 {
 	if (PHINode* phi = dyn_cast<PHINode>(&I))
 	{
@@ -1594,6 +1650,7 @@ void PartialInterpreter::visitOuter(llvm::Instruction& I)
 		//Skip Instructions we don't have enough information to execute
 		if (skip)
 		{
+			data.markInstSkipped(I);
 			removeFromMaps(&I);
 			return;
 		}
@@ -1663,6 +1720,9 @@ void PartialInterpreter::visitOuter(llvm::Instruction& I)
 
 	BitMask strongBits = computeStronglyKnownBits(I.getOpcode(), I);
 
+	if(isInitialCallFrame())
+		data.registerValueForInst(I, getOperandValue(&I), strongBits);
+
 	if (!isa<CallInst>(I))
 	{
 		//Add  knownBits information
@@ -1723,6 +1783,8 @@ static bool modifyFunction(llvm::Function& F, ModuleData& moduleData)
 		return false;
 
 	FunctionData& data = moduleData.getFunctionData(F);
+
+	data.replaceKnownValues();
 
 	data.buildSetOfEdges(F);
 
