@@ -2,10 +2,10 @@
 //
 //                     Cheerp: The C++ compiler for the Web
 //
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// This file is distributed under the Apache License v2.0 with LLVM Exceptions.
+// See LICENSE.TXT for details.
 //
-// Copyright 2020 Leaning Technologies
+// Copyright 2020-2023 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
