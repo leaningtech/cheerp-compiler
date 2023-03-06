@@ -5167,6 +5167,7 @@ uint32_t CheerpWasmWriter::WasmGepWriter::compileValues(bool positiveOffsetAllow
 		p.sort(writer);
 	}
 
+	bool singlePositiveValue = true;
 	for (const GroupedValuesToAdd& p : V2)
 	{
 		const bool invertSign = (p.hasPositive() == false) && (first == false);
@@ -5175,8 +5176,13 @@ uint32_t CheerpWasmWriter::WasmGepWriter::compileValues(bool positiveOffsetAllow
 		for (const llvm::Value* v : p.valuesToAdd)
 		{
 			writer.compileOperand(code, v);
+			if (writer.needsUnsignedTruncation(v, /*asmjs*/true))
+				singlePositiveValue = false;
 			if (!is_first)
+			{
 				writer.encodeInst(WasmOpcode::I32_ADD, code);
+				singlePositiveValue = false;
+			}
 			is_first = false;
 		}
 
@@ -5185,6 +5191,7 @@ uint32_t CheerpWasmWriter::WasmGepWriter::compileValues(bool positiveOffsetAllow
 			writer.encodeInst(WasmS32Opcode::I32_CONST, p.constantPart, code);
 			if (!is_first)
 				writer.encodeInst(WasmOpcode::I32_ADD, code);
+			singlePositiveValue = false;
 			is_first = false;
 		}
 
@@ -5198,6 +5205,7 @@ uint32_t CheerpWasmWriter::WasmGepWriter::compileValues(bool positiveOffsetAllow
 				else
 					writer.encodeInst(WasmOpcode::I32_SUB, code);
 			}
+			singlePositiveValue = false;
 			is_first = false;
 		}
 
@@ -5214,6 +5222,7 @@ uint32_t CheerpWasmWriter::WasmGepWriter::compileValues(bool positiveOffsetAllow
 				writer.encodeInst(WasmS32Opcode::I32_CONST, sizeCurr, code);
 				writer.encodeInst(WasmOpcode::I32_MUL, code);
 			}
+			singlePositiveValue = false;
 		}
 
 		if(!first)
@@ -5230,7 +5239,7 @@ uint32_t CheerpWasmWriter::WasmGepWriter::compileValues(bool positiveOffsetAllow
 	assert(!first);
 
 	// We assume no access to the first 4k is legal, so a small offset can be safely encoded in the load/store
-	if(yetToBeEncodedOffset > 4096)
+	if(!singlePositiveValue && yetToBeEncodedOffset > 4096)
 	{
 		writer.encodeInst(WasmS32Opcode::I32_CONST, yetToBeEncodedOffset, code);
 		writer.encodeInst(WasmOpcode::I32_ADD, code);

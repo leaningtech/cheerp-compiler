@@ -493,16 +493,17 @@ bool CheerpBaseWriter::needsUnsignedTruncationImpl(std::unordered_map<const llvm
 		// Always 0/1
 		return false;
 	}
-	if(!v->getType()->isIntegerTy(8) && !v->getType()->isIntegerTy(16))
-		return true;
-	if(isa<ConstantInt>(v))
+	bool smallInt = v->getType()->isIntegerTy(8) || v->getType()->isIntegerTy(16);
+	if(const ConstantInt* CI = dyn_cast<ConstantInt>(v))
 	{
-		// Constants are compiled as zero extended
-		return false;
+		// Small int constants are compiled as zero extended
+		if(smallInt)
+			return false;
+		return CI->getSExtValue() < 0;
 	}
 	else if(const LoadInst* LI = dyn_cast<LoadInst>(v))
 	{
-		if (isGlobalized(LI->getOperand(0)))
+		if (!smallInt || isGlobalized(LI->getOperand(0)))
 			return true;
 		// In linear memory mode loads are unconditionally truncated
 		if(asmjs)
@@ -550,8 +551,21 @@ bool CheerpBaseWriter::needsUnsignedTruncationImpl(std::unordered_map<const llvm
 		{
 			return needsUnsignedTruncation(visited, I->getOperand(1), asmjs) || needsUnsignedTruncation(visited, I->getOperand(2), asmjs);
 		}
-		else if(I->getOpcode() == Instruction::ZExt || I->getOpcode() == Instruction::LShr)
-			return false;
+		else if(I->getOpcode() == Instruction::LShr)
+		{
+			if(smallInt)
+				return false;
+			const ConstantInt* rhs = dyn_cast<const ConstantInt>(I->getOperand(1));
+			if(!rhs)
+				return true;
+			return rhs->isNullValue();
+		}
+		else if(I->getOpcode() == Instruction::ZExt)
+		{
+			if(smallInt)
+				return false;
+			return needsUnsignedTruncation(visited, I->getOperand(0), asmjs);
+		}
 	}
 	return true;
 }
