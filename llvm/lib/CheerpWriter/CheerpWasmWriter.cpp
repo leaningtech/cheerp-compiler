@@ -4758,7 +4758,6 @@ void CheerpWasmWriter::compileCodeSection()
 		compileMethod(method, *F);
 
 		encodeULEB128(i+numberOfImportedFunctions, branchHintsSection);		//Encode the ID of the current function
-		encodeULEB128(0x0, branchHintsSection);					//Encode single 0 byte
 		std::vector<std::pair<uint32_t, bool>> branchHintsVec;
 
 		filterNop(method.buf(), [&branchHintsVec](uint32_t location, char byte)->void{
