@@ -4742,7 +4742,8 @@ void CheerpWasmWriter::compileCodeSection()
 	uint32_t count = linearHelper.functions().size();
 	count = std::min(count, COMPILE_METHOD_LIMIT);
 	encodeULEB128(count, codeSection);		//Encode the number of Wasm functions
-	encodeULEB128(count, branchHintsSection);	//Encode the number of Wasm functions
+	uint32_t countHinted = 0;
+	Chunk<128> branchHintsChunk;
 #if WASM_DUMP_METHODS
 	llvm::errs() << "method count: " << count << '\n';
 #endif
@@ -4757,7 +4758,6 @@ void CheerpWasmWriter::compileCodeSection()
 #endif
 		compileMethod(method, *F);
 
-		encodeULEB128(i+numberOfImportedFunctions, branchHintsSection);		//Encode the ID of the current function
 		std::vector<std::pair<uint32_t, bool>> branchHintsVec;
 
 		filterNop(method.buf(), [&branchHintsVec](uint32_t location, char byte)->void{
@@ -4766,12 +4766,18 @@ void CheerpWasmWriter::compileCodeSection()
 		});
 		nopLocations.clear();
 
-		encodeULEB128(branchHintsVec.size(), branchHintsSection);		//Encode number of hints (possibly 0)
-		for (auto x : branchHintsVec)
+		if (!branchHintsVec.empty())
 		{
-			encodeULEB128(x.first, branchHintsSection);			//Encode Instruction offset (in bytes, from the start of the function)
-			encodeULEB128(0x01, branchHintsSection);			//Encode length code annotation (that has to be the ULEB 1, possibly padded)
-			encodeULEB128(x.second ? 0x01 : 0x00, branchHintsSection);	//Encode direction of hint (that has to be the byte 1, with NO padding)
+			countHinted++;
+			encodeULEB128(i+numberOfImportedFunctions, branchHintsChunk);		//Encode the ID of the current function
+
+			encodeULEB128(branchHintsVec.size(), branchHintsChunk);		//Encode number of hints (possibly 0)
+			for (auto x : branchHintsVec)
+			{
+				encodeULEB128(x.first, branchHintsChunk);			//Encode Instruction offset (in bytes, from the start of the function)
+				encodeULEB128(0x01, branchHintsChunk);			//Encode length code annotation (that has to be the ULEB 1, possibly padded)
+				encodeULEB128(x.second ? 0x01 : 0x00, branchHintsChunk);	//Encode direction of hint (that has to be the byte 1, with NO padding)
+			}
 		}
 
 #if WASM_DUMP_METHOD_DATA
@@ -4784,8 +4790,10 @@ void CheerpWasmWriter::compileCodeSection()
 		if (++i == COMPILE_METHOD_LIMIT)
 			break; // TODO
 	}
+	encodeULEB128(countHinted, branchHintsSection);	//Encode the number of Wasm functions
+	branchHintsSection << branchHintsChunk.str();
 
-	if (WasmBranchHints)
+	if (WasmBranchHints && countHinted > 0)
 		branchHintsSection.encode();
 	else
 		branchHintsSection.discard();
