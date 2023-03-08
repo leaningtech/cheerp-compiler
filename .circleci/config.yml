@@ -520,6 +520,7 @@ jobs:
             cp -v usr/share/doc/cheerp-libcxx-libcxxabi/LICENSE.TXT.cheerp-libcxx.gz opt/cheerp/LICENSE.TXT.cheerp-libcxx
             cp -v usr/share/doc/cheerp-libcxx-libcxxabi/LICENSE.TXT.cheerp-libcxxabi.gz opt/cheerp/LICENSE.TXT.cheerp-libcxxabi
             cp -v usr/share/doc/cheerp-musl/COPYRIGHT.gz opt/cheerp/COPYRIGHT.musl.gz
+            cp -v usr/share/doc/cheerp-libs/LICENSE.TXT.cheerp-libs.gz opt/cheerp/LICENSE.TXT.cheerp-libs
       - run:
           name: build cheerp-libs-addon
           working_directory: ~/project/cheerp-libs-addon
@@ -777,7 +778,6 @@ jobs:
           working_dir: ~/project/macos
           command: |
             tar -C cheerp -xf ~/project/packages/cheerp-headers-and-libs-${VERSION_NO}-proprietary.tar.bz2
-            rm cheerp/COPYING
       - run:
           name: Overwrite LLVM/clang license
           working_dir: ~/project/macos
