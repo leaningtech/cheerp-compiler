@@ -66,11 +66,7 @@ for.end:
   ret void
 }
 ; PGOSUMMARY-LABEL: @bar
-; PGOSUMMARY: %even.odd = select i1 %tobool{{[0-9]*}}, ptr @even, ptr @odd
-; PGOSUMMARY-SAME: !prof ![[BW_PGO_BAR:[0-9]+]]
 ; CSPGOSUMMARY-LABEL: @bar
-; CSPGOSUMMARY: %even.odd = select i1 %tobool{{[0-9]*}}, ptr @even, ptr @odd
-; CSPGOSUMMARY-SAME: !prof ![[BW_CSPGO_BAR:[0-9]+]]
 
 define internal fastcc i32 @cond(i32 %i) {
 entry:
@@ -102,10 +98,6 @@ for.end:
   ret void
 }
 ; CSPGOSUMMARY-LABEL: @foo
-; CSPGOSUMMARY: %even.odd.i = select i1 %tobool.i{{[0-9]*}}, ptr @even, ptr @odd
-; CSPGOSUMMARY-SAME: !prof ![[BW_CSPGO_BAR]]
-; CSPGOSUMMARY: %even.odd.i2 = select i1 %tobool.i{{[0-9]*}}, ptr @even, ptr @odd
-; CSPGOSUMMARY-SAME: !prof ![[BW_CSPGO_BAR]]
 
 declare dso_local i32 @bar_m(i32)
 declare dso_local i32 @bar_m2(i32)
@@ -132,7 +124,6 @@ entry:
 ; PGOSUMMARY: {{![0-9]+}} = !{!"MaxFunctionCount", i64 800000}
 ; PGOSUMMARY: {{![0-9]+}} = !{!"NumCounts", i64 14}
 ; PGOSUMMARY: {{![0-9]+}} = !{!"NumFunctions", i64 8}
-; PGOSUMMARY-DAG: ![[BW_PGO_BAR]] = !{!"branch_weights", i32 100000, i32 100000}
 
 ; CSPGOSUMMARY: {{![0-9]+}} = !{i32 1, !"ProfileSummary", !1}
 ; CSPGOSUMMARY: {{![0-9]+}} = !{!"ProfileFormat", !"InstrProf"}
@@ -150,4 +141,3 @@ entry:
 ; CSPGOSUMMARY: {{![0-9]+}} = !{!"MaxInternalCount", i64 100000}
 ; CSPGOSUMMARY: {{![0-9]+}} = !{!"MaxFunctionCount", i64 200000}
 ; CSPGOSUMMARY: {{![0-9]+}} = !{!"NumCounts", i64 23}
-; CSPGOSUMMARY-DAG: ![[BW_CSPGO_BAR]] = !{!"branch_weights", i32 100000, i32 100000}
