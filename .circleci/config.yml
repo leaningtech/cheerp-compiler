@@ -543,7 +543,7 @@ jobs:
           steps:
             - run:
                 name: Upload memprofui.js
-                working_directory: ~/project/cheerp-libs-addon/build_asmjs
+                working_directory: ~/project/cheerp-libs-addon/
                 command: scp -P 2223 build_asmjs/memprofui.js leaningtech@136.243.170.209:/srv/web/cheerp/
       - run:
           name: Generate libs packages
