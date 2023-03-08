@@ -517,10 +517,10 @@ jobs:
             dpkg -x ~/project/packages/cheerp-musl_${VERSION_NO}-*.deb .
             dpkg -x ~/project/packages/cheerp-libcxx-libcxxabi_${VERSION_NO}-*.deb .
             dpkg -x ~/project/packages/cheerp-libs_${VERSION_NO}-*.deb .
-            cp -v usr/share/doc/cheerp-libcxx-libcxxabi/LICENSE.TXT.cheerp-libcxx.gz opt/cheerp/LICENSE.TXT.cheerp-libcxx
-            cp -v usr/share/doc/cheerp-libcxx-libcxxabi/LICENSE.TXT.cheerp-libcxxabi.gz opt/cheerp/LICENSE.TXT.cheerp-libcxxabi
+            cp -v usr/share/doc/cheerp-libcxx-libcxxabi/LICENSE.TXT.cheerp-libcxx.gz opt/cheerp/LICENSE.TXT.cheerp-libcxx.gz
+            cp -v usr/share/doc/cheerp-libcxx-libcxxabi/LICENSE.TXT.cheerp-libcxxabi.gz opt/cheerp/LICENSE.TXT.cheerp-libcxxabi.gz
             cp -v usr/share/doc/cheerp-musl/COPYRIGHT.gz opt/cheerp/COPYRIGHT.musl.gz
-            cp -v usr/share/doc/cheerp-libs/LICENSE.TXT.cheerp-libs.gz opt/cheerp/LICENSE.TXT.cheerp-libs
+            cp -v usr/share/doc/cheerp-libs/LICENSE.TXT.cheerp-libs.gz opt/cheerp/LICENSE.TXT.cheerp-libs.gz
       - run:
           name: build cheerp-libs-addon
           working_directory: ~/project/cheerp-libs-addon
