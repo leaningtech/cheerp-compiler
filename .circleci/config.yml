@@ -339,7 +339,7 @@ jobs:
           command: |
             mkdir -p ~/.ssh
             echo $GH_HOST >> ~/.ssh/known_hosts
-      - run: sudo apt-get update && sudo apt-get install -y debhelper cmake python3-distutils devscripts ninja-build clang lld python2
+      - run: sudo apt-get update && sudo apt-get install -y debhelper cmake python3-distutils devscripts ninja-build clang lld python2 python-github
       - run:
           name: Get repos
           command: |
