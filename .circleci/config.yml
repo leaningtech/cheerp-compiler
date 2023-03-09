@@ -866,7 +866,9 @@ jobs:
             - run:
                 name: Upload to Github
                 working_directory: ~/project/cheerp-internal/tools/macosx_package
-                command: python3 ../releasing/github_upload.py << pipeline.parameters.release-tag >> "Cheerp ${VERSION_NO}" cheerp-macosx-${VERSION_NO}.dmg cheerp-macosx-${VERSION_NO}.dmg
+                command: |
+                  python3 -m pip install pygithub
+                  python3 ../releasing/github_upload.py << pipeline.parameters.release-tag >> "Cheerp ${VERSION_NO}" cheerp-macosx-${VERSION_NO}.dmg cheerp-macosx-${VERSION_NO}.dmg
       - persist_to_workspace:
           root: ~/project/packages
           paths:
