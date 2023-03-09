@@ -466,13 +466,13 @@ jobs:
             dput ${PPA} ../cheerp-internal/tools/releasing/cheerp-core*_source.changes
             if [ << pipeline.parameters.release-tag >> != 'master' ]; then
               cp cheerp-llvm-clang_${VERSION_NO}.orig.tar.gz cheerp-llvm-clang-${VERSION_NO}.tar.gz
-              python ../cheerp-internal/tools/releasing/github_upload.py ${VERSION} "Cheerp ${VERSION_NO}" cheerp-llvm-clang-${VERSION_NO}.tar.gz cheerp-llvm-clang-${VERSION_NO}.tar.gz
+              python3 ../cheerp-internal/tools/releasing/github_upload.py ${VERSION} "Cheerp ${VERSION_NO}" cheerp-llvm-clang-${VERSION_NO}.tar.gz cheerp-llvm-clang-${VERSION_NO}.tar.gz
               cp cheerp-utils_${VERSION_NO}.orig.tar.gz cheerp-utils-${VERSION_NO}.tar.gz
               cp cheerp-musl_${VERSION_NO}.orig.tar.gz cheerp-musl-${VERSION_NO}.tar.gz
               cp cheerp-libs_${VERSION_NO}.orig.tar.gz cheerp-libs-${VERSION_NO}.tar.gz
-              python ../cheerp-internal/tools/releasing/github_upload.py << pipeline.parameters.release-tag >> "Cheerp ${VERSION_NO}" cheerp-utils-${VERSION_NO}.tar.gz cheerp-utils-${VERSION_NO}.tar.gz
-              python ../cheerp-internal/tools/releasing/github_upload.py << pipeline.parameters.release-tag >> "Cheerp ${VERSION_NO}" cheerp-musl-${VERSION_NO}.tar.gz cheerp-musl-${VERSION_NO}.tar.gz
-              python ../cheerp-internal/tools/releasing/github_upload.py << pipeline.parameters.release-tag >> "Cheerp ${VERSION_NO}" cheerp-libs-${VERSION_NO}.tar.gz cheerp-libs-${VERSION_NO}.tar.gz
+              python3 ../cheerp-internal/tools/releasing/github_upload.py << pipeline.parameters.release-tag >> "Cheerp ${VERSION_NO}" cheerp-utils-${VERSION_NO}.tar.gz cheerp-utils-${VERSION_NO}.tar.gz
+              python3 ../cheerp-internal/tools/releasing/github_upload.py << pipeline.parameters.release-tag >> "Cheerp ${VERSION_NO}" cheerp-musl-${VERSION_NO}.tar.gz cheerp-musl-${VERSION_NO}.tar.gz
+              python3 ../cheerp-internal/tools/releasing/github_upload.py << pipeline.parameters.release-tag >> "Cheerp ${VERSION_NO}" cheerp-libs-${VERSION_NO}.tar.gz cheerp-libs-${VERSION_NO}.tar.gz
             fi
   build-cheerp-headers-and-libs:
     docker:
@@ -866,7 +866,7 @@ jobs:
             - run:
                 name: Upload to Github
                 working_directory: ~/project/cheerp-internal/tools/macosx_package
-                command: python ../releasing/github_upload.py << pipeline.parameters.release-tag >> "Cheerp ${VERSION_NO}" cheerp-macosx-${VERSION_NO}.dmg cheerp-macosx-${VERSION_NO}.dmg
+                command: python3 ../releasing/github_upload.py << pipeline.parameters.release-tag >> "Cheerp ${VERSION_NO}" cheerp-macosx-${VERSION_NO}.dmg cheerp-macosx-${VERSION_NO}.dmg
       - persist_to_workspace:
           root: ~/project/packages
           paths:
@@ -911,7 +911,7 @@ jobs:
             - run:
                 name: Upload to Github
                 working_directory: ~/project/cheerp-internal/tools/windows_package
-                command: python ../releasing/github_upload.py << pipeline.parameters.release-tag >> "Cheerp ${VERSION_NO}" Cheerp-${VERSION_NO}-Windows.exe Cheerp-${VERSION_NO}-Windows.exe
+                command: python3 ../releasing/github_upload.py << pipeline.parameters.release-tag >> "Cheerp ${VERSION_NO}" Cheerp-${VERSION_NO}-Windows.exe Cheerp-${VERSION_NO}-Windows.exe
       - run:
           name: Create commercial package
           working_directory: ~/project/cheerp-internal/tools/windows_package
