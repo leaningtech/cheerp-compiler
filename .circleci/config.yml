@@ -886,7 +886,7 @@ jobs:
           command: |
             mkdir -p /opt/cheerp/
             cat ~/project/packages/version >> $BASH_ENV
-      - run: apt-get update && apt-get install python3-github
+      - run: apt-get update && apt-get install -y python3-github
       - run:
           name: Add known hosts
           command: |
