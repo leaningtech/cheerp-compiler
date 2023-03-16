@@ -5,6 +5,10 @@ struct s1 {
   long long f64;
 } s1;
 
+// CHECK: %struct.Inner = type { i32, i32 }
+
+// CHECK: %struct.A = type { i32, i32, i32 }
+
 // CHECK: %struct.s1 = type { i32, [4 x i8], i64 }
 
 struct s2 {
@@ -36,10 +40,6 @@ struct Inner {
 
 #pragma pack (pop)
 
-// CHECK: %struct.Inner = type { i32, i32 }
-
-// CHECK: %struct.A = type { i32, i32, i32 }
-
 #pragma pack(push, 1)
 
 union HEADER {
@@ -61,5 +61,5 @@ union HEADER {
 struct Inner variable = { 1,0,1, 21 };
 union HEADER hdr = {{1,2,3,4}};
 
-// CHECK: @variable ={{.*}} global { i8, [3 x i8], i8, i8, i8, i8 } { i8 5, [3 x i8] undef, i8 21, i8 0, i8 0, i8 0 }, align 1
-// CHECK: @hdr ={{.*}} global { { i8, i8, [2 x i8], i8, i8, i8, i8, i8, [3 x i8] } } { { i8, i8, [2 x i8], i8, i8, i8, i8, i8, [3 x i8] } { i8 8, i8 0, [2 x i8] undef, i8 2, i8 0, i8 0, i8 3, i8 4, [3 x i8] undef } }, align 1
+// CHECK: @variable ={{.*}} global %struct.Inner { i32 5, i32 21 }, align 1
+// CHECK: @hdr ={{.*}} global %union.HEADER { %struct.A { i32 8, i32 50331650, i32 4 } }, align 1

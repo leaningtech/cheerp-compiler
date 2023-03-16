@@ -281,7 +281,7 @@ namespace PR9565 {
   struct a { int a : 10, b : 10; };
   // CHECK-LABEL: define{{.*}} void @_ZN6PR95651fEv()
   void f() {
-    // CHECK: call void @llvm.memcpy
+    // CHECK: call void @llvm.memset
     a x = { 0, 0 };
     // CHECK: [[WITH_SEVENTEEN:%[.a-zA-Z0-9]+]] = or i32 [[WITHOUT_SEVENTEEN:%[.a-zA-Z0-9]+]], 17
     // CHECK: store i32 [[WITH_SEVENTEEN]], ptr [[XA:%[.a-zA-Z0-9]+]]

@@ -34,7 +34,7 @@ struct WithBitfield {
   int n;
   Bitfield b;
 };
-// CHECK: @bitfield = {{.*}} { i32 1, { i8, i8, [2 x i8] } { i8 42, i8 2, [2 x i8] undef } }
+// CHECK: @bitfield = {{.*}} { i32 1, %struct.Bitfield { i16 554, [2 x i8] undef } }
 WithBitfield bitfield = {1, (Bitfield){2, 3, 4}, .b.b = 5};
 
 struct String {
