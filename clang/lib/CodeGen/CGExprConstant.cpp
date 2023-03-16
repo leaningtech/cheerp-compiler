@@ -115,7 +115,7 @@ public:
   bool add(llvm::Constant *C, CharUnits Offset, bool AllowOverwrite);
 
   /// Update or overwrite the bits starting at \p OffsetInBits with \p Bits.
-  bool addBits(llvm::APInt Bits, uint64_t OffsetInBits, bool AllowOverwrite);
+  bool addBits(llvm::APInt Bits, uint64_t OffsetInBits, bool AllowOverwrite, uint32_t FieldWidth);
 
   /// Attempt to condense the value starting at \p Offset to a constant of type
   /// \p DesiredTy.
@@ -178,19 +178,21 @@ bool ConstantAggregateBuilder::add(llvm::Constant *C, CharUnits Offset,
 }
 
 bool ConstantAggregateBuilder::addBits(llvm::APInt Bits, uint64_t OffsetInBits,
-                              bool AllowOverwrite) {
+                              bool AllowOverwrite, uint32_t FieldWidth) {
   const ASTContext &Context = CGM.getContext();
-  const uint64_t CharWidth = CGM.getContext().getCharWidth();
+  const uint64_t CharWidth = FieldWidth;
 
   // Offset of where we want the first bit to go within the bits of the
   // current char.
   unsigned OffsetWithinChar = OffsetInBits % CharWidth;
 
+  CharUnits FieldCharUnits = Context.toCharUnitsFromBits(FieldWidth);
+
   // We split bit-fields up into individual bytes. Walk over the bytes and
   // update them.
   for (CharUnits OffsetInChars =
            Context.toCharUnitsFromBits(OffsetInBits - OffsetWithinChar);
-       /**/; ++OffsetInChars) {
+       /**/; OffsetInChars += FieldCharUnits) {
     // Number of bits we want to fill in this char.
     unsigned WantedBits =
         std::min((uint64_t)Bits.getBitWidth(), CharWidth - OffsetWithinChar);
@@ -226,7 +228,7 @@ bool ConstantAggregateBuilder::addBits(llvm::APInt Bits, uint64_t OffsetInBits,
       if (!FirstElemToUpdate)
         return false;
       llvm::Optional<size_t> LastElemToUpdate =
-          splitAt(OffsetInChars + CharUnits::One());
+          splitAt(OffsetInChars + FieldCharUnits);
       if (!LastElemToUpdate)
         return false;
       assert(*LastElemToUpdate - *FirstElemToUpdate < 2 &&
@@ -629,9 +631,6 @@ bool ConstStructBuilder::AppendBytes(CharUnits FieldOffsetInChars,
 bool ConstStructBuilder::AppendBitField(
     const FieldDecl *Field, uint64_t FieldOffset, llvm::ConstantInt *CI,
     bool AllowOverwrite) {
-  // Cheerp: The custom bitfield layout is not supported here
-  if (!CGM.getTarget().isByteAddressable())
-    return false;
   const CGRecordLayout &RL =
       CGM.getTypes().getCGRecordLayout(Field->getParent());
   const CGBitFieldInfo &Info = RL.getBitFieldInfo(Field);
@@ -650,7 +649,7 @@ bool ConstStructBuilder::AppendBitField(
 
   return Builder.addBits(FieldValue,
                          CGM.getContext().toBits(StartOffset) + FieldOffset,
-                         AllowOverwrite);
+                         AllowOverwrite, Info.StorageSize);
 }
 
 static bool EmitDesignatedInitUpdater(ConstantEmitter &Emitter,
