@@ -4403,12 +4403,11 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
     }
     const unsigned SS =
         UseVolatile ? Info.VolatileStorageSize : Info.StorageSize;
-    if (getTarget().isByteAddressable()) {
-      // Get the access type.
-      llvm::Type *FieldIntTy = llvm::Type::getIntNTy(getLLVMContext(), SS);
-      if (Addr.getElementType() != FieldIntTy)
-        Addr = Builder.CreateElementBitCast(Addr, FieldIntTy);
-    }
+    // Get the access type.
+    llvm::Type *FieldIntTy = llvm::Type::getIntNTy(getLLVMContext(), SS);
+    if (Addr.getElementType() != FieldIntTy)
+      Addr = Builder.CreateElementBitCast(Addr, FieldIntTy);
+
     if (UseVolatile) {
       const unsigned VolatileOffset = Info.VolatileStorageOffset.getQuantity();
       if (VolatileOffset)
