@@ -1644,11 +1644,6 @@ void ItaniumRecordLayoutBuilder::LayoutBitField(const FieldDecl *D) {
   unsigned FieldAlign = FieldInfo.Align;
   bool AlignIsRequired = FieldInfo.isAlignRequired();
   bool byteAddressable = Context.getTargetInfo().isByteAddressable();
-  // We always allocate at least 32-bit units for bitfields
-  if(!byteAddressable && StorageUnitSize <= 32) {
-    StorageUnitSize = 32;
-    FieldAlign = 32;
-  }
 
   // UnfilledBitsInLastUnit is the difference between the end of the
   // last allocated bitfield (i.e. the first bit offset available for
@@ -1708,7 +1703,7 @@ void ItaniumRecordLayoutBuilder::LayoutBitField(const FieldDecl *D) {
   // all types (e.g. Darwin PPC32, where alignof(long long) == 4).
 
   // First, some simple bookkeeping to perform for ms_struct structs.
-  if (IsMsStruct) {
+  if (IsMsStruct || !byteAddressable) {
     // The field alignment for integer types is always the size.
     FieldAlign = StorageUnitSize;
 
@@ -1749,14 +1744,6 @@ void ItaniumRecordLayoutBuilder::LayoutBitField(const FieldDecl *D) {
     }
   }
 
-  //Cheerp: We must fit inside the unfilled space, otherwise we need to allocate a new slot
-  // If it is safe for msstruct to wipe out these fields, it is also safe for us
-  if (!byteAddressable && FieldSize > UnfilledBitsInLastUnit)
-  {
-      UnfilledBitsInLastUnit = 0;
-      LastBitfieldStorageUnitSize = 0;
-  }
-
   // If the field is wider than its declared type, it follows
   // different rules in all cases, except on AIX.
   // On AIX, wide bitfield follows the same rules as normal bitfield.
@@ -1770,7 +1757,7 @@ void ItaniumRecordLayoutBuilder::LayoutBitField(const FieldDecl *D) {
     IsUnion ? 0 : (getDataSizeInBits() - UnfilledBitsInLastUnit);
 
   // Handle targets that don't honor bitfield type alignment.
-  if (!IsMsStruct && !Context.getTargetInfo().useBitFieldTypeAlignment()) {
+  if (!(IsMsStruct || !byteAddressable) && !Context.getTargetInfo().useBitFieldTypeAlignment()) {
     // Some such targets do honor it on zero-width bitfields.
     if (FieldSize == 0 &&
         Context.getTargetInfo().useZeroLengthBitfieldAlignment()) {
@@ -1795,7 +1782,7 @@ void ItaniumRecordLayoutBuilder::LayoutBitField(const FieldDecl *D) {
   unsigned UnpackedFieldAlign = FieldAlign;
 
   // Ignore the field alignment if the field is packed unless it has zero-size.
-  if (!IsMsStruct && FieldPacked && FieldSize != 0)
+  if (!(IsMsStruct || !byteAddressable) && FieldPacked && FieldSize != 0)
     FieldAlign = 1;
 
   // But, if there's an 'aligned' attribute on the field, honor that.
@@ -1818,7 +1805,7 @@ void ItaniumRecordLayoutBuilder::LayoutBitField(const FieldDecl *D) {
 
   // But, ms_struct just ignores all of that in unions, even explicit
   // alignment attributes.
-  if (IsMsStruct && IsUnion) {
+  if ((IsMsStruct || !byteAddressable) && IsUnion) {
     FieldAlign = UnpackedFieldAlign = 1;
   }
 
@@ -1831,7 +1818,7 @@ void ItaniumRecordLayoutBuilder::LayoutBitField(const FieldDecl *D) {
   // Check if we need to add padding to fit the bitfield within an
   // allocation unit with the right size and alignment.  The rules are
   // somewhat different here for ms_struct structs.
-  if (IsMsStruct) {
+  if ((IsMsStruct || !byteAddressable)) {
     // If it's not a zero-width bitfield, and we can fit the bitfield
     // into the active storage unit (and we haven't already decided to
     // start a new storage unit), just do so, regardless of any other
@@ -1849,10 +1836,6 @@ void ItaniumRecordLayoutBuilder::LayoutBitField(const FieldDecl *D) {
 
     // Compute the real offset.
     if (FieldSize == 0 || 
-        // This check normally deals both with re-using bitfields and re-using extra space for bitfields
-        // Cheerp: Only allow to skip alignment (and merge bitfields) if there is sufficient space in the last unit
-        // checked above
-        (!byteAddressable && UnfilledBitsInLastUnit == 0) ||
         (AllowPadding &&
          (FieldOffset & (FieldAlign - 1)) + FieldSize > StorageUnitSize)) {
       FieldOffset = llvm::alignTo(FieldOffset, FieldAlign);
@@ -1892,7 +1875,7 @@ void ItaniumRecordLayoutBuilder::LayoutBitField(const FieldDecl *D) {
 
   // Anonymous members don't affect the overall record alignment,
   // except on targets where they do.
-  if (!IsMsStruct &&
+  if (!(IsMsStruct || !byteAddressable) &&
       !Context.getTargetInfo().useZeroLengthBitfieldAlignment() &&
       !D->getIdentifier())
     FieldAlign = UnpackedFieldAlign = 1;
@@ -1922,7 +1905,7 @@ void ItaniumRecordLayoutBuilder::LayoutBitField(const FieldDecl *D) {
     // For ms_struct, allocate the entire storage unit --- unless this
     // is a zero-width bitfield, in which case just use a size of 1.
     uint64_t RoundedFieldSize;
-    if (IsMsStruct) {
+    if (IsMsStruct || !byteAddressable) {
       RoundedFieldSize = (FieldSize ? StorageUnitSize
                                     : Context.getTargetInfo().getCharWidth());
 
@@ -1935,7 +1918,7 @@ void ItaniumRecordLayoutBuilder::LayoutBitField(const FieldDecl *D) {
 
   // For non-zero-width bitfields in ms_struct structs, allocate a new
   // storage unit if necessary.
-  } else if (IsMsStruct && FieldSize) {
+  } else if ((IsMsStruct || !byteAddressable) && FieldSize) {
     // We should have cleared UnfilledBitsInLastUnit in every case
     // where we changed storage units.
     if (!UnfilledBitsInLastUnit) {
@@ -1954,9 +1937,7 @@ void ItaniumRecordLayoutBuilder::LayoutBitField(const FieldDecl *D) {
       NewSizeInBits = FieldOffset;
     if ((FieldOffset + FieldSize) > NewSizeInBits)
     {
-      // We need to bump a unit, on Cheerp units are 32bit wide
-      uint64_t BitfieldBumpUnit = byteAddressable ? Context.getTargetInfo().getCharWidth():
-                                   Context.getTargetInfo().getIntWidth();
+      uint64_t BitfieldBumpUnit = Context.getTargetInfo().getCharWidth();
       NewSizeInBits += llvm::alignTo(FieldOffset + FieldSize - NewSizeInBits, BitfieldBumpUnit);
     }
     setDataSize(NewSizeInBits);

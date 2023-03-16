@@ -106,6 +106,7 @@ struct CGRecordLowering {
   /// continuous run.
   bool isDiscreteBitFieldABI() {
     return Context.getTargetInfo().getCXXABI().isMicrosoft() ||
+           !Types.getTarget().isByteAddressable() ||
            D->isMsStruct(Context);
   }
 
@@ -498,27 +499,14 @@ CGRecordLowering::accumulateBitFields(RecordDecl::field_iterator Field,
         (!Field->isZeroLengthBitField(Context) ||
          (!Context.getTargetInfo().useZeroLengthBitfieldAlignment() &&
           !Context.getTargetInfo().useBitFieldTypeAlignment())) &&
-        Tail == getFieldBitOffset(*Field) &&
-        (Types.getTarget().isByteAddressable() || Tail % 32 != 0)) {
+        Tail == getFieldBitOffset(*Field)) {
       Tail += Field->getBitWidthValue(Context);
       ++Field;
       continue;
     }
 
     // We've hit a break-point in the run and need to emit a storage field.
-    llvm::Type *Type = NULL;
-    if (!Types.getTarget().isByteAddressable())
-    {
-      if (Tail-StartBitOffset > 32) {
-        assert(Run->getType()->isSpecificBuiltinType(BuiltinType::ULongLong) ||
-               Run->getType()->isSpecificBuiltinType(BuiltinType::LongLong));
-        Type = llvm::Type::getInt64Ty(Types.getLLVMContext());
-      } else {
-        Type = llvm::Type::getInt32Ty(Types.getLLVMContext());
-      }
-    }
-    else
-      Type = getIntNType(Tail - StartBitOffset);
+    llvm::Type *Type = getIntNType(Tail - StartBitOffset);
     // Add the storage member to the record and set the bitfield info for all of
     // the bitfields in the run.  Bitfields get the offset of their storage but
     // come afterward and remain there after a stable sort.
