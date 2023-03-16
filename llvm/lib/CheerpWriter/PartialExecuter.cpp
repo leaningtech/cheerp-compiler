@@ -221,7 +221,8 @@ public:
 				if(min == BitMask::ALL)
 					return BitMask::ALL;
 				// If both sides of the operation are based on the same global we can recover all the bits
-				if(getPointerBase(U.getOperand(0)) == getPointerBase(U.getOperand(1)))
+				GlobalValue* pointerBase0 = getPointerBase(U.getOperand(0));
+				if(pointerBase0 != nullptr && pointerBase0 == getPointerBase(U.getOperand(1)))
 					return BitMask::ALL;
 				return min;
 			}
