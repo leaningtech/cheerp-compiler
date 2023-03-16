@@ -649,7 +649,7 @@ bool ConstStructBuilder::AppendBitField(
 
   return Builder.addBits(FieldValue,
                          CGM.getContext().toBits(StartOffset) + FieldOffset,
-                         AllowOverwrite, Info.StorageSize);
+                         AllowOverwrite, llvm::isPowerOf2_32(Info.StorageSize) ? Info.StorageSize : CGM.getContext().getCharWidth());
 }
 
 static bool EmitDesignatedInitUpdater(ConstantEmitter &Emitter,
