@@ -524,6 +524,20 @@ public:
 		}
 		return true;
 	}
+	static bool isKnownConstant(Constant* C)
+	{
+		if(isa<GlobalValue>(C))
+		{
+			// These address will be different at runtime
+			return false;
+		}
+		for(uint32_t i=0;i<C->getNumOperands();i++)
+		{
+			if(!isKnownConstant(cast<Constant>(C->getOperand(i))))
+				return false;
+		}
+		return true;
+	}
 	void computeValidLoadIntervals(Module& _module)
 	{
 		// immutableLoadIntervals is populated as a first thing after PartialExecuter instantiation
@@ -540,6 +554,8 @@ public:
 			if (!isGlobalVariablePartiallyExecutable(*GV))
 				continue;
 			if (!GV->isConstant())
+				continue;
+			if (!isKnownConstant(GV->getInitializer()))
 				continue;
 
 			// This constraint is here only given that currently the ExecutionEngines assumes GlobalVariable to be named
