@@ -1567,8 +1567,10 @@ llvm::StructType* GlobalDepsAnalyzer::needsDowncastArray(llvm::StructType* t) co
 
 void GlobalDepsAnalyzer::logUndefinedSymbol(const GlobalValue* GV)
 {
-	// Only emit errors during the final compilation step
-	if(!llcPass)
+	// Only emit errors during LTO, the idea being that LTO might
+	// exploit undefined symbol as a source of information, so
+	// it's better to warn the user earlier later than later
+	if(llcPass)
 		return;
 	if(StrictLinking == "warning")
 		llvm::errs() << "warning: symbol not defined " << GV->getName() << "\n";

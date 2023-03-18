@@ -629,6 +629,15 @@ void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
     cheerpFixFuncCasts->render(Args, CmdArgs);
   if(Arg* cheerpUseBigInts = Args.getLastArg(options::OPT_cheerp_use_bigints))
     cheerpUseBigInts->render(Args, CmdArgs);
+  if(Arg* cheerpStrictLinkingEq = Args.getLastArg(options::OPT_cheerp_strict_linking_EQ)) {
+    if (cheerpStrictLinkingEq->getValue() != StringRef("warning") &&
+        cheerpStrictLinkingEq->getValue() != StringRef("error")) {
+      D.Diag(diag::err_drv_invalid_value)
+      << cheerpStrictLinkingEq->getAsString(Args) << cheerpStrictLinkingEq->getValue();
+    }
+    cheerpStrictLinkingEq->render(Args, CmdArgs);
+  }
+
 
   if(Arg* cheerpLinearOutput = Args.getLastArg(options::OPT_cheerp_linear_output_EQ))
     cheerpLinearOutput->render(Args, CmdArgs);
@@ -832,15 +841,6 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
       << cheerpMakeModuleEq->getAsString(Args) << cheerpMakeModuleEq->getValue();
     }
     cheerpMakeModuleEq->render(Args, CmdArgs);
-  }
-
-  if(Arg* cheerpStrictLinkingEq = Args.getLastArg(options::OPT_cheerp_strict_linking_EQ)) {
-    if (cheerpStrictLinkingEq->getValue() != StringRef("warning") &&
-        cheerpStrictLinkingEq->getValue() != StringRef("error")) {
-      D.Diag(diag::err_drv_invalid_value)
-      << cheerpStrictLinkingEq->getAsString(Args) << cheerpStrictLinkingEq->getValue();
-    }
-    cheerpStrictLinkingEq->render(Args, CmdArgs);
   }
 
   // Figure out which Wasm optional feature to enable/disable
