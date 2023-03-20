@@ -47,7 +47,7 @@ lpad:
 }
 
 ; Verifies that the both value_phi and value_invoke are stored correctly in the coroutine frame
-; CHECK: %f.Frame = type { void (%f.Frame*)*, void (%f.Frame*)*, i32, i32, i1 }
+; CHECK: %f.Frame = type directbase %coroFrameBase { void (%f.Frame*)*, void (%f.Frame*)*, i32, i32, i1 }
 ; CHECK-LABEL: @f(
 ; CHECK:       %alloc = call i8* @malloc(i32 32)
 ; CHECK-NEXT:  %flag = call i1 @check(i8* %alloc)

@@ -34,13 +34,25 @@
 
 using namespace llvm;
 
+StructType* coro::getBaseFrameType(LLVMContext& C) {
+  auto* FrameTy = StructType::getTypeByName(C, "coroFrameBase");
+  if (!FrameTy)
+  {
+    FrameTy = StructType::create(C, "coroFrameBase");
+    auto* ResumeFnType = FunctionType::get(Type::getVoidTy(C), FrameTy->getPointerTo(), false);
+    FrameTy->setBody(ResumeFnType->getPointerTo(), ResumeFnType->getPointerTo());
+  }
+  return FrameTy;
+}
 // Construct the lowerer base class and initialize its members.
 coro::LowererBase::LowererBase(Module &M)
     : TheModule(M), Context(M.getContext()),
       Int8Ptr(Type::getInt8PtrTy(Context)),
-      ResumeFnType(FunctionType::get(Type::getVoidTy(Context), Int8Ptr,
+      ResumeFnType(FunctionType::get(Type::getVoidTy(Context), getBaseFrameType(Context)->getPointerTo(),
                                      /*isVarArg=*/false)),
-      NullPtr(ConstantPointerNull::get(Int8Ptr)) {}
+      NullPtr(ConstantPointerNull::get(Int8Ptr))
+{
+}
 
 // Creates a sequence of instructions to obtain a resume function address using
 // llvm.coro.subfn.addr. It generates the following sequence:

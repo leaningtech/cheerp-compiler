@@ -26,7 +26,7 @@ suspend:
 }
 
 ; See if %this was added to the frame
-; CHECK: %f_direct.Frame = type { void (%f_direct.Frame*)*, void (%f_direct.Frame*)*, i64, i1 }
+; CHECK: %f_direct.Frame = type directbase %coroFrameBase { void (%f_direct.Frame*)*, void (%f_direct.Frame*)*, i64, i1 }
 
 ; See that %this is spilled into the frame
 ; CHECK-LABEL: define i8* @f_direct(i64 %this)

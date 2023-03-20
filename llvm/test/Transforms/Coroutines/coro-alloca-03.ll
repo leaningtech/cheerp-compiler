@@ -30,7 +30,7 @@ suspend:
 }
 
 ; %x needs to go to the frame since it's escaped; %y will stay as local since it doesn't escape.
-; CHECK:        %f.Frame = type { void (%f.Frame*)*, void (%f.Frame*)*, i64, i1 }
+; CHECK:        %f.Frame = type directbase %coroFrameBase { void (%f.Frame*)*, void (%f.Frame*)*, i64, i1 }
 ; CHECK-LABEL:  define i8* @f()
 ; CHECK:          %y = alloca i64, align 8
 ; CHECK:          %x.reload.addr = getelementptr inbounds %f.Frame, %f.Frame* %FramePtr, i32 0, i32 2

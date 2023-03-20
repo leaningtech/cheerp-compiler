@@ -56,7 +56,7 @@ cleanup:                                          ; preds = %wakeup, %entry
   br label %suspend
 }
 
-; CHECK:       %foo.Frame = type { void (%foo.Frame*)*, void (%foo.Frame*)*, i32, i16, i1 }
+; CHECK:       %foo.Frame = type directbase %coroFrameBase { void (%foo.Frame*)*, void (%foo.Frame*)*, i32, i16, i1 }
 
 ; CHECK-LABEL: @foo.resume(
 ; CHECK-NEXT:  entry.resume:

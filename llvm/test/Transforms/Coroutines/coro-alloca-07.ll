@@ -60,7 +60,7 @@ declare noalias i8* @malloc(i32)
 declare void @free(i8*)
 
 ; Verify that both x and y are put in the frame.
-; CHECK: %f.Frame = type { void (%f.Frame*)*, void (%f.Frame*)*, i64, i64, i8*, i1 }
+; CHECK: %f.Frame = type directbase %coroFrameBase { void (%f.Frame*)*, void (%f.Frame*)*, i64, i64, i8*, i1 }
 
 ; CHECK-LABEL: @f(
 ; CHECK-NEXT:  entry:

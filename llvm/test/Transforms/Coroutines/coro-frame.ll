@@ -34,7 +34,7 @@ pad:
 }
 
 ; See if the float was added to the frame
-; CHECK-LABEL: %f.Frame = type { void (%f.Frame*)*, void (%f.Frame*)*, double, i64, i1 }
+; CHECK-LABEL: %f.Frame = type directbase %coroFrameBase { void (%f.Frame*)*, void (%f.Frame*)*, double, i64, i1 }
 
 ; See if the float was spilled into the frame
 ; CHECK-LABEL: @f(

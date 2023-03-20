@@ -30,7 +30,7 @@ suspend:
   ret i8* %hdl
 }
 
-; CHECK:        %f.Frame = type { void (%f.Frame*)*, void (%f.Frame*)*, i64, i32*, i1 }
+; CHECK:        %f.Frame = type directbase %coroFrameBase { void (%f.Frame*)*, void (%f.Frame*)*, i64, i32*, i1 }
 ; CHECK-LABEL:  define i8* @f()
 ; CHECK:          %x.reload.addr = getelementptr inbounds %f.Frame, %f.Frame* %FramePtr, i32 0, i32 2
 ; CHECK:          %y.reload.addr = getelementptr inbounds %f.Frame, %f.Frame* %FramePtr, i32 0, i32 3

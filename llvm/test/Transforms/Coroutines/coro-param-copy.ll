@@ -47,7 +47,7 @@ suspend:
 }
 
 ; See that we added both x and y to the frame.
-; CHECK: %f.Frame = type { void (%f.Frame*)*, void (%f.Frame*)*, i64, i64, i64, i64, i1 }
+; CHECK: %f.Frame = type directbase %coroFrameBase { void (%f.Frame*)*, void (%f.Frame*)*, i64, i64, i64, i64, i1 }
 
 ; See that all of the uses prior to coro-begin stays put.
 ; CHECK-LABEL: define i8* @f() {

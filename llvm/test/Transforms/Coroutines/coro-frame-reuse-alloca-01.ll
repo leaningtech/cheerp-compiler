@@ -61,7 +61,7 @@ coro.ret:
 }
 
 ; check that there is only one %struct.big_structure in the frame.
-; CHECK: %a.Frame = type { void (%a.Frame*)*, void (%a.Frame*)*, %"struct.task::promise_type", %struct.big_structure, i1 }
+; CHECK: %a.Frame = type directbase %coroFrameBase { void (%a.Frame*)*, void (%a.Frame*)*, %"struct.task::promise_type", %struct.big_structure, i1 }
 
 declare token @llvm.coro.id(i32, i8* readnone, i8* nocapture readonly, i8*)
 declare i1 @llvm.coro.alloc(token) #3

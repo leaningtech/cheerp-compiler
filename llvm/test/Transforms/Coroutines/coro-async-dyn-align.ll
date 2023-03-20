@@ -47,7 +47,7 @@ entry:
 }
 
 
-; CHECK: %my_async_function.Frame = type { i64, [48 x i8], i64, i64, [16 x i8], i8*, i64, i8* }
+; CHECK: %my_async_function.Frame = type directbase %coroFrameBase { i64, [48 x i8], i64, i64, [16 x i8], i8*, i64, i8* }
 ; CHECK: define swiftcc void @my_async_function
 ; CHECK:  [[T0:%.*]] = getelementptr inbounds %my_async_function.Frame, %my_async_function.Frame* %FramePtr, i32 0, i32 3
 ; CHECK:  [[T1:%.*]] = ptrtoint i64* [[T0]] to i64

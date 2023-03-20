@@ -33,7 +33,7 @@ suspend:
   ret ptr %hdl
 }
 
-; CHECK-LABEL: %f.Frame = type { ptr, ptr, i32, i1, [43 x i8], %"class.task::promise_type" }
+; CHECK-LABEL: %f.Frame = type directbase %coroFrameBase { ptr, ptr, i32, i1, [43 x i8], %"class.task::promise_type" }
 
 ; CHECK-LABEL: @f(
 ; CHECK: %__promise = alloca %"class.task::promise_type"

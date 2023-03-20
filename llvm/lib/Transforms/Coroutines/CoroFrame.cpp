@@ -783,7 +783,11 @@ void FrameTypeBuilder::finish(StructType *Ty) {
     LastOffset = Offset + F.Size;
   }
 
-  Ty->setBody(FieldTypes, Packed);
+  if (FieldTypes.empty()) {
+    Ty->setBody(FieldTypes, Packed);
+  } else {
+    Ty->setBody(FieldTypes, Packed, coro::getBaseFrameType(Context));
+  }
 
 #ifndef NDEBUG
   // Check that the IR layout matches the offsets we expect.

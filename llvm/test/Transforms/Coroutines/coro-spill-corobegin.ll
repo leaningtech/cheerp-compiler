@@ -39,7 +39,7 @@ suspend:
 }
 
 ; See if the i8* for coro.begin was added to f.Frame
-; CHECK-LABEL: %f.Frame = type { void (%f.Frame*)*, void (%f.Frame*)*, i8*, i1 }
+; CHECK-LABEL: %f.Frame = type directbase %coroFrameBase { void (%f.Frame*)*, void (%f.Frame*)*, i8*, i1 }
 
 ; See if the g's coro.begin was spilled into the frame
 ; CHECK-LABEL: @f(

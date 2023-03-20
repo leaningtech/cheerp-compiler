@@ -61,7 +61,7 @@ coro.ret:
   call i1 @llvm.coro.end(i8* null, i1 false)
   ret void
 }
-; CHECK:       %a.Frame = type { void (%a.Frame*)*, void (%a.Frame*)*, %"struct.task::promise_type", %struct.big_structure, i1 }
+; CHECK:       %a.Frame = type directbase %coroFrameBase { void (%a.Frame*)*, void (%a.Frame*)*, %"struct.task::promise_type", %struct.big_structure, i1 }
 ; CHECK-LABEL: @a.resume(
 ; CHECK:         %[[A:.*]] = getelementptr inbounds %a.Frame, %a.Frame* %FramePtr, i32 0, i32 3
 ; CHECK:         %{{.*}} = bitcast %struct.big_structure* %[[A]] to %struct.big_structure.2*

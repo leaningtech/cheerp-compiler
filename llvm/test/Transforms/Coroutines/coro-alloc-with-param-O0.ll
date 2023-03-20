@@ -29,7 +29,7 @@ suspend:
 }
 
 ; See if %this was added to the frame
-; CHECK: %f_copy.Frame = type { void (%f_copy.Frame*)*, void (%f_copy.Frame*)*, i64, i1 }
+; CHECK: %f_copy.Frame = type directbase %coroFrameBase { void (%f_copy.Frame*)*, void (%f_copy.Frame*)*, i64, i1 }
 
 ; See that %this is spilled into the frame
 ; CHECK-LABEL: define i8* @f_copy(i64 %this_arg)

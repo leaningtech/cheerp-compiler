@@ -3,7 +3,7 @@
 ; RUN: opt < %s -passes='cgscc(coro-split),simplifycfg,early-cse,simplifycfg' -S | FileCheck %s
 
 ; Verifies that the both phis are stored correctly in the coroutine frame
-; CHECK: %f.Frame = type { void (%f.Frame*)*, void (%f.Frame*)*, i32, i32, i1 }
+; CHECK: %f.Frame = type directbase %coroFrameBase { void (%f.Frame*)*, void (%f.Frame*)*, i32, i32, i1 }
 
 define i8* @f(i1 %n) presplitcoroutine {
 ; CHECK-LABEL: @f(

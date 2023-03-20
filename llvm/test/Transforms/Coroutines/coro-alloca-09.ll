@@ -42,7 +42,7 @@ exit:
 }
 
 ; Verify that for both foo and bar, testval isn't put on the frame.
-; CHECK: %foo.Frame = type { void (%foo.Frame*)*, void (%foo.Frame*)*, %i8.array, i1 }
+; CHECK: %foo.Frame = type directbase %coroFrameBase { void (%foo.Frame*)*, void (%foo.Frame*)*, %i8.array, i1 }
 
 declare token @llvm.coro.id(i32, i8* readnone, i8* nocapture readonly, i8*)
 declare i1 @llvm.coro.alloc(token) #3

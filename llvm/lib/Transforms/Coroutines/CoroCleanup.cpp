@@ -32,16 +32,16 @@ static void lowerSubFn(IRBuilder<> &Builder, CoroSubFnInst *SubFn) {
   Value *FrameRaw = SubFn->getFrame();
   int Index = SubFn->getIndex();
 
-  auto *FrameTy = StructType::get(
-      SubFn->getContext(), {Builder.getInt8PtrTy(), Builder.getInt8PtrTy()});
+  auto *FrameTy = coro::getBaseFrameType(SubFn->getContext());
   PointerType *FramePtrTy = FrameTy->getPointerTo();
 
   Builder.SetInsertPoint(SubFn);
   auto *FramePtr = Builder.CreateBitCast(FrameRaw, FramePtrTy);
   auto *Gep = Builder.CreateConstInBoundsGEP2_32(FrameTy, FramePtr, 0, Index);
   auto *Load = Builder.CreateLoad(FrameTy->getElementType(Index), Gep);
+  auto* Cast = Builder.CreateBitCast(Load, Builder.getInt8PtrTy());
 
-  SubFn->replaceAllUsesWith(Load);
+  SubFn->replaceAllUsesWith(Cast);
 }
 
 bool Lowerer::lower(Function &F) {

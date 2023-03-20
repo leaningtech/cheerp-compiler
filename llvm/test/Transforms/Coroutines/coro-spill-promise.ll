@@ -33,7 +33,7 @@ suspend:
   ret i8* %hdl
 }
 
-; CHECK-LABEL: %f.Frame = type { void (%f.Frame*)*, void (%f.Frame*)*, i32, i1, [43 x i8], %"class.task::promise_type" }
+; CHECK-LABEL: %f.Frame = type directbase %coroFrameBase { void (%f.Frame*)*, void (%f.Frame*)*, i32, i1, [43 x i8], %"class.task::promise_type" }
 
 ; CHECK-LABEL: @f.resume(
 ; CHECK: %[[DATA:.+]] = getelementptr inbounds %f.Frame, %f.Frame* %FramePtr, i32 0, i32 5

@@ -22,7 +22,6 @@ namespace {
 // Created on demand if the coro-early pass has work to do.
 class Lowerer : public coro::LowererBase {
   IRBuilder<> Builder;
-  PointerType *const AnyResumeFnPtrTy;
   Constant *NoopCoro = nullptr;
 
   void lowerResumeOrDestroy(CallBase &CB, CoroSubFnInst::ResumeKind);
@@ -32,10 +31,7 @@ class Lowerer : public coro::LowererBase {
 
 public:
   Lowerer(Module &M)
-      : LowererBase(M), Builder(Context),
-        AnyResumeFnPtrTy(FunctionType::get(Type::getVoidTy(Context), Int8Ptr,
-                                           /*isVarArg=*/false)
-                             ->getPointerTo()) {}
+      : LowererBase(M), Builder(Context) {}
   void lowerEarlyIntrinsics(Function &F);
 };
 }
@@ -48,7 +44,10 @@ void Lowerer::lowerResumeOrDestroy(CallBase &CB,
                                    CoroSubFnInst::ResumeKind Index) {
   Value *ResumeAddr = makeSubFnCall(CB.getArgOperand(0), Index, &CB);
   CB.setCalledOperand(ResumeAddr);
+  auto* Cast = BitCastInst::CreateBitOrPointerCast(CB.getArgOperand(0), coro::getBaseFrameType(CB.getContext())->getPointerTo(), "cast", &CB);
+  CB.setArgOperand(0, Cast);
   CB.setCallingConv(CallingConv::Fast);
+  CB.mutateFunctionType(ResumeFnType);
 }
 
 // Coroutine promise field is always at the fixed offset from the beginning of
@@ -63,6 +62,7 @@ void Lowerer::lowerCoroPromise(CoroPromiseInst *Intrin) {
   Align Alignment = Intrin->getAlignment();
   Type *Int8Ty = Builder.getInt8Ty();
 
+  auto* AnyResumeFnPtrTy = ResumeFnType->getPointerTo();
   auto *SampleStruct =
       StructType::get(Context, {AnyResumeFnPtrTy, AnyResumeFnPtrTy, Int8Ty});
   const DataLayout &DL = TheModule.getDataLayout();

@@ -40,7 +40,7 @@ suspend:
 }
 
 ; both %x and %y, as well as %alias_phi would all go to the frame.
-; CHECK:       %f.Frame = type { void (%f.Frame*)*, void (%f.Frame*)*, i64, i64, i32*, i1 }
+; CHECK:       %f.Frame = type directbase %coroFrameBase { void (%f.Frame*)*, void (%f.Frame*)*, i64, i64, i32*, i1 }
 ; CHECK-LABEL: @f(
 ; CHECK:         %x.reload.addr = getelementptr inbounds %f.Frame, %f.Frame* %FramePtr, i32 0, i32 2
 ; CHECK:         %y.reload.addr = getelementptr inbounds %f.Frame, %f.Frame* %FramePtr, i32 0, i32 3

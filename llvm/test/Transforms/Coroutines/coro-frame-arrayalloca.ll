@@ -35,7 +35,7 @@ suspend:
 }
 
 ; See if the array alloca was stored as an array field.
-; CHECK-LABEL: %f.Frame = type { void (%f.Frame*)*, void (%f.Frame*)*, double, double, [4 x i32], i1 }
+; CHECK-LABEL: %f.Frame = type directbase %coroFrameBase { void (%f.Frame*)*, void (%f.Frame*)*, double, double, [4 x i32], i1 }
 
 ; See if we used correct index to access prefix, data, suffix (@f)
 ; CHECK-LABEL: @f(

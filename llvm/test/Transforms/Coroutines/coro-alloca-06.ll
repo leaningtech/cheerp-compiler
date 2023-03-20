@@ -45,7 +45,7 @@ suspend:
   ret i8* %hdl
 }
 
-; CHECK:        %f.Frame = type { void (%f.Frame*)*, void (%f.Frame*)*, i1 }
+; CHECK:        %f.Frame = type directbase %coroFrameBase { void (%f.Frame*)*, void (%f.Frame*)*, i1 }
 ; CHECK-LABEL: @f(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[TMP0:%.*]] = alloca [[HANDLE:%.*]], align 8

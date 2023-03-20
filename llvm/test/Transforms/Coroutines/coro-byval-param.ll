@@ -60,7 +60,7 @@ coro.ret:                                         ; preds = %coro.free, %cleanup
 }
 
 ; check that the frame contains the entire struct, instead of just the struct pointer
-; CHECK: %foo.Frame = type { void (%foo.Frame*)*, void (%foo.Frame*)*, %promise_type, %struct.A, i1 }
+; CHECK: %foo.Frame = type directbase %coroFrameBase { void (%foo.Frame*)*, void (%foo.Frame*)*, %promise_type, %struct.A, i1 }
 
 ; Function Attrs: argmemonly nounwind readonly
 declare token @llvm.coro.id(i32, i8* readnone, i8* nocapture readonly, i8*) #1

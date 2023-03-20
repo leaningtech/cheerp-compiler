@@ -31,7 +31,7 @@ suspend:
 }
 
 ; See if the padding was inserted before PackedStruct
-; CHECK-LABEL: %f.Frame = type { void (%f.Frame*)*, void (%f.Frame*)*, i1, [15 x i8], %PackedStruct }
+; CHECK-LABEL: %f.Frame = type directbase %coroFrameBase { void (%f.Frame*)*, void (%f.Frame*)*, i1, [15 x i8], %PackedStruct }
 
 ; See if we used correct index to access packed struct (padding is field 3)
 ; CHECK-LABEL: @f(
