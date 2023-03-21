@@ -664,10 +664,12 @@ bool TypeSupport::getBasesInfo(const Module& module, const StructType* t, uint32
 	MDNode* basesMeta=basesNamedMeta->getOperand(0);
 	assert(basesMeta->getNumOperands()>=1);
 	firstBase=getIntFromValue(cast<ConstantAsMetadata>(basesMeta->getOperand(0))->getValue());
-	baseCount = 0;
-
 	assert(firstBase < t->getNumElements());
-	baseCount = t->getNumElements()-firstBase;
+	if (basesMeta->getNumOperands() >=2)
+		baseCount=getIntFromValue(cast<ConstantAsMetadata>(basesMeta->getOperand(1))->getValue());
+	else
+		baseCount = t->getNumElements()-firstBase;
+
 	return true;
 }
 

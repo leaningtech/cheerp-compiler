@@ -1199,6 +1199,7 @@ static StructType *buildFrameType(Function &F, coro::Shape &Shape,
   }
 
   B.finish(FrameTy);
+
   FrameData.updateLayoutIndex(B);
   Shape.FrameAlign = B.getStructAlign();
   Shape.FrameSize = B.getStructSize();
@@ -1530,6 +1531,35 @@ static void createFramePtr(coro::Shape &Shape) {
   PointerType *FramePtrTy = FrameTy->getPointerTo();
   Shape.FramePtr =
       cast<Instruction>(Builder.CreateBitCast(CB, FramePtrTy, "FramePtr"));
+
+  Module* M = CB->getParent()->getParent()->getParent();
+  const DataLayout& DL = M->getDataLayout();
+  LLVMContext& C = M->getContext();
+  if (!DL.isByteAddressable()) {
+    // CHEERP: do a no-op downcast to the object itself, just to mark it as 
+    // needing the downcast array.
+    // The real downcast that we need is done in CoroEarly when lowering
+    // coro.promise(), but there we don't have the full type for the Frame yet.
+    Type* types[] = { FramePtrTy, FramePtrTy };
+    Function* intrinsic = Intrinsic::getDeclaration(M,
+                            Intrinsic::cheerp_downcast, types);
+
+    ConstantInt* Adj = ConstantInt::get(Builder.getInt32Ty(), 0);
+    CallBase* DC = Builder.CreateCall(intrinsic, {Shape.FramePtr, Adj});
+    DC->addParamAttr(0, Attribute::get(Builder.getContext(), Attribute::ElementType, FrameTy));
+    Shape.FramePtr = DC;
+
+    // CHEERP: Add bases metadata to the Frame type, and consider the promise
+    // field as a secondary base.
+    // This allows cheerp_downcast to get one object from the other.
+    Metadata* basesRange[] = {
+      ConstantAsMetadata::get(ConstantInt::get(Type::getInt32Ty(C), 2)),
+      ConstantAsMetadata::get(ConstantInt::get(Type::getInt32Ty(C), 1))
+    };
+    MDNode* meta = llvm::MDNode::get(C, basesRange);
+    NamedMDNode* basesMeta = M->getOrInsertNamedMetadata((FrameTy->getName() + "_bases").str());
+    basesMeta->addOperand(meta);
+  }
 }
 
 // Replace all alloca and SSA values that are accessed across suspend points

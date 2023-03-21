@@ -72,8 +72,26 @@ void Lowerer::lowerCoroPromise(CoroPromiseInst *Intrin) {
     Offset = -Offset;
 
   Builder.SetInsertPoint(Intrin);
-  Value *Replacement =
-      Builder.CreateConstInBoundsGEP1_32(Int8Ty, Operand, Offset);
+  Value *Replacement = nullptr;
+  if (DL.isByteAddressable())
+  {
+    Replacement = Builder.CreateConstInBoundsGEP1_32(Int8Ty, Operand, Offset);
+  }
+  else
+  {
+    // CHEERP: use a cheerp_downcast instead of a GEP on raw bytes.
+    // Since we don't know the concrete type of the Frame object yet,
+    // we use i8* here. In CoroFrame we will do a no-op downcast with the
+    // Frame type, to signal to the backend that it needs the downcast array.
+    Type* types[] = { Builder.getInt8PtrTy(), Builder.getInt8PtrTy() };
+    Function* intrinsic = Intrinsic::getDeclaration(&TheModule,
+                            Intrinsic::cheerp_downcast, types);
+
+    ConstantInt* Adj = ConstantInt::get(Builder.getInt32Ty(), Intrin->isFromPromise() ? 1 : -1);
+    CallBase* CB = Builder.CreateCall(intrinsic, {Operand, Adj});
+    CB->addParamAttr(0, Attribute::get(Context, Attribute::ElementType, Builder.getInt8Ty()));
+    Replacement = CB;
+  }
 
   Intrin->replaceAllUsesWith(Replacement);
   Intrin->eraseFromParent();
