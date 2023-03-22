@@ -48,6 +48,8 @@ def int_cheerp_reallocate  : Intrinsic<[llvm_anyptr_ty],
                              [llvm_anyptr_ty,llvm_i32_ty]>;
 def int_cheerp_deallocate  : Intrinsic<[],
                              [llvm_anyptr_ty]>;
+def int_cheerp_coro_alloc  : Intrinsic<[llvm_ptr_ty],
+                             [llvm_i32_ty]>;
 
 // Access to pointer components
 def int_cheerp_pointer_base : Intrinsic<[llvm_anyptr_ty],

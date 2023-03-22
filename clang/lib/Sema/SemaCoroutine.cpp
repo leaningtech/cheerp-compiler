@@ -19,6 +19,8 @@
 #include "clang/AST/ExprCXX.h"
 #include "clang/AST/StmtCXX.h"
 #include "clang/Basic/Builtins.h"
+#include "clang/Basic/TargetBuiltins.h"
+#include "clang/Basic/TargetInfo.h"
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Sema/Initialization.h"
 #include "clang/Sema/Overload.h"
@@ -1515,24 +1517,32 @@ bool CoroutineStmtBuilder::makeNewAndDeleteExpr() {
                          .get();
   }
 
-  // Make new call.
-  ExprResult NewRef =
-      S.BuildDeclRefExpr(OperatorNew, OperatorNew->getType(), VK_LValue, Loc);
-  if (NewRef.isInvalid())
-    return false;
+  ExprResult NewExpr;
+  bool asmjs = FD.hasAttr<AsmJSAttr>();
+  if (!asmjs && S.Context.getTargetInfo().getTriple().getArch() == llvm::Triple::cheerp) {
+    NewExpr = S.BuildBuiltinCallExpr(Loc, (Builtin::ID)Cheerp::BI__builtin_cheerp_coro_alloc, {FrameSize});
+    if (NewExpr.isInvalid())
+      return false;
+  } else {
+    // Make new call.
+    ExprResult NewRef =
+        S.BuildDeclRefExpr(OperatorNew, OperatorNew->getType(), VK_LValue, Loc);
+    if (NewRef.isInvalid())
+      return false;
 
-  SmallVector<Expr *, 2> NewArgs(1, FrameSize);
-  if (S.getLangOpts().CoroAlignedAllocation && PassAlignment)
-    NewArgs.push_back(FrameAlignment);
+    SmallVector<Expr *, 2> NewArgs(1, FrameSize);
+    if (S.getLangOpts().CoroAlignedAllocation && PassAlignment)
+      NewArgs.push_back(FrameAlignment);
 
-  if (OperatorNew->getNumParams() > NewArgs.size())
-    llvm::append_range(NewArgs, PlacementArgs);
+    if (OperatorNew->getNumParams() > NewArgs.size())
+      llvm::append_range(NewArgs, PlacementArgs);
 
-  ExprResult NewExpr =
-      S.BuildCallExpr(S.getCurScope(), NewRef.get(), Loc, NewArgs, Loc);
-  NewExpr = S.ActOnFinishFullExpr(NewExpr.get(), /*DiscardedValue*/ false);
-  if (NewExpr.isInvalid())
-    return false;
+    NewExpr =
+        S.BuildCallExpr(S.getCurScope(), NewRef.get(), Loc, NewArgs, Loc);
+    NewExpr = S.ActOnFinishFullExpr(NewExpr.get(), /*DiscardedValue*/ false);
+    if (NewExpr.isInvalid())
+      return false;
+  }
 
   // Make delete call.
 

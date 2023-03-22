@@ -1559,6 +1559,21 @@ static void createFramePtr(coro::Shape &Shape) {
     MDNode* meta = llvm::MDNode::get(C, basesRange);
     NamedMDNode* basesMeta = M->getOrInsertNamedMetadata((FrameTy->getName() + "_bases").str());
     basesMeta->addOperand(meta);
+
+    if (Shape.CheerpCoroAlloc) {
+      // CHEERP: Replace cheerp_coro_alloc with cheerp_allocate, now that we know the
+      // final frame type
+      Type* allocate_types[] = { FramePtrTy, FramePtrTy };
+      Function* allocate = Intrinsic::getDeclaration(M,
+                              Intrinsic::cheerp_allocate, allocate_types);
+
+      Builder.SetInsertPoint(Shape.CheerpCoroAlloc);
+      CallBase* Alloc = Builder.CreateCall(allocate, { ConstantPointerNull::get(FramePtrTy), Shape.CheerpCoroAlloc->getOperand(0)});
+      Alloc->addParamAttr(0, llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, FrameTy));
+      Value* BC = Builder.CreateBitCast(Alloc, Builder.getInt8PtrTy());
+      Shape.CheerpCoroAlloc->replaceAllUsesWith(BC);
+      Shape.CheerpCoroAlloc->eraseFromParent();
+    }
   }
 }
 

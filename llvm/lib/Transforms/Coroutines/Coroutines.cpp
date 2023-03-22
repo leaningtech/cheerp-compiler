@@ -167,6 +167,8 @@ static void clear(coro::Shape &Shape) {
   Shape.FrameTy = nullptr;
   Shape.FramePtr = nullptr;
   Shape.AllocaSpillBlock = nullptr;
+
+  Shape.CheerpCoroAlloc = nullptr;
 }
 
 static CoroSaveInst *createCoroSave(CoroBeginInst *CoroBegin,
@@ -270,6 +272,9 @@ void coro::Shape::buildFrom(Function &F) {
             std::swap(CoroEnds.front(), CoroEnds.back());
           }
         }
+        break;
+      case Intrinsic::cheerp_coro_alloc:
+        CheerpCoroAlloc = II;
         break;
       }
     }

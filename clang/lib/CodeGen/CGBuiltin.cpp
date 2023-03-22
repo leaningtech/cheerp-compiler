@@ -12514,6 +12514,10 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
     Function *F = CGM.getIntrinsic(Intrinsic::stackrestore);
     return Builder.CreateCall(F, Ops);
   }
+  else if (BuiltinID == Cheerp::BI__builtin_cheerp_coro_alloc) {
+    Function *F = CGM.getIntrinsic(Intrinsic::cheerp_coro_alloc);
+    return EmitCallOrInvoke(F, Ops);
+  }
   else if (BuiltinID == Cheerp::BI__builtin_cheerp_throw) {
     llvm::Type *Tys[] = { Ops[0]->getType() };
     Function *F = CGM.getIntrinsic(Intrinsic::cheerp_throw, Tys);
