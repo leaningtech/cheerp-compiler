@@ -110,8 +110,8 @@ private:
 	uint32_t heapSize;
 
 	// If true, the Wasm file is loaded using a JavaScript loader. This allows
-	// FFI calls to methods outside of the Wasm file. When false, write
-	// opcode 'unreachable' for calls to unknown functions.
+	// FFI calls to methods outside of the Wasm file. When false, treat functions
+	// without a definition as imports.
 	bool useWasmLoader;
 
 	// If true, embed a custom section called 'name' in binary wasm that maps
@@ -373,7 +373,6 @@ private:
 	void compileTableSection();
 	void compileMemoryAndGlobalSection();
 	void compileExportSection();
-	void compileStartSection();
 	void compileElementSection();
 	void compileCodeSection();
 	void compileDataSection();

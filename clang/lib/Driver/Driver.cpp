@@ -688,7 +688,8 @@ static llvm::Triple computeTargetTriple(const Driver &D,
 
   if (Target.getArch() == llvm::Triple::cheerp)
   {
-    Target.setOS(llvm::Triple::WebBrowser);
+    if (Target.getOS() == llvm::Triple::UnknownOS)
+      Target.setOS(llvm::Triple::WebBrowser);
     if (Target.getVendor() == llvm::Triple::UnknownVendor)
       Target.setVendor(llvm::Triple::Leaningtech);
     if (Target.getEnvironment() == llvm::Triple::UnknownEnvironment)
@@ -6013,6 +6014,7 @@ const ToolChain &Driver::getToolChain(const ArgList &Args,
       TC = std::make_unique<toolchains::HLSLToolChain>(*this, Target, Args);
       break;
     case llvm::Triple::WebBrowser:
+    case llvm::Triple::Standalone:
       TC = std::make_unique<toolchains::Cheerp>(*this, Target, Args);
       break;
     default:

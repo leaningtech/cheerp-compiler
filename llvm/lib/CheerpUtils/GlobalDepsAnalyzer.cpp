@@ -38,11 +38,11 @@ using namespace std;
 
 const char* wasmNullptrName = "__wasm_nullptr";
 
-GlobalDepsAnalyzer::GlobalDepsAnalyzer(MATH_MODE mathMode_, bool llcPass, bool wasmStart)
+GlobalDepsAnalyzer::GlobalDepsAnalyzer(MATH_MODE mathMode_, bool llcPass)
 	: hasBuiltin{{false}}, mathMode(mathMode_), DL(NULL),
 	  entryPoint(NULL), hasCreateClosureUsers(false), hasVAArgs(false),
 	  hasPointerArrays(false), hasAsmJSCode(false), hasAsmJSMemory(false), hasAsmJSMalloc(false),
-	  hasCheerpException(false), mayNeedAsmJSFree(false), llcPass(llcPass), wasmStart(wasmStart),
+	  hasCheerpException(false), mayNeedAsmJSFree(false), llcPass(llcPass),
 	  hasUndefinedSymbolErrors(false), forceTypedArrays(false)
 {
 }

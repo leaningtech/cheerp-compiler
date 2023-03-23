@@ -34,7 +34,6 @@ struct LinearMemoryHelperInitializer
 	FunctionAddressMode mode;
 	uint32_t memorySize;
 	uint32_t stackSize;
-	bool wasmOnly;
 	bool growMem;
 };
 
@@ -177,7 +176,7 @@ public:
 		mode(data.mode), functionTables(3, FunctionSignatureHash(/*isStrict*/false), FunctionSignatureCmp(/*isStrict*/false)),
 		functionTypeIndices(3, FunctionSignatureHash(/*isStrict*/false), FunctionSignatureCmp(/*isStrict*/false)),
 		maxFunctionId(0), memorySize(data.memorySize*1024*1024),
-		stackSize(data.stackSize*1024*1024), wasmOnly(data.wasmOnly), growMem(data.growMem)
+		stackSize(data.stackSize*1024*1024), growMem(data.growMem)
 	{
 	}
 	bool runOnModule(llvm::Module& module, GlobalDepsAnalyzer* GDA)
@@ -385,8 +384,6 @@ private:
 	uint32_t stackSize;
 	// Stack start (it grows downwards)
 	uint32_t stackStart;
-	// We are producing a standalone wasm module
-	bool wasmOnly;
 	// Whether memory can grow at runtime or not
 	bool growMem;
 	llvm::ModuleAnalysisManager* MAM;

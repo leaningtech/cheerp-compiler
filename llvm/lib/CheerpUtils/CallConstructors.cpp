@@ -16,6 +16,7 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/ADT/Triple.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 
@@ -33,6 +34,9 @@ PreservedAnalyses CallConstructorsPass::run(llvm::Module &M, llvm::ModuleAnalysi
 	if (!Ctors->empty())
 		return PreservedAnalyses::all();
 
+	bool Standalone = Triple(M.getTargetTriple()).getOS() == Triple::Standalone;
+	if (Standalone)
+		Ctors->setSection("asmjs");
 	BasicBlock* Entry = BasicBlock::Create(M.getContext(),"entry", Ctors);
 	IRBuilder<> Builder(Entry);
 

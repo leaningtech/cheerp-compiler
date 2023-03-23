@@ -4231,8 +4231,6 @@ void CheerpWasmWriter::compileTypeSection()
 
 void CheerpWasmWriter::compileImport(WasmBuffer& code, StringRef funcName, FunctionType* fTy)
 {
-	assert(useWasmLoader);
-
 	std::string fieldName(funcName);
 
 	// Encode the module name.
@@ -4267,7 +4265,7 @@ void CheerpWasmWriter::compileImportSection()
 
 	numberOfImportedFunctions = importedTotal;
 
-	if (importedTotal == 0 || !useWasmLoader)
+	if (importedTotal == 0)
 		return;
 
 	Section section(0x02, "Import", this);
@@ -4276,7 +4274,10 @@ void CheerpWasmWriter::compileImportSection()
 	encodeULEB128(importedTotal, section);
 
 	for (const Function* F : globalDeps.asmJSImports())
-		compileImport(section, namegen.getName(F), F->getFunctionType());
+	{
+		StringRef name = useWasmLoader ? namegen.getName(F) : F->getName();
+		compileImport(section, name, F->getFunctionType());
+	}
 
 	Type* f64 = Type::getDoubleTy(module.getContext());
 	Type* i32 = Type::getInt32Ty(module.getContext());
@@ -4640,7 +4641,7 @@ void CheerpWasmWriter::compileExportSection()
 	encodeULEB128(exports.size() + extraExports, section);
 
 	// Encode the memory.
-	StringRef name = namegen.getBuiltinName(NameGenerator::MEMORY);
+	StringRef name = useWasmLoader? namegen.getBuiltinName(NameGenerator::MEMORY) : "mem";
 	encodeULEB128(name.size(), section);
 	section.write(name.data(), name.size());
 	encodeULEB128(0x02, section);
@@ -4658,7 +4659,7 @@ void CheerpWasmWriter::compileExportSection()
 
 	for (const llvm::Function* F : exports) {
 		// Encode the method name.
-		name = namegen.getName(F);
+		StringRef name = useWasmLoader? namegen.getName(F) : F->getName();
 
 		encodeULEB128(name.size(), section);
 		section.write(name.data(), name.size());
@@ -4668,31 +4669,6 @@ void CheerpWasmWriter::compileExportSection()
 		encodeULEB128(0x00, section);
 		encodeULEB128(linearHelper.getFunctionIds().find(F)->second, section);
 	}
-
-	section.encode();
-}
-
-void CheerpWasmWriter::compileStartSection()
-{
-	// It's not possible to run constructors that depend on asmjs / generic js
-	// code, since the heap can only be accessed after the module has been
-	// initialised. Therefore, we disable the start section when a wasm loader
-	// is generated.
-	if (useWasmLoader)
-		return;
-
-	// Experimental entry point for wasm code
-	llvm::Function* entry = module.getFunction("_start");
-	if(!entry)
-		return;
-
-	uint32_t functionId = linearHelper.getFunctionIds().at(entry);
-	if (functionId >= COMPILE_METHOD_LIMIT)
-		return;
-
-	Section section(0x08, "Start", this);
-
-	encodeULEB128(functionId, section);
 
 	section.encode();
 }
@@ -4965,8 +4941,6 @@ void CheerpWasmWriter::compileModule()
 	compileMemoryAndGlobalSection();
 
 	compileExportSection();
-
-	compileStartSection();
 
 	compileElementSection();
 

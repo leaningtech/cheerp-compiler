@@ -516,7 +516,6 @@ void LinearMemoryHelper::addFunctions()
 
 	// Add the asm.js imports to the function type list. The non-imported
 	// asm.js functions will be added below.
-	if (!wasmOnly) {
 #define ADD_FUNCTION_TYPE(fTy) \
 if (!functionTypeIndices.count(fTy)) { \
 	uint32_t idx = functionTypeIndices.size(); \
@@ -526,46 +525,45 @@ if (!functionTypeIndices.count(fTy)) { \
 }
 #define ADD_BUILTIN(x, sig) if(globalDeps->needsBuiltin(BuiltinInstr::BUILTIN::x)) { needs_ ## sig = true; builtinIds[BuiltinInstr::x] = maxFunctionId++; }
 
-		for (const Function* F : globalDeps->asmJSImports()) {
-			const FunctionType* fTy = F->getFunctionType();
-			ADD_FUNCTION_TYPE(fTy);
-			functionIds.insert(std::make_pair(F, maxFunctionId++));
-		}
-		if(!NoNativeJavaScriptMath && mode == FunctionAddressMode::Wasm)
-		{
-			// Synthetize the function type for float/double builtins
-			Type* f64 = Type::getDoubleTy(module->getContext());
-			Type* f64_1[] = { f64 };
-			Type* f64_2[] = { f64, f64 };
-			FunctionType* f64_f64_1 = FunctionType::get(f64, f64_1, false);
-			FunctionType* f64_f64_2 = FunctionType::get(f64, f64_2, false);
-			bool needs_f64_f64_1 = false;
-			bool needs_f64_f64_2 = false;
-			ADD_BUILTIN(ACOS_F, f64_f64_1);
-			ADD_BUILTIN(ASIN_F, f64_f64_1);
-			ADD_BUILTIN(ATAN_F, f64_f64_1);
-			ADD_BUILTIN(ATAN2_F, f64_f64_2);
-			ADD_BUILTIN(COS_F, f64_f64_1);
-			ADD_BUILTIN(EXP_F, f64_f64_1);
-			ADD_BUILTIN(LOG_F, f64_f64_1);
-			ADD_BUILTIN(POW_F, f64_f64_2);
-			ADD_BUILTIN(SIN_F, f64_f64_1);
-			ADD_BUILTIN(TAN_F, f64_f64_1);
-			if(needs_f64_f64_1)
-				ADD_FUNCTION_TYPE(f64_f64_1);
-			if(needs_f64_f64_2)
-				ADD_FUNCTION_TYPE(f64_f64_2);
-		}
-		Type* i32 = Type::getInt32Ty(module->getContext());
-		Type* i32_1[] = { i32 };
-		FunctionType* i32_i32_1 = FunctionType::get(i32, i32_1, false);
-		bool needs_i32_i32_1 = false;
-		ADD_BUILTIN(GROW_MEM, i32_i32_1);
-		if(needs_i32_i32_1)
-			ADD_FUNCTION_TYPE(i32_i32_1);
+	for (const Function* F : globalDeps->asmJSImports()) {
+		const FunctionType* fTy = F->getFunctionType();
+		ADD_FUNCTION_TYPE(fTy);
+		functionIds.insert(std::make_pair(F, maxFunctionId++));
+	}
+	if(!NoNativeJavaScriptMath && mode == FunctionAddressMode::Wasm)
+	{
+		// Synthetize the function type for float/double builtins
+		Type* f64 = Type::getDoubleTy(module->getContext());
+		Type* f64_1[] = { f64 };
+		Type* f64_2[] = { f64, f64 };
+		FunctionType* f64_f64_1 = FunctionType::get(f64, f64_1, false);
+		FunctionType* f64_f64_2 = FunctionType::get(f64, f64_2, false);
+		bool needs_f64_f64_1 = false;
+		bool needs_f64_f64_2 = false;
+		ADD_BUILTIN(ACOS_F, f64_f64_1);
+		ADD_BUILTIN(ASIN_F, f64_f64_1);
+		ADD_BUILTIN(ATAN_F, f64_f64_1);
+		ADD_BUILTIN(ATAN2_F, f64_f64_2);
+		ADD_BUILTIN(COS_F, f64_f64_1);
+		ADD_BUILTIN(EXP_F, f64_f64_1);
+		ADD_BUILTIN(LOG_F, f64_f64_1);
+		ADD_BUILTIN(POW_F, f64_f64_2);
+		ADD_BUILTIN(SIN_F, f64_f64_1);
+		ADD_BUILTIN(TAN_F, f64_f64_1);
+		if(needs_f64_f64_1)
+			ADD_FUNCTION_TYPE(f64_f64_1);
+		if(needs_f64_f64_2)
+			ADD_FUNCTION_TYPE(f64_f64_2);
+	}
+	Type* i32 = Type::getInt32Ty(module->getContext());
+	Type* i32_1[] = { i32 };
+	FunctionType* i32_i32_1 = FunctionType::get(i32, i32_1, false);
+	bool needs_i32_i32_1 = false;
+	ADD_BUILTIN(GROW_MEM, i32_i32_1);
+	if(needs_i32_i32_1)
+		ADD_FUNCTION_TYPE(i32_i32_1);
 #undef ADD_BUILTIN
 #undef ADD_FUNCTION_TYPE
-	}
 
 	// Check if the __genericjs__free function is present. If so, consider
 	// "free()" as if its address is taken

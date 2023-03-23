@@ -142,7 +142,7 @@ bool CheerpWritePass::runOnModule(Module& M)
   }
 
   MPM.addPass(cheerp::FreeAndDeleteRemovalPass());
-  MPM.addPass(cheerp::GlobalDepsAnalyzerPass(mathMode, /*resolveAliases*/true, WasmOnly));
+  MPM.addPass(cheerp::GlobalDepsAnalyzerPass(mathMode, /*resolveAliases*/true));
   MPM.addPass(cheerp::AllocaLoweringPass());
   MPM.addPass(cheerp::InvokeWrappingPass());
   MPM.addPass(cheerp::FFIWrappingPass());
@@ -155,7 +155,7 @@ bool CheerpWritePass::runOnModule(Module& M)
   // inside not used instructions which are then not rendered.
   MPM.addPass(createModuleToFunctionPassAdaptor(cheerp::PreserveCheerpAnalysisPassWrapper<DCEPass, Function, FunctionAnalysisManager>()));
   MPM.addPass(cheerp::RegisterizePass(!NoJavaScriptMathFround, LinearOutput == Wasm));
-  MPM.addPass(cheerp::LinearMemoryHelperPass(cheerp::LinearMemoryHelperInitializer({functionAddressMode, CheerpHeapSize, CheerpStackSize, WasmOnly, growMem})));
+  MPM.addPass(cheerp::LinearMemoryHelperPass(cheerp::LinearMemoryHelperInitializer({functionAddressMode, CheerpHeapSize, CheerpStackSize, growMem})));
   MPM.addPass(cheerp::ConstantExprLoweringPass());
   MPM.addPass(cheerp::PointerAnalyzerPass());
   MPM.addPass(cheerp::DelayInstsPass());
@@ -211,6 +211,8 @@ PreservedAnalyses cheerp::CheerpWritePassImpl::run(Module& M, ModuleAnalysisMana
   cheerp::reportRegisterizeStatistics();
 #endif
 
+  Triple TargetTriple(M.getTargetTriple());
+  bool WasmOnly = TargetTriple.getOS() == Triple::Standalone;
   std::error_code ErrorCode;
   llvm::ToolOutputFile secondaryFile(SecondaryOutputFile, ErrorCode, sys::fs::OF_None);
   std::unique_ptr<llvm::formatted_raw_ostream> secondaryOut;

@@ -22,8 +22,6 @@ llvm::cl::opt<std::string> SourceMapPrefix("cheerp-sourcemap-prefix", llvm::cl::
 
 llvm::cl::opt<std::string> MakeModule("cheerp-make-module", llvm::cl::Optional, llvm::cl::desc("Create a [closure/commonjs] module around the generated code.") );
 
-llvm::cl::opt<bool> WasmOnly("cheerp-wasm-only", llvm::cl::desc("Generate only the wasm module without the genericjs functions and the JS glue code") );
-
 llvm::cl::opt<bool> SourceMapStandAlone("cheerp-sourcemap-standalone", llvm::cl::desc("Generate a standalone sourcemap by including _all_ sources in the map file") );
 
 llvm::cl::opt<bool> PrettyCode("cheerp-pretty-code", llvm::cl::desc("Generate human-readable JS") );

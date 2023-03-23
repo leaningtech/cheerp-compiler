@@ -52,7 +52,7 @@ public:
 	typedef llvm::SmallVector<const llvm::Use *, 8> SubExprVec;
 	typedef std::unordered_multimap< const llvm::GlobalVariable *, SubExprVec > FixupMap;
 
-	GlobalDepsAnalyzer(MATH_MODE mathMode = NO_BUILTINS, bool llcPass = false, bool wasmStart = false);
+	GlobalDepsAnalyzer(MATH_MODE mathMode = NO_BUILTINS, bool llcPass = false);
 	
 	/**
 	 * Determine if a given global value is reachable
@@ -274,7 +274,6 @@ private:
 	bool mayNeedAsmJSFree;
 
 	bool llcPass;
-	bool wasmStart;
 	bool hasUndefinedSymbolErrors;
 public:
 	bool forceTypedArrays;
@@ -299,7 +298,6 @@ struct GlobalDepsInitializer
 {
 	cheerp::GlobalDepsAnalyzer::MATH_MODE mathMode;
 	bool resolveAliases;
-	bool WasmOnly;
 };
 
 
@@ -310,7 +308,7 @@ public:
 	{
 		if (innerPtr)
 			delete innerPtr;
-		innerPtr = new GlobalDepsAnalyzer(data.mathMode, data.resolveAliases, data.WasmOnly);
+		innerPtr = new GlobalDepsAnalyzer(data.mathMode, data.resolveAliases);
 		innerPtr->MAM = &MAM;
 		return *innerPtr;
 	}
@@ -330,7 +328,7 @@ class GlobalDepsAnalyzerPass : public llvm::PassInfoMixin<GlobalDepsAnalyzerPass
 	GlobalDepsInitializer data;
 public:
 	llvm::PreservedAnalyses run(llvm::Module &M, llvm::ModuleAnalysisManager&);
-	GlobalDepsAnalyzerPass(GlobalDepsAnalyzer::MATH_MODE mathMode=GlobalDepsAnalyzer::MATH_MODE::NO_BUILTINS, bool llcPass = false, bool wasmStart = false) : data({mathMode, llcPass, wasmStart}) {}
+	GlobalDepsAnalyzerPass(GlobalDepsAnalyzer::MATH_MODE mathMode=GlobalDepsAnalyzer::MATH_MODE::NO_BUILTINS, bool llcPass = false) : data({mathMode, llcPass}) {}
 	static bool isRequired() { return true; }
 };
 
