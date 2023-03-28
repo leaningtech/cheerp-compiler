@@ -569,7 +569,9 @@ void cheerp::Link::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back(Args.MakeArgString(getToolChain().GetFilePath("libc.bc")));
       CmdArgs.push_back(Args.MakeArgString(getToolChain().GetFilePath("crt1.bc")));
     }
-    if (getToolChain().getTriple().getOS() != llvm::Triple::Standalone)
+    if (getToolChain().getTriple().getOS() == llvm::Triple::WASI)
+      CmdArgs.push_back(Args.MakeArgString(getToolChain().GetFilePath("libwasi.bc")));
+    else
       CmdArgs.push_back(Args.MakeArgString(getToolChain().GetFilePath("libsystem.bc")));
 
     // Add wasm helper if needed
@@ -815,7 +817,7 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
   if(Arg* cheerpSecondaryOutputFile = Args.getLastArg(options::OPT_cheerp_secondary_output_file_EQ))
     cheerpSecondaryOutputFile->render(Args, CmdArgs);
   else if(
-      ((env == llvm::Triple::WebAssembly && os != llvm::Triple::Standalone && !cheerpLinearOutput) ||
+      ((env == llvm::Triple::WebAssembly && os != llvm::Triple::WASI && !cheerpLinearOutput) ||
         (cheerpLinearOutput && cheerpLinearOutput->getValue() != StringRef("asmjs"))))
   {
     SmallString<64> path(Output.getFilename());

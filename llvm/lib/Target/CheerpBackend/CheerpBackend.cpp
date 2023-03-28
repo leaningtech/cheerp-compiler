@@ -212,7 +212,7 @@ PreservedAnalyses cheerp::CheerpWritePassImpl::run(Module& M, ModuleAnalysisMana
 #endif
 
   Triple TargetTriple(M.getTargetTriple());
-  bool WasmOnly = TargetTriple.getOS() == Triple::Standalone;
+  bool WasmOnly = TargetTriple.getOS() == Triple::WASI;
   std::error_code ErrorCode;
   llvm::ToolOutputFile secondaryFile(SecondaryOutputFile, ErrorCode, sys::fs::OF_None);
   std::unique_ptr<llvm::formatted_raw_ostream> secondaryOut;
