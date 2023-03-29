@@ -4232,9 +4232,15 @@ void CheerpWasmWriter::compileTypeSection()
 void CheerpWasmWriter::compileImport(WasmBuffer& code, StringRef funcName, FunctionType* fTy)
 {
 	std::string fieldName(funcName);
+	std::string moduleName = "i";
+	const char wasiPrefix[] = "__imported_wasi_snapshot_preview1_";
+	if (fieldName.substr(0, sizeof(wasiPrefix)-1) == wasiPrefix)
+	{
+		 fieldName = fieldName.substr(sizeof(wasiPrefix)-1);
+		 moduleName = "wasi_snapshot_preview1";
+	}
 
 	// Encode the module name.
-	std::string moduleName = "i";
 	encodeULEB128(moduleName.size(), code);
 	code.write(moduleName.data(), moduleName.size());
 
@@ -4641,7 +4647,7 @@ void CheerpWasmWriter::compileExportSection()
 	encodeULEB128(exports.size() + extraExports, section);
 
 	// Encode the memory.
-	StringRef name = useWasmLoader? namegen.getBuiltinName(NameGenerator::MEMORY) : "mem";
+	StringRef name = useWasmLoader? namegen.getBuiltinName(NameGenerator::MEMORY) : "memory";
 	encodeULEB128(name.size(), section);
 	section.write(name.data(), name.size());
 	encodeULEB128(0x02, section);

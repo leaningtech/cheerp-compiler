@@ -1227,8 +1227,15 @@ ConstantAggregate::ConstantAggregate(Type *T, ValueTy VT,
     if (ST->isOpaque())
       return;
     for (unsigned I = 0, E = V.size(); I != E; ++I)
+    {
+      if(V[I]->getType() != ST->getTypeAtIndex(I))
+      {
+        V[I]->getType()->dump();
+        ST->getTypeAtIndex(I)->dump();
+      }
       assert(V[I]->getType() == ST->getTypeAtIndex(I) &&
              "Initializer for struct element doesn't match!");
+    }
   }
 }
 

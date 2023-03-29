@@ -44,21 +44,38 @@ PreservedAnalyses CallConstructorsPass::run(llvm::Module &M, llvm::ModuleAnalysi
 	{
 		Builder.CreateCall(Ty, cast<Function>(C->getAggregateElement(1)));
 	}
-	Function* entry = getMainFunction(M);
-	if (entry)
+	Function* Main = getMainFunction(M);
+	if (Main)
 	{
-		SmallVector<Value*, 4> Args;
-		for (auto& a: entry->args())
+		Value* ExitCode = nullptr;
+		if (Main->arg_size())
 		{
-			auto* ArgTy = a.getType();
-			if (auto* PTy = dyn_cast<PointerType>(ArgTy))
-				Args.push_back(ConstantPointerNull::get(PTy));
-			else if (auto* ITy = dyn_cast<IntegerType>(ArgTy))
-				Args.push_back(ConstantInt::get(ITy, 0));
-			else
+			if (Main->arg_size() != 2)
 				llvm::report_fatal_error("main function has a strange signature");
+			Type* ArgcTy = Main->getArg(0)->getType();
+			Type* ArgvTy = Main->getArg(1)->getType();
+			Value* ArgcA = Builder.CreateAlloca(ArgcTy);
+			Value* ArgvA = Builder.CreateAlloca(ArgvTy);
+			Function* GetArgs = M.getFunction("__syscall_main_args");
+			if (!GetArgs)
+				llvm::report_fatal_error("missing __syscall_main_args function");
+			ArrayRef<Value*> ArgsA = { ArgcA, ArgvA };
+			Builder.CreateCall(GetArgs->getFunctionType(), GetArgs, { ArgcA, ArgvA});
+			Value* Argc = Builder.CreateLoad(ArgcTy, ArgcA);
+			Value* Argv = Builder.CreateLoad(ArgvTy, ArgvA);
+			ExitCode = Builder.CreateCall(Main->getFunctionType(), Main, { Argc, Argv });
 		}
-		Builder.CreateCall(entry->getFunctionType(), entry, Args);
+		else
+		{
+			ExitCode = Builder.CreateCall(Main->getFunctionType(), Main);
+		}
+		if (Wasi)
+		{
+			Function* Exit = M.getFunction("__syscall_exit");
+			if (ExitCode->getType() != Builder.getInt32Ty())
+				ExitCode = ConstantInt::get(Builder.getInt32Ty(), 0);
+			Builder.CreateCall(Exit->getFunctionType(), Exit, ExitCode);
+		}
 	}
 
 	Builder.CreateRetVoid();

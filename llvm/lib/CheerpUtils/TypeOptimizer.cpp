@@ -18,6 +18,7 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/Verifier.h"
+#include "llvm/ADT/Triple.h"
 #include "llvm/Support/ModRef.h"
 #include "llvm/Support/raw_ostream.h"
 #include <set>
@@ -704,7 +705,8 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 	}
 	if(FunctionType* ft=dyn_cast<FunctionType>(t))
 	{
-		return CacheAndReturn(rewriteFunctionType(ft, false), TypeMappingInfo::IDENTICAL);
+		bool wasi = Triple(module->getTargetTriple()).getOS() == Triple::WASI;
+		return CacheAndReturn(rewriteFunctionType(ft, wasi), TypeMappingInfo::IDENTICAL);
 	}
 	if(PointerType* pt=dyn_cast<PointerType>(t))
 	{
@@ -1379,7 +1381,8 @@ uint8_t TypeOptimizer::rewriteGEPIndexes(SmallVector<Value*, 4>& newIndexes, Typ
 Function* TypeOptimizer::rewriteFunctionSignature(Function* F)
 {
 	FunctionType* oldFuncType = F->getFunctionType();
-	bool keepI64 = onlyCalledByWasmFuncs.count(F) && !F->isVarArg();
+	bool wasi = Triple(F->getParent()->getTargetTriple()).getOS() == Triple::WASI;
+	bool keepI64 = (wasi || onlyCalledByWasmFuncs.count(F)) && !F->isVarArg();
 	FunctionType* newFuncType = rewriteFunctionType(oldFuncType, F->isIntrinsic() || keepI64);
 	if(newFuncType==oldFuncType)
 		return F;
@@ -1487,7 +1490,8 @@ void TypeOptimizer::rewriteFunction(Function* F)
 	assert(it != globalsMapping.end());
 	if(F->empty())
 		return;
-	bool keepI64 = onlyCalledByWasmFuncs.count(F) && !F->isVarArg();
+	bool wasi = Triple(F->getParent()->getTargetTriple()).getOS() == Triple::WASI;
+	bool keepI64 = (wasi || onlyCalledByWasmFuncs.count(F)) && !F->isVarArg();
 	if (it->first != it->second)
 	{
 		Function* NF = cast<Function>(it->second);
@@ -1762,7 +1766,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 					bool calleeOnlyCalledByWasm = onlyCalledByWasmFuncs.count(calledFunction);
 					// NOTE: if the function is vararg, we can never keep i64s in the signature
 					// for the vararg part. For now, we don't keep them entirely
-					bool keepI64 = (isIntrinsic || calleeOnlyCalledByWasm) && !CI->getFunctionType()->isVarArg();
+					bool keepI64 = (wasi || isIntrinsic || calleeOnlyCalledByWasm) && !CI->getFunctionType()->isVarArg();
 					FunctionType* rewrittenFuncType = rewriteFunctionType(CI->getFunctionType(), keepI64);
 					bool needsRewrite = rewrittenFuncType != CI->getFunctionType();
 					if (!needsRewrite && !keepI64 && CI->getFunctionType()->isVarArg())
