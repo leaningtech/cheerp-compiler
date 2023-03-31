@@ -13963,6 +13963,7 @@ void Sema::DefineInheritingConstructor(SourceLocation CurrentLocation,
 
   Constructor->setBody(new (Context) CompoundStmt(InitLoc));
   Constructor->markUsed(Context);
+  MaybeInjectCheerpModeAttr(Constructor);
 
   if (ASTMutationListener *L = getASTMutationListener()) {
     L->CompletedImplicitDefinition(Constructor);
