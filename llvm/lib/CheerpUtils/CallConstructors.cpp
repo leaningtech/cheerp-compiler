@@ -34,9 +34,6 @@ PreservedAnalyses CallConstructorsPass::run(llvm::Module &M, llvm::ModuleAnalysi
 	if (!Ctors->empty())
 		return PreservedAnalyses::all();
 
-	bool Wasi = Triple(M.getTargetTriple()).getOS() == Triple::WASI;
-	if (Wasi)
-		Ctors->setSection("asmjs");
 	BasicBlock* Entry = BasicBlock::Create(M.getContext(),"entry", Ctors);
 	IRBuilder<> Builder(Entry);
 
@@ -45,6 +42,9 @@ PreservedAnalyses CallConstructorsPass::run(llvm::Module &M, llvm::ModuleAnalysi
 		Builder.CreateCall(Ty, cast<Function>(C->getAggregateElement(1)));
 	}
 	Function* Main = getMainFunction(M);
+	bool Wasi = Triple(M.getTargetTriple()).getOS() == Triple::WASI;
+	if (Wasi || (Main && Main->getSection() == "asmjs"))
+		Ctors->setSection("asmjs");
 	if (Main)
 	{
 		Value* ExitCode = nullptr;
@@ -54,15 +54,26 @@ PreservedAnalyses CallConstructorsPass::run(llvm::Module &M, llvm::ModuleAnalysi
 				llvm::report_fatal_error("main function has a strange signature");
 			Type* ArgcTy = Main->getArg(0)->getType();
 			Type* ArgvTy = Main->getArg(1)->getType();
-			Value* ArgcA = Builder.CreateAlloca(ArgcTy);
-			Value* ArgvA = Builder.CreateAlloca(ArgvTy);
+			Value* Argc = nullptr;
+			Value* Argv = nullptr;
 			Function* GetArgs = M.getFunction("__syscall_main_args");
-			if (!GetArgs)
-				llvm::report_fatal_error("missing __syscall_main_args function");
-			ArrayRef<Value*> ArgsA = { ArgcA, ArgvA };
-			Builder.CreateCall(GetArgs->getFunctionType(), GetArgs, { ArgcA, ArgvA});
-			Value* Argc = Builder.CreateLoad(ArgcTy, ArgcA);
-			Value* Argv = Builder.CreateLoad(ArgvTy, ArgvA);
+			if (GetArgs)
+			{
+				if (GetArgs->getSection() != Main->getSection())
+					llvm::report_fatal_error("__syscall_main_args must have the same section as main");
+
+				Value* ArgcA = Builder.CreateAlloca(ArgcTy);
+				Value* ArgvA = Builder.CreateAlloca(ArgvTy);
+				ArrayRef<Value*> ArgsA = { ArgcA, ArgvA };
+				Builder.CreateCall(GetArgs->getFunctionType(), GetArgs, { ArgcA, ArgvA});
+				Argc = Builder.CreateLoad(ArgcTy, ArgcA);
+				Argv = Builder.CreateLoad(ArgvTy, ArgvA);
+			}
+			else
+			{
+				Argc = ConstantInt::get(ArgcTy, 0);
+				Argv = ConstantPointerNull::get(cast<PointerType>(ArgvTy));
+			}
 			ExitCode = Builder.CreateCall(Main->getFunctionType(), Main, { Argc, Argv });
 		}
 		else

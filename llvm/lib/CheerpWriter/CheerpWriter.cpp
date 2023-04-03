@@ -6602,7 +6602,11 @@ void CheerpWriter::compileEntryPoint()
 {
 	const Function * entryPoint = module.getFunction("_start");
 	if (entryPoint)
+	{
+		if (entryPoint->getSection() == "asmjs")
+			stream << "__asm.";
 		stream << getName(entryPoint) << "();" << NewLine;
+	}
 }
 
 void CheerpWriter::compileFileBegin(const OptionsSet& options)

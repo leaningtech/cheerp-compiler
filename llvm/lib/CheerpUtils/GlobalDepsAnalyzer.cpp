@@ -640,6 +640,8 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	{
 		// Webmain entry point
 		extendLifetime(startFunc);
+		if (startFunc->getSection() == "asmjs")
+			asmJSExportedFuncions.insert(startFunc);
 	}
 	else
 	{
