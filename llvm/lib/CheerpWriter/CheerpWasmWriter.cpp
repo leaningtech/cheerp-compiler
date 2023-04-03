@@ -4647,7 +4647,7 @@ void CheerpWasmWriter::compileExportSection()
 	encodeULEB128(exports.size() + extraExports, section);
 
 	// Encode the memory.
-	StringRef name = useWasmLoader? namegen.getBuiltinName(NameGenerator::MEMORY) : "mem";
+	StringRef name = useWasmLoader? namegen.getBuiltinName(NameGenerator::MEMORY) : "memory";
 	encodeULEB128(name.size(), section);
 	section.write(name.data(), name.size());
 	encodeULEB128(0x02, section);
