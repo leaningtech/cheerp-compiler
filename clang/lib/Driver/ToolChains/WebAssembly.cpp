@@ -632,6 +632,8 @@ void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
     cheerpFixFuncCasts->render(Args, CmdArgs);
   if(Arg* cheerpUseBigInts = Args.getLastArg(options::OPT_cheerp_use_bigints))
     cheerpUseBigInts->render(Args, CmdArgs);
+  else if (getToolChain().getTriple().getOS() == llvm::Triple::WASI)
+    CmdArgs.push_back("-cheerp-use-bigints");
   if(Arg* cheerpStrictLinkingEq = Args.getLastArg(options::OPT_cheerp_strict_linking_EQ)) {
     if (cheerpStrictLinkingEq->getValue() != StringRef("warning") &&
         cheerpStrictLinkingEq->getValue() != StringRef("error")) {
@@ -941,6 +943,8 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
     cheerpFixFuncCasts->render(Args, CmdArgs);
   if(Arg* cheerpUseBigInts = Args.getLastArg(options::OPT_cheerp_use_bigints))
     cheerpUseBigInts->render(Args, CmdArgs);
+  else if (getToolChain().getTriple().getOS() == llvm::Triple::WASI)
+    CmdArgs.push_back("-cheerp-use-bigints");
 
   // Set output to binary mode to avoid linefeed conversion on Windows.
   CmdArgs.push_back("-filetype");
