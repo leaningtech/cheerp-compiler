@@ -224,7 +224,6 @@ public:
     WASI,       // Experimental WebAssembly OS
     Emscripten,
     ShaderModel, // DirectX ShaderModel
-    Standalone,
     WebBrowser,
     LastOSType = WebBrowser
   };

@@ -6013,14 +6013,13 @@ const ToolChain &Driver::getToolChain(const ArgList &Args,
     case llvm::Triple::ShaderModel:
       TC = std::make_unique<toolchains::HLSLToolChain>(*this, Target, Args);
       break;
-    case llvm::Triple::WebBrowser:
-    case llvm::Triple::Standalone:
-      TC = std::make_unique<toolchains::Cheerp>(*this, Target, Args);
-      break;
     default:
       // Of these targets, Hexagon is the only one that might have
       // an OS of Linux, in which case it got handled above already.
       switch (Target.getArch()) {
+      case llvm::Triple::cheerp:
+        TC = std::make_unique<toolchains::Cheerp>(*this, Target, Args);
+        break;
       case llvm::Triple::tce:
         TC = std::make_unique<toolchains::TCEToolChain>(*this, Target, Args);
         break;
