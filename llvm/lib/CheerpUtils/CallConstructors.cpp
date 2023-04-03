@@ -34,8 +34,8 @@ PreservedAnalyses CallConstructorsPass::run(llvm::Module &M, llvm::ModuleAnalysi
 	if (!Ctors->empty())
 		return PreservedAnalyses::all();
 
-	bool Standalone = Triple(M.getTargetTriple()).getOS() == Triple::Standalone;
-	if (Standalone)
+	bool Wasi = Triple(M.getTargetTriple()).getOS() == Triple::WASI;
+	if (Wasi)
 		Ctors->setSection("asmjs");
 	BasicBlock* Entry = BasicBlock::Create(M.getContext(),"entry", Ctors);
 	IRBuilder<> Builder(Entry);
