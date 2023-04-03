@@ -25,6 +25,7 @@
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/SimplifyLibCalls.h"
+#include "llvm/ADT/Triple.h"
 
 #define DEBUG_TYPE "GlobalDepsAnalyzer"
 
@@ -775,10 +776,11 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 			hasBuiltin[BuiltinInstr::SIN_F] = false;
 		}
 	}
+	bool WasmOnly = Triple(module.getTargetTriple()).getOS() == Triple::WASI;
 	// Detect all used non-math builtins
 	for(const Function& F: module)
 	{
-		if(F.getIntrinsicID() == Intrinsic::cheerp_grow_memory)
+		if(F.getIntrinsicID() == Intrinsic::cheerp_grow_memory && !WasmOnly)
 		{
 			hasBuiltin[BuiltinInstr::GROW_MEM] = true;
 		}
