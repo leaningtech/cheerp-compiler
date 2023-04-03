@@ -1824,6 +1824,11 @@ bool Triple::isCompatibleWith(const Triple &Other) const {
     return getArch() == Other.getArch() && getSubArch() == Other.getSubArch() &&
            getVendor() == Other.getVendor() && getOS() == Other.getOS();
 
+  // For Cheerp, only compare the environment (wasm vs genericjs)
+  if (getArch() == Triple::cheerp && Other.getArch() == Triple::cheerp)
+  {
+    return getEnvironment() == Other.getEnvironment();
+  }
   return *this == Other;
 }
 
