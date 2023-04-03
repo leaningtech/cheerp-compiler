@@ -41,6 +41,7 @@ namespace std {
 
 __attribute__((noreturn))
 __attribute__((nothrow))
+__attribute__((weak))
 void
 terminate() noexcept
 {
@@ -307,6 +308,7 @@ static void __cxa_throw_wasm_adapter(size_t thrown_object, std::type_info* tinfo
 [[noreturn]]
 [[cheerp::wasm]]
 __attribute((noinline))
+__attribute((weak))
 void
 __cxa_throw_wasm(void *thrown_object, std::type_info *tinfo, void (*dest)(void *)) {
 	__cxa_throw_wasm_adapter(reinterpret_cast<size_t>(thrown_object), tinfo, reinterpret_cast<size_t>(dest));
