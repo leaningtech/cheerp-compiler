@@ -1638,6 +1638,7 @@ int GlobalDepsAnalyzer::filterModule( const DenseSet<const Function*>& droppedMa
 		}
 		else if(!droppedMathBuiltins.count(f) && f->getIntrinsicID()==0 &&
 			!TypeSupport::isClientFunc(f) && !TypeSupport::isClientConstructorName(f->getName()) &&
+			!TypeSupport::isWasiFuncName(f->getName()) &&
 			// Special case "free" here, it might be used in genericjs code and lowered by the backend
 			f->getName() != "free")
 		{

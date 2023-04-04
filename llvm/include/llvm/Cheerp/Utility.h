@@ -350,6 +350,15 @@ public:
 		return isClientType(ptr->getPointerElementType());
 	}
 
+	static bool isWasiFuncName(llvm::StringRef ident)
+	{
+		return ident.startswith("__imported_wasi_snapshot_preview1_");
+	}
+	static llvm::StringRef getWasiFuncName(llvm::StringRef ident)
+	{
+		ident.consume_front("__imported_wasi_snapshot_preview1_");
+		return ident;
+	}
 
 	class ClientFunctionDemangled
 	{

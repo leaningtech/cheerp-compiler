@@ -4231,13 +4231,17 @@ void CheerpWasmWriter::compileTypeSection()
 
 void CheerpWasmWriter::compileImport(WasmBuffer& code, StringRef funcName, FunctionType* fTy)
 {
-	std::string fieldName(funcName);
-	std::string moduleName = "i";
-	const char wasiPrefix[] = "__imported_wasi_snapshot_preview1_";
-	if (fieldName.substr(0, sizeof(wasiPrefix)-1) == wasiPrefix)
+	std::string fieldName;
+	std::string moduleName;
+	if (TypeSupport::isWasiFuncName(funcName))
 	{
-		 fieldName = fieldName.substr(sizeof(wasiPrefix)-1);
+		 fieldName = TypeSupport::getWasiFuncName(funcName);
 		 moduleName = "wasi_snapshot_preview1";
+	}
+	else
+	{
+		fieldName = funcName;
+		moduleName = "i";
 	}
 
 	// Encode the module name.
