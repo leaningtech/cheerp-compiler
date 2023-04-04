@@ -347,12 +347,24 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 	// Generate HEAP names first to keep them short
 	if(gda.needAsmJSMemory() || gda.needAsmJSCode())
 	{
-		builtins[HEAP8] = nameHelper.makeGlobalName();
-		builtins[HEAP16] = nameHelper.makeGlobalName();
-		builtins[HEAP32] = nameHelper.makeGlobalName();
-		builtins[HEAP64] = nameHelper.makeGlobalName();
-		builtins[HEAPF32] = nameHelper.makeGlobalName();
-		builtins[HEAPF64] = nameHelper.makeGlobalName();
+		if (exportedMemory)
+		{
+			builtins[HEAP8] = "HEAP8";
+			builtins[HEAP16] = "HEAP16";
+			builtins[HEAP32] = "HEAP32";
+			builtins[HEAP64] = "HEAP64";
+			builtins[HEAPF32] = "HEAPF32";
+			builtins[HEAPF64] = "HEAPF64";
+		}
+		else
+		{
+			builtins[HEAP8] = nameHelper.makeGlobalName();
+			builtins[HEAP16] = nameHelper.makeGlobalName();
+			builtins[HEAP32] = nameHelper.makeGlobalName();
+			builtins[HEAP64] = nameHelper.makeGlobalName();
+			builtins[HEAPF32] = nameHelper.makeGlobalName();
+			builtins[HEAPF64] = nameHelper.makeGlobalName();
+		}
 	}
 	else
 	{
