@@ -25,7 +25,7 @@ bool declaresIntrinsics(const Module &M,
                         const std::initializer_list<StringRef>);
 void replaceCoroFree(CoroIdInst *CoroId, bool Elide);
 
-StructType *getBaseFrameType(LLVMContext& C);
+StructType *getBaseFrameType(LLVMContext& C, bool asmjs);
 
 /// Recover a dbg.declare prepared by the frontend and emit an alloca
 /// holding a pointer to the coroutine frame.

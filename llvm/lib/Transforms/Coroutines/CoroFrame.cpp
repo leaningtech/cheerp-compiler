@@ -549,7 +549,7 @@ public:
   }
 
   /// Finish the layout and set the body on the given type.
-  void finish(StructType *Ty);
+  void finish(StructType *Ty, bool asmjs);
 
   uint64_t getStructSize() const {
     assert(IsFinished && "not yet finished!");
@@ -721,7 +721,7 @@ void FrameTypeBuilder::addFieldForAllocas(const Function &F,
   });
 }
 
-void FrameTypeBuilder::finish(StructType *Ty) {
+void FrameTypeBuilder::finish(StructType *Ty, bool asmjs) {
   assert(!IsFinished && "already finished!");
 
   // Prepare the optimal-layout field array.
@@ -784,9 +784,9 @@ void FrameTypeBuilder::finish(StructType *Ty) {
   }
 
   if (FieldTypes.empty()) {
-    Ty->setBody(FieldTypes, Packed);
+    Ty->setBody(FieldTypes, Packed, /*directBase*/nullptr, /*isByteLayout*/false, asmjs);
   } else {
-    Ty->setBody(FieldTypes, Packed, coro::getBaseFrameType(Context));
+    Ty->setBody(FieldTypes, Packed, coro::getBaseFrameType(Context, asmjs), /*isByteLayout*/false, asmjs);
   }
 
 #ifndef NDEBUG
@@ -1198,7 +1198,7 @@ static StructType *buildFrameType(Function &F, coro::Shape &Shape,
     FrameData.setFieldIndex(S.first, Id);
   }
 
-  B.finish(FrameTy);
+  B.finish(FrameTy, F.getSection() == "asmjs");
 
   FrameData.updateLayoutIndex(B);
   Shape.FrameAlign = B.getStructAlign();

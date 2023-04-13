@@ -32,7 +32,8 @@ static void lowerSubFn(IRBuilder<> &Builder, CoroSubFnInst *SubFn) {
   Value *FrameRaw = SubFn->getFrame();
   int Index = SubFn->getIndex();
 
-  auto *FrameTy = coro::getBaseFrameType(SubFn->getContext());
+  bool asmjs = SubFn->getFunction()->getSection() == "asmjs";
+  auto *FrameTy = coro::getBaseFrameType(SubFn->getContext(), asmjs);
   PointerType *FramePtrTy = FrameTy->getPointerTo();
 
   Builder.SetInsertPoint(SubFn);

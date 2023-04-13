@@ -14,6 +14,7 @@
 #include "CoroInternal.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/Triple.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/Constants.h"
@@ -34,13 +35,13 @@
 
 using namespace llvm;
 
-StructType* coro::getBaseFrameType(LLVMContext& C) {
+StructType* coro::getBaseFrameType(LLVMContext& C, bool asmjs) {
   auto* FrameTy = StructType::getTypeByName(C, "coroFrameBase");
   if (!FrameTy)
   {
     FrameTy = StructType::create(C, "coroFrameBase");
     auto* ResumeFnType = FunctionType::get(Type::getVoidTy(C), FrameTy->getPointerTo(), false);
-    FrameTy->setBody(ResumeFnType->getPointerTo(), ResumeFnType->getPointerTo());
+    FrameTy->setBody({ ResumeFnType->getPointerTo(), ResumeFnType->getPointerTo()}, /*isPacked*/false, /*directBase*/nullptr, /*isByteLayout*/false, asmjs);
   }
   return FrameTy;
 }
@@ -48,7 +49,7 @@ StructType* coro::getBaseFrameType(LLVMContext& C) {
 coro::LowererBase::LowererBase(Module &M)
     : TheModule(M), Context(M.getContext()),
       Int8Ptr(Type::getInt8PtrTy(Context)),
-      ResumeFnType(FunctionType::get(Type::getVoidTy(Context), getBaseFrameType(Context)->getPointerTo(),
+      ResumeFnType(FunctionType::get(Type::getVoidTy(Context), getBaseFrameType(Context, Triple(M.getTargetTriple()).getEnvironment() != Triple::GenericJs)->getPointerTo(),
                                      /*isVarArg=*/false)),
       NullPtr(ConstantPointerNull::get(Int8Ptr))
 {
