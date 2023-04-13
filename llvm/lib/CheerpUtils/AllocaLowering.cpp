@@ -234,9 +234,10 @@ bool AllocaLowering::runOnFunction(Function& F, DominatorTree& DT, cheerp::Globa
 	// Pop the stack frame before rets
 	if (needFrame)
 	{
-		for (const auto& ret: returns)
+		for (Instruction* ret: returns)
 		{
-			IRBuilder<> Builder(ret);
+			Instruction* MustTailCall = ret->getParent()->getTerminatingMustTailCall();
+			IRBuilder<> Builder(MustTailCall? MustTailCall : ret);
 			Builder.CreateCall(setStack, savedStack);
 		}
 	}
