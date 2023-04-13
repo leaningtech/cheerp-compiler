@@ -109,13 +109,14 @@ void Lowerer::lowerCoroDone(IntrinsicInst *II) {
   // ResumeFnAddr is the first pointer sized element of the coroutine frame.
   static_assert(coro::Shape::SwitchFieldIndex::Resume == 0,
                 "resume function not at offset zero");
-  auto *FrameTy = Int8Ptr;
+  auto* FrameTy = coro::getBaseFrameType(II->getContext(), II->getFunction()->getSection() == "asmjs");
   PointerType *FramePtrTy = FrameTy->getPointerTo();
 
   Builder.SetInsertPoint(II);
   auto *BCI = Builder.CreateBitCast(Operand, FramePtrTy);
-  auto *Load = Builder.CreateLoad(FrameTy, BCI);
-  auto *Cond = Builder.CreateICmpEQ(Load, NullPtr);
+  auto *Fn = Builder.CreateConstInBoundsGEP2_32(FrameTy, BCI, 0, 0);
+  auto *Load = Builder.CreateLoad(ResumeFnType->getPointerTo(), Fn);
+  auto *Cond = Builder.CreateICmpEQ(Load, ConstantPointerNull::get(ResumeFnType->getPointerTo()));
 
   II->replaceAllUsesWith(Cond);
   II->eraseFromParent();
