@@ -89,7 +89,9 @@ void Lowerer::lowerCoroPromise(CoroPromiseInst *Intrin) {
     Function* intrinsic = Intrinsic::getDeclaration(&TheModule,
                             Intrinsic::cheerp_downcast, types);
 
-    ConstantInt* Adj = ConstantInt::get(Builder.getInt32Ty(), Intrin->isFromPromise() ? 1 : -1);
+    bool asmjs = Intrin->getFunction()->getSection() == "asmjs";
+    int offset = asmjs? Offset : (Intrin->isFromPromise()? 1 : -1);
+    ConstantInt* Adj = ConstantInt::get(Builder.getInt32Ty(), offset);
     CallBase* CB = Builder.CreateCall(intrinsic, {Operand, Adj});
     CB->addParamAttr(0, Attribute::get(Context, Attribute::ElementType, Builder.getInt8Ty()));
     Replacement = CB;
