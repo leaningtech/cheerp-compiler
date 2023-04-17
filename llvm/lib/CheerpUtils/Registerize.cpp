@@ -377,38 +377,10 @@ uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMa
 
 	llvm::SmallVector<RegisterRange, 4> registers;
 
-	if (RegisterizeLegacy)
-	{
-		// First try to assign all PHI operands to the same register as the PHI itself
-		for(auto it: liveRanges)
-		{
-			const Instruction* I=it.first;
-			if(!isa<PHINode>(I))
-				continue;
-			handlePHI(*I, liveRanges, registers, PA);
-		}
-		const bool asmjs = F.getSection()==StringRef("asmjs");
-		// Assign a register to the remaining instructions
-		for(auto it: liveRanges)
-		{
-			const Instruction* I=it.first;
-			if(isa<PHINode>(I))
-				continue;
-			InstructionLiveRange& range=it.second;
-			// Move on if a register is already assigned
-			if(registersMap.count(I))
-				continue;
-			uint32_t chosenRegister=findOrCreateRegister(registers, range, getRegKindFromType(I->getType(), asmjs), cheerp::needsSecondaryName(I, PA));
-			registersMap[I] = chosenRegister;
-		}
-	}
-	else
-	{
-		RegisterAllocatorInst registerAllocatorInst(F, instIdMap, liveRanges, PA, this);
-		registerAllocatorInst.solve();
+	RegisterAllocatorInst registerAllocatorInst(F, instIdMap, liveRanges, PA, this);
+	registerAllocatorInst.solve();
 
-		registerAllocatorInst.materializeRegisters(registers);
-	}
+	registerAllocatorInst.materializeRegisters(registers);
 
 	EdgeContext edgeContext;
 	// Assign registers for temporary values required to break loops in PHIs

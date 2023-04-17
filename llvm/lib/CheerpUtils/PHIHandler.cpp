@@ -214,8 +214,6 @@ void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const Basic
 			continue;
 		}
 		uint32_t phiReg = registerize.getRegisterId(phi, EdgeContext::emptyContext());
-		if (RegisterizeLegacy)
-			setRegisterUsed(phiReg);
 		// This instruction may depend on multiple registers
 		llvm::SmallVector<std::pair<uint32_t, const Instruction*>, 2> incomingRegisters;
 		llvm::SmallVector<std::pair<const Instruction*, /*dereferenced*/bool>, 4> instQueue;
@@ -228,8 +226,6 @@ void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const Basic
 			if(!isInlineable(*incomingInst.first, PA))
 			{
 				uint32_t incomingValueId = registerize.getRegisterId(incomingInst.first, EdgeContext::emptyContext());
-				if (RegisterizeLegacy)
-					setRegisterUsed(incomingValueId);
 				if(incomingValueId==phiReg)
 				{
 					if(mayNeedSelfRef &&
@@ -239,8 +235,6 @@ void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const Basic
 					{
 						selfReferencing = true;
 					}
-					if (RegisterizeLegacy)
-						continue;
 				}
 				incomingRegisters.push_back(std::make_pair(incomingValueId, incomingInst.first));
 			}
@@ -257,41 +251,22 @@ void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const Basic
 				}
 			}
 		}
-		if(incomingRegisters.empty() && RegisterizeLegacy)
-			orderedPHIs.push_back(std::make_pair(phi, selfReferencing));
-		else
-			phiRegs.insert(std::make_pair(phiReg, PHIRegData(phi, std::move(incomingRegisters), selfReferencing)));
+		phiRegs.insert(std::make_pair(phiReg, PHIRegData(phi, std::move(incomingRegisters), selfReferencing)));
 	}
 
-	if (RegisterizeLegacy)
+	for (auto& X : phiRegs)
 	{
-		//Legacy algorithm:
-		//1. Assign trivially assignable phi(eg. has a constant as incoming)
-		//2. Process the other phi in a standard order
-		//3. Use a greedy strategy to minimize the number of temporary needed inside a given SCC
-		for(auto it: phiRegs)
+		//Set incomingInst AND the counter of how many times a input register is used
+		for (const auto& pair : X.second.incomingRegs)
 		{
-			if(it.second.status==PHIRegData::VISITED)
-				continue;
-			runOnPHI(phiRegs, it.first, nullptr, orderedPHIs);
-		}
-	}
-	else
-	{
-		for (auto& X : phiRegs)
-		{
-			//Set incomingInst AND the counter of how many times a input register is used
-			for (const auto& pair : X.second.incomingRegs)
-			{
-				auto it = phiRegs.find(pair.first);
-				if (it != phiRegs.end())
-					it->second.incomingInst = pair.second;
+			auto it = phiRegs.find(pair.first);
+			if (it != phiRegs.end())
+				it->second.incomingInst = pair.second;
 
-				addRegisterUse(pair.first);
-			}
+			addRegisterUse(pair.first);
 		}
-		runOnConnectionGraph(DependencyGraph(phiRegs), phiRegs, orderedPHIs, /*isRecursiveCall*/false);
 	}
+	runOnConnectionGraph(DependencyGraph(phiRegs), phiRegs, orderedPHIs, /*isRecursiveCall*/false);
 
 	// Notify the user for each PHI, in the right order to avoid accidental overwriting
 	for(uint32_t i=orderedPHIs.size();i>0;i--)
