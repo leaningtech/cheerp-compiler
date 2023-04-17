@@ -161,6 +161,8 @@ void Lowerer::lowerCoroNoop(IntrinsicInst *II) {
     Function *NoopFn =
         Function::Create(FnTy, GlobalValue::LinkageTypes::PrivateLinkage,
                          "__NoopCoro_ResumeDestroy", &M);
+    if (asmjs)
+      NoopFn->setSection("asmjs");
     NoopFn->setCallingConv(CallingConv::Fast);
     buildDebugInfoForNoopResumeDestroyFunc(NoopFn);
     auto *Entry = BasicBlock::Create(C, "entry", NoopFn);
