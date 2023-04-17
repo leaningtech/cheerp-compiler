@@ -204,10 +204,6 @@ bool AllocaMerging::runOnFunctionLegacy(Function& F, cheerp::PointerAnalyzer& PA
 
 bool AllocaMerging::runOnFunction(Function& F, cheerp::PointerAnalyzer& PA, DominatorTree* DT, cheerp::Registerize& registerize)
 {
-	if (RegisterizeLegacy)
-	{
-		return runOnFunctionLegacy(F, PA, DT, registerize);
-	}
 	cheerp::TypeSupport types(*F.getParent());
 	bool asmjs = F.getSection()==StringRef("asmjs");
 	std::vector<AllocaInfo> allocaInfos;
