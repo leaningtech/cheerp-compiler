@@ -31,6 +31,7 @@
 #include "llvm/Cheerp/SIMDLowering.h"
 #include "llvm/Cheerp/SIMDTransform.h"
 #include "llvm/Cheerp/BitCastLowering.h"
+#include "llvm/Cheerp/JSStringLiteralLowering.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/EarlyCSE.h"
 #include "llvm/Passes/PassBuilder.h"
@@ -131,6 +132,7 @@ bool CheerpWritePass::runOnModule(Module& M)
     // Run a simple constant elimination pass to clean up suboptimal code left
     // by I64Lowering.
     FPM.addPass(EarlyCSEPass());
+    FPM.addPass(cheerp::JSStringLiteralLoweringPass());
     FPM.addPass(cheerp::BitCastLoweringPass());
     FPM.addPass(cheerp::SIMDTransformPass());
     FPM.addPass(cheerp::SIMDLoweringPass());

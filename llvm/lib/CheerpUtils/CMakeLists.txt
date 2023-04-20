@@ -32,6 +32,7 @@ add_llvm_component_library(LLVMCheerpUtils
   SIMDLowering.cpp
   SIMDTransform.cpp
   BitCastLowering.cpp
+  JSStringLiteralLowering.cpp
   )
 
 add_dependencies(LLVMCheerpUtils intrinsics_gen)
