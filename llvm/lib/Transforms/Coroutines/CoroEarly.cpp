@@ -44,7 +44,8 @@ void Lowerer::lowerResumeOrDestroy(CallBase &CB,
                                    CoroSubFnInst::ResumeKind Index) {
   Value *ResumeAddr = makeSubFnCall(CB.getArgOperand(0), Index, &CB);
   CB.setCalledOperand(ResumeAddr);
-  bool asmjs = Triple(CB.getCaller()->getParent()->getTargetTriple()).getEnvironment() != Triple::GenericJs;
+  Triple triple = Triple(CB.getCaller()->getParent()->getTargetTriple());
+  bool asmjs = triple.getArch() == Triple::cheerp && triple.getEnvironment() != Triple::GenericJs;
   PointerType* Ty = coro::getBaseFrameType(CB.getContext(), asmjs)->getPointerTo();
   auto* Cast = BitCastInst::CreateBitOrPointerCast(CB.getArgOperand(0), Ty, "cast", &CB);
   CB.setArgOperand(0, Cast);
@@ -154,7 +155,8 @@ void Lowerer::lowerCoroNoop(IntrinsicInst *II) {
     auto *FnTy = FunctionType::get(Type::getVoidTy(C), FramePtrTy,
                                    /*isVarArg=*/false);
     auto *FnPtrTy = FnTy->getPointerTo();
-    bool asmjs = Triple(M.getTargetTriple()).getEnvironment() != Triple::GenericJs;
+    Triple triple = Triple(M.getTargetTriple());
+    bool asmjs = triple.getArch() == Triple::cheerp && triple.getEnvironment() != Triple::GenericJs;
     FrameTy->setBody({FnPtrTy, FnPtrTy}, /*isPacked*/false, /*directBase*/nullptr, /*isByteLayout*/false, asmjs);
 
     // Create a Noop function that does nothing.
