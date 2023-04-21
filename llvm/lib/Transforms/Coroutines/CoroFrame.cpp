@@ -1166,8 +1166,6 @@ static StructType *buildFrameType(Function &F, coro::Shape &Shape,
     // Add a field to store the suspend index.  This doesn't need to
     // be in the header.
     unsigned IndexBits = std::max(1U, Log2_64_Ceil(Shape.CoroSuspends.size()));
-    // CHEERP: we don't handle sizes not multiple of 8 in structs
-    IndexBits = ((IndexBits + 7) / 8) * 8;
     Type *IndexType = Type::getIntNTy(C, IndexBits);
 
     SwitchIndexFieldId = B.addField(IndexType, None);
