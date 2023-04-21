@@ -533,7 +533,7 @@ public:
 	void compileICmp(const llvm::ICmpInst& ci, const llvm::CmpInst::Predicate p, WasmBuffer& code);
 	void compileICmp(const llvm::Value* op0, const llvm::Value* op1, const llvm::CmpInst::Predicate p, WasmBuffer& code);
 	void compileFCmp(const llvm::Value* lhs, const llvm::Value* rhs, const llvm::CmpInst::Predicate p, WasmBuffer& code);
-	void encodeLoad(const llvm::Type* ty, uint32_t offset, WasmBuffer& code, bool signExtend);
+	void encodeLoad(llvm::Type* ty, uint32_t offset, WasmBuffer& code, bool signExtend);
 	void encodeWasmIntrinsic(WasmBuffer& code, const llvm::Function* F);
 	void encodeBranchTable(WasmBuffer& code, std::vector<uint32_t> table, int32_t defaultBlock);
 	void encodeDataSectionChunk(WasmBuffer& data, uint32_t address, llvm::StringRef buf);

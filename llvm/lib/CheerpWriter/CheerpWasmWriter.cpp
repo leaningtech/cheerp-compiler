@@ -989,14 +989,12 @@ void CheerpWasmWriter::encodePredicate(const llvm::Type* ty, const llvm::CmpInst
 	}
 }
 
-void CheerpWasmWriter::encodeLoad(const llvm::Type* ty, uint32_t offset,
+void CheerpWasmWriter::encodeLoad(llvm::Type* ty, uint32_t offset,
 		WasmBuffer& code, bool signExtend)
 {
 	if(ty->isIntegerTy())
 	{
-		uint32_t bitWidth = ty->getIntegerBitWidth();
-		if(bitWidth == 1)
-			bitWidth = 8;
+		uint32_t bitWidth = targetData.getTypeStoreSizeInBits(ty);
 
 		switch (bitWidth)
 		{
@@ -2957,9 +2955,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			// When storing values with size less than 32-bit we need to truncate them
 			if(valOp->getType()->isIntegerTy())
 			{
-				uint32_t bitWidth = valOp->getType()->getIntegerBitWidth();
-				if(bitWidth == 1)
-					bitWidth = 8;
+				uint32_t bitWidth = targetData.getTypeStoreSizeInBits(valOp->getType());
 
 				// TODO add support for i64.
 				switch (bitWidth)
