@@ -234,15 +234,15 @@ struct __optional_destruct_base<_Tp, false>
     typedef _Tp value_type;
     static_assert(is_object_v<value_type>,
         "instantiation of optional with a non-object type is undefined behavior");
-#ifdef __CHEERP__
-    struct
-#else
+#if !defined(__CHEERP__) || defined(__ASMJS__)
     union
-#endif
     {
+#endif
         char __null_state_;
-        value_type __val_;
+        value_type __val_ [[cheerp::noinit]];
+#if !defined(__CHEERP__) || defined(__ASMJS__)
     };
+#endif
     bool __engaged_;
 
     _LIBCPP_INLINE_VISIBILITY
@@ -287,15 +287,15 @@ struct __optional_destruct_base<_Tp, true>
     typedef _Tp value_type;
     static_assert(is_object_v<value_type>,
         "instantiation of optional with a non-object type is undefined behavior");
-#ifdef __CHEERP__
-    struct
-#else
+#if !defined(__CHEERP__) || defined(__ASMJS__)
     union
-#endif
     {
+#endif
         char __null_state_;
-        value_type __val_;
+        value_type __val_ [[cheerp::noinit]];
+#if !defined(__CHEERP__) || defined(__ASMJS__)
     };
+#endif
     bool __engaged_;
 
     _LIBCPP_INLINE_VISIBILITY
