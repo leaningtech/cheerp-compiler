@@ -701,7 +701,7 @@ void cheerp::CheerpSemaClassData::checkRecord()
 		}
 		if (CXXDestructorDecl* destructor = clang::dyn_cast<CXXDestructorDecl>(method))
 		{
-			destructor->setExplicitlyDefaulted(true);
+			destructor->setImplicit(false);
 			continue;
 		}
 		if (!method->isStatic())
