@@ -1,6 +1,8 @@
 Cheerp: A C++ compiler for the Web
 ==================================
 
+[![Discord server](https://img.shields.io/discord/988743885121548329?color=%235865F2&logo=discord&logoColor=%23fff)][discord-invite]
+
 This directory and its sub-directories contain the source code for LLVM,
 a toolkit for the construction of highly optimized compilers,
 optimizers, and run-time environments.
@@ -14,8 +16,7 @@ https://docs.leaningtech.com/cheerp/
 Please report bugs on the cheerp-meta repository:
 https://github.com/leaningtech/cheerp-meta/issues
 
-Developers chat on gitter:
-https://gitter.im/leaningtech/cheerp
+[Join the Discord server][discord-invite]
 
 Or ask questions on stackoverflow:
 https://stackoverflow.com/questions/ask?tags=cheerp
@@ -65,3 +66,5 @@ ninja -C build_runtimes_wasm install
 ### Build libs
 
 Go check the README.md of https://github.com/leaningtech/cheerp-libs
+
+[discord-invite]: https://discord.gg/3UfTSbWdYy
