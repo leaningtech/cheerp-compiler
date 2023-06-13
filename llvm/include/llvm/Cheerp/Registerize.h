@@ -1280,7 +1280,6 @@ public:
 	class Indexer
 	{
 		//This is a bidirectional map between T and uint32_t, it could be queried both on T or the index
-		static_assert(std::is_pointer<T>::value, "Indexer currently index only pointer types");
 	public:
 		void insert(T t)
 		{
@@ -1553,7 +1552,7 @@ private:
 			//Assign every instruction to his own materialized register
 			for (uint32_t i = 0; i<indexer.size(); i++)
 			{
-				registerize->registersMap[indexer.at(i)] = indexMaterializedRegisters[findParent(i)];
+				registerize->registersMap[indexer.at(i).instruction] = indexMaterializedRegisters[findParent(i)];
 			}
 		}
 	private:
@@ -1690,7 +1689,7 @@ private:
 		llvm::Function& F;
 		Registerize* registerize;
 		const PointerAnalyzer& PA;
-		Indexer<const llvm::Instruction*> indexer;
+		Indexer<RegisterID> indexer;
 		llvm::SmallVector<RegisterRange, 4> virtualRegisters;
 		llvm::SmallVector<uint32_t, 4> instructionLocations;
 		std::vector<llvm::BitVector> bitsetConstraint;
@@ -1856,6 +1855,18 @@ public:
 };
 
 
+}
+
+namespace std
+{
+	template <>
+	struct hash<cheerp::Registerize::RegisterID>
+	{
+		size_t operator()(const cheerp::Registerize::RegisterID& rid)
+		{
+			return hash<const llvm::Instruction *>{}(rid.instruction) ^ hash<uint32_t>{}(rid.registerNum);
+		}
+	};
 }
 
 

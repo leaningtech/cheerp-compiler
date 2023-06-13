@@ -557,7 +557,7 @@ Registerize::RegisterAllocatorInst::RegisterAllocatorInst(llvm::Function& F_, co
 	{
 		const Instruction* I=it.first.instruction;
 		assert(registerize->registersMap.count(I) == 0);
-		indexer.insert(I);
+		indexer.insert(it.first);
 	}
 	if (indexer.size() == 0)
 	{
@@ -952,9 +952,10 @@ void Registerize::RegisterAllocatorInst::buildEdgesData(Function& F)
 					continue;
 				const Value* val=phi->getIncomingValueForBlock(&fromBB);
 				const Instruction* pre=dyn_cast<Instruction>(val);
-				if(pre && indexer.count(pre))
+				RegisterID preFirstReg = RegisterID(pre, 0);
+				if(pre && indexer.count(preFirstReg))
 				{
-					edges.back().push_back(std::make_pair(indexer.id(phi), indexer.id(pre)));
+					edges.back().push_back(std::make_pair(indexer.id(RegisterID(phi, 0)), indexer.id(preFirstReg)));
 				}
 			}
 			if (edges.back().empty())
@@ -965,7 +966,7 @@ void Registerize::RegisterAllocatorInst::buildEdgesData(Function& F)
 
 void Registerize::RegisterAllocatorInst::buildFriendsSinglePhi(const uint32_t phi, const PointerAnalyzer& PA)
 {
-	const PHINode* I = dyn_cast<PHINode>(indexer.at(phi));
+	const PHINode* I = dyn_cast<PHINode>(indexer.at(phi).instruction);
 	if (!I)
 		return;
 	uint32_t n = I->getNumIncomingValues();
@@ -975,7 +976,7 @@ void Registerize::RegisterAllocatorInst::buildFriendsSinglePhi(const uint32_t ph
 		if(!usedI)
 			continue;
 		assert(!isInlineable(*usedI, PA));
-		addFriendship(phi, indexer.id(usedI), frequencyInfo.getWeight(I->getIncomingBlock(i), I->getParent()));
+		addFriendship(phi, indexer.id(RegisterID(usedI, 0)), frequencyInfo.getWeight(I->getIncomingBlock(i), I->getParent()));
 	}
 }
 
@@ -983,14 +984,15 @@ void Registerize::RegisterAllocatorInst::createSingleFriendship(const uint32_t i
 {
 	//Introduce a friendships of weight 1
 	const Instruction* I = dyn_cast<Instruction>(operand);
-	if (I && indexer.count(I))
-		addFriendship(i, indexer.id(I), 1);
+	RegisterID rid = RegisterID(I, 0);
+	if (I && indexer.count(rid))
+		addFriendship(i, indexer.id(rid), 1);
 }
 
 void Registerize::RegisterAllocatorInst::buildFriendsSingleCompressibleInstr(const uint32_t i)
 {
 	//Try to force the first operand of a sum/difference/multiplication/... to be the same of the result
-	const Instruction* I = indexer.at(i);
+	const Instruction* I = indexer.at(i).instruction;
 	assert (!!I);
 	// Compount operator cannot be used in asm.js and do not exists in wasm
 	if(I->getParent()->getParent()->getSection() == StringRef("asmjs"))
