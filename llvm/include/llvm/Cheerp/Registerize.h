@@ -1319,6 +1319,18 @@ public:
 		std::vector<T> vec;
 		cheerp::DeterministicUnorderedMap<T, uint32_t, RestrictionsLifted::NoErasure | RestrictionsLifted::NoDeterminism> map;
 	};
+	struct RegisterID
+	{
+		RegisterID(const llvm::Instruction* inst, const uint32_t num) : instruction(inst), registerNum(num)
+		{
+		}
+		bool operator==(const RegisterID& other) const
+		{
+			return instruction == other.instruction && registerNum == other.registerNum;
+		}
+		const llvm::Instruction* instruction;
+		const uint32_t registerNum;
+	};
 private:
 	// Final data structures
 	struct InstOnEdge
@@ -1445,6 +1457,25 @@ private:
 	};
 	// Map from instructions to their unique identifier
 	typedef llvm::DenseMap<const llvm::Instruction*, uint32_t> InstIdMapTy;
+	struct CompareRegisterID
+	{
+	private:
+		const InstIdMapTy* instIdMap;
+	public:
+		CompareRegisterID(const InstIdMapTy& i):instIdMap(&i)
+		{
+		}
+		bool operator()(const RegisterID L, const RegisterID R) const
+		{
+			auto l = instIdMap->find(L.instruction);
+			assert(l != instIdMap->end());
+			auto r = instIdMap->find(R.instruction);
+			assert(r != instIdMap->end());
+			if (l->second != r->second)
+				return l->second < r->second;
+			return L.registerNum < R.registerNum;
+		}
+	};
 	struct CompareInstructionByID
 	{
 	private:
@@ -1463,7 +1494,7 @@ private:
 		}
 	};
 	// Map from instructions to their live ranges
-	typedef std::map<const llvm::Instruction*, InstructionLiveRange, CompareInstructionByID> LiveRangesTy;
+	typedef std::map<RegisterID, InstructionLiveRange, CompareRegisterID> LiveRangesTy;
 	struct RegisterRange
 	{
 		LiveRange range;

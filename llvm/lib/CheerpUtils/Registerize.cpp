@@ -116,13 +116,13 @@ void Registerize::assignRegistersToInstructions(Function& F, cheerp::PointerAnal
 #ifdef VERBOSEDEBUG
 	for(auto it: liveRanges)
 	{
-		if(it.first->getParent()->getParent() != &F)
+		if(it.first.instruction->getParent()->getParent() != &F)
 			continue;
-		dbgs() << "Instruction " << *it.first << " alive in ranges ";
+		dbgs() << "Instruction " << *it.first.instruction << " alive in ranges ";
 		for(const Registerize::LiveRangeChunk& chunk: it.second.range)
 			dbgs() << '[' << chunk.start << ',' << chunk.end << ')';
 		dbgs() << "\n";
-		dbgs() << "\tMapped to register " << registersMap[it.first] << "\n";
+		dbgs() << "\tMapped to register " << registersMap[it.first.instruction] << "\n";
 	}
 #endif
 }
@@ -281,7 +281,7 @@ uint32_t Registerize::dfsLiveRangeInBlock(BlocksState& blocksState, LiveRangesTy
 	// For each use used operands extend their live ranges to here
 	for (Instruction& I: BB)
 	{
-		assert(liveRanges.count(&I)==0);
+		assert(liveRanges.count(RegisterID(&I, 0))==0);
 		assert(instIdMap.count(&I));
 		uint32_t thisIndex = instIdMap.find(&I)->second;
 		nextIndex = thisIndex + 1;
@@ -301,7 +301,7 @@ uint32_t Registerize::dfsLiveRangeInBlock(BlocksState& blocksState, LiveRangesTy
 		// Void instruction and instructions without uses do not need any lifetime computation
 		if (!I.getType()->isVoidTy() && !I.use_empty())
 		{
-			InstructionLiveRange& range=liveRanges.emplace(&I,
+			InstructionLiveRange& range=liveRanges.emplace(RegisterID(&I, 0),
 				InstructionLiveRange(codePathId)).first->second;
 			range.range.push_back(LiveRangeChunk(thisIndex, thisIndex));
 		}
@@ -324,7 +324,7 @@ uint32_t Registerize::dfsLiveRangeInBlock(BlocksState& blocksState, LiveRangesTy
 		}
 		else
 		{
-			auto it = liveRanges.find(outLiveInst);
+			auto it = liveRanges.find(RegisterID(outLiveInst, 0));
 			assert(it != liveRanges.end());
 			InstructionLiveRange& range= it->second;
 			range.addUse(codePathId, endOfBlockIndex);
@@ -360,8 +360,9 @@ void Registerize::extendRangeForUsedOperands(Instruction& I, LiveRangesTy& liveR
 			extendRangeForUsedOperands(*usedI, liveRanges, PA, thisIndex, codePathId, splitRegularDest);
 		else
 		{
-			assert(liveRanges.count(usedI));
-			InstructionLiveRange& range=liveRanges.find(usedI)->second;
+			RegisterID registerId = RegisterID(usedI, 0);
+			assert(liveRanges.count(registerId));
+			InstructionLiveRange& range=liveRanges.find(registerId)->second;
 			if(splitRegularDest && usedI->getType()->isPointerTy() && PA.getPointerKind(usedI) == SPLIT_REGULAR)
 				thisIndex++;
 			if(codePathId!=thisIndex)
@@ -554,7 +555,7 @@ Registerize::RegisterAllocatorInst::RegisterAllocatorInst(llvm::Function& F_, co
 	//Do a first pass to collect instructions (and count them implicitly)
 	for(const auto& it: liveRanges)
 	{
-		const Instruction* I=it.first;
+		const Instruction* I=it.first.instruction;
 		assert(registerize->registersMap.count(I) == 0);
 		indexer.insert(I);
 	}
@@ -572,7 +573,7 @@ Registerize::RegisterAllocatorInst::RegisterAllocatorInst(llvm::Function& F_, co
 	//Do a second pass to set virtualRegisters environment
 	for(const auto& it: liveRanges)
 	{
-		const Instruction* I=it.first;
+		const Instruction* I=it.first.instruction;
 		const InstructionLiveRange& range=it.second;
 		assert(registerize->registersMap.count(I) == 0);
 		parentRegister.push_back(size());
@@ -2824,7 +2825,7 @@ void Registerize::handlePHI(const Instruction& I, const LiveRangesTy& liveRanges
 {
 	bool asmjs = I.getParent()->getParent()->getSection()==StringRef("asmjs");
 	uint32_t chosenRegister=0xffffffff;
-	const InstructionLiveRange& PHIrange=liveRanges.find(&I)->second;
+	const InstructionLiveRange& PHIrange=liveRanges.find(RegisterID(&I, 0))->second;
 	// A PHI may already have an assigned register if it's an operand to another PHI
 	if(registersMap.count(&I))
 		chosenRegister = registersMap[&I];
@@ -2837,7 +2838,7 @@ void Registerize::handlePHI(const Instruction& I, const LiveRangesTy& liveRanges
 			if(!usedI)
 				continue;
 			assert(!isInlineable(*usedI, PA));
-			assert(liveRanges.count(usedI));
+			assert(liveRanges.count(RegisterID(usedI, 0)));
 			if(registersMap.count(usedI)==0)
 				continue;
 			uint32_t operandRegister=registersMap[usedI];
@@ -2861,11 +2862,11 @@ void Registerize::handlePHI(const Instruction& I, const LiveRangesTy& liveRanges
 		if(!usedI)
 			continue;
 		assert(!isInlineable(*usedI, PA));
-		assert(liveRanges.count(usedI));
+		assert(liveRanges.count(RegisterID(usedI, 0)));
 		// Skip already assigned operands
 		if(registersMap.count(usedI))
 			continue;
-		const InstructionLiveRange& opRange=liveRanges.find(usedI)->second;
+		const InstructionLiveRange& opRange=liveRanges.find(RegisterID(usedI, 0))->second;
 		bool spaceFound=addRangeToRegisterIfPossible(registers[chosenRegister], opRange,
 								getRegKindFromType(usedI->getType(), asmjs),
 								cheerp::needsSecondaryName(usedI, PA));
