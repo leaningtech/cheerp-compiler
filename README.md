@@ -47,9 +47,9 @@ For development, consider to add the following option:
 
 Go check the README.md of https://github.com/leaningtech/cheerp-utils
 
-### Build newlib
+### Build musl
 
-Go check the README.md of https://github.com/leaningtech/cheerp-newlib
+Go check the README.md of https://github.com/leaningtech/cheerp-musl
 
 ### Build libcxx and libcxxabi
 
