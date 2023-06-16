@@ -568,8 +568,8 @@ private:
 		int Idx;
 
 	};
-	class PredIterator : public std::iterator<std::forward_iterator_tag, Node, ptrdiff_t, Node*, Node*> {
-		typedef std::iterator<std::forward_iterator_tag, Node, ptrdiff_t, Node*, Node*> super;
+	class PredIterator
+	{
 		typedef PredIterator Self;
 
 		pred_iterator It;
@@ -586,8 +586,12 @@ private:
 			}
 		}
 	public:
-		typedef typename super::pointer pointer;
-		typedef typename super::reference reference;
+
+		using iterator_category = std::forward_iterator_tag;
+		using value_type = Node;
+		using difference_type = ptrdiff_t;
+		using pointer = Node*;
+		using reference = Node*;
 
 		PredIterator() {}
 		explicit PredIterator(Node* N): N(N)

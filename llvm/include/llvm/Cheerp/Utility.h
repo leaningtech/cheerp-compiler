@@ -640,11 +640,17 @@ void replaceSomeUsesWith(std::vector<llvm::Use*> uses, llvm::Value* toSubstitute
  * };
  */
 template<class SymbolTraits, unsigned StringSize = 4>
-class name_iterator : 
-	public std::iterator< std::input_iterator_tag, llvm::SmallString<StringSize> >,
+class name_iterator :
 	SymbolTraits // Empty base opt
 {
 public:
+
+	using iterator_category = std::input_iterator_tag;
+	using value_type = llvm::SmallString<StringSize>;
+	using difference_type = void;
+	using pointer = void;
+	using reference = void;
+
 	name_iterator(llvm::StringRef prefix, SymbolTraits st) : 
 		SymbolTraits( std::move(st) ), prefixLength(prefix.size())
 	{
