@@ -1379,6 +1379,10 @@ bool ItaniumRecordLayoutBuilder::verifyDataOnlyUnion(const RecordDecl* RD)
       if(rt->getDecl()->isByteLayout())
         continue;
     }
+    else if(t->isEnumeralType())
+    {
+      continue;
+    }
     Diag(it->getLocation(), diag::err_cheerp_field_not_supported) << RD->getSourceRange() << RD;
     return false;
   }
