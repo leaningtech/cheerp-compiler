@@ -644,10 +644,14 @@ void cheerp::CheerpSemaClassData::checkRecord()
 	clang::Sema& sema = get_sema();
 
 	assert(recordDecl->hasAttr<JsExportAttr>());
+	auto attr = recordDecl->getAttr<JsExportAttr>();
 
 	bool shouldContinue = true;
+	bool unsafe = attr->getSemanticSpelling() == clang::JsExportAttr::CXX11_cheerp_jsexport_unsafe ||
+		attr->getSemanticSpelling() == clang::JsExportAttr::GNU_cheerp_jsexport_unsafe;
 	//Here all checks regarding internal feasibility of jsexporting a class/struct have to be performed
-	checkCouldBeJsExported(recordDecl, sema, shouldContinue);
+	if(!unsafe)
+		checkCouldBeJsExported(recordDecl, sema, shouldContinue);
 
 	if (!shouldContinue)
 		return;
