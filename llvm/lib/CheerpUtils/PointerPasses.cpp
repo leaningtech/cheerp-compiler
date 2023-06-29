@@ -605,12 +605,16 @@ bool FreeAndDeleteRemoval::runOnModule(Module& M)
 	bool Changed = false;
 
 	isAllGenericJS = true;
-	for (const Function& f: M)
+	bool hasFree = M.getFunction("free") != nullptr;
+	if(hasFree)
 	{
-		if (f.getSection() == StringRef("asmjs") && !cheerp::isFreeFunctionName(f.getName()))
+		for (const Function& f: M)
 		{
-			isAllGenericJS = false;
-			break;
+			if (f.getSection() == StringRef("asmjs") && !cheerp::isFreeFunctionName(f.getName()))
+			{
+				isAllGenericJS = false;
+				break;
+			}
 		}
 	}
 
@@ -625,7 +629,7 @@ bool FreeAndDeleteRemoval::runOnModule(Module& M)
 				Use &U = *UI;
 				++UI;
 				User* Usr = U.getUser();
-				if (CallInst* call = dyn_cast<CallInst>(Usr))
+				if (CallBase* call = dyn_cast<CallBase>(Usr))
 				{
 					if (isAllGenericJS)
 					{
