@@ -610,7 +610,7 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 						for(size_t m=0;m<mergedInts.size();m++)
 						{
 							auto& mergedInt = mergedInts[m];
-							if(mergedInt.second < it->getBitWidth())
+							if(mergedInt.second < it->getBitWidth() || (it->getBitWidth()%8 != 0))
 								continue;
 							// There is enough space in an integer. Promote the type and merge with this one
 							IntegerType* oldType = cast<IntegerType>(newTypes[mergedInt.first]);
