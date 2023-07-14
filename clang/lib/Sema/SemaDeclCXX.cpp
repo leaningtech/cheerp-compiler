@@ -5177,6 +5177,10 @@ static bool CollectFieldInitializer(Sema &SemaRef, BaseAndFieldInfo &Info,
   // missing some that the user actually wrote).
   if (Info.AnyErrorsInInits)
     return false;
+ 
+  // Don't implicitly initialize fields with the noinit attribute
+  if (Field->hasAttr<NoInitAttr>())
+    return false;
 
   CXXCtorInitializer *Init = nullptr;
   if (BuildImplicitMemberInitializer(Info.S, Info.Ctor, Info.IIK, Field,
@@ -5365,9 +5369,6 @@ bool Sema::SetCtorInitializers(CXXConstructorDecl *Constructor, bool AnyErrors,
       //   unnamed bit-field. Unnamed bit-fields are not members and cannot be
       //   initialized.
       if (F->isUnnamedBitfield())
-        continue;
-            
-      if (F->hasAttr<NoInitAttr>())
         continue;
 
       // If we're not generating the implicit copy/move constructor, then we'll
