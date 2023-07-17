@@ -113,26 +113,6 @@ public:
 	}
 
 	/**
-	 * Some values, such as arguments which are REGULAR pointers needs two names
-	 */
-	llvm::StringRef getSecondaryName(const llvm::Value* v) const
-	{
-		if(const llvm::Instruction* I = llvm::dyn_cast<llvm::Instruction>(v))
-			return getSecondaryName(I->getParent()->getParent(), registerize.getRegisterId(I, EdgeContext::emptyContext()));
-		assert(secondaryNamemap.count(v) );
-		assert(!secondaryNamemap.at(v).empty());
-		return secondaryNamemap.at(v);
-	}
-
-	llvm::StringRef getSecondaryName(const llvm::Function* F, uint32_t regId) const
-	{
-		std::pair<const llvm::Function*, uint32_t> valData = std::make_pair(F, regId);
-		assert(regSecondaryNamemap.count(valData));
-		assert(!regSecondaryNamemap.at(valData).empty());
-		return regSecondaryNamemap.at(valData);
-	}
-
-	/**
 	 * Return a JS compatible name for the StructType constructor, potentially minimized
 	 * A name is guaranteed also for literal structs which have otherwise no name
 	 */
@@ -177,7 +157,6 @@ public:
 	 * It uses the current edge context.
 	*/
 	llvm::StringRef getNameForEdge(const llvm::Value* v, const EdgeContext& edgeContext, const uint32_t regNr = 0) const;
-	llvm::StringRef getSecondaryNameForEdge(const llvm::Value* v, const EdgeContext& edgeContext) const;
 	std::string getShortestLocalName() const
 	{
 		if (shortestLocalName.size() == 0)

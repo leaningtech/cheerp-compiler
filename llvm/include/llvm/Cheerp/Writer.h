@@ -307,12 +307,6 @@ private:
 			return namegen.getName(v, regId);
 		return namegen.getNameForEdge(v, edgeContext, regId);
 	}
-	llvm::StringRef getSecondaryName(const llvm::Value* v, const bool doNotConsiderEdgeContext = false) const
-	{
-		if (doNotConsiderEdgeContext || edgeContext.isNull())
-			return namegen.getSecondaryName(v);
-		return namegen.getSecondaryNameForEdge(v, edgeContext);
-	}
 
 	bool isGlobalized(const llvm::Value* v) const final
 	{

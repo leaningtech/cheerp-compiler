@@ -47,16 +47,6 @@ llvm::StringRef NameGenerator::getNameForEdge(const llvm::Value* v, const EdgeCo
 	return namemap.at(v);
 }
 
-llvm::StringRef NameGenerator::getSecondaryNameForEdge(const llvm::Value* v, const EdgeContext& edgeContext) const
-{
-	if (const Instruction* I=dyn_cast<Instruction>(v))
-	{
-		uint32_t regId = registerize.getRegisterId(I, edgeContext);
-		return regSecondaryNamemap.at(std::make_pair(I->getParent()->getParent(), regId));
-	}
-	return secondaryNamemap.at(v);
-}
-
 SmallString< 4 > NameGenerator::filterLLVMName(StringRef s, NAME_FILTER_MODE filterMode)
 {
 	SmallString< 4 > ans;
