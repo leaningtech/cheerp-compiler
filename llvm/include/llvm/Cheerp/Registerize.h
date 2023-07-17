@@ -1331,6 +1331,9 @@ public:
 		const llvm::Instruction* instruction;
 		const uint32_t registerNum;
 	};
+
+	REGISTER_KIND getRegKindFromRegisterID(const RegisterID reg, bool asmjs, const PointerAnalyzer* PA) const;
+
 private:
 	// Final data structures
 	struct InstOnEdge

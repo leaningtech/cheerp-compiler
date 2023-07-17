@@ -2936,6 +2936,15 @@ uint32_t Registerize::findOrCreateRegister(llvm::SmallVector<RegisterRange, 4>& 
 	return registers.size()-1;
 }
 
+Registerize::REGISTER_KIND Registerize::getRegKindFromRegisterID(const RegisterID reg, bool asmjs, const PointerAnalyzer* PA) const
+{
+	const Instruction* I = reg.instruction;
+	const uint32_t index = reg.registerNum;
+	if (I->getType()->isPointerTy() && PA->getPointerKind(I) == SPLIT_REGULAR && index == 1)
+		return INTEGER;
+	return getRegKindFromType(I->getType(), asmjs);
+}
+
 Registerize::REGISTER_KIND Registerize::getRegKindFromType(const llvm::Type* t, bool asmjs) const
 {
 	if(t->isIntegerTy(64))
