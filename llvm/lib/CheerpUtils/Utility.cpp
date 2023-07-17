@@ -1053,13 +1053,13 @@ std::vector<Constant*> getGlobalConstructors(Module& module)
 }
 
 
-bool needsSecondaryName(const Value* V, const PointerAnalyzer& PA)
+int needsAdditionalRegisters(const Value* V, const PointerAnalyzer& PA)
 {
 	if(!V->getType()->isPointerTy())
-		return false;
+		return 0;
 	if(PA.getPointerKind(V) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(V))
-		return true;
-	return false;
+		return 1;
+	return 0;
 }
 
 const llvm::Loop* findCommonLoop(const llvm::LoopInfo* LI, const llvm::BasicBlock* first, const llvm::BasicBlock* second)

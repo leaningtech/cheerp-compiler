@@ -150,7 +150,7 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 			regData.first++;
 			// Set the register information if required
 			assert(regData.second.argOrFunc);
-			if(cheerp::needsSecondaryName(incoming, namegen.PA))
+			if(cheerp::needsAdditionalRegisters(incoming, namegen.PA))
 				assert(regData.second.needsSecondaryName);
 		}
 		void handlePHI(const PHINode* phi, const Value* incoming, bool selfReferencing) override
@@ -241,7 +241,7 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 					// Add the uses for this instruction to the total count for the register
 					regData.first+=I.getNumUses();
 					assert(regData.second.argOrFunc);
-					if(needsSecondaryName(&I, PA))
+					if(needsAdditionalRegisters(&I, PA))
 						assert(	regData.second.needsSecondaryName);
 				}
 			}
@@ -261,7 +261,7 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 		for ( auto& arg: f.args())
 		{
 			thisFunctionLocals[currentArgPos].first = f.getNumUses();
-			bool needsTwoNames = needsSecondaryName(&arg, PA) || (arg.getType()->isPointerTy() && PA.getPointerKindForArgument(&arg) == SPLIT_REGULAR);
+			bool needsTwoNames = needsAdditionalRegisters(&arg, PA) || (arg.getType()->isPointerTy() && PA.getPointerKindForArgument(&arg) == SPLIT_REGULAR);
 			thisFunctionLocals[currentArgPos].second = localData{&arg, 0, needsTwoNames};
 			currentArgPos++;
 		}
@@ -405,7 +405,7 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 			// Assign this name to a global value
 			namemap.emplace( global_it->second, nameHelper.makeGlobalName() );
 			// We need to consume another name to assign the secondary one
-			if(needsSecondaryName(global_it->second, PA))
+			if(needsAdditionalRegisters(global_it->second, PA))
 			{
 				secondaryNamemap.emplace( global_it->second, nameHelper.makeGlobalName() );
 			}
@@ -551,7 +551,7 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 
 		for ( auto& arg: f.args())
 		{
-			bool needsTwoNames = needsSecondaryName(&arg, PA) || (arg.getType()->isPointerTy() && PA.getPointerKindForArgument(&arg) == SPLIT_REGULAR);
+			bool needsTwoNames = needsAdditionalRegisters(&arg, PA) || (arg.getType()->isPointerTy() && PA.getPointerKindForArgument(&arg) == SPLIT_REGULAR);
 			if ( arg.hasName() )
 			{
 				namemap.emplace( &arg, filterLLVMName(arg.getName(), LOCAL) );
@@ -581,7 +581,7 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 		else
 		{
 			namemap.emplace( &GV, filterLLVMName( GV.getName(), GLOBAL ) );
-			bool needsTwoNames = needsSecondaryName(&GV, PA);
+			bool needsTwoNames = needsAdditionalRegisters(&GV, PA);
 			if(needsTwoNames)
 				secondaryNamemap.emplace( &GV, filterLLVMName(GV.getName(), GLOBAL_SECONDARY) );
 		}

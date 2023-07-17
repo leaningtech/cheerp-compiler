@@ -453,7 +453,7 @@ uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMa
 			assert(registerize.registersMap.count(incoming));
 			uint32_t regId=registerize.registersMap.find(incoming)->second;
 			Registerize::REGISTER_KIND phiKind = registerize.getRegKindFromType(incoming->getType(), asmjs);
-			uint32_t chosenReg = assignTempReg(regId, phiKind, cheerp::needsSecondaryName(incoming, PA));
+			uint32_t chosenReg = assignTempReg(regId, phiKind, cheerp::needsAdditionalRegisters(incoming, PA));
 			registerize.edgeRegistersMap.insertUpdate(regId, chosenReg, edgeContext);
 		}
 		void handlePHI(const PHINode* phi, const Value* incoming, bool selfReferencing) override
@@ -461,7 +461,7 @@ uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMa
 			// Provide temporary regs for the offset part of SPLIT_REGULAR PHIs that reference themselves
 			if(!selfReferencing)
 				return;
-			assert(cheerp::needsSecondaryName(phi, PA));
+			assert(cheerp::needsAdditionalRegisters(phi, PA));
 			assert(registerize.registersMap.count(phi));
 			uint32_t regId=registerize.registersMap.find(phi)->second;
 			// Check if there is already a tmp PHI for this PHI, if so it is not really self referencing
@@ -591,7 +591,7 @@ Registerize::RegisterAllocatorInst::RegisterAllocatorInst(llvm::Function& F_, co
 		virtualRegisters.push_back(RegisterRange(
 					range.range,
 					registerize->getRegKindFromType(I->getType(), asmjs),
-					cheerp::needsSecondaryName(I, PA)
+					cheerp::needsAdditionalRegisters(I, PA)
 					));
 		const auto& iter = instIdMap.find(I);
 		assert(iter != instIdMap.end());
@@ -955,7 +955,7 @@ void Registerize::RegisterAllocatorInst::materializeRegisters(llvm::SmallVectorI
 		{
 			if (registerize->additionalRegistersMap.count(rid.instruction) == 0)
 			{
-				int amountRegisters = needsSecondaryName(rid.instruction, PA);
+				int amountRegisters = needsAdditionalRegisters(rid.instruction, PA);
 				registerize->additionalRegistersMap[rid.instruction].resize(amountRegisters);
 			}
 			registerize->additionalRegistersMap[rid.instruction][rid.registerNum - 1] = num;
@@ -2889,7 +2889,7 @@ void Registerize::handlePHI(const Instruction& I, const LiveRangesTy& liveRanges
 			uint32_t operandRegister=registersMap[usedI];
 			if(addRangeToRegisterIfPossible(registers[operandRegister], PHIrange,
 							getRegKindFromType(usedI->getType(), asmjs),
-							cheerp::needsSecondaryName(&I, PA)))
+							cheerp::needsAdditionalRegisters(&I, PA)))
 			{
 				chosenRegister=operandRegister;
 				break;
@@ -2898,7 +2898,7 @@ void Registerize::handlePHI(const Instruction& I, const LiveRangesTy& liveRanges
 	}
 	// If a register has not been chosen yet, find or create a new one
 	if(chosenRegister==0xffffffff)
-		chosenRegister=findOrCreateRegister(registers, PHIrange, getRegKindFromType(I.getType(), asmjs), cheerp::needsSecondaryName(&I, PA));
+		chosenRegister=findOrCreateRegister(registers, PHIrange, getRegKindFromType(I.getType(), asmjs), cheerp::needsAdditionalRegisters(&I, PA));
 	registersMap[&I]=chosenRegister;
 	// Iterate again on the operands and try to map as many as possible into the same register
 	for(Value* op: I.operands())
@@ -2914,7 +2914,7 @@ void Registerize::handlePHI(const Instruction& I, const LiveRangesTy& liveRanges
 		const InstructionLiveRange& opRange=liveRanges.find(RegisterID(usedI, 0))->second;
 		bool spaceFound=addRangeToRegisterIfPossible(registers[chosenRegister], opRange,
 								getRegKindFromType(usedI->getType(), asmjs),
-								cheerp::needsSecondaryName(usedI, PA));
+								cheerp::needsAdditionalRegisters(usedI, PA));
 		if (spaceFound)
 		{
 			// Update the mapping
