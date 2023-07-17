@@ -301,11 +301,11 @@ private:
 	/**
 	  * Forward to the appropriate function of the NameGenerator
 	  */
-	llvm::StringRef getName(const llvm::Value* v, const bool doNotConsiderEdgeContext = false) const
+	llvm::StringRef getName(const llvm::Value* v, const bool doNotConsiderEdgeContext = false, const uint32_t regId = 0) const
 	{
 		if (doNotConsiderEdgeContext || edgeContext.isNull())
-			return namegen.getName(v);
-		return namegen.getNameForEdge(v, edgeContext);
+			return namegen.getName(v, regId);
+		return namegen.getNameForEdge(v, edgeContext, regId);
 	}
 	llvm::StringRef getSecondaryName(const llvm::Value* v, const bool doNotConsiderEdgeContext = false) const
 	{

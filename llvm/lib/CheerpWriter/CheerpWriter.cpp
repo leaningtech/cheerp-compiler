@@ -222,7 +222,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinNamespace(
 		{
 			stream
 				<< ';' << NewLine
-				<< getSecondaryName(&callV)
+				<< getName(&callV, false, 1)
 				<< '='
 				<< getName(&callV)
 				<< ".this.o;"
@@ -309,7 +309,7 @@ void CheerpWriter::compileDowncast( const CallBase& callV )
 		{
 			compilePointerBaseTyped(src, t);
 			stream << ';' << NewLine;
-			stream << getSecondaryName(&callV) << '=';
+			stream << getName(&callV, false, 1) << '=';
 			compilePointerOffset(src, LOWEST);
 		}
 		else
@@ -372,7 +372,7 @@ void CheerpWriter::compileVirtualcast( const CallBase& callV )
       {
             compileCompleteObject(src);
             stream << ".a;" << NewLine;
-            stream << getSecondaryName(&callV) << '=';
+            stream << getName(&callV, false, 1) << '=';
             compileOperand(offset, HIGHEST);
       }
       else if(result_kind == REGULAR)
@@ -2149,7 +2149,7 @@ void CheerpWriter::compilePointerOffset(const Value* p, PARENT_PRIORITY parentPr
 	}
 	else if((!isa<Instruction>(p) || !isInlineable(*cast<Instruction>(p), PA)) && kind == SPLIT_REGULAR)
 	{
-		stream << getSecondaryName(p);
+		stream << getName(p, false, 1);
 	}
 	else if(const IntrinsicInst* II=dyn_cast<IntrinsicInst>(p))
 	{
@@ -2741,7 +2741,7 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 			assert(incoming);
 			if(incoming->getType()->isPointerTy() && writer.PA.getPointerKindAssert(incoming)==SPLIT_REGULAR && !writer.PA.getConstantOffsetForPointer(incoming))
 			{
-				writer.stream << writer.getSecondaryName(incoming);
+				writer.stream << writer.getName(incoming, false, 1);
 				writer.stream << '=';
 				edgeContext.undoAssigment();
 				writer.compilePointerOffset(incoming, LOWEST);
@@ -2792,7 +2792,7 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 						writer.stream << writer.namegen.getName(phi->getParent()->getParent(), tmpOffsetReg);
 					}
 					else
-						writer.stream << writer.getSecondaryName(phi, /*doNotConsiderEdgeContext*/true);
+						writer.stream << writer.getName(phi, /*doNotConsiderEdgeContext*/true, 1);
 					writer.stream << '=';
 					if (incomingKind == RAW)
 					{
@@ -2809,7 +2809,7 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 					if(selfReferencing)
 					{
 						writer.stream << ';' << writer.NewLine;
-						writer.stream << writer.getSecondaryName(phi, /*doNotConsiderEdgeContext*/true) << '=' << writer.namegen.getName(phi->getParent()->getParent(), tmpOffsetReg);
+						writer.stream << writer.getName(phi, /*doNotConsiderEdgeContext*/true, 1) << '=' << writer.namegen.getName(phi->getParent()->getParent(), tmpOffsetReg);
 					}
 				}
 				else if(k==RAW)
@@ -4599,7 +4599,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileCallInstruction(
 	{
 		addrShift = compileHeapForType(cast<PointerType>(ci.getType())->getPointerElementType());
 		stream << ';' << NewLine;
-		stream << getSecondaryName(&ci) << '=';
+		stream << getName(&ci, false, 1) << '=';
 	}
 
 	if(!retTy->isVoidTy())
@@ -4734,7 +4734,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileCallInstruction(
 					else
 					{
 						stream << ';' << NewLine;
-						stream << getSecondaryName(&ci) << "=oSlot";
+						stream << getName(&ci, false, 1) << "=oSlot";
 					}
 				}
 				break;
@@ -4880,7 +4880,7 @@ void CheerpWriter::compileBB(const BasicBlock& BB)
 		{
 			if(I.getType()->isPointerTy() && (!isa<CallBase>(I) || isDowncast) && PA.getPointerKind(&I) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&I))
 			{
-				stream << getSecondaryName(&I) << '=';
+				stream << getName(&I, false, 1) << '=';
 			}
 			else if(!I.getType()->isVoidTy())
 			{
@@ -4968,11 +4968,6 @@ void CheerpWriter::compileMethodLocals(const Function& F)
 			stream << ',';
 		compileMethodLocal(namegen.getName(&F, regId), regsInfo[regId].regKind);
 		firstVar = false;
-		if(regsInfo[regId].needsSecondaryName)
-		{
-			stream << ',';
-			compileMethodLocal(namegen.getSecondaryName(&F, regId), Registerize::INTEGER);
-		}
 	}
 	if(!firstVar)
 		stream << ';' << NewLine;
@@ -5357,7 +5352,7 @@ void CheerpWriter::compileMethod(const Function& F)
 		if(curArg!=A)
 			stream << ',';
 		if(curArg->getType()->isPointerTy() && PA.getPointerKindForArgument(&*curArg) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&*curArg))
-			stream << getName(&*curArg) << ',' << getSecondaryName(&*curArg);
+			stream << getName(&*curArg) << ',' << getName(&*curArg, false, 1);
 		else
 			stream << getName(&*curArg);
 	}
@@ -5389,9 +5384,9 @@ void CheerpWriter::compileMethod(const Function& F)
 			stream << getName(&*curArg);
 			stream << "=";
 			if(argKind == REGULAR)
-				stream << "{d:" << getName(&*curArg) << ",o:" << getSecondaryName(&*curArg) << "}";
+				stream << "{d:" << getName(&*curArg) << ",o:" << getName(&*curArg, false, 1) << "}";
 			else if(argKind == COMPLETE_OBJECT)
-				stream << getName(&*curArg) << "[" << getSecondaryName(&*curArg) << "]";
+				stream << getName(&*curArg) << "[" << getName(&*curArg, false, 1) << "]";
 			else
 			{
 				assert(false);
@@ -5538,7 +5533,7 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 				compileOperand(C, LOWEST);
 			stream << ']';
 			stream << ';' << NewLine;
-			stream << "var " << getSecondaryName(&G);
+			stream << "var " << getName(&G, false, 1);
 			stream << "=0";
 		}
 		else

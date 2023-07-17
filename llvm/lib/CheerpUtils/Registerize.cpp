@@ -312,9 +312,14 @@ uint32_t Registerize::dfsLiveRangeInBlock(BlocksState& blocksState, LiveRangesTy
 		// Void instruction and instructions without uses do not need any lifetime computation
 		if (!I.getType()->isVoidTy() && !I.use_empty())
 		{
-			InstructionLiveRange& range=liveRanges.emplace(RegisterID(&I, 0),
-				InstructionLiveRange(codePathId)).first->second;
-			range.range.push_back(LiveRangeChunk(thisIndex, thisIndex));
+			// The amount of registers is always one, plus any additional registers in case of aggregate values, or SPLIT_REGULAR.
+			uint32_t amountRegisters = needsAdditionalRegisters(&I, PA) + 1;
+			for (uint32_t i = 0; i < amountRegisters; i++)
+			{
+				InstructionLiveRange& range=liveRanges.emplace(RegisterID(&I, i),
+					InstructionLiveRange(codePathId)).first->second;
+				range.range.push_back(LiveRangeChunk(thisIndex, thisIndex));
+			}
 		}
 		// Operands of PHIs are declared as live out from the source block.
 		// This is handled below.
@@ -335,10 +340,15 @@ uint32_t Registerize::dfsLiveRangeInBlock(BlocksState& blocksState, LiveRangesTy
 		}
 		else
 		{
-			auto it = liveRanges.find(RegisterID(outLiveInst, 0));
-			assert(it != liveRanges.end());
-			InstructionLiveRange& range= it->second;
-			range.addUse(codePathId, endOfBlockIndex);
+			// The amount of registers is always one, plus any additional registers in case of aggregate values, or SPLIT_REGULAR.
+			uint32_t amountRegisters = needsAdditionalRegisters(outLiveInst, PA) + 1;
+			for (uint32_t i = 0; i < amountRegisters; i++)
+			{
+				auto it = liveRanges.find(RegisterID(outLiveInst, i));
+				assert(it != liveRanges.end());
+				InstructionLiveRange& range= it->second;
+				range.addUse(codePathId, endOfBlockIndex);
+			}
 		}
 	}
 	blockState.completed=true;
@@ -371,13 +381,18 @@ void Registerize::extendRangeForUsedOperands(Instruction& I, LiveRangesTy& liveR
 			extendRangeForUsedOperands(*usedI, liveRanges, PA, thisIndex, codePathId, splitRegularDest);
 		else
 		{
-			RegisterID registerId = RegisterID(usedI, 0);
-			assert(liveRanges.count(registerId));
-			InstructionLiveRange& range=liveRanges.find(registerId)->second;
 			if(splitRegularDest && usedI->getType()->isPointerTy() && PA.getPointerKind(usedI) == SPLIT_REGULAR)
 				thisIndex++;
-			if(codePathId!=thisIndex)
-				range.addUse(codePathId, thisIndex);
+			// The amount of registers is always one, plus any additional registers in case of aggregate values, or SPLIT_REGULAR.
+			uint32_t amountRegisters = needsAdditionalRegisters(usedI, PA) + 1;
+			for (uint32_t i = 0; i < amountRegisters; i++)
+			{
+				RegisterID registerId = RegisterID(usedI, i);
+				assert(liveRanges.count(registerId));
+				InstructionLiveRange& range=liveRanges.find(registerId)->second;
+				if(codePathId!=thisIndex)
+					range.addUse(codePathId, thisIndex);
+			}
 		}
 	}
 }
@@ -584,13 +599,14 @@ Registerize::RegisterAllocatorInst::RegisterAllocatorInst(llvm::Function& F_, co
 	//Do a second pass to set virtualRegisters environment
 	for(const auto& it: liveRanges)
 	{
-		const Instruction* I=it.first.instruction;
+		const RegisterID reg = it.first;
+		const Instruction* I=reg.instruction;
 		const InstructionLiveRange& range=it.second;
 		assert(registerize->registersMap.count(I) == 0);
 		parentRegister.push_back(size());
 		virtualRegisters.push_back(RegisterRange(
 					range.range,
-					registerize->getRegKindFromType(I->getType(), asmjs),
+					registerize->getRegKindFromRegisterID(reg, asmjs, &PA),
 					cheerp::needsAdditionalRegisters(I, PA)
 					));
 		const auto& iter = instIdMap.find(I);
