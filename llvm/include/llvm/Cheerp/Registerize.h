@@ -1538,25 +1538,7 @@ private:
 				llvm::dbgs() << findParent(i) << "\t";
 			llvm::dbgs() << "\n\n";
 		}
-		void materializeRegisters(llvm::SmallVectorImpl<RegisterRange>& registers)
-		{
-			if (emptyFunction)
-				return;
-			std::vector<uint32_t> indexMaterializedRegisters(size());
-			//Materialize virtual registers and set the proper index
-			for (uint32_t i = 0; i<size(); i++)
-			{
-				if (!isAlive(i))
-					continue;
-				indexMaterializedRegisters[i] = registers.size();
-				registers.push_back(virtualRegisters[i]);
-			}
-			//Assign every instruction to his own materialized register
-			for (uint32_t i = 0; i<indexer.size(); i++)
-			{
-				registerize->registersMap[indexer.at(i).instruction] = indexMaterializedRegisters[findParent(i)];
-			}
-		}
+		void materializeRegisters(llvm::SmallVectorImpl<RegisterRange>& registers);
 	private:
 		bool couldAvoidToBeMaterialized(const llvm::BasicBlock& BB) const;
 		void computeBitsetConstraints()

@@ -931,6 +931,38 @@ std::vector<uint32_t> VertexColorer::assignGreedily() const
 	return res;
 }
 
+void Registerize::RegisterAllocatorInst::materializeRegisters(llvm::SmallVectorImpl<RegisterRange>& registers)
+{
+	if (emptyFunction)
+		return;
+	std::vector<uint32_t> indexMaterializedRegisters(size());
+	//Materialize virtual registers and set the proper index
+	for (uint32_t i = 0; i<size(); i++)
+	{
+		if (!isAlive(i))
+			continue;
+		indexMaterializedRegisters[i] = registers.size();
+		registers.push_back(virtualRegisters[i]);
+	}
+	//Assign every instruction to his own materialized register
+	for (uint32_t i = 0; i<indexer.size(); i++)
+	{
+		auto num = indexMaterializedRegisters[findParent(i)];
+		RegisterID rid = indexer.at(i);
+		if (rid.registerNum == 0)
+			registerize->registersMap[rid.instruction] = num;
+		else
+		{
+			if (registerize->additionalRegistersMap.count(rid.instruction) == 0)
+			{
+				int amountRegisters = needsSecondaryName(rid.instruction, PA);
+				registerize->additionalRegistersMap[rid.instruction].resize(amountRegisters);
+			}
+			registerize->additionalRegistersMap[rid.instruction][rid.registerNum - 1] = num;
+		}
+	}
+}
+
 bool Registerize::RegisterAllocatorInst::couldAvoidToBeMaterialized(const BasicBlock& BB) const
 {
 	//Only blocks containing only phi and exactly 1 successor can avoid to be materialized
