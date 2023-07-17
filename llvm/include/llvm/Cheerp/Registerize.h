@@ -1239,6 +1239,7 @@ public:
 	
 	bool hasRegister(const llvm::Instruction* I) const;
 	uint32_t getRegisterId(const llvm::Instruction* I, const EdgeContext& edgeContext) const;
+	uint32_t getAdditionalRegisterId(const llvm::Instruction* I, uint32_t index, const EdgeContext& edgeContext) const;
 	uint32_t getSelfRefTmpReg(const llvm::Instruction* I, const llvm::BasicBlock* fromBB, const llvm::BasicBlock* toBB) const;
 
 	void assignRegisters(llvm::Module& M, cheerp::PointerAnalyzer& PA);
@@ -1355,6 +1356,7 @@ private:
 		};
 	};
 	llvm::DenseMap<const llvm::Instruction*, uint32_t> registersMap;
+	std::unordered_map<const llvm::Instruction*, llvm::SmallVector<uint32_t, 4> > additionalRegistersMap;
 
 	//Class that keeps track for a single instruction which register it occupies at any given point
 	class RegisterUpdates

@@ -73,6 +73,17 @@ uint32_t Registerize::getRegisterId(const llvm::Instruction* I, const EdgeContex
 	return regId;
 }
 
+uint32_t Registerize::getAdditionalRegisterId(const llvm::Instruction* I, uint32_t index, const EdgeContext& edgeContext) const
+{
+	assert(RegistersAssigned);
+	assert(additionalRegistersMap.count(I));
+	const llvm::SmallVector<uint32_t, 4> &registers = additionalRegistersMap.find(I)->second;
+	uint32_t regId = registers[index - 1];
+	if (!edgeContext.isNull())
+		return edgeRegistersMap.findCurrentRegisterId(regId, edgeContext);
+	return regId;
+}
+
 uint32_t Registerize::getSelfRefTmpReg(const llvm::Instruction* I, const llvm::BasicBlock* fromBB, const llvm::BasicBlock* toBB) const
 {
 	assert(registersMap.count(I));
