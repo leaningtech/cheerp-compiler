@@ -36,12 +36,13 @@ NameGenerator::NameGenerator(const Module& M, const GlobalDepsAnalyzer& gda, Reg
 		generateCompressedNames(M, gda, linearHelper, exportedMemory);
 }
 
-llvm::StringRef NameGenerator::getNameForEdge(const llvm::Value* v, const EdgeContext& edgeContext) const
+llvm::StringRef NameGenerator::getNameForEdge(const llvm::Value* v, const EdgeContext& edgeContext, const uint32_t regId) const
 {
 	if (const Instruction* I=dyn_cast<Instruction>(v))
 	{
-		uint32_t regId = registerize.getRegisterId(I, edgeContext);
-		return regNamemap.at(std::make_pair(I->getParent()->getParent(), regId));
+		if (regId != 0)
+			return regNamemap.at(std::make_pair(I->getParent()->getParent(), registerize.getAdditionalRegisterId(I, regId, edgeContext)));
+		return regNamemap.at(std::make_pair(I->getParent()->getParent(), registerize.getRegisterId(I, edgeContext)));
 	}
 	return namemap.at(v);
 }

@@ -88,10 +88,17 @@ public:
 	 * Return the computed name for the given variable.
 	 * This function can be called only if the passed value is not an inlined instruction
 	 */
-	llvm::StringRef getName(const llvm::Value* v) const
+	llvm::StringRef getName(const llvm::Value* v, const uint32_t regId = 0) const
 	{
 		if(const llvm::Instruction* I = llvm::dyn_cast<llvm::Instruction>(v))
+		{
+			if (regId != 0)
+				return getName(I->getParent()->getParent(), registerize.getAdditionalRegisterId(I, regId, EdgeContext::emptyContext()));
 			return getName(I->getParent()->getParent(), registerize.getRegisterId(I, EdgeContext::emptyContext()));
+		}
+		if (regId == 1)
+			if (llvm::isa<llvm::Argument>(v) || llvm::isa<llvm::GlobalVariable>(v))
+				return secondaryNamemap.at(v);
 		assert(namemap.count(v) );
 		assert(! namemap.at(v).empty() );
 		return namemap.at(v);
@@ -169,7 +176,7 @@ public:
 	 * Same as getName, but supports the required temporary variables in edges between blocks
 	 * It uses the current edge context.
 	*/
-	llvm::StringRef getNameForEdge(const llvm::Value* v, const EdgeContext& edgeContext) const;
+	llvm::StringRef getNameForEdge(const llvm::Value* v, const EdgeContext& edgeContext, const uint32_t regNr = 0) const;
 	llvm::StringRef getSecondaryNameForEdge(const llvm::Value* v, const EdgeContext& edgeContext) const;
 	std::string getShortestLocalName() const
 	{
