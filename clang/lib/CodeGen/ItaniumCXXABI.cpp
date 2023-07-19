@@ -638,6 +638,7 @@ CGCallee ItaniumCXXABI::EmitLoadOfMemberFunctionPointer(
 
     llvm::CallBase* CB = Builder.CreateCall(intrinsic, {This, Adj});
     CB->addParamAttr(0, llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, ThisAddr.getElementType()));
+    CB->addRetAttr(llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, CGF.Int8Ty));
     llvm::Value* ThisNotZero = Builder.CreateBitCast(CB, This->getType());
     Builder.CreateBr(FnNonVirtual);
     CGF.EmitBlock(FnNonVirtual);
@@ -1681,6 +1682,8 @@ llvm::Value *ItaniumCXXABI::EmitDynamicCastCall(
     llvm::Value* DynamicDowncast = CGF.Builder.CreateCall(intrinsic, {DynCastObj, Value});
     assert(DynCastObj->getType()->isOpaquePointerTy() || DynCastObj->getType()->getNonOpaquePointerElementType() == ThisAddr.getElementType());
     cast<llvm::CallBase>(DynamicDowncast)->addParamAttr(0, llvm::Attribute::get(DynamicDowncast->getContext(), llvm::Attribute::ElementType, ThisAddr.getElementType()));
+    cast<llvm::CallBase>(DynamicDowncast)->addRetAttr(llvm::Attribute::get(DynamicDowncast->getContext(), llvm::Attribute::ElementType, CGF.ConvertType(DestTy->getPointeeType())));
+
     CGF.Builder.CreateBr(EndBB);
     // If the returned offset is zero, we can passthrough the value
     llvm::BasicBlock *ZeroBB = CGF.createBasicBlock("cheerp_null_downcast");
