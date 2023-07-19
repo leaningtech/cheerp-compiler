@@ -1874,6 +1874,22 @@ void TypeOptimizer::rewriteFunction(Function* F)
 								nextArgNo += 1;
 							}
 						}
+						AttrBuilder retAttributes(CI->getContext());
+						for (auto attr: CallPAL.getRetAttrs())
+						{
+							if (attr.getKindAsEnum() == Attribute::ElementType)
+							{
+								llvm::Type* newType = rewriteType(attr.getValueAsType()).mappedType;
+								if (newType->isArrayTy())
+									newType = newType->getArrayElementType();
+								Attribute newRetAttr = attr.getWithNewType(CI->getContext(), newType);
+								retAttributes.addAttribute(newRetAttr);
+							}
+							else
+							{
+								retAttributes.addAttribute(attr);
+							}
+						}
 
 						SmallVector<OperandBundleDef, 1> OpBundles;
 						CI->getOperandBundlesAsDefs(OpBundles);
@@ -1899,7 +1915,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 						NewCall->setCallingConv(CI->getCallingConv());
 						NewCall->setAttributes(AttributeList::get(F->getContext(), {
 							AttributeList::get(F->getContext(), CallPAL.getFnAttrs(),
-								CallPAL.getRetAttrs(), {}),
+								AttributeSet::get(F->getContext(), retAttributes), {}),
 							paramAttributes
 							}));
 						NewCall->setDebugLoc(CI->getDebugLoc());
