@@ -417,6 +417,7 @@ void CodeGenFunction::EmitAnyExprToExn(const Expr *e, Address addr) {
     llvm::Function* intrinsic = llvm::Intrinsic::getDeclaration(&CGM.getModule(), llvm::Intrinsic::cheerp_downcast, Tys);
     llvm::CallBase* CB = Builder.CreateCall(intrinsic, {typedAddr.getPointer(), llvm::ConstantInt::get(CGM.Int32Ty, 0)});
     CB->addParamAttr(0, llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, ty));
+    CB->addRetAttr(llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, ty));
     typedAddr = Address(CB, ty, typedAddr.getAlignment());
   }
 

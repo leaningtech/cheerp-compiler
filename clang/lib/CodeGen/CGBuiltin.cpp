@@ -12492,9 +12492,9 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
     CallBase* CB = Builder.CreateCall(F, Ops);
 
     llvm::Type* elementType = ConvertTypeForMem(E->getArg(0)->getType()->getPointeeType());
-    assert(Ops[0]->getType()->isOpaquePointerTy() || Ops[0]->getType()->getNonOpaquePointerElementType() == elementType);
-
+    llvm::Type* retType = ConvertType(E->getType()->getPointeeType());
     CB->addParamAttr(0, llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, elementType));
+	CB->addRetAttr(llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, retType));
     return CB;
   }
   else if (BuiltinID == Cheerp::BI__builtin_cheerp_pointer_kind) {
