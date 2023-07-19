@@ -95,6 +95,7 @@ void Lowerer::lowerCoroPromise(CoroPromiseInst *Intrin) {
     ConstantInt* Adj = ConstantInt::get(Builder.getInt32Ty(), offset);
     CallBase* CB = Builder.CreateCall(intrinsic, {Operand, Adj});
     CB->addParamAttr(0, Attribute::get(Context, Attribute::ElementType, Builder.getInt8Ty()));
+    CB->addRetAttr(Attribute::get(Context, Attribute::ElementType, Builder.getInt8Ty()));
     Replacement = CB;
   }
 
