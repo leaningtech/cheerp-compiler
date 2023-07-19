@@ -16,6 +16,7 @@
 #include <vector>
 #include <cstring>
 #include <cassert>
+#include <cstdint>
 #include "llvm/Demangle/Demangle.h"
 
 namespace cheerp
