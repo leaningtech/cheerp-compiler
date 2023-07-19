@@ -1476,6 +1476,7 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 	if (F->getIntrinsicID() == Intrinsic::cheerp_downcast)
 	{
 		Type* elementType = nullptr;
+		Type* retType = nullptr;
 		for (auto* u : F->users())
 		{
 			if (const CallBase* CB = dyn_cast<CallBase>(u))
@@ -1485,12 +1486,16 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 					elementType = currElementType;
 				else
 					assert(elementType == currElementType);
+				Type* currRetType = CB->getAttributes().getRetAttrs().getElementType();
+				if (!retType)
+					retType = currRetType;
+				else
+					assert(retType == currRetType);
 			}
 		}
-		if (!elementType)
+		if (!elementType || !retType)
 			return;
 
-		Type* retType = F->getReturnType()->getPointerElementType();
 		// A downcast from a type to i8* is conventially used to support pointers to
 		// member functions and does not imply that the type needs the downcast array
 		Type* ty = retType->isIntegerTy(8) ? elementType : retType;
