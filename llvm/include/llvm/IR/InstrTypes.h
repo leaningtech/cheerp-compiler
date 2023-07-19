@@ -1797,6 +1797,11 @@ public:
     return Attrs.getRetDereferenceableBytes();
   }
 
+  /// Extract the elementtype type for the return value.
+  Type *getRetElementType() const {
+    return Attrs.getRetElementType();
+  }
+
   /// Extract the number of dereferenceable bytes for a call or
   /// parameter (0=unknown).
   uint64_t getParamDereferenceableBytes(unsigned i) const {
