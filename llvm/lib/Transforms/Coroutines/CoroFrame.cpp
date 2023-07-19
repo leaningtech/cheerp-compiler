@@ -1547,6 +1547,7 @@ static void createFramePtr(coro::Shape &Shape) {
     ConstantInt* Adj = ConstantInt::get(Builder.getInt32Ty(), 0);
     CallBase* DC = Builder.CreateCall(intrinsic, {Shape.FramePtr, Adj});
     DC->addParamAttr(0, Attribute::get(Builder.getContext(), Attribute::ElementType, FrameTy));
+    DC->addRetAttr(Attribute::get(Builder.getContext(), Attribute::ElementType, FrameTy));
     Shape.FramePtr = DC;
 
     // CHEERP: Add bases metadata to the Frame type, and consider the promise
