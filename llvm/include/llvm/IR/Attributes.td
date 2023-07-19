@@ -97,7 +97,7 @@ def DereferenceableOrNull : IntAttr<"dereferenceable_or_null",
 def DisableSanitizerInstrumentation: EnumAttr<"disable_sanitizer_instrumentation", [FnAttr]>;
 
 /// Provide pointer element type to intrinsic.
-def ElementType : TypeAttr<"elementtype", [ParamAttr]>;
+def ElementType : TypeAttr<"elementtype", [ParamAttr, RetAttr]>;
 
 /// Whether to keep return instructions, or replace with a jump to an external
 /// symbol.
