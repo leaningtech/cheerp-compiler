@@ -2882,63 +2882,6 @@ void Registerize::RegisterAllocatorInst::solve()
 	}
 }
 
-void Registerize::handlePHI(const Instruction& I, const LiveRangesTy& liveRanges, llvm::SmallVector<RegisterRange, 4>& registers, const PointerAnalyzer& PA)
-{
-	bool asmjs = I.getParent()->getParent()->getSection()==StringRef("asmjs");
-	uint32_t chosenRegister=0xffffffff;
-	const InstructionLiveRange& PHIrange=liveRanges.find(RegisterID(&I, 0))->second;
-	// A PHI may already have an assigned register if it's an operand to another PHI
-	if(registersMap.count(&I))
-		chosenRegister = registersMap[&I];
-	else
-	{
-		// If one of the operands already has a register allocated try to use that register again
-		for(Value* op: I.operands())
-		{
-			const Instruction* usedI=getUniqueIncomingInst(op, PA);
-			if(!usedI)
-				continue;
-			assert(!isInlineable(*usedI, PA));
-			assert(liveRanges.count(RegisterID(usedI, 0)));
-			if(registersMap.count(usedI)==0)
-				continue;
-			uint32_t operandRegister=registersMap[usedI];
-			if(addRangeToRegisterIfPossible(registers[operandRegister], PHIrange,
-							getRegKindFromType(usedI->getType(), asmjs),
-							cheerp::needsAdditionalRegisters(&I, PA)))
-			{
-				chosenRegister=operandRegister;
-				break;
-			}
-		}
-	}
-	// If a register has not been chosen yet, find or create a new one
-	if(chosenRegister==0xffffffff)
-		chosenRegister=findOrCreateRegister(registers, PHIrange, getRegKindFromType(I.getType(), asmjs), cheerp::needsAdditionalRegisters(&I, PA));
-	registersMap[&I]=chosenRegister;
-	// Iterate again on the operands and try to map as many as possible into the same register
-	for(Value* op: I.operands())
-	{
-		const Instruction* usedI=getUniqueIncomingInst(op, PA);
-		if(!usedI)
-			continue;
-		assert(!isInlineable(*usedI, PA));
-		assert(liveRanges.count(RegisterID(usedI, 0)));
-		// Skip already assigned operands
-		if(registersMap.count(usedI))
-			continue;
-		const InstructionLiveRange& opRange=liveRanges.find(RegisterID(usedI, 0))->second;
-		bool spaceFound=addRangeToRegisterIfPossible(registers[chosenRegister], opRange,
-								getRegKindFromType(usedI->getType(), asmjs),
-								cheerp::needsAdditionalRegisters(usedI, PA));
-		if (spaceFound)
-		{
-			// Update the mapping
-			registersMap[usedI]=chosenRegister;
-		}
-	}
-}
-
 uint32_t Registerize::findOrCreateRegister(llvm::SmallVector<RegisterRange, 4>& registers, const InstructionLiveRange& range,
 						REGISTER_KIND kind, bool needsSecondaryName)
 {
