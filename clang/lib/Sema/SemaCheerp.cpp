@@ -489,6 +489,38 @@ void cheerp::checkFunctionOnDeclaration(clang::FunctionDecl* FD, clang::Sema& se
 	}
 
 	sema.cheerpSemaData.addFunction(FD, isClient);
+
+	if(FD->isDependentContext())
+		return;
+	for(auto* PD: FD->parameters())
+	{
+		if(!PD->getType()->isPointerType())
+			continue;
+		auto PT = PD->getType()->getPointeeType();
+		if (auto* C = PT->getAsCXXRecordDecl())
+		{
+			if(clang::AnalysisDeclContext::isInClientNamespace(C))
+			{
+				auto T = FD->getASTContext().getAddrSpaceQualType(PT, clang::LangAS::cheerp_client);
+				PD->setType(FD->getASTContext().getPointerType(T));
+			}
+		}
+	}
+	llvm::errs()<<"Maybe: ";FD->dump();
+	if(auto* C = FD->getReturnType()->getPointeeCXXRecordDecl())
+	{
+		llvm::errs()<<"For: ";C->dump();
+		if(clang::AnalysisDeclContext::isInClientNamespace(C))
+		{
+			auto RT = FD->getReturnType()->getPointeeType();
+			auto T = FD->getASTContext().getAddrSpaceQualType(RT, clang::LangAS::cheerp_client);
+			const auto *FPT = FD->getType()->castAs<clang::FunctionProtoType>();
+			clang::FunctionProtoType::ExtProtoInfo EPI = FPT->getExtProtoInfo();
+			RT = FD->getASTContext().getPointerType(T);
+			FD->setType(FD->getASTContext().getFunctionType(RT, FPT->getParamTypes(), EPI));
+			RT.dump();
+		}
+	}
 }
 
 void cheerp::CheerpSemaData::addFunction(clang::FunctionDecl* FD, const bool isClient)

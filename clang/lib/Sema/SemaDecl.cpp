@@ -6873,6 +6873,7 @@ bool Sema::inferObjCARCLifetime(ValueDecl *decl) {
 }
 
 void Sema::deduceCheerpAddressSpace(ValueDecl *Decl) {
+	llvm::errs()<<"Consider: ";Decl->dump();
   if (Decl->getType()->isDependentType())
     return;
   if (!Decl->getType()->isPointerType())
@@ -6884,6 +6885,9 @@ void Sema::deduceCheerpAddressSpace(ValueDecl *Decl) {
         QualType PointeeType = Context.getAddrSpaceQualType(Type->getPointeeType(), LangAS::cheerp_client);
         Type = Context.getPointerType(PointeeType);
         Decl->setType(Type);
+				llvm::errs()<<"Deducing: ";
+				Decl->dump();
+				Type->dump();
       }
     }
   }
