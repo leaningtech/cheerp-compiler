@@ -3261,7 +3261,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			else if (kind == BYTE_LAYOUT)
 			{
 				//Optimize stores of single values from unions
-				Type* pointedType=ptrOp->getType()->getPointerElementType();
+				Type* pointedType = si.getValueOperand()->getType();
 				assert(pointedType == valOp->getType());
 				compilePointerBaseTyped(ptrOp, pointedType);
 				if(pointedType->isIntegerTy(8))
