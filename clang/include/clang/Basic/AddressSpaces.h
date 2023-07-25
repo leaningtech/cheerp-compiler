@@ -59,6 +59,9 @@ enum class LangAS : unsigned {
   // HLSL specific address spaces.
   hlsl_groupshared,
 
+  // Cheerp specific address spaces.
+  cheerp_client,
+
   // This denotes the count of language-specific address spaces and also
   // the offset added to the target-specific address spaces, which are usually
   // specified by address space attributes __attribute__(address_space(n))).

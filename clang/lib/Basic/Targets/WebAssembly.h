@@ -188,6 +188,30 @@ protected:
                         MacroBuilder &Builder) const override;
 };
 
+static const unsigned CheerpAddrSpaceMap[] = {
+    0,   // Default
+    0,   // opencl_global
+    0,   // opencl_local
+    0,   // opencl_constant
+    0,   // opencl_private
+    0,   // opencl_generic
+    0,   // opencl_global_device
+    0,   // opencl_global_host
+    0,   // cuda_device
+    0,   // cuda_constant
+    0,   // cuda_shared
+    0,   // sycl_global
+    0,   // sycl_global_device
+    0,   // sycl_global_host
+    0,   // sycl_local
+    0,   // sycl_private
+    0, // ptr32_sptr
+    0, // ptr32_uptr
+    0, // ptr64
+    0,   // hlsl_groupshared
+    1,   // cheerp_client
+};
+
 // Cheerp base class
 class CheerpTargetInfo : public TargetInfo {
 private:
@@ -221,6 +245,7 @@ public:
     // We don't have multiple asm variants, and we want to be able to use
     // '{' and '}' in the asm code
     NoAsmVariants = true;
+    AddrSpaceMap = & CheerpAddrSpaceMap;
   }
 
   virtual ArrayRef<Builtin::Info> getTargetBuiltins() const override;
