@@ -42,6 +42,7 @@ static const unsigned DirectXAddrSpaceMap[] = {
     0, // ptr32_uptr
     0, // ptr64
     3, // hlsl_groupshared
+    0, // cheerp_client
 };
 
 class LLVM_LIBRARY_VISIBILITY DirectXTargetInfo : public TargetInfo {
