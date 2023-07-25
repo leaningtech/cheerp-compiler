@@ -6872,6 +6872,23 @@ bool Sema::inferObjCARCLifetime(ValueDecl *decl) {
   return false;
 }
 
+void Sema::deduceCheerpAddressSpace(ValueDecl *Decl) {
+  if (Decl->getType()->isDependentType())
+    return;
+  if (!Decl->getType()->isPointerType())
+    return;
+  if (VarDecl *Var = dyn_cast<VarDecl>(Decl)) {
+    QualType Type = Var->getType();
+    if (auto* RD = Type->getPointeeCXXRecordDecl()) {
+      if (RD->getDeclContext()->isClientNamespace()) {
+        QualType PointeeType = Context.getAddrSpaceQualType(Type->getPointeeType(), LangAS::cheerp_client);
+        Type = Context.getPointerType(PointeeType);
+        Decl->setType(Type);
+      }
+    }
+  }
+}
+
 void Sema::deduceOpenCLAddressSpace(ValueDecl *Decl) {
   if (Decl->getType().hasAddressSpace())
     return;
@@ -7807,6 +7824,7 @@ NamedDecl *Sema::ActOnVariableDeclarator(
       NewVD->setInvalidDecl();
     }
   }
+  deduceCheerpAddressSpace(NewVD);
 
   // Handle attributes prior to checking for duplicates in MergeVarDecl
   ProcessDeclAttributes(S, NewVD, D);
@@ -12643,6 +12661,7 @@ bool Sema::DeduceVariableDeclarationType(VarDecl *VDecl, bool DirectInit,
 
   if (getLangOpts().OpenCL)
     deduceOpenCLAddressSpace(VDecl);
+  deduceCheerpAddressSpace(VDecl);
 
   // If this is a redeclaration, check that the type we just deduced matches
   // the previously declared type.
@@ -14638,6 +14657,7 @@ Decl *Sema::ActOnParamDeclarator(Scope *S, Declarator &D) {
 
   if (getLangOpts().OpenCL)
     deduceOpenCLAddressSpace(New);
+  deduceCheerpAddressSpace(New);
 
   return New;
 }

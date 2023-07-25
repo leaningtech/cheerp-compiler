@@ -10328,6 +10328,7 @@ public:
   bool inferObjCARCLifetime(ValueDecl *decl);
 
   void deduceOpenCLAddressSpace(ValueDecl *decl);
+  void deduceCheerpAddressSpace(ValueDecl *decl);
 
   ExprResult
   HandleExprPropertyRefExpr(const ObjCObjectPointerType *OPT,
