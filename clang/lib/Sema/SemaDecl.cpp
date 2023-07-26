@@ -6873,6 +6873,7 @@ bool Sema::inferObjCARCLifetime(ValueDecl *decl) {
 }
 
 void Sema::deduceCheerpAddressSpace(ValueDecl *Decl) {
+  return;
 	llvm::errs()<<"Consider: ";Decl->dump();
   if (Decl->getType()->isDependentType())
     return;

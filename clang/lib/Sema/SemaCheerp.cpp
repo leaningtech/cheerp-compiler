@@ -490,6 +490,7 @@ void cheerp::checkFunctionOnDeclaration(clang::FunctionDecl* FD, clang::Sema& se
 
 	sema.cheerpSemaData.addFunction(FD, isClient);
 
+	/*
 	if(FD->isDependentContext())
 		return;
 	for(auto* PD: FD->parameters())
@@ -521,6 +522,7 @@ void cheerp::checkFunctionOnDeclaration(clang::FunctionDecl* FD, clang::Sema& se
 			RT.dump();
 		}
 	}
+	*/
 }
 
 void cheerp::CheerpSemaData::addFunction(clang::FunctionDecl* FD, const bool isClient)

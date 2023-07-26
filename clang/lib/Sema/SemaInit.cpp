@@ -10064,8 +10064,6 @@ Sema::PerformCopyInitialization(const InitializedEntity &Entity,
     CurrentParameterCopyTypes.push_back(Entity.getType());
   }
 
-  InitE->dump();
-  InitE->getType()->dump();
   ExprResult Result = Seq.Perform(*this, Entity, Kind, InitE);
 
   if (ShouldTrackCopy)
