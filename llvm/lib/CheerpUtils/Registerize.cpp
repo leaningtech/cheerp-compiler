@@ -84,6 +84,21 @@ uint32_t Registerize::getAdditionalRegisterId(const llvm::Instruction* I, uint32
 	return regId;
 }
 
+llvm::SmallVector<uint32_t, 4> Registerize::getAllRegisterIds(const llvm::Instruction* I, const EdgeContext& edgeContext) const
+{
+	assert(RegistersAssigned);
+	assert(registersMap.count(I));
+	llvm::SmallVector<uint32_t, 4> registerIds;
+	registerIds.push_back(getRegisterId(I, edgeContext));
+	if (additionalRegistersMap.count(I))
+	{
+		const llvm::SmallVector<uint32_t, 4>& registers = additionalRegistersMap.find(I)->second;
+		for (uint32_t i = 0; i < registers.size(); i++)
+			registerIds.push_back(registers[i]);
+	}
+	return registerIds;
+}
+
 uint32_t Registerize::getSelfRefTmpReg(const llvm::Instruction* I, const llvm::BasicBlock* fromBB, const llvm::BasicBlock* toBB) const
 {
 	assert(registersMap.count(I));

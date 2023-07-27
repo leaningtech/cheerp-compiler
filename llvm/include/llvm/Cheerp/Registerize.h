@@ -1240,6 +1240,7 @@ public:
 	bool hasRegister(const llvm::Instruction* I) const;
 	uint32_t getRegisterId(const llvm::Instruction* I, const EdgeContext& edgeContext) const;
 	uint32_t getAdditionalRegisterId(const llvm::Instruction* I, uint32_t index, const EdgeContext& edgeContext) const;
+	llvm::SmallVector<uint32_t, 4> getAllRegisterIds(const llvm::Instruction* I, const EdgeContext& edgeContext) const;
 	uint32_t getSelfRefTmpReg(const llvm::Instruction* I, const llvm::BasicBlock* fromBB, const llvm::BasicBlock* toBB) const;
 
 	void assignRegisters(llvm::Module& M, cheerp::PointerAnalyzer& PA);
