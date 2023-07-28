@@ -2233,7 +2233,7 @@ std::string Qualifiers::getAddrSpaceAsString(LangAS AS) {
   case LangAS::hlsl_groupshared:
     return "groupshared";
   case LangAS::cheerp_client:
-    return "client";
+    return "client_as";
   default:
     return std::to_string(toTargetAddressSpace(AS));
   }
