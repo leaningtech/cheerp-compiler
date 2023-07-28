@@ -4796,6 +4796,13 @@ static void TryReferenceInitialization(Sema &S,
                                                    T1, Sequence))
     return;
 
+  llvm::errs()<<"dest:";DestType->dump();
+  llvm::errs()<<"destref:";DestType->castAs<ReferenceType>()->dump();
+  llvm::errs()<<"pointeeaswritten:";DestType->castAs<ReferenceType>()->getPointeeTypeAsWritten()->dump();
+  llvm::errs()<<"cv1T1:";cv1T1->dump();
+  llvm::errs()<<"cv2T2:";cv2T2->dump();
+  llvm::errs()<<"T1Quals: "<< T1Quals.getAsString()<<"\n";
+  llvm::errs()<<"T2Quals: "<< T2Quals.getAsString()<<"\n";
   // Delegate everything else to a subfunction.
   TryReferenceInitializationCore(S, Entity, Kind, Initializer, cv1T1, T1,
                                  T1Quals, cv2T2, T2, T2Quals, Sequence);
@@ -4937,8 +4944,11 @@ static void TryReferenceInitializationCore(Sema &S,
   //       shall be an rvalue reference.
   //       For address spaces, we interpret this to mean that an addr space
   //       of a reference "cv1 T1" is a superset of addr space of "cv2 T2".
+  llvm::errs()<<"T1: ";T1.dump();
+  llvm::errs()<<"T2: ";T2.dump();
   if (isLValueRef && !(T1Quals.hasConst() && !T1Quals.hasVolatile() &&
-                       T1Quals.isAddressSpaceSupersetOf(T2Quals))) {
+                       (T1Quals.isAddressSpaceSupersetOf(T2Quals)||(T1->getAsCXXRecordDecl()&&T1->getAsCXXRecordDecl()->isClientNamespace())))) {
+
     if (S.Context.getCanonicalType(T2) == S.Context.OverloadTy)
       Sequence.SetFailed(InitializationSequence::FK_AddressOfOverloadFailed);
     else if (ConvOvlResult && !Sequence.getFailedCandidateSet().empty())
@@ -5090,11 +5100,12 @@ static void TryReferenceInitializationCore(Sema &S,
   // space conversion after the reference binding step.
   QualType cv1T1IgnoreAS =
       T1Quals.hasAddressSpace()
-          ? S.Context.getQualifiedType(T1, T1Quals.withoutAddressSpace())
+          ? S.Context.getQualifiedType(T1, T1Quals.getAddressSpace() == LangAS::cheerp_client ? T1Quals : T1Quals.withoutAddressSpace())
           : cv1T1;
 
   InitializedEntity TempEntity =
       InitializedEntity::InitializeTemporary(cv1T1IgnoreAS);
+  llvm::errs() << "temptype: ";TempEntity.getType().dump();
 
   // FIXME: Why do we use an implicit conversion here rather than trying
   // copy-initialization?
@@ -5107,6 +5118,7 @@ static void TryReferenceInitializationCore(Sema &S,
                               /*AllowObjCWritebackConversion=*/false);
 
   if (ICS.isBad()) {
+    llvm::errs()<<"bad :"<<ICS.Bad.Kind<<"\n";
     // FIXME: Use the conversion function set stored in ICS to turn
     // this into an overloading ambiguity diagnostic. However, we need
     // to keep that set as an OverloadCandidateSet rather than as some
