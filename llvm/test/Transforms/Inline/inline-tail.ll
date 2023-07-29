@@ -68,7 +68,7 @@ define void @test_byval_a(i32* byval(i32) %p) {
 
 ; Don't insert a stack restore, we're about to return.
 ; CHECK: define void @test_dynalloca_a(
-; CHECK: call i8* @llvm.stacksave(
+; CHECK: call i8* @llvm.stacksave.p0i8(
 ; CHECK: alloca i8, i32 %n
 ; CHECK: musttail call void @test_dynalloca_c(
 ; CHECK-NEXT: ret void

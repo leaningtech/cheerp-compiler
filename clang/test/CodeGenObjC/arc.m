@@ -544,7 +544,7 @@ void test20(unsigned n) {
   // CHECK-NEXT: [[DIM:%.*]] = zext i32 [[T0]] to i64
 
   // Save the stack pointer.
-  // CHECK-NEXT: [[T0:%.*]] = call i8* @llvm.stacksave()
+  // CHECK-NEXT: [[T0:%.*]] = call i8* @llvm.stacksave.p0i8()
   // CHECK-NEXT: store i8* [[T0]], i8** [[SAVED_STACK]]
 
   // Allocate the VLA.
@@ -571,7 +571,7 @@ void test20(unsigned n) {
   // CHECK-NEXT: br i1 [[EQ]],
 
   // CHECK:      [[T0:%.*]] = load i8*, i8** [[SAVED_STACK]]
-  // CHECK-NEXT: call void @llvm.stackrestore(i8* [[T0]])
+  // CHECK-NEXT: call void @llvm.stackrestore.p0i8(i8* [[T0]])
   // CHECK-NEXT: ret void
 }
 
@@ -588,7 +588,7 @@ void test21(unsigned n) {
   // CHECK-NEXT: [[T0:%.*]] = load i32, i32* [[N]], align 4
   // CHECK-NEXT: [[DIM:%.*]] = zext i32 [[T0]] to i64
 
-  // CHECK-NEXT: [[T0:%.*]] = call i8* @llvm.stacksave()
+  // CHECK-NEXT: [[T0:%.*]] = call i8* @llvm.stacksave.p0i8()
   // CHECK-NEXT: store i8* [[T0]], i8** [[SAVED_STACK]]
 
 
@@ -618,7 +618,7 @@ void test21(unsigned n) {
   // CHECK-NEXT: br i1 [[EQ]],
 
   // CHECK:      [[T0:%.*]] = load i8*, i8** [[SAVED_STACK]]
-  // CHECK-NEXT: call void @llvm.stackrestore(i8* [[T0]])
+  // CHECK-NEXT: call void @llvm.stackrestore.p0i8(i8* [[T0]])
   // CHECK-NEXT: ret void
 }
 
