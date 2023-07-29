@@ -43,11 +43,11 @@ define void @caller2_below_threshold(i8 *%p1, i1 %b) {
 ; CHECK-NEXT:    [[COND:%.*]] = icmp eq i1 [[B:%.*]], true
 ; CHECK-NEXT:    br i1 [[COND]], label [[EXIT:%.*]], label [[SPLIT:%.*]]
 ; CHECK:       split:
-; CHECK-NEXT:    [[SAVEDSTACK:%.*]] = call i8* @llvm.stacksave()
+; CHECK-NEXT:    [[SAVEDSTACK:%.*]] = call i8* @llvm.stacksave.p0i8()
 ; CHECK-NEXT:    call void @llvm.lifetime.start.p0f32(i64 60000, float* [[VLA_I]])
 ; CHECK-NEXT:    call void @extern_call(float* nonnull [[VLA_I]]) #3
 ; CHECK-NEXT:    call void @llvm.lifetime.end.p0f32(i64 60000, float* [[VLA_I]])
-; CHECK-NEXT:    call void @llvm.stackrestore(i8* [[SAVEDSTACK]])
+; CHECK-NEXT:    call void @llvm.stackrestore.p0i8(i8* [[SAVEDSTACK]])
 ; CHECK-NEXT:    br label [[EXIT]]
 ; CHECK:       exit:
 ; CHECK-NEXT:    ret void
@@ -145,7 +145,7 @@ return:                                           ; preds = %if.end, %if.then
 define i8* @test_stack_allocate_always(i32 %size) {
 ; CHECK-LABEL: @test_stack_allocate_always(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[SAVEDSTACK:%.*]] = call i8* @llvm.stacksave()
+; CHECK-NEXT:    [[SAVEDSTACK:%.*]] = call i8* @llvm.stacksave.p0i8()
 ; CHECK-NEXT:    [[CMP_I:%.*]] = icmp ult i32 [[SIZE:%.*]], 100
 ; CHECK-NEXT:    [[CONV_I:%.*]] = zext i32 [[SIZE]] to i64
 ; CHECK-NEXT:    br i1 [[CMP_I]], label [[IF_THEN_I:%.*]], label [[IF_END_I:%.*]]
@@ -157,7 +157,7 @@ define i8* @test_stack_allocate_always(i32 %size) {
 ; CHECK-NEXT:    br label [[STACK_ALLOCATE_EXIT]]
 ; CHECK:       stack_allocate.exit:
 ; CHECK-NEXT:    [[RETVAL_0_I:%.*]] = phi i8* [ [[TMP0]], [[IF_THEN_I]] ], [ [[CALL_I]], [[IF_END_I]] ]
-; CHECK-NEXT:    call void @llvm.stackrestore(i8* [[SAVEDSTACK]])
+; CHECK-NEXT:    call void @llvm.stackrestore.p0i8(i8* [[SAVEDSTACK]])
 ; CHECK-NEXT:    ret i8* [[RETVAL_0_I]]
 ;
 entry:

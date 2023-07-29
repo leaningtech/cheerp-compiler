@@ -57,7 +57,7 @@ int main(void) {
   // CHECK: [[SIZE1:%.+]] = add nuw i64 0, [[SZ]]
   // CHECK: [[SIZE2:%.+]] = add nuw i64 [[SIZE1]], [[SZ1]]
   // CHECK: [[SIZE:%.+]] = add nuw i64 [[SIZE2]], 2
-  // CHECK: [[SV:%.+]] = call i8* @llvm.stacksave()
+  // CHECK: [[SV:%.+]] = call i8* @llvm.stacksave.p0i8()
   // CHECK: store i8* [[SV]], i8** [[SV_ADDR:%.+]], align 8
   // CHECK: [[VLA:%.+]] = alloca %struct.kmp_depend_info, i64 [[SIZE]],
   // CHECK: [[SIZE32:%.+]] = trunc i64 [[SIZE]] to i32
@@ -113,7 +113,7 @@ int main(void) {
   // CHECK: [[BC:%.+]] = bitcast %struct.kmp_depend_info* [[VLA]] to i8*
   // CHECK: call i32 @__kmpc_omp_task_with_deps(%struct.ident_t* @{{.+}}, i32 [[GTID]], i8* [[ALLOC]], i32 [[SIZE32]], i8* [[BC]], i32 0, i8* null)
   // CHECK: [[SV:%.+]] = load i8*, i8** [[SV_ADDR]], align 8
-  // CHECK: call void @llvm.stackrestore(i8* [[SV]])
+  // CHECK: call void @llvm.stackrestore.p0i8(i8* [[SV]])
 #pragma omp task depend(in: a, ([3][a][a])&b) depend(depobj: d, x) detach(evt)
   {
 #pragma omp taskgroup
