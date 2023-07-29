@@ -39,7 +39,7 @@ void call_foo() {
 // things as we unwind.
 //
 // X86-LABEL: define dso_local void @"?call_foo@@YAXXZ"()
-// X86: call i8* @llvm.stacksave()
+// X86: call i8* @llvm.stacksave.p0i8()
 // X86: %[[argmem:[^ ]*]] = alloca inalloca [[argmem_ty]]
 // X86: %[[arg3:[^ ]*]] = getelementptr inbounds [[argmem_ty]], [[argmem_ty]]* %[[argmem]], i32 0, i32 2
 // X86: call x86_thiscallcc noundef %struct.A* @"??0A@@QAE@H@Z"(%struct.A* {{[^,]*}} %[[arg3]], i32 noundef 3)

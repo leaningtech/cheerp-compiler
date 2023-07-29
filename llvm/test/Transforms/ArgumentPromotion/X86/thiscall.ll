@@ -46,18 +46,18 @@ entry:
 define void @exportedfun(%struct.a* %a) {
 ; ARGPROMOTION-LABEL: define {{[^@]+}}@exportedfun
 ; ARGPROMOTION-SAME: (%struct.a* [[A:%.*]]) {
-; ARGPROMOTION-NEXT:    [[INALLOCA_SAVE:%.*]] = tail call i8* @llvm.stacksave()
+; ARGPROMOTION-NEXT:    [[INALLOCA_SAVE:%.*]] = tail call i8* @llvm.stacksave.p0i8()
 ; ARGPROMOTION-NEXT:    [[ARGMEM:%.*]] = alloca inalloca <{ [[STRUCT_A:%.*]] }>, align 4
 ; ARGPROMOTION-NEXT:    call x86_thiscallcc void @internalfun(%struct.a* [[A]], <{ [[STRUCT_A]] }>* inalloca(<{ [[STRUCT_A]] }>) [[ARGMEM]])
-; ARGPROMOTION-NEXT:    call void @llvm.stackrestore(i8* [[INALLOCA_SAVE]])
+; ARGPROMOTION-NEXT:    call void @llvm.stackrestore.p0i8(i8* [[INALLOCA_SAVE]])
 ; ARGPROMOTION-NEXT:    ret void
 ;
 ; GLOBALOPT_ARGPROMOTION-LABEL: define {{[^@]+}}@exportedfun
 ; GLOBALOPT_ARGPROMOTION-SAME: (%struct.a* [[A:%.*]]) local_unnamed_addr {
-; GLOBALOPT_ARGPROMOTION-NEXT:    [[INALLOCA_SAVE:%.*]] = tail call i8* @llvm.stacksave()
+; GLOBALOPT_ARGPROMOTION-NEXT:    [[INALLOCA_SAVE:%.*]] = tail call i8* @llvm.stacksave.p0i8()
 ; GLOBALOPT_ARGPROMOTION-NEXT:    [[ARGMEM:%.*]] = alloca inalloca <{ [[STRUCT_A:%.*]] }>, align 4
 ; GLOBALOPT_ARGPROMOTION-NEXT:    call fastcc void @internalfun(<{ [[STRUCT_A]] }>* [[ARGMEM]])
-; GLOBALOPT_ARGPROMOTION-NEXT:    call void @llvm.stackrestore(i8* [[INALLOCA_SAVE]])
+; GLOBALOPT_ARGPROMOTION-NEXT:    call void @llvm.stackrestore.p0i8(i8* [[INALLOCA_SAVE]])
 ; GLOBALOPT_ARGPROMOTION-NEXT:    ret void
 ;
   %inalloca.save = tail call i8* @llvm.stacksave()

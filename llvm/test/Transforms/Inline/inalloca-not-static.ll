@@ -55,11 +55,11 @@ entry:
 }
 
 ; CHECK: define void @f()
-; CHECK:   %[[STACKSAVE:.*]] = call i8* @llvm.stacksave()
+; CHECK:   %[[STACKSAVE:.*]] = call i8* @llvm.stacksave.p0i8()
 ; CHECK:   %[[ARGMEM:.*]] = alloca inalloca <{ %struct.Foo }>, align 4
 ; CHECK:   %[[GEP1:.*]] = getelementptr inbounds <{ %struct.Foo }>, <{ %struct.Foo }>* %[[ARGMEM]], i32 0, i32 0
 ; CHECK:   %[[CALL:.*]] = call x86_thiscallcc %struct.Foo* @"\01??0Foo@@QAE@XZ"(%struct.Foo* %[[GEP1]])
 ; CHECK:   %[[GEP2:.*]] = getelementptr inbounds <{ %struct.Foo }>, <{ %struct.Foo }>* %[[ARGMEM]], i32 0, i32 0
 ; CHECK:   call x86_thiscallcc void @"\01??1Foo@@QAE@XZ"(%struct.Foo* %[[GEP2]])
-; CHECK:   call void @llvm.stackrestore(i8* %[[STACKSAVE]])
+; CHECK:   call void @llvm.stackrestore.p0i8(i8* %[[STACKSAVE]])
 ; CHECK:   ret void

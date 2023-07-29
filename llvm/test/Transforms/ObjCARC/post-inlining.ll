@@ -96,9 +96,9 @@ declare void @llvm.stackrestore(i8*)
 
 ; CHECK-LABEL: define i8* @testStack(
 ; CHECK: entry:
-; CHECK-NEXT: %save = tail call i8* @llvm.stacksave()
+; CHECK-NEXT: %save = tail call i8* @llvm.stacksave.p0i8()
 ; CHECK-NEXT: %obj = alloca i8, i8 %arg
-; CHECK-NEXT: call void @llvm.stackrestore(i8* %save)
+; CHECK-NEXT: call void @llvm.stackrestore.p0i8(i8* %save)
 ; CHECK-NEXT: ret i8* %call.i
 ; CHECK-NEXT: }
 define i8* @testStack(i8* %call.i, i8 %arg) {

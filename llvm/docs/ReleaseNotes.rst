@@ -69,6 +69,9 @@ and there is no way to suppress this error.
 Changes to the LLVM IR
 ----------------------
 
+* The `llvm.stacksave` and `llvm.stackrestore` intrinsics now use
+  an overloaded pointer type to support non-0 address spaces.
+
 * The ``readnone``, ``readonly``, ``writeonly``, ``argmemonly``,
   ``inaccessiblememonly`` and ``inaccessiblemem_or_argmemonly`` function
   attributes have been replaced by a single ``memory(...)`` attribute. The

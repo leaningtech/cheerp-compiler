@@ -106,7 +106,7 @@ int foo(int n, double *ptr) {
   // CHECK:  [[PTR_ARR3:%.+]] = alloca [2 x i8*],
   // CHECK:  [[N_ADDR_VAL:%.+]] = load i{{[0-9]+}}, i{{[0-9]+}}* [[N_ADDR]],
   // CHECK-64:  [[N_EXT:%.+]] = zext i{{[0-9]+}} [[N_ADDR_VAL]] to i{{[0-9]+}}
-  // CHECK:  [[SSAVE_RET:%.+]] = call i8* @llvm.stacksave()
+  // CHECK:  [[SSAVE_RET:%.+]] = call i8* @llvm.stacksave.p0i8()
   // CHECK:  store i8* [[SSAVE_RET]], i8** [[SSTACK]],
   // CHECK-64:  [[BN_VLA:%.+]] = alloca float, i{{[0-9]+}} [[N_EXT]],
   // CHECK-32:  [[BN_VLA:%.+]] = alloca float, i{{[0-9]+}} [[N_ADDR_VAL]],
@@ -299,7 +299,7 @@ int foo(int n, double *ptr) {
   // TCHECK:  [[B_ADDR_REF_BCAST:%.+]] = bitcast [10 x float]* [[B_ADDR_REF]] to i8*
   // TCHECK:  call void @llvm.memcpy.{{.+}}(i8* align {{[0-9]+}} [[B_PRIV_BCAST]], i8* align {{[0-9]+}} [[B_ADDR_REF_BCAST]], {{.+}})
 
-  // TCHECK:  [[RET_STACK:%.+]] = call i8* @llvm.stacksave()
+  // TCHECK:  [[RET_STACK:%.+]] = call i8* @llvm.stacksave.p0i8()
   // TCHECK:  store i8* [[RET_STACK]], i8** [[SSTACK]],
 
   // firstprivate(bn)
@@ -502,7 +502,7 @@ struct S1 {
   // firstprivate(b)
   // TCHECK-NOT:  store i{{[0-9]+}} %
 
-  // TCHECK:  [[RET_STACK:%.+]] = call i8* @llvm.stacksave()
+  // TCHECK:  [[RET_STACK:%.+]] = call i8* @llvm.stacksave.p0i8()
   // TCHECK:  store i8* [[RET_STACK:%.+]], i8** [[SSTACK]],
 
   // firstprivate(c)
@@ -516,7 +516,7 @@ struct S1 {
 
   // finish
   // TCHECK: [[RELOAD_SSTACK:%.+]] = load i8*, i8** [[SSTACK]],
-  // TCHECK: call void @llvm.stackrestore(i8* [[RELOAD_SSTACK]])
+  // TCHECK: call void @llvm.stackrestore.p0i8(i8* [[RELOAD_SSTACK]])
   // TCHECK: ret void
 
   // static host function

@@ -39,7 +39,7 @@ declare void @foo(i8*)
 
 define i32 @call_preallocated_multiple_args() {
 ; CHECK-LABEL: define i32 @call_preallocated_multiple_args()
-; CHECK-NEXT: [[SS:%[0-9a-zA-Z_]+]] = call i8* @llvm.stacksave()
+; CHECK-NEXT: [[SS:%[0-9a-zA-Z_]+]] = call i8* @llvm.stacksave.p0i8()
 ; CHECK-NEXT: [[ARG0:%[0-9a-zA-Z_]+]] = alloca i32
 ; CHECK-NEXT: [[ARG1:%[0-9a-zA-Z_]+]] = bitcast i32* [[ARG0]] to i8*
 ; CHECK-NEXT: call void @foo(i8* [[ARG1]])
@@ -47,7 +47,7 @@ define i32 @call_preallocated_multiple_args() {
 ; CHECK-NEXT: call void @foo(i8* [[ARG1]])
 ; CHECK-NEXT: [[ARG2:%[0-9a-zA-Z_]+]] = bitcast i8* [[ARG1]] to i32*
 ; CHECK-NEXT: call fastcc i32 @preallocated(i32* [[ARG2]])
-; CHECK-NEXT: call void @llvm.stackrestore(i8* [[SS]])
+; CHECK-NEXT: call void @llvm.stackrestore.p0i8(i8* [[SS]])
 ; CHECK-NEXT: ret
   %c = call token @llvm.call.preallocated.setup(i32 1)
   %a1 = call i8* @llvm.call.preallocated.arg(token %c, i32 0) preallocated(i32)
