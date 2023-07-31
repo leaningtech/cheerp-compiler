@@ -2780,11 +2780,6 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 				{
 					POINTER_KIND incomingKind=writer.PA.getPointerKind(incoming);
 					// TODO: Won't have a self ref tmp if there is a tmpphi already for this PHI
-					if(selfReferencing)
-					{
-						assert(!PA.getConstantOffsetForPointer(incoming));
-						assert(PA.getPointerKindAssert(incoming) == SPLIT_REGULAR);
-					}
 					uint32_t tmpOffsetReg = -1;
 					if(selfReferencing)
 					{

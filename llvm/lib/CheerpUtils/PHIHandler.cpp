@@ -213,7 +213,7 @@ void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const Basic
 			orderedPHIs.push_back(std::make_pair(phi, /*selfReferencing*/false));
 			continue;
 		}
-		uint32_t phiReg = registerize.getRegisterId(phi, EdgeContext::emptyContext());
+		llvm::SmallVector<uint32_t, 4> phiRegisters = registerize.getAllRegisterIds(phi, EdgeContext::emptyContext());
 		// This instruction may depend on multiple registers
 		llvm::SmallVector<std::pair<uint32_t, const Instruction*>, 2> incomingRegisters;
 		llvm::SmallVector<std::pair<const Instruction*, /*dereferenced*/bool>, 4> instQueue;
@@ -225,18 +225,17 @@ void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const Basic
 			std::pair<const Instruction*, bool> incomingInst = instQueue.pop_back_val();
 			if(!isInlineable(*incomingInst.first, PA))
 			{
-				uint32_t incomingValueId = registerize.getRegisterId(incomingInst.first, EdgeContext::emptyContext());
-				if(incomingValueId==phiReg)
+				llvm::SmallVector<uint32_t, 4> incomingValueIds = registerize.getAllRegisterIds(incomingInst.first, EdgeContext::emptyContext());
+				for (uint32_t phiReg : phiRegisters)
 				{
-					if(mayNeedSelfRef &&
-						PA.getPointerKind(incomingInst.first) == SPLIT_REGULAR && // If the incoming inst is not SPLIT_REGULAR there is no collision risk
-						!PA.getConstantOffsetForPointer(incomingInst.first) && // If the offset part is constant we can reorder the operation to avoid a collision
-						incomingInst.second) // If the register is not dereferenced there is no conflict as base and offset are not used together
+					for (uint32_t incomingId : incomingValueIds)
 					{
-						selfReferencing = true;
+						if(phiReg == incomingId && mayNeedSelfRef)
+							selfReferencing = true;
 					}
 				}
-				incomingRegisters.push_back(std::make_pair(incomingValueId, incomingInst.first));
+				for (uint32_t incomingId : incomingValueIds)
+					incomingRegisters.push_back(std::make_pair(incomingId, incomingInst.first));
 			}
 			else
 			{
@@ -251,7 +250,7 @@ void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const Basic
 				}
 			}
 		}
-		phiRegs.insert(std::make_pair(phiReg, PHIRegData(phi, std::move(incomingRegisters), selfReferencing)));
+		phiRegs.insert(std::make_pair(phiRegisters[0], PHIRegData(phi, std::move(incomingRegisters), selfReferencing)));
 	}
 
 	for (auto& X : phiRegs)
