@@ -513,6 +513,8 @@ public:
             (B == LangAS::sycl_private || B == LangAS::sycl_local ||
              B == LangAS::sycl_global || B == LangAS::sycl_global_device ||
              B == LangAS::sycl_global_host)) ||
+           // Cheerp: WIP
+           (A == LangAS::cheerp_client || B == LangAS::cheerp_client) ||
            // In HIP device compilation, any cuda address space is allowed
            // to implicitly cast into the default address space.
            (A == LangAS::Default &&
