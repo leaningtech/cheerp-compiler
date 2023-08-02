@@ -35,6 +35,7 @@
 #include "clang/Sema/SemaInternal.h"
 #include "clang/Sema/Template.h"
 #include "clang/Sema/TemplateInstCallback.h"
+#include "clang/Analysis/AnalysisDeclContext.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallString.h"
@@ -1905,6 +1906,15 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
       declarator.setInvalidType(true);
     else
       Result = Qualified;
+  }
+
+
+  if(auto* C = Result->getAsCXXRecordDecl())
+  {
+    if(clang::AnalysisDeclContext::isInClientNamespace(C))
+    {
+      Result = Context.getAddrSpaceQualType(Result, clang::LangAS::cheerp_client);
+    }
   }
 
   assert(!Result.isNull() && "This function should not return a null type");
@@ -5547,6 +5557,16 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
                  state.getDeclarator().getContext() ==
                      DeclaratorContext::LambdaExpr;
         };
+        auto IsClientClassMember = [&]() {
+          CXXRecordDecl* C = nullptr;
+          if (!state.getDeclarator().getCXXScopeSpec().isEmpty())
+            C = state.getDeclarator().getCXXScopeSpec().getScopeRep()->getAsRecordDecl();
+          if (!C)
+            C = dyn_cast<CXXRecordDecl>(S.CurContext);
+          if (!C)
+            return false;
+          return clang::AnalysisDeclContext::isInClientNamespace(C);
+        };
 
         if (state.getSema().getLangOpts().OpenCLCPlusPlus && IsClassMember()) {
           LangAS ASIdx = LangAS::Default;
@@ -5567,6 +5587,9 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
               (ASIdx == LangAS::Default ? S.getDefaultCXXMethodAddrSpace()
                                         : ASIdx);
           EPI.TypeQuals.addAddressSpace(AS);
+        }
+        if (IsClientClassMember()) {
+          EPI.TypeQuals.addAddressSpace(LangAS::cheerp_client);
         }
         T = Context.getFunctionType(T, ParamTys, EPI);
       }

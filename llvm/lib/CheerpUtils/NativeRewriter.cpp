@@ -210,8 +210,30 @@ void CheerpNativeRewriterPass::rewriteNativeAllocationUsers(Module& M, SmallVect
 						Instruction* i, Type* t,
 						const std::string& builtinTypeName)
 {
+	if(auto* AI = dyn_cast<AllocaInst>(i))
+	{
+		AI->mutateType(PointerType::get(t, 1));
+		for(auto* U: i->users())
+		{
+			if(auto* CB = dyn_cast<CallBase>(U))
+			{
+				Function* F = CB->getCalledFunction();
+				if(F && (F->getIntrinsicID() == Intrinsic::lifetime_start ||
+					F->getIntrinsicID() == Intrinsic::lifetime_end)) {
+					toRemove.push_back(CB);
+				}
+			}
+			if(!isa<AddrSpaceCastInst>(U))
+			{
+				continue;
+			}
+			assert(isa<AddrSpaceCastInst>(U));
+			U->replaceAllUsesWith(i);
+			toRemove.push_back(cast<Instruction>(U));
+		}
+	}
 	//Instead of allocating the type, allocate a pointer to the type
-	AllocaInst* newI=new AllocaInst(PointerType::getUnqual(t),0,"cheerpPtrAlloca",
+	AllocaInst* newI=new AllocaInst(PointerType::get(t, 1),0,"cheerpPtrAlloca",
 		&i->getParent()->getParent()->front().front());
 	bool foundConstructor = false;
 
