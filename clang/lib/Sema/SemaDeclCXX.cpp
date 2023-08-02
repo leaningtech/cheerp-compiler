@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "clang/Analysis/AnalysisDeclContext.h"
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/ASTLambda.h"
@@ -13667,6 +13668,9 @@ void Sema::setupImplicitSpecialMemberType(CXXMethodDecl *SpecialMem,
   FunctionProtoType::ExtProtoInfo EPI = getImplicitMethodEPI(*this, SpecialMem);
 
   LangAS AS = getDefaultCXXMethodAddrSpace();
+  if (clang::AnalysisDeclContext::isInClientNamespace(SpecialMem->getParent())) {
+    AS = LangAS::cheerp_client;
+  }
   if (AS != LangAS::Default) {
     EPI.TypeQuals.addAddressSpace(AS);
   }

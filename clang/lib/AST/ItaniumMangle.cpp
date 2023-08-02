@@ -2689,7 +2689,7 @@ void CXXNameMangler::mangleQualifiers(Qualifiers Quals, const DependentAddressSp
         ASString = "ptr64";
         break;
       case LangAS::cheerp_client:
-        ASString = "client";
+        ASString = "";
         break;
       }
     }
