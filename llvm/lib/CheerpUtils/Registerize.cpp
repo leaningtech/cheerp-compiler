@@ -333,7 +333,7 @@ uint32_t Registerize::dfsLiveRangeInBlock(BlocksState& blocksState, LiveRangesTy
 			{
 				InstructionLiveRange& range=liveRanges.emplace(RegisterID(&I, i),
 					InstructionLiveRange(codePathId)).first->second;
-				range.range.push_back(LiveRangeChunk(thisIndex, thisIndex));
+				range.range.push_back(LiveRangeChunk(thisIndex + i, thisIndex + i));
 			}
 		}
 		// Operands of PHIs are declared as live out from the source block.
@@ -362,7 +362,7 @@ uint32_t Registerize::dfsLiveRangeInBlock(BlocksState& blocksState, LiveRangesTy
 				auto it = liveRanges.find(RegisterID(outLiveInst, i));
 				assert(it != liveRanges.end());
 				InstructionLiveRange& range= it->second;
-				range.addUse(codePathId, endOfBlockIndex);
+				range.addUse(codePathId + i, endOfBlockIndex);
 			}
 		}
 	}
@@ -385,6 +385,9 @@ void Registerize::extendRangeForUsedOperands(Instruction& I, LiveRangesTy& liveR
 {
 	assert(codePathId <= thisIndex);
 
+	if (needsAdditionalRegisters(&I, PA))
+		thisIndex++;
+
 	for(Value* op: I.operands())
 	{
 		Instruction* usedI = dyn_cast<Instruction>(op);
@@ -406,7 +409,7 @@ void Registerize::extendRangeForUsedOperands(Instruction& I, LiveRangesTy& liveR
 				assert(liveRanges.count(registerId));
 				InstructionLiveRange& range=liveRanges.find(registerId)->second;
 				if(codePathId!=thisIndex)
-					range.addUse(codePathId, thisIndex);
+					range.addUse(codePathId + i, thisIndex + amountRegisters - 1);
 			}
 		}
 	}
@@ -2912,7 +2915,7 @@ Registerize::REGISTER_KIND Registerize::getRegKindFromRegisterID(const RegisterI
 {
 	const Instruction* I = reg.instruction;
 	const uint32_t index = reg.registerNum;
-	if (I->getType()->isPointerTy() && PA->getPointerKind(I) == SPLIT_REGULAR && index == 1)
+	if (I->getType()->isPointerTy() && PA->getPointerKind(I) == SPLIT_REGULAR && index == 0)
 		return INTEGER;
 	return getRegKindFromType(I->getType(), asmjs);
 }
