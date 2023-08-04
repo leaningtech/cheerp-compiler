@@ -583,12 +583,26 @@ Registerize::RegisterAllocatorInst::RegisterAllocatorInst(llvm::Function& F_, co
 {
 	using namespace llvm;
 
+	debug = true;
+	//debug = F.getName() == "setlocale";
+	if (debug) llvm::errs() << "\nFUNCTION: " << F.getName() << "\n\n";
+
 	//Do a first pass to collect instructions (and count them implicitly)
 	for(const auto& it: liveRanges)
 	{
 		const Instruction* I=it.first.instruction;
 		assert(registerize->registersMap.count(I) == 0);
 		indexer.insert(it.first);
+		const LiveRange range = it.second.range;
+		if (debug)
+		{
+			if (needsAdditionalRegisters(I, PA)) llvm::errs() << "SPLIT REGULAR: ";
+			for (int i = 0; i < range.size(); i++)
+			{
+				llvm::errs() << "[" << range[i].start << "-" << range[i].end << "] ";
+			}
+			llvm::errs() << "for instruction: " << *I << "\n";
+		}
 	}
 	if (indexer.size() == 0)
 	{
@@ -3065,6 +3079,22 @@ bool Registerize::couldBeMerged(const RegisterRange& a, const RegisterRange& b)
 {
 	if(a.info.regKind!=b.info.regKind)
 		return false;
+	/*
+	llvm::errs() << "couldBeMerged, same register kind: " << a.info.regKind << "\n";
+	llvm::errs() << "Range for a: ";
+	for (int i = 0; i < a.range.size(); i++)
+	{
+		if (i > 0) llvm::errs() << ", ";
+		llvm::errs() << "[" << a.range[i].start << "-" << a.range[i].end << "]";
+	}
+	llvm::errs() << "\nRange for b: ";
+	for (int i = 0; i < b.range.size(); i++)
+	{
+		if (i > 0) llvm::errs() << ", ";
+		llvm::errs() << "[" << b.range[i].start << "-" << b.range[i].end << "]";
+	}
+	llvm::errs() << "\n";
+	*/
 	return !a.range.doesInterfere(b.range);
 }
 

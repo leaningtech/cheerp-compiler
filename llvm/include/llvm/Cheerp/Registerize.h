@@ -1635,12 +1635,46 @@ private:
 		}
 		void mergeVirtual(const uint32_t a, const uint32_t b)
 		{
+			if (debug)
+			{
+				llvm::errs() << "Trying to merge registers " << a << " and " << b << "\n";
+				const RegisterRange rangeA = virtualRegisters[a];
+				const RegisterRange rangeB = virtualRegisters[b];
+				llvm::errs() << "Range for " << a << ": ";
+				for (int i = 0; i < rangeA.range.size(); i++)
+				{
+					if (i != 0)
+						llvm::errs() << ", ";
+					llvm::errs() << "[" << rangeA.range[i].start << "-" << rangeA.range[i].end << "]";
+				}
+				llvm::errs() << "\nRange for " << b << ": ";
+				for (int i = 0; i < rangeB.range.size(); i++)
+				{
+					if (i != 0)
+						llvm::errs() << ", ";
+					llvm::errs() << "[" << rangeB.range[i].start << "-" << rangeB.range[i].end << "]";
+				}
+				llvm::errs() << "\n";
+
+			}
 			assert(couldBeMerged(a, b));
 			const uint32_t index = size();
 			virtualRegisters.push_back(mergeRegister(virtualRegisters[a], virtualRegisters[b]));
 			parentRegister[a] = index;
 			parentRegister[b] = index;
 			parentRegister.push_back(index);
+			if (debug)
+			{
+				llvm::errs() << "New register is " << index << ": ";
+				const RegisterRange newRange = virtualRegisters[index];
+				for (int i = 0; i < newRange.range.size(); i++)
+				{
+					if (i != 0)
+						llvm::errs() << ", ";
+					llvm::errs() << "[" << newRange.range[i].start << "-" << newRange.range[i].end << "]";
+				}
+				llvm::errs() << "\n\n";
+			}
 		}
 		uint32_t findParent(uint32_t x) const
 		{
@@ -1686,6 +1720,7 @@ private:
 		mutable std::vector<uint32_t> parentRegister;
 		bool emptyFunction;
 		const FrequencyInfo frequencyInfo;
+		bool debug;
 	};
 	// Temporary data structures used while exploring the CFG
 	struct BlockState
