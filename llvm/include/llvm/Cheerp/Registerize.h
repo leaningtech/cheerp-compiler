@@ -1260,8 +1260,7 @@ public:
 	{
 		// Try to save bits, we may need more flags here
 		const REGISTER_KIND regKind : 3;
-		int needsSecondaryName : 1;
-		RegisterInfo(REGISTER_KIND k, bool n):regKind(k),needsSecondaryName(n)
+		RegisterInfo(REGISTER_KIND k):regKind(k)
 		{
 		}
 	};
@@ -1504,7 +1503,7 @@ private:
 	{
 		LiveRange range;
 		RegisterInfo info;
-		RegisterRange(const LiveRange& range, REGISTER_KIND k, bool n):range(range),info(k, n)
+		RegisterRange(const LiveRange& range, REGISTER_KIND k):range(range),info(k)
 		{
 		}
 	};

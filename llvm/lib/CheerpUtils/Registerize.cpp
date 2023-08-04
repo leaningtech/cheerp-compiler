@@ -467,13 +467,12 @@ uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMa
 				}
 				// We can use this register for the tmpphi, make sure we don't use it twice
 				statusRegisters[i] = statusRegisters[regId];
-				registers[i].info.needsSecondaryName |= needsSecondaryName;
 				return i;
 			}
 			// Create a register which will have an empty live range
 			// It is not a problem since we mark it as used in the block
 			uint32_t chosenReg = registers.size();
-			registers.push_back(RegisterRange(LiveRange(), kind, needsSecondaryName));
+			registers.push_back(RegisterRange(LiveRange(), kind));
 			statusRegisters.push_back(statusRegisters[regId]);
 			return chosenReg;
 		}
@@ -621,8 +620,7 @@ Registerize::RegisterAllocatorInst::RegisterAllocatorInst(llvm::Function& F_, co
 		parentRegister.push_back(size());
 		virtualRegisters.push_back(RegisterRange(
 					range.range,
-					registerize->getRegKindFromRegisterID(reg, asmjs, &PA),
-					cheerp::needsAdditionalRegisters(I, PA)
+					registerize->getRegKindFromRegisterID(reg, asmjs, &PA)
 					));
 		const auto& iter = instIdMap.find(I);
 		assert(iter != instIdMap.end());
@@ -2906,7 +2904,7 @@ uint32_t Registerize::findOrCreateRegister(llvm::SmallVector<RegisterRange, 4>& 
 			return i;
 	}
 	// Create a new register with the range of the current instruction already used
-	registers.push_back(RegisterRange(range.range, kind, needsSecondaryName));
+	registers.push_back(RegisterRange(range.range, kind));
 	return registers.size()-1;
 }
 
@@ -3101,7 +3099,6 @@ bool Registerize::couldBeMerged(const std::pair<const RegisterRange&, uint32_t>&
 void Registerize::mergeRegisterInPlace(RegisterRange& a, const RegisterRange& b)
 {
 	a.range.merge(b.range);
-	a.info.needsSecondaryName |= b.info.needsSecondaryName;
 }
 
 Registerize::RegisterRange Registerize::mergeRegister(const RegisterRange& a, const RegisterRange& b)
@@ -3119,7 +3116,6 @@ bool Registerize::addRangeToRegisterIfPossible(RegisterRange& regRange, const In
 	if(regRange.range.doesInterfere(liveRange.range))
 		return false;
 	regRange.range.merge(liveRange.range);
-	regRange.info.needsSecondaryName |= needsSecondaryName;
 	return true;
 }
 

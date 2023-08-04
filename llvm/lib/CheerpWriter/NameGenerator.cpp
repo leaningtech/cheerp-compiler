@@ -140,8 +140,6 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 			regData.first++;
 			// Set the register information if required
 			assert(regData.second.argOrFunc);
-			if(cheerp::needsAdditionalRegisters(incoming, namegen.PA))
-				assert(regData.second.needsSecondaryName);
 		}
 		void handlePHI(const PHINode* phi, const Value* incoming, bool selfReferencing) override
 		{
@@ -215,7 +213,7 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 		thisFunctionLocals.reserve(regsInfo.size());
 		for(unsigned regId = 0; regId < regsInfo.size(); regId++)
 		{
-			thisFunctionLocals.emplace_back(0, localData{&f, regId, bool(regsInfo[regId].needsSecondaryName)});
+			thisFunctionLocals.emplace_back(0, localData{&f, regId, false});
 		}
 
 		// Insert all the instructions
@@ -231,8 +229,6 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 					// Add the uses for this instruction to the total count for the register
 					regData.first+=I.getNumUses();
 					assert(regData.second.argOrFunc);
-					if(needsAdditionalRegisters(&I, PA))
-						assert(	regData.second.needsSecondaryName);
 				}
 			}
 			// Handle the special names required for the edges between blocks
@@ -521,8 +517,6 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 					// If this instruction has a name, use it
 					auto& name = regNamemap.emplace( std::make_pair(&f, registerId), filterLLVMName(I.getName(), LOCAL) ).first->second;
 					assignLocalName(name);
-					if(regsInfo[registerId].needsSecondaryName)
-						regSecondaryNamemap.emplace( std::make_pair(&f, registerId), StringRef((name+"o").str()));
 					doneRegisters[registerId] = true;
 				}
 			}
@@ -535,8 +529,6 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 				continue;
 			auto& name = regNamemap.emplace( std::make_pair(&f, registerId), StringRef( "tmp" + std::to_string(registerId) ) ).first->second;
 			assignLocalName(name);
-			if(regsInfo[registerId].needsSecondaryName)
-				regSecondaryNamemap.emplace( std::make_pair(&f, registerId), StringRef((name+"o").str()));
 		}
 
 		for ( auto& arg: f.args())

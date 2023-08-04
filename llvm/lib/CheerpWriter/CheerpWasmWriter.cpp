@@ -4080,8 +4080,6 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F)
 	// Make lookup table for registers to locals.
 	for(const Registerize::RegisterInfo& regInfo: regsInfo)
 	{
-		assert(!regInfo.needsSecondaryName);
-
 		// Save the current local index
 		localMap.at(reg) = numArgs + locals.at((int)regInfo.regKind);
 		locals.at((int)regInfo.regKind)++;
