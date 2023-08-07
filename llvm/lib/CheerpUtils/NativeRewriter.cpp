@@ -210,6 +210,30 @@ void CheerpNativeRewriterPass::rewriteNativeAllocationUsers(Module& M, SmallVect
 						Instruction* i, Type* t,
 						const std::string& builtinTypeName)
 {
+	if(auto* AI = dyn_cast<AllocaInst>(i))
+	{
+		AI->mutateType(PointerType::get(t, 1));
+		for(auto* U: i->users())
+		{
+			if(auto* CB = dyn_cast<CallBase>(U))
+			{
+				Function* F = CB->getCalledFunction();
+				if(F && (F->getIntrinsicID() == Intrinsic::lifetime_start ||
+					F->getIntrinsicID() == Intrinsic::lifetime_end)) {
+					toRemove.push_back(CB);
+					errs()<<"removed: "; CB->dump();
+				}
+			}
+			if(!isa<AddrSpaceCastInst>(U))
+			{
+				U->dump();
+				continue;
+			}
+			assert(isa<AddrSpaceCastInst>(U));
+			U->replaceAllUsesWith(i);
+			toRemove.push_back(cast<Instruction>(U));
+		}
+	}
 	//Instead of allocating the type, allocate a pointer to the type
 	AllocaInst* newI=new AllocaInst(PointerType::get(t, 1),0,"cheerpPtrAlloca",
 		&i->getParent()->getParent()->front().front());
@@ -223,6 +247,10 @@ void CheerpNativeRewriterPass::rewriteNativeAllocationUsers(Module& M, SmallVect
 	//Loop over the uses and look for constructors call
 	for(unsigned j=0;j<users.size();j++)
 	{
+		if(isa<AllocaInst>(i))
+		{
+			errs()<<"user " << j << " : "; users[j]->dump();
+		}
 		if(CallBase* cb = dyn_cast<CallBase>(users[j]))
 		{
 			SmallVector<Value*, 4> initialArgs(cb->arg_begin()+1,cb->arg_end());
@@ -243,7 +271,9 @@ void CheerpNativeRewriterPass::rewriteNativeAllocationUsers(Module& M, SmallVect
 		baseSubstitutionForBuiltin(users[j], i, newI);
 	}
 	if(!foundConstructor)
+	{
 		new StoreInst(i, newI, i->getNextNode());
+	}
 }
 
 void CheerpNativeRewriterPass::rewriteConstructorImplementation(Module& M, Function& F, DominatorTree& DT)

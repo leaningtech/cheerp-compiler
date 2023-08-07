@@ -866,6 +866,13 @@ std::pair<Constant*, uint8_t> TypeOptimizer::rewriteConstant(Constant* C, bool r
 				Constant* srcOperand = rewrittenOperand.first;
 				return std::make_pair(ConstantExpr::getBitCast(srcOperand, newTypeInfo.mappedType), 0);
 			}
+			case Instruction::AddrSpaceCast:
+			{
+				auto rewrittenOperand = rewriteConstant(CE->getOperand(0), false);
+				assert(rewrittenOperand.second == 0);
+				Constant* srcOperand = rewrittenOperand.first;
+				return std::make_pair(ConstantExpr::getPointerBitCastOrAddrSpaceCast(srcOperand, newTypeInfo.mappedType), 0);
+			}
 			case Instruction::IntToPtr:
 			{
 				return std::make_pair(ConstantExpr::getIntToPtr(CE->getOperand(0), newTypeInfo.mappedType), 0);
@@ -1572,6 +1579,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 			switch(I.getOpcode())
 			{
 				default:
+					if(I.getType()->isPointerTy()) I.dump();
 					assert(!I.getType()->isPointerTy() && "Unexpected instruction in TypeOptimizer");
 					break;
 				case Instruction::Ret:
@@ -2034,6 +2042,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 					break;
 				}
 				case Instruction::BitCast:
+				case Instruction::AddrSpaceCast:
 				case Instruction::ExtractValue:
 				case Instruction::InsertValue:
 				case Instruction::IntToPtr:

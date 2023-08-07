@@ -5093,6 +5093,14 @@ static void TryReferenceInitializationCore(Sema &S,
           ? S.Context.getQualifiedType(T1, T1Quals.withoutAddressSpace())
           : cv1T1;
 
+    if(T1Quals.hasAddressSpace())
+    {
+      Initializer->dump();
+      T1.dump();
+      llvm::errs()<<"client: " << (T1Quals.getAddressSpace() == LangAS::cheerp_client) <<"\n";
+      T2.dump();
+      llvm::errs()<<"client: " << (T2Quals.getAddressSpace() == LangAS::cheerp_client) <<"\n";
+    }
   InitializedEntity TempEntity =
       InitializedEntity::InitializeTemporary(cv1T1IgnoreAS);
 
