@@ -2817,8 +2817,8 @@ void Registerize::RegisterAllocatorInst::solve()
 				colorer.addAllowed(i, j);
 		}
 	}
-	uint32_t phiEdgesAdded = 0;
 #ifdef REGISTERIZE_DEBUG
+	uint32_t phiEdgesAdded = 0;
 	uint32_t unsatisfayable = 0;
 #endif
 	for (const auto& E : edges)
@@ -2859,7 +2859,9 @@ void Registerize::RegisterAllocatorInst::solve()
 		}
 		if (allPossiblySatisfyable)
 		{
+#ifdef REGISTERIZE_DEBUG
 			++phiEdgesAdded;
+#endif
 			colorer.addNewEdge();
 			for (const auto&e : E)
 			{
