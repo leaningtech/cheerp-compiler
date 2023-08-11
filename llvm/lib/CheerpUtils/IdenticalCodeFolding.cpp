@@ -117,6 +117,11 @@ bool IdenticalCodeFolding::equivalentFunction(const llvm::Function* A, const llv
 		&& A->getReturnType() != B->getReturnType())
 		return false;
 
+	if (((A->getReturnType()->isPointerTy() && isFunctionExternal(A))
+		|| (B->getReturnType()->isPointerTy() && isFunctionExternal(B)))
+		&& A->getReturnType() != B->getReturnType())
+		return false;
+
 	if (!equivalentType(A->getReturnType(), B->getReturnType()))
 		return false;
 
@@ -844,6 +849,30 @@ bool IdenticalCodeFolding::isStaticIndirectFunction(const llvm::Value* A)
 	return ce && ce->isCast() && isa<Function>(ce->getOperand(0));
 }
 
+bool IdenticalCodeFolding::isFunctionExternal(const llvm::Function* F)
+{
+	auto it = externalFunctionMapping.find(F);
+	if (it != externalFunctionMapping.end())
+		return it->second;
+
+	bool functionExternal = false;
+	for (const Use& U : F->uses())
+	{
+		const User* user = U.getUser();
+		if (const Instruction* ci = dyn_cast<Instruction>(user))
+		{
+			if (ci->getFunction()->getSection() != StringRef("asmjs"))
+			{
+				externalFunctionMapping.emplace(F, true);
+				return true;
+			}
+		}
+	}
+	externalFunctionMapping.emplace(F, false);
+	return false;
+
+}
+
 bool IdenticalCodeFolding::runOnModule(llvm::Module& module)
 {
 	DL = &module.getDataLayout();
@@ -888,6 +917,10 @@ bool IdenticalCodeFolding::runOnModule(llvm::Module& module)
 		std::unordered_map<Function*, Function*> fold;
 		std::vector<std::pair<Function*, Function*>> foldOrder;
 
+		// This will keep track of whether all the functions that have been deemed equal have the same return type.
+		bool allCurrentSetOfSameType = true;
+		externalFunctionMapping.clear();
+
 		for (unsigned i = 0; i < functions.size(); i++) {
 			assert(!fold.count(functions[i]));
 
@@ -918,6 +951,8 @@ bool IdenticalCodeFolding::runOnModule(llvm::Module& module)
 				if (equivalent) {
 					fold.insert({functions[i], functions[j]});
 					foldOrder.push_back({functions[i], functions[j]});
+					if (allCurrentSetOfSameType && functions[i]->getReturnType() != functions[j]->getReturnType())
+						allCurrentSetOfSameType = false;
 					break;
 				}
 			}
@@ -934,6 +969,12 @@ bool IdenticalCodeFolding::runOnModule(llvm::Module& module)
 				if (it == fold.end())
 					break;
 				replacement = it->second;
+			}
+
+			if (!allCurrentSetOfSameType)
+			{
+				if (isFunctionExternal(item.first) || isFunctionExternal(replacement))
+					continue;
 			}
 
 			mergeTwoFunctions(item.first, replacement);
