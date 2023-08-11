@@ -58,6 +58,7 @@ private:
 	bool ignoreInstruction(const llvm::Instruction* I);
 	bool hasSameIntegerBitWidth(const llvm::Type* A, const llvm::Type* B);
 	bool isStaticIndirectFunction(const llvm::Value* A);
+	bool isFunctionExternal(const llvm::Function* F);
 
 	void mergeTwoFunctions(llvm::Function* F, llvm::Function* G);
 
@@ -65,6 +66,7 @@ private:
 
 	llvm::SmallSet<const llvm::PHINode*, 16> visitedPhis;
 	std::unordered_map<std::pair<const llvm::Function*, const llvm::Function*>, bool, pair_hash> functionEquivalence;
+	std::unordered_map<const llvm::Function*, bool> externalFunctionMapping;
 };
 
 class HashAccumulator64 {
