@@ -526,6 +526,15 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 				equivalentOperand(A->getOperand(0), B->getOperand(0)) &&
 				equivalentOperand(A->getOperand(1), B->getOperand(1)));
 		}
+		case Instruction::AtomicRMW:
+		{
+			const AtomicRMWInst* a = cast<AtomicRMWInst>(A);
+			const AtomicRMWInst* b = cast<AtomicRMWInst>(B);
+			return CacheAndReturn(equivalentType(a->getType(), b->getType()) &&
+				a->getOperation() == b->getOperation() &&
+				equivalentOperand(a->getPointerOperand(), b->getPointerOperand()) &&
+				equivalentOperand(a->getValOperand(), b->getValOperand()));
+		}
 		default:
 		{
 #ifndef NDEBUG
