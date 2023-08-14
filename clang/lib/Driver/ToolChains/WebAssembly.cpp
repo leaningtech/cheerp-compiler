@@ -560,6 +560,12 @@ void cheerp::Link::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back(II.getFilename());
   }
 
+  const Driver &D = getToolChain().getDriver();
+  bool hasUnalignedMemory = true;
+  auto features = getWasmFeatures(D, Args);
+  if(std::find(features.begin(), features.end(), UNALIGNEDMEM) == features.end())
+    hasUnalignedMemory = false;
+
   // Add standard libraries
   if (!Args.hasArg(options::OPT_nostdlib) &&
       !Args.hasArg(options::OPT_nodefaultlibs)) {
@@ -577,8 +583,9 @@ void cheerp::Link::ConstructJob(Compilation &C, const JobAction &JA,
     // Add wasm helper if needed
     Arg *CheerpLinearOutput = Args.getLastArg(options::OPT_cheerp_linear_output_EQ);
     llvm::Triple::EnvironmentType env = getToolChain().getTriple().getEnvironment();
-    if((CheerpLinearOutput && CheerpLinearOutput->getValue() == StringRef("wasm")) ||
-       (!CheerpLinearOutput && env == llvm::Triple::WebAssembly))
+    if(((CheerpLinearOutput && CheerpLinearOutput->getValue() == StringRef("wasm")) ||
+       (!CheerpLinearOutput && env == llvm::Triple::WebAssembly)) &&
+	hasUnalignedMemory)
     {
       CmdArgs.push_back(Args.MakeArgString(getToolChain().GetFilePath("libwasm.bc")));
     }
