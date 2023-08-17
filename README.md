@@ -2,6 +2,7 @@ Cheerp: A C++ compiler for the Web
 ==================================
 
 [![Discord server](https://img.shields.io/discord/988743885121548329?color=%235865F2&logo=discord&logoColor=%23fff)][discord-invite]
+[![Issues](https://img.shields.io/github/issues/leaningtech/cheerp-meta)](https://github.com/leaningtech/cheerp-meta/issues)
 
 This directory and its sub-directories contain the source code for LLVM,
 a toolkit for the construction of highly optimized compilers,
@@ -10,13 +11,12 @@ optimizers, and run-time environments.
 Useful links
 ------------
 
-Documentation and Tutorials:
-https://docs.leaningtech.com/cheerp/
+Documentation and tutorials:
+https://labs.leaningtech.com/cheerp
 
-Please report bugs on the cheerp-meta repository:
-https://github.com/leaningtech/cheerp-meta/issues
+Please report bugs on the cheerp-meta repository: https://github.com/leaningtech/cheerp-meta/issues
 
-[Join the Discord server][discord-invite]
+[Join the Discord server!][discord-invite]
 
 Or ask questions on stackoverflow:
 https://stackoverflow.com/questions/ask?tags=cheerp
