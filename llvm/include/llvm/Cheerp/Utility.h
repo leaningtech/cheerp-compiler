@@ -239,7 +239,7 @@ struct GlobalConstructor
 
 std::vector<llvm::Constant*> getGlobalConstructors(llvm::Module& M);
 
-bool needsSecondaryName(const llvm::Value*, const PointerAnalyzer& PA);
+uint32_t getNumberOfElements(const llvm::Value*, const PointerAnalyzer& PA);
 
 uint32_t getIntFromValue(const llvm::Value* v);
 

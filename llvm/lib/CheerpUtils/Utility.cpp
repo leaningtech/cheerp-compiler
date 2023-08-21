@@ -1053,13 +1053,22 @@ std::vector<Constant*> getGlobalConstructors(Module& module)
 }
 
 
-bool needsSecondaryName(const Value* V, const PointerAnalyzer& PA)
+uint32_t getNumberOfElements(const Value* V, const PointerAnalyzer& PA)
 {
 	if(!V->getType()->isPointerTy())
-		return false;
-	if(PA.getPointerKind(V) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(V))
-		return true;
-	return false;
+		return 1;
+	if(auto* A = llvm::dyn_cast<Argument>(V))
+	{
+		if(PA.getPointerKindForArgument(A) == SPLIT_REGULAR)
+		{
+			return 2;
+		}
+	}
+	else if(PA.getPointerKind(V) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(V))
+	{
+		return 2;
+	}
+	return 1;
 }
 
 const llvm::Loop* findCommonLoop(const llvm::LoopInfo* LI, const llvm::BasicBlock* first, const llvm::BasicBlock* second)
