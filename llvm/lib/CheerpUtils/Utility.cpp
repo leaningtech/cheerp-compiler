@@ -521,7 +521,7 @@ bool canDelayPHI(const PHINode* phi, const PointerAnalyzer& PA, const Registeriz
 	// are the same then the PHI is removed completely
 	if(phi->use_empty() || !phi->getType()->isPointerTy())
 		return false;
-	uint32_t phiReg = registerize.getRegisterId(phi, EdgeContext::emptyContext());
+	auto phiRegs = registerize.getAllRegisterIds(phi, EdgeContext::emptyContext());
 	POINTER_KIND phiKind = PA.getPointerKind(phi);
 	const ConstantInt* phiOffset = PA.getConstantOffsetForPointer(phi);
 	// Get expected values from incoming 0
@@ -529,8 +529,8 @@ bool canDelayPHI(const PHINode* phi, const PointerAnalyzer& PA, const Registeriz
 	if(!incomingInst0)
 		return false;
 	assert(!isInlineable(*incomingInst0, PA));
-	uint32_t incomingReg0 = registerize.getRegisterId(incomingInst0, edgeContext);
-	if(incomingReg0 != phiReg)
+	auto incomingRegs0 = registerize.getAllRegisterIds(incomingInst0, edgeContext);
+	if(incomingRegs0 != phiRegs)
 		return false;
 	POINTER_KIND incomingKind0 = PA.getPointerKind(incomingInst0);
 	const ConstantInt* incomingOffset0 = PA.getConstantOffsetForPointer(incomingInst0);
@@ -545,10 +545,10 @@ bool canDelayPHI(const PHINode* phi, const PointerAnalyzer& PA, const Registeriz
 		if(!incomingInst)
 			return false;
 		assert(!isInlineable(*incomingInst, PA));
-		uint32_t incomingReg = registerize.getRegisterId(incomingInst, edgeContext);
+		auto incomingRegs = registerize.getAllRegisterIds(incomingInst, edgeContext);
 		POINTER_KIND incomingKind = PA.getPointerKind(incomingInst);
 		const ConstantInt* incomingOffset = PA.getConstantOffsetForPointer(incomingInst);
-		if(incomingReg != incomingReg0 ||
+		if(incomingRegs != incomingRegs0 ||
 			incomingKind != incomingKind0 ||
 			incomingOffset != incomingOffset0)
 		{

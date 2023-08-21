@@ -1237,10 +1237,6 @@ public:
 	
 	bool runOnModule(llvm::Module& M);
 	
-	bool hasRegister(const llvm::Instruction* I) const;
-	uint32_t getRegisterId(const llvm::Instruction* I, const EdgeContext& edgeContext) const;
-	uint32_t getSelfRefTmpReg(const llvm::Instruction* I, const llvm::BasicBlock* fromBB, const llvm::BasicBlock* toBB) const;
-
 	void assignRegisters(llvm::Module& M, cheerp::PointerAnalyzer& PA);
 	void computeLiveRangeForAllocas(const llvm::Function& F);
 	void invalidateLiveRangeForAllocas(const llvm::Function& F);
@@ -1258,8 +1254,7 @@ public:
 	{
 		// Try to save bits, we may need more flags here
 		const REGISTER_KIND regKind : 3;
-		int needsSecondaryName : 1;
-		RegisterInfo(REGISTER_KIND k, bool n):regKind(k),needsSecondaryName(n)
+		RegisterInfo(REGISTER_KIND k):regKind(k)
 		{
 		}
 	};
@@ -1323,13 +1318,22 @@ public:
 		InstElem(const llvm::Instruction* inst, const uint32_t elemIdx) : instruction(inst), elemIdx(elemIdx)
 		{
 		}
+		InstElem(): InstElem(nullptr, 0)
+		{
+		}
 		bool operator==(const InstElem& other) const
 		{
 			return instruction == other.instruction && elemIdx == other.elemIdx;
 		}
 		const llvm::Instruction* instruction;
-		const uint32_t elemIdx;
+		uint32_t elemIdx;
 	};
+	bool hasRegisters(const llvm::Instruction* I) const;
+	uint32_t getRegisterId(const llvm::Instruction* I, uint32_t elemIdx, const EdgeContext& edgeContext) const;
+	llvm::SmallVector<uint32_t, 2> getAllRegisterIds(const llvm::Instruction* I, const EdgeContext& edgeContext) const;
+
+	REGISTER_KIND getRegKindFromInstElem(const InstElem& ie, bool asmjs, const PointerAnalyzer* PA) const;
+
 private:
 	// Final data structures
 	struct InstOnEdge
@@ -1354,7 +1358,7 @@ private:
 			}
 		};
 	};
-	llvm::DenseMap<const llvm::Instruction*, uint32_t> registersMap;
+	llvm::DenseMap<const llvm::Instruction*, llvm::SmallVector<uint32_t, 2>> registersMap;
 
 	//Class that keeps track for a single instruction which register it occupies at any given point
 	class RegisterUpdates
@@ -1437,7 +1441,6 @@ private:
 
 	llvm::DenseMap<const llvm::AllocaInst*, LiveRange> allocaLiveRanges;
 	llvm::DenseMap<const llvm::Function*, std::vector<RegisterInfo>> registersForFunctionMap;
-	cheerp::DeterministicUnorderedMap<InstOnEdge, uint32_t, RestrictionsLifted::NoErasure | RestrictionsLifted::NoDeterminism, InstOnEdge::Hash> selfRefRegistersMap;
 	const bool froundAvailable;
 	const bool wasm;
 #ifndef NDEBUG
@@ -1498,7 +1501,7 @@ private:
 	{
 		LiveRange range;
 		RegisterInfo info;
-		RegisterRange(const LiveRange& range, REGISTER_KIND k, bool n):range(range),info(k, n)
+		RegisterRange(const LiveRange& range, REGISTER_KIND k):range(range),info(k)
 		{
 		}
 	};
@@ -1536,25 +1539,7 @@ private:
 				llvm::dbgs() << findParent(i) << "\t";
 			llvm::dbgs() << "\n\n";
 		}
-		void materializeRegisters(llvm::SmallVectorImpl<RegisterRange>& registers)
-		{
-			if (emptyFunction)
-				return;
-			std::vector<uint32_t> indexMaterializedRegisters(size());
-			//Materialize virtual registers and set the proper index
-			for (uint32_t i = 0; i<size(); i++)
-			{
-				if (!isAlive(i))
-					continue;
-				indexMaterializedRegisters[i] = registers.size();
-				registers.push_back(virtualRegisters[i]);
-			}
-			//Assign every instruction to his own materialized register
-			for (uint32_t i = 0; i<indexer.size(); i++)
-			{
-				registerize->registersMap[indexer.at(i).instruction] = indexMaterializedRegisters[findParent(i)];
-			}
-		}
+		void materializeRegisters(llvm::SmallVectorImpl<RegisterRange>& registers);
 	private:
 		bool couldAvoidToBeMaterialized(const llvm::BasicBlock& BB) const;
 		void computeBitsetConstraints()
@@ -1788,12 +1773,11 @@ private:
 	uint32_t dfsLiveRangeInBlock(BlocksState& blockState, LiveRangesTy& liveRanges, const InstIdMapTy& instIdMap,
 					llvm::BasicBlock& BB, cheerp::PointerAnalyzer& PA, uint32_t nextIndex, uint32_t codePathId);
 	void extendRangeForUsedOperands(llvm::Instruction& I, LiveRangesTy& liveRanges, cheerp::PointerAnalyzer& PA,
-					uint32_t thisIndex, uint32_t codePathId, bool splitRegularDest);
+					uint32_t thisIndex, uint32_t codePathId);
 	uint32_t assignToRegisters(llvm::Function& F, const InstIdMapTy& instIdMap, const LiveRangesTy& liveRanges, const PointerAnalyzer& PA);
-	void handlePHI(const llvm::Instruction& I, const LiveRangesTy& liveRanges, llvm::SmallVector<RegisterRange, 4>& registers, const PointerAnalyzer& PA);
 	uint32_t findOrCreateRegister(llvm::SmallVector<RegisterRange, 4>& registers, const InstructionLiveRange& range,
-					REGISTER_KIND kind, bool needsSecondaryName);
-	bool addRangeToRegisterIfPossible(RegisterRange& regRange, const InstructionLiveRange& liveRange, REGISTER_KIND kind, bool needsSecondaryName);
+					REGISTER_KIND kind);
+	bool addRangeToRegisterIfPossible(RegisterRange& regRange, const InstructionLiveRange& liveRange, REGISTER_KIND kind);
 	void computeAllocaLiveRanges(AllocaSetTy& allocaSet, const InstIdMapTy& instIdMap);
 	typedef std::set<llvm::Instruction*, CompareInstructionByID> InstructionSetOrderedByID;
 	InstructionSetOrderedByID gatherDerivedMemoryAccesses(const llvm::AllocaInst* rootI, const InstIdMapTy& instIdMap, FloodFillState& floodFillState);
