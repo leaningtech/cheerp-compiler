@@ -2668,23 +2668,24 @@ bool CheerpWriter::needsPointerKindConversion(const PHINode* phi, const Value* i
 	if(!incomingInst)
 		return true;
 	assert(!isInlineable(*incomingInst, PA));
-	POINTER_KIND incomingKind = UNKNOWN;
-	POINTER_KIND phiKind = UNKNOWN;
-	const llvm::ConstantInt* incomingOffset = nullptr;
-	const llvm::ConstantInt* phiOffset = nullptr;
 	if(phiType->isPointerTy())
 	{
-		incomingKind = PA.getPointerKindAssert(incomingInst);
-		phiKind = PA.getPointerKindAssert(phi);
+		POINTER_KIND incomingKind = PA.getPointerKindAssert(incomingInst);
+		POINTER_KIND phiKind = PA.getPointerKindAssert(phi);
+		if(incomingKind != phiKind)
+			return true;
+		const llvm::ConstantInt* incomingOffset = nullptr;
+		const llvm::ConstantInt* phiOffset = nullptr;
 		if(incomingKind == SPLIT_REGULAR || incomingKind == REGULAR || incomingKind == BYTE_LAYOUT)
 			incomingOffset = PA.getConstantOffsetForPointer(incomingInst);
 		if(phiKind == SPLIT_REGULAR || phiKind == REGULAR || phiKind == BYTE_LAYOUT)
 			phiOffset = PA.getConstantOffsetForPointer(phi);
+		if(incomingOffset != phiOffset)
+			return true;
 	}
-	return
-		registerize.getRegisterId(phi, EdgeContext::emptyContext())!=registerize.getRegisterId(incomingInst, edgeContext) ||
-		phiKind!=incomingKind ||
-		phiOffset!=incomingOffset;
+	auto phiRegs = registerize.getAllRegisterIds(phi, EdgeContext::emptyContext());
+	auto incomingRegs = registerize.getAllRegisterIds(incomingInst, edgeContext);
+	return phiRegs != incomingRegs;
 }
 
 bool CheerpWriter::needsPointerKindConversionForBlocks(const BasicBlock* to, const BasicBlock* from,
@@ -2704,13 +2705,15 @@ bool CheerpWriter::needsPointerKindConversionForBlocks(const BasicBlock* to, con
 	private:
 		const PointerAnalyzer& PA;
 		const Registerize& registerize;
-		void handleRecursivePHIDependency(const Instruction* incoming) override
+		void handleRecursivePHIDependency(const Instruction* incoming, uint32_t elemIdx) override
 		{
 			//Whenever we need to move to a temporary, we will also need to materialize the block
 			needsPointerKindConversion = true;
 		}
-		void handlePHI(const PHINode* phi, const Value* incoming, bool selfReferencing) override
+		void handlePHI(const PHINode* phi, uint32_t elemIdx, const Value* incoming) override
 		{
+			if(elemIdx != 0)
+				return;
 			needsPointerKindConversion |= CheerpWriter::needsPointerKindConversion(phi, incoming, PA, registerize, edgeContext);
 		}
 	};
@@ -2736,28 +2739,19 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 	private:
 		const bool asmjs;
 		CheerpWriter& writer;
-		void handleRecursivePHIDependency(const Instruction* incoming) override
+		void handleRecursivePHIDependency(const Instruction* incoming, uint32_t elemIdx) override
 		{
 			assert(incoming);
-			if(incoming->getType()->isPointerTy() && writer.PA.getPointerKindAssert(incoming)==SPLIT_REGULAR && !writer.PA.getConstantOffsetForPointer(incoming))
-			{
-				writer.stream << writer.getName(incoming, 1);
-				writer.stream << '=';
-				edgeContext.undoAssigment();
-				writer.compilePointerOffset(incoming, LOWEST);
-				edgeContext.processAssigment();
-				writer.stream << ';' << writer.NewLine;
-			}
-			writer.stream << writer.getName(incoming, 0);
+			writer.stream << writer.getName(incoming, elemIdx);
 
 			//We walk back a step in "time"
 			edgeContext.undoAssigment();
 			//Find what name the instruction had previously
-			writer.stream << '=' << writer.getName(incoming, 0) << ';' << writer.NewLine;
+			writer.stream << '=' << writer.getName(incoming, elemIdx) << ';' << writer.NewLine;
 			//And undo the undo, back to the original situatuion
 			edgeContext.processAssigment();
 		}
-		void handlePHI(const PHINode* phi, const Value* incoming, bool selfReferencing) override
+		void handlePHI(const PHINode* phi, uint32_t elemIdx, const Value* incoming) override
 		{
 			// We can avoid assignment from the same register if no pointer kind conversion is required
 			if(!needsPointerKindConversion(phi, incoming, writer.PA, writer.registerize, edgeContext))
@@ -2773,65 +2767,57 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 				assert(k!=CONSTANT);
 				if((k==REGULAR || k==SPLIT_REGULAR || k==BYTE_LAYOUT) && writer.PA.getConstantOffsetForPointer(phi))
 				{
+					assert(elemIdx == 0);
 					writer.stream << writer.getName(phi, 0, /*doNotConsiderEdgeContext*/true) << '=';
 					writer.compilePointerBase(incoming);
 				}
 				else if(k==SPLIT_REGULAR)
 				{
-					POINTER_KIND incomingKind=writer.PA.getPointerKind(incoming);
-					// TODO: Won't have a self ref tmp if there is a tmpphi already for this PHI
-					if(selfReferencing)
-					{
-						assert(!PA.getConstantOffsetForPointer(incoming));
-						assert(PA.getPointerKindAssert(incoming) == SPLIT_REGULAR);
-					}
-					uint32_t tmpOffsetReg = -1;
-					if(selfReferencing)
-					{
-						tmpOffsetReg = writer.registerize.getSelfRefTmpReg(phi, edgeContext.fromBB, edgeContext.toBB);
-						writer.stream << writer.namegen.getRegName(phi->getParent()->getParent(), tmpOffsetReg, 0);
-					}
-					else
-						writer.stream << writer.getName(phi, 1, /*doNotConsiderEdgeContext*/true);
+					writer.stream << writer.getName(phi, elemIdx, /*doNotConsiderEdgeContext*/true);
 					writer.stream << '=';
-					if (incomingKind == RAW)
+					if(elemIdx == 0)
 					{
-						writer.compileRawPointer(incoming, SHIFT);
-						writer.stream << ">>" << writer.getHeapShiftForType(cast<PointerType>(phiType)->getPointerElementType());
+						writer.compilePointerBase(incoming);
 					}
 					else
 					{
-						writer.compilePointerOffset(incoming, LOWEST);
-					}
-					writer.stream << ';' << writer.NewLine;
-					writer.stream << writer.getName(phi, 0, /*doNotConsiderEdgeContext*/true) << '=';
-					writer.compilePointerBase(incoming);
-					if(selfReferencing)
-					{
-						writer.stream << ';' << writer.NewLine;
-						writer.stream << writer.getName(phi, 1, /*doNotConsiderEdgeContext*/true) << '=' << writer.namegen.getRegName(phi->getParent()->getParent(), tmpOffsetReg, 0);
+						POINTER_KIND incomingKind=writer.PA.getPointerKind(incoming);
+						if (incomingKind == RAW)
+						{
+							writer.compileRawPointer(incoming, SHIFT);
+							writer.stream << ">>" << writer.getHeapShiftForType(cast<PointerType>(phiType)->getPointerElementType());
+						}
+						else
+						{
+							writer.compilePointerOffset(incoming, LOWEST);
+						}
 					}
 				}
 				else if(k==RAW)
 				{
+					assert(elemIdx == 0);
 					writer.stream << writer.getName(phi, 0, /*doNotConsiderEdgeContext*/true) << '=';
 					writer.compileRawPointer(incoming, LOWEST);
 				}
 				else
 				{
+					assert(elemIdx == 0);
 					writer.stream << writer.getName(phi, 0, /*doNotConsiderEdgeContext*/true) << '=';
 					writer.compilePointerAs(incoming, k);
 				}
 			}
 			else
 			{
+				assert(elemIdx == 0);
 				writer.stream << writer.getName(phi, 0, /*doNotConsiderEdgeContext*/true);
 
 				const llvm::Instruction* instIncoming = dyn_cast<const Instruction>(incoming);
-				if (!asmjs && writer.registerize.getRegisterId(phi, EdgeContext::emptyContext()) == writer.registerize.getRegisterId(phi, edgeContext) &&
+				if (!asmjs &&
+						(writer.registerize.getRegisterId(phi, 0, EdgeContext::emptyContext())
+							== writer.registerize.getRegisterId(phi, 0, edgeContext)) &&
 						instIncoming &&
 						isInlineable(*instIncoming, PA) &&
-						writer.compileCompoundStatement(instIncoming, writer.registerize.getRegisterId(phi, edgeContext)))
+						writer.compileCompoundStatement(instIncoming, writer.registerize.getRegisterId(phi, 0, edgeContext)))
 				{
 					//compileCompoundStattement whenever returns true has also written into the stream the appropriate operation
 				}
@@ -4816,7 +4802,7 @@ bool CheerpWriter::compileCompoundStatement(const Instruction* I, uint32_t regId
 			return false;
 		if(isInlineable(*opI, PA))
 			return false;
-		if(regId != registerize.getRegisterId(opI, edgeContext))
+		if(regId != registerize.getRegisterId(opI, 0, edgeContext))
 			return false;
 		return true;
 	};
@@ -4884,9 +4870,9 @@ void CheerpWriter::compileBB(const BasicBlock& BB)
 			}
 			else if(!I.getType()->isVoidTy())
 			{
-				uint32_t regId = registerize.getRegisterId(&I, edgeContext);
-				assert(namegen.getRegName(BB.getParent(), regId, 0) == getName(&I, 0));
-				stream << namegen.getRegName(BB.getParent(), regId, 0);
+				uint32_t regId = registerize.getRegisterId(&I, 0, edgeContext);
+				assert(namegen.getRegName(BB.getParent(), regId) == getName(&I, 0));
+				stream << namegen.getRegName(BB.getParent(), regId);
 				if(!asmjs && compileCompoundStatement(&I, regId))
 				{
 					stream << ';' << NewLine;
@@ -4966,13 +4952,8 @@ void CheerpWriter::compileMethodLocals(const Function& F)
 			stream << "var ";
 		else
 			stream << ',';
-		compileMethodLocal(namegen.getRegName(&F, regId, 0), regsInfo[regId].regKind);
+		compileMethodLocal(namegen.getRegName(&F, regId), regsInfo[regId].regKind);
 		firstVar = false;
-		if(regsInfo[regId].needsSecondaryName)
-		{
-			stream << ',';
-			compileMethodLocal(namegen.getRegName(&F, regId, 1), Registerize::INTEGER);
-		}
 	}
 	if(!firstVar)
 		stream << ';' << NewLine;

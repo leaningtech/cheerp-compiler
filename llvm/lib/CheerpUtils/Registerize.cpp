@@ -34,6 +34,14 @@ using namespace llvm;
 
 STATISTIC(NumRegisters, "Total number of registers allocated to functions");
 
+
+static int getNumberOfRegisters(const Instruction* I, const cheerp::PointerAnalyzer* PA)
+{
+	if(PA)
+		return cheerp::getNumberOfElements(I, *PA);
+	return 1;
+}
+
 namespace cheerp {
 
 bool Registerize::runOnModule(Module & M)
@@ -56,16 +64,18 @@ void Registerize::assignRegisters(Module & M, cheerp::PointerAnalyzer& PA)
 #endif
 }
 
-bool Registerize::hasRegister(const llvm::Instruction* I) const
+bool Registerize::hasRegisters(const llvm::Instruction* I) const
 {
 	return registersMap.count(I);
 }
 
-uint32_t Registerize::getRegisterId(const llvm::Instruction* I, const EdgeContext& edgeContext) const
+uint32_t Registerize::getRegisterId(const Instruction* I, uint32_t elemIdx, const EdgeContext& edgeContext) const
 {
 	assert(RegistersAssigned);
-	assert(registersMap.count(I));
-	uint32_t regId = registersMap.find(I)->second;
+	auto it = registersMap.find(I);
+	assert(it != registersMap.end());
+	assert(elemIdx < it->second.size());
+	uint32_t regId = it->second[elemIdx];
 	if(!edgeContext.isNull())
 	{
 		return edgeRegistersMap.findCurrentRegisterId(regId, edgeContext);
@@ -73,13 +83,23 @@ uint32_t Registerize::getRegisterId(const llvm::Instruction* I, const EdgeContex
 	return regId;
 }
 
-uint32_t Registerize::getSelfRefTmpReg(const llvm::Instruction* I, const llvm::BasicBlock* fromBB, const llvm::BasicBlock* toBB) const
+llvm::SmallVector<uint32_t, 2> Registerize::getAllRegisterIds(const llvm::Instruction* I, const EdgeContext& edgeContext) const
 {
-	assert(registersMap.count(I));
-	uint32_t regId = registersMap.find(I)->second;
-	auto it = selfRefRegistersMap.find(InstOnEdge(fromBB, toBB, regId));
-	assert(it != selfRefRegistersMap.end());
-	return it->second;
+
+	assert(RegistersAssigned);
+	auto it = registersMap.find(I);
+	assert(it != registersMap.end());
+	llvm::SmallVector<uint32_t, 2> regIds;
+	for(size_t i = 0; i < it->second.size(); i++)
+	{
+		uint32_t regId = it->second[i];
+		if(!edgeContext.isNull())
+		{
+			regId = edgeRegistersMap.findCurrentRegisterId(regId, edgeContext);
+		}
+		regIds.push_back(regId);
+	}
+	return regIds;
 }
 
 void Registerize::InstructionLiveRange::addUse(uint32_t curCodePath, uint32_t thisIndex)
@@ -122,7 +142,13 @@ void Registerize::assignRegistersToInstructions(Function& F, cheerp::PointerAnal
 		for(const Registerize::LiveRangeChunk& chunk: it.second.range)
 			dbgs() << '[' << chunk.start << ',' << chunk.end << ')';
 		dbgs() << "\n";
-		dbgs() << "\tMapped to register " << registersMap[it.first.instruction] << "\n";
+		const auto& regs = registersMap[it.first.instruction];
+		dbgs() << "\tMapped to registers ";
+		for(auto r: regs)
+		{
+			dbgs() << registersMap[it.first.instruction] << "";
+		}
+		dbgs() << "\n";
 	}
 #endif
 }
@@ -250,11 +276,8 @@ void Registerize::assignInstructionsIds(InstIdMapTy& instIdMap, const Function& 
 			// Take our chance to store away all alloca, they are registerized using non-SSA logic
 			if (isa<AllocaInst>(I))
 				allocaSet.push_back(cast<AllocaInst>(&I));
-			const uint32_t thisIndex = nextIndex++;
-			// SPLIT_REGULAR inst consumes 2 indexes
-			if(PA && I.getType()->isPointerTy() && PA->getPointerKind(&I) == SPLIT_REGULAR)
-				nextIndex++;
-			instIdMap[&I]=thisIndex;
+			instIdMap[&I] = nextIndex;
+			nextIndex += getNumberOfRegisters(&I, PA);
 		}
 
 		const Instruction* term=BB->getTerminator();
@@ -283,17 +306,10 @@ uint32_t Registerize::dfsLiveRangeInBlock(BlocksState& blocksState, LiveRangesTy
 	{
 		assert(liveRanges.count(InstElem(&I, 0))==0);
 		assert(instIdMap.count(&I));
-		uint32_t thisIndex = instIdMap.find(&I)->second;
-		nextIndex = thisIndex + 1;
-		bool splitRegularDest = false;
-		// SPLIT_REGULAR pointers keep alive the register until after the instruction. Calls are an exception as the offset is stored in a global.
-		if(I.getType()->isPointerTy() && PA.getPointerKind(&I) == SPLIT_REGULAR)
-		{
-			nextIndex++;
-			CallBase* CI = dyn_cast<CallBase>(&I);
-			if(!CI || (CI->getCalledFunction() && CI->getCalledFunction()->getIntrinsicID()==Intrinsic::cheerp_downcast))
-				splitRegularDest = true;
-		}
+		uint32_t thisIndexFirst = instIdMap.find(&I)->second;
+		uint32_t nRegs = getNumberOfRegisters(&I, &PA);
+		uint32_t thisIndexLast = thisIndexFirst + nRegs - 1;
+		nextIndex = thisIndexLast + 1;
 		// Inlineable instructions extends the life of the not-inlineable instructions they use.
 		// This happens inside extendRangeForUsedOperands.
 		if (isInlineable(I, PA))
@@ -301,15 +317,18 @@ uint32_t Registerize::dfsLiveRangeInBlock(BlocksState& blocksState, LiveRangesTy
 		// Void instruction and instructions without uses do not need any lifetime computation
 		if (!I.getType()->isVoidTy() && !I.use_empty())
 		{
-			InstructionLiveRange& range=liveRanges.emplace(InstElem(&I, 0),
-				InstructionLiveRange(codePathId)).first->second;
-			range.range.push_back(LiveRangeChunk(thisIndex, thisIndex));
+			for (uint32_t i = 0; i < nRegs; i++)
+			{
+				InstructionLiveRange& range=liveRanges.emplace(InstElem(&I, i),
+					InstructionLiveRange(codePathId)).first->second;
+				range.range.push_back(LiveRangeChunk(thisIndexFirst, thisIndexLast));
+			}
 		}
 		// Operands of PHIs are declared as live out from the source block.
 		// This is handled below.
 		if (isa<PHINode>(I))
 			continue;
-		extendRangeForUsedOperands(I, liveRanges, PA, thisIndex, codePathId, splitRegularDest);
+		extendRangeForUsedOperands(I, liveRanges, PA, thisIndexLast, codePathId);
 	}
 	// Extend the live range of live-out instrution to the end of the block
 	uint32_t endOfBlockIndex=nextIndex;
@@ -319,15 +338,18 @@ uint32_t Registerize::dfsLiveRangeInBlock(BlocksState& blocksState, LiveRangesTy
 		// If inlineable we need to extend the life of the not-inlineable operands
 		if (isInlineable(*outLiveInst, PA))
 		{
-			// We don't care about splitRegularDest, the point is to extend to the end of the block
-			extendRangeForUsedOperands(*outLiveInst, liveRanges, PA, endOfBlockIndex, codePathId, /*splitRegularDest*/false);
+			extendRangeForUsedOperands(*outLiveInst, liveRanges, PA, endOfBlockIndex, codePathId);
 		}
 		else
 		{
-			auto it = liveRanges.find(InstElem(outLiveInst, 0));
-			assert(it != liveRanges.end());
-			InstructionLiveRange& range= it->second;
-			range.addUse(codePathId, endOfBlockIndex);
+			uint32_t nRegs = getNumberOfRegisters(outLiveInst, &PA);
+			for (uint32_t i = 0; i < nRegs; i++)
+			{
+				auto it = liveRanges.find(InstElem(outLiveInst, i));
+				assert(it != liveRanges.end());
+				InstructionLiveRange& range= it->second;
+				range.addUse(codePathId, endOfBlockIndex);
+			}
 		}
 	}
 	blockState.completed=true;
@@ -345,7 +367,7 @@ uint32_t Registerize::dfsLiveRangeInBlock(BlocksState& blocksState, LiveRangesTy
 }
 
 void Registerize::extendRangeForUsedOperands(Instruction& I, LiveRangesTy& liveRanges, cheerp::PointerAnalyzer& PA,
-						uint32_t thisIndex, uint32_t codePathId, bool splitRegularDest)
+						uint32_t thisIndex, uint32_t codePathId)
 {
 	assert(codePathId <= thisIndex);
 
@@ -357,16 +379,20 @@ void Registerize::extendRangeForUsedOperands(Instruction& I, LiveRangesTy& liveR
 			continue;
 		// Recursively traverse inlineable operands
 		if(isInlineable(*usedI, PA))
-			extendRangeForUsedOperands(*usedI, liveRanges, PA, thisIndex, codePathId, splitRegularDest);
+			extendRangeForUsedOperands(*usedI, liveRanges, PA, thisIndex, codePathId);
 		else
 		{
-			InstElem registerId = InstElem(usedI, 0);
-			assert(liveRanges.count(registerId));
-			InstructionLiveRange& range=liveRanges.find(registerId)->second;
-			if(splitRegularDest && usedI->getType()->isPointerTy() && PA.getPointerKind(usedI) == SPLIT_REGULAR)
-				thisIndex++;
-			if(codePathId!=thisIndex)
-				range.addUse(codePathId, thisIndex);
+			uint32_t nRegs = getNumberOfRegisters(usedI, &PA);
+			for (uint32_t i = 0; i < nRegs; i++)
+			{
+				InstElem ie = InstElem(usedI, i);
+				assert(liveRanges.count(ie));
+				auto it = liveRanges.find(InstElem(usedI, i));
+				assert(it != liveRanges.end());
+				InstructionLiveRange& range = it->second;
+				if(codePathId!=thisIndex)
+					range.addUse(codePathId, thisIndex);
+			}
 		}
 	}
 }
@@ -403,7 +429,7 @@ uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMa
 		const InstIdMapTy& instIdMap;
 
 		std::vector<uint32_t> statusRegisters;
-		uint32_t assignTempReg(uint32_t regId, Registerize::REGISTER_KIND kind, bool needsSecondaryName)
+		uint32_t assignTempReg(uint32_t regId, Registerize::REGISTER_KIND kind)
 		{
 			assert(statusRegisters.at(regId) != REGISTER_STATUS::FREE);
 			for(unsigned i=0;i<registers.size();i++)
@@ -426,38 +452,27 @@ uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMa
 				}
 				// We can use this register for the tmpphi, make sure we don't use it twice
 				statusRegisters[i] = statusRegisters[regId];
-				registers[i].info.needsSecondaryName |= needsSecondaryName;
 				return i;
 			}
 			// Create a register which will have an empty live range
 			// It is not a problem since we mark it as used in the block
 			uint32_t chosenReg = registers.size();
-			registers.push_back(RegisterRange(LiveRange(), kind, needsSecondaryName));
+			registers.push_back(RegisterRange(LiveRange(), kind));
 			statusRegisters.push_back(statusRegisters[regId]);
 			return chosenReg;
 		}
-		void handleRecursivePHIDependency(const Instruction* incoming) override
+		void handleRecursivePHIDependency(const Instruction* incoming, uint32_t elemIdx) override
 		{
 			bool asmjs = incoming->getParent()->getParent()->getSection() == StringRef("asmjs");
-			assert(registerize.registersMap.count(incoming));
-			uint32_t regId=registerize.registersMap.find(incoming)->second;
-			Registerize::REGISTER_KIND phiKind = registerize.getRegKindFromType(incoming->getType(), asmjs);
-			uint32_t chosenReg = assignTempReg(regId, phiKind, cheerp::getNumberOfElements(incoming, PA) > 1);
+			assert(registerize.hasRegisters(incoming));
+			uint32_t regId = registerize.registersMap.find(incoming)->second[elemIdx];
+			Registerize::REGISTER_KIND phiKind = registerize.getRegKindFromInstElem(InstElem(incoming, elemIdx), asmjs, &PA);
+			uint32_t chosenReg = assignTempReg(regId, phiKind);
 			registerize.edgeRegistersMap.insertUpdate(regId, chosenReg, edgeContext);
 		}
-		void handlePHI(const PHINode* phi, const Value* incoming, bool selfReferencing) override
+		void handlePHI(const PHINode* phi, uint32_t elemIdx, const Value* incoming) override
 		{
-			// Provide temporary regs for the offset part of SPLIT_REGULAR PHIs that reference themselves
-			if(!selfReferencing)
-				return;
-			assert(cheerp::getNumberOfElements(phi, PA) > 1);
-			assert(registerize.registersMap.count(phi));
-			uint32_t regId=registerize.registersMap.find(phi)->second;
-			// Check if there is already a tmp PHI for this PHI, if so it is not really self referencing
-			if(registerize.edgeRegistersMap.count(regId, edgeContext))
-				return;
-			uint32_t chosenReg = assignTempReg(regId, Registerize::INTEGER, false);
-			registerize.selfRefRegistersMap.insert(std::make_pair(InstOnEdge(edgeContext.fromBB, edgeContext.toBB, regId), chosenReg));
+			return;
 		}
 		void setRegisterUsed(uint32_t regId) override
 		{
@@ -579,8 +594,7 @@ Registerize::RegisterAllocatorInst::RegisterAllocatorInst(llvm::Function& F_, co
 		parentRegister.push_back(size());
 		virtualRegisters.push_back(RegisterRange(
 					range.range,
-					registerize->getRegKindFromType(I->getType(), asmjs),
-					cheerp::getNumberOfElements(I, PA) > 1
+					registerize->getRegKindFromInstElem(it.first, asmjs, &PA)
 					));
 		const auto& iter = instIdMap.find(I);
 		assert(iter != instIdMap.end());
@@ -920,6 +934,35 @@ std::vector<uint32_t> VertexColorer::assignGreedily() const
 	return res;
 }
 
+void Registerize::RegisterAllocatorInst::materializeRegisters(llvm::SmallVectorImpl<RegisterRange>& registers)
+{
+	if (emptyFunction)
+		return;
+	std::vector<uint32_t> indexMaterializedRegisters(size());
+	//Materialize virtual registers and set the proper index
+	for (uint32_t i = 0; i<size(); i++)
+	{
+		if (!isAlive(i))
+			continue;
+		indexMaterializedRegisters[i] = registers.size();
+		registers.push_back(virtualRegisters[i]);
+	}
+	//Assign every instruction to his own materialized register
+	for (uint32_t i = 0; i<indexer.size(); i++)
+	{
+		auto num = indexMaterializedRegisters[findParent(i)];
+		InstElem ie = indexer.at(i);
+		auto it = registerize->registersMap.find(ie.instruction);
+		if(it == registerize->registersMap.end())
+		{
+			llvm::SmallVector<uint32_t, 2> regs;
+			regs.resize(getNumberOfRegisters(ie.instruction, &PA));
+			it = registerize->registersMap.try_emplace(ie.instruction, std::move(regs)).first;
+		}
+		it->second[ie.elemIdx] = num;
+	}
+}
+
 bool Registerize::RegisterAllocatorInst::couldAvoidToBeMaterialized(const BasicBlock& BB) const
 {
 	//Only blocks containing only phi and exactly 1 successor can avoid to be materialized
@@ -952,10 +995,22 @@ void Registerize::RegisterAllocatorInst::buildEdgesData(Function& F)
 					continue;
 				const Value* val=phi->getIncomingValueForBlock(&fromBB);
 				const Instruction* pre=dyn_cast<Instruction>(val);
-				InstElem preFirstReg = InstElem(pre, 0);
-				if(pre && indexer.count(preFirstReg))
+				if(pre)
 				{
-					edges.back().push_back(std::make_pair(indexer.id(InstElem(phi, 0)), indexer.id(preFirstReg)));
+					uint32_t phiNRegs = getNumberOfRegisters(phi, &PA);
+					uint32_t preNRegs = getNumberOfRegisters(pre, &PA);
+					if(phiNRegs == preNRegs)
+					{
+						for(uint32_t i = 0; i < phiNRegs; i++)
+						{
+							InstElem phiElem(phi, i);
+							InstElem preElem(pre, i);
+							if(indexer.count(preElem))
+							{
+								edges.back().push_back(std::make_pair(indexer.id(phiElem), indexer.id(preElem)));
+							}
+						}
+					}
 				}
 			}
 			if (edges.back().empty())
@@ -976,7 +1031,9 @@ void Registerize::RegisterAllocatorInst::buildFriendsSinglePhi(const uint32_t ph
 		if(!usedI)
 			continue;
 		assert(!isInlineable(*usedI, PA));
-		addFriendship(phi, indexer.id(InstElem(usedI, 0)), frequencyInfo.getWeight(I->getIncomingBlock(i), I->getParent()));
+		uint32_t elemIdx = indexer.at(phi).elemIdx;
+		elemIdx = getNumberOfRegisters(usedI, &PA) <= int(elemIdx) ? 0 : elemIdx;
+		addFriendship(phi, indexer.id(InstElem(usedI, elemIdx)), frequencyInfo.getWeight(I->getIncomingBlock(i), I->getParent()));
 	}
 }
 
@@ -984,9 +1041,9 @@ void Registerize::RegisterAllocatorInst::createSingleFriendship(const uint32_t i
 {
 	//Introduce a friendships of weight 1
 	const Instruction* I = dyn_cast<Instruction>(operand);
-	InstElem rid = InstElem(I, 0);
-	if (I && indexer.count(rid))
-		addFriendship(i, indexer.id(rid), 1);
+	InstElem ie = InstElem(I, 0);
+	if (I && indexer.count(ie))
+		addFriendship(i, indexer.id(ie), 1);
 }
 
 void Registerize::RegisterAllocatorInst::buildFriendsSingleCompressibleInstr(const uint32_t i)
@@ -2825,74 +2882,26 @@ void Registerize::RegisterAllocatorInst::solve()
 	}
 }
 
-void Registerize::handlePHI(const Instruction& I, const LiveRangesTy& liveRanges, llvm::SmallVector<RegisterRange, 4>& registers, const PointerAnalyzer& PA)
-{
-	bool asmjs = I.getParent()->getParent()->getSection()==StringRef("asmjs");
-	uint32_t chosenRegister=0xffffffff;
-	const InstructionLiveRange& PHIrange=liveRanges.find(InstElem(&I, 0))->second;
-	// A PHI may already have an assigned register if it's an operand to another PHI
-	if(registersMap.count(&I))
-		chosenRegister = registersMap[&I];
-	else
-	{
-		// If one of the operands already has a register allocated try to use that register again
-		for(Value* op: I.operands())
-		{
-			const Instruction* usedI=getUniqueIncomingInst(op, PA);
-			if(!usedI)
-				continue;
-			assert(!isInlineable(*usedI, PA));
-			assert(liveRanges.count(InstElem(usedI, 0)));
-			if(registersMap.count(usedI)==0)
-				continue;
-			uint32_t operandRegister=registersMap[usedI];
-			if(addRangeToRegisterIfPossible(registers[operandRegister], PHIrange,
-							getRegKindFromType(usedI->getType(), asmjs),
-							cheerp::getNumberOfElements(&I, PA) > 1))
-			{
-				chosenRegister=operandRegister;
-				break;
-			}
-		}
-	}
-	// If a register has not been chosen yet, find or create a new one
-	if(chosenRegister==0xffffffff)
-		chosenRegister=findOrCreateRegister(registers, PHIrange, getRegKindFromType(I.getType(), asmjs), cheerp::getNumberOfElements(&I, PA) > 1);
-	registersMap[&I]=chosenRegister;
-	// Iterate again on the operands and try to map as many as possible into the same register
-	for(Value* op: I.operands())
-	{
-		const Instruction* usedI=getUniqueIncomingInst(op, PA);
-		if(!usedI)
-			continue;
-		assert(!isInlineable(*usedI, PA));
-		assert(liveRanges.count(InstElem(usedI, 0)));
-		// Skip already assigned operands
-		if(registersMap.count(usedI))
-			continue;
-		const InstructionLiveRange& opRange=liveRanges.find(InstElem(usedI, 0))->second;
-		bool spaceFound=addRangeToRegisterIfPossible(registers[chosenRegister], opRange,
-								getRegKindFromType(usedI->getType(), asmjs),
-								cheerp::getNumberOfElements(usedI, PA) > 1);
-		if (spaceFound)
-		{
-			// Update the mapping
-			registersMap[usedI]=chosenRegister;
-		}
-	}
-}
-
 uint32_t Registerize::findOrCreateRegister(llvm::SmallVector<RegisterRange, 4>& registers, const InstructionLiveRange& range,
-						REGISTER_KIND kind, bool needsSecondaryName)
+						REGISTER_KIND kind)
 {
 	for(uint32_t i=0;i<registers.size();i++)
 	{
-		if(addRangeToRegisterIfPossible(registers[i], range, kind, needsSecondaryName))
+		if(addRangeToRegisterIfPossible(registers[i], range, kind))
 			return i;
 	}
 	// Create a new register with the range of the current instruction already used
-	registers.push_back(RegisterRange(range.range, kind, needsSecondaryName));
+	registers.push_back(RegisterRange(range.range, kind));
 	return registers.size()-1;
+}
+
+Registerize::REGISTER_KIND Registerize::getRegKindFromInstElem(const InstElem& reg, bool asmjs, const PointerAnalyzer* PA) const
+{
+	const Instruction* I = reg.instruction;
+	const uint32_t index = reg.elemIdx;
+	if (I->getType()->isPointerTy() && PA->getPointerKind(I) == SPLIT_REGULAR && index == 1)
+		return INTEGER;
+	return getRegKindFromType(I->getType(), asmjs);
 }
 
 Registerize::REGISTER_KIND Registerize::getRegKindFromType(const llvm::Type* t, bool asmjs) const
@@ -3077,7 +3086,6 @@ bool Registerize::couldBeMerged(const std::pair<const RegisterRange&, uint32_t>&
 void Registerize::mergeRegisterInPlace(RegisterRange& a, const RegisterRange& b)
 {
 	a.range.merge(b.range);
-	a.info.needsSecondaryName |= b.info.needsSecondaryName;
 }
 
 Registerize::RegisterRange Registerize::mergeRegister(const RegisterRange& a, const RegisterRange& b)
@@ -3088,14 +3096,13 @@ Registerize::RegisterRange Registerize::mergeRegister(const RegisterRange& a, co
 }
 
 bool Registerize::addRangeToRegisterIfPossible(RegisterRange& regRange, const InstructionLiveRange& liveRange,
-						REGISTER_KIND kind, bool needsSecondaryName)
+						REGISTER_KIND kind)
 {
 	if(regRange.info.regKind!=kind)
 		return false;
 	if(regRange.range.doesInterfere(liveRange.range))
 		return false;
 	regRange.range.merge(liveRange.range);
-	regRange.info.needsSecondaryName |= needsSecondaryName;
 	return true;
 }
 

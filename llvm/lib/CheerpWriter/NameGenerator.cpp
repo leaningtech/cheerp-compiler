@@ -38,26 +38,17 @@ NameGenerator::NameGenerator(const Module& M, const GlobalDepsAnalyzer& gda, Reg
 
 llvm::StringRef NameGenerator::getNameForEdge(const llvm::Value* v, uint32_t elemIdx, const EdgeContext& edgeContext) const
 {
-	if(elemIdx != 0) {
-		assert(elemIdx == 1);
-		return getSecondaryNameForEdge(v, edgeContext);
-	}
 	if (const Instruction* I=dyn_cast<Instruction>(v))
 	{
-		uint32_t regId = registerize.getRegisterId(I, edgeContext);
-		return regNamemap.at(std::make_pair(I->getParent()->getParent(), regId));
+		return regNamemap.at(std::make_pair(I->getParent()->getParent(), registerize.getRegisterId(I, elemIdx, edgeContext)));
 	}
+	if (elemIdx == 1)
+	{
+		if (llvm::isa<llvm::Argument>(v) || llvm::isa<llvm::GlobalVariable>(v))
+			return secondaryNamemap.at(v);
+	}
+	assert(elemIdx == 0);
 	return namemap.at(v);
-}
-
-llvm::StringRef NameGenerator::getSecondaryNameForEdge(const llvm::Value* v, const EdgeContext& edgeContext) const
-{
-	if (const Instruction* I=dyn_cast<Instruction>(v))
-	{
-		uint32_t regId = registerize.getRegisterId(I, edgeContext);
-		return regSecondaryNamemap.at(std::make_pair(I->getParent()->getParent(), regId));
-	}
-	return secondaryNamemap.at(v);
 }
 
 SmallString< 4 > NameGenerator::filterLLVMName(StringRef s, NAME_FILTER_MODE filterMode)
@@ -143,20 +134,18 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 	private:
 		NameGenerator& namegen;
 		useLocalVec& thisFunctionLocals;
-		void handleRecursivePHIDependency(const Instruction* incoming) override
+		void handleRecursivePHIDependency(const Instruction* incoming, uint32_t regIdx) override
 		{
 			assert(edgeContext.isNull() == false);
-			uint32_t registerId = namegen.registerize.getRegisterId(incoming, edgeContext);
+			uint32_t registerId = namegen.registerize.getAllRegisterIds(incoming, edgeContext)[regIdx];
 			assert(registerId < thisFunctionLocals.size());
 			useLocalPair& regData = thisFunctionLocals[registerId];
 			// Assume it is used once
 			regData.first++;
 			// Set the register information if required
 			assert(regData.second.argOrFunc);
-			if(cheerp::getNumberOfElements(incoming, namegen.PA) > 1)
-				assert(regData.second.needsSecondaryName);
 		}
-		void handlePHI(const PHINode* phi, const Value* incoming, bool selfReferencing) override
+		void handlePHI(const PHINode* phi, uint32_t regIdx, const Value* incoming) override
 		{
 			// Nothing to do here, we have already given names to all PHIs
 		}
@@ -228,7 +217,7 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 		thisFunctionLocals.reserve(regsInfo.size());
 		for(unsigned regId = 0; regId < regsInfo.size(); regId++)
 		{
-			thisFunctionLocals.emplace_back(0, localData{&f, regId, bool(regsInfo[regId].needsSecondaryName)});
+			thisFunctionLocals.emplace_back(0, localData{&f, regId, false});
 		}
 
 		// Insert all the instructions
@@ -238,14 +227,15 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 			{
 				if ( needsName(I, PA) )
 				{
-					uint32_t registerId = registerize.getRegisterId(&I, EdgeContext::emptyContext());
-					assert(registerId < thisFunctionLocals.size());
-					useLocalPair& regData = thisFunctionLocals[registerId];
-					// Add the uses for this instruction to the total count for the register
-					regData.first+=I.getNumUses();
-					assert(regData.second.argOrFunc);
-					if(getNumberOfElements(&I, PA) > 1)
-						assert(	regData.second.needsSecondaryName);
+					auto registerIds = registerize.getAllRegisterIds(&I, EdgeContext::emptyContext());
+					for(uint32_t registerId: registerIds)
+					{
+						assert(registerId < thisFunctionLocals.size());
+						useLocalPair& regData = thisFunctionLocals[registerId];
+						// Add the uses for this instruction to the total count for the register
+						regData.first+=I.getNumUses();
+						assert(regData.second.argOrFunc);
+					}
 				}
 			}
 			// Handle the special names required for the edges between blocks
@@ -526,17 +516,28 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 			{
 				if ( needsName(I, PA) )
 				{
-					uint32_t registerId = registerize.getRegisterId(&I, EdgeContext::emptyContext());
-					if(doneRegisters[registerId])
-						continue;
 					if (!I.hasName())
 						continue;
 					// If this instruction has a name, use it
-					auto& name = regNamemap.emplace( std::make_pair(&f, registerId), filterLLVMName(I.getName(), LOCAL) ).first->second;
-					assignLocalName(name);
-					if(regsInfo[registerId].needsSecondaryName)
-						regSecondaryNamemap.emplace( std::make_pair(&f, registerId), StringRef((name+"o").str()));
-					doneRegisters[registerId] = true;
+					auto baseName = filterLLVMName(I.getName(), LOCAL);
+					auto registerIds = registerize.getAllRegisterIds(&I, EdgeContext::emptyContext());
+					int i = 0;
+					for(auto registerId: registerIds)
+					{
+						if(doneRegisters[registerId])
+							continue;
+						// If this instruction has a name, use it
+						auto regName = baseName;
+						if(registerIds.size() > 1)
+						{
+							regName.push_back('_');
+							regName.append(std::to_string(i));
+						}
+						auto& name = regNamemap.emplace( std::make_pair(&f, registerId), std::move(regName)).first->second;
+						assignLocalName(name);
+						doneRegisters[registerId] = true;
+						i++;
+					}
 				}
 			}
 		}
@@ -548,8 +549,6 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 				continue;
 			auto& name = regNamemap.emplace( std::make_pair(&f, registerId), StringRef( "tmp" + std::to_string(registerId) ) ).first->second;
 			assignLocalName(name);
-			if(regsInfo[registerId].needsSecondaryName)
-				regSecondaryNamemap.emplace( std::make_pair(&f, registerId), StringRef((name+"o").str()));
 		}
 
 		for ( auto& arg: f.args())

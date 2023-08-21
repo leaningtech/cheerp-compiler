@@ -27,19 +27,19 @@ namespace cheerp
 
 class EndOfBlockPHIHandler
 {
-	typedef llvm::SmallVector<std::pair<uint32_t, const llvm::Instruction*>,2> IncomingRegs;
+	typedef llvm::SmallVector<std::pair<uint32_t, Registerize::InstElem>,2> IncomingRegs;
 	struct PHIRegData
 	{
 		const llvm::PHINode* phiInst;
-		const llvm::Instruction* incomingInst;
+		uint32_t elemIdx;
+		Registerize::InstElem incomingInstElem;
 		IncomingRegs incomingRegs;
 		enum STATUS { NOT_VISITED=0, VISITING, VISITED };
 		STATUS status;
-		bool selfReferencing;
-		PHIRegData(const llvm::PHINode* p, const llvm::SmallVector<std::pair<uint32_t, const llvm::Instruction*>,2>& r, bool selfReferencing):
-			phiInst(p), incomingInst(nullptr), incomingRegs(r), status(NOT_VISITED), selfReferencing(selfReferencing)
+		PHIRegData(const llvm::PHINode* p, uint32_t elemIdx):
+			phiInst(p), elemIdx(elemIdx), incomingInstElem(nullptr, 0), status(NOT_VISITED)
 		{
-			std::sort(incomingRegs.begin(), incomingRegs.end());
+			std::sort(incomingRegs.begin(), incomingRegs.end(), [](auto&& a, auto&& b) { return a.first < b.first; });
 		}
 	};
 	typedef std::map<uint32_t, PHIRegData> PHIRegs;
@@ -125,12 +125,11 @@ protected:
 	virtual ~EndOfBlockPHIHandler();
 private:
 	static uint32_t countIncomingRegisters(const uint32_t current, const std::vector<uint32_t>& registerIds, const IncomingRegs& incomingRegs);
-	void runOnSCC(const std::vector<uint32_t>& registerIds, PHIRegs& phiRegs, llvm::SmallVector<std::pair<const llvm::PHINode*, /*selfReferencing*/bool>, 4>& orderedPHIs);
-	void runOnConnectionGraph(DependencyGraph dependecyGraph, PHIRegs& phiRegs, llvm::SmallVector<std::pair<const llvm::PHINode*, /*selfReferencing*/bool>, 4>& orderedPHIs, bool isRecursiveCall);
-	void runOnPHI(PHIRegs& phiRegs, uint32_t phiId, const llvm::Instruction* incoming, llvm::SmallVector<std::pair<const llvm::PHINode*, /*selfReferencing*/bool>, 4>& orderedPHIs);
+	void runOnSCC(const std::vector<uint32_t>& registerIds, PHIRegs& phiRegs);
+	void runOnConnectionGraph(DependencyGraph dependecyGraph, PHIRegs& phiRegs, bool isRecursiveCall);
 	// Callbacks implemented by derived classes
-	virtual void handleRecursivePHIDependency(const llvm::Instruction* incoming) = 0;
-	virtual void handlePHI(const llvm::PHINode* phi, const llvm::Value* incoming, bool selfReferencing) = 0;
+	virtual void handleRecursivePHIDependency(const llvm::Instruction* incoming, uint32_t elemIdx) = 0;
+	virtual void handlePHI(const llvm::PHINode* phi, uint32_t elemIdx, const llvm::Value* incoming) = 0;
 	virtual void handlePHIStackGroup(const std::vector<const llvm::PHINode*>& phiToHandle) = 0;
 	// Called for every register which is either assigned or used by PHIs in the edge
 	virtual void setRegisterUsed(uint32_t reg) {};
@@ -148,8 +147,8 @@ public:
 	{
 	}
 	// Callbacks that have to be implemented by derived classes
-	void handleRecursivePHIDependency(const llvm::Instruction* incoming) override = 0;
-	void handlePHI(const llvm::PHINode* phi, const llvm::Value* incoming, bool selfReferencing) override = 0;
+	void handleRecursivePHIDependency(const llvm::Instruction* incoming, uint32_t elemIdx) override = 0;
+	void handlePHI(const llvm::PHINode* phi, uint32_t elemIdx, const llvm::Value* incoming) override = 0;
 	// Callbacks that should NOT be implemented by derived classes
 	void handlePHIStackGroup(const std::vector<const llvm::PHINode*>& phiToHandle) override {}
 };
@@ -162,8 +161,8 @@ public:
 	{
 	}
 	// Callbacks that should NOT be implemented by derived classes
-	void handleRecursivePHIDependency(const llvm::Instruction* incoming) override {}
-	void handlePHI(const llvm::PHINode* phi, const llvm::Value* incoming, bool selfReferencing) override {}
+	void handleRecursivePHIDependency(const llvm::Instruction* incoming, uint32_t elemIdx) override {}
+	void handlePHI(const llvm::PHINode* phi, uint32_t elemIdx, const llvm::Value* incoming) override {}
 	// Callbacks that have to be implemented by derived classes
 	void handlePHIStackGroup(const std::vector<const llvm::PHINode*>& phiToHandle) override = 0;
 };

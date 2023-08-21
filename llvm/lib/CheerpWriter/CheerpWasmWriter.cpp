@@ -1071,7 +1071,8 @@ bool CheerpWasmWriter::requiresExplicitAssigment(const Instruction* phi, const V
 	if(!incomingInst)
 		return true;
 	assert(!isInlineable(*incomingInst));
-	const bool isSameRegister = (registerize.getRegisterId(phi, EdgeContext::emptyContext())==registerize.getRegisterId(incomingInst, edgeContext));
+	const bool isSameRegister = (registerize.getRegisterId(phi, 0, EdgeContext::emptyContext())
+			== registerize.getRegisterId(incomingInst, 0, edgeContext));
 	if (isSameRegister)
 		getLocalDone.insert(incomingInst);
 	return !isSameRegister;
@@ -1083,7 +1084,8 @@ int CheerpWasmWriter::gainOfHandlingPhiOnTheEdge(const PHINode* phi, const Value
 	if(!incomingInst)
 		return 2;
 	assert(!isInlineable(*incomingInst));
-	const bool isSameRegister = (registerize.getRegisterId(phi, EdgeContext::emptyContext())==registerize.getRegisterId(incomingInst, edgeContext));
+	const bool isSameRegister = (registerize.getRegisterId(phi, 0, EdgeContext::emptyContext())
+			== registerize.getRegisterId(incomingInst, 0, edgeContext));
 
 	return (isSameRegister ? -2 : +2);
 }
@@ -1153,7 +1155,7 @@ void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const B
 				for (const PHINode* phi : phiVector)
 				{
 					// 2) Save the value in the phi
-					uint32_t reg = writer.registerize.getRegisterId(phi, EdgeContext::emptyContext());
+					uint32_t reg = writer.registerize.getRegisterId(phi, 0, EdgeContext::emptyContext());
 					uint32_t local = writer.localMap.at(reg);
 					if (phi == phiVector.back())
 					{
@@ -1517,7 +1519,7 @@ void CheerpWasmWriter::compileGetLocal(WasmBuffer& code, const llvm::Instruction
 		//Successfully find a candidate to transform in tee local
 		return;
 	}
-	uint32_t idx = registerize.getRegisterId(I, edgeContext);
+	uint32_t idx = registerize.getRegisterId(I, 0, edgeContext);
 	uint32_t localId = localMap.at(idx);
 	getLocalDone.insert(I);
 	encodeInst(WasmU32Opcode::GET_LOCAL, localId, code);
@@ -3470,7 +3472,7 @@ void CheerpWasmWriter::compileInstructionAndSet(WasmBuffer& code, const llvm::In
 		if(I.use_empty()) {
 			encodeInst(WasmOpcode::DROP, code);
 		} else {
-			uint32_t reg = registerize.getRegisterId(&I, edgeContext);
+			uint32_t reg = registerize.getRegisterId(&I, 0, edgeContext);
 			uint32_t local = localMap.at(reg);
 			teeLocals.addCandidate(&I, /*isInstructionAssigment*/true, local, code.tell());
 			encodeInst(WasmU32Opcode::SET_LOCAL, local, code);
@@ -3513,7 +3515,7 @@ void CheerpWasmWriter::compileBB(WasmBuffer& code, const BasicBlock& BB, const P
 	{
 		//Here we need to assign the PHI handled via Wasm's generalized block results
 
-		const uint32_t reg = registerize.getRegisterId(phiHandledAsResult, EdgeContext::emptyContext());
+		const uint32_t reg = registerize.getRegisterId(phiHandledAsResult, 0, EdgeContext::emptyContext());
 		const uint32_t local = localMap.at(reg);
 		teeLocals.addCandidate(phiHandledAsResult, /*isInstructionAssigment*/true, local, code.tell());
 		encodeInst(WasmU32Opcode::SET_LOCAL, local, code);
@@ -3537,9 +3539,9 @@ void CheerpWasmWriter::compileBB(WasmBuffer& code, const BasicBlock& BB, const P
 					if (!isa<Instruction>(op))
 						continue;
 					const llvm::Instruction* next = cast<Instruction>(op);
-					if (registerize.hasRegister(next))
+					if (registerize.hasRegisters(next))
 					{
-						const uint32_t ID = registerize.getRegisterId(next, edgeContext);
+						const uint32_t ID = registerize.getRegisterId(next, 0, edgeContext);
 						if (lastAssignedToRegister.count(ID))
 							localsDependencies[&*I].insert(lastAssignedToRegister[ID]);
 						getLocalFromRegister[ID].push_back(&*I);
@@ -3552,11 +3554,11 @@ void CheerpWasmWriter::compileBB(WasmBuffer& code, const BasicBlock& BB, const P
 
 		//Calculate dependencies for a setLocal, that is all getLocal done on the previously set setLocal for the same ID
 		//Note that this HAS to be performed also for PHI
-		if (registerize.hasRegister(&*I))
+		if (registerize.hasRegisters(&*I))
 		{
 			assert(!isInlineable(*I));
 
-			const uint32_t ID = registerize.getRegisterId(&*I, edgeContext);
+			const uint32_t ID = registerize.getRegisterId(&*I, 0, edgeContext);
 
 			std::vector<const llvm::Instruction*> queue(getLocalFromRegister[ID].begin(), getLocalFromRegister[ID].end());
 			while (!queue.empty())
@@ -4080,8 +4082,6 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F)
 	// Make lookup table for registers to locals.
 	for(const Registerize::RegisterInfo& regInfo: regsInfo)
 	{
-		assert(!regInfo.needsSecondaryName);
-
 		// Save the current local index
 		localMap.at(reg) = numArgs + locals.at((int)regInfo.regKind);
 		locals.at((int)regInfo.regKind)++;

@@ -90,54 +90,25 @@ public:
 	 */
 	llvm::StringRef getName(const llvm::Value* v, uint32_t elemIdx) const
 	{
-		if(elemIdx != 0) {
-			assert(elemIdx == 1);
-			return getSecondaryName(v);
-		}
 		if(const llvm::Instruction* I = llvm::dyn_cast<llvm::Instruction>(v))
-			return getRegName(I->getParent()->getParent(), registerize.getRegisterId(I, EdgeContext::emptyContext()), 0);
+		{
+			return getRegName(I->getParent()->getParent(), registerize.getRegisterId(I, elemIdx, EdgeContext::emptyContext()));
+		}
+		if (elemIdx == 1)
+			if (llvm::isa<llvm::Argument>(v) || llvm::isa<llvm::GlobalVariable>(v))
+				return secondaryNamemap.at(v);
+		assert(elemIdx == 0);
 		assert(namemap.count(v) );
 		assert(! namemap.at(v).empty() );
 		return namemap.at(v);
 	}
 
-	llvm::StringRef getRegName(const llvm::Function* F, uint32_t regId, uint32_t elemIdx) const
-	{
-		if(elemIdx == 0)
-		{
-			std::pair<const llvm::Function*, uint32_t> valData = std::make_pair(F, regId);
-			assert(regNamemap.count(valData));
-			assert(!regNamemap.at(valData).empty());
-			return regNamemap.at(valData);
-		}
-		else
-		{
-			assert(elemIdx == 1);
-			std::pair<const llvm::Function*, uint32_t> valData = std::make_pair(F, regId);
-			assert(regSecondaryNamemap.count(valData));
-			assert(!regSecondaryNamemap.at(valData).empty());
-			return regSecondaryNamemap.at(valData);
-		}
-	}
-
-	/**
-	 * Some values, such as arguments which are REGULAR pointers needs two names
-	 */
-	llvm::StringRef getSecondaryName(const llvm::Value* v) const
-	{
-		if(const llvm::Instruction* I = llvm::dyn_cast<llvm::Instruction>(v))
-			return getSecondaryName(I->getParent()->getParent(), registerize.getRegisterId(I, EdgeContext::emptyContext()));
-		assert(secondaryNamemap.count(v) );
-		assert(!secondaryNamemap.at(v).empty());
-		return secondaryNamemap.at(v);
-	}
-
-	llvm::StringRef getSecondaryName(const llvm::Function* F, uint32_t regId) const
+	llvm::StringRef getRegName(const llvm::Function* F, uint32_t regId) const
 	{
 		std::pair<const llvm::Function*, uint32_t> valData = std::make_pair(F, regId);
-		assert(regSecondaryNamemap.count(valData));
-		assert(!regSecondaryNamemap.at(valData).empty());
-		return regSecondaryNamemap.at(valData);
+		assert(regNamemap.count(valData));
+		assert(!regNamemap.at(valData).empty());
+		return regNamemap.at(valData);
 	}
 
 	/**
@@ -185,7 +156,6 @@ public:
 	 * It uses the current edge context.
 	*/
 	llvm::StringRef getNameForEdge(const llvm::Value* v, uint32_t elemIdx, const EdgeContext& edgeContext) const;
-	llvm::StringRef getSecondaryNameForEdge(const llvm::Value* v, const EdgeContext& edgeContext) const;
 	std::string getShortestLocalName() const
 	{
 		if (shortestLocalName.size() == 0)

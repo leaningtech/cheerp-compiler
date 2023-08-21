@@ -26,39 +26,13 @@ EndOfBlockPHIHandler::~EndOfBlockPHIHandler()
 	assert(edgeContext.isNull());
 }
 
-void EndOfBlockPHIHandler::runOnPHI(PHIRegs& phiRegs, uint32_t regId, const llvm::Instruction* incoming, llvm::SmallVector<std::pair<const PHINode*, /*selfReferencing*/bool>, 4>& orderedPHIs)
-{
-	auto it=phiRegs.find(regId);
-	if(it==phiRegs.end())
-		return;
-	PHIRegData& regData=it->second;
-	if(regData.status==PHIRegData::VISITED)
-		return;
-	else if(regData.status==PHIRegData::VISITING)
-	{
-		// Call specialized function to process the copy to temporary
-		handleRecursivePHIDependency(incoming);
-		edgeContext.processAssigment();
-		return;
-	}
-	// Not yet visited
-	regData.status=PHIRegData::VISITING;
-	for(auto& reg: regData.incomingRegs)
-	{
-		runOnPHI(phiRegs, reg.first, reg.second, orderedPHIs);
-	}
-	// Add the PHI to orderedPHIs only after eventual dependencies have been added
-	orderedPHIs.push_back(std::make_pair(regData.phiInst, regData.selfReferencing));
-	regData.status=PHIRegData::VISITED;
-}
-
 uint32_t EndOfBlockPHIHandler::countIncomingRegisters(const uint32_t current, const std::vector<uint32_t>& registerIds, const IncomingRegs& incomingRegs)
 {
 	uint32_t countIncoming = 0;
-	assert(std::is_sorted(incomingRegs.begin(), incomingRegs.end(), [](const std::pair<uint32_t, const Instruction*>& a, const std::pair<uint32_t, const Instruction*>& b)->bool
-				{
-					return a.first < b.first;
-				}));
+	assert(std::is_sorted(incomingRegs.begin(), incomingRegs.end(), [](auto&& a, auto&& b)->bool
+	{
+		return a.first < b.first;
+	}));
 	uint32_t i=0;
 	uint32_t j=0;
 	while (i < registerIds.size() && j < incomingRegs.size())
@@ -81,7 +55,7 @@ uint32_t EndOfBlockPHIHandler::countIncomingRegisters(const uint32_t current, co
 	return countIncoming;
 }
 
-void EndOfBlockPHIHandler::runOnSCC(const std::vector<uint32_t>& registerIds, PHIRegs& phiRegs, llvm::SmallVector<std::pair<const PHINode*, /*selfReferencing*/bool>, 4>& orderedPHIs)
+void EndOfBlockPHIHandler::runOnSCC(const std::vector<uint32_t>& registerIds, PHIRegs& phiRegs)
 {
 	assert(std::is_sorted(registerIds.begin(), registerIds.end()));
 
@@ -98,30 +72,27 @@ void EndOfBlockPHIHandler::runOnSCC(const std::vector<uint32_t>& registerIds, PH
 		best = std::max(best, {countIncomingRegisters(X.first, registerIds, X.second.incomingRegs), X.first});
 	}
 	const uint32_t whoToProcess = best.second;
+	const auto& regData = phiRegs.at(whoToProcess);
 
 	//If the SCC is a multi-node loop, there is need to create a temporary
 	if (registerIds.size() > 1)
 	{
-		const Instruction* incoming = phiRegs.at(whoToProcess).incomingInst;
-		assert(incoming);
-		handleRecursivePHIDependency(incoming);
+		auto incoming = regData.incomingInstElem;
+		assert(incoming.instruction);
+		handleRecursivePHIDependency(incoming.instruction, incoming.elemIdx);
 		edgeContext.processAssigment();
 	}
 
 	setRegisterUsed(whoToProcess);
-	const PHINode* phi=phiRegs.at(whoToProcess).phiInst;
+	const PHINode* phi = regData.phiInst;
 	const Value* val=phi->getIncomingValueForBlock(edgeContext.fromBB);
 	// Call specialized function to process the actual assignment to the PHI
-	handlePHI(phi, val, phiRegs.at(whoToProcess).selfReferencing);
+	handlePHI(phi, regData.elemIdx, val);
 	edgeContext.processAssigment();
 
-	for (const auto& pair : phiRegs.at(whoToProcess).incomingRegs)
+	for (const auto& pair : regData.incomingRegs)
 	{
 		removeRegisterUse(pair.first);
-	}
-	if (phiRegs.at(whoToProcess).selfReferencing)
-	{
-		removeRegisterUse(whoToProcess);
 	}
 
 	//If there are other nodes, solve them recursively on the graph with the current node removed
@@ -132,13 +103,14 @@ void EndOfBlockPHIHandler::runOnSCC(const std::vector<uint32_t>& registerIds, PH
 		{
 			if (id == whoToProcess)
 				continue;
-			filteredPhiRegs.insert(std::make_pair(id, PHIRegData(phiRegs.at(id).phiInst, phiRegs.at(id).incomingRegs, phiRegs.at(id).selfReferencing)));
+			const auto& regData = phiRegs.at(id);
+			filteredPhiRegs.emplace(id, regData);
 		}
-		runOnConnectionGraph(DependencyGraph(filteredPhiRegs, whoToProcess), phiRegs, orderedPHIs, /*isRecursiveCall*/true);
+		runOnConnectionGraph(DependencyGraph(filteredPhiRegs, whoToProcess), phiRegs, /*isRecursiveCall*/true);
 	}
 }
 
-void EndOfBlockPHIHandler::runOnConnectionGraph(DependencyGraph dependencyGraph, PHIRegs& phiRegs, llvm::SmallVector<std::pair<const PHINode*, /*selfReferencing*/bool>, 4>& orderedPHIs, bool isRecursiveCall)
+void EndOfBlockPHIHandler::runOnConnectionGraph(DependencyGraph dependencyGraph, PHIRegs& phiRegs, bool isRecursiveCall)
 {
 	//1. Assign trivially assignable phi(eg. has a constant as incoming)
 	//2. Build the dependency graph (phi with register X uses information stored into register Y to compute its value)
@@ -182,7 +154,7 @@ void EndOfBlockPHIHandler::runOnConnectionGraph(DependencyGraph dependencyGraph,
 			handlePHIStackGroup(toProcessOnStack);
 		}
 
-		runOnSCC(registerIds, phiRegs, orderedPHIs);
+		runOnSCC(registerIds, phiRegs);
 	}
 }
 
@@ -192,7 +164,7 @@ void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const Basic
 	BasicBlock::const_iterator I=toBB->begin();
 	BasicBlock::const_iterator IE=toBB->end();
 	PHIRegs phiRegs;
-	llvm::SmallVector<std::pair<const PHINode*, /*selfReferencing*/bool>, 4> orderedPHIs;
+	llvm::SmallVector<Registerize::InstElem, 4> orderedPHIs;
 	std::vector<const PHINode*> toProcessOnStack;
 	for(;I!=IE;++I)
 	{
@@ -205,43 +177,52 @@ void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const Basic
 			continue;
 		if(phiToBeSkipped.count(phi))
 			continue;
+		auto phiRegisters = registerize.getAllRegisterIds(phi, EdgeContext::emptyContext());
 		const Value* val=phi->getIncomingValueForBlock(fromBB);
 		const Instruction* I=dyn_cast<Instruction>(val);
 		if(!I)
 		{
 			toProcessOnStack.push_back(phi);
-			orderedPHIs.push_back(std::make_pair(phi, /*selfReferencing*/false));
+			for(uint32_t i = 0; i < phiRegisters.size(); i++)
+			{
+				orderedPHIs.push_back(Registerize::InstElem(phi, i));
+			}
 			continue;
 		}
-		uint32_t phiReg = registerize.getRegisterId(phi, EdgeContext::emptyContext());
-		// This instruction may depend on multiple registers
-		llvm::SmallVector<std::pair<uint32_t, const Instruction*>, 2> incomingRegisters;
+		for(uint32_t i = 0; i < phiRegisters.size(); i++)
+		{
+			phiRegs.emplace(phiRegisters[i], PHIRegData(phi, i));
+		}
 		llvm::SmallVector<std::pair<const Instruction*, /*dereferenced*/bool>, 4> instQueue;
 		instQueue.push_back(std::make_pair(I, false));
-		bool mayNeedSelfRef = phi->getType()->isPointerTy() && PA.getPointerKind(phi) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(phi);
-		bool selfReferencing = false;
+		bool splitRegular = phi->getType()->isPointerTy() && PA.getPointerKind(phi) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(phi);
 		while(!instQueue.empty())
 		{
 			std::pair<const Instruction*, bool> incomingInst = instQueue.pop_back_val();
 			if(!isInlineable(*incomingInst.first, PA))
 			{
-				uint32_t incomingValueId = registerize.getRegisterId(incomingInst.first, EdgeContext::emptyContext());
-				if(incomingValueId==phiReg)
+				auto incomingRegs = registerize.getAllRegisterIds(incomingInst.first, EdgeContext::emptyContext());
+				for(uint32_t i = 0; i < phiRegisters.size(); i++)
 				{
-					if(mayNeedSelfRef &&
-						PA.getPointerKind(incomingInst.first) == SPLIT_REGULAR && // If the incoming inst is not SPLIT_REGULAR there is no collision risk
-						!PA.getConstantOffsetForPointer(incomingInst.first) && // If the offset part is constant we can reorder the operation to avoid a collision
-						incomingInst.second) // If the register is not dereferenced there is no conflict as base and offset are not used together
+					auto it = phiRegs.find(phiRegisters[i]);
+					assert(it != phiRegs.end());
+					if(incomingInst.second/*derefereced*/ || phiRegisters.size() != incomingRegs.size())
 					{
-						selfReferencing = true;
+						for (uint32_t j = 0; j < incomingRegs.size(); j++)
+						{
+							it->second.incomingRegs.push_back(std::make_pair(incomingRegs[j], Registerize::InstElem(incomingInst.first, j)));
+						}
+					}
+					else
+					{
+						it->second.incomingRegs.push_back(std::make_pair(incomingRegs[i], Registerize::InstElem(incomingInst.first, i)));
 					}
 				}
-				incomingRegisters.push_back(std::make_pair(incomingValueId, incomingInst.first));
 			}
 			else
 			{
 				// TODO: Loads when inlined should go here
-				bool dereferenced = incomingInst.second || (mayNeedSelfRef && isa<GetElementPtrInst>(incomingInst.first) && incomingInst.first->getNumOperands() > 2);
+				bool dereferenced = incomingInst.second || (splitRegular && isa<GetElementPtrInst>(incomingInst.first) && incomingInst.first->getNumOperands() > 2);
 				for(const Value* op: incomingInst.first->operands())
 				{
 					const Instruction* opI = dyn_cast<Instruction>(op);
@@ -251,30 +232,30 @@ void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const Basic
 				}
 			}
 		}
-		phiRegs.insert(std::make_pair(phiReg, PHIRegData(phi, std::move(incomingRegisters), selfReferencing)));
 	}
 
 	for (auto& X : phiRegs)
 	{
+		std::sort(X.second.incomingRegs.begin(), X.second.incomingRegs.end(), [](auto&& a, auto&& b) { return a.first < b.first; });
 		//Set incomingInst AND the counter of how many times a input register is used
 		for (const auto& pair : X.second.incomingRegs)
 		{
 			auto it = phiRegs.find(pair.first);
 			if (it != phiRegs.end())
-				it->second.incomingInst = pair.second;
+				it->second.incomingInstElem = pair.second;
 
 			addRegisterUse(pair.first);
 		}
 	}
-	runOnConnectionGraph(DependencyGraph(phiRegs), phiRegs, orderedPHIs, /*isRecursiveCall*/false);
+	runOnConnectionGraph(DependencyGraph(phiRegs), phiRegs, /*isRecursiveCall*/false);
 
 	// Notify the user for each PHI, in the right order to avoid accidental overwriting
-	for(uint32_t i=orderedPHIs.size();i>0;i--)
+	for(int i=orderedPHIs.size()-1;i>=0;i--)
 	{
-		const PHINode* phi=orderedPHIs[i-1].first;
+		auto* phi = cast<PHINode>(orderedPHIs[i].instruction);
 		const Value* val=phi->getIncomingValueForBlock(fromBB);
 		// Call specialized function to process the actual assignment to the PHI
-		handlePHI(phi, val, orderedPHIs[i-1].second);
+		handlePHI(phi, orderedPHIs[i].elemIdx, val);
 		edgeContext.processAssigment();
 	}
 
