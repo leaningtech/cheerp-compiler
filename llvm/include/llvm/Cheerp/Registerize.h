@@ -1318,17 +1318,17 @@ public:
 		std::vector<T> vec;
 		cheerp::DeterministicUnorderedMap<T, uint32_t, RestrictionsLifted::NoErasure | RestrictionsLifted::NoDeterminism> map;
 	};
-	struct RegisterID
+	struct InstElem
 	{
-		RegisterID(const llvm::Instruction* inst, const uint32_t num) : instruction(inst), registerNum(num)
+		InstElem(const llvm::Instruction* inst, const uint32_t elemIdx) : instruction(inst), elemIdx(elemIdx)
 		{
 		}
-		bool operator==(const RegisterID& other) const
+		bool operator==(const InstElem& other) const
 		{
-			return instruction == other.instruction && registerNum == other.registerNum;
+			return instruction == other.instruction && elemIdx == other.elemIdx;
 		}
 		const llvm::Instruction* instruction;
-		const uint32_t registerNum;
+		const uint32_t elemIdx;
 	};
 private:
 	// Final data structures
@@ -1456,15 +1456,15 @@ private:
 	};
 	// Map from instructions to their unique identifier
 	typedef llvm::DenseMap<const llvm::Instruction*, uint32_t> InstIdMapTy;
-	struct CompareRegisterID
+	struct CompareInstElem
 	{
 	private:
 		const InstIdMapTy* instIdMap;
 	public:
-		CompareRegisterID(const InstIdMapTy& i):instIdMap(&i)
+		CompareInstElem(const InstIdMapTy& i):instIdMap(&i)
 		{
 		}
-		bool operator()(const RegisterID L, const RegisterID R) const
+		bool operator()(const InstElem& L, const InstElem& R) const
 		{
 			auto l = instIdMap->find(L.instruction);
 			assert(l != instIdMap->end());
@@ -1472,7 +1472,7 @@ private:
 			assert(r != instIdMap->end());
 			if (l->second != r->second)
 				return l->second < r->second;
-			return L.registerNum < R.registerNum;
+			return L.elemIdx < R.elemIdx;
 		}
 	};
 	struct CompareInstructionByID
@@ -1493,7 +1493,7 @@ private:
 		}
 	};
 	// Map from instructions to their live ranges
-	typedef std::map<RegisterID, InstructionLiveRange, CompareRegisterID> LiveRangesTy;
+	typedef std::map<InstElem, InstructionLiveRange, CompareInstElem> LiveRangesTy;
 	struct RegisterRange
 	{
 		LiveRange range;
@@ -1689,7 +1689,7 @@ private:
 		llvm::Function& F;
 		Registerize* registerize;
 		const PointerAnalyzer& PA;
-		Indexer<RegisterID> indexer;
+		Indexer<InstElem> indexer;
 		llvm::SmallVector<RegisterRange, 4> virtualRegisters;
 		llvm::SmallVector<uint32_t, 4> instructionLocations;
 		std::vector<llvm::BitVector> bitsetConstraint;
@@ -1860,11 +1860,11 @@ public:
 namespace std
 {
 	template <>
-	struct hash<cheerp::Registerize::RegisterID>
+	struct hash<cheerp::Registerize::InstElem>
 	{
-		size_t operator()(const cheerp::Registerize::RegisterID& rid)
+		size_t operator()(const cheerp::Registerize::InstElem& rid)
 		{
-			return hash<const llvm::Instruction *>{}(rid.instruction) ^ hash<uint32_t>{}(rid.registerNum);
+			return hash<const llvm::Instruction *>{}(rid.instruction) ^ hash<uint32_t>{}(rid.elemIdx);
 		}
 	};
 }
