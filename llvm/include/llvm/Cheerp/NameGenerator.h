@@ -88,21 +88,36 @@ public:
 	 * Return the computed name for the given variable.
 	 * This function can be called only if the passed value is not an inlined instruction
 	 */
-	llvm::StringRef getName(const llvm::Value* v) const
+	llvm::StringRef getName(const llvm::Value* v, uint32_t elemIdx) const
 	{
+		if(elemIdx != 0) {
+			assert(elemIdx == 1);
+			return getSecondaryName(v);
+		}
 		if(const llvm::Instruction* I = llvm::dyn_cast<llvm::Instruction>(v))
-			return getName(I->getParent()->getParent(), registerize.getRegisterId(I, EdgeContext::emptyContext()));
+			return getRegName(I->getParent()->getParent(), registerize.getRegisterId(I, EdgeContext::emptyContext()), 0);
 		assert(namemap.count(v) );
 		assert(! namemap.at(v).empty() );
 		return namemap.at(v);
 	}
 
-	llvm::StringRef getName(const llvm::Function* F, uint32_t regId) const
+	llvm::StringRef getRegName(const llvm::Function* F, uint32_t regId, uint32_t elemIdx) const
 	{
-		std::pair<const llvm::Function*, uint32_t> valData = std::make_pair(F, regId);
-		assert(regNamemap.count(valData));
-		assert(!regNamemap.at(valData).empty());
-		return regNamemap.at(valData);
+		if(elemIdx == 0)
+		{
+			std::pair<const llvm::Function*, uint32_t> valData = std::make_pair(F, regId);
+			assert(regNamemap.count(valData));
+			assert(!regNamemap.at(valData).empty());
+			return regNamemap.at(valData);
+		}
+		else
+		{
+			assert(elemIdx == 1);
+			std::pair<const llvm::Function*, uint32_t> valData = std::make_pair(F, regId);
+			assert(regSecondaryNamemap.count(valData));
+			assert(!regSecondaryNamemap.at(valData).empty());
+			return regSecondaryNamemap.at(valData);
+		}
 	}
 
 	/**
@@ -169,7 +184,7 @@ public:
 	 * Same as getName, but supports the required temporary variables in edges between blocks
 	 * It uses the current edge context.
 	*/
-	llvm::StringRef getNameForEdge(const llvm::Value* v, const EdgeContext& edgeContext) const;
+	llvm::StringRef getNameForEdge(const llvm::Value* v, uint32_t elemIdx, const EdgeContext& edgeContext) const;
 	llvm::StringRef getSecondaryNameForEdge(const llvm::Value* v, const EdgeContext& edgeContext) const;
 	std::string getShortestLocalName() const
 	{

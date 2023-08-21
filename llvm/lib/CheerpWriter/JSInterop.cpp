@@ -154,11 +154,11 @@ void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 {
 	auto compileFunctionBody = [&](const Function * f, bool isStatic, const StructType* implicitThis) -> void
 	{
-		auto argumentsStrings = buildArgumentsString(f, isStatic, PA, jsExportedTypes, namegen.getName(f));
+		auto argumentsStrings = buildArgumentsString(f, isStatic, PA, jsExportedTypes, namegen.getName(f, 0));
 		const llvm::StructType* retType = nullptr;
 		if (f->getReturnType() && f->getReturnType()->isPointerTy())
 			retType = dyn_cast<StructType>(f->getReturnType()->getPointerElementType());
-		auto internalName = namegen.getName(f);
+		auto internalName = namegen.getName(f, 0);
 
 		if(argumentsStrings.first == argumentsStrings.second)
 		{
@@ -294,7 +294,7 @@ void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 			assert( globalDeps.isReachable(newFunc) );
 
 			POINTER_KIND thisKind = PA.getPointerKindForJSExportedType(const_cast<StructType*>(t));
-			const auto argumentsStrings = buildArgumentsString(newFunc, /*isStatic*/true, PA, jsExportedTypes, namegen.getName(newFunc));
+			const auto argumentsStrings = buildArgumentsString(newFunc, /*isStatic*/true, PA, jsExportedTypes, namegen.getName(newFunc, 0));
 
 			stream << argumentsStrings.first << "){" << NewLine;
 
@@ -302,7 +302,7 @@ void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 			if (thisKind == REGULAR)
 				stream << "{d:";
 
-			stream << namegen.getName(newFunc);
+			stream << namegen.getName(newFunc, 0);
 			stream << "(" << argumentsStrings.second<< ")";
 
 			//We need to manually add the self pointer
