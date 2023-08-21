@@ -363,9 +363,9 @@ private:
 
 	std::unordered_map<const llvm::Function*, uint32_t> functionIds;
 	std::array<uint32_t, BuiltinInstr::numGenericBuiltins()> builtinIds;
-	uint32_t maxFunctionId;
 	std::vector<const llvm::FunctionType*> functionTypes;
 	FunctionTypeIndicesMap functionTypeIndices;
+	uint32_t maxFunctionId;
 
 	std::vector<const llvm::GlobalVariable*> asmjsGlobals;
 	std::vector<const llvm::GlobalVariable*> asmjsAddressableGlobals;
