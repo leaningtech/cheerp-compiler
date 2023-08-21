@@ -4281,7 +4281,7 @@ void CheerpWasmWriter::compileImportSection()
 
 	for (const Function* F : globalDeps.asmJSImports())
 	{
-		StringRef name = useWasmLoader ? namegen.getName(F) : F->getName();
+		StringRef name = useWasmLoader ? namegen.getName(F, 0) : F->getName();
 		compileImport(section, name, F->getFunctionType());
 	}
 
@@ -4658,7 +4658,7 @@ void CheerpWasmWriter::compileExportSection()
 
 	for (const llvm::Function* F : exports) {
 		// Encode the method name.
-		StringRef name = useWasmLoader? namegen.getName(F) : F->getName();
+		StringRef name = useWasmLoader? namegen.getName(F, 0) : F->getName();
 
 		encodeULEB128(name.size(), section);
 		section.write(name.data(), name.size());

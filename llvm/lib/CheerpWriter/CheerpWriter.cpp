@@ -222,14 +222,14 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinNamespace(
 		{
 			stream
 				<< ';' << NewLine
-				<< getSecondaryName(&callV)
+				<< getName(&callV, 1)
 				<< '='
-				<< getName(&callV)
+				<< getName(&callV, 0)
 				<< ".this.o;"
 				<< NewLine
-				<< getName(&callV)
+				<< getName(&callV, 0)
 				<< '='
-				<< getName(&callV)
+				<< getName(&callV, 0)
 				<< ".this.d";
 		}
 		else
@@ -237,11 +237,11 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinNamespace(
 			assert(retKind == COMPLETE_OBJECT);
 			stream
 				<< ';' << NewLine
-				<< getName(&callV)
+				<< getName(&callV, 0)
 				<< '='
-				<< getName(&callV)
+				<< getName(&callV, 0)
 				<< ".this.d["
-				<< getName(&callV)
+				<< getName(&callV, 0)
 				<< ".this.o]";
 		}
 	}
@@ -309,7 +309,7 @@ void CheerpWriter::compileDowncast( const CallBase& callV )
 		{
 			compilePointerBaseTyped(src, t);
 			stream << ';' << NewLine;
-			stream << getSecondaryName(&callV) << '=';
+			stream << getName(&callV, 1) << '=';
 			compilePointerOffset(src, LOWEST);
 		}
 		else
@@ -324,7 +324,7 @@ void CheerpWriter::compileDowncast( const CallBase& callV )
 			stream << ".o-";
 			compileOperand(offset, HIGHEST);
 			stream << ";" << NewLine;
-			stream << getName(&callV) << '=';
+			stream << getName(&callV, 0) << '=';
 			compileCompleteObject(src);
 			stream << ".a";
 		}
@@ -372,7 +372,7 @@ void CheerpWriter::compileVirtualcast( const CallBase& callV )
       {
             compileCompleteObject(src);
             stream << ".a;" << NewLine;
-            stream << getSecondaryName(&callV) << '=';
+            stream << getName(&callV, 1) << '=';
             compileOperand(offset, HIGHEST);
       }
       else if(result_kind == REGULAR)
@@ -650,7 +650,7 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 
 		for(uint32_t i = 0; i < numElem;i++)
 		{
-			compileType(t, LITERAL_OBJ, isInlineable(*info.getInstruction(), PA) || info.getInstruction()->use_empty() ? StringRef() : getName(info.getInstruction()));
+			compileType(t, LITERAL_OBJ, isInlineable(*info.getInstruction(), PA) || info.getInstruction()->use_empty() ? StringRef() : getName(info.getInstruction(), 0));
 			if((i+1) < numElem)
 				stream << ',';
 		}
@@ -713,7 +713,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileFree(const Value
 
 	Function* Free = module.getFunction("free");
 	if (Free)
-		stream << getName(Free) << '(';
+		stream << getName(Free, 0) << '(';
 	else
 		stream << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY);
 	compilePointerAs(obj, RAW, PARENT_PRIORITY::LOWEST);
@@ -792,7 +792,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(const
 		{
 			Function* memcpy = module.getFunction("memcpy");
 			assert(memcpy);
-			stream << getName(memcpy) << '(';
+			stream << getName(memcpy, 0) << '(';
 			compileOperand(*(it),LOWEST);
 			stream << "|0,";
 			compileOperand(*(it+1),LOWEST);
@@ -806,7 +806,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(const
 			assert(intrinsicId == Intrinsic::memmove);
 			Function* memmove = module.getFunction("memmove");
 			assert(memmove);
-			stream << getName(memmove) << '(';
+			stream << getName(memmove, 0) << '(';
 			compileOperand(*(it),LOWEST);
 			stream << "|0,";
 			compileOperand(*(it+1),LOWEST);
@@ -821,7 +821,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(const
 		if (asmjs) {
 			Function* memset = module.getFunction("memset");
 			assert(memset);
-			stream << getName(memset) << '(';
+			stream << getName(memset, 0) << '(';
 			compileOperand(*(it),LOWEST);
 			stream << "|0,";
 			compileOperand(*(it+1),LOWEST);
@@ -837,7 +837,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(const
 	{
 		assert(!asmjs && "vastart instructions in asmjs functions are removed in the AllocaLowering pass");
 		compileCompleteObject(*it);
-		stream << "={d:arguments,o:" << getName(currentFun) << ".length}";
+		stream << "={d:arguments,o:" << getName(currentFun, 0) << ".length}";
 		return COMPILE_OK;
 	}
 	else if(intrinsicId==Intrinsic::vaend)
@@ -1078,7 +1078,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(const
 			if (ffree->empty() && asmjs)
 				stream << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY);
 			else
-				stream << getName(ffree);
+				stream << getName(ffree, 0);
 			stream <<'(';
 			compileOperand(*it, PARENT_PRIORITY::BIT_OR);
 			stream << "|0)";
@@ -1421,7 +1421,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(const
 		Function* fmalloc = module.getFunction("malloc");
 		if (!fmalloc)
 			llvm::report_fatal_error("missing malloc definition");
-		stream << getName(fmalloc) << "(";
+		stream << getName(fmalloc, 0) << "(";
 		compileOperand(*(it+1), PARENT_PRIORITY::LOWEST);
 		stream << ")|0";
 		return COMPILE_OK;
@@ -1431,7 +1431,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(const
 		Function* frealloc = module.getFunction("realloc");
 		if (!frealloc)
 			llvm::report_fatal_error("missing realloc definition");
-		stream << getName(frealloc) <<'(';
+		stream << getName(frealloc, 0) <<'(';
 		compileOperand(*it);
 		stream << ',';
 		compileOperand(*(it+1));
@@ -1703,7 +1703,7 @@ void CheerpWriter::compileCompleteObject(const Value* p, const Value* offset)
 	if (I && !isInlineable(*I, PA) &&
 		(isGEP(I) || isBitCast(I)) && PA.getPointerKindAssert(I) == COMPLETE_OBJECT)
 	{
-		stream << getName(I);
+		stream << getName(I, 0);
 		return;
 	}
 
@@ -1766,7 +1766,7 @@ void CheerpWriter::compileRawPointer(const Value* p, PARENT_PRIORITY parentPrio,
 {
 	const llvm::Instruction* I = dyn_cast<Instruction>(p);
 	if (I && !isInlineable(*I, PA) && !forceGEP) {
-		stream << getName(I);
+		stream << getName(I, 0);
 		return;
 	}
 
@@ -1982,7 +1982,7 @@ void CheerpWriter::compilePointerBaseTyped(const Value* p, Type* elementType, bo
 
 	if((!isa<Instruction>(p) || !isInlineable(*cast<Instruction>(p), PA)) && kind == SPLIT_REGULAR)
 	{
-		stream << getName(p);
+		stream << getName(p, 0);
 		return;
 	}
 
@@ -2149,7 +2149,7 @@ void CheerpWriter::compilePointerOffset(const Value* p, PARENT_PRIORITY parentPr
 	}
 	else if((!isa<Instruction>(p) || !isInlineable(*cast<Instruction>(p), PA)) && kind == SPLIT_REGULAR)
 	{
-		stream << getSecondaryName(p);
+		stream << getName(p, 1);
 	}
 	else if(const IntrinsicInst* II=dyn_cast<IntrinsicInst>(p))
 	{
@@ -2574,7 +2574,7 @@ void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio
 			stream << linearHelper.getGlobalVariableAddress(cast<GlobalVariable>(c));
 		}
 		else
-			stream << getName(c);
+			stream << getName(c, 0);
 	}
 	else if(isa<ConstantAggregateZero>(c) || isa<UndefValue>(c))
 	{
@@ -2643,12 +2643,12 @@ void CheerpWriter::compileOperand(const Value* v, PARENT_PRIORITY parentPrio, bo
 		}
 		else
 		{
-			stream << getName(it);
+			stream << getName(it, 0);
 		}
 	}
 	else if(const Argument* arg=dyn_cast<Argument>(v))
 	{
-		stream << getName(arg);
+		stream << getName(arg, 0);
 	}
 	else
 	{
@@ -2741,19 +2741,19 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 			assert(incoming);
 			if(incoming->getType()->isPointerTy() && writer.PA.getPointerKindAssert(incoming)==SPLIT_REGULAR && !writer.PA.getConstantOffsetForPointer(incoming))
 			{
-				writer.stream << writer.getSecondaryName(incoming);
+				writer.stream << writer.getName(incoming, 1);
 				writer.stream << '=';
 				edgeContext.undoAssigment();
 				writer.compilePointerOffset(incoming, LOWEST);
 				edgeContext.processAssigment();
 				writer.stream << ';' << writer.NewLine;
 			}
-			writer.stream << writer.getName(incoming);
+			writer.stream << writer.getName(incoming, 0);
 
 			//We walk back a step in "time"
 			edgeContext.undoAssigment();
 			//Find what name the instruction had previously
-			writer.stream << '=' << writer.getName(incoming) << ';' << writer.NewLine;
+			writer.stream << '=' << writer.getName(incoming, 0) << ';' << writer.NewLine;
 			//And undo the undo, back to the original situatuion
 			edgeContext.processAssigment();
 		}
@@ -2773,7 +2773,7 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 				assert(k!=CONSTANT);
 				if((k==REGULAR || k==SPLIT_REGULAR || k==BYTE_LAYOUT) && writer.PA.getConstantOffsetForPointer(phi))
 				{
-					writer.stream << writer.getName(phi, /*doNotConsiderEdgeContext*/true) << '=';
+					writer.stream << writer.getName(phi, 0, /*doNotConsiderEdgeContext*/true) << '=';
 					writer.compilePointerBase(incoming);
 				}
 				else if(k==SPLIT_REGULAR)
@@ -2789,10 +2789,10 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 					if(selfReferencing)
 					{
 						tmpOffsetReg = writer.registerize.getSelfRefTmpReg(phi, edgeContext.fromBB, edgeContext.toBB);
-						writer.stream << writer.namegen.getName(phi->getParent()->getParent(), tmpOffsetReg);
+						writer.stream << writer.namegen.getRegName(phi->getParent()->getParent(), tmpOffsetReg, 0);
 					}
 					else
-						writer.stream << writer.getSecondaryName(phi, /*doNotConsiderEdgeContext*/true);
+						writer.stream << writer.getName(phi, 1, /*doNotConsiderEdgeContext*/true);
 					writer.stream << '=';
 					if (incomingKind == RAW)
 					{
@@ -2804,28 +2804,28 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 						writer.compilePointerOffset(incoming, LOWEST);
 					}
 					writer.stream << ';' << writer.NewLine;
-					writer.stream << writer.getName(phi, /*doNotConsiderEdgeContext*/true) << '=';
+					writer.stream << writer.getName(phi, 0, /*doNotConsiderEdgeContext*/true) << '=';
 					writer.compilePointerBase(incoming);
 					if(selfReferencing)
 					{
 						writer.stream << ';' << writer.NewLine;
-						writer.stream << writer.getSecondaryName(phi, /*doNotConsiderEdgeContext*/true) << '=' << writer.namegen.getName(phi->getParent()->getParent(), tmpOffsetReg);
+						writer.stream << writer.getName(phi, 1, /*doNotConsiderEdgeContext*/true) << '=' << writer.namegen.getRegName(phi->getParent()->getParent(), tmpOffsetReg, 0);
 					}
 				}
 				else if(k==RAW)
 				{
-					writer.stream << writer.getName(phi, /*doNotConsiderEdgeContext*/true) << '=';
+					writer.stream << writer.getName(phi, 0, /*doNotConsiderEdgeContext*/true) << '=';
 					writer.compileRawPointer(incoming, LOWEST);
 				}
 				else
 				{
-					writer.stream << writer.getName(phi, /*doNotConsiderEdgeContext*/true) << '=';
+					writer.stream << writer.getName(phi, 0, /*doNotConsiderEdgeContext*/true) << '=';
 					writer.compilePointerAs(incoming, k);
 				}
 			}
 			else
 			{
-				writer.stream << writer.getName(phi, /*doNotConsiderEdgeContext*/true);
+				writer.stream << writer.getName(phi, 0, /*doNotConsiderEdgeContext*/true);
 
 				const llvm::Instruction* instIncoming = dyn_cast<const Instruction>(incoming);
 				if (!asmjs && writer.registerize.getRegisterId(phi, EdgeContext::emptyContext()) == writer.registerize.getRegisterId(phi, edgeContext) &&
@@ -3111,7 +3111,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			POINTER_KIND k = PA.getPointerKindAssert(ai);
 			assert(k != RAW && "Allocas to RAW pointers are removed in the AllocaLowering pass");
 
-			StringRef varName = getName(&I);
+			StringRef varName = getName(&I, 0);
 			if(k == REGULAR)
 			{
 				stream << "{d:[";
@@ -3122,7 +3122,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			{
 				stream << "=0";
 				stream << ';' << NewLine;
-				stream << getName(ai) << '=';
+				stream << getName(ai, 0) << '=';
 				stream << '[';
 				compileType(ai->getAllocatedType(), LITERAL_OBJ, varName, allocaStores);
 				stream << ']';
@@ -3149,7 +3149,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			if(I.use_empty())
 				stream << "null";
 			else
-				stream << namegen.getName(&I);
+				stream << namegen.getName(&I, 0);
 			stream << ",";
 			const LandingPadInst& LP = cast<LandingPadInst>(I);
 			auto entry = landingPadTable.getEntry(&LP);
@@ -3215,7 +3215,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 						compileOperand(ivi.getInsertedValueOperand(), LOWEST);
 					else
 					{
-						stream << getName(aggr);
+						stream << getName(aggr, 0);
 						stream << '.' << memberPrefix << i;
 						if(useWrapperArray)
 							stream << "[0]";
@@ -3349,7 +3349,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			{
 				compilePointerOffset(incoming, LOWEST);
 				stream << ';' << NewLine;
-				stream << getName(phi) << '=';
+				stream << getName(phi, 0) << '=';
 				compilePointerBase(incoming);
 			}
 			else
@@ -3629,7 +3629,7 @@ void CheerpWriter::compileGEP(const llvm::User* gep_inst, POINTER_KIND kind, PAR
 		if (I && !isInlineable(*I, PA) &&
 			(isGEP(I) || isBitCast(I)) && PA.getPointerKindAssert(I) == COMPLETE_OBJECT)
 		{
-			stream << getName(I);
+			stream << getName(I, 0);
 		} else {
 			compileCompleteObject(gep_inst->getOperand(0), indices.front());
 		}
@@ -4282,7 +4282,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				stream << ':';
 				compilePointerOffset(si.getOperand(2), TERNARY);
 				stream << ';' << NewLine;
-				stream << getName(&si) << '=';
+				stream << getName(&si, 0) << '=';
 				compileOperand(si.getOperand(0), TERNARY, /*allowBooleanObjects*/ true);
 				stream << '?';
 				compilePointerBase(si.getOperand(1));
@@ -4387,7 +4387,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				stream << ')';
 				if (vi.getType()->isPointerTy() && vi.getNumUses() > 0)
 				{
-					StringRef name = namegen.getName(&vi);
+					StringRef name = namegen.getName(&vi, 0);
 					stream << ';' << NewLine;
 					stream << name << "=";
 					stream << name << "===0?";
@@ -4529,7 +4529,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 					needsCheckBounds = false;
 				}
 				stream << ';' << NewLine;
-				stream << getName(&li) << '=';
+				stream << getName(&li, 0) << '=';
 				if(kind == RAW)
 					compileHeapForType(cast<PointerType>(li.getType())->getPointerElementType());
 				else
@@ -4599,7 +4599,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileCallInstruction(
 	{
 		addrShift = compileHeapForType(cast<PointerType>(ci.getType())->getPointerElementType());
 		stream << ';' << NewLine;
-		stream << getSecondaryName(&ci) << '=';
+		stream << getName(&ci, 1) << '=';
 	}
 
 	if(!retTy->isVoidTy())
@@ -4634,7 +4634,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileCallInstruction(
 			}
 			return cf;
 		}
-		stream << getName(calledFunc);
+		stream << getName(calledFunc, 0);
 	}
 	else if (ci.isInlineAsm())
 	{
@@ -4734,7 +4734,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileCallInstruction(
 					else
 					{
 						stream << ';' << NewLine;
-						stream << getSecondaryName(&ci) << "=oSlot";
+						stream << getName(&ci, 1) << "=oSlot";
 					}
 				}
 				break;
@@ -4880,13 +4880,13 @@ void CheerpWriter::compileBB(const BasicBlock& BB)
 		{
 			if(I.getType()->isPointerTy() && (!isa<CallBase>(I) || isDowncast) && PA.getPointerKind(&I) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&I))
 			{
-				stream << getSecondaryName(&I) << '=';
+				stream << getName(&I, 1) << '=';
 			}
 			else if(!I.getType()->isVoidTy())
 			{
 				uint32_t regId = registerize.getRegisterId(&I, edgeContext);
-				assert(namegen.getName(BB.getParent(), regId) == getName(&I));
-				stream << namegen.getName(BB.getParent(), regId);
+				assert(namegen.getRegName(BB.getParent(), regId, 0) == getName(&I, 0));
+				stream << namegen.getRegName(BB.getParent(), regId, 0);
 				if(!asmjs && compileCompoundStatement(&I, regId))
 				{
 					stream << ';' << NewLine;
@@ -4966,12 +4966,12 @@ void CheerpWriter::compileMethodLocals(const Function& F)
 			stream << "var ";
 		else
 			stream << ',';
-		compileMethodLocal(namegen.getName(&F, regId), regsInfo[regId].regKind);
+		compileMethodLocal(namegen.getRegName(&F, regId, 0), regsInfo[regId].regKind);
 		firstVar = false;
 		if(regsInfo[regId].needsSecondaryName)
 		{
 			stream << ',';
-			compileMethodLocal(namegen.getSecondaryName(&F, regId), Registerize::INTEGER);
+			compileMethodLocal(namegen.getRegName(&F, regId, 1), Registerize::INTEGER);
 		}
 	}
 	if(!firstVar)
@@ -5316,7 +5316,7 @@ void CheerpWriter::compileTokens(const TokenList& Tokens)
 				stream << "}catch(" << namegen.getBuiltinName(NameGenerator::EXCEPTION) << "){" << NewLine;
 				assert(T.getBB()->isLandingPad());
 				if(!T.getBB()->getLandingPadInst()->use_empty())
-					stream << namegen.getName(T.getBB()->getLandingPadInst()) << '=' << namegen.getBuiltinName(NameGenerator::EXCEPTION) << ";" << NewLine;
+					stream << namegen.getName(T.getBB()->getLandingPadInst(), 0) << '=' << namegen.getBuiltinName(NameGenerator::EXCEPTION) << ";" << NewLine;
 				break;
 			}
 			case Token::TK_BrIf:
@@ -5349,7 +5349,7 @@ void CheerpWriter::compileMethod(const Function& F)
 		}
 	}
 	currentFun = &F;
-	stream << "function " << getName(&F) << '(';
+	stream << "function " << getName(&F, 0) << '(';
 	const Function::const_arg_iterator A=F.arg_begin();
 	const Function::const_arg_iterator AE=F.arg_end();
 	for(Function::const_arg_iterator curArg=A;curArg!=AE;++curArg)
@@ -5357,9 +5357,9 @@ void CheerpWriter::compileMethod(const Function& F)
 		if(curArg!=A)
 			stream << ',';
 		if(curArg->getType()->isPointerTy() && PA.getPointerKindForArgument(&*curArg) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&*curArg))
-			stream << getName(&*curArg) << ',' << getSecondaryName(&*curArg);
+			stream << getName(&*curArg, 0) << ',' << getName(&*curArg, 1);
 		else
-			stream << getName(&*curArg);
+			stream << getName(&*curArg, 0);
 	}
 	stream << "){" << NewLine;
 	if (measureTimeToMain && (&F == (globalDeps.getEntryPoint())))
@@ -5386,12 +5386,12 @@ void CheerpWriter::compileMethod(const Function& F)
 				continue;
 			if(argKind == REGULAR && PA.getConstantOffsetForPointer(&*curArg))
 				continue;
-			stream << getName(&*curArg);
+			stream << getName(&*curArg, 0);
 			stream << "=";
 			if(argKind == REGULAR)
-				stream << "{d:" << getName(&*curArg) << ",o:" << getSecondaryName(&*curArg) << "}";
+				stream << "{d:" << getName(&*curArg, 0) << ",o:" << getName(&*curArg, 1) << "}";
 			else if(argKind == COMPLETE_OBJECT)
-				stream << getName(&*curArg) << "[" << getSecondaryName(&*curArg) << "]";
+				stream << getName(&*curArg, 0) << "[" << getName(&*curArg, 1) << "]";
 			else
 			{
 				assert(false);
@@ -5503,7 +5503,7 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 		// Extern globals in the client namespace are only placeholders for JS globals
 		return;
 	}
-	stream  << "var " << getName(&G);
+	stream  << "var " << getName(&G, 0);
 
 	if(G.hasInitializer())
 	{
@@ -5538,7 +5538,7 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 				compileOperand(C, LOWEST);
 			stream << ']';
 			stream << ';' << NewLine;
-			stream << "var " << getSecondaryName(&G);
+			stream << "var " << getName(&G, 1);
 			stream << "=0";
 		}
 		else
@@ -5637,7 +5637,7 @@ void CheerpWriter::compileGlobalAsmJS(const GlobalVariable& G)
 	}
 	if (symbolicGlobalsAsmJS)
 	{
-		stream << "var " << getName(&G) << '=';
+		stream << "var " << getName(&G, 0) << '=';
 		uint32_t globalAddr = linearHelper.getGlobalVariableAddress(&G);
 		stream << globalAddr << ';' << NewLine;
 	}
@@ -5702,27 +5702,27 @@ void CheerpWriter::compileParamTypeAnnotationsAsmJS(const Function* F)
 	const Function::const_arg_iterator AE=F->arg_end();
 	for(Function::const_arg_iterator curArg=A;curArg!=AE;++curArg)
 	{
-		stream << getName(&*curArg) << '=';
+		stream << getName(&*curArg, 0) << '=';
 		Registerize::REGISTER_KIND kind = registerize.getRegKindFromType(curArg->getType(), true);
 		switch(kind)
 		{
 			case Registerize::INTEGER:
-				stream << getName(&*curArg) << "|0";
+				stream << getName(&*curArg, 0) << "|0";
 				break;
 			case Registerize::INTEGER64:
 				if (LinearOutput==AsmJs)
 					report_fatal_error("unsupported INTEGER64 register");
-				stream << getName(&*curArg);
+				stream << getName(&*curArg, 0);
 				break;
 			case Registerize::FLOAT:
 				stream << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '(';
-				stream << getName(&*curArg) << ')';
+				stream << getName(&*curArg, 0) << ')';
 				break;
 			case Registerize::DOUBLE:
-				stream << '+' << getName(&*curArg);
+				stream << '+' << getName(&*curArg, 0);
 				break;
 			case Registerize::OBJECT:
-				stream << getName(&*curArg);
+				stream << getName(&*curArg, 0);
 				break;
 			case Registerize::VECTOR:
 				llvm::report_fatal_error("VECTOR register kind should not appear outside of WASM");
@@ -5825,13 +5825,13 @@ void CheerpWriter::compileFunctionTablesAsmJS()
 			if (!first)
 				stream << ',';
 			first = false;
-			stream << getName(F);
+			stream << getName(F, 0);
 			num++;
 		}
 		uint32_t mask = linearHelper.getFunctionAddressMask(table.second.functions[0]->getFunctionType());
 		for (; num <= mask; num++)
 		{
-			stream << ',' << getName(table.second.functions[0]);
+			stream << ',' << getName(table.second.functions[0], 0);
 		}
 		stream << "];" << NewLine;
 	}
@@ -6097,10 +6097,10 @@ void CheerpWriter::compileImports()
 {
 	for (const Function* imported: globalDeps.asmJSImports())
 	{
-		stream << getName(imported) << ':';
+		stream << getName(imported, 0) << ':';
 		if (!imported->empty())
 		{
-			stream << getName(imported);
+			stream << getName(imported, 0);
 		}
 		else if (TypeSupport::isClientFunc(imported))
 		{
@@ -6145,7 +6145,7 @@ void CheerpWriter::compileAsmJSClosure()
 	}
 	for (const Function* imported: globalDeps.asmJSImports())
 	{
-		stream << "var " << getName(imported) << "=ffi." << getName(imported) << ';' << NewLine;
+		stream << "var " << getName(imported, 0) << "=ffi." << getName(imported, 0) << ';' << NewLine;
 	}
 	if (globalDeps.needsBuiltin(BuiltinInstr::BUILTIN::GROW_MEM))
 	{
@@ -6173,7 +6173,7 @@ void CheerpWriter::compileAsmJSClosure()
 	stream << "return {" << NewLine;
 	for (const Function* exported: globalDeps.asmJSExports())
 	{
-		StringRef name = getName(exported);
+		StringRef name = getName(exported, 0);
 		stream << name << ':' << name << ',' << NewLine;
 	}
 	stream << "};" << NewLine;
@@ -6378,7 +6378,7 @@ void CheerpWriter::compileDeclareExports()
 	{
 		if(i->empty()) continue;
 
-		stream << "var " << getName(i) << "=null;" << NewLine;
+		stream << "var " << getName(i, 0) << "=null;" << NewLine;
 	}
 	areAsmJSExportsDeclared = true;
 
@@ -6527,7 +6527,7 @@ void CheerpWriter::compileDefineExports()
 
 		if (alsoDeclareAsmJS)
 			stream << "var ";
-		stream << getName(i) << "=__asm." << getName(i) <<";" << NewLine;
+		stream << getName(i, 0) << "=__asm." << getName(i, 0) <<";" << NewLine;
 	}
 	areAsmJSExportsDeclared = true;
 	//We just did
@@ -6606,7 +6606,7 @@ void CheerpWriter::compileEntryPoint()
 	{
 		if (entryPoint->getSection() == "asmjs")
 			stream << "__asm.";
-		stream << getName(entryPoint) << "();" << NewLine;
+		stream << getName(entryPoint, 0) << "();" << NewLine;
 	}
 }
 
