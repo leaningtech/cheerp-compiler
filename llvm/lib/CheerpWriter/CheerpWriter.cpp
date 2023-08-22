@@ -2656,7 +2656,7 @@ void CheerpWriter::compileOperand(const Value* v, PARENT_PRIORITY parentPrio, bo
 	}
 }
 
-bool CheerpWriter::needsPointerKindConversion(const PHINode* phi, const Value* incoming,
+bool CheerpWriter::needsPointerKindConversion(const PHINode* phi, const Value* incoming, uint32_t elemIdx,
                                               const PointerAnalyzer& PA, const Registerize& registerize, const EdgeContext& edgeContext)
 {
 	if(canDelayPHI(phi, PA, registerize))
@@ -2683,9 +2683,9 @@ bool CheerpWriter::needsPointerKindConversion(const PHINode* phi, const Value* i
 		if(incomingOffset != phiOffset)
 			return true;
 	}
-	auto phiRegs = registerize.getAllRegisterIds(phi, EdgeContext::emptyContext());
-	auto incomingRegs = registerize.getAllRegisterIds(incomingInst, edgeContext);
-	return phiRegs != incomingRegs;
+	uint32_t phiReg = registerize.getRegisterId(phi, elemIdx, EdgeContext::emptyContext());
+	uint32_t incomingReg = registerize.getRegisterId(incomingInst, elemIdx, edgeContext);
+	return phiReg != incomingReg;
 }
 
 bool CheerpWriter::needsPointerKindConversionForBlocks(const BasicBlock* to, const BasicBlock* from,
@@ -2712,9 +2712,7 @@ bool CheerpWriter::needsPointerKindConversionForBlocks(const BasicBlock* to, con
 		}
 		void handlePHI(const PHINode* phi, uint32_t elemIdx, const Value* incoming) override
 		{
-			if(elemIdx != 0)
-				return;
-			needsPointerKindConversion |= CheerpWriter::needsPointerKindConversion(phi, incoming, PA, registerize, edgeContext);
+			needsPointerKindConversion |= CheerpWriter::needsPointerKindConversion(phi, incoming, elemIdx, PA, registerize, edgeContext);
 		}
 	};
 
@@ -2754,7 +2752,7 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 		void handlePHI(const PHINode* phi, uint32_t elemIdx, const Value* incoming) override
 		{
 			// We can avoid assignment from the same register if no pointer kind conversion is required
-			if(!needsPointerKindConversion(phi, incoming, writer.PA, writer.registerize, edgeContext))
+			if(!needsPointerKindConversion(phi, incoming, elemIdx, writer.PA, writer.registerize, edgeContext))
 				return;
 			// We can leave undefined values undefined
 			if (isa<UndefValue>(incoming))
