@@ -509,13 +509,14 @@ bool canDelayPHI(const PHINode* phi, const PointerAnalyzer& PA, const Registeriz
 {
 	// If for all incoming we have
 	// 1) A not-inlineable instruction
-	// 2) The same register as the PHI
-	// 3) The same pointer kind
-	// 4) The same constant offset
+	// 2) The same registers
+	// 3) The registers are a subset of the PHI registers
+	// 4) The same pointer kind
+	// 5) The same constant offset
 	//
 	// Then we can compile this PHI only once in the destination block
-	// NOTE: We require the same register as the PHI to make sure that it
-	// is not overwritten by any other PHI
+	// NOTE: We require the registers to be a subset of the PHI's to make sure
+	// that they are not overwritten by any other PHI
 
 	// We only care about pointers, for other types if the incoming register and the PHI register
 	// are the same then the PHI is removed completely
@@ -530,7 +531,17 @@ bool canDelayPHI(const PHINode* phi, const PointerAnalyzer& PA, const Registeriz
 		return false;
 	assert(!isInlineable(*incomingInst0, PA));
 	auto incomingRegs0 = registerize.getAllRegisterIds(incomingInst0, edgeContext);
-	if(incomingRegs0 != phiRegs)
+	bool isSubset = true;
+	for(uint32_t ir: incomingRegs0)
+	{
+		auto it = std::find(phiRegs.begin(), phiRegs.end(), ir);
+		if(it == phiRegs.end())
+		{
+			isSubset = false;
+			break;
+		}
+	}
+	if(!isSubset)
 		return false;
 	POINTER_KIND incomingKind0 = PA.getPointerKind(incomingInst0);
 	const ConstantInt* incomingOffset0 = PA.getConstantOffsetForPointer(incomingInst0);
