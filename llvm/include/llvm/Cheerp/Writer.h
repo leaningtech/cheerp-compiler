@@ -452,6 +452,7 @@ private:
 	COMPILE_INSTRUCTION_FEEDBACK compileNotInlineableInstruction(const llvm::Instruction& I, PARENT_PRIORITY parentPrio);
 	COMPILE_INSTRUCTION_FEEDBACK compileInlineableInstruction(const llvm::Instruction& I, PARENT_PRIORITY parentPrio);
 	COMPILE_INSTRUCTION_FEEDBACK compileCallInstruction(const llvm::CallBase& I, PARENT_PRIORITY parentPrio);
+	uint32_t compileLoadElem(const llvm::LoadInst& li, uint32_t elemIdx, uint32_t structElemIdx, PARENT_PRIORITY parentPrio);
 
 	void compileSignedInteger(const llvm::Value* v, bool forComparison, PARENT_PRIORITY parentPrio);
 	void compileUnsignedInteger(const llvm::Value* v, bool forAsmJSComparison, PARENT_PRIORITY parentPrio, bool forceTruncation = false);
@@ -680,6 +681,7 @@ public:
 	void compileBB(const llvm::BasicBlock& BB);
 	void compileConstant(const llvm::Constant* c, PARENT_PRIORITY parentPrio = HIGHEST);
 	void compileOperand(const llvm::Value* v, PARENT_PRIORITY parentPrio = HIGHEST, bool allowBooleanObjects = false);
+	void compileAggregateElem(const llvm::Value* v, uint32_t elemIdx, PARENT_PRIORITY parentPrio = HIGHEST, bool allowBooleanObjects = false);
 	void compilePHIOfBlockFromOtherBlock(const llvm::BasicBlock* to, const llvm::BasicBlock* from);
 	void compileOperandForIntegerPredicate(const llvm::Value* v, llvm::CmpInst::Predicate p, PARENT_PRIORITY parentPrio);
 	void compileIntegerComparison(const llvm::Value* lhs, const llvm::Value* rhs, llvm::CmpInst::Predicate p, PARENT_PRIORITY parentPrio);

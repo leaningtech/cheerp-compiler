@@ -2656,6 +2656,28 @@ void CheerpWriter::compileOperand(const Value* v, PARENT_PRIORITY parentPrio, bo
 	}
 }
 
+void CheerpWriter::compileAggregateElem(const llvm::Value* v, uint32_t elemIdx, PARENT_PRIORITY parentPrio, bool allowBooleanObjects)
+{
+	assert(v->getType()->isAggregateType());
+	if(auto* I = dyn_cast<Instruction>(v))
+	{
+		stream <<  getName(v, elemIdx);
+	}
+	else if(auto* U = dyn_cast<UndefValue>(v))
+	{
+		compileOperand(U->getAggregateElement(elemIdx));
+	}
+	else if(auto* C = dyn_cast<ConstantStruct>(v))
+	{
+		compileConstant(C->getAggregateElement(elemIdx), parentPrio);
+	}
+	else
+	{
+		v->dump();
+		report_fatal_error("unsupported aggregate");
+	}
+}
+
 bool CheerpWriter::needsPointerKindConversion(const PHINode* phi, const Value* incoming, uint32_t elemIdx,
                                               const PointerAnalyzer& PA, const Registerize& registerize, const EdgeContext& edgeContext)
 {
@@ -3145,69 +3167,31 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 		}
 		case Instruction::InsertValue:
 		{
-			const InsertValueInst& ivi = cast<InsertValueInst>(I);
-			const Value* aggr=ivi.getAggregateOperand();
-			StructType* t=dyn_cast<StructType>(aggr->getType());
-			assert(ivi.getIndices().size()==1);
-			if(!t)
+			const auto& IV = cast<InsertValueInst>(I);
+			assert(IV.getNumIndices() == 1);
+			uint32_t newIdx = IV.getIndices()[0];
+			uint32_t nElems = IV.getType()->getStructNumElements();
+			if(0 == newIdx)
 			{
-				llvm::errs() << "insertvalue: Expected struct, found " << *aggr->getType() << "\n";
-				llvm::report_fatal_error("Unsupported code found, please report a bug", false);
-				return COMPILE_UNSUPPORTED;
-			}
-			uint32_t offset=ivi.getIndices()[0];
-			if(isa<UndefValue>(aggr))
-			{
-				// We have to assemble the type object from scratch
-				stream << '{';
-				for(unsigned int i=0;i<t->getNumElements();i++)
-				{
-					assert(!t->getElementType(i)->isStructTy());
-					assert(!t->getElementType(i)->isArrayTy());
-					char memberPrefix = types.getPrefixCharForMember(PA, t, i);
-					bool useWrapperArray = types.useWrapperArrayForMember(PA, t, i);
-					if(i!=0)
-						stream << ',';
-					stream << memberPrefix << i << ':';
-					if(useWrapperArray)
-						stream << '[';
-					if(offset == i)
-						compileOperand(ivi.getInsertedValueOperand(), LOWEST);
-					else
-						compileType(t->getElementType(i), LITERAL_OBJ);
-					if(useWrapperArray)
-						stream << ']';
-				}
-				stream << '}';
+				compileOperand(IV.getOperand(1));
 			}
 			else
 			{
-				// We have to make a copy with a field of a different value
-				stream << '{';
-				for(unsigned int i=0;i<t->getNumElements();i++)
+				compileAggregateElem(IV.getAggregateOperand(), 0);
+			}
+			for(uint32_t i = 1; i < nElems; i++)
+			{
+				stream << ";" << NewLine;
+				stream << getName(&IV, i);
+				stream << '=';
+				if(i == newIdx)
 				{
-					assert(!t->getElementType(i)->isStructTy());
-					assert(!t->getElementType(i)->isArrayTy());
-					char memberPrefix = types.getPrefixCharForMember(PA, t, i);
-					bool useWrapperArray = types.useWrapperArrayForMember(PA, t, i);
-					if(i!=0)
-						stream << ',';
-					stream << memberPrefix << i << ':';
-					if(useWrapperArray)
-						stream << '[';
-					if(offset == i)
-						compileOperand(ivi.getInsertedValueOperand(), LOWEST);
-					else
-					{
-						stream << getName(aggr, 0);
-						stream << '.' << memberPrefix << i;
-						if(useWrapperArray)
-							stream << "[0]";
-					}
-					if(useWrapperArray)
-						stream << ']';
+					compileOperand(IV.getOperand(1));
 				}
-				stream << '}';
+				else
+				{
+					compileAggregateElem(IV.getAggregateOperand(), 0);
+				}
 			}
 			return COMPILE_OK;
 		}
@@ -4286,23 +4270,9 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		}
 		case Instruction::ExtractValue:
 		{
-			const ExtractValueInst& evi = cast<ExtractValueInst>(I);
-			const Value* aggr=evi.getAggregateOperand();
-			Type* t=aggr->getType();
-			if(!t->isStructTy())
-			{
-				llvm::errs() << "extractvalue: Expected struct, found " << *t << "\n";
-				llvm::report_fatal_error("Unsupported code found, please report a bug", false);
-				return COMPILE_OK;
-			}
-			assert(!isa<UndefValue>(aggr));
-
-			compileOperand(aggr, HIGHEST);
-
-			uint32_t offset=evi.getIndices()[0];
-			stream << '.' << types.getPrefixCharForMember(PA, cast<StructType>(t), offset) << offset;
-			if(types.useWrapperArrayForMember(PA, cast<StructType>(t), offset))
-				stream << "[0]";
+			const auto& EV = cast<ExtractValueInst>(I);
+			assert(EV.getNumIndices() == 1);
+			compileAggregateElem(EV.getAggregateOperand(), EV.getIndices()[0]);
 			return COMPILE_OK;
 		}
 		case Instruction::FPExt:
@@ -4554,6 +4524,127 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			llvm::errs() << "\tImplement inst " << I.getOpcodeName() << '\n';
 			return COMPILE_UNSUPPORTED;
 	}
+}
+uint32_t CheerpWriter::compileLoadElem(const LoadInst& li, uint32_t elemIdx, uint32_t structElemIdx, PARENT_PRIORITY parentPrio)
+{
+	uint32_t nRegs = 1;
+	const Value* ptrOp=li.getPointerOperand();
+	bool asmjs = currentFun->getSection()==StringRef("asmjs");
+	POINTER_KIND kind = PA.getPointerKind(ptrOp);
+	bool needsOffset = !li.use_empty() && li.getType()->isPointerTy() && PA.getPointerKindAssert(&li) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&li);
+	Registerize::REGISTER_KIND regKind = registerize.getRegKindFromInstElem(Registerize::InstElem(&li, elemIdx), asmjs, &PA);
+	if(regKind==Registerize::INTEGER && needsIntCoercion(parentPrio))
+	{
+		if (parentPrio > BIT_OR)
+			stream << '(';
+	}
+	else if(regKind==Registerize::DOUBLE)
+	{
+		if (parentPrio > LOWEST)
+			stream << ' ';
+		stream << '+';
+	}
+	else if(regKind==Registerize::FLOAT && needsFloatCoercion(parentPrio))
+	{
+		stream << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '(';
+	}
+
+	if (asmjs || kind == RAW)
+	{
+		assert(elemIdx==0);
+		bool needsRegular = li.getType()->isPointerTy() && PA.getPointerKindAssert(&li) == REGULAR;
+		if(needsRegular)
+		{
+			stream << "{d:";
+			compileHeapForType(cast<PointerType>(li.getType())->getPointerElementType());
+			stream << ",o:";
+		}
+		compileHeapAccess(ptrOp, li.getType());
+		if(needsRegular)
+			stream << "}";
+	}
+	else if (kind == BYTE_LAYOUT)
+	{
+		assert(elemIdx==0);
+		//Optimize loads of single values from unions
+		compilePointerBase(ptrOp);
+		Type* pointedType=li.getType();
+		assert(ptrOp->getType()== pointedType->getPointerTo());
+		if(pointedType->isIntegerTy(8))
+			stream << ".getUint8(";
+		else if(pointedType->isIntegerTy(16))
+			stream << ".getUint16(";
+		else if(pointedType->isIntegerTy(32))
+			stream << ".getInt32(";
+		else if(pointedType->isFloatTy())
+			stream << ".getFloat32(";
+		else if(pointedType->isDoubleTy())
+			stream << ".getFloat64(";
+		else if (pointedType->isIntegerTy(64))
+		{
+			if (!UseBigInts)
+				report_fatal_error("unsupported INTEGER64 register");
+			stream << ".getBigInt64(";
+		}
+		else
+			report_fatal_error("Unsupported byte layout field");
+		compilePointerOffset(ptrOp, LOWEST);
+		if(!pointedType->isIntegerTy(8))
+			stream << ",true";
+		stream << ')';
+	}
+	else if (kind == CONSTANT)
+	{
+		// An invalid access to null/undefined which has not been removed by optizations.
+		// Generate code that will trap at runtime.
+		stream << "null[0]";
+	}
+	else
+	{
+		compileCompleteObject(ptrOp);
+		if(li.getType()->isStructTy())
+		{
+			compileAccessToElement(li.getType(), {ConstantInt::get(IntegerType::get(li.getContext(), 32), structElemIdx)}, false);
+		}
+	}
+	if(needsOffset)
+	{
+		assert(!isInlineable(li, PA));
+		if(kind == RAW)
+		{
+			int shift =  getHeapShiftForType(cast<PointerType>(li.getType())->getPointerElementType());
+			if (shift != 0)
+				stream << ">>" << shift;
+		}
+		else
+		{
+			stream <<'o';
+		}
+		stream << ';' << NewLine;
+		stream << getName(&li, elemIdx+1) << '=';
+		if(kind == RAW)
+			compileHeapForType(cast<PointerType>(li.getType())->getPointerElementType());
+		else
+		{
+			compileCompleteObject(ptrOp);
+			if(li.getType()->isStructTy())
+			{
+				compileAccessToElement(li.getType(), {ConstantInt::get(IntegerType::get(li.getContext(), 32), structElemIdx)}, false);
+			}
+		}
+		nRegs++;
+	}
+	if(regKind==Registerize::INTEGER && needsIntCoercion(parentPrio))
+	{
+		stream << "|0";
+		if (parentPrio > BIT_OR)
+			stream << ')';
+	}
+	else if(regKind==Registerize::FLOAT && needsFloatCoercion(parentPrio))
+	{
+		stream << ')';
+	}
+	return nRegs;
 }
 
 CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileCallInstruction(const CallBase& ci, PARENT_PRIORITY parentPrio)

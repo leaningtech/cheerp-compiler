@@ -350,6 +350,8 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 			case Instruction::Call:
 			case Instruction::Load:
 			{
+				if(I.getType()->isStructTy())
+					return false;
 				// We can only inline COMPLETE_OBJECT and RAW pointers, other kinds may actually require multiple accesses while rendering
 				// NOTE: When RAW pointers are converted to REGULAR/SPLIT_REGULAR only one access (the offset part) is used, the base is a constant HEAP*
 				if(I.getType()->isPointerTy())
@@ -1066,6 +1068,10 @@ std::vector<Constant*> getGlobalConstructors(Module& module)
 
 uint32_t getNumberOfElements(const Value* V, const PointerAnalyzer& PA)
 {
+	if(auto* STy = dyn_cast<StructType>(V->getType()))
+	{
+		return STy->getNumElements();
+	}
 	if(!V->getType()->isPointerTy())
 		return 1;
 	if(auto* A = llvm::dyn_cast<Argument>(V))
