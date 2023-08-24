@@ -4525,14 +4525,46 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			return COMPILE_UNSUPPORTED;
 	}
 }
-uint32_t CheerpWriter::compileLoadElem(const LoadInst& li, uint32_t elemIdx, uint32_t structElemIdx, PARENT_PRIORITY parentPrio)
+static void compileLoad(const LoadInst& li, PARENT_PRIORITY parentPrio)
 {
-	uint32_t nRegs = 1;
-	const Value* ptrOp=li.getPointerOperand();
-	bool asmjs = currentFun->getSection()==StringRef("asmjs");
-	POINTER_KIND kind = PA.getPointerKind(ptrOp);
-	bool needsOffset = !li.use_empty() && li.getType()->isPointerTy() && PA.getPointerKindAssert(&li) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&li);
-	Registerize::REGISTER_KIND regKind = registerize.getRegKindFromInstElem(Registerize::InstElem(&li, elemIdx), asmjs, &PA);
+	auto* Ty = li.getType();
+	if(!Ty->isStructTy())
+	{
+		if(Ty->isPointerTy() && PA.getPointerKind(&li) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&li))
+		{
+			compileLoadElem();
+			stream << ';' << NewLine;
+			stream << getName(&li, 0) << '=';
+			parentPrio = LOWEST;
+		}
+		compileLoadElem();
+		return;
+	}
+	auto* STy = cast<StructType>(Ty);
+	uint32_t curElem = 0;
+	for(auto* ETy: STy->elements())
+	{
+		if(curElem != 0)
+		{
+			stream << ';' << NewLine;
+			stream << getName(&li, curElem) << '=';
+			parentPrio = LOWEST;
+		}
+		compileLoadElem();
+		if(Ty->isPointerTy() && PA.getPointerKind(&li) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&li))
+		{
+			curElem++;
+			stream << ';' << NewLine;
+			stream << getName(&li, curElem) << '=';
+			parentPrio = LOWEST;
+			compileLoadElem();
+		}
+		curElem++;
+	}
+}
+
+uint32_t CheerpWriter::compileLoadElem(Value* ptrOp, Type* Ty, StructType* STy, POINTER_KIND ptrKind, POINTER_KIND loadKind, bool isOffset, Registerize::REGISTER_KIND regKind, uint32_t structElemIdx, bool asmjs, PARENT_PRIORITY parentPrio)
+{
 	if(regKind==Registerize::INTEGER && needsIntCoercion(parentPrio))
 	{
 		if (parentPrio > BIT_OR)
@@ -4551,21 +4583,21 @@ uint32_t CheerpWriter::compileLoadElem(const LoadInst& li, uint32_t elemIdx, uin
 
 	if (asmjs || kind == RAW)
 	{
-		assert(elemIdx==0);
-		bool needsRegular = li.getType()->isPointerTy() && PA.getPointerKindAssert(&li) == REGULAR;
+		assert(!Sty);
+		bool needsRegular = Ty->isPointerTy() && loadKind == REGULAR;
 		if(needsRegular)
 		{
 			stream << "{d:";
-			compileHeapForType(cast<PointerType>(li.getType())->getPointerElementType());
+			compileHeapForType(cast<PointerType>(Ty)->getPointerElementType());
 			stream << ",o:";
 		}
-		compileHeapAccess(ptrOp, li.getType());
+		compileHeapAccess(ptrOp, Ty);
 		if(needsRegular)
 			stream << "}";
 	}
 	else if (kind == BYTE_LAYOUT)
 	{
-		assert(elemIdx==0);
+		assert(!Sty);
 		//Optimize loads of single values from unions
 		compilePointerBase(ptrOp);
 		Type* pointedType=li.getType();
@@ -4602,12 +4634,12 @@ uint32_t CheerpWriter::compileLoadElem(const LoadInst& li, uint32_t elemIdx, uin
 	else
 	{
 		compileCompleteObject(ptrOp);
-		if(li.getType()->isStructTy())
+		if(Sty)
 		{
-			compileAccessToElement(li.getType(), {ConstantInt::get(IntegerType::get(li.getContext(), 32), structElemIdx)}, false);
+			compileAccessToElement(STy, {ConstantInt::get(IntegerType::get(li.getContext(), 32), structElemIdx)}, false);
 		}
 	}
-	if(needsOffset)
+	if(isOffset)
 	{
 		assert(!isInlineable(li, PA));
 		if(kind == RAW)
