@@ -452,7 +452,10 @@ private:
 	COMPILE_INSTRUCTION_FEEDBACK compileNotInlineableInstruction(const llvm::Instruction& I, PARENT_PRIORITY parentPrio);
 	COMPILE_INSTRUCTION_FEEDBACK compileInlineableInstruction(const llvm::Instruction& I, PARENT_PRIORITY parentPrio);
 	COMPILE_INSTRUCTION_FEEDBACK compileCallInstruction(const llvm::CallBase& I, PARENT_PRIORITY parentPrio);
-	uint32_t compileLoadElem(const llvm::LoadInst& li, uint32_t elemIdx, uint32_t structElemIdx, PARENT_PRIORITY parentPrio);
+	void compileLoadElem(const llvm::Value* ptrOp, llvm::Type* Ty, llvm::StructType* STy, POINTER_KIND ptrKind, POINTER_KIND loadKind, bool isOffset, Registerize::REGISTER_KIND regKind, uint32_t structElemIdx, bool asmjs, PARENT_PRIORITY parentPrio);
+	void compileLoad(const llvm::LoadInst& li, PARENT_PRIORITY parentPrio);
+	void compileStoreElem(const llvm::StoreInst& si, llvm::Type* Ty, llvm::StructType* STy, POINTER_KIND ptrKind, POINTER_KIND storedKind, bool isOffset, Registerize::REGISTER_KIND regKind, uint32_t structElemIdx, uint32_t elemIdx, bool asmjs);
+	void compileStore(const llvm::StoreInst& si);
 
 	void compileSignedInteger(const llvm::Value* v, bool forComparison, PARENT_PRIORITY parentPrio);
 	void compileUnsignedInteger(const llvm::Value* v, bool forAsmJSComparison, PARENT_PRIORITY parentPrio, bool forceTruncation = false);

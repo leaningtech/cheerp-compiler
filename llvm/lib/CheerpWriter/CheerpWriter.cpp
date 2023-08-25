@@ -3197,110 +3197,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 		}
 		case Instruction::Store:
 		{
-			const StoreInst& si = cast<StoreInst>(I);
-			const Value* ptrOp=si.getPointerOperand();
-			const Value* valOp=si.getValueOperand();
-			POINTER_KIND kind = PA.getPointerKind(ptrOp);
-			assert(kind != CONSTANT);
-			if (checkBounds)
-			{
-				if(kind == REGULAR || kind == SPLIT_REGULAR)
-				{
-					compileCheckBounds(ptrOp);
-					stream<<",";
-				}
-				else if(kind == COMPLETE_OBJECT && isGEP(ptrOp))
-				{
-					bool needsOffset = valOp->getType()->isPointerTy() && PA.getPointerKindAssert(&si) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&si);
-					compileCheckDefined(ptrOp, needsOffset);
-					stream<<",";
-				}
-				else if(kind == RAW)
-				{
-					compileCheckBoundsAsmJS(ptrOp, targetData.getTypeAllocSize(valOp->getType())-1);
-					stream<<",";
-				}
-			}
-			bool asmjs = currentFun && currentFun->getSection()==StringRef("asmjs");
-			if (RAW == kind || (asmjs && kind == CONSTANT))
-			{
-				compileHeapAccess(ptrOp, si.getValueOperand()->getType());
-			}
-			else if (kind == BYTE_LAYOUT)
-			{
-				//Optimize stores of single values from unions
-				Type* pointedType=ptrOp->getType()->getPointerElementType();
-				assert(pointedType == valOp->getType());
-				compilePointerBaseTyped(ptrOp, pointedType);
-				if(pointedType->isIntegerTy(8))
-					stream << ".setInt8(";
-				else if(pointedType->isIntegerTy(16))
-					stream << ".setInt16(";
-				else if(pointedType->isIntegerTy(32))
-					stream << ".setInt32(";
-				else if(pointedType->isFloatTy())
-					stream << ".setFloat32(";
-				else if(pointedType->isDoubleTy())
-					stream << ".setFloat64(";
-				else if (pointedType->isIntegerTy(64))
-				{
-					if (!UseBigInts)
-						report_fatal_error("unsupported INTEGER64 register");
-					stream << ".setBigInt64(";
-				}
-				else
-					report_fatal_error("Unsupported byte layout field");
-				compilePointerOffset(ptrOp, LOWEST);
-				stream << ',';
-
-				//Special case compilation of operand, the default behavior use =
-				compileOperand(valOp, LOWEST);
-				if(!pointedType->isIntegerTy(8))
-					stream << ",true";
-				stream << ')';
-				return COMPILE_OK;
-			}
-			else
-			{
-				compileCompleteObject(ptrOp);
-			}
-
-			stream << '=';
-			if(valOp->getType()->isPointerTy())
-			{
-				POINTER_KIND storedKind = PA.getPointerKind(&si);
-				assert(storedKind != CONSTANT);
-				// If regular see if we can omit the offset part
-				if((storedKind==SPLIT_REGULAR || storedKind==REGULAR || storedKind==BYTE_LAYOUT) && PA.getConstantOffsetForPointer(&si))
-					compilePointerBase(valOp, /*forEscapingPointer*/true);
-				else if(storedKind==SPLIT_REGULAR)
-				{
-					compilePointerBase(valOp, /*forEscapingPointer*/true);
-					stream << ';' << NewLine;
-					compileCompleteObject(ptrOp);
-					stream << "o=";
-					compilePointerOffset(valOp, LOWEST, /*forEscapingPointer*/true);
-				}
-				else
-					compilePointerAs(valOp, storedKind);
-			}
-			else
-			{
-				PARENT_PRIORITY storePrio = LOWEST;
-				if(asmjs)
-				{
-					// On asm.js we can pretend the store will add a |0
-					// This is not necessarily true in genericjs
-					// As we might be storing in an object member or a plain array
-					Registerize::REGISTER_KIND regKind = registerize.getRegKindFromType(valOp->getType(), asmjs);
-					if(regKind == Registerize::INTEGER)
-						storePrio = BIT_OR;
-					// The same applies for fround
-					else if(regKind == Registerize::FLOAT)
-						storePrio = FROUND;
-				}
-				compileOperand(valOp, storePrio);
-			}
+			compileStore(cast<StoreInst>(I));
 			return COMPILE_OK;
 		}
 		case Instruction::PHI:
@@ -4367,140 +4264,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		case Instruction::Load:
 		{
 			const LoadInst& li = cast<LoadInst>(I);
-			const Value* ptrOp=li.getPointerOperand();
-			bool asmjs = currentFun->getSection()==StringRef("asmjs");
-			POINTER_KIND kind = PA.getPointerKind(ptrOp);
-			bool needsOffset = !li.use_empty() && li.getType()->isPointerTy() && PA.getPointerKindAssert(&li) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&li);
-			bool needsCheckBounds = false;
-			if (checkBounds)
-			{
-				if(kind == REGULAR || kind == SPLIT_REGULAR)
-				{
-					needsCheckBounds = true;
-					stream<<"(";
-					compileCheckBounds(ptrOp);
-					stream<<",";
-				}
-				else if(kind == COMPLETE_OBJECT && isGEP(ptrOp))
-				{
-					needsCheckBounds = true;
-					stream<<"(";
-					compileCheckDefined(ptrOp, needsOffset);
-					stream<<",";
-				}
-				else if(kind == RAW)
-				{
-					needsCheckBounds = true;
-					stream<<"(";
-					compileCheckBoundsAsmJS(ptrOp, targetData.getTypeAllocSize(li.getType())-1);
-					stream<<",";
-				}
-			}
-			Registerize::REGISTER_KIND regKind = registerize.getRegKindFromType(li.getType(),asmjs);
-			if(regKind==Registerize::INTEGER && needsIntCoercion(parentPrio))
-			{
-				if (parentPrio > BIT_OR)
-					stream << '(';
-			}
-			else if(regKind==Registerize::DOUBLE)
-			{
-				if (parentPrio > LOWEST)
-					stream << ' ';
-				stream << '+';
-			}
-			else if(regKind==Registerize::FLOAT && needsFloatCoercion(parentPrio))
-			{
-				stream << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '(';
-			}
-
-			if (asmjs || kind == RAW)
-			{
-				bool needsRegular = li.getType()->isPointerTy() && PA.getPointerKindAssert(&li) == REGULAR;
-				if(needsRegular)
-				{
-					stream << "{d:";
-					compileHeapForType(cast<PointerType>(li.getType())->getPointerElementType());
-					stream << ",o:";
-				}
-				compileHeapAccess(ptrOp, li.getType());
-				if(needsRegular)
-					stream << "}";
-			}
-			else if (kind == BYTE_LAYOUT)
-			{
-				//Optimize loads of single values from unions
-				compilePointerBase(ptrOp);
-				Type* pointedType=li.getType();
-				assert(ptrOp->getType()== pointedType->getPointerTo());
-				if(pointedType->isIntegerTy(8))
-					stream << ".getUint8(";
-				else if(pointedType->isIntegerTy(16))
-					stream << ".getUint16(";
-				else if(pointedType->isIntegerTy(32))
-					stream << ".getInt32(";
-				else if(pointedType->isFloatTy())
-					stream << ".getFloat32(";
-				else if(pointedType->isDoubleTy())
-					stream << ".getFloat64(";
-				else if (pointedType->isIntegerTy(64))
-				{
-					if (!UseBigInts)
-						report_fatal_error("unsupported INTEGER64 register");
-					stream << ".getBigInt64(";
-				}
-				else
-					report_fatal_error("Unsupported byte layout field");
-				compilePointerOffset(ptrOp, LOWEST);
-				if(!pointedType->isIntegerTy(8))
-					stream << ",true";
-				stream << ')';
-			}
-			else if (kind == CONSTANT)
-			{
-				// An invalid access to null/undefined which has not been removed by optizations.
-				// Generate code that will trap at runtime.
-				stream << "null[0]";
-			}
-			else
-				compileCompleteObject(ptrOp);
-			if(needsOffset)
-			{
-				assert(!isInlineable(li, PA));
-				if(kind == RAW)
-				{
-					int shift =  getHeapShiftForType(cast<PointerType>(li.getType())->getPointerElementType());
-					if (shift != 0)
-						stream << ">>" << shift;
-				}
-				else
-				{
-					stream <<'o';
-				}
-				if(needsCheckBounds)
-				{
-					// Close the bounds check here
-					stream << ")";
-					needsCheckBounds = false;
-				}
-				stream << ';' << NewLine;
-				stream << getName(&li, 0) << '=';
-				if(kind == RAW)
-					compileHeapForType(cast<PointerType>(li.getType())->getPointerElementType());
-				else
-					compileCompleteObject(ptrOp);
-			}
-			if(regKind==Registerize::INTEGER && needsIntCoercion(parentPrio))
-			{
-				stream << "|0";
-				if (parentPrio > BIT_OR)
-					stream << ')';
-			}
-			else if(regKind==Registerize::FLOAT && needsFloatCoercion(parentPrio))
-			{
-				stream << ')';
-			}
-			if (needsCheckBounds)
-				stream<<')';
+			compileLoad(li, parentPrio);
 			return COMPILE_OK;
 		}
 		case Instruction::IntToPtr:
@@ -4525,45 +4289,61 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			return COMPILE_UNSUPPORTED;
 	}
 }
-static void compileLoad(const LoadInst& li, PARENT_PRIORITY parentPrio)
+
+void CheerpWriter::compileLoad(const LoadInst& li, PARENT_PRIORITY parentPrio)
 {
 	auto* Ty = li.getType();
+	const Value* ptrOp = li.getPointerOperand();
+	bool asmjs = currentFun->getSection()==StringRef("asmjs");
+	POINTER_KIND ptrKind = PA.getPointerKind(ptrOp);
 	if(!Ty->isStructTy())
 	{
+		POINTER_KIND loadKind = li.getType()->isPointerTy()? PA.getPointerKindAssert(&li) : COMPLETE_OBJECT;
 		if(Ty->isPointerTy() && PA.getPointerKind(&li) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&li))
 		{
-			compileLoadElem();
+			compileLoadElem(ptrOp, Ty, nullptr, ptrKind, loadKind, true, Registerize::INTEGER, 0, asmjs, parentPrio);
 			stream << ';' << NewLine;
 			stream << getName(&li, 0) << '=';
 			parentPrio = LOWEST;
 		}
-		compileLoadElem();
+		compileLoadElem(ptrOp, Ty, nullptr, ptrKind, loadKind, false, Registerize::OBJECT, 0, asmjs, parentPrio);
 		return;
 	}
 	auto* STy = cast<StructType>(Ty);
 	uint32_t curElem = 0;
+	uint32_t curIdx = 0;
 	for(auto* ETy: STy->elements())
 	{
+		POINTER_KIND loadKind = COMPLETE_OBJECT;
+		bool hasConstantOffset = true;
+		if(ETy->isPointerTy())
+		{
+			TypeAndIndex b(STy, curIdx, TypeAndIndex::STRUCT_MEMBER);
+			loadKind = PA.getPointerKindForMemberPointer(b);
+			hasConstantOffset = PA.getConstantOffsetForMember(b) != NULL;
+		}
 		if(curElem != 0)
 		{
 			stream << ';' << NewLine;
 			stream << getName(&li, curElem) << '=';
 			parentPrio = LOWEST;
 		}
-		compileLoadElem();
-		if(Ty->isPointerTy() && PA.getPointerKind(&li) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&li))
+		Registerize::REGISTER_KIND regKind = registerize.getRegKindFromType(ETy, asmjs);
+		compileLoadElem(ptrOp, ETy, STy, ptrKind, loadKind, false, regKind, curIdx, asmjs, parentPrio);
+		if(Ty->isPointerTy() && loadKind == SPLIT_REGULAR && !hasConstantOffset)
 		{
 			curElem++;
 			stream << ';' << NewLine;
 			stream << getName(&li, curElem) << '=';
 			parentPrio = LOWEST;
-			compileLoadElem();
+			compileLoadElem(ptrOp, ETy, STy, ptrKind, loadKind, true, Registerize::INTEGER, curIdx, asmjs, parentPrio);
 		}
 		curElem++;
+		curIdx++;
 	}
 }
 
-uint32_t CheerpWriter::compileLoadElem(Value* ptrOp, Type* Ty, StructType* STy, POINTER_KIND ptrKind, POINTER_KIND loadKind, bool isOffset, Registerize::REGISTER_KIND regKind, uint32_t structElemIdx, bool asmjs, PARENT_PRIORITY parentPrio)
+void CheerpWriter::compileLoadElem(const Value* ptrOp, Type* Ty, StructType* STy, POINTER_KIND ptrKind, POINTER_KIND loadKind, bool isOffset, Registerize::REGISTER_KIND regKind, uint32_t structElemIdx, bool asmjs, PARENT_PRIORITY parentPrio)
 {
 	if(regKind==Registerize::INTEGER && needsIntCoercion(parentPrio))
 	{
@@ -4581,38 +4361,56 @@ uint32_t CheerpWriter::compileLoadElem(Value* ptrOp, Type* Ty, StructType* STy, 
 		stream << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '(';
 	}
 
-	if (asmjs || kind == RAW)
+	auto* PTy = dyn_cast<PointerType>(Ty);
+	if(PTy && loadKind != RAW && (asmjs || ptrKind == RAW))
 	{
-		assert(!Sty);
-		bool needsRegular = Ty->isPointerTy() && loadKind == REGULAR;
-		if(needsRegular)
+		switch(loadKind)
+		{
+		case REGULAR:
 		{
 			stream << "{d:";
-			compileHeapForType(cast<PointerType>(Ty)->getPointerElementType());
+			compileHeapForType(PTy->getPointerElementType());
 			stream << ",o:";
+			compileHeapAccess(ptrOp, Ty);
+			stream << '}';
+			break;
 		}
-		compileHeapAccess(ptrOp, Ty);
-		if(needsRegular)
-			stream << "}";
+		case SPLIT_REGULAR:
+		{
+			if(isOffset)
+			{
+				compileHeapAccess(ptrOp, Ty);
+				int shift =  getHeapShiftForType(PTy->getPointerElementType());
+				if (shift != 0)
+					stream << ">>" << shift;
+			}
+			else
+			{
+				compileHeapForType(PTy->getPointerElementType());
+			}
+			break;
+		}
+		default:
+			assert(false);
+		}
 	}
-	else if (kind == BYTE_LAYOUT)
+	else if (ptrKind == BYTE_LAYOUT)
 	{
-		assert(!Sty);
+		assert(!STy);
 		//Optimize loads of single values from unions
 		compilePointerBase(ptrOp);
-		Type* pointedType=li.getType();
-		assert(ptrOp->getType()== pointedType->getPointerTo());
-		if(pointedType->isIntegerTy(8))
+		assert(ptrOp->getType()== Ty->getPointerTo());
+		if(Ty->isIntegerTy(8))
 			stream << ".getUint8(";
-		else if(pointedType->isIntegerTy(16))
+		else if(Ty->isIntegerTy(16))
 			stream << ".getUint16(";
-		else if(pointedType->isIntegerTy(32))
+		else if(Ty->isIntegerTy(32))
 			stream << ".getInt32(";
-		else if(pointedType->isFloatTy())
+		else if(Ty->isFloatTy())
 			stream << ".getFloat32(";
-		else if(pointedType->isDoubleTy())
+		else if(Ty->isDoubleTy())
 			stream << ".getFloat64(";
-		else if (pointedType->isIntegerTy(64))
+		else if (Ty->isIntegerTy(64))
 		{
 			if (!UseBigInts)
 				report_fatal_error("unsupported INTEGER64 register");
@@ -4621,11 +4419,11 @@ uint32_t CheerpWriter::compileLoadElem(Value* ptrOp, Type* Ty, StructType* STy, 
 		else
 			report_fatal_error("Unsupported byte layout field");
 		compilePointerOffset(ptrOp, LOWEST);
-		if(!pointedType->isIntegerTy(8))
+		if(!Ty->isIntegerTy(8))
 			stream << ",true";
 		stream << ')';
 	}
-	else if (kind == CONSTANT)
+	else if (ptrKind == CONSTANT)
 	{
 		// An invalid access to null/undefined which has not been removed by optizations.
 		// Generate code that will trap at runtime.
@@ -4634,37 +4432,12 @@ uint32_t CheerpWriter::compileLoadElem(Value* ptrOp, Type* Ty, StructType* STy, 
 	else
 	{
 		compileCompleteObject(ptrOp);
-		if(Sty)
+		if(STy)
 		{
-			compileAccessToElement(STy, {ConstantInt::get(IntegerType::get(li.getContext(), 32), structElemIdx)}, false);
+			compileAccessToElement(STy, {ConstantInt::get(IntegerType::get(Ty->getContext(), 32), structElemIdx)}, false);
 		}
-	}
-	if(isOffset)
-	{
-		assert(!isInlineable(li, PA));
-		if(kind == RAW)
-		{
-			int shift =  getHeapShiftForType(cast<PointerType>(li.getType())->getPointerElementType());
-			if (shift != 0)
-				stream << ">>" << shift;
-		}
-		else
-		{
-			stream <<'o';
-		}
-		stream << ';' << NewLine;
-		stream << getName(&li, elemIdx+1) << '=';
-		if(kind == RAW)
-			compileHeapForType(cast<PointerType>(li.getType())->getPointerElementType());
-		else
-		{
-			compileCompleteObject(ptrOp);
-			if(li.getType()->isStructTy())
-			{
-				compileAccessToElement(li.getType(), {ConstantInt::get(IntegerType::get(li.getContext(), 32), structElemIdx)}, false);
-			}
-		}
-		nRegs++;
+		if(isOffset)
+			stream << 'o';
 	}
 	if(regKind==Registerize::INTEGER && needsIntCoercion(parentPrio))
 	{
@@ -4676,7 +4449,150 @@ uint32_t CheerpWriter::compileLoadElem(Value* ptrOp, Type* Ty, StructType* STy, 
 	{
 		stream << ')';
 	}
-	return nRegs;
+}
+
+void CheerpWriter::compileStore(const StoreInst& si)
+{
+	const Value* ptrOp=si.getPointerOperand();
+	const Value* valOp=si.getValueOperand();
+	POINTER_KIND ptrKind = PA.getPointerKind(ptrOp);
+	bool asmjs = currentFun && currentFun->getSection()==StringRef("asmjs");
+	assert(ptrKind != CONSTANT);
+
+	auto* Ty = valOp->getType();
+	if(!Ty->isStructTy())
+	{
+		POINTER_KIND storedKind = si.getType()->isPointerTy()? PA.getPointerKindAssert(&si) : COMPLETE_OBJECT;
+		compileStoreElem(si, Ty, nullptr, ptrKind, storedKind, false, Registerize::OBJECT, 0, 0, asmjs);
+		if(Ty->isPointerTy() && PA.getPointerKind(&si) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&si))
+		{
+			stream << ';' << NewLine;
+			compileStoreElem(si, Ty, nullptr, ptrKind, storedKind, true, Registerize::INTEGER, 0, 1, asmjs);
+		}
+		return;
+	}
+	auto* STy = cast<StructType>(Ty);
+	uint32_t curIdx = 0;
+	uint32_t curElem = 0;
+	for(auto* ETy: STy->elements())
+	{
+		if(curElem != 0)
+			stream << ';' << NewLine;
+		POINTER_KIND storedKind = COMPLETE_OBJECT;
+		bool hasConstantOffset = true;
+		if(ETy->isPointerTy())
+		{
+			TypeAndIndex b(STy, curIdx, TypeAndIndex::STRUCT_MEMBER);
+			storedKind = PA.getPointerKindForMemberPointer(b);
+			hasConstantOffset = PA.getConstantOffsetForMember(b) != NULL;
+		}
+		Registerize::REGISTER_KIND regKind = registerize.getRegKindFromType(ETy, asmjs);
+		compileStoreElem(si, ETy, STy, ptrKind, storedKind, false, regKind, curIdx, curElem, asmjs);
+		if(Ty->isPointerTy() && storedKind == SPLIT_REGULAR && !hasConstantOffset)
+		{
+			stream << ';' << NewLine;
+			compileStoreElem(si, ETy, STy, ptrKind, storedKind, true, regKind, curIdx, curElem, asmjs);
+			curElem++;
+		}
+		curIdx++;
+		curElem++;
+	}
+}
+
+void CheerpWriter::compileStoreElem(const StoreInst& si, Type* Ty, StructType* STy, POINTER_KIND ptrKind, POINTER_KIND storedKind, bool isOffset, Registerize::REGISTER_KIND regKind, uint32_t structElemIdx, uint32_t elemIdx, bool asmjs)
+{
+	const Value* ptrOp=si.getPointerOperand();
+	const Value* valOp=si.getValueOperand();
+	assert(ptrKind != CONSTANT);
+	if (RAW == ptrKind || (asmjs && ptrKind == CONSTANT))
+	{
+		assert(!STy);
+		assert(!isOffset);
+		compileHeapAccess(ptrOp, Ty);
+	}
+	else if (ptrKind == BYTE_LAYOUT)
+	{
+		assert(!STy);
+		assert(!isOffset);
+		//Optimize stores of single values from unions
+		Type* pointedType=Ty->getPointerElementType();
+		compilePointerBaseTyped(ptrOp, pointedType);
+		if(pointedType->isIntegerTy(8))
+			stream << ".setInt8(";
+		else if(pointedType->isIntegerTy(16))
+			stream << ".setInt16(";
+		else if(pointedType->isIntegerTy(32))
+			stream << ".setInt32(";
+		else if(pointedType->isFloatTy())
+			stream << ".setFloat32(";
+		else if(pointedType->isDoubleTy())
+			stream << ".setFloat64(";
+		else if (pointedType->isIntegerTy(64))
+		{
+			if (!UseBigInts)
+				report_fatal_error("unsupported INTEGER64 register");
+			stream << ".setBigInt64(";
+		}
+		else
+			report_fatal_error("Unsupported byte layout field");
+		compilePointerOffset(ptrOp, LOWEST);
+		stream << ',';
+
+		//Special case compilation of operand, the default behavior use =
+		compileOperand(valOp, LOWEST);
+		if(!pointedType->isIntegerTy(8))
+			stream << ",true";
+		stream << ')';
+	}
+	else
+	{
+		compileCompleteObject(ptrOp);
+		if(STy)
+		{
+			compileAccessToElement(STy, {ConstantInt::get(IntegerType::get(Ty->getContext(), 32), structElemIdx)}, false);
+		}
+		if(isOffset)
+			stream << 'o';
+	}
+
+	stream << '=';
+	if(STy)
+	{
+		// TODO valOp is not an instruction or smth
+		stream << getName(valOp, elemIdx);
+	}
+	else
+	{
+		if(Ty->isPointerTy())
+		{
+			assert(storedKind != CONSTANT);
+			// If regular see if we can omit the offset part
+			if(storedKind==SPLIT_REGULAR && isOffset)
+			{
+				compilePointerOffset(valOp, LOWEST, /*forEscapingPointer*/true);
+			}
+			else if(storedKind==SPLIT_REGULAR || storedKind==REGULAR || storedKind==BYTE_LAYOUT)
+				compilePointerBase(valOp, /*forEscapingPointer*/true);
+			else
+				compilePointerAs(valOp, storedKind);
+		}
+		else
+		{
+			PARENT_PRIORITY storePrio = LOWEST;
+			if(asmjs)
+			{
+				// On asm.js we can pretend the store will add a |0
+				// This is not necessarily true in genericjs
+				// As we might be storing in an object member or a plain array
+				if(regKind == Registerize::INTEGER)
+					storePrio = BIT_OR;
+				// The same applies for fround
+				else if(regKind == Registerize::FLOAT)
+					storePrio = FROUND;
+			}
+			compileOperand(valOp, storePrio);
+		}
+	}
 }
 
 CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileCallInstruction(const CallBase& ci, PARENT_PRIORITY parentPrio)
