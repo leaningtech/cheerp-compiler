@@ -694,7 +694,7 @@ public:
 	// returns the amount fo shift required for accessing the corresponding heap
 	int getHeapShiftForType(llvm::Type* et);
 	int compileHeapForType(llvm::Type* et);
-	void compileHeapAccess(const llvm::Value* p, llvm::Type* t = nullptr);
+	void compileHeapAccess(const llvm::Value* p, llvm::Type* t = nullptr, uint32_t offset = 0);
 	/**
 	 * Compile the function tables for the asm.js module
 	 */

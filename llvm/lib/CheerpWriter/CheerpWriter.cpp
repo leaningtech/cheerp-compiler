@@ -1867,7 +1867,7 @@ int CheerpWriter::compileHeapForType(Type* et)
 	}
 	return shift;
 }
-void CheerpWriter::compileHeapAccess(const Value* p, Type* t)
+void CheerpWriter::compileHeapAccess(const Value* p, Type* t, uint32_t offset)
 {
 	if (!isa<PointerType>(p->getType()))
 	{
@@ -1879,17 +1879,29 @@ void CheerpWriter::compileHeapAccess(const Value* p, Type* t)
 		return;
 	}
 	PointerType* pt=cast<PointerType>(p->getType());
-	assert(!t || t->getPointerTo() == pt);
 	Type* et = (t==nullptr) ? pt->getPointerElementType() : t;
 	uint32_t shift = compileHeapForType(et);
 	stream << '[';
 	if(!symbolicGlobalsAsmJS && isa<GlobalVariable>(p))
 	{
+		assert(offset == 0);
 		stream << (linearHelper.getGlobalVariableAddress(cast<GlobalVariable>(p)) >> shift);
 	}
 	else
 	{
-		compileRawPointer(p, PARENT_PRIORITY::SHIFT);
+		PARENT_PRIORITY prio = PARENT_PRIORITY::SHIFT;
+		if(offset != 0)
+		{
+			stream << '(';
+			prio = PARENT_PRIORITY::ADD_SUB;
+		}
+		compileRawPointer(p, prio);
+		if(offset != 0)
+		{
+			stream << '+';
+			stream << offset;
+			stream << "|0)";
+		}
 		stream << ">>" << shift;
 	}
 	stream << ']';
@@ -4404,42 +4416,52 @@ void CheerpWriter::compileLoadElem(const Value* ptrOp, Type* Ty, StructType* STy
 	}
 
 	auto* PTy = dyn_cast<PointerType>(Ty);
-	if(PTy && loadKind != RAW && (asmjs || ptrKind == RAW))
+	if(asmjs || ptrKind == RAW)
 	{
-		switch(loadKind)
+		uint32_t offset = 0;
+		if(STy)
 		{
-		case REGULAR:
-		{
-			stream << "{d:";
-			compileHeapForType(PTy->getPointerElementType());
-			stream << ",o:";
-			compileHeapAccess(ptrOp, Ty);
-			stream << '}';
-			break;
+			const StructLayout* SL = targetData.getStructLayout(STy);
+			offset =  SL->getElementOffset(structElemIdx);
 		}
-		case SPLIT_REGULAR:
+		if(PTy && (loadKind == REGULAR || loadKind == SPLIT_REGULAR))
 		{
-			if(isOffset)
+			switch(loadKind)
 			{
-				compileHeapAccess(ptrOp, Ty);
-				int shift =  getHeapShiftForType(PTy->getPointerElementType());
-				if (shift != 0)
-					stream << ">>" << shift;
-			}
-			else
+			case REGULAR:
 			{
+				stream << "{d:";
 				compileHeapForType(PTy->getPointerElementType());
+				stream << ",o:";
+				compileHeapAccess(ptrOp, Ty, offset);
+				stream << '}';
+				break;
 			}
-			break;
+			case SPLIT_REGULAR:
+			{
+				if(isOffset)
+				{
+					compileHeapAccess(ptrOp, Ty, offset);
+					int shift =  getHeapShiftForType(PTy->getPointerElementType());
+					if (shift != 0)
+						stream << ">>" << shift;
+				}
+				else
+				{
+					compileHeapForType(PTy->getPointerElementType());
+				}
+				break;
+			}
+			default:
+			{
+				assert(false);
+			}
+			}
 		}
-		default:
-			assert(false);
+		else
+		{
+			compileHeapAccess(ptrOp, Ty, offset);
 		}
-	}
-	else if (ptrKind == RAW)
-	{
-		assert(!STy);
-		compileHeapAccess(ptrOp, Ty);
 	}
 	else if (ptrKind == BYTE_LAYOUT)
 	{
@@ -4573,9 +4595,14 @@ void CheerpWriter::compileStoreElem(const StoreInst& si, Type* Ty, StructType* S
 	assert(ptrKind != CONSTANT);
 	if (RAW == ptrKind || (asmjs && ptrKind == CONSTANT))
 	{
-		assert(!STy);
 		assert(!isOffset);
-		compileHeapAccess(ptrOp, Ty);
+		uint32_t offset = 0;
+		if(STy)
+		{
+			const StructLayout* SL = targetData.getStructLayout(STy);
+			offset =  SL->getElementOffset(structElemIdx);
+		}
+		compileHeapAccess(ptrOp, Ty, offset);
 	}
 	else if (ptrKind == BYTE_LAYOUT)
 	{
