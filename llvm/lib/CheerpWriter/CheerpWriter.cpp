@@ -4296,17 +4296,54 @@ void CheerpWriter::compileLoad(const LoadInst& li, PARENT_PRIORITY parentPrio)
 	const Value* ptrOp = li.getPointerOperand();
 	bool asmjs = currentFun->getSection()==StringRef("asmjs");
 	POINTER_KIND ptrKind = PA.getPointerKind(ptrOp);
+	bool needsCheckBounds = false;
+	if (checkBounds)
+	{
+			if(ptrKind == REGULAR || ptrKind == SPLIT_REGULAR)
+			{
+					needsCheckBounds = true;
+					stream<<"(";
+					compileCheckBounds(ptrOp);
+					stream<<",";
+			}
+			else if(ptrKind == COMPLETE_OBJECT && isGEP(ptrOp))
+			{
+					needsCheckBounds = true;
+					bool needsOffset = !li.use_empty() && Ty->isPointerTy() && PA.getPointerKindAssert(&li) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&li);
+					stream<<"(";
+					compileCheckDefined(ptrOp, needsOffset);
+					stream<<",";
+			}
+			else if(ptrKind == RAW)
+			{
+					needsCheckBounds = true;
+					stream<<"(";
+					compileCheckBoundsAsmJS(ptrOp, targetData.getTypeAllocSize(li.getType())-1);
+					stream<<",";
+			}
+	}
 	if(!Ty->isStructTy())
 	{
 		POINTER_KIND loadKind = li.getType()->isPointerTy()? PA.getPointerKindAssert(&li) : COMPLETE_OBJECT;
 		if(Ty->isPointerTy() && PA.getPointerKind(&li) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&li))
 		{
 			compileLoadElem(ptrOp, Ty, nullptr, ptrKind, loadKind, true, Registerize::INTEGER, 0, asmjs, parentPrio);
+			if(needsCheckBounds)
+			{
+				needsCheckBounds = false;
+				stream << ')';
+			}
 			stream << ';' << NewLine;
 			stream << getName(&li, 0) << '=';
 			parentPrio = LOWEST;
 		}
-		compileLoadElem(ptrOp, Ty, nullptr, ptrKind, loadKind, false, Registerize::OBJECT, 0, asmjs, parentPrio);
+		Registerize::REGISTER_KIND regKind = registerize.getRegKindFromType(Ty, asmjs);
+		compileLoadElem(ptrOp, Ty, nullptr, ptrKind, loadKind, false, regKind, 0, asmjs, parentPrio);
+		if(needsCheckBounds)
+		{
+			needsCheckBounds = false;
+			stream << ')';
+		}
 		return;
 	}
 	auto* STy = cast<StructType>(Ty);
@@ -4330,6 +4367,11 @@ void CheerpWriter::compileLoad(const LoadInst& li, PARENT_PRIORITY parentPrio)
 		}
 		Registerize::REGISTER_KIND regKind = registerize.getRegKindFromType(ETy, asmjs);
 		compileLoadElem(ptrOp, ETy, STy, ptrKind, loadKind, false, regKind, curIdx, asmjs, parentPrio);
+		if(needsCheckBounds)
+		{
+			needsCheckBounds = false;
+			stream << ')';
+		}
 		if(Ty->isPointerTy() && loadKind == SPLIT_REGULAR && !hasConstantOffset)
 		{
 			curElem++;
@@ -4393,6 +4435,11 @@ void CheerpWriter::compileLoadElem(const Value* ptrOp, Type* Ty, StructType* STy
 		default:
 			assert(false);
 		}
+	}
+	else if (ptrKind == RAW)
+	{
+		assert(!STy);
+		compileHeapAccess(ptrOp, Ty);
 	}
 	else if (ptrKind == BYTE_LAYOUT)
 	{
@@ -4460,10 +4507,30 @@ void CheerpWriter::compileStore(const StoreInst& si)
 	assert(ptrKind != CONSTANT);
 
 	auto* Ty = valOp->getType();
+	if (checkBounds)
+	{
+		if(ptrKind == REGULAR || ptrKind == SPLIT_REGULAR)
+		{
+			compileCheckBounds(ptrOp);
+			stream<<",";
+		}
+		else if(ptrKind == COMPLETE_OBJECT && isGEP(ptrOp))
+		{
+			bool needsOffset = valOp->getType()->isPointerTy() && PA.getPointerKindAssert(&si) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&si);
+			compileCheckDefined(ptrOp, needsOffset);
+			stream<<",";
+		}
+		else if(ptrKind == RAW)
+		{
+			compileCheckBoundsAsmJS(ptrOp, targetData.getTypeAllocSize(valOp->getType())-1);
+			stream<<",";
+		}
+	}
 	if(!Ty->isStructTy())
 	{
-		POINTER_KIND storedKind = si.getType()->isPointerTy()? PA.getPointerKindAssert(&si) : COMPLETE_OBJECT;
-		compileStoreElem(si, Ty, nullptr, ptrKind, storedKind, false, Registerize::OBJECT, 0, 0, asmjs);
+		POINTER_KIND storedKind = Ty->isPointerTy()? PA.getPointerKind(&si) : COMPLETE_OBJECT;
+		Registerize::REGISTER_KIND regKind = registerize.getRegKindFromType(Ty, asmjs);
+		compileStoreElem(si, Ty, nullptr, ptrKind, storedKind, false, regKind, 0, 0, asmjs);
 		if(Ty->isPointerTy() && PA.getPointerKind(&si) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&si))
 		{
 			stream << ';' << NewLine;
@@ -4515,19 +4582,18 @@ void CheerpWriter::compileStoreElem(const StoreInst& si, Type* Ty, StructType* S
 		assert(!STy);
 		assert(!isOffset);
 		//Optimize stores of single values from unions
-		Type* pointedType=Ty->getPointerElementType();
-		compilePointerBaseTyped(ptrOp, pointedType);
-		if(pointedType->isIntegerTy(8))
+		compilePointerBaseTyped(ptrOp, Ty);
+		if(Ty->isIntegerTy(8))
 			stream << ".setInt8(";
-		else if(pointedType->isIntegerTy(16))
+		else if(Ty->isIntegerTy(16))
 			stream << ".setInt16(";
-		else if(pointedType->isIntegerTy(32))
+		else if(Ty->isIntegerTy(32))
 			stream << ".setInt32(";
-		else if(pointedType->isFloatTy())
+		else if(Ty->isFloatTy())
 			stream << ".setFloat32(";
-		else if(pointedType->isDoubleTy())
+		else if(Ty->isDoubleTy())
 			stream << ".setFloat64(";
-		else if (pointedType->isIntegerTy(64))
+		else if (Ty->isIntegerTy(64))
 		{
 			if (!UseBigInts)
 				report_fatal_error("unsupported INTEGER64 register");
@@ -4540,9 +4606,10 @@ void CheerpWriter::compileStoreElem(const StoreInst& si, Type* Ty, StructType* S
 
 		//Special case compilation of operand, the default behavior use =
 		compileOperand(valOp, LOWEST);
-		if(!pointedType->isIntegerTy(8))
+		if(!Ty->isIntegerTy(8))
 			stream << ",true";
 		stream << ')';
+		return;
 	}
 	else
 	{
@@ -4558,23 +4625,43 @@ void CheerpWriter::compileStoreElem(const StoreInst& si, Type* Ty, StructType* S
 	stream << '=';
 	if(STy)
 	{
-		// TODO valOp is not an instruction or smth
-		stream << getName(valOp, elemIdx);
+		if(auto* I = dyn_cast<Instruction>(valOp))
+		{
+			assert(!isInlineable(*I, PA));
+			stream << getName(valOp, elemIdx);
+		}
+		else if(auto* C = dyn_cast<ConstantStruct>(valOp))
+		{
+			compileConstant(C->getAggregateElement(structElemIdx));
+		}
+		else
+		{
+			valOp->dump();
+			report_fatal_error("unsupported aggregate store");
+		}
 	}
 	else
 	{
 		if(Ty->isPointerTy())
 		{
 			assert(storedKind != CONSTANT);
-			// If regular see if we can omit the offset part
-			if(storedKind==SPLIT_REGULAR && isOffset)
+			bool hasConstantOffset = PA.getConstantOffsetForPointer(&si);
+			if(storedKind==SPLIT_REGULAR || ((storedKind == REGULAR || storedKind == BYTE_LAYOUT) && hasConstantOffset))
 			{
-				compilePointerOffset(valOp, LOWEST, /*forEscapingPointer*/true);
+				if(isOffset)
+				{
+					assert(storedKind == SPLIT_REGULAR);
+					compilePointerOffset(valOp, LOWEST, /*forEscapingPointer*/true);
+				}
+				else
+				{
+					compilePointerBase(valOp, /*forEscapingPointer*/true);
+				}
 			}
-			else if(storedKind==SPLIT_REGULAR || storedKind==REGULAR || storedKind==BYTE_LAYOUT)
-				compilePointerBase(valOp, /*forEscapingPointer*/true);
 			else
+			{
 				compilePointerAs(valOp, storedKind);
+			}
 		}
 		else
 		{
