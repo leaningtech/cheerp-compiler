@@ -684,7 +684,7 @@ public:
 	void compileBB(const llvm::BasicBlock& BB);
 	void compileConstant(const llvm::Constant* c, PARENT_PRIORITY parentPrio = HIGHEST);
 	void compileOperand(const llvm::Value* v, PARENT_PRIORITY parentPrio = HIGHEST, bool allowBooleanObjects = false);
-	void compileAggregateElem(const llvm::Value* v, uint32_t elemIdx, PARENT_PRIORITY parentPrio = HIGHEST, bool allowBooleanObjects = false);
+	void compileAggregateElem(const llvm::Value* v, uint32_t elemIdx, PARENT_PRIORITY parentPrio = HIGHEST);
 	void compilePHIOfBlockFromOtherBlock(const llvm::BasicBlock* to, const llvm::BasicBlock* from);
 	void compileOperandForIntegerPredicate(const llvm::Value* v, llvm::CmpInst::Predicate p, PARENT_PRIORITY parentPrio);
 	void compileIntegerComparison(const llvm::Value* lhs, const llvm::Value* rhs, llvm::CmpInst::Predicate p, PARENT_PRIORITY parentPrio);

@@ -2668,7 +2668,7 @@ void CheerpWriter::compileOperand(const Value* v, PARENT_PRIORITY parentPrio, bo
 	}
 }
 
-void CheerpWriter::compileAggregateElem(const llvm::Value* v, uint32_t elemIdx, PARENT_PRIORITY parentPrio, bool allowBooleanObjects)
+void CheerpWriter::compileAggregateElem(const llvm::Value* v, uint32_t elemIdx, PARENT_PRIORITY parentPrio)
 {
 	assert(v->getType()->isAggregateType());
 	if(auto* I = dyn_cast<Instruction>(v))
@@ -2793,7 +2793,31 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 				return;
 			Type* phiType=phi->getType();
 
-			if(phiType->isPointerTy())
+			if(auto* STy = dyn_cast<StructType>(phiType))
+			{
+				uint32_t structElemIdx = 0;
+				uint32_t curElemIdx = 0;
+				Type* curTy = nullptr;
+				for(auto* ETy: STy->elements())
+				{
+					if(curElemIdx >= elemIdx)
+					{
+						curTy = ETy;
+						break;
+					}
+					TypeAndIndex b(STy, structElemIdx, TypeAndIndex::STRUCT_MEMBER);
+					if(ETy->isPointerTy() && writer.PA.getPointerKindForMemberPointer(b) && PA.getConstantOffsetForMember(b))
+					{
+						curElemIdx++;
+					}
+					structElemIdx++;
+					curElemIdx++;
+				}
+				assert(curTy);
+				writer.stream << writer.getName(phi, elemIdx, /*doNotConsiderEdgeContext*/true) << '=';
+				writer.compileAggregateElem(incoming, elemIdx, LOWEST);
+			}
+			else if(phiType->isPointerTy())
 			{
 				POINTER_KIND k=writer.PA.getPointerKind(phi);
 				assert(k!=CONSTANT);
@@ -4652,20 +4676,7 @@ void CheerpWriter::compileStoreElem(const StoreInst& si, Type* Ty, StructType* S
 	stream << '=';
 	if(STy)
 	{
-		if(auto* I = dyn_cast<Instruction>(valOp))
-		{
-			assert(!isInlineable(*I, PA));
-			stream << getName(valOp, elemIdx);
-		}
-		else if(auto* C = dyn_cast<ConstantStruct>(valOp))
-		{
-			compileConstant(C->getAggregateElement(structElemIdx));
-		}
-		else
-		{
-			valOp->dump();
-			report_fatal_error("unsupported aggregate store");
-		}
+		compileAggregateElem(valOp, elemIdx, LOWEST);
 	}
 	else
 	{
