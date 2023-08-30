@@ -147,9 +147,12 @@ void EndOfBlockPHIHandler::runOnConnectionGraph(DependencyGraph dependencyGraph,
 		//If using stack to resolve temporaries, do it now
 		if (!isRecursiveCall)
 		{
-			std::vector<const PHINode*> toProcessOnStack;
+			std::vector<std::pair<const PHINode*, uint32_t>> toProcessOnStack;
 			for (auto id : registerIds)
-				toProcessOnStack.push_back(phiRegs.at(id).phiInst);
+			{
+				auto& regData = phiRegs.at(id);
+				toProcessOnStack.emplace_back(regData.phiInst, regData.elemIdx);
+			}
 
 			handlePHIStackGroup(toProcessOnStack);
 		}

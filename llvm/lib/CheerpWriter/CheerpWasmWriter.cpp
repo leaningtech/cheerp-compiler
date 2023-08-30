@@ -1116,11 +1116,11 @@ void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const B
 		CheerpWasmWriter& writer;
 		WasmBuffer& code;
 		const BasicBlock* fromBB;
-		void handlePHIStackGroup(const std::vector<const llvm::PHINode*>& phiToHandle) override
+		void handlePHIStackGroup(const std::vector<std::pair<const llvm::PHINode*, uint32_t>>& phiToHandle) override
 		{
-			std::vector<std::pair<const Value*, std::vector<const llvm::PHINode*>>> toProcessOrdered;
-			std::map<const Value*, std::vector<const llvm::PHINode*>> toProcessMap;
-			for (auto& phi : phiToHandle)
+			std::vector<std::pair<const Value*, std::vector<std::pair<const llvm::PHINode*, uint32_t>>>> toProcessOrdered;
+			std::map<const Value*, std::vector<std::pair<const llvm::PHINode*, uint32_t>>> toProcessMap;
+			for (const auto& [phi, elemIdx] : phiToHandle)
 			{
 				const Value* incoming = phi->getIncomingValueForBlock(fromBB);
 				// We can avoid assignment from the same register if no pointer kind conversion is required
@@ -1130,10 +1130,13 @@ void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const B
 				if (isa<UndefValue>(incoming))
 					continue;
 
-				if (toProcessMap.count(incoming) == 0)
+				auto it = toProcessMap.find(incoming);
+				if(it == toProcessMap.end())
+				{
+					it = toProcessMap.insert(it, {incoming, {}});
 					toProcessOrdered.push_back({incoming,{}});
-
-				toProcessMap[incoming].push_back(phi);
+				}
+				it->second.emplace_back(phi, elemIdx);
 			}
 
 			//Note that any process order works, as long as it's deterministic
@@ -1152,12 +1155,12 @@ void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const B
 				const Value* incoming = toProcessOrdered.back().first;
 				const auto& phiVector  = toProcessOrdered.back().second;
 
-				for (const PHINode* phi : phiVector)
+				for (const auto& [phi, elemIdx] : phiVector)
 				{
 					// 2) Save the value in the phi
-					uint32_t reg = writer.registerize.getRegisterId(phi, 0, EdgeContext::emptyContext());
+					uint32_t reg = writer.registerize.getRegisterId(phi, elemIdx, EdgeContext::emptyContext());
 					uint32_t local = writer.localMap.at(reg);
-					if (phi == phiVector.back())
+					if (phiVector.back() == std::pair{phi, elemIdx})
 					{
 						if (toProcessOrdered.size() == 1)
 							writer.teeLocals.addCandidate(incoming, /*isInstructionAssigment*/false, local, code.tell());
@@ -1511,7 +1514,7 @@ void CheerpWasmWriter::compileConstant(WasmBuffer& code, const Constant* c, bool
 	}
 }
 
-void CheerpWasmWriter::compileGetLocal(WasmBuffer& code, const llvm::Instruction* I)
+void CheerpWasmWriter::compileGetLocal(WasmBuffer& code, const llvm::Instruction* I, uint32_t elemIdx)
 {
 	compileInstructionAndSet(code, *I);
 	if (hasPutTeeLocalOnStack(code, I))
@@ -1519,7 +1522,7 @@ void CheerpWasmWriter::compileGetLocal(WasmBuffer& code, const llvm::Instruction
 		//Successfully find a candidate to transform in tee local
 		return;
 	}
-	uint32_t idx = registerize.getRegisterId(I, 0, edgeContext);
+	uint32_t idx = registerize.getRegisterId(I, elemIdx, edgeContext);
 	uint32_t localId = localMap.at(idx);
 	getLocalDone.insert(I);
 	encodeInst(WasmU32Opcode::GET_LOCAL, localId, code);
