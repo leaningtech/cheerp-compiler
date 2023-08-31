@@ -3207,27 +3207,26 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			assert(IV.getNumIndices() == 1);
 			uint32_t newIdx = IV.getIndices()[0];
 			uint32_t nElems = IV.getType()->getStructNumElements();
-			if(0 == newIdx)
+			auto compileElem = [&](uint32_t structElemIdx, uint32_t elemIdx)
 			{
-				compileOperand(IV.getOperand(1));
-			}
-			else
-			{
-				compileAggregateElem(IV.getAggregateOperand(), 0);
-			}
-			for(uint32_t i = 1; i < nElems; i++)
-			{
-				stream << ";" << NewLine;
-				stream << getName(&IV, i);
-				stream << '=';
-				if(i == newIdx)
+				if(structElemIdx == newIdx)
 				{
+					
 					compileOperand(IV.getOperand(1));
 				}
 				else
 				{
-					compileAggregateElem(IV.getAggregateOperand(), 0);
+					compileAggregateElem(IV.getAggregateOperand(), structElemIdx);
 				}
+				return elemIdx++;
+			};
+			uint32_t curElemIdx = compileElem(0, 0);
+			for(uint32_t i = 1; i < nElems; i++)
+			{
+				stream << ";" << NewLine;
+				stream << getName(&IV, curElemIdx);
+				stream << '=';
+				curElemIdx = compileElem(i, curElemIdx);
 			}
 			return COMPILE_OK;
 		}

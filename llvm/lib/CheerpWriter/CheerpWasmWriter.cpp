@@ -1212,7 +1212,7 @@ void CheerpWasmWriter::compileGEP(WasmBuffer& code, const llvm::User* gep_inst, 
 	const auto I = dyn_cast<Instruction>(gep_inst);
 	if (I && !isInlineable(*I)) {
 		if (!standalone) {
-			compileGetLocal(code, I);
+			compileGetLocal(code, I, 0);
 			return;
 		}
 	}
@@ -1528,6 +1528,28 @@ void CheerpWasmWriter::compileGetLocal(WasmBuffer& code, const llvm::Instruction
 	encodeInst(WasmU32Opcode::GET_LOCAL, localId, code);
 }
 
+void CheerpWasmWriter::compileAggregateElem(WasmBuffer& code, const llvm::Value* v, uint32_t elemIdx)
+{
+	assert(v->getType()->isAggregateType());
+	if(auto* I = dyn_cast<Instruction>(v))
+	{
+		compileGetLocal(code, I, elemIdx);
+	}
+	else if(auto* U = dyn_cast<UndefValue>(v))
+	{
+		compileOperand(code, U->getAggregateElement(elemIdx));
+	}
+	else if(auto* C = dyn_cast<ConstantStruct>(v))
+	{
+		compileConstant(code, C->getAggregateElement(elemIdx), false);
+	}
+	else
+	{
+		v->dump();
+		report_fatal_error("unsupported aggregate");
+	}
+}
+
 void CheerpWasmWriter::compileOperand(WasmBuffer& code, const llvm::Value* v)
 {
 	if(const Constant* c=dyn_cast<Constant>(v))
@@ -1543,7 +1565,7 @@ void CheerpWasmWriter::compileOperand(WasmBuffer& code, const llvm::Value* v)
 		if(isInlineable(*it)) {
 			compileInlineInstruction(code, *it);
 		} else {
-			compileGetLocal(code, it);
+			compileGetLocal(code, it, 0);
 		}
 	}
 	else if(const Argument* arg=dyn_cast<Argument>(v))
@@ -2895,6 +2917,32 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			const ICmpInst& ci = cast<ICmpInst>(I);
 			ICmpInst::Predicate p = ci.getPredicate();
 			compileICmp(ci, p, code);
+			break;
+		}
+		case Instruction::ExtractValue:
+		{
+			const auto& EV = cast<ExtractValueInst>(I);
+			assert(EV.getNumIndices() == 1);
+			compileAggregateElem(code, EV.getAggregateOperand(), EV.getIndices()[0]);
+			break;
+		}
+		case Instruction::InsertValue:
+		{
+			const auto& IV = cast<InsertValueInst>(I);
+			assert(IV.getNumIndices() == 1);
+			uint32_t newIdx = IV.getIndices()[0];
+			uint32_t nElems = IV.getType()->getStructNumElements();
+			for(uint32_t i = 0; i < nElems; i++)
+			{
+				if(i == newIdx)
+				{
+					compileOperand(code, IV.getOperand(1));
+				}
+				else
+				{
+					compileAggregateElem(code, IV.getAggregateOperand(), i);
+				}
+			}
 			break;
 		}
 		case Instruction::Load:
