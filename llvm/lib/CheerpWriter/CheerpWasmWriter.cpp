@@ -1118,8 +1118,10 @@ void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const B
 		const BasicBlock* fromBB;
 		void handlePHIStackGroup(const std::vector<std::pair<const llvm::PHINode*, uint32_t>>& phiToHandle) override
 		{
-			std::vector<std::pair<const Value*, std::vector<std::pair<const llvm::PHINode*, uint32_t>>>> toProcessOrdered;
-			std::map<const Value*, std::vector<std::pair<const llvm::PHINode*, uint32_t>>> toProcessMap;
+			using ValueElem = std::pair<const Value*, uint32_t>;
+			using PHIElem = std::pair<const PHINode*, uint32_t>;
+			std::vector<std::pair<ValueElem, std::vector<PHIElem>>> toProcessOrdered;
+			std::map<ValueElem, std::vector<PHIElem>> toProcessMap;
 			for (const auto& [phi, elemIdx] : phiToHandle)
 			{
 				const Value* incoming = phi->getIncomingValueForBlock(fromBB);
@@ -1130,29 +1132,36 @@ void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const B
 				if (isa<UndefValue>(incoming))
 					continue;
 
-				auto it = toProcessMap.find(incoming);
+				auto it = toProcessMap.find({incoming, elemIdx});
 				if(it == toProcessMap.end())
 				{
-					it = toProcessMap.insert(it, {incoming, {}});
-					toProcessOrdered.push_back({incoming,{}});
+					it = toProcessMap.insert(it, {{incoming, elemIdx}, {}});
+					toProcessOrdered.push_back({{incoming,elemIdx}, {}});
 				}
 				it->second.emplace_back(phi, elemIdx);
 			}
 
 			//Note that any process order works, as long as it's deterministic
 			//So reordering for leaving on the stack whatever is needed also works
-			for (auto& pair : toProcessOrdered)
+			for (auto& [incomingElem, phis] : toProcessOrdered)
 			{
 				// 1) Put the value on the stack
-				writer.compileOperand(code, pair.first);
-				pair.second = std::move(toProcessMap[pair.first]);
+				if(incomingElem.first->getType()->isStructTy())
+				{
+					writer.compileAggregateElem(code, incomingElem.first, incomingElem.second);
+				}
+				else
+				{
+					writer.compileOperand(code, incomingElem.first);
+				}
+				phis = std::move(toProcessMap[incomingElem]);
 			}
 
 			writer.teeLocals.removeConsumed();
 
 			while (!toProcessOrdered.empty())
 			{
-				const Value* incoming = toProcessOrdered.back().first;
+				auto incomingElem = toProcessOrdered.back().first;
 				const auto& phiVector  = toProcessOrdered.back().second;
 
 				for (const auto& [phi, elemIdx] : phiVector)
@@ -1160,10 +1169,10 @@ void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const B
 					// 2) Save the value in the phi
 					uint32_t reg = writer.registerize.getRegisterId(phi, elemIdx, EdgeContext::emptyContext());
 					uint32_t local = writer.localMap.at(reg);
-					if (phiVector.back() == std::pair{phi, elemIdx})
+					if (phiVector.back() == PHIElem{phi, elemIdx})
 					{
 						if (toProcessOrdered.size() == 1)
-							writer.teeLocals.addCandidate(incoming, /*isInstructionAssigment*/false, local, code.tell());
+							writer.teeLocals.addCandidate(incomingElem.first, /*isInstructionAssigment*/false, local, code.tell());
 						writer.encodeInst(WasmU32Opcode::SET_LOCAL, local, code);
 					}
 					else
@@ -1939,10 +1948,122 @@ uint32_t CheerpWasmWriter::compileLoadStorePointer(WasmBuffer& code, const Value
 void CheerpWasmWriter::compileLoad(WasmBuffer& code, const LoadInst& li, bool signExtend)
 {
 	const Value* ptrOp=li.getPointerOperand();
-	// 1) The pointer
-	uint32_t offset = compileLoadStorePointer(code, ptrOp);
-	// 2) Load
-	encodeLoad(li.getType(), offset, code, signExtend);
+	forEachElem(&li, li.getType(), PA, registerize, /*asmjs*/true, [&](const Value* v, Type* Ty, StructType* STy, POINTER_KIND elemPtrKind, bool isOffset, Registerize::REGISTER_KIND elemRegKind, uint32_t elemIdx, uint32_t structElemIdx, bool asmjs)
+	{
+		// 1) The pointer
+		uint32_t offset = compileLoadStorePointer(code, ptrOp);
+		if(STy)
+		{
+			const StructLayout* SL = targetData.getStructLayout(STy);
+			int64_t elementOffset =  SL->getElementOffset(structElemIdx);
+			offset += elementOffset;
+		}
+		// 2) Load
+		encodeLoad(Ty, offset, code, signExtend);
+	});
+}
+
+void CheerpWasmWriter::compileStore(WasmBuffer& code, const StoreInst& si)
+{
+	const Value* ptrOp=si.getPointerOperand();
+	const Value* valOp=si.getValueOperand();
+	forEachElem(&si, valOp->getType(), PA, registerize, /*asmjs*/true, [&](const Value* v, Type* Ty, StructType* STy, POINTER_KIND elemPtrKind, bool isOffset, Registerize::REGISTER_KIND elemRegKind, uint32_t elemIdx, uint32_t structElemIdx, bool asmjs)
+	{
+		// 1) The pointer
+		uint32_t offset = compileLoadStorePointer(code, ptrOp);
+		if(STy)
+		{
+			const StructLayout* SL = targetData.getStructLayout(STy);
+			int64_t elementOffset =  SL->getElementOffset(structElemIdx);
+			offset += elementOffset;
+		}
+		// Special case writing 0 to floats/double
+		if(Ty->isFloatingPointTy() && isa<Constant>(valOp) && cast<Constant>(valOp)->isNullValue())
+		{
+			if(Ty->isFloatTy())
+			{
+				encodeInst(WasmS32Opcode::I32_CONST, 0, code);
+				encodeInst(WasmU32U32Opcode::I32_STORE, 0x2, offset, code);
+			}
+			else
+			{
+				assert(Ty->isDoubleTy());
+				encodeInst(WasmS64Opcode::I64_CONST, 0, code);
+				encodeInst(WasmU32U32Opcode::I64_STORE, 0x3, offset, code);
+			}
+			return;
+		}
+		// 2) The value
+		if(STy)
+		{
+			compileAggregateElem(code, valOp, structElemIdx);
+		}
+		else
+		{
+			compileOperand(code, valOp);
+		}
+		// 3) Store
+		// When storing values with size less than 32-bit we need to truncate them
+		if(Ty->isIntegerTy())
+		{
+			uint32_t bitWidth = targetData.getTypeStoreSizeInBits(Ty);
+
+			switch (bitWidth)
+			{
+				case 8:
+					encodeInst(WasmU32U32Opcode::I32_STORE8, 0x0, offset, code);
+					break;
+				case 16:
+					encodeInst(WasmU32U32Opcode::I32_STORE16, 0x1, offset, code);
+					break;
+				case 32:
+					encodeInst(WasmU32U32Opcode::I32_STORE, 0x2, offset, code);
+					break;
+				case 64:
+					encodeInst(WasmU32U32Opcode::I64_STORE, 0x2, offset, code);
+					break;
+				default:
+					llvm::errs() << "bit width: " << bitWidth << '\n';
+					llvm_unreachable("unknown integer bit width");
+			}
+		}
+		else if (Ty->isVectorTy())
+		{
+			const FixedVectorType* vecType = cast<FixedVectorType>(Ty);
+			const unsigned vecWidth = getVectorBitwidth(vecType);
+			if (vecWidth == 128)
+				encodeInst(WasmSIMDU32U32Opcode::V128_STORE, 0x2, offset, code);
+			else if (vecWidth == 64)
+			{
+				encodeStoringShuffle(code, vecType);
+				encodeInst(WasmSIMDU32U32U32Opcode::V128_STORE64_LANE, 0x3, offset, 0, code);
+			}
+			else if (vecWidth == 32)
+			{
+				encodeStoringShuffle(code, vecType);
+				encodeInst(WasmSIMDU32U32U32Opcode::V128_STORE32_LANE, 0x2, offset, 0, code);
+			}
+			else if (vecWidth == 16)
+			{
+				encodeStoringShuffle(code, vecType);
+				encodeInst(WasmSIMDU32U32U32Opcode::V128_STORE16_LANE, 0x1, offset, 0, code);
+			}
+			else
+			{
+				llvm::errs() << "bit width: " << vecWidth << "\n";
+				llvm_unreachable("unknown vector bit width");
+			}
+		}
+		else
+		{
+			if (Ty->isFloatTy())
+				encodeInst(WasmU32U32Opcode::F32_STORE, 0x2, offset, code);
+			else if (Ty->isDoubleTy())
+				encodeInst(WasmU32U32Opcode::F64_STORE, 0x3, offset, code);
+			else
+				encodeInst(WasmU32U32Opcode::I32_STORE, 0x2, offset, code);
+		}
+		});
 }
 
 bool CheerpWasmWriter::compileInstruction(WasmBuffer& code, const Instruction& I)
@@ -2931,18 +3052,17 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			const auto& IV = cast<InsertValueInst>(I);
 			assert(IV.getNumIndices() == 1);
 			uint32_t newIdx = IV.getIndices()[0];
-			uint32_t nElems = IV.getType()->getStructNumElements();
-			for(uint32_t i = 0; i < nElems; i++)
+			forEachElem(&IV, IV.getType(), PA, registerize, /*asmjs*/true, [&](const Value* v, Type* Ty, StructType* STy, POINTER_KIND elemPtrKind, bool isOffset, Registerize::REGISTER_KIND elemRegKind, uint32_t elemIdx, uint32_t structElemIdx, bool asmjs)
 			{
-				if(i == newIdx)
+				if(structElemIdx == newIdx)
 				{
 					compileOperand(code, IV.getOperand(1));
 				}
 				else
 				{
-					compileAggregateElem(code, IV.getAggregateOperand(), i);
+					compileAggregateElem(code, IV.getAggregateOperand(), structElemIdx);
 				}
-			}
+			});
 			break;
 		}
 		case Instruction::Load:
@@ -2984,88 +3104,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 					break;
 				}
 			}
-			// 1) The pointer
-			uint32_t offset = compileLoadStorePointer(code, ptrOp);
-			// Special case writing 0 to floats/double
-			if(valOp->getType()->isFloatingPointTy() && isa<Constant>(valOp) && cast<Constant>(valOp)->isNullValue())
-			{
-				if(valOp->getType()->isFloatTy())
-				{
-					encodeInst(WasmS32Opcode::I32_CONST, 0, code);
-					encodeInst(WasmU32U32Opcode::I32_STORE, 0x2, offset, code);
-				}
-				else
-				{
-					assert(valOp->getType()->isDoubleTy());
-					encodeInst(WasmS64Opcode::I64_CONST, 0, code);
-					encodeInst(WasmU32U32Opcode::I64_STORE, 0x3, offset, code);
-				}
-				break;
-			}
-			// 2) The value
-			compileOperand(code, valOp);
-			// 3) Store
-			// When storing values with size less than 32-bit we need to truncate them
-			if(valOp->getType()->isIntegerTy())
-			{
-				uint32_t bitWidth = targetData.getTypeStoreSizeInBits(valOp->getType());
-
-				// TODO add support for i64.
-				switch (bitWidth)
-				{
-					case 8:
-						encodeInst(WasmU32U32Opcode::I32_STORE8, 0x0, offset, code);
-						break;
-					case 16:
-						encodeInst(WasmU32U32Opcode::I32_STORE16, 0x1, offset, code);
-						break;
-					case 32:
-						encodeInst(WasmU32U32Opcode::I32_STORE, 0x2, offset, code);
-						break;
-					case 64:
-						encodeInst(WasmU32U32Opcode::I64_STORE, 0x2, offset, code);
-						break;
-					default:
-						llvm::errs() << "bit width: " << bitWidth << '\n';
-						llvm_unreachable("unknown integer bit width");
-				}
-			}
-			else if (valOp->getType()->isVectorTy())
-			{
-				const FixedVectorType* vecType = cast<FixedVectorType>(valOp->getType());
-				const unsigned vecWidth = getVectorBitwidth(vecType);
-				if (vecWidth == 128)
-					encodeInst(WasmSIMDU32U32Opcode::V128_STORE, 0x2, offset, code);
-				else if (vecWidth == 64)
-				{
-					encodeStoringShuffle(code, vecType);
-					encodeInst(WasmSIMDU32U32U32Opcode::V128_STORE64_LANE, 0x3, offset, 0, code);
-				}
-				else if (vecWidth == 32)
-				{
-					encodeStoringShuffle(code, vecType);
-					encodeInst(WasmSIMDU32U32U32Opcode::V128_STORE32_LANE, 0x2, offset, 0, code);
-				}
-				else if (vecWidth == 16)
-				{
-					encodeStoringShuffle(code, vecType);
-					encodeInst(WasmSIMDU32U32U32Opcode::V128_STORE16_LANE, 0x1, offset, 0, code);
-				}
-				else
-				{
-					llvm::errs() << "bit width: " << vecWidth << "\n";
-					llvm_unreachable("unknown vector bit width");
-				}
-			}
-			else
-			{
-				if (valOp->getType()->isFloatTy())
-					encodeInst(WasmU32U32Opcode::F32_STORE, 0x2, offset, code);
-				else if (valOp->getType()->isDoubleTy())
-					encodeInst(WasmU32U32Opcode::F64_STORE, 0x3, offset, code);
-				else
-					encodeInst(WasmU32U32Opcode::I32_STORE, 0x2, offset, code);
-			}
+			compileStore(code, si);
 			break;
 		}
 		case Instruction::Switch:
@@ -3520,14 +3559,19 @@ void CheerpWasmWriter::compileInstructionAndSet(WasmBuffer& code, const llvm::In
 
 	if(!ret && !I.getType()->isVoidTy())
 	{
-		if(I.use_empty()) {
-			encodeInst(WasmOpcode::DROP, code);
-		} else {
-			uint32_t reg = registerize.getRegisterId(&I, 0, edgeContext);
-			uint32_t local = localMap.at(reg);
-			teeLocals.addCandidate(&I, /*isInstructionAssigment*/true, local, code.tell());
-			encodeInst(WasmU32Opcode::SET_LOCAL, local, code);
-		}
+		forEachElem(&I, I.getType(), PA, registerize, /*asmjs*/true, [&](const Value* v, Type* Ty, StructType* STy, POINTER_KIND elemPtrKind, bool isOffset, Registerize::REGISTER_KIND elemRegKind, uint32_t elemIdx, uint32_t structElemIdx, bool asmjs)
+		{
+			if(I.use_empty()) {
+				encodeInst(WasmOpcode::DROP, code);
+			} else {
+				uint32_t reg = registerize.getRegisterId(&I, elemIdx, edgeContext);
+				uint32_t local = localMap.at(reg);
+				// TODO: figure out how to deal with tee locals and aggregates
+				if(!STy)
+					teeLocals.addCandidate(&I, /*isInstructionAssigment*/true, local, code.tell());
+				encodeInst(WasmU32Opcode::SET_LOCAL, local, code);
+			}
+		});
 	}
 	teeLocals.instructionStart(code);
 }

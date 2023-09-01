@@ -71,45 +71,6 @@ inline llvm::Type* getElementType(llvm::Type* t, llvm::Type* candidate)
 	}
 }
 
-template<typename F>
-void forEachElem(llvm::Value* v, llvm::Type* Ty, const PointerAnalyzer& PA, const Registerize& registerize, bool asmjs, F cb)
-{
-	if(!Ty->isStructTy())
-	{
-		POINTER_KIND valKind = Ty->isPointerTy()? PA.getPointerKind(v) : COMPLETE_OBJECT;
-		Registerize::REGISTER_KIND regKind = registerize.getRegKindFromType(Ty, asmjs);
-		cb(v, Ty, nullptr, valKind, /*isOffset*/false, regKind, /*curIdx*/0, /*curElem*/0, asmjs);
-		if(Ty->isPointerTy() && PA.getPointerKind(v) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(v))
-		{
-			cb(v, Ty, nullptr, valKind, true, Registerize::INTEGER, 0, 1, asmjs);
-		}
-		return;
-	}
-	auto* STy = llvm::cast<llvm::StructType>(Ty);
-	uint32_t curIdx = 0;
-	uint32_t curElem = 0;
-	for(auto* ETy: STy->elements())
-	{
-		POINTER_KIND valKind = COMPLETE_OBJECT;
-		bool hasConstantOffset = true;
-		if(ETy->isPointerTy())
-		{
-			TypeAndIndex b(STy, curIdx, TypeAndIndex::STRUCT_MEMBER);
-			valKind = PA.getPointerKindForMemberPointer(b);
-			hasConstantOffset = PA.getConstantOffsetForMember(b) != NULL;
-		}
-		Registerize::REGISTER_KIND regKind = registerize.getRegKindFromType(ETy, asmjs);
-		cb(v, ETy, STy, valKind, false, regKind, curIdx, curElem, asmjs);
-		if(Ty->isPointerTy() && valKind == SPLIT_REGULAR && !hasConstantOffset)
-		{
-			cb(v, ETy, STy, valKind, true, Registerize::INTEGER, curIdx, curElem, asmjs);
-			curElem++;
-		}
-		curIdx++;
-		curElem++;
-	}
-}
-
 class InlineableCache
 {
 	typedef llvm::DenseMap<const llvm::Instruction*, bool> Cache;

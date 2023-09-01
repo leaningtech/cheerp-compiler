@@ -2793,29 +2793,13 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 				return;
 			Type* phiType=phi->getType();
 
-			if(auto* STy = dyn_cast<StructType>(phiType))
+			if(phiType->isStructTy())
 			{
-				uint32_t structElemIdx = 0;
-				uint32_t curElemIdx = 0;
-				Type* curTy = nullptr;
-				for(auto* ETy: STy->elements())
+				writer.forEachElem(phi, phiType, PA, writer.registerize, asmjs, [&](const Value* v, Type* Ty, StructType* STy, POINTER_KIND elemPtrKind, bool isOffset, Registerize::REGISTER_KIND elemRegKind, uint32_t elemIdx, uint32_t structElemIdx, bool asmjs)
 				{
-					if(curElemIdx >= elemIdx)
-					{
-						curTy = ETy;
-						break;
-					}
-					TypeAndIndex b(STy, structElemIdx, TypeAndIndex::STRUCT_MEMBER);
-					if(ETy->isPointerTy() && writer.PA.getPointerKindForMemberPointer(b) && PA.getConstantOffsetForMember(b))
-					{
-						curElemIdx++;
-					}
-					structElemIdx++;
-					curElemIdx++;
-				}
-				assert(curTy);
-				writer.stream << writer.getName(phi, elemIdx, /*doNotConsiderEdgeContext*/true) << '=';
-				writer.compileAggregateElem(incoming, elemIdx, LOWEST);
+					writer.stream << writer.getName(phi, elemIdx, /*doNotConsiderEdgeContext*/true) << '=';
+					writer.compileAggregateElem(incoming, elemIdx, LOWEST);
+				});
 			}
 			else if(phiType->isPointerTy())
 			{
@@ -4357,67 +4341,21 @@ void CheerpWriter::compileLoad(const LoadInst& li, PARENT_PRIORITY parentPrio)
 					stream<<",";
 			}
 	}
-	if(!Ty->isStructTy())
+	forEachElem(&li, li.getType(), PA, registerize, asmjs, [&](const Value* v, Type* Ty, StructType* STy, POINTER_KIND elemPtrKind, bool isOffset, Registerize::REGISTER_KIND elemRegKind, uint32_t elemIdx, uint32_t structElemIdx, bool asmjs)
 	{
-		POINTER_KIND loadKind = li.getType()->isPointerTy()? PA.getPointerKindAssert(&li) : COMPLETE_OBJECT;
-		if(Ty->isPointerTy() && PA.getPointerKind(&li) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&li))
+		if(elemIdx != 0)
 		{
-			compileLoadElem(ptrOp, Ty, nullptr, ptrKind, loadKind, true, Registerize::INTEGER, 0, asmjs, parentPrio);
-			if(needsCheckBounds)
-			{
-				needsCheckBounds = false;
-				stream << ')';
-			}
 			stream << ';' << NewLine;
-			stream << getName(&li, 0) << '=';
+			stream << getName(v, elemIdx) << '=';
 			parentPrio = LOWEST;
 		}
-		Registerize::REGISTER_KIND regKind = registerize.getRegKindFromType(Ty, asmjs);
-		compileLoadElem(ptrOp, Ty, nullptr, ptrKind, loadKind, false, regKind, 0, asmjs, parentPrio);
+		compileLoadElem(ptrOp, Ty, nullptr, ptrKind, elemPtrKind, isOffset, elemRegKind, structElemIdx, asmjs, parentPrio);
 		if(needsCheckBounds)
 		{
 			needsCheckBounds = false;
 			stream << ')';
 		}
-		return;
-	}
-	auto* STy = cast<StructType>(Ty);
-	uint32_t curElem = 0;
-	uint32_t curIdx = 0;
-	for(auto* ETy: STy->elements())
-	{
-		POINTER_KIND loadKind = COMPLETE_OBJECT;
-		bool hasConstantOffset = true;
-		if(ETy->isPointerTy())
-		{
-			TypeAndIndex b(STy, curIdx, TypeAndIndex::STRUCT_MEMBER);
-			loadKind = PA.getPointerKindForMemberPointer(b);
-			hasConstantOffset = PA.getConstantOffsetForMember(b) != NULL;
-		}
-		if(curElem != 0)
-		{
-			stream << ';' << NewLine;
-			stream << getName(&li, curElem) << '=';
-			parentPrio = LOWEST;
-		}
-		Registerize::REGISTER_KIND regKind = registerize.getRegKindFromType(ETy, asmjs);
-		compileLoadElem(ptrOp, ETy, STy, ptrKind, loadKind, false, regKind, curIdx, asmjs, parentPrio);
-		if(needsCheckBounds)
-		{
-			needsCheckBounds = false;
-			stream << ')';
-		}
-		if(Ty->isPointerTy() && loadKind == SPLIT_REGULAR && !hasConstantOffset)
-		{
-			curElem++;
-			stream << ';' << NewLine;
-			stream << getName(&li, curElem) << '=';
-			parentPrio = LOWEST;
-			compileLoadElem(ptrOp, ETy, STy, ptrKind, loadKind, true, Registerize::INTEGER, curIdx, asmjs, parentPrio);
-		}
-		curElem++;
-		curIdx++;
-	}
+	});
 }
 
 void CheerpWriter::compileLoadElem(const Value* ptrOp, Type* Ty, StructType* STy, POINTER_KIND ptrKind, POINTER_KIND loadKind, bool isOffset, Registerize::REGISTER_KIND regKind, uint32_t structElemIdx, bool asmjs, PARENT_PRIORITY parentPrio)
@@ -4561,54 +4499,22 @@ void CheerpWriter::compileStore(const StoreInst& si)
 		}
 		else if(ptrKind == COMPLETE_OBJECT && isGEP(ptrOp))
 		{
-			bool needsOffset = valOp->getType()->isPointerTy() && PA.getPointerKindAssert(&si) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&si);
+			bool needsOffset = Ty->isPointerTy() && PA.getPointerKindAssert(&si) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&si);
 			compileCheckDefined(ptrOp, needsOffset);
 			stream<<",";
 		}
 		else if(ptrKind == RAW)
 		{
-			compileCheckBoundsAsmJS(ptrOp, targetData.getTypeAllocSize(valOp->getType())-1);
+			compileCheckBoundsAsmJS(ptrOp, targetData.getTypeAllocSize(Ty)-1);
 			stream<<",";
 		}
 	}
-	if(!Ty->isStructTy())
+	forEachElem(&si, Ty, PA, registerize, asmjs, [&](const Value* v, Type* Ty, StructType* STy, POINTER_KIND elemPtrKind, bool isOffset, Registerize::REGISTER_KIND elemRegKind, uint32_t elemIdx, uint32_t structElemIdx, bool asmjs)
 	{
-		POINTER_KIND storedKind = Ty->isPointerTy()? PA.getPointerKind(&si) : COMPLETE_OBJECT;
-		Registerize::REGISTER_KIND regKind = registerize.getRegKindFromType(Ty, asmjs);
-		compileStoreElem(si, Ty, nullptr, ptrKind, storedKind, false, regKind, 0, 0, asmjs);
-		if(Ty->isPointerTy() && PA.getPointerKind(&si) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&si))
-		{
+		if(elemIdx != 0)
 			stream << ';' << NewLine;
-			compileStoreElem(si, Ty, nullptr, ptrKind, storedKind, true, Registerize::INTEGER, 0, 1, asmjs);
-		}
-		return;
-	}
-	auto* STy = cast<StructType>(Ty);
-	uint32_t curIdx = 0;
-	uint32_t curElem = 0;
-	for(auto* ETy: STy->elements())
-	{
-		if(curElem != 0)
-			stream << ';' << NewLine;
-		POINTER_KIND storedKind = COMPLETE_OBJECT;
-		bool hasConstantOffset = true;
-		if(ETy->isPointerTy())
-		{
-			TypeAndIndex b(STy, curIdx, TypeAndIndex::STRUCT_MEMBER);
-			storedKind = PA.getPointerKindForMemberPointer(b);
-			hasConstantOffset = PA.getConstantOffsetForMember(b) != NULL;
-		}
-		Registerize::REGISTER_KIND regKind = registerize.getRegKindFromType(ETy, asmjs);
-		compileStoreElem(si, ETy, STy, ptrKind, storedKind, false, regKind, curIdx, curElem, asmjs);
-		if(Ty->isPointerTy() && storedKind == SPLIT_REGULAR && !hasConstantOffset)
-		{
-			stream << ';' << NewLine;
-			compileStoreElem(si, ETy, STy, ptrKind, storedKind, true, regKind, curIdx, curElem, asmjs);
-			curElem++;
-		}
-		curIdx++;
-		curElem++;
-	}
+		compileStoreElem(si, Ty, STy, ptrKind, elemPtrKind, isOffset, elemRegKind, elemIdx, structElemIdx, asmjs);
+	});
 }
 
 void CheerpWriter::compileStoreElem(const StoreInst& si, Type* Ty, StructType* STy, POINTER_KIND ptrKind, POINTER_KIND storedKind, bool isOffset, Registerize::REGISTER_KIND regKind, uint32_t structElemIdx, uint32_t elemIdx, bool asmjs)
@@ -5023,26 +4929,19 @@ void CheerpWriter::compileBB(const BasicBlock& BB)
 			else if(II->getIntrinsicID()==Intrinsic::cheerp_downcast)
 				isDowncast = true;
 		}
-		if(!I.use_empty())
+		if(!I.use_empty() && !I.getType()->isVoidTy())
 		{
-			if(I.getType()->isPointerTy() && (!isa<CallBase>(I) || isDowncast) && PA.getPointerKind(&I) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&I))
+			uint32_t regId = registerize.getRegisterId(&I, 0, edgeContext);
+			assert(namegen.getRegName(BB.getParent(), regId) == getName(&I, 0));
+			stream << namegen.getRegName(BB.getParent(), regId);
+			if(!asmjs && compileCompoundStatement(&I, regId))
 			{
-				stream << getName(&I, 1) << '=';
+				stream << ';' << NewLine;
+				emptyBlock = false;
+				continue;
 			}
-			else if(!I.getType()->isVoidTy())
-			{
-				uint32_t regId = registerize.getRegisterId(&I, 0, edgeContext);
-				assert(namegen.getRegName(BB.getParent(), regId) == getName(&I, 0));
-				stream << namegen.getRegName(BB.getParent(), regId);
-				if(!asmjs && compileCompoundStatement(&I, regId))
-				{
-					stream << ';' << NewLine;
-					emptyBlock = false;
-					continue;
-				}
-				else
-					stream << "=";
-			}
+			else
+				stream << "=";
 		}
 		if(I.isTerminator())
 		{
