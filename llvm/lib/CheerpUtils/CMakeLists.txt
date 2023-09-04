@@ -16,7 +16,6 @@ add_llvm_component_library(LLVMCheerpUtils
   StructMemFuncLowering.cpp
   TypeOptimizer.cpp
   Utility.cpp
-  ExpandStructRegs.cpp
   FixIrreducibleControlFlow.cpp
   LowerSwitch.cpp
   FixFunctionCasts.cpp

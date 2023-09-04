@@ -2899,13 +2899,32 @@ Registerize::REGISTER_KIND Registerize::getRegKindFromInstElem(const InstElem& r
 {
 	const Instruction* I = reg.instruction;
 	const uint32_t index = reg.elemIdx;
-	if (I->getType()->isPointerTy() && PA->getPointerKind(I) == SPLIT_REGULAR && index == 1)
+	if(I->getType()->isPointerTy() && PA->getPointerKind(I) == SPLIT_REGULAR && index == 1)
 		return INTEGER;
-	return getRegKindFromType(I->getType(), asmjs);
+	if(!I->getType()->isStructTy())
+		return getRegKindFromType(I->getType(), asmjs);
+	auto* STy = cast<StructType>(I->getType());
+	uint32_t curIdx = 0;
+	for(auto* Ty: STy->elements())
+	{
+		if(curIdx == index)
+			return getRegKindFromType(Ty, asmjs);
+		if(I->getType()->isPointerTy() && PA->getPointerKind(I) == SPLIT_REGULAR && !PA->getConstantOffsetForPointer(I))
+		{
+			curIdx++;
+			if(curIdx == index)
+				return INTEGER;
+		}
+		curIdx++;
+
+	}
+	assert(false);
+	return OBJECT;
 }
 
 Registerize::REGISTER_KIND Registerize::getRegKindFromType(const llvm::Type* t, bool asmjs) const
 {
+	assert(!t->isStructTy());
 	if(t->isIntegerTy(64))
 		return INTEGER64;
 	else if(t->isIntegerTy())
