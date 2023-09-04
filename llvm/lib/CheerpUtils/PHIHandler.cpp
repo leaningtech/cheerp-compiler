@@ -147,9 +147,12 @@ void EndOfBlockPHIHandler::runOnConnectionGraph(DependencyGraph dependencyGraph,
 		//If using stack to resolve temporaries, do it now
 		if (!isRecursiveCall)
 		{
-			std::vector<const PHINode*> toProcessOnStack;
+			std::vector<std::pair<const PHINode*, uint32_t>> toProcessOnStack;
 			for (auto id : registerIds)
-				toProcessOnStack.push_back(phiRegs.at(id).phiInst);
+			{
+				auto& regData = phiRegs.at(id);
+				toProcessOnStack.emplace_back(regData.phiInst, regData.elemIdx);
+			}
 
 			handlePHIStackGroup(toProcessOnStack);
 		}
@@ -165,7 +168,7 @@ void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const Basic
 	BasicBlock::const_iterator IE=toBB->end();
 	PHIRegs phiRegs;
 	llvm::SmallVector<Registerize::InstElem, 4> orderedPHIs;
-	std::vector<const PHINode*> toProcessOnStack;
+	std::vector<std::pair<const PHINode*, uint32_t>> toProcessOnStack;
 	for(;I!=IE;++I)
 	{
 		// Gather the dependency graph between registers for PHIs and incoming values
@@ -182,9 +185,9 @@ void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const Basic
 		const Instruction* I=dyn_cast<Instruction>(val);
 		if(!I)
 		{
-			toProcessOnStack.push_back(phi);
 			for(uint32_t i = 0; i < phiRegisters.size(); i++)
 			{
+				toProcessOnStack.emplace_back(phi, i);
 				orderedPHIs.push_back(Registerize::InstElem(phi, i));
 			}
 			continue;
