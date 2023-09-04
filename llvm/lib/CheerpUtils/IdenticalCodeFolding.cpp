@@ -855,7 +855,6 @@ bool IdenticalCodeFolding::isFunctionExternal(const llvm::Function* F)
 	if (it != externalFunctionMapping.end())
 		return it->second;
 
-	bool functionExternal = false;
 	for (const Use& U : F->uses())
 	{
 		const User* user = U.getUser();
