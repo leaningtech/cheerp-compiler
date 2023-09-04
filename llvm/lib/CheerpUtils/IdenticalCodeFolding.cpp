@@ -986,9 +986,14 @@ bool IdenticalCodeFolding::runOnModule(llvm::Module& module)
 						" to " << replacement->getName() + "_icf" << '\n');
 				replacement->setName(replacement->getName() + "_icf");
 			}
-
-			delete item.first;
 		}
+	}
+
+	for (auto F : deleteList)
+	{
+		F->dropAllReferences();
+		F->removeFromParent();
+		delete F;
 	}
 
 	return true;
@@ -1030,9 +1035,7 @@ void IdenticalCodeFolding::mergeTwoFunctions(Function *F, Function *G) {
 
 		F->replaceAllUsesWith(replacement);
 	}
-	F->dropAllReferences();
-
-	F->removeFromParent();
+	deleteList.push_back(F);
 }
 
 PreservedAnalyses IdenticalCodeFoldingPass::run(Module& M, ModuleAnalysisManager& MAM)

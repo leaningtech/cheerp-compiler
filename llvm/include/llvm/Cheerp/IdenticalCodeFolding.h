@@ -67,6 +67,7 @@ private:
 	llvm::SmallSet<const llvm::PHINode*, 16> visitedPhis;
 	std::unordered_map<std::pair<const llvm::Function*, const llvm::Function*>, bool, pair_hash> functionEquivalence;
 	std::unordered_map<const llvm::Function*, bool> externalFunctionMapping;
+	std::vector<llvm::Function*> deleteList;
 };
 
 class HashAccumulator64 {
