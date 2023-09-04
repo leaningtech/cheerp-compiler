@@ -130,7 +130,7 @@ private:
 	// Callbacks implemented by derived classes
 	virtual void handleRecursivePHIDependency(const llvm::Instruction* incoming, uint32_t elemIdx) = 0;
 	virtual void handlePHI(const llvm::PHINode* phi, uint32_t elemIdx, const llvm::Value* incoming) = 0;
-	virtual void handlePHIStackGroup(const std::vector<const llvm::PHINode*>& phiToHandle) = 0;
+	virtual void handlePHIStackGroup(const std::vector<std::pair<const llvm::PHINode*, uint32_t>>& phiToHandle) = 0;
 	// Called for every register which is either assigned or used by PHIs in the edge
 	virtual void setRegisterUsed(uint32_t reg) {};
 	virtual void addRegisterUse(uint32_t reg) {};
@@ -150,7 +150,7 @@ public:
 	void handleRecursivePHIDependency(const llvm::Instruction* incoming, uint32_t elemIdx) override = 0;
 	void handlePHI(const llvm::PHINode* phi, uint32_t elemIdx, const llvm::Value* incoming) override = 0;
 	// Callbacks that should NOT be implemented by derived classes
-	void handlePHIStackGroup(const std::vector<const llvm::PHINode*>& phiToHandle) override {}
+	void handlePHIStackGroup(const std::vector<std::pair<const llvm::PHINode*, uint32_t>>& phiToHandle) override {}
 };
 
 class PHIHandlerUsingStack : public EndOfBlockPHIHandler
@@ -164,7 +164,7 @@ public:
 	void handleRecursivePHIDependency(const llvm::Instruction* incoming, uint32_t elemIdx) override {}
 	void handlePHI(const llvm::PHINode* phi, uint32_t elemIdx, const llvm::Value* incoming) override {}
 	// Callbacks that have to be implemented by derived classes
-	void handlePHIStackGroup(const std::vector<const llvm::PHINode*>& phiToHandle) override = 0;
+	void handlePHIStackGroup(const std::vector<std::pair<const llvm::PHINode*, uint32_t>>& phiToHandle) override = 0;
 };
 
 }

@@ -1116,12 +1116,13 @@ void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const B
 		CheerpWasmWriter& writer;
 		WasmBuffer& code;
 		const BasicBlock* fromBB;
-		void handlePHIStackGroup(const std::vector<const llvm::PHINode*>& phiToHandle) override
+		void handlePHIStackGroup(const std::vector<std::pair<const llvm::PHINode*, uint32_t>>& phiToHandle) override
 		{
 			std::vector<std::pair<const Value*, std::vector<const llvm::PHINode*>>> toProcessOrdered;
 			std::map<const Value*, std::vector<const llvm::PHINode*>> toProcessMap;
-			for (auto& phi : phiToHandle)
+			for (auto& [phi, elemIdx] : phiToHandle)
 			{
+				assert(elemIdx == 0);
 				const Value* incoming = phi->getIncomingValueForBlock(fromBB);
 				// We can avoid assignment from the same register if no pointer kind conversion is required
 				if(!writer.requiresExplicitAssigment(phi, incoming))
