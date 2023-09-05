@@ -3216,27 +3216,6 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			compileStore(cast<StoreInst>(I));
 			return COMPILE_OK;
 		}
-		case Instruction::PHI:
-		{
-			const PHINode* phi = cast<PHINode>(&I);
-			assert(phi->getType()->isPointerTy());
-			assert(canDelayPHI(phi, PA, registerize));
-			// If we get here we know that all the values are rendered indentically
-			const Value* incoming = phi->getIncomingValue(0);
-			POINTER_KIND k = PA.getPointerKindAssert(phi);
-			if((k == REGULAR || k == SPLIT_REGULAR || k == BYTE_LAYOUT) && PA.getConstantOffsetForPointer(phi))
-				compilePointerBase(incoming);
-			else if(k == SPLIT_REGULAR)
-			{
-				compilePointerOffset(incoming, LOWEST);
-				stream << ';' << NewLine;
-				stream << getName(phi, 0) << '=';
-				compilePointerBase(incoming);
-			}
-			else
-				compilePointerAs(incoming, k);
-			return COMPILE_OK;
-		}
 		default:
 		{
 			bool convertBoolean = false;
@@ -4883,15 +4862,55 @@ void CheerpWriter::compileBB(const BasicBlock& BB)
 {
 	bool asmjs = BB.getParent()->getSection() == StringRef("asmjs");
 	bool emptyBlock = true;
+	class PHIHandler: public PHIHandlerUsingTemp
+	{
+	public:
+		PHIHandler(CheerpWriter& writer):
+		           PHIHandlerUsingTemp(writer.PA, writer.edgeContext), hasDelayedPHIs(false), writer(writer)
+		{
+		}
+		bool hasDelayedPHIs;
+	private:
+		CheerpWriter writer;
+		void handleRecursivePHIDependency(const Instruction* incoming, uint32_t elemIdx) override
+		{
+		}
+		void handlePHI(const PHINode* phi, uint32_t elemIdx, const Value* incoming) override
+		{
+			if(!canDelayPHI(phi, PA, writer.registerize))
+				return;
+			hasDelayedPHIs = true;
+			assert(!phi->getType()->isStructTy());
+			POINTER_KIND k = PA.getPointerKindAssert(phi);
+			writer.stream << writer.getName(phi, elemIdx) << '=';
+			if((k == REGULAR || k == SPLIT_REGULAR || k == BYTE_LAYOUT) && PA.getConstantOffsetForPointer(phi))
+				writer.compilePointerBase(incoming);
+			else if(k == SPLIT_REGULAR)
+			{
+				if(elemIdx == 0)
+					writer.compilePointerBase(incoming);
+				else
+					writer.compilePointerOffset(incoming, LOWEST);
+			}
+			else
+				writer.compilePointerAs(incoming, k);
+			writer.stream << ';' << writer.NewLine;
+		}
+	};
+	if(!BB.phis().empty())
+	{
+		PHIHandler PH(*this);
+		PH.runOnEdge(registerize, *pred_begin(&BB), &BB);
+		emptyBlock = !PH.hasDelayedPHIs;
+	}
 	for(const auto& I: BB)
 	{
-		if(isInlineable(I, PA))
-			continue;
 		if(const PHINode* phi = dyn_cast<PHINode>(&I))
 		{
-			if(!canDelayPHI(phi, PA, registerize))
-				continue;
+			continue;
 		}
+		if(isInlineable(I, PA))
+			continue;
 		const DebugLoc& debugLoc = I.getDebugLoc();
 		if(sourceMapGenerator)
 		{
