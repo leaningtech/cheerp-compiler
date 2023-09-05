@@ -321,12 +321,11 @@ void CheerpWriter::compileDowncast( const CallBase& callV )
 		if(result_kind == SPLIT_REGULAR)
 		{
 			compileCompleteObject(src);
+			stream << ".a;" << NewLine;
+			stream << getName(&callV, 1) << '=';
+			compileCompleteObject(src);
 			stream << ".o-";
 			compileOperand(offset, HIGHEST);
-			stream << ";" << NewLine;
-			stream << getName(&callV, 0) << '=';
-			compileCompleteObject(src);
-			stream << ".a";
 		}
 		else if(result_kind == REGULAR)
 		{
@@ -3104,9 +3103,6 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			}
 			else if(k == SPLIT_REGULAR)
 			{
-				stream << "=0";
-				stream << ';' << NewLine;
-				stream << getName(ai, 0) << '=';
 				stream << '[';
 				compileType(ai->getAllocatedType(), LITERAL_OBJ, varName, allocaStores);
 				stream << ']';
@@ -4138,16 +4134,16 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			{
 				compileOperand(si.getOperand(0), TERNARY, /*allowBooleanObjects*/ true);
 				stream << '?';
-				compilePointerOffset(si.getOperand(1), TERNARY);
-				stream << ':';
-				compilePointerOffset(si.getOperand(2), TERNARY);
-				stream << ';' << NewLine;
-				stream << getName(&si, 0) << '=';
-				compileOperand(si.getOperand(0), TERNARY, /*allowBooleanObjects*/ true);
-				stream << '?';
 				compilePointerBase(si.getOperand(1));
 				stream << ':';
 				compilePointerBase(si.getOperand(2));
+				stream << ';' << NewLine;
+				stream << getName(&si, 1) << '=';
+				compileOperand(si.getOperand(0), TERNARY, /*allowBooleanObjects*/ true);
+				stream << '?';
+				compilePointerOffset(si.getOperand(1), TERNARY);
+				stream << ':';
+				compilePointerOffset(si.getOperand(2), TERNARY);
 			}
 			else
 			{
@@ -4331,16 +4327,14 @@ void CheerpWriter::compileLoad(const LoadInst& li, PARENT_PRIORITY parentPrio)
 					stream<<",";
 			}
 	}
-	bool first = true;
 	forEachElem(&li, li.getType(), PA, registerize, asmjs, [&](const Value* v, Type* Ty, StructType* STy, POINTER_KIND elemPtrKind, bool isOffset, Registerize::REGISTER_KIND elemRegKind, uint32_t elemIdx, uint32_t structElemIdx, bool asmjs)
 	{
-		if(!first)
+		if(elemIdx != 0)
 		{
 			stream << ';' << NewLine;
 			stream << getName(v, elemIdx) << '=';
 			parentPrio = LOWEST;
 		}
-		first = false;
 		compileLoadElem(ptrOp, Ty, nullptr, ptrKind, elemPtrKind, isOffset, elemRegKind, structElemIdx, asmjs, parentPrio);
 		if(needsCheckBounds)
 		{
@@ -4491,14 +4485,12 @@ void CheerpWriter::compileStore(const StoreInst& si)
 			stream<<",";
 		}
 	}
-	bool first = true;
 	forEachElem(&si, Ty, PA, registerize, asmjs, [&](const Value* v, Type* Ty, StructType* STy, POINTER_KIND elemPtrKind, bool isOffset, Registerize::REGISTER_KIND elemRegKind, uint32_t elemIdx, uint32_t structElemIdx, bool asmjs)
 	{
-		if(!first)
+		if(elemIdx != 0)
 		{
 			stream << ';' << NewLine;
 		}
-		first = false;
 		compileStoreElem(si, Ty, STy, ptrKind, elemPtrKind, isOffset, elemRegKind, elemIdx, structElemIdx, asmjs);
 	});
 }
@@ -4938,26 +4930,19 @@ void CheerpWriter::compileBB(const BasicBlock& BB)
 			else if(II->getIntrinsicID()==Intrinsic::cheerp_downcast)
 				isDowncast = true;
 		}
-		if(!I.use_empty())
+		if(!I.use_empty() && !I.getType()->isVoidTy())
 		{
-			if(I.getType()->isPointerTy() && (!isa<CallBase>(I) || isDowncast) && PA.getPointerKind(&I) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&I))
+			uint32_t regId = registerize.getRegisterId(&I, 0, edgeContext);
+			assert(namegen.getRegName(BB.getParent(), regId) == getName(&I, 0));
+			stream << namegen.getRegName(BB.getParent(), regId);
+			if(!asmjs && compileCompoundStatement(&I, regId))
 			{
-				stream << getName(&I, 1) << '=';
+				stream << ';' << NewLine;
+				emptyBlock = false;
+				continue;
 			}
-			else if(!I.getType()->isVoidTy())
-			{
-				uint32_t regId = registerize.getRegisterId(&I, 0, edgeContext);
-				assert(namegen.getRegName(BB.getParent(), regId) == getName(&I, 0));
-				stream << namegen.getRegName(BB.getParent(), regId);
-				if(!asmjs && compileCompoundStatement(&I, regId))
-				{
-					stream << ';' << NewLine;
-					emptyBlock = false;
-					continue;
-				}
-				else
-					stream << "=";
-			}
+			else
+				stream << "=";
 		}
 		if(I.isTerminator())
 		{
