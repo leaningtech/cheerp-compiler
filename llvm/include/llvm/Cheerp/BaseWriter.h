@@ -42,11 +42,11 @@ public:
 
 		POINTER_KIND valKind = Ty->isPointerTy()? PA.getPointerKind(v) : COMPLETE_OBJECT;
 		Registerize::REGISTER_KIND regKind = registerize.getRegKindFromType(Ty, asmjs);
+		cb(v, Ty, nullptr, valKind, /*isOffset*/false, regKind, /*elemIdx*/0, /*structElemIdx*/0, asmjs);
 		if(valKind == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(v))
 		{
 			cb(v, Ty, nullptr, valKind, true, Registerize::INTEGER, 1, 0, asmjs);
 		}
-		cb(v, Ty, nullptr, valKind, /*isOffset*/false, regKind, /*elemIdx*/0, /*structElemIdx*/0, asmjs);
 		return;
 	}
 
