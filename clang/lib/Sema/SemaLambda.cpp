@@ -1494,6 +1494,14 @@ static void addFunctionPointerConversion(Sema &S, SourceRange IntroducerRange,
   Conversion->setAccess(AS_public);
   Conversion->setImplicit(true);
 
+  // CHEERP: Add AsmJS attribute to function object if it exists on the lambda
+  if (Class->hasAttr<AsmJSAttr>()) {
+    auto spelling = Class->getAttr<AsmJSAttr>()->getSemanticSpelling();
+    Conversion->addAttr(
+        AsmJSAttr::CreateImplicit(S.Context, Conversion->getBeginLoc(),
+                                  AttributeCommonInfo::AS_GNU, spelling));
+  }
+
   if (Class->isGenericLambda()) {
     // Create a template version of the conversion operator, using the template
     // parameter list of the function call operator.
