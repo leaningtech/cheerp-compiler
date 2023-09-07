@@ -38,7 +38,10 @@ STATISTIC(NumRegisters, "Total number of registers allocated to functions");
 static int getNumberOfRegisters(const Instruction* I, const cheerp::PointerAnalyzer* PA)
 {
 	if(PA)
-		return cheerp::getNumberOfElements(I, *PA);
+	{
+		auto range = cheerp::Registerize::getInstElems(I, *PA);
+		return std::distance(range.begin(), range.end());
+	}
 	return 1;
 }
 
@@ -304,7 +307,7 @@ uint32_t Registerize::dfsLiveRangeInBlock(BlocksState& blocksState, LiveRangesTy
 	// For each use used operands extend their live ranges to here
 	for (Instruction& I: BB)
 	{
-		assert(liveRanges.count(InstElem(&I, 0))==0);
+		assert(liveRanges.count(*InstElemIterator(&I, PA))==0);
 		assert(instIdMap.count(&I));
 		uint32_t thisIndexFirst = instIdMap.find(&I)->second;
 		uint32_t nRegs = getNumberOfRegisters(&I, &PA);
@@ -317,9 +320,9 @@ uint32_t Registerize::dfsLiveRangeInBlock(BlocksState& blocksState, LiveRangesTy
 		// Void instruction and instructions without uses do not need any lifetime computation
 		if (!I.getType()->isVoidTy() && !I.use_empty())
 		{
-			for (uint32_t i = 0; i < nRegs; i++)
+			for (const auto& ie: getInstElems(&I, PA))
 			{
-				InstructionLiveRange& range=liveRanges.emplace(InstElem(&I, i),
+				InstructionLiveRange& range=liveRanges.emplace(ie,
 					InstructionLiveRange(codePathId)).first->second;
 				range.range.push_back(LiveRangeChunk(thisIndexFirst, thisIndexLast));
 			}
@@ -342,10 +345,9 @@ uint32_t Registerize::dfsLiveRangeInBlock(BlocksState& blocksState, LiveRangesTy
 		}
 		else
 		{
-			uint32_t nRegs = getNumberOfRegisters(outLiveInst, &PA);
-			for (uint32_t i = 0; i < nRegs; i++)
+			for (const auto& ie: getInstElems(outLiveInst, PA))
 			{
-				auto it = liveRanges.find(InstElem(outLiveInst, i));
+				auto it = liveRanges.find(ie);
 				assert(it != liveRanges.end());
 				InstructionLiveRange& range= it->second;
 				range.addUse(codePathId, endOfBlockIndex);
@@ -382,12 +384,9 @@ void Registerize::extendRangeForUsedOperands(Instruction& I, LiveRangesTy& liveR
 			extendRangeForUsedOperands(*usedI, liveRanges, PA, thisIndex, codePathId);
 		else
 		{
-			uint32_t nRegs = getNumberOfRegisters(usedI, &PA);
-			for (uint32_t i = 0; i < nRegs; i++)
+			for (const auto& ie: getInstElems(usedI, PA))
 			{
-				InstElem ie = InstElem(usedI, i);
-				assert(liveRanges.count(ie));
-				auto it = liveRanges.find(InstElem(usedI, i));
+				auto it = liveRanges.find(ie);
 				assert(it != liveRanges.end());
 				InstructionLiveRange& range = it->second;
 				if(codePathId!=thisIndex)
@@ -959,7 +958,7 @@ void Registerize::RegisterAllocatorInst::materializeRegisters(llvm::SmallVectorI
 			regs.resize(getNumberOfRegisters(ie.instruction, &PA));
 			it = registerize->registersMap.try_emplace(ie.instruction, std::move(regs)).first;
 		}
-		it->second[ie.elemIdx] = num;
+		it->second[ie.totalIdx] = num;
 	}
 }
 

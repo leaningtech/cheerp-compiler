@@ -1065,29 +1065,6 @@ std::vector<Constant*> getGlobalConstructors(Module& module)
 	return ret;
 }
 
-
-uint32_t getNumberOfElements(const Value* V, const PointerAnalyzer& PA)
-{
-	if(auto* STy = dyn_cast<StructType>(V->getType()))
-	{
-		return STy->getNumElements();
-	}
-	if(!V->getType()->isPointerTy())
-		return 1;
-	if(auto* A = llvm::dyn_cast<Argument>(V))
-	{
-		if(PA.getPointerKindForArgument(A) == SPLIT_REGULAR)
-		{
-			return 2;
-		}
-	}
-	else if(PA.getPointerKind(V) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(V))
-	{
-		return 2;
-	}
-	return 1;
-}
-
 const llvm::Loop* findCommonLoop(const llvm::LoopInfo* LI, const llvm::BasicBlock* first, const llvm::BasicBlock* second)
 {
 	//Find the innermost common loop between two BB.
