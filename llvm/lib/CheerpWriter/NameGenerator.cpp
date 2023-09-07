@@ -254,7 +254,7 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 		for ( auto& arg: f.args())
 		{
 			thisFunctionLocals[currentArgPos].first = f.getNumUses();
-			bool needsTwoNames = getNumberOfElements(&arg, PA) > 1;
+			bool needsTwoNames = arg.getType()->isPointerTy() && PA.getPointerKindForArgument(&arg) == SPLIT_REGULAR;
 			thisFunctionLocals[currentArgPos].second = localData{&arg, 0, needsTwoNames};
 			currentArgPos++;
 		}
@@ -398,7 +398,8 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 			// Assign this name to a global value
 			namemap.emplace( global_it->second, nameHelper.makeGlobalName() );
 			// We need to consume another name to assign the secondary one
-			if(getNumberOfElements(global_it->second, PA) > 1)
+			auto* G = global_it->second;
+			if(G->getType()->isPointerTy() && PA.getPointerKind(G) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(G))
 			{
 				secondaryNamemap.emplace( global_it->second, nameHelper.makeGlobalName() );
 			}
@@ -553,7 +554,7 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 
 		for ( auto& arg: f.args())
 		{
-			bool needsTwoNames = getNumberOfElements(&arg, PA) > 1;
+			bool needsTwoNames = arg.getType()->isPointerTy() && PA.getPointerKindForArgument(&arg) == SPLIT_REGULAR;
 			if ( arg.hasName() )
 			{
 				namemap.emplace( &arg, filterLLVMName(arg.getName(), LOCAL) );
@@ -583,7 +584,7 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 		else
 		{
 			namemap.emplace( &GV, filterLLVMName( GV.getName(), GLOBAL ) );
-			bool needsTwoNames = getNumberOfElements(&GV, PA) > 1;
+			bool needsTwoNames = GV.getType()->isPointerTy() && PA.getPointerKind(&GV) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&GV);
 			if(needsTwoNames)
 				secondaryNamemap.emplace( &GV, filterLLVMName(GV.getName(), GLOBAL_SECONDARY) );
 		}
