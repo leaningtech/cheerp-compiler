@@ -3185,6 +3185,12 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			uint32_t newIdx = IV.getIndices()[0];
 			forEachElem(&IV, IV.getType(), PA, registerize, asmjs, [&](const Value* v, Type* Ty, StructType* STy, POINTER_KIND elemPtrKind, bool isOffset, Registerize::REGISTER_KIND elemRegKind, uint32_t elemIdx, uint32_t structElemIdx, bool asmjs)
 			{
+				if(elemIdx != 0)
+				{
+					stream << ";" << NewLine;
+					stream << getName(&IV, elemIdx);
+					stream << '=';
+				}
 				if(structElemIdx == newIdx)
 				{
 					compileOperand(IV.getOperand(1));
@@ -3194,27 +3200,6 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 					compileAggregateElem(IV.getAggregateOperand(), structElemIdx);
 				}
 			});
-			uint32_t nElems = IV.getType()->getStructNumElements();
-			auto compileElem = [&](uint32_t structElemIdx, uint32_t elemIdx)
-			{
-				if(structElemIdx == newIdx)
-				{
-					compileOperand(IV.getOperand(1));
-				}
-				else
-				{
-					compileAggregateElem(IV.getAggregateOperand(), structElemIdx);
-				}
-				return elemIdx+1;
-			};
-			uint32_t curElemIdx = compileElem(0, 0);
-			for(uint32_t i = 1; i < nElems; i++)
-			{
-				stream << ";" << NewLine;
-				stream << getName(&IV, curElemIdx);
-				stream << '=';
-				curElemIdx = compileElem(i, curElemIdx);
-			}
 			return COMPILE_OK;
 		}
 		case Instruction::Store:
