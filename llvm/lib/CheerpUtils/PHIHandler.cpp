@@ -77,17 +77,17 @@ void EndOfBlockPHIHandler::runOnSCC(const std::vector<uint32_t>& registerIds, PH
 	//If the SCC is a multi-node loop, there is need to create a temporary
 	if (registerIds.size() > 1)
 	{
-		auto incoming = regData.incomingInstElem;
+		const auto& incoming = regData.incomingInstElem;
 		assert(incoming.instruction);
-		handleRecursivePHIDependency(incoming.instruction, incoming.elemIdx);
+		handleRecursivePHIDependency(incoming);
 		edgeContext.processAssigment();
 	}
 
 	setRegisterUsed(whoToProcess);
-	const PHINode* phi = regData.phiInst;
+	const PHINode* phi = cast<PHINode>(regData.phiInstElem.instruction);
 	const Value* val=phi->getIncomingValueForBlock(edgeContext.fromBB);
 	// Call specialized function to process the actual assignment to the PHI
-	handlePHI(phi, regData.elemIdx, val);
+	handlePHI(regData.phiInstElem, val);
 	edgeContext.processAssigment();
 
 	for (const auto& pair : regData.incomingRegs)
@@ -147,11 +147,11 @@ void EndOfBlockPHIHandler::runOnConnectionGraph(DependencyGraph dependencyGraph,
 		//If using stack to resolve temporaries, do it now
 		if (!isRecursiveCall)
 		{
-			std::vector<std::pair<const PHINode*, uint32_t>> toProcessOnStack;
+			std::vector<Registerize::InstElem> toProcessOnStack;
 			for (auto id : registerIds)
 			{
 				auto& regData = phiRegs.at(id);
-				toProcessOnStack.emplace_back(regData.phiInst, regData.elemIdx);
+				toProcessOnStack.emplace_back(regData.phiInstElem);
 			}
 
 			handlePHIStackGroup(toProcessOnStack);
@@ -168,7 +168,7 @@ void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const Basic
 	BasicBlock::const_iterator IE=toBB->end();
 	PHIRegs phiRegs;
 	llvm::SmallVector<Registerize::InstElem, 4> orderedPHIs;
-	std::vector<std::pair<const PHINode*, uint32_t>> toProcessOnStack;
+	std::vector<Registerize::InstElem> toProcessOnStack;
 	for(;I!=IE;++I)
 	{
 		// Gather the dependency graph between registers for PHIs and incoming values
@@ -185,16 +185,18 @@ void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const Basic
 		const Instruction* I=dyn_cast<Instruction>(val);
 		if(!I)
 		{
-			for(uint32_t i = 0; i < phiRegisters.size(); i++)
+			for(const auto& ie: Registerize::getInstElems(phi, PA))
 			{
-				toProcessOnStack.emplace_back(phi, i);
-				orderedPHIs.push_back(Registerize::InstElem(phi, i));
+				toProcessOnStack.emplace_back(ie);
+				orderedPHIs.push_back(ie);
 			}
 			continue;
 		}
-		for(uint32_t i = 0; i < phiRegisters.size(); i++)
+		Registerize::InstElemIterator it(phi, PA);
+		for(uint32_t reg: phiRegisters)
 		{
-			phiRegs.emplace(phiRegisters[i], PHIRegData(phi, i));
+			phiRegs.emplace(reg, PHIRegData(*it));
+			++it;
 		}
 		llvm::SmallVector<std::pair<const Instruction*, /*dereferenced*/bool>, 4> instQueue;
 		instQueue.push_back(std::make_pair(I, false));
@@ -205,21 +207,27 @@ void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const Basic
 			if(!isInlineable(*incomingInst.first, PA))
 			{
 				auto incomingRegs = registerize.getAllRegisterIds(incomingInst.first, EdgeContext::emptyContext());
+				Registerize::InstElemIterator phiIt(phi, PA);
 				for(uint32_t i = 0; i < phiRegisters.size(); i++)
 				{
 					auto it = phiRegs.find(phiRegisters[i]);
 					assert(it != phiRegs.end());
 					if(incomingInst.second/*derefereced*/ || phiRegisters.size() != incomingRegs.size())
 					{
+						Registerize::InstElemIterator incomingIt(incomingInst.first, PA);
 						for (uint32_t j = 0; j < incomingRegs.size(); j++)
 						{
-							it->second.incomingRegs.push_back(std::make_pair(incomingRegs[j], Registerize::InstElem(incomingInst.first, j)));
+							it->second.incomingRegs.push_back(std::make_pair(incomingRegs[j], *incomingIt));
+							++incomingIt;
 						}
 					}
 					else
 					{
-						it->second.incomingRegs.push_back(std::make_pair(incomingRegs[i], Registerize::InstElem(incomingInst.first, i)));
+						auto incomingEl = *phiIt;
+						incomingEl.instruction = incomingInst.first;
+						it->second.incomingRegs.push_back(std::make_pair(incomingRegs[i], incomingEl));
 					}
+					++phiIt;
 				}
 			}
 			else
@@ -258,7 +266,7 @@ void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const Basic
 		auto* phi = cast<PHINode>(orderedPHIs[i].instruction);
 		const Value* val=phi->getIncomingValueForBlock(fromBB);
 		// Call specialized function to process the actual assignment to the PHI
-		handlePHI(phi, orderedPHIs[i].elemIdx, val);
+		handlePHI(orderedPHIs[i], val);
 		edgeContext.processAssigment();
 	}
 

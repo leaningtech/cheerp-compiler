@@ -1116,14 +1116,17 @@ void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const B
 		CheerpWasmWriter& writer;
 		WasmBuffer& code;
 		const BasicBlock* fromBB;
-		void handlePHIStackGroup(const std::vector<std::pair<const llvm::PHINode*, uint32_t>>& phiToHandle) override
+		void handlePHIStackGroup(const std::vector<Registerize::InstElem>& phiToHandle) override
 		{
 			using ValueElem = std::pair<const Value*, uint32_t>;
 			using PHIElem = std::pair<const PHINode*, uint32_t>;
 			std::vector<std::pair<ValueElem, std::vector<PHIElem>>> toProcessOrdered;
 			std::map<ValueElem, std::vector<PHIElem>> toProcessMap;
-			for (const auto& [phi, elemIdx] : phiToHandle)
+			for (const auto& phiEl : phiToHandle)
 			{
+				const auto* phi = cast<PHINode>(phiEl.instruction);
+				assert(phiEl.ptrIdx == 0);
+				uint32_t elemIdx = phiEl.structIdx;
 				const Value* incoming = phi->getIncomingValueForBlock(fromBB);
 				// We can avoid assignment from the same register if no pointer kind conversion is required
 				if(!writer.requiresExplicitAssigment(phi, incoming))
@@ -1948,33 +1951,39 @@ uint32_t CheerpWasmWriter::compileLoadStorePointer(WasmBuffer& code, const Value
 void CheerpWasmWriter::compileLoad(WasmBuffer& code, const LoadInst& li, bool signExtend)
 {
 	const Value* ptrOp=li.getPointerOperand();
-	forEachElem(&li, li.getType(), PA, registerize, /*asmjs*/true, [&](const Value* v, Type* Ty, StructType* STy, POINTER_KIND elemPtrKind, bool isOffset, Registerize::REGISTER_KIND elemRegKind, uint32_t elemIdx, uint32_t structElemIdx, bool asmjs)
+	auto* Ty = li.getType();
+	auto* STy = dyn_cast<StructType>(Ty);
+	for(const auto& ie: Registerize::getInstElems(&li, PA))
 	{
 		// 1) The pointer
 		uint32_t offset = compileLoadStorePointer(code, ptrOp);
 		if(STy)
 		{
+			Ty = STy->getElementType(ie.structIdx);
 			const StructLayout* SL = targetData.getStructLayout(STy);
-			int64_t elementOffset =  SL->getElementOffset(structElemIdx);
+			int64_t elementOffset =  SL->getElementOffset(ie.structIdx);
 			offset += elementOffset;
 		}
 		// 2) Load
 		encodeLoad(Ty, offset, code, signExtend);
-	});
+	}
 }
 
 void CheerpWasmWriter::compileStore(WasmBuffer& code, const StoreInst& si)
 {
 	const Value* ptrOp=si.getPointerOperand();
 	const Value* valOp=si.getValueOperand();
-	forEachElem(&si, valOp->getType(), PA, registerize, /*asmjs*/true, [&](const Value* v, Type* Ty, StructType* STy, POINTER_KIND elemPtrKind, bool isOffset, Registerize::REGISTER_KIND elemRegKind, uint32_t elemIdx, uint32_t structElemIdx, bool asmjs)
+	auto* Ty = valOp->getType();
+	auto* STy = dyn_cast<StructType>(Ty);
+	for(const auto& ie: Registerize::getInstElems(&si, PA))
 	{
 		// 1) The pointer
 		uint32_t offset = compileLoadStorePointer(code, ptrOp);
 		if(STy)
 		{
+			Ty = STy->getElementType(ie.structIdx);
 			const StructLayout* SL = targetData.getStructLayout(STy);
-			int64_t elementOffset =  SL->getElementOffset(structElemIdx);
+			int64_t elementOffset =  SL->getElementOffset(ie.structIdx);
 			offset += elementOffset;
 		}
 		// Special case writing 0 to floats/double
@@ -1996,7 +2005,7 @@ void CheerpWasmWriter::compileStore(WasmBuffer& code, const StoreInst& si)
 		// 2) The value
 		if(STy)
 		{
-			compileAggregateElem(code, valOp, structElemIdx);
+			compileAggregateElem(code, valOp, ie.structIdx);
 		}
 		else
 		{
@@ -2063,7 +2072,7 @@ void CheerpWasmWriter::compileStore(WasmBuffer& code, const StoreInst& si)
 			else
 				encodeInst(WasmU32U32Opcode::I32_STORE, 0x2, offset, code);
 		}
-		});
+	}
 }
 
 bool CheerpWasmWriter::compileInstruction(WasmBuffer& code, const Instruction& I)
@@ -3052,17 +3061,17 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			const auto& IV = cast<InsertValueInst>(I);
 			assert(IV.getNumIndices() == 1);
 			uint32_t newIdx = IV.getIndices()[0];
-			forEachElem(&IV, IV.getType(), PA, registerize, /*asmjs*/true, [&](const Value* v, Type* Ty, StructType* STy, POINTER_KIND elemPtrKind, bool isOffset, Registerize::REGISTER_KIND elemRegKind, uint32_t elemIdx, uint32_t structElemIdx, bool asmjs)
+			for(const auto& ie: Registerize::getInstElems(&IV, PA))
 			{
-				if(structElemIdx == newIdx)
+				if(ie.structIdx == newIdx)
 				{
 					compileOperand(code, IV.getOperand(1));
 				}
 				else
 				{
-					compileAggregateElem(code, IV.getAggregateOperand(), structElemIdx);
+					compileAggregateElem(code, IV.getAggregateOperand(), ie.structIdx);
 				}
-			});
+			}
 			break;
 		}
 		case Instruction::Load:
@@ -3559,19 +3568,19 @@ void CheerpWasmWriter::compileInstructionAndSet(WasmBuffer& code, const llvm::In
 
 	if(!ret && !I.getType()->isVoidTy())
 	{
-		forEachElem(&I, I.getType(), PA, registerize, /*asmjs*/true, [&](const Value* v, Type* Ty, StructType* STy, POINTER_KIND elemPtrKind, bool isOffset, Registerize::REGISTER_KIND elemRegKind, uint32_t elemIdx, uint32_t structElemIdx, bool asmjs)
+		for(const auto& ie: Registerize::getInstElems(&I, PA))
 		{
 			if(I.use_empty()) {
 				encodeInst(WasmOpcode::DROP, code);
 			} else {
-				uint32_t reg = registerize.getRegisterId(&I, elemIdx, edgeContext);
+				uint32_t reg = registerize.getRegisterId(&I, ie.totalIdx, edgeContext);
 				uint32_t local = localMap.at(reg);
 				// TODO: figure out how to deal with tee locals and aggregates
-				if(!STy)
+				if(!I.getType()->isStructTy())
 					teeLocals.addCandidate(&I, /*isInstructionAssigment*/true, local, code.tell());
 				encodeInst(WasmU32Opcode::SET_LOCAL, local, code);
 			}
-		});
+		}
 	}
 	teeLocals.instructionStart(code);
 }

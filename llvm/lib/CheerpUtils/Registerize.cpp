@@ -460,16 +460,17 @@ uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMa
 			statusRegisters.push_back(statusRegisters[regId]);
 			return chosenReg;
 		}
-		void handleRecursivePHIDependency(const Instruction* incoming, uint32_t elemIdx) override
+		void handleRecursivePHIDependency(const InstElem& incomingEl) override
 		{
+			const Instruction* incoming = incomingEl.instruction;
 			bool asmjs = incoming->getParent()->getParent()->getSection() == StringRef("asmjs");
 			assert(registerize.hasRegisters(incoming));
-			uint32_t regId = registerize.registersMap.find(incoming)->second[elemIdx];
-			Registerize::REGISTER_KIND phiKind = registerize.getRegKindFromInstElem(InstElem(incoming, elemIdx), asmjs, &PA);
+			uint32_t regId = registerize.registersMap.find(incoming)->second[incomingEl.totalIdx];
+			Registerize::REGISTER_KIND phiKind = registerize.getRegKindFromInstElem(incomingEl, asmjs, &PA);
 			uint32_t chosenReg = assignTempReg(regId, phiKind);
 			registerize.edgeRegistersMap.insertUpdate(regId, chosenReg, edgeContext);
 		}
-		void handlePHI(const PHINode* phi, uint32_t elemIdx, const Value* incoming) override
+		void handlePHI(const InstElem& ie, const Value* incoming) override
 		{
 			return;
 		}
@@ -1000,14 +1001,16 @@ void Registerize::RegisterAllocatorInst::buildEdgesData(Function& F)
 					uint32_t preNRegs = getNumberOfRegisters(pre, &PA);
 					if(phiNRegs == preNRegs)
 					{
+						InstElemIterator phiIt(phi, PA);
+						InstElemIterator preIt(pre, PA);
 						for(uint32_t i = 0; i < phiNRegs; i++)
 						{
-							InstElem phiElem(phi, i);
-							InstElem preElem(pre, i);
-							if(indexer.count(preElem))
+							if(indexer.count(*preIt))
 							{
-								edges.back().push_back(std::make_pair(indexer.id(phiElem), indexer.id(preElem)));
+								edges.back().push_back(std::make_pair(indexer.id(*phiIt), indexer.id(*preIt)));
 							}
+							++phiIt;
+							++preIt;
 						}
 					}
 				}
@@ -1020,7 +1023,8 @@ void Registerize::RegisterAllocatorInst::buildEdgesData(Function& F)
 
 void Registerize::RegisterAllocatorInst::buildFriendsSinglePhi(const uint32_t phi, const PointerAnalyzer& PA)
 {
-	const PHINode* I = dyn_cast<PHINode>(indexer.at(phi).instruction);
+	const auto& phiElem = indexer.at(phi);
+	const PHINode* I = dyn_cast<PHINode>(phiElem.instruction);
 	if (!I)
 		return;
 	uint32_t n = I->getNumIncomingValues();
@@ -1030,9 +1034,12 @@ void Registerize::RegisterAllocatorInst::buildFriendsSinglePhi(const uint32_t ph
 		if(!usedI)
 			continue;
 		assert(!isInlineable(*usedI, PA));
-		uint32_t elemIdx = indexer.at(phi).elemIdx;
-		elemIdx = getNumberOfRegisters(usedI, &PA) <= int(elemIdx) ? 0 : elemIdx;
-		addFriendship(phi, indexer.id(InstElem(usedI, elemIdx)), frequencyInfo.getWeight(I->getIncomingBlock(i), I->getParent()));
+		auto usedElemIt = InstElemIterator(usedI, PA);
+		while(usedElemIt->structIdx != phiElem.structIdx)
+			++usedElemIt;
+		if(phiElem.ptrIdx == 1 && std::next(usedElemIt) != InstElemIterator::end(PA))
+			++usedElemIt;
+		addFriendship(phi, indexer.id(*usedElemIt), frequencyInfo.getWeight(I->getIncomingBlock(i), I->getParent()));
 	}
 }
 
@@ -1040,7 +1047,7 @@ void Registerize::RegisterAllocatorInst::createSingleFriendship(const uint32_t i
 {
 	//Introduce a friendships of weight 1
 	const Instruction* I = dyn_cast<Instruction>(operand);
-	InstElem ie = InstElem(I, 0);
+	InstElem ie = *InstElemIterator(I, PA);
 	if (I && indexer.count(ie))
 		addFriendship(i, indexer.id(ie), 1);
 }
@@ -2894,31 +2901,16 @@ uint32_t Registerize::findOrCreateRegister(llvm::SmallVector<RegisterRange, 4>& 
 	return registers.size()-1;
 }
 
-Registerize::REGISTER_KIND Registerize::getRegKindFromInstElem(const InstElem& reg, bool asmjs, const PointerAnalyzer* PA) const
+Registerize::REGISTER_KIND Registerize::getRegKindFromInstElem(const InstElem& ie, bool asmjs, const PointerAnalyzer* PA) const
 {
-	const Instruction* I = reg.instruction;
-	const uint32_t index = reg.elemIdx;
-	if(I->getType()->isPointerTy() && PA->getPointerKind(I) == SPLIT_REGULAR && index == 1)
+	if(ie.ptrIdx == 1)
 		return INTEGER;
+	const Instruction* I = ie.instruction;
 	if(!I->getType()->isStructTy())
 		return getRegKindFromType(I->getType(), asmjs);
 	auto* STy = cast<StructType>(I->getType());
-	uint32_t curIdx = 0;
-	for(auto* Ty: STy->elements())
-	{
-		if(curIdx == index)
-			return getRegKindFromType(Ty, asmjs);
-		if(I->getType()->isPointerTy() && PA->getPointerKind(I) == SPLIT_REGULAR && !PA->getConstantOffsetForPointer(I))
-		{
-			curIdx++;
-			if(curIdx == index)
-				return INTEGER;
-		}
-		curIdx++;
-
-	}
-	assert(false);
-	return OBJECT;
+	auto* ETy = STy->getElementType(ie.structIdx);
+	return getRegKindFromType(ETy, asmjs);
 }
 
 Registerize::REGISTER_KIND Registerize::getRegKindFromType(const llvm::Type* t, bool asmjs) const

@@ -2738,14 +2738,15 @@ bool CheerpWriter::needsPointerKindConversionForBlocks(const BasicBlock* to, con
 	private:
 		const PointerAnalyzer& PA;
 		const Registerize& registerize;
-		void handleRecursivePHIDependency(const Instruction* incoming, uint32_t elemIdx) override
+		void handleRecursivePHIDependency(const Registerize::InstElem& incomingEl) override
 		{
 			//Whenever we need to move to a temporary, we will also need to materialize the block
 			needsPointerKindConversion = true;
 		}
-		void handlePHI(const PHINode* phi, uint32_t elemIdx, const Value* incoming) override
+		void handlePHI(const Registerize::InstElem& phiEl, const Value* incoming) override
 		{
-			needsPointerKindConversion |= CheerpWriter::needsPointerKindConversion(phi, incoming, elemIdx, PA, registerize, edgeContext);
+			auto* phi = cast<PHINode>(phiEl.instruction);
+			needsPointerKindConversion |= CheerpWriter::needsPointerKindConversion(phi, incoming, phiEl.totalIdx, PA, registerize, edgeContext);
 		}
 	};
 
@@ -2770,22 +2771,26 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 	private:
 		const bool asmjs;
 		CheerpWriter& writer;
-		void handleRecursivePHIDependency(const Instruction* incoming, uint32_t elemIdx) override
+		void handleRecursivePHIDependency(const Registerize::InstElem& incomingEl) override
 		{
-			assert(incoming);
-			writer.stream << writer.getName(incoming, elemIdx);
+			writer.stream << writer.getName(incomingEl.instruction, incomingEl.totalIdx);
 
 			//We walk back a step in "time"
 			edgeContext.undoAssigment();
 			//Find what name the instruction had previously
-			writer.stream << '=' << writer.getName(incoming, elemIdx) << ';' << writer.NewLine;
+			writer.stream
+				<< '='
+				<< writer.getName(incomingEl.instruction, incomingEl.totalIdx)
+				<< ';'
+				<< writer.NewLine;
 			//And undo the undo, back to the original situatuion
 			edgeContext.processAssigment();
 		}
-		void handlePHI(const PHINode* phi, uint32_t elemIdx, const Value* incoming) override
+		void handlePHI(const Registerize::InstElem& phiEl, const Value* incoming) override
 		{
+			const auto* phi = cast<PHINode>(phiEl.instruction);
 			// We can avoid assignment from the same register if no pointer kind conversion is required
-			if(!needsPointerKindConversion(phi, incoming, elemIdx, writer.PA, writer.registerize, edgeContext))
+			if(!needsPointerKindConversion(phi, incoming, phiEl.totalIdx, writer.PA, writer.registerize, edgeContext))
 				return;
 			// We can leave undefined values undefined
 			if (isa<UndefValue>(incoming))
@@ -2794,8 +2799,8 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 
 			if(phiType->isStructTy())
 			{
-				writer.stream << writer.getName(phi, elemIdx, /*doNotConsiderEdgeContext*/true) << '=';
-				writer.compileAggregateElem(incoming, elemIdx, LOWEST);
+				writer.stream << writer.getName(phi, phiEl.totalIdx, /*doNotConsiderEdgeContext*/true) << '=';
+				writer.compileAggregateElem(incoming, phiEl.totalIdx, LOWEST);
 			}
 			else if(phiType->isPointerTy())
 			{
@@ -2803,15 +2808,15 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 				assert(k!=CONSTANT);
 				if((k==REGULAR || k==SPLIT_REGULAR || k==BYTE_LAYOUT) && writer.PA.getConstantOffsetForPointer(phi))
 				{
-					assert(elemIdx == 0);
+					assert(phiEl.totalIdx == 0);
 					writer.stream << writer.getName(phi, 0, /*doNotConsiderEdgeContext*/true) << '=';
 					writer.compilePointerBase(incoming);
 				}
 				else if(k==SPLIT_REGULAR)
 				{
-					writer.stream << writer.getName(phi, elemIdx, /*doNotConsiderEdgeContext*/true);
+					writer.stream << writer.getName(phi, phiEl.totalIdx, /*doNotConsiderEdgeContext*/true);
 					writer.stream << '=';
-					if(elemIdx == 0)
+					if(phiEl.ptrIdx == 0)
 					{
 						writer.compilePointerBase(incoming);
 					}
@@ -2831,20 +2836,20 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 				}
 				else if(k==RAW)
 				{
-					assert(elemIdx == 0);
+					assert(phiEl.totalIdx == 0);
 					writer.stream << writer.getName(phi, 0, /*doNotConsiderEdgeContext*/true) << '=';
 					writer.compileRawPointer(incoming, LOWEST);
 				}
 				else
 				{
-					assert(elemIdx == 0);
+					assert(phiEl.totalIdx == 0);
 					writer.stream << writer.getName(phi, 0, /*doNotConsiderEdgeContext*/true) << '=';
 					writer.compilePointerAs(incoming, k);
 				}
 			}
 			else
 			{
-				assert(elemIdx == 0);
+				assert(phiEl.totalIdx == 0);
 				writer.stream << writer.getName(phi, 0, /*doNotConsiderEdgeContext*/true);
 
 				const llvm::Instruction* instIncoming = dyn_cast<const Instruction>(incoming);
@@ -3183,23 +3188,24 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			const auto& IV = cast<InsertValueInst>(I);
 			assert(IV.getNumIndices() == 1);
 			uint32_t newIdx = IV.getIndices()[0];
-			forEachElem(&IV, IV.getType(), PA, registerize, asmjs, [&](const Value* v, Type* Ty, StructType* STy, POINTER_KIND elemPtrKind, bool isOffset, Registerize::REGISTER_KIND elemRegKind, uint32_t elemIdx, uint32_t structElemIdx, bool asmjs)
+			for(const auto& ie: Registerize::getInstElems(&IV, PA))
 			{
-				if(elemIdx != 0)
+				assert(ie.ptrIdx == 0);
+				if(ie.totalIdx != 0)
 				{
 					stream << ";" << NewLine;
-					stream << getName(&IV, elemIdx);
+					stream << getName(&IV, ie.totalIdx);
 					stream << '=';
 				}
-				if(structElemIdx == newIdx)
+				if(ie.structIdx == newIdx)
 				{
 					compileOperand(IV.getOperand(1));
 				}
 				else
 				{
-					compileAggregateElem(IV.getAggregateOperand(), structElemIdx);
+					compileAggregateElem(IV.getAggregateOperand(), ie.totalIdx);
 				}
-			});
+			}
 			return COMPILE_OK;
 		}
 		case Instruction::Store:
@@ -4308,21 +4314,39 @@ void CheerpWriter::compileLoad(const LoadInst& li, PARENT_PRIORITY parentPrio)
 					stream<<",";
 			}
 	}
-	forEachElem(&li, li.getType(), PA, registerize, asmjs, [&](const Value* v, Type* Ty, StructType* STy, POINTER_KIND elemPtrKind, bool isOffset, Registerize::REGISTER_KIND elemRegKind, uint32_t elemIdx, uint32_t structElemIdx, bool asmjs)
+	for(const auto& ie: Registerize::getInstElems(&li, PA))
 	{
-		if(elemIdx != 0)
+		if(ie.totalIdx != 0)
 		{
 			stream << ';' << NewLine;
-			stream << getName(v, elemIdx) << '=';
+			stream << getName(&li, ie.totalIdx) << '=';
 			parentPrio = LOWEST;
 		}
-		compileLoadElem(ptrOp, Ty, STy, ptrKind, elemPtrKind, isOffset, elemRegKind, structElemIdx, asmjs, parentPrio);
+		Type* Ty = li.getType();
+		StructType* STy = nullptr;
+		Registerize::REGISTER_KIND elemRegKind = registerize.getRegKindFromInstElem(ie, asmjs, &PA);
+		POINTER_KIND elemPtrKind = COMPLETE_OBJECT;
+		if(STy = dyn_cast<StructType>(Ty); STy)
+		{
+			Ty = STy->getElementType(ie.structIdx);
+			if(Ty->isPointerTy())
+			{
+				TypeAndIndex b(STy, ie.structIdx, TypeAndIndex::STRUCT_MEMBER);
+				elemPtrKind = PA.getPointerKindForMemberPointer(b);
+			}
+		}
+		else if(Ty->isPointerTy())
+		{
+			elemPtrKind = PA.getPointerKind(&li);
+		}
+		bool isOffset = ie.ptrIdx == 1;
+		compileLoadElem(ptrOp, Ty, STy, ptrKind, elemPtrKind, isOffset, elemRegKind, ie.structIdx, asmjs, parentPrio);
 		if(needsCheckBounds)
 		{
 			needsCheckBounds = false;
 			stream << ')';
 		}
-	});
+	}
 }
 
 void CheerpWriter::compileLoadElem(const Value* ptrOp, Type* Ty, StructType* STy, POINTER_KIND ptrKind, POINTER_KIND loadKind, bool isOffset, Registerize::REGISTER_KIND regKind, uint32_t structElemIdx, bool asmjs, PARENT_PRIORITY parentPrio)
@@ -4476,14 +4500,31 @@ void CheerpWriter::compileStore(const StoreInst& si)
 			stream<<",";
 		}
 	}
-	forEachElem(&si, Ty, PA, registerize, asmjs, [&](const Value* v, Type* Ty, StructType* STy, POINTER_KIND elemPtrKind, bool isOffset, Registerize::REGISTER_KIND elemRegKind, uint32_t elemIdx, uint32_t structElemIdx, bool asmjs)
+	StructType* STy = dyn_cast<StructType>(Ty);
+	for(const auto& ie: Registerize::getInstElems(&si, PA))
 	{
-		if(elemIdx != 0)
+		if(ie.totalIdx != 0)
 		{
 			stream << ';' << NewLine;
 		}
-		compileStoreElem(si, Ty, STy, ptrKind, elemPtrKind, isOffset, elemRegKind, elemIdx, structElemIdx, asmjs);
-	});
+		Registerize::REGISTER_KIND elemRegKind = registerize.getRegKindFromInstElem(ie, asmjs, &PA);
+		POINTER_KIND elemPtrKind = COMPLETE_OBJECT;
+		if(STy)
+		{
+			Ty = STy->getElementType(ie.structIdx);
+			if(Ty->isPointerTy())
+			{
+				TypeAndIndex b(STy, ie.structIdx, TypeAndIndex::STRUCT_MEMBER);
+				elemPtrKind = PA.getPointerKindForMemberPointer(b);
+			}
+		}
+		else if(Ty->isPointerTy())
+		{
+			elemPtrKind = PA.getPointerKind(&si);
+		}
+		bool isOffset = ie.ptrIdx == 1;
+		compileStoreElem(si, Ty, STy, ptrKind, elemPtrKind, isOffset, elemRegKind, ie.totalIdx, ie.structIdx, asmjs);
+	}
 }
 
 void CheerpWriter::compileStoreElem(const StoreInst& si, Type* Ty, StructType* STy, POINTER_KIND ptrKind, POINTER_KIND storedKind, bool isOffset, Registerize::REGISTER_KIND regKind, uint32_t structElemIdx, uint32_t elemIdx, bool asmjs)
@@ -4872,22 +4913,23 @@ void CheerpWriter::compileBB(const BasicBlock& BB)
 		bool hasDelayedPHIs;
 	private:
 		CheerpWriter writer;
-		void handleRecursivePHIDependency(const Instruction* incoming, uint32_t elemIdx) override
+		void handleRecursivePHIDependency(const Registerize::InstElem& incomingEl) override
 		{
 		}
-		void handlePHI(const PHINode* phi, uint32_t elemIdx, const Value* incoming) override
+		void handlePHI(const Registerize::InstElem& phiEl, const Value* incoming) override
 		{
+			const auto* phi = cast<PHINode>(phiEl.instruction);
 			if(!canDelayPHI(phi, PA, writer.registerize))
 				return;
 			hasDelayedPHIs = true;
 			assert(!phi->getType()->isStructTy());
 			POINTER_KIND k = PA.getPointerKindAssert(phi);
-			writer.stream << writer.getName(phi, elemIdx) << '=';
+			writer.stream << writer.getName(phi, phiEl.totalIdx) << '=';
 			if((k == REGULAR || k == SPLIT_REGULAR || k == BYTE_LAYOUT) && PA.getConstantOffsetForPointer(phi))
 				writer.compilePointerBase(incoming);
 			else if(k == SPLIT_REGULAR)
 			{
-				if(elemIdx == 0)
+				if(phiEl.ptrIdx == 0)
 					writer.compilePointerBase(incoming);
 				else
 					writer.compilePointerOffset(incoming, LOWEST);

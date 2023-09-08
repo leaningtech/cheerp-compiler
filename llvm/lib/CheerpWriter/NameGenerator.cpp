@@ -134,10 +134,11 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 	private:
 		NameGenerator& namegen;
 		useLocalVec& thisFunctionLocals;
-		void handleRecursivePHIDependency(const Instruction* incoming, uint32_t regIdx) override
+		void handleRecursivePHIDependency(const Registerize::InstElem& incomingEl) override
 		{
 			assert(edgeContext.isNull() == false);
-			uint32_t registerId = namegen.registerize.getAllRegisterIds(incoming, edgeContext)[regIdx];
+			const Instruction* incoming = incomingEl.instruction;
+			uint32_t registerId = namegen.registerize.getAllRegisterIds(incoming, edgeContext)[incomingEl.totalIdx];
 			assert(registerId < thisFunctionLocals.size());
 			useLocalPair& regData = thisFunctionLocals[registerId];
 			// Assume it is used once
@@ -145,7 +146,7 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 			// Set the register information if required
 			assert(regData.second.argOrFunc);
 		}
-		void handlePHI(const PHINode* phi, uint32_t regIdx, const Value* incoming) override
+		void handlePHI(const Registerize::InstElem& ie, const Value* incoming) override
 		{
 			// Nothing to do here, we have already given names to all PHIs
 		}
