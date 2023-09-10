@@ -17,14 +17,14 @@ static bool isFirstClassAggregateOrScalableType(Type *Ty) {
 /// Return true if coerceAvailableValueToLoadType will succeed.
 bool canCoerceMustAliasedValueToLoad(Value *StoredVal, Type *LoadTy,
                                      const DataLayout &DL) {
-  // Do not even try on NBA targets
-  if (!DL.isByteAddressable())
-    return false;
-
   Type *StoredTy = StoredVal->getType();
 
   if (StoredTy == LoadTy)
     return true;
+
+  // Do not even try on NBA targets
+  if (!DL.isByteAddressable())
+    return false;
 
   // If the loaded/stored value is a first class array/struct, or scalable type,
   // don't try to transform them. We need to be able to bitcast to integer.
