@@ -1035,6 +1035,8 @@ void Registerize::RegisterAllocatorInst::buildFriendsSinglePhi(const uint32_t ph
 			continue;
 		assert(!isInlineable(*usedI, PA));
 		auto usedElemIt = InstElemIterator(usedI, PA);
+		while(usedElemIt->structIdx != phiElem.structIdx)
+			++usedElemIt;
 		if(phiElem.ptrIdx == 1 && std::next(usedElemIt) != InstElemIterator::end(PA))
 			++usedElemIt;
 		addFriendship(phi, indexer.id(*usedElemIt), frequencyInfo.getWeight(I->getIncomingBlock(i), I->getParent()));
@@ -2904,7 +2906,11 @@ Registerize::REGISTER_KIND Registerize::getRegKindFromInstElem(const InstElem& i
 	if(ie.ptrIdx == 1)
 		return INTEGER;
 	const Instruction* I = ie.instruction;
-	return getRegKindFromType(I->getType(), asmjs);
+	if(!I->getType()->isStructTy())
+		return getRegKindFromType(I->getType(), asmjs);
+	auto* STy = cast<StructType>(I->getType());
+	auto* ETy = STy->getElementType(ie.structIdx);
+	return getRegKindFromType(ETy, asmjs);
 }
 
 Registerize::REGISTER_KIND Registerize::getRegKindFromType(const llvm::Type* t, bool asmjs) const

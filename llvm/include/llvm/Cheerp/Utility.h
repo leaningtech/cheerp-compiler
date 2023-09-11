@@ -915,11 +915,11 @@ struct InstElem
 private:
 	friend struct InstElemIterator;
 	InstElem(const llvm::Instruction* inst)
-		: instruction(inst), ptrIdx(0), totalIdx(0)
+		: instruction(inst), structIdx(0), ptrIdx(0), totalIdx(0)
 	{
 	}
 public:
-	InstElem(): instruction(nullptr), ptrIdx(0), totalIdx(0)
+	InstElem(): instruction(nullptr), structIdx(0), ptrIdx(0), totalIdx(0)
 	{
 	}
 	InstElem(const InstElem& other) = default;
@@ -929,6 +929,7 @@ public:
 		return instruction == other.instruction && totalIdx == other.totalIdx;
 	}
 	const llvm::Instruction* instruction;
+	uint32_t structIdx;
 	uint32_t ptrIdx;
 	uint32_t totalIdx;
 };
@@ -956,7 +957,7 @@ struct InstElemIterator: public llvm::iterator_facade_base<InstElemIterator, std
 	}
 	InstElemIterator& operator++();
 private:
-	static bool isTwoElems(const llvm::Instruction* I, llvm::Type* Ty, const PointerAnalyzer& PA);
+	static bool isTwoElems(const llvm::Instruction* I, llvm::Type* Ty, int32_t structIdx, const PointerAnalyzer& PA);
 	InstElem inner;
 	const PointerAnalyzer* PA;
 };
