@@ -29,7 +29,6 @@
 #include "llvm/IR/Value.h"
 #include "llvm/Cheerp/EdgeContext.h"
 #include "llvm/Cheerp/PointerAnalyzer.h"
-#include "llvm/Cheerp/Registerize.h"
 #include "llvm/Cheerp/CommandLine.h"
 #include "llvm/Cheerp/DeterministicUnorderedSet.h"
 #include "llvm/Cheerp/ForbiddenIdentifiers.h"

@@ -13,6 +13,7 @@
 #include "llvm/Cheerp/IdenticalCodeFolding.h"
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
 #include "llvm/Cheerp/InvokeWrapping.h"
+#include "llvm/Cheerp/Registerize.h"
 #include "llvm/IR/GlobalValue.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Support/Debug.h"
