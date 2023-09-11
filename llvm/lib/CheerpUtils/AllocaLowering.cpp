@@ -14,6 +14,7 @@
 #include "llvm/Cheerp/InvokeWrapping.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Cheerp/Utility.h"
+#include "llvm/Cheerp/Registerize.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IRBuilder.h"
