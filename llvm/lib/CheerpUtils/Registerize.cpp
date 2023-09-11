@@ -39,7 +39,7 @@ static int getNumberOfRegisters(const Instruction* I, const cheerp::PointerAnaly
 {
 	if(PA)
 	{
-		auto range = cheerp::Registerize::getInstElems(I, *PA);
+		auto range = cheerp::getInstElems(I, *PA);
 		return std::distance(range.begin(), range.end());
 	}
 	return 1;

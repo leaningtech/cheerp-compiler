@@ -1116,7 +1116,7 @@ void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const B
 		CheerpWasmWriter& writer;
 		WasmBuffer& code;
 		const BasicBlock* fromBB;
-		void handlePHIStackGroup(const std::vector<Registerize::InstElem>& phiToHandle) override
+		void handlePHIStackGroup(const std::vector<InstElem>& phiToHandle) override
 		{
 			using ValueElem = std::pair<const Value*, uint32_t>;
 			using PHIElem = std::pair<const PHINode*, uint32_t>;
@@ -1953,7 +1953,7 @@ void CheerpWasmWriter::compileLoad(WasmBuffer& code, const LoadInst& li, bool si
 	const Value* ptrOp=li.getPointerOperand();
 	auto* Ty = li.getType();
 	auto* STy = dyn_cast<StructType>(Ty);
-	for(const auto& ie: Registerize::getInstElems(&li, PA))
+	for(const auto& ie: getInstElems(&li, PA))
 	{
 		// 1) The pointer
 		uint32_t offset = compileLoadStorePointer(code, ptrOp);
@@ -1975,7 +1975,7 @@ void CheerpWasmWriter::compileStore(WasmBuffer& code, const StoreInst& si)
 	const Value* valOp=si.getValueOperand();
 	auto* Ty = valOp->getType();
 	auto* STy = dyn_cast<StructType>(Ty);
-	for(const auto& ie: Registerize::getInstElems(&si, PA))
+	for(const auto& ie: getInstElems(&si, PA))
 	{
 		// 1) The pointer
 		uint32_t offset = compileLoadStorePointer(code, ptrOp);
@@ -3061,7 +3061,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			const auto& IV = cast<InsertValueInst>(I);
 			assert(IV.getNumIndices() == 1);
 			uint32_t newIdx = IV.getIndices()[0];
-			for(const auto& ie: Registerize::getInstElems(&IV, PA))
+			for(const auto& ie: getInstElems(&IV, PA))
 			{
 				if(ie.structIdx == newIdx)
 				{
@@ -3568,12 +3568,13 @@ void CheerpWasmWriter::compileInstructionAndSet(WasmBuffer& code, const llvm::In
 
 	if(!ret && !I.getType()->isVoidTy())
 	{
-		for(const auto& ie: Registerize::getInstElems(&I, PA))
+		SmallVector<InstElem, 2> elems(getInstElems(&I, PA));
+		for(auto it = elems.rbegin(); it != elems.rend(); ++it)
 		{
 			if(I.use_empty()) {
 				encodeInst(WasmOpcode::DROP, code);
 			} else {
-				uint32_t reg = registerize.getRegisterId(&I, ie.totalIdx, edgeContext);
+				uint32_t reg = registerize.getRegisterId(&I, it->totalIdx, edgeContext);
 				uint32_t local = localMap.at(reg);
 				// TODO: figure out how to deal with tee locals and aggregates
 				if(!I.getType()->isStructTy())

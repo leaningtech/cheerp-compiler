@@ -2738,12 +2738,12 @@ bool CheerpWriter::needsPointerKindConversionForBlocks(const BasicBlock* to, con
 	private:
 		const PointerAnalyzer& PA;
 		const Registerize& registerize;
-		void handleRecursivePHIDependency(const Registerize::InstElem& incomingEl) override
+		void handleRecursivePHIDependency(const InstElem& incomingEl) override
 		{
 			//Whenever we need to move to a temporary, we will also need to materialize the block
 			needsPointerKindConversion = true;
 		}
-		void handlePHI(const Registerize::InstElem& phiEl, const Value* incoming) override
+		void handlePHI(const InstElem& phiEl, const Value* incoming) override
 		{
 			auto* phi = cast<PHINode>(phiEl.instruction);
 			needsPointerKindConversion |= CheerpWriter::needsPointerKindConversion(phi, incoming, phiEl.totalIdx, PA, registerize, edgeContext);
@@ -2771,7 +2771,7 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 	private:
 		const bool asmjs;
 		CheerpWriter& writer;
-		void handleRecursivePHIDependency(const Registerize::InstElem& incomingEl) override
+		void handleRecursivePHIDependency(const InstElem& incomingEl) override
 		{
 			writer.stream << writer.getName(incomingEl.instruction, incomingEl.totalIdx);
 
@@ -2786,7 +2786,7 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 			//And undo the undo, back to the original situatuion
 			edgeContext.processAssigment();
 		}
-		void handlePHI(const Registerize::InstElem& phiEl, const Value* incoming) override
+		void handlePHI(const InstElem& phiEl, const Value* incoming) override
 		{
 			const auto* phi = cast<PHINode>(phiEl.instruction);
 			// We can avoid assignment from the same register if no pointer kind conversion is required
@@ -3188,7 +3188,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			const auto& IV = cast<InsertValueInst>(I);
 			assert(IV.getNumIndices() == 1);
 			uint32_t newIdx = IV.getIndices()[0];
-			for(const auto& ie: Registerize::getInstElems(&IV, PA))
+			for(const auto& ie: getInstElems(&IV, PA))
 			{
 				assert(ie.ptrIdx == 0);
 				if(ie.totalIdx != 0)
@@ -4314,7 +4314,7 @@ void CheerpWriter::compileLoad(const LoadInst& li, PARENT_PRIORITY parentPrio)
 					stream<<",";
 			}
 	}
-	for(const auto& ie: Registerize::getInstElems(&li, PA))
+	for(const auto& ie: getInstElems(&li, PA))
 	{
 		if(ie.totalIdx != 0)
 		{
@@ -4501,7 +4501,7 @@ void CheerpWriter::compileStore(const StoreInst& si)
 		}
 	}
 	StructType* STy = dyn_cast<StructType>(Ty);
-	for(const auto& ie: Registerize::getInstElems(&si, PA))
+	for(const auto& ie: getInstElems(&si, PA))
 	{
 		if(ie.totalIdx != 0)
 		{
@@ -4913,10 +4913,10 @@ void CheerpWriter::compileBB(const BasicBlock& BB)
 		bool hasDelayedPHIs;
 	private:
 		CheerpWriter writer;
-		void handleRecursivePHIDependency(const Registerize::InstElem& incomingEl) override
+		void handleRecursivePHIDependency(const InstElem& incomingEl) override
 		{
 		}
-		void handlePHI(const Registerize::InstElem& phiEl, const Value* incoming) override
+		void handlePHI(const InstElem& phiEl, const Value* incoming) override
 		{
 			const auto* phi = cast<PHINode>(phiEl.instruction);
 			if(!canDelayPHI(phi, PA, writer.registerize))

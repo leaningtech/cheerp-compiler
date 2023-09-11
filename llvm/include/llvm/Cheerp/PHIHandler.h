@@ -21,21 +21,22 @@
 #include "llvm/Cheerp/EdgeContext.h"
 #include "llvm/Cheerp/PointerAnalyzer.h"
 #include "llvm/Cheerp/Registerize.h"
+#include "llvm/Cheerp/Utility.h"
 
 namespace cheerp
 {
 
 class EndOfBlockPHIHandler
 {
-	typedef llvm::SmallVector<std::pair<uint32_t, Registerize::InstElem>,2> IncomingRegs;
+	typedef llvm::SmallVector<std::pair<uint32_t, InstElem>,2> IncomingRegs;
 	struct PHIRegData
 	{
-		Registerize::InstElem phiInstElem;
-		Registerize::InstElem incomingInstElem;
+		InstElem phiInstElem;
+		InstElem incomingInstElem;
 		IncomingRegs incomingRegs;
 		enum STATUS { NOT_VISITED=0, VISITING, VISITED };
 		STATUS status;
-		PHIRegData(const Registerize::InstElem& phiInstElem):
+		PHIRegData(const InstElem& phiInstElem):
 			phiInstElem(phiInstElem), incomingInstElem(), status(NOT_VISITED)
 		{
 			std::sort(incomingRegs.begin(), incomingRegs.end(), [](auto&& a, auto&& b) { return a.first < b.first; });
@@ -127,9 +128,9 @@ private:
 	void runOnSCC(const std::vector<uint32_t>& registerIds, PHIRegs& phiRegs);
 	void runOnConnectionGraph(DependencyGraph dependecyGraph, PHIRegs& phiRegs, bool isRecursiveCall);
 	// Callbacks implemented by derived classes
-	virtual void handleRecursivePHIDependency(const Registerize::InstElem& incomingEl) = 0;
-	virtual void handlePHI(const Registerize::InstElem& ie, const llvm::Value* incoming) = 0;
-	virtual void handlePHIStackGroup(const std::vector<Registerize::InstElem>& phiToHandle) = 0;
+	virtual void handleRecursivePHIDependency(const InstElem& incomingEl) = 0;
+	virtual void handlePHI(const InstElem& ie, const llvm::Value* incoming) = 0;
+	virtual void handlePHIStackGroup(const std::vector<InstElem>& phiToHandle) = 0;
 	// Called for every register which is either assigned or used by PHIs in the edge
 	virtual void setRegisterUsed(uint32_t reg) {};
 	virtual void addRegisterUse(uint32_t reg) {};
@@ -146,10 +147,10 @@ public:
 	{
 	}
 	// Callbacks that have to be implemented by derived classes
-	void handleRecursivePHIDependency(const Registerize::InstElem& incomingEl) override = 0;
-	void handlePHI(const Registerize::InstElem& ie, const llvm::Value* incoming) override = 0;
+	void handleRecursivePHIDependency(const InstElem& incomingEl) override = 0;
+	void handlePHI(const InstElem& ie, const llvm::Value* incoming) override = 0;
 	// Callbacks that should NOT be implemented by derived classes
-	void handlePHIStackGroup(const std::vector<Registerize::InstElem>& phiToHandle) override {};
+	void handlePHIStackGroup(const std::vector<InstElem>& phiToHandle) override {};
 };
 
 class PHIHandlerUsingStack : public EndOfBlockPHIHandler
@@ -160,10 +161,10 @@ public:
 	{
 	}
 	// Callbacks that should NOT be implemented by derived classes
-	void handleRecursivePHIDependency(const Registerize::InstElem& incomingEl) override {}
-	void handlePHI(const Registerize::InstElem& ie, const llvm::Value* incoming) override {};
+	void handleRecursivePHIDependency(const InstElem& incomingEl) override {}
+	void handlePHI(const InstElem& ie, const llvm::Value* incoming) override {};
 	// Callbacks that have to be implemented by derived classes
-	void handlePHIStackGroup(const std::vector<Registerize::InstElem>& phiToHandle) override = 0;
+	void handlePHIStackGroup(const std::vector<InstElem>& phiToHandle) override = 0;
 };
 
 }

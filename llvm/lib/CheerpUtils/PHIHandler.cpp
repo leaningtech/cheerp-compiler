@@ -147,7 +147,7 @@ void EndOfBlockPHIHandler::runOnConnectionGraph(DependencyGraph dependencyGraph,
 		//If using stack to resolve temporaries, do it now
 		if (!isRecursiveCall)
 		{
-			std::vector<Registerize::InstElem> toProcessOnStack;
+			std::vector<InstElem> toProcessOnStack;
 			for (auto id : registerIds)
 			{
 				auto& regData = phiRegs.at(id);
@@ -167,8 +167,8 @@ void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const Basic
 	BasicBlock::const_iterator I=toBB->begin();
 	BasicBlock::const_iterator IE=toBB->end();
 	PHIRegs phiRegs;
-	llvm::SmallVector<Registerize::InstElem, 4> orderedPHIs;
-	std::vector<Registerize::InstElem> toProcessOnStack;
+	llvm::SmallVector<InstElem, 4> orderedPHIs;
+	std::vector<InstElem> toProcessOnStack;
 	for(;I!=IE;++I)
 	{
 		// Gather the dependency graph between registers for PHIs and incoming values
@@ -185,14 +185,14 @@ void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const Basic
 		const Instruction* I=dyn_cast<Instruction>(val);
 		if(!I)
 		{
-			for(const auto& ie: Registerize::getInstElems(phi, PA))
+			for(const auto& ie: getInstElems(phi, PA))
 			{
 				toProcessOnStack.emplace_back(ie);
 				orderedPHIs.push_back(ie);
 			}
 			continue;
 		}
-		Registerize::InstElemIterator it(phi, PA);
+		InstElemIterator it(phi, PA);
 		for(uint32_t reg: phiRegisters)
 		{
 			phiRegs.emplace(reg, PHIRegData(*it));
@@ -207,14 +207,14 @@ void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const Basic
 			if(!isInlineable(*incomingInst.first, PA))
 			{
 				auto incomingRegs = registerize.getAllRegisterIds(incomingInst.first, EdgeContext::emptyContext());
-				Registerize::InstElemIterator phiIt(phi, PA);
+				InstElemIterator phiIt(phi, PA);
 				for(uint32_t i = 0; i < phiRegisters.size(); i++)
 				{
 					auto it = phiRegs.find(phiRegisters[i]);
 					assert(it != phiRegs.end());
 					if(incomingInst.second/*derefereced*/ || phiRegisters.size() != incomingRegs.size())
 					{
-						Registerize::InstElemIterator incomingIt(incomingInst.first, PA);
+						InstElemIterator incomingIt(incomingInst.first, PA);
 						for (uint32_t j = 0; j < incomingRegs.size(); j++)
 						{
 							it->second.incomingRegs.push_back(std::make_pair(incomingRegs[j], *incomingIt));

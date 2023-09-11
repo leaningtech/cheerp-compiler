@@ -1315,95 +1315,6 @@ public:
 		std::vector<T> vec;
 		cheerp::DeterministicUnorderedMap<T, uint32_t, RestrictionsLifted::NoErasure | RestrictionsLifted::NoDeterminism> map;
 	};
-	struct InstElemIterator;
-	struct InstElem
-	{
-	private:
-		friend struct InstElemIterator;
-		InstElem(const llvm::Instruction* inst)
-			: instruction(inst), structIdx(0), ptrIdx(0), totalIdx(0)
-		{
-		}
-	public:
-		InstElem(): instruction(nullptr), structIdx(0), ptrIdx(0), totalIdx(0)
-		{
-		}
-		InstElem(const InstElem& other) = default;
-		InstElem& operator=(const InstElem& other) = default;
-		bool operator==(const InstElem& other) const
-		{
-			return instruction == other.instruction && totalIdx == other.totalIdx;
-		}
-		const llvm::Instruction* instruction;
-		uint32_t structIdx;
-		uint32_t ptrIdx;
-		uint32_t totalIdx;
-	};
-	struct InstElemIterator: public llvm::iterator_facade_base<InstElemIterator, std::forward_iterator_tag, InstElem>
-	{
-		InstElemIterator(const llvm::Instruction* I, const PointerAnalyzer& PA): inner(I), PA(&PA)
-		{
-		}
-		InstElemIterator(InstElem start, const PointerAnalyzer& PA): inner(start), PA(&PA)
-		{
-		}
-		InstElemIterator& operator=(const InstElemIterator& other) = default;
-		InstElemIterator(const InstElemIterator& other) = default;
-		bool operator==(const InstElemIterator& other) const
-		{
-			return inner==other.inner;
-		}
-		InstElem& operator*() const
-		{
-			return const_cast<InstElem&>(inner);
-		}
-		InstElemIterator& operator++()
-		{
-			assert(*this != end(*PA));
-			llvm::Type* Ty = inner.instruction->getType();
-			if(auto* SI = llvm::dyn_cast<llvm::StoreInst>(inner.instruction))
-				Ty = SI->getValueOperand()->getType();
-			inner.totalIdx++;
-			if(inner.ptrIdx == 0 && isTwoElems(inner.instruction, Ty, inner.structIdx, *PA))
-			{
-				inner.ptrIdx = 1;
-				return *this;
-			}
-			if(!Ty->isStructTy() || inner.structIdx == Ty->getStructNumElements()-1)
-			{
-				inner = InstElem(nullptr);
-				return *this;
-			}
-			inner.structIdx++;
-			inner.ptrIdx = 0;
-			return *this;
-		}
-		static InstElemIterator end(const PointerAnalyzer& PA)
-		{
-			return InstElemIterator(InstElem(nullptr), PA);
-		}
-	private:
-		static bool isTwoElems(const llvm::Instruction* I, llvm::Type* Ty, int32_t structIdx, const PointerAnalyzer& PA)
-		{
-			if(!Ty->isStructTy())
-			{
-				return Ty->isPointerTy() && PA.getPointerKind(I) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(I);
-			}
-			auto* STy = llvm::cast<llvm::StructType>(Ty);
-			if(!STy->getElementType(structIdx)->isPointerTy())
-				return false;
-			TypeAndIndex b(STy, structIdx, TypeAndIndex::STRUCT_MEMBER);
-			auto kind = PA.getPointerKindForMemberPointer(b);
-			bool hasConstantOffset = PA.getConstantOffsetForMember(b) != NULL;
-			return (kind == SPLIT_REGULAR && !hasConstantOffset);
-		}
-		InstElem inner;
-		const PointerAnalyzer* PA;
-	};
-	static llvm::iterator_range<InstElemIterator> getInstElems(const llvm::Instruction* I, const PointerAnalyzer& PA)
-	{
-		return llvm::make_range(InstElemIterator(I, PA), InstElemIterator::end(PA));
-	}
 	bool hasRegisters(const llvm::Instruction* I) const;
 	uint32_t getRegisterId(const llvm::Instruction* I, uint32_t elemIdx, const EdgeContext& edgeContext) const;
 	llvm::SmallVector<uint32_t, 2> getAllRegisterIds(const llvm::Instruction* I, const EdgeContext& edgeContext) const;
@@ -1916,18 +1827,5 @@ public:
 
 
 }
-
-namespace std
-{
-	template <>
-	struct hash<cheerp::Registerize::InstElem>
-	{
-		size_t operator()(const cheerp::Registerize::InstElem& rid)
-		{
-			return hash<const llvm::Instruction *>{}(rid.instruction) ^ hash<uint32_t>{}(rid.totalIdx);
-		}
-	};
-}
-
 
 #endif
