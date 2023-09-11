@@ -238,8 +238,6 @@ struct GlobalConstructor
 
 std::vector<llvm::Constant*> getGlobalConstructors(llvm::Module& M);
 
-uint32_t getNumberOfElements(const llvm::Value*, const PointerAnalyzer& PA);
-
 uint32_t getIntFromValue(const llvm::Value* v);
 
 inline uint32_t getMaskForBitWidth(int width)
@@ -911,6 +909,76 @@ unsigned getVectorBitwidth(const llvm::FixedVectorType* vecType);
 bool hasSIMDAttribute(const llvm::Function* F);
 void removeSIMDAttribute(llvm::Function* F);
 
+struct InstElemIterator;
+struct InstElem
+{
+private:
+	friend struct InstElemIterator;
+	InstElem(const llvm::Instruction* inst)
+		: instruction(inst), structIdx(0), ptrIdx(0), totalIdx(0)
+	{
+	}
+public:
+	InstElem(): instruction(nullptr), structIdx(0), ptrIdx(0), totalIdx(0)
+	{
+	}
+	InstElem(const InstElem& other) = default;
+	InstElem& operator=(const InstElem& other) = default;
+	bool operator==(const InstElem& other) const
+	{
+		return instruction == other.instruction && totalIdx == other.totalIdx;
+	}
+	const llvm::Instruction* instruction;
+	uint32_t structIdx;
+	uint32_t ptrIdx;
+	uint32_t totalIdx;
+};
+struct InstElemIterator: public llvm::iterator_facade_base<InstElemIterator, std::forward_iterator_tag, InstElem>
+{
+	InstElemIterator(const llvm::Instruction* I, const PointerAnalyzer& PA): inner(I), PA(&PA)
+	{
+	}
+	InstElemIterator(InstElem start, const PointerAnalyzer& PA): inner(start), PA(&PA)
+	{
+	}
+	InstElemIterator& operator=(const InstElemIterator& other) = default;
+	InstElemIterator(const InstElemIterator& other) = default;
+	bool operator==(const InstElemIterator& other) const
+	{
+		return inner==other.inner;
+	}
+	InstElem& operator*() const
+	{
+		return const_cast<InstElem&>(inner);
+	}
+	static InstElemIterator end(const PointerAnalyzer& PA)
+	{
+		return InstElemIterator(InstElem(nullptr), PA);
+	}
+	InstElemIterator& operator++();
+private:
+	static bool isTwoElems(const llvm::Instruction* I, llvm::Type* Ty, int32_t structIdx, const PointerAnalyzer& PA);
+	InstElem inner;
+	const PointerAnalyzer* PA;
+};
+
+inline llvm::iterator_range<InstElemIterator> getInstElems(const llvm::Instruction* I, const PointerAnalyzer& PA)
+{
+	return llvm::make_range(InstElemIterator(I, PA), InstElemIterator::end(PA));
+}
+
+}
+
+namespace std
+{
+	template <>
+	struct hash<cheerp::InstElem>
+	{
+		size_t operator()(const cheerp::InstElem& rid)
+		{
+			return hash<const llvm::Instruction *>{}(rid.instruction) ^ hash<uint32_t>{}(rid.totalIdx);
+		}
+	};
 }
 
 #endif //_CHEERP_UTILITY_H

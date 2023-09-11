@@ -350,6 +350,8 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 			case Instruction::Call:
 			case Instruction::Load:
 			{
+				if(I.getType()->isStructTy())
+					return false;
 				// We can only inline COMPLETE_OBJECT and RAW pointers, other kinds may actually require multiple accesses while rendering
 				// NOTE: When RAW pointers are converted to REGULAR/SPLIT_REGULAR only one access (the offset part) is used, the base is a constant HEAP*
 				if(I.getType()->isPointerTy())
@@ -1063,25 +1065,6 @@ std::vector<Constant*> getGlobalConstructors(Module& module)
 	return ret;
 }
 
-
-uint32_t getNumberOfElements(const Value* V, const PointerAnalyzer& PA)
-{
-	if(!V->getType()->isPointerTy())
-		return 1;
-	if(auto* A = llvm::dyn_cast<Argument>(V))
-	{
-		if(PA.getPointerKindForArgument(A) == SPLIT_REGULAR)
-		{
-			return 2;
-		}
-	}
-	else if(PA.getPointerKind(V) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(V))
-	{
-		return 2;
-	}
-	return 1;
-}
-
 const llvm::Loop* findCommonLoop(const llvm::LoopInfo* LI, const llvm::BasicBlock* first, const llvm::BasicBlock* second)
 {
 	//Find the innermost common loop between two BB.
@@ -1462,6 +1445,43 @@ void removeSIMDAttribute(Function* F)
 	if (features.empty())
 		return;
 	F->addFnAttr("target-features", llvm::join(features, ","));
+}
+
+InstElemIterator& InstElemIterator::operator++()
+{
+	assert(*this != end(*PA));
+	llvm::Type* Ty = inner.instruction->getType();
+	if(auto* SI = llvm::dyn_cast<llvm::StoreInst>(inner.instruction))
+		Ty = SI->getValueOperand()->getType();
+	inner.totalIdx++;
+	if(inner.ptrIdx == 0 && isTwoElems(inner.instruction, Ty, inner.structIdx, *PA))
+	{
+		inner.ptrIdx = 1;
+		return *this;
+	}
+	if(!Ty->isStructTy() || inner.structIdx == Ty->getStructNumElements()-1)
+	{
+		inner = InstElem(nullptr);
+		return *this;
+	}
+	inner.structIdx++;
+	inner.ptrIdx = 0;
+	return *this;
+}
+
+bool InstElemIterator::isTwoElems(const llvm::Instruction* I, llvm::Type* Ty, int32_t structIdx, const PointerAnalyzer& PA)
+{
+	if(!Ty->isStructTy())
+	{
+		return Ty->isPointerTy() && PA.getPointerKind(I) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(I);
+	}
+	auto* STy = llvm::cast<llvm::StructType>(Ty);
+	if(!STy->getElementType(structIdx)->isPointerTy())
+		return false;
+	TypeAndIndex b(STy, structIdx, TypeAndIndex::STRUCT_MEMBER);
+	auto kind = PA.getPointerKindForMemberPointer(b);
+	bool hasConstantOffset = PA.getConstantOffsetForMember(b) != NULL;
+	return (kind == SPLIT_REGULAR && !hasConstantOffset);
 }
 
 }

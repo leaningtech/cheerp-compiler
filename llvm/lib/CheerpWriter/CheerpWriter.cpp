@@ -1866,7 +1866,7 @@ int CheerpWriter::compileHeapForType(Type* et)
 	}
 	return shift;
 }
-void CheerpWriter::compileHeapAccess(const Value* p, Type* t)
+void CheerpWriter::compileHeapAccess(const Value* p, Type* t, uint32_t offset)
 {
 	if (!isa<PointerType>(p->getType()))
 	{
@@ -1878,17 +1878,29 @@ void CheerpWriter::compileHeapAccess(const Value* p, Type* t)
 		return;
 	}
 	PointerType* pt=cast<PointerType>(p->getType());
-	assert(!t || t->getPointerTo() == pt);
 	Type* et = (t==nullptr) ? pt->getPointerElementType() : t;
 	uint32_t shift = compileHeapForType(et);
 	stream << '[';
 	if(!symbolicGlobalsAsmJS && isa<GlobalVariable>(p))
 	{
+		assert(offset == 0);
 		stream << (linearHelper.getGlobalVariableAddress(cast<GlobalVariable>(p)) >> shift);
 	}
 	else
 	{
-		compileRawPointer(p, PARENT_PRIORITY::SHIFT);
+		PARENT_PRIORITY prio = PARENT_PRIORITY::SHIFT;
+		if(offset != 0)
+		{
+			stream << '(';
+			prio = PARENT_PRIORITY::ADD_SUB;
+		}
+		compileRawPointer(p, prio);
+		if(offset != 0)
+		{
+			stream << '+';
+			stream << offset;
+			stream << "|0)";
+		}
 		stream << ">>" << shift;
 	}
 	stream << ']';
@@ -2655,6 +2667,28 @@ void CheerpWriter::compileOperand(const Value* v, PARENT_PRIORITY parentPrio, bo
 	}
 }
 
+void CheerpWriter::compileAggregateElem(const llvm::Value* v, uint32_t elemIdx, PARENT_PRIORITY parentPrio)
+{
+	assert(v->getType()->isAggregateType());
+	if(auto* I = dyn_cast<Instruction>(v))
+	{
+		stream <<  getName(v, elemIdx);
+	}
+	else if(auto* U = dyn_cast<UndefValue>(v))
+	{
+		compileOperand(U->getAggregateElement(elemIdx));
+	}
+	else if(auto* C = dyn_cast<ConstantStruct>(v))
+	{
+		compileConstant(C->getAggregateElement(elemIdx), parentPrio);
+	}
+	else
+	{
+		v->dump();
+		report_fatal_error("unsupported aggregate");
+	}
+}
+
 bool CheerpWriter::needsPointerKindConversion(const PHINode* phi, const Value* incoming, uint32_t elemIdx,
                                               const PointerAnalyzer& PA, const Registerize& registerize, const EdgeContext& edgeContext)
 {
@@ -2704,14 +2738,15 @@ bool CheerpWriter::needsPointerKindConversionForBlocks(const BasicBlock* to, con
 	private:
 		const PointerAnalyzer& PA;
 		const Registerize& registerize;
-		void handleRecursivePHIDependency(const Instruction* incoming, uint32_t elemIdx) override
+		void handleRecursivePHIDependency(const InstElem& incomingEl) override
 		{
 			//Whenever we need to move to a temporary, we will also need to materialize the block
 			needsPointerKindConversion = true;
 		}
-		void handlePHI(const PHINode* phi, uint32_t elemIdx, const Value* incoming) override
+		void handlePHI(const InstElem& phiEl, const Value* incoming) override
 		{
-			needsPointerKindConversion |= CheerpWriter::needsPointerKindConversion(phi, incoming, elemIdx, PA, registerize, edgeContext);
+			auto* phi = cast<PHINode>(phiEl.instruction);
+			needsPointerKindConversion |= CheerpWriter::needsPointerKindConversion(phi, incoming, phiEl.totalIdx, PA, registerize, edgeContext);
 		}
 	};
 
@@ -2736,43 +2771,52 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 	private:
 		const bool asmjs;
 		CheerpWriter& writer;
-		void handleRecursivePHIDependency(const Instruction* incoming, uint32_t elemIdx) override
+		void handleRecursivePHIDependency(const InstElem& incomingEl) override
 		{
-			assert(incoming);
-			writer.stream << writer.getName(incoming, elemIdx);
+			writer.stream << writer.getName(incomingEl.instruction, incomingEl.totalIdx);
 
 			//We walk back a step in "time"
 			edgeContext.undoAssigment();
 			//Find what name the instruction had previously
-			writer.stream << '=' << writer.getName(incoming, elemIdx) << ';' << writer.NewLine;
+			writer.stream
+				<< '='
+				<< writer.getName(incomingEl.instruction, incomingEl.totalIdx)
+				<< ';'
+				<< writer.NewLine;
 			//And undo the undo, back to the original situatuion
 			edgeContext.processAssigment();
 		}
-		void handlePHI(const PHINode* phi, uint32_t elemIdx, const Value* incoming) override
+		void handlePHI(const InstElem& phiEl, const Value* incoming) override
 		{
+			const auto* phi = cast<PHINode>(phiEl.instruction);
 			// We can avoid assignment from the same register if no pointer kind conversion is required
-			if(!needsPointerKindConversion(phi, incoming, elemIdx, writer.PA, writer.registerize, edgeContext))
+			if(!needsPointerKindConversion(phi, incoming, phiEl.totalIdx, writer.PA, writer.registerize, edgeContext))
 				return;
 			// We can leave undefined values undefined
 			if (isa<UndefValue>(incoming))
 				return;
 			Type* phiType=phi->getType();
 
-			if(phiType->isPointerTy())
+			if(phiType->isStructTy())
+			{
+				writer.stream << writer.getName(phi, phiEl.totalIdx, /*doNotConsiderEdgeContext*/true) << '=';
+				writer.compileAggregateElem(incoming, phiEl.totalIdx, LOWEST);
+			}
+			else if(phiType->isPointerTy())
 			{
 				POINTER_KIND k=writer.PA.getPointerKind(phi);
 				assert(k!=CONSTANT);
 				if((k==REGULAR || k==SPLIT_REGULAR || k==BYTE_LAYOUT) && writer.PA.getConstantOffsetForPointer(phi))
 				{
-					assert(elemIdx == 0);
+					assert(phiEl.totalIdx == 0);
 					writer.stream << writer.getName(phi, 0, /*doNotConsiderEdgeContext*/true) << '=';
 					writer.compilePointerBase(incoming);
 				}
 				else if(k==SPLIT_REGULAR)
 				{
-					writer.stream << writer.getName(phi, elemIdx, /*doNotConsiderEdgeContext*/true);
+					writer.stream << writer.getName(phi, phiEl.totalIdx, /*doNotConsiderEdgeContext*/true);
 					writer.stream << '=';
-					if(elemIdx == 0)
+					if(phiEl.ptrIdx == 0)
 					{
 						writer.compilePointerBase(incoming);
 					}
@@ -2792,20 +2836,20 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 				}
 				else if(k==RAW)
 				{
-					assert(elemIdx == 0);
+					assert(phiEl.totalIdx == 0);
 					writer.stream << writer.getName(phi, 0, /*doNotConsiderEdgeContext*/true) << '=';
 					writer.compileRawPointer(incoming, LOWEST);
 				}
 				else
 				{
-					assert(elemIdx == 0);
+					assert(phiEl.totalIdx == 0);
 					writer.stream << writer.getName(phi, 0, /*doNotConsiderEdgeContext*/true) << '=';
 					writer.compilePointerAs(incoming, k);
 				}
 			}
 			else
 			{
-				assert(elemIdx == 0);
+				assert(phiEl.totalIdx == 0);
 				writer.stream << writer.getName(phi, 0, /*doNotConsiderEdgeContext*/true);
 
 				const llvm::Instruction* instIncoming = dyn_cast<const Instruction>(incoming);
@@ -3141,69 +3185,26 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 		}
 		case Instruction::InsertValue:
 		{
-			const InsertValueInst& ivi = cast<InsertValueInst>(I);
-			const Value* aggr=ivi.getAggregateOperand();
-			StructType* t=dyn_cast<StructType>(aggr->getType());
-			assert(ivi.getIndices().size()==1);
-			if(!t)
+			const auto& IV = cast<InsertValueInst>(I);
+			assert(IV.getNumIndices() == 1);
+			uint32_t newIdx = IV.getIndices()[0];
+			for(const auto& ie: getInstElems(&IV, PA))
 			{
-				llvm::errs() << "insertvalue: Expected struct, found " << *aggr->getType() << "\n";
-				llvm::report_fatal_error("Unsupported code found, please report a bug", false);
-				return COMPILE_UNSUPPORTED;
-			}
-			uint32_t offset=ivi.getIndices()[0];
-			if(isa<UndefValue>(aggr))
-			{
-				// We have to assemble the type object from scratch
-				stream << '{';
-				for(unsigned int i=0;i<t->getNumElements();i++)
+				assert(ie.ptrIdx == 0);
+				if(ie.totalIdx != 0)
 				{
-					assert(!t->getElementType(i)->isStructTy());
-					assert(!t->getElementType(i)->isArrayTy());
-					char memberPrefix = types.getPrefixCharForMember(PA, t, i);
-					bool useWrapperArray = types.useWrapperArrayForMember(PA, t, i);
-					if(i!=0)
-						stream << ',';
-					stream << memberPrefix << i << ':';
-					if(useWrapperArray)
-						stream << '[';
-					if(offset == i)
-						compileOperand(ivi.getInsertedValueOperand(), LOWEST);
-					else
-						compileType(t->getElementType(i), LITERAL_OBJ);
-					if(useWrapperArray)
-						stream << ']';
+					stream << ";" << NewLine;
+					stream << getName(&IV, ie.totalIdx);
+					stream << '=';
 				}
-				stream << '}';
-			}
-			else
-			{
-				// We have to make a copy with a field of a different value
-				stream << '{';
-				for(unsigned int i=0;i<t->getNumElements();i++)
+				if(ie.structIdx == newIdx)
 				{
-					assert(!t->getElementType(i)->isStructTy());
-					assert(!t->getElementType(i)->isArrayTy());
-					char memberPrefix = types.getPrefixCharForMember(PA, t, i);
-					bool useWrapperArray = types.useWrapperArrayForMember(PA, t, i);
-					if(i!=0)
-						stream << ',';
-					stream << memberPrefix << i << ':';
-					if(useWrapperArray)
-						stream << '[';
-					if(offset == i)
-						compileOperand(ivi.getInsertedValueOperand(), LOWEST);
-					else
-					{
-						stream << getName(aggr, 0);
-						stream << '.' << memberPrefix << i;
-						if(useWrapperArray)
-							stream << "[0]";
-					}
-					if(useWrapperArray)
-						stream << ']';
+					compileOperand(IV.getOperand(1));
 				}
-				stream << '}';
+				else
+				{
+					compileAggregateElem(IV.getAggregateOperand(), ie.totalIdx);
+				}
 			}
 			return COMPILE_OK;
 		}
@@ -4158,23 +4159,9 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		}
 		case Instruction::ExtractValue:
 		{
-			const ExtractValueInst& evi = cast<ExtractValueInst>(I);
-			const Value* aggr=evi.getAggregateOperand();
-			Type* t=aggr->getType();
-			if(!t->isStructTy())
-			{
-				llvm::errs() << "extractvalue: Expected struct, found " << *t << "\n";
-				llvm::report_fatal_error("Unsupported code found, please report a bug", false);
-				return COMPILE_OK;
-			}
-			assert(!isa<UndefValue>(aggr));
-
-			compileOperand(aggr, HIGHEST);
-
-			uint32_t offset=evi.getIndices()[0];
-			stream << '.' << types.getPrefixCharForMember(PA, cast<StructType>(t), offset) << offset;
-			if(types.useWrapperArrayForMember(PA, cast<StructType>(t), offset))
-				stream << "[0]";
+			const auto& EV = cast<ExtractValueInst>(I);
+			assert(EV.getNumIndices() == 1);
+			compileAggregateElem(EV.getAggregateOperand(), EV.getIndices()[0]);
 			return COMPILE_OK;
 		}
 		case Instruction::FPExt:
@@ -4327,21 +4314,39 @@ void CheerpWriter::compileLoad(const LoadInst& li, PARENT_PRIORITY parentPrio)
 					stream<<",";
 			}
 	}
-	forEachElem(&li, li.getType(), PA, registerize, asmjs, [&](const Value* v, Type* Ty, StructType* STy, POINTER_KIND elemPtrKind, bool isOffset, Registerize::REGISTER_KIND elemRegKind, uint32_t elemIdx, uint32_t structElemIdx, bool asmjs)
+	for(const auto& ie: getInstElems(&li, PA))
 	{
-		if(elemIdx != 0)
+		if(ie.totalIdx != 0)
 		{
 			stream << ';' << NewLine;
-			stream << getName(v, elemIdx) << '=';
+			stream << getName(&li, ie.totalIdx) << '=';
 			parentPrio = LOWEST;
 		}
-		compileLoadElem(ptrOp, Ty, nullptr, ptrKind, elemPtrKind, isOffset, elemRegKind, structElemIdx, asmjs, parentPrio);
+		Type* Ty = li.getType();
+		StructType* STy = nullptr;
+		Registerize::REGISTER_KIND elemRegKind = registerize.getRegKindFromInstElem(ie, asmjs, &PA);
+		POINTER_KIND elemPtrKind = COMPLETE_OBJECT;
+		if(STy = dyn_cast<StructType>(Ty); STy)
+		{
+			Ty = STy->getElementType(ie.structIdx);
+			if(Ty->isPointerTy())
+			{
+				TypeAndIndex b(STy, ie.structIdx, TypeAndIndex::STRUCT_MEMBER);
+				elemPtrKind = PA.getPointerKindForMemberPointer(b);
+			}
+		}
+		else if(Ty->isPointerTy())
+		{
+			elemPtrKind = PA.getPointerKind(&li);
+		}
+		bool isOffset = ie.ptrIdx == 1;
+		compileLoadElem(ptrOp, Ty, STy, ptrKind, elemPtrKind, isOffset, elemRegKind, ie.structIdx, asmjs, parentPrio);
 		if(needsCheckBounds)
 		{
 			needsCheckBounds = false;
 			stream << ')';
 		}
-	});
+	}
 }
 
 void CheerpWriter::compileLoadElem(const Value* ptrOp, Type* Ty, StructType* STy, POINTER_KIND ptrKind, POINTER_KIND loadKind, bool isOffset, Registerize::REGISTER_KIND regKind, uint32_t structElemIdx, bool asmjs, PARENT_PRIORITY parentPrio)
@@ -4365,6 +4370,12 @@ void CheerpWriter::compileLoadElem(const Value* ptrOp, Type* Ty, StructType* STy
 	auto* PTy = dyn_cast<PointerType>(Ty);
 	if(asmjs || ptrKind == RAW)
 	{
+		uint32_t offset = 0;
+		if(STy)
+		{
+			const StructLayout* SL = targetData.getStructLayout(STy);
+			offset =  SL->getElementOffset(structElemIdx);
+		}
 		if(PTy && (loadKind == REGULAR || loadKind == SPLIT_REGULAR))
 		{
 			switch(loadKind)
@@ -4374,7 +4385,7 @@ void CheerpWriter::compileLoadElem(const Value* ptrOp, Type* Ty, StructType* STy
 				stream << "{d:";
 				compileHeapForType(PTy->getPointerElementType());
 				stream << ",o:";
-				compileHeapAccess(ptrOp, Ty);
+				compileHeapAccess(ptrOp, Ty, offset);
 				stream << '}';
 				break;
 			}
@@ -4382,7 +4393,7 @@ void CheerpWriter::compileLoadElem(const Value* ptrOp, Type* Ty, StructType* STy
 			{
 				if(isOffset)
 				{
-					compileHeapAccess(ptrOp, Ty);
+					compileHeapAccess(ptrOp, Ty, offset);
 					int shift =  getHeapShiftForType(PTy->getPointerElementType());
 					if (shift != 0)
 						stream << ">>" << shift;
@@ -4401,7 +4412,7 @@ void CheerpWriter::compileLoadElem(const Value* ptrOp, Type* Ty, StructType* STy
 		}
 		else
 		{
-			compileHeapAccess(ptrOp, Ty);
+			compileHeapAccess(ptrOp, Ty, offset);
 		}
 	}
 	else if (ptrKind == BYTE_LAYOUT)
@@ -4442,6 +4453,10 @@ void CheerpWriter::compileLoadElem(const Value* ptrOp, Type* Ty, StructType* STy
 	else
 	{
 		compileCompleteObject(ptrOp);
+		if(STy)
+		{
+			compileAccessToElement(STy, {ConstantInt::get(IntegerType::get(Ty->getContext(), 32), structElemIdx)}, false);
+		}
 		if(isOffset)
 			stream << 'o';
 	}
@@ -4485,14 +4500,31 @@ void CheerpWriter::compileStore(const StoreInst& si)
 			stream<<",";
 		}
 	}
-	forEachElem(&si, Ty, PA, registerize, asmjs, [&](const Value* v, Type* Ty, StructType* STy, POINTER_KIND elemPtrKind, bool isOffset, Registerize::REGISTER_KIND elemRegKind, uint32_t elemIdx, uint32_t structElemIdx, bool asmjs)
+	StructType* STy = dyn_cast<StructType>(Ty);
+	for(const auto& ie: getInstElems(&si, PA))
 	{
-		if(elemIdx != 0)
+		if(ie.totalIdx != 0)
 		{
 			stream << ';' << NewLine;
 		}
-		compileStoreElem(si, Ty, STy, ptrKind, elemPtrKind, isOffset, elemRegKind, elemIdx, structElemIdx, asmjs);
-	});
+		Registerize::REGISTER_KIND elemRegKind = registerize.getRegKindFromInstElem(ie, asmjs, &PA);
+		POINTER_KIND elemPtrKind = COMPLETE_OBJECT;
+		if(STy)
+		{
+			Ty = STy->getElementType(ie.structIdx);
+			if(Ty->isPointerTy())
+			{
+				TypeAndIndex b(STy, ie.structIdx, TypeAndIndex::STRUCT_MEMBER);
+				elemPtrKind = PA.getPointerKindForMemberPointer(b);
+			}
+		}
+		else if(Ty->isPointerTy())
+		{
+			elemPtrKind = PA.getPointerKind(&si);
+		}
+		bool isOffset = ie.ptrIdx == 1;
+		compileStoreElem(si, Ty, STy, ptrKind, elemPtrKind, isOffset, elemRegKind, ie.totalIdx, ie.structIdx, asmjs);
+	}
 }
 
 void CheerpWriter::compileStoreElem(const StoreInst& si, Type* Ty, StructType* STy, POINTER_KIND ptrKind, POINTER_KIND storedKind, bool isOffset, Registerize::REGISTER_KIND regKind, uint32_t structElemIdx, uint32_t elemIdx, bool asmjs)
@@ -4503,7 +4535,13 @@ void CheerpWriter::compileStoreElem(const StoreInst& si, Type* Ty, StructType* S
 	if (RAW == ptrKind || (asmjs && ptrKind == CONSTANT))
 	{
 		assert(!isOffset);
-		compileHeapAccess(ptrOp, Ty);
+		uint32_t offset = 0;
+		if(STy)
+		{
+			const StructLayout* SL = targetData.getStructLayout(STy);
+			offset =  SL->getElementOffset(structElemIdx);
+		}
+		compileHeapAccess(ptrOp, Ty, offset);
 	}
 	else if (ptrKind == BYTE_LAYOUT)
 	{
@@ -4542,47 +4580,58 @@ void CheerpWriter::compileStoreElem(const StoreInst& si, Type* Ty, StructType* S
 	else
 	{
 		compileCompleteObject(ptrOp);
+		if(STy)
+		{
+			compileAccessToElement(STy, {ConstantInt::get(IntegerType::get(Ty->getContext(), 32), structElemIdx)}, false);
+		}
 		if(isOffset)
 			stream << 'o';
 	}
 
 	stream << '=';
-	if(Ty->isPointerTy())
+	if(STy)
 	{
-		assert(storedKind != CONSTANT);
-		bool hasConstantOffset = PA.getConstantOffsetForPointer(&si);
-		if(storedKind==SPLIT_REGULAR || ((storedKind == REGULAR || storedKind == BYTE_LAYOUT) && hasConstantOffset))
+		compileAggregateElem(valOp, elemIdx, LOWEST);
+	}
+	else
+	{
+		if(Ty->isPointerTy())
 		{
-			if(isOffset)
+			assert(storedKind != CONSTANT);
+			bool hasConstantOffset = PA.getConstantOffsetForPointer(&si);
+			if(storedKind==SPLIT_REGULAR || ((storedKind == REGULAR || storedKind == BYTE_LAYOUT) && hasConstantOffset))
 			{
-				assert(storedKind == SPLIT_REGULAR);
-				compilePointerOffset(valOp, LOWEST, /*forEscapingPointer*/true);
+				if(isOffset)
+				{
+					assert(storedKind == SPLIT_REGULAR);
+					compilePointerOffset(valOp, LOWEST, /*forEscapingPointer*/true);
+				}
+				else
+				{
+					compilePointerBase(valOp, /*forEscapingPointer*/true);
+				}
 			}
 			else
 			{
-				compilePointerBase(valOp, /*forEscapingPointer*/true);
+				compilePointerAs(valOp, storedKind);
 			}
 		}
 		else
 		{
-			compilePointerAs(valOp, storedKind);
+			PARENT_PRIORITY storePrio = LOWEST;
+			if(asmjs)
+			{
+				// On asm.js we can pretend the store will add a |0
+				// This is not necessarily true in genericjs
+				// As we might be storing in an object member or a plain array
+				if(regKind == Registerize::INTEGER)
+					storePrio = BIT_OR;
+				// The same applies for fround
+				else if(regKind == Registerize::FLOAT)
+					storePrio = FROUND;
+			}
+			compileOperand(valOp, storePrio);
 		}
-	}
-	else
-	{
-		PARENT_PRIORITY storePrio = LOWEST;
-		if(asmjs)
-		{
-			// On asm.js we can pretend the store will add a |0
-			// This is not necessarily true in genericjs
-			// As we might be storing in an object member or a plain array
-			if(regKind == Registerize::INTEGER)
-				storePrio = BIT_OR;
-			// The same applies for fround
-			else if(regKind == Registerize::FLOAT)
-				storePrio = FROUND;
-		}
-		compileOperand(valOp, storePrio);
 	}
 }
 
@@ -4864,22 +4913,23 @@ void CheerpWriter::compileBB(const BasicBlock& BB)
 		bool hasDelayedPHIs;
 	private:
 		CheerpWriter writer;
-		void handleRecursivePHIDependency(const Instruction* incoming, uint32_t elemIdx) override
+		void handleRecursivePHIDependency(const InstElem& incomingEl) override
 		{
 		}
-		void handlePHI(const PHINode* phi, uint32_t elemIdx, const Value* incoming) override
+		void handlePHI(const InstElem& phiEl, const Value* incoming) override
 		{
+			const auto* phi = cast<PHINode>(phiEl.instruction);
 			if(!canDelayPHI(phi, PA, writer.registerize))
 				return;
 			hasDelayedPHIs = true;
 			assert(!phi->getType()->isStructTy());
 			POINTER_KIND k = PA.getPointerKindAssert(phi);
-			writer.stream << writer.getName(phi, elemIdx) << '=';
+			writer.stream << writer.getName(phi, phiEl.totalIdx) << '=';
 			if((k == REGULAR || k == SPLIT_REGULAR || k == BYTE_LAYOUT) && PA.getConstantOffsetForPointer(phi))
 				writer.compilePointerBase(incoming);
 			else if(k == SPLIT_REGULAR)
 			{
-				if(elemIdx == 0)
+				if(phiEl.ptrIdx == 0)
 					writer.compilePointerBase(incoming);
 				else
 					writer.compilePointerOffset(incoming, LOWEST);

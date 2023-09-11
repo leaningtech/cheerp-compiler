@@ -21,6 +21,8 @@
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/ADT/BitVector.h"
 #include "llvm/ADT/IntEqClasses.h"
+#include "llvm/ADT/iterator.h"
+#include "llvm/ADT/iterator_range.h"
 #include "llvm/Cheerp/CommandLine.h"
 #include "llvm/Cheerp/DeterministicUnorderedMap.h"
 #include "llvm/Cheerp/EdgeContext.h"
@@ -1313,21 +1315,6 @@ public:
 		std::vector<T> vec;
 		cheerp::DeterministicUnorderedMap<T, uint32_t, RestrictionsLifted::NoErasure | RestrictionsLifted::NoDeterminism> map;
 	};
-	struct InstElem
-	{
-		InstElem(const llvm::Instruction* inst, const uint32_t elemIdx) : instruction(inst), elemIdx(elemIdx)
-		{
-		}
-		InstElem(): InstElem(nullptr, 0)
-		{
-		}
-		bool operator==(const InstElem& other) const
-		{
-			return instruction == other.instruction && elemIdx == other.elemIdx;
-		}
-		const llvm::Instruction* instruction;
-		uint32_t elemIdx;
-	};
 	bool hasRegisters(const llvm::Instruction* I) const;
 	uint32_t getRegisterId(const llvm::Instruction* I, uint32_t elemIdx, const EdgeContext& edgeContext) const;
 	llvm::SmallVector<uint32_t, 2> getAllRegisterIds(const llvm::Instruction* I, const EdgeContext& edgeContext) const;
@@ -1475,7 +1462,7 @@ private:
 			assert(r != instIdMap->end());
 			if (l->second != r->second)
 				return l->second < r->second;
-			return L.elemIdx < R.elemIdx;
+			return L.totalIdx < R.totalIdx;
 		}
 	};
 	struct CompareInstructionByID
@@ -1840,18 +1827,5 @@ public:
 
 
 }
-
-namespace std
-{
-	template <>
-	struct hash<cheerp::Registerize::InstElem>
-	{
-		size_t operator()(const cheerp::Registerize::InstElem& rid)
-		{
-			return hash<const llvm::Instruction *>{}(rid.instruction) ^ hash<uint32_t>{}(rid.elemIdx);
-		}
-	};
-}
-
 
 #endif

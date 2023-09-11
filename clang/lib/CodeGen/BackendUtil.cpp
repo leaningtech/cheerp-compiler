@@ -28,7 +28,6 @@
 #include "llvm/Bitcode/BitcodeWriterPass.h"
 #include "llvm/Cheerp/NativeRewriter.h"
 #include "llvm/Cheerp/CFGPasses.h"
-#include "llvm/Cheerp/ExpandStructRegs.h"
 #include "llvm/Cheerp/ByValLowering.h"
 #include "llvm/Cheerp/PassUtility.h"
 #include "llvm/CodeGen/RegAllocRegistry.h"
@@ -955,10 +954,6 @@ void EmitAssemblyHelper::RunOptimizationPipeline(
           [](ModulePassManager &MPM, OptimizationLevel Level) {
             // Lower byval parameters
             MPM.addPass(ByValLoweringPass());
-          });
-      PB.registerScalarOptimizerLateEPCallback(
-          [](FunctionPassManager &FPM, OptimizationLevel Level) {
-            FPM.addPass(ExpandStructRegsPass());
           });
     }
 

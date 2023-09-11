@@ -684,6 +684,7 @@ public:
 	void compileBB(const llvm::BasicBlock& BB);
 	void compileConstant(const llvm::Constant* c, PARENT_PRIORITY parentPrio = HIGHEST);
 	void compileOperand(const llvm::Value* v, PARENT_PRIORITY parentPrio = HIGHEST, bool allowBooleanObjects = false);
+	void compileAggregateElem(const llvm::Value* v, uint32_t elemIdx, PARENT_PRIORITY parentPrio = HIGHEST);
 	void compilePHIOfBlockFromOtherBlock(const llvm::BasicBlock* to, const llvm::BasicBlock* from);
 	void compileOperandForIntegerPredicate(const llvm::Value* v, llvm::CmpInst::Predicate p, PARENT_PRIORITY parentPrio);
 	void compileIntegerComparison(const llvm::Value* lhs, const llvm::Value* rhs, llvm::CmpInst::Predicate p, PARENT_PRIORITY parentPrio);
@@ -693,7 +694,7 @@ public:
 	// returns the amount fo shift required for accessing the corresponding heap
 	int getHeapShiftForType(llvm::Type* et);
 	int compileHeapForType(llvm::Type* et);
-	void compileHeapAccess(const llvm::Value* p, llvm::Type* t = nullptr);
+	void compileHeapAccess(const llvm::Value* p, llvm::Type* t = nullptr, uint32_t offset = 0);
 	/**
 	 * Compile the function tables for the asm.js module
 	 */
