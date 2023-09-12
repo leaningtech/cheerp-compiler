@@ -1194,6 +1194,14 @@ void ExecutionEngine::LoadValueFromMemory(GenericValue &Result,
     }
   break;
   }
+  case Type::StructTyID: {
+    StructType* ST = cast<StructType>(Ty);
+    const StructLayout *SL = getDataLayout().getStructLayout(ST);
+    Result.AggregateVal.resize(ST->getNumElements());
+    for (unsigned i = 0; i < ST->getNumElements(); ++i)
+      LoadValueFromMemory(Result.AggregateVal[i], (GenericValue*)(((char*)Ptr)+SL->getElementOffset(i)), ST->getElementType(i));
+    break;
+  }
   default:
     SmallString<256> Msg;
     raw_svector_ostream OS(Msg);
