@@ -1063,25 +1063,6 @@ std::vector<Constant*> getGlobalConstructors(Module& module)
 	return ret;
 }
 
-
-uint32_t getNumberOfElements(const Value* V, const PointerAnalyzer& PA)
-{
-	if(!V->getType()->isPointerTy())
-		return 1;
-	if(auto* A = llvm::dyn_cast<Argument>(V))
-	{
-		if(PA.getPointerKindForArgument(A) == SPLIT_REGULAR)
-		{
-			return 2;
-		}
-	}
-	else if(PA.getPointerKind(V) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(V))
-	{
-		return 2;
-	}
-	return 1;
-}
-
 const llvm::Loop* findCommonLoop(const llvm::LoopInfo* LI, const llvm::BasicBlock* first, const llvm::BasicBlock* second)
 {
 	//Find the innermost common loop between two BB.
@@ -1462,6 +1443,27 @@ void removeSIMDAttribute(Function* F)
 	if (features.empty())
 		return;
 	F->addFnAttr("target-features", llvm::join(features, ","));
+}
+
+InstElemIterator& InstElemIterator::operator++()
+{
+	assert(*this != end(*PA));
+	llvm::Type* Ty = inner.instruction->getType();
+	if(auto* SI = llvm::dyn_cast<llvm::StoreInst>(inner.instruction))
+		Ty = SI->getValueOperand()->getType();
+	inner.totalIdx++;
+	if(inner.ptrIdx == 0 && isTwoElems(inner.instruction, Ty, *PA))
+	{
+		inner.ptrIdx = 1;
+		return *this;
+	}
+	inner = InstElem(nullptr);
+	return *this;
+}
+
+bool InstElemIterator::isTwoElems(const llvm::Instruction* I, llvm::Type* Ty, const PointerAnalyzer& PA)
+{
+	return Ty->isPointerTy() && PA.getPointerKind(I) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(I);
 }
 
 }

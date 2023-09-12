@@ -1116,13 +1116,14 @@ void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const B
 		CheerpWasmWriter& writer;
 		WasmBuffer& code;
 		const BasicBlock* fromBB;
-		void handlePHIStackGroup(const std::vector<std::pair<const llvm::PHINode*, uint32_t>>& phiToHandle) override
+		void handlePHIStackGroup(const std::vector<InstElem>& phiToHandle) override
 		{
-			std::vector<std::pair<const Value*, std::vector<const llvm::PHINode*>>> toProcessOrdered;
-			std::map<const Value*, std::vector<const llvm::PHINode*>> toProcessMap;
-			for (auto& [phi, elemIdx] : phiToHandle)
+			std::vector<std::pair<const Value*, std::vector<const PHINode*>>> toProcessOrdered;
+			std::map<const Value*, std::vector<const PHINode*>> toProcessMap;
+			for (const auto& phiEl : phiToHandle)
 			{
-				assert(elemIdx == 0);
+				const auto* phi = cast<PHINode>(phiEl.instruction);
+				assert(phiEl.ptrIdx == 0);
 				const Value* incoming = phi->getIncomingValueForBlock(fromBB);
 				// We can avoid assignment from the same register if no pointer kind conversion is required
 				if(!writer.requiresExplicitAssigment(phi, incoming))
@@ -1131,37 +1132,40 @@ void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const B
 				if (isa<UndefValue>(incoming))
 					continue;
 
-				if (toProcessMap.count(incoming) == 0)
-					toProcessOrdered.push_back({incoming,{}});
-
-				toProcessMap[incoming].push_back(phi);
+				auto it = toProcessMap.find(incoming);
+				if(it == toProcessMap.end())
+				{
+					it = toProcessMap.insert(it, {incoming, {}});
+					toProcessOrdered.push_back({incoming, {}});
+				}
+				it->second.emplace_back(phi);
 			}
 
 			//Note that any process order works, as long as it's deterministic
 			//So reordering for leaving on the stack whatever is needed also works
-			for (auto& pair : toProcessOrdered)
+			for (auto& [incomingElem, phis] : toProcessOrdered)
 			{
 				// 1) Put the value on the stack
-				writer.compileOperand(code, pair.first);
-				pair.second = std::move(toProcessMap[pair.first]);
+				writer.compileOperand(code, incomingElem);
+				phis = std::move(toProcessMap[incomingElem]);
 			}
 
 			writer.teeLocals.removeConsumed();
 
 			while (!toProcessOrdered.empty())
 			{
-				const Value* incoming = toProcessOrdered.back().first;
+				auto incomingElem = toProcessOrdered.back().first;
 				const auto& phiVector  = toProcessOrdered.back().second;
 
-				for (const PHINode* phi : phiVector)
+				for (const auto* phi : phiVector)
 				{
 					// 2) Save the value in the phi
 					uint32_t reg = writer.registerize.getRegisterId(phi, 0, EdgeContext::emptyContext());
 					uint32_t local = writer.localMap.at(reg);
-					if (phi == phiVector.back())
+					if (phiVector.back() == phi)
 					{
 						if (toProcessOrdered.size() == 1)
-							writer.teeLocals.addCandidate(incoming, /*isInstructionAssigment*/false, local, code.tell());
+							writer.teeLocals.addCandidate(incomingElem, /*isInstructionAssigment*/false, local, code.tell());
 						writer.encodeInst(WasmU32Opcode::SET_LOCAL, local, code);
 					}
 					else
@@ -1915,10 +1919,99 @@ uint32_t CheerpWasmWriter::compileLoadStorePointer(WasmBuffer& code, const Value
 void CheerpWasmWriter::compileLoad(WasmBuffer& code, const LoadInst& li, bool signExtend)
 {
 	const Value* ptrOp=li.getPointerOperand();
+	auto* Ty = li.getType();
 	// 1) The pointer
 	uint32_t offset = compileLoadStorePointer(code, ptrOp);
 	// 2) Load
-	encodeLoad(li.getType(), offset, code, signExtend);
+	encodeLoad(Ty, offset, code, signExtend);
+}
+
+void CheerpWasmWriter::compileStore(WasmBuffer& code, const StoreInst& si)
+{
+	const Value* ptrOp=si.getPointerOperand();
+	const Value* valOp=si.getValueOperand();
+	auto* Ty = valOp->getType();
+	// 1) The pointer
+	uint32_t offset = compileLoadStorePointer(code, ptrOp);
+	// Special case writing 0 to floats/double
+	if(Ty->isFloatingPointTy() && isa<Constant>(valOp) && cast<Constant>(valOp)->isNullValue())
+	{
+		if(Ty->isFloatTy())
+		{
+			encodeInst(WasmS32Opcode::I32_CONST, 0, code);
+			encodeInst(WasmU32U32Opcode::I32_STORE, 0x2, offset, code);
+		}
+		else
+		{
+			assert(Ty->isDoubleTy());
+			encodeInst(WasmS64Opcode::I64_CONST, 0, code);
+			encodeInst(WasmU32U32Opcode::I64_STORE, 0x3, offset, code);
+		}
+		return;
+	}
+	// 2) The value
+	compileOperand(code, valOp);
+	// 3) Store
+	// When storing values with size less than 32-bit we need to truncate them
+	if(Ty->isIntegerTy())
+	{
+		uint32_t bitWidth = targetData.getTypeStoreSizeInBits(Ty);
+
+		switch (bitWidth)
+		{
+			case 8:
+				encodeInst(WasmU32U32Opcode::I32_STORE8, 0x0, offset, code);
+				break;
+			case 16:
+				encodeInst(WasmU32U32Opcode::I32_STORE16, 0x1, offset, code);
+				break;
+			case 32:
+				encodeInst(WasmU32U32Opcode::I32_STORE, 0x2, offset, code);
+				break;
+			case 64:
+				encodeInst(WasmU32U32Opcode::I64_STORE, 0x2, offset, code);
+				break;
+			default:
+				llvm::errs() << "bit width: " << bitWidth << '\n';
+				llvm_unreachable("unknown integer bit width");
+		}
+	}
+	else if (Ty->isVectorTy())
+	{
+		const FixedVectorType* vecType = cast<FixedVectorType>(Ty);
+		const unsigned vecWidth = getVectorBitwidth(vecType);
+		if (vecWidth == 128)
+			encodeInst(WasmSIMDU32U32Opcode::V128_STORE, 0x2, offset, code);
+		else if (vecWidth == 64)
+		{
+			encodeStoringShuffle(code, vecType);
+			encodeInst(WasmSIMDU32U32U32Opcode::V128_STORE64_LANE, 0x3, offset, 0, code);
+		}
+		else if (vecWidth == 32)
+		{
+			encodeStoringShuffle(code, vecType);
+			encodeInst(WasmSIMDU32U32U32Opcode::V128_STORE32_LANE, 0x2, offset, 0, code);
+		}
+		else if (vecWidth == 16)
+		{
+			encodeStoringShuffle(code, vecType);
+			encodeInst(WasmSIMDU32U32U32Opcode::V128_STORE16_LANE, 0x1, offset, 0, code);
+		}
+		else
+		{
+			llvm::errs() << "bit width: " << vecWidth << "\n";
+			llvm_unreachable("unknown vector bit width");
+		}
+	}
+	else
+	{
+		if (Ty->isFloatTy())
+			encodeInst(WasmU32U32Opcode::F32_STORE, 0x2, offset, code);
+		else if (Ty->isDoubleTy())
+			encodeInst(WasmU32U32Opcode::F64_STORE, 0x3, offset, code);
+		else
+			encodeInst(WasmU32U32Opcode::I32_STORE, 0x2, offset, code);
+	}
 }
 
 bool CheerpWasmWriter::compileInstruction(WasmBuffer& code, const Instruction& I)
@@ -2934,88 +3027,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 					break;
 				}
 			}
-			// 1) The pointer
-			uint32_t offset = compileLoadStorePointer(code, ptrOp);
-			// Special case writing 0 to floats/double
-			if(valOp->getType()->isFloatingPointTy() && isa<Constant>(valOp) && cast<Constant>(valOp)->isNullValue())
-			{
-				if(valOp->getType()->isFloatTy())
-				{
-					encodeInst(WasmS32Opcode::I32_CONST, 0, code);
-					encodeInst(WasmU32U32Opcode::I32_STORE, 0x2, offset, code);
-				}
-				else
-				{
-					assert(valOp->getType()->isDoubleTy());
-					encodeInst(WasmS64Opcode::I64_CONST, 0, code);
-					encodeInst(WasmU32U32Opcode::I64_STORE, 0x3, offset, code);
-				}
-				break;
-			}
-			// 2) The value
-			compileOperand(code, valOp);
-			// 3) Store
-			// When storing values with size less than 32-bit we need to truncate them
-			if(valOp->getType()->isIntegerTy())
-			{
-				uint32_t bitWidth = targetData.getTypeStoreSizeInBits(valOp->getType());
-
-				// TODO add support for i64.
-				switch (bitWidth)
-				{
-					case 8:
-						encodeInst(WasmU32U32Opcode::I32_STORE8, 0x0, offset, code);
-						break;
-					case 16:
-						encodeInst(WasmU32U32Opcode::I32_STORE16, 0x1, offset, code);
-						break;
-					case 32:
-						encodeInst(WasmU32U32Opcode::I32_STORE, 0x2, offset, code);
-						break;
-					case 64:
-						encodeInst(WasmU32U32Opcode::I64_STORE, 0x2, offset, code);
-						break;
-					default:
-						llvm::errs() << "bit width: " << bitWidth << '\n';
-						llvm_unreachable("unknown integer bit width");
-				}
-			}
-			else if (valOp->getType()->isVectorTy())
-			{
-				const FixedVectorType* vecType = cast<FixedVectorType>(valOp->getType());
-				const unsigned vecWidth = getVectorBitwidth(vecType);
-				if (vecWidth == 128)
-					encodeInst(WasmSIMDU32U32Opcode::V128_STORE, 0x2, offset, code);
-				else if (vecWidth == 64)
-				{
-					encodeStoringShuffle(code, vecType);
-					encodeInst(WasmSIMDU32U32U32Opcode::V128_STORE64_LANE, 0x3, offset, 0, code);
-				}
-				else if (vecWidth == 32)
-				{
-					encodeStoringShuffle(code, vecType);
-					encodeInst(WasmSIMDU32U32U32Opcode::V128_STORE32_LANE, 0x2, offset, 0, code);
-				}
-				else if (vecWidth == 16)
-				{
-					encodeStoringShuffle(code, vecType);
-					encodeInst(WasmSIMDU32U32U32Opcode::V128_STORE16_LANE, 0x1, offset, 0, code);
-				}
-				else
-				{
-					llvm::errs() << "bit width: " << vecWidth << "\n";
-					llvm_unreachable("unknown vector bit width");
-				}
-			}
-			else
-			{
-				if (valOp->getType()->isFloatTy())
-					encodeInst(WasmU32U32Opcode::F32_STORE, 0x2, offset, code);
-				else if (valOp->getType()->isDoubleTy())
-					encodeInst(WasmU32U32Opcode::F64_STORE, 0x3, offset, code);
-				else
-					encodeInst(WasmU32U32Opcode::I32_STORE, 0x2, offset, code);
-			}
+			compileStore(code, si);
 			break;
 		}
 		case Instruction::Switch:
