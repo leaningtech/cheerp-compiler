@@ -418,9 +418,10 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 							// It is inlineable, if it has only one user we can keep going
 							curInst = nextInst;
 							curUser = cast<Instruction>(curInst->user_back());
-							if(curUser->getType()->isPointerTy() && PA.getPointerKind(curUser) == SPLIT_REGULAR)
+							InstElemIterator it(curUser, PA);
+							if(std::next(it) != InstElemIterator::end(PA))
 							{
-								// The user is rendered twice, do not inline
+								// The user is rendered multiple times, do not inline
 								return false;
 							}
 						}

@@ -3145,13 +3145,26 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 		case Instruction::Select:
 		{
 			const SelectInst& si = cast<SelectInst>(I);
-			compileOperand(code, si.getTrueValue());
-			compileOperand(code, si.getFalseValue());
-			compileCondition(code, si.getCondition(), /*booleanInvert*/false);
-			if (si.getCondition()->getType()->isVectorTy())
-				encodeInst(WasmSIMDOpcode::V128_BITSELECT, code);
-			else
-				encodeInst(WasmOpcode::SELECT, code);
+			auto* Ty = si.getType();
+			auto* STy = dyn_cast<StructType>(Ty);
+			for(const auto& ie: getInstElems(&si, PA))
+			{
+				if(STy)
+				{
+					compileAggregateElem(code, si.getTrueValue(), ie.structIdx);
+					compileAggregateElem(code, si.getFalseValue(), ie.structIdx);
+				}
+				else
+				{
+					compileOperand(code, si.getTrueValue());
+					compileOperand(code, si.getFalseValue());
+				}
+				compileCondition(code, si.getCondition(), /*booleanInvert*/false);
+				if (si.getCondition()->getType()->isVectorTy())
+					encodeInst(WasmSIMDOpcode::V128_BITSELECT, code);
+				else
+					encodeInst(WasmOpcode::SELECT, code);
+			}
 			break;
 		}
 		case Instruction::SExt:

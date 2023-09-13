@@ -4123,27 +4123,62 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		case Instruction::Select:
 		{
 			const SelectInst& si = cast<SelectInst>(I);
-			if(si.getType()->isPointerTy() && PA.getPointerKindAssert(&si) == SPLIT_REGULAR)
+			Type* Ty = si.getType();
+			StructType* STy = dyn_cast<StructType>(Ty);
+			for(const auto& ie: getInstElems(&si, PA))
 			{
-				compileOperand(si.getOperand(0), TERNARY, /*allowBooleanObjects*/ true);
-				stream << '?';
-				compilePointerBase(si.getOperand(1));
-				stream << ':';
-				compilePointerBase(si.getOperand(2));
-				stream << ';' << NewLine;
-				stream << getName(&si, 1) << '=';
-				compileOperand(si.getOperand(0), TERNARY, /*allowBooleanObjects*/ true);
-				stream << '?';
-				compilePointerOffset(si.getOperand(1), TERNARY);
-				stream << ':';
-				compilePointerOffset(si.getOperand(2), TERNARY);
-			}
-			else
-			{
+				POINTER_KIND elemPtrKind = COMPLETE_OBJECT;
+				if(STy)
+				{
+					Ty = STy->getElementType(ie.structIdx);
+					if(Ty->isPointerTy())
+					{
+						TypeAndIndex b(STy, ie.structIdx, TypeAndIndex::STRUCT_MEMBER);
+						elemPtrKind = PA.getPointerKindForMemberPointer(b);
+					}
+				}
+				else if(Ty->isPointerTy())
+				{
+					elemPtrKind = PA.getPointerKind(&si);
+				}
+				if(ie.totalIdx != 0)
+				{
+					stream << ';' << NewLine << getName(&si, ie.totalIdx) << '=';
+					parentPrio = LOWEST;
+				}
 				// We need to protect the outside RHS from being absorbed by the rightmost part of the select
 				if(parentPrio != LOWEST)
 					stream << "(";
-				compileSelect(&si, si.getCondition(), si.getTrueValue(), si.getFalseValue(), LOWEST);
+				if(elemPtrKind == SPLIT_REGULAR)
+				{
+					compileOperand(si.getOperand(0), TERNARY, /*allowBooleanObjects*/ true);
+					stream << '?';
+					if(ie.ptrIdx == 0)
+					{
+						compilePointerBase(si.getOperand(1));
+						stream << ':';
+						compilePointerBase(si.getOperand(2));
+					}
+					else
+					{
+						compilePointerOffset(si.getOperand(1), TERNARY);
+						stream << ':';
+						compilePointerOffset(si.getOperand(2), TERNARY);
+					}
+				}
+				else if(STy)
+				{
+					assert(ie.ptrIdx == 0 && "TODO handle aggregates with nested split regulars");
+					compileOperand(si.getOperand(0), TERNARY, /*allowBooleanObjects*/ true);
+					stream << '?';
+					compileAggregateElem(si.getOperand(1), ie.structIdx, ie.totalIdx, TERNARY);
+					stream << ':';
+					compileAggregateElem(si.getOperand(2), ie.structIdx, ie.totalIdx, TERNARY);
+				}
+				else
+				{
+					compileSelect(&si, si.getCondition(), si.getTrueValue(), si.getFalseValue(), LOWEST);
+				}
 				if(parentPrio != LOWEST)
 					stream << ")";
 			}
