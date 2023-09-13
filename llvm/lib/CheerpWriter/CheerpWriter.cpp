@@ -4283,6 +4283,8 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		case Instruction::Load:
 		{
 			const LoadInst& li = cast<LoadInst>(I);
+			if(li.use_empty())
+				return COMPILE_EMPTY;
 			compileLoad(li, parentPrio);
 			return COMPILE_OK;
 		}
