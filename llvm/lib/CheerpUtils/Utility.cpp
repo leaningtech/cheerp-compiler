@@ -487,7 +487,6 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 			case Instruction::ICmp:
 			case Instruction::ZExt:
 			case Instruction::SExt:
-			case Instruction::Select:
 			case Instruction::ExtractValue:
 			case Instruction::URem:
 			case Instruction::UDiv:
@@ -500,6 +499,11 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 			case Instruction::ExtractElement:
 			case Instruction::InsertElement:
 				return false;
+			case Instruction::Select:
+			{
+				//TODO: allow inlining aggregates by handling select in compileAggregateElem
+				return I.getType()->isStructTy()? false : true;
+			}
 			default:
 				llvm::report_fatal_error(Twine("Unsupported opcode: ",StringRef(I.getOpcodeName())), false);
 				return true;
