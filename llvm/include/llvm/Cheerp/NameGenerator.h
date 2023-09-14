@@ -97,10 +97,6 @@ public:
 		if (elemIdx == 1)
 			if (llvm::isa<llvm::Argument>(v) || llvm::isa<llvm::GlobalVariable>(v))
 				return secondaryNamemap.at(v);
-		if(elemIdx != 0)
-		{
-			v->dump();
-		}
 		assert(elemIdx == 0);
 		assert(namemap.count(v) );
 		assert(! namemap.at(v).empty() );
