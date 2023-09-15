@@ -1557,7 +1557,9 @@ void CheerpWasmWriter::compileAggregateElem(WasmBuffer& code, const llvm::Value*
 	}
 	else
 	{
+#ifndef NDEBUG
 		v->dump();
+#endif
 		report_fatal_error("unsupported aggregate");
 	}
 }

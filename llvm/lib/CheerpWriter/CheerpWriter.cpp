@@ -2681,7 +2681,9 @@ void CheerpWriter::compileAggregateElem(const llvm::Value* v, uint32_t structIdx
 	}
 	else
 	{
+#ifndef NDEBUG
 		v->dump();
+#endif
 		report_fatal_error("unsupported aggregate");
 	}
 }
