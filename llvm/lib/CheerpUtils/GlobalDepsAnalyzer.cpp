@@ -23,6 +23,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/ValueSymbolTable.h"
 #include "llvm/Support/FormattedStream.h"
+#include "llvm/Transforms/Utils/BuildLibCalls.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/SimplifyLibCalls.h"
 #include "llvm/ADT/Triple.h"
@@ -208,18 +209,20 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 					{
 						if(II == Intrinsic::cheerp_allocate)
 						{
-							Function* F = module.getFunction("malloc");
-							assert(F);
+							//cheerp_allocate(nullptr, N) -> malloc(N), so we need to move argument(1) to argument(0)
+							IRBuilder<> Builder(ci);
+							FunctionAnalysisManager& FAM = MAM->getResult<FunctionAnalysisManagerModuleProxy>(module).getManager();
+							const llvm::TargetLibraryInfo* TLI = &FAM.getResult<TargetLibraryAnalysis>(F);
+							assert(TLI);
+							Value* newCall = emitMalloc(ci->getOperand(1), Builder, *DL, TLI);
 							Type* oldType = ci->getType();
-							if(oldType != F->getReturnType())
+							if(oldType != newCall->getType())
 							{
-								Instruction* newCast = new BitCastInst(UndefValue::get(F->getReturnType()), oldType, "", ci->getNextNode());
+								Instruction* newCast = new BitCastInst(UndefValue::get(newCall->getType()), oldType, "", ci->getNextNode());
 								ci->replaceAllUsesWith(newCast);
-								ci->mutateType(F->getReturnType());
+								ci->mutateType(newCall->getType());
 								newCast->setOperand(0, ci);
 							}
-							//cheerp_allocate(nullptr, N) -> malloc(N), so we need to move argument(1) to argument(0)
-							CallInst* newCall = CallInst::Create(F, { ci->getOperand(1) }, "", ci);
 							ci->replaceAllUsesWith(newCall);
 
 							//Set up loop variable, so the next loop will check and possibly expand newCall
