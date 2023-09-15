@@ -10212,6 +10212,12 @@ public:
 
 private:
   ABIArgInfo classifyReturnType(QualType RetTy) const {
+    if(auto* RT = RetTy->getAsStructureType()) {
+      if(auto* RD = RT->getAsCXXRecordDecl()) {
+        if(RD->getName() == "__cheerp_landingpad")
+          return ABIArgInfo::getDirect();
+      }
+    }
     return DefaultABIInfo::classifyReturnType(RetTy);
   };
   ABIArgInfo classifyArgumentType(QualType Ty) const {

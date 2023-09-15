@@ -470,13 +470,6 @@ Address CodeGenFunction::getEHSelectorSlot() {
   return Address(EHSelectorSlot, Int32Ty, CharUnits::fromQuantity(4));
 }
 
-Address CodeGenFunction::getEHObjectSlot() {
-  if (!EHObjectSlot) {
-    EHObjectSlot = CreateTempAlloca(GetLandingPadTy(), "ehobject.slot");
-  }
-  return Address(EHObjectSlot, GetLandingPadTy(), CharUnits::fromQuantity(4));
-}
-
 llvm::Value *CodeGenFunction::getExceptionFromSlot() {
   return Builder.CreateLoad(getExceptionSlot(), "exn");
 }
@@ -880,35 +873,13 @@ llvm::BasicBlock *CodeGenFunction::EmitLandingPad() {
   EmitBlock(lpad);
 
   llvm::LandingPadInst *LPadInst;
-  if (getTarget().isByteAddressable()) {
-    LPadInst = Builder.CreateLandingPad(llvm::StructType::get(Int8PtrTy, Int32Ty), 0);
+  llvm::Type* LPadTy = GetLandingPadTy();
+  LPadInst = Builder.CreateLandingPad(LPadTy, 0);
 
-    llvm::Value *LPadExn = Builder.CreateExtractValue(LPadInst, 0);
-    Builder.CreateStore(LPadExn, getExceptionSlot());
-    llvm::Value *LPadSel = Builder.CreateExtractValue(LPadInst, 1);
-    Builder.CreateStore(LPadSel, getEHSelectorSlot());
-  } else {
-    llvm::Type* LPadTy = GetLandingPadTy();
-    LPadInst = Builder.CreateLandingPad(LPadTy->getPointerTo(), 0);
-    Address EHObj = getEHObjectSlot();
-
-    llvm::Type* HackTy = LPadTy->getPointerTo();
-
-    llvm::Value *LPadExn = Builder.CreateStructGEP(LPadTy, LPadInst, 0);
-    LPadExn = Builder.CreateLoad(Address(LPadExn, CGM.Int8PtrTy, getPointerAlign()));
-    llvm::Value* LPadExnHack = Builder.CreateBitCast(LPadExn, HackTy);
-    Address Exn = Builder.CreateStructGEP(EHObj, 0, "eh.exn");
-    Exn = Builder.CreateElementBitCast(Exn, HackTy);
-    //Address EHSlot = Builder.CreateBitCast(getExceptionSlot(), HackPtrTy);
-    Builder.CreateStore(LPadExnHack, Exn);
-    Builder.CreateStore(LPadExn, getExceptionSlot());
-
-    llvm::Value *LPadSel = Builder.CreateStructGEP(LPadTy, LPadInst, 1);
-    LPadSel = Builder.CreateLoad(Address(LPadSel, CGM.Int32Ty, getIntAlign()));
-    Address Sel = Builder.CreateStructGEP(EHObj, 1, "eh.sel");
-    Builder.CreateStore(LPadSel, Sel);
-    Builder.CreateStore(LPadSel, getEHSelectorSlot());
-  }
+  llvm::Value *LPadExn = Builder.CreateExtractValue(LPadInst, 0);
+  Builder.CreateStore(LPadExn, getExceptionSlot());
+  llvm::Value *LPadSel = Builder.CreateExtractValue(LPadInst, 1);
+  Builder.CreateStore(LPadSel, getEHSelectorSlot());
 
   // Save the exception pointer.  It's safe to use a single exception
   // pointer per function because EH cleanups can never have nested
@@ -1597,23 +1568,13 @@ llvm::BasicBlock *CodeGenFunction::getTerminateLandingPad() {
     CurFn->setPersonalityFn(getOpaquePersonalityFn(CGM, Personality));
 
   llvm::LandingPadInst *LPadInst;
-  if (getTarget().isByteAddressable()) {
-    LPadInst =
-        Builder.CreateLandingPad(llvm::StructType::get(Int8PtrTy, Int32Ty), 0);
-  } else {
-    LPadInst =
-        Builder.CreateLandingPad(GetLandingPadTy()->getPointerTo(), 0);
-  }
+  LPadInst =
+      Builder.CreateLandingPad(GetLandingPadTy(), 0);
   LPadInst->addClause(getCatchAllValue(*this));
 
   llvm::Value *Exn = nullptr;
   if (getLangOpts().CPlusPlus) {
-    if (getTarget().isByteAddressable()) {
-      Exn = Builder.CreateExtractValue(LPadInst, 0);
-    } else {
-      Exn = Builder.CreateStructGEP(GetLandingPadTy(), LPadInst, 0);
-      Exn = Builder.CreateLoad(Address(Exn, CGM.Int8PtrTy, getPointerAlign()));
-    }
+    Exn = Builder.CreateExtractValue(LPadInst, 0);
   }
   llvm::CallInst *terminateCall =
       CGM.getCXXABI().emitTerminateForUnexpectedException(*this, Exn);
@@ -1708,20 +1669,15 @@ llvm::BasicBlock *CodeGenFunction::getEHResumeBlock(bool isCleanup) {
     return EHResumeBlock;
   }
 
-  if (getTarget().isByteAddressable()) {
-    // Recreate the landingpad's return value for the 'resume' instruction.
-    llvm::Value *Exn = getExceptionFromSlot();
-    llvm::Value *Sel = getSelectorFromSlot();
+  // Recreate the landingpad's return value for the 'resume' instruction.
+  llvm::Value *Exn = getExceptionFromSlot();
+  llvm::Value *Sel = getSelectorFromSlot();
 
-    llvm::Type *LPadType = llvm::StructType::get(Exn->getType(), Sel->getType());
-    llvm::Value *LPadVal = llvm::UndefValue::get(LPadType);
-    LPadVal = Builder.CreateInsertValue(LPadVal, Exn, 0, "lpad.val");
-    LPadVal = Builder.CreateInsertValue(LPadVal, Sel, 1, "lpad.val");
-    Builder.CreateResume(LPadVal);
-  } else {
-    Address Obj = getEHObjectSlot();
-    Builder.CreateResume(Obj.getPointer());
-  }
+  llvm::Type *LPadType = GetLandingPadTy();
+  llvm::Value *LPadVal = llvm::UndefValue::get(LPadType);
+  LPadVal = Builder.CreateInsertValue(LPadVal, Exn, 0, "lpad.val");
+  LPadVal = Builder.CreateInsertValue(LPadVal, Sel, 1, "lpad.val");
+  Builder.CreateResume(LPadVal);
   Builder.restoreIP(SavedIP);
   return EHResumeBlock;
 }

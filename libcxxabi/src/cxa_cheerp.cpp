@@ -58,24 +58,12 @@ struct
 {
 	void* val;
 	int sel;
-	[[cheerp::genericjs]]
-	__cheerp_landingpad() noexcept: sel(0)
-	{
-		set_val(nullptr);
-	}
-	[[cheerp::genericjs]]
-	__cheerp_landingpad& operator=(const __cheerp_landingpad& o) noexcept
-	{
-		set_val(o.val);
-		sel = o.sel;
-		return *this;
-	}
 
 	[[cheerp::genericjs]]
-	void set_val(void* v) noexcept
+	static void set_val(__cheerp_landingpad* lp, void* v) noexcept
 	{
 		int intval = __builtin_cheerp_pointer_offset(v);
-		__cheerp_landingpad** hack = reinterpret_cast<__cheerp_landingpad**>(this);
+		__cheerp_landingpad** hack = reinterpret_cast<__cheerp_landingpad**>(lp);
 		*hack = reinterpret_cast<__cheerp_landingpad*>(intval);
 	}
 };
@@ -391,14 +379,14 @@ void __cxa_rethrow() {
 
 [[noreturn]]
 __attribute((noinline))
-void __cxa_resume(__cheerp_landingpad* lp) {
-	if (reinterpret_cast<int>(lp->val) == 0)
+void __cxa_resume(void* val) {
+	if (reinterpret_cast<int>(val) == 0)
 	{
 		auto* e = curNonNativeException;
 		curNonNativeException = nullptr;
 		__builtin_cheerp_throw(e);
 	}
-	Exception* ex = find_exception_from_unwind_ptr(lp->val);
+	Exception* ex = find_exception_from_unwind_ptr(val);
 	__builtin_cheerp_throw(ex->jsObj);
 }
 
@@ -474,13 +462,10 @@ public:
 bool ReentGuard::active = false;
 
 __attribute((noinline))
- __cheerp_landingpad*
+__cheerp_landingpad
 __gxx_personality_v0
                     (client::Object* obj, int start, int n) noexcept
 {
-	[[cheerp::wasm]]
-	static __cheerp_landingpad lp;
-
 	ReentGuard reent;
 
 	bool native;
@@ -505,16 +490,15 @@ __gxx_personality_v0
 			}
 		}
 	}
+	__cheerp_landingpad lp{nullptr, 0};
 	if(!native)
 	{
-		lp = __cheerp_landingpad();
 		curNonNativeException = obj;
-		return &lp;
+		return lp;
 	}
 
 	Exception* ex = current_exception;
-	lp = __cheerp_landingpad();
-	lp.set_val(ex);
+	__cheerp_landingpad::set_val(&lp, ex);
 
 	for(int i = start; i < start+n; i++)
 	{
@@ -543,7 +527,7 @@ __gxx_personality_v0
 			break;
 		}
 	}
-	return &lp;
+	return lp;
 }
 
 }

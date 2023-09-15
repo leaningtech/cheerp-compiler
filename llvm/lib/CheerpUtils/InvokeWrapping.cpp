@@ -49,17 +49,32 @@ static CallInst* replaceInvokeWithWrapper(InvokeInst* IV, Function* Wrapper, Arr
 	return NewCall;
 }
 
-static GlobalVariable* getOrInsertHelperGlobal(Module& M)
+static GlobalVariable* getOrInsertLPHelperGlobal(Module& M)
 {
     auto* Ty = llvm::StructType::getTypeByName(M.getContext(), "struct._ZN10__cxxabiv119__cheerp_landingpadE");
 	assert(Ty);
-	GlobalVariable* G = cast<GlobalVariable>(M.getOrInsertGlobal("__cheerpExceptionHelperGlobal", Ty->getPointerTo(), [&M, Ty]()
+	GlobalVariable* G = cast<GlobalVariable>(M.getOrInsertGlobal("__cheerpLandingPadHelperGlobal", Ty, [&M, Ty]()
 	{
-		auto* g = new GlobalVariable(M, Ty->getPointerTo(), false, GlobalVariable::ExternalLinkage, ConstantPointerNull::get(Ty->getPointerTo()));
-		g->setName("__cheerpExceptionHelperGlobal");
+		auto* g = new GlobalVariable(M, Ty, false, GlobalVariable::ExternalLinkage, UndefValue::get(Ty));
+		g->setName("__cheerpLandingPadHelperGlobal");
 		g->setLinkage(GlobalVariable::ExternalLinkage);
 		if (Ty->hasAsmJS())
 			g->setSection("asmjs");
+		return g;
+	}));
+	return G;
+}
+
+static GlobalVariable* getOrInsertCondHelperGlobal(Module& M)
+{
+    auto* Ty = IntegerType::get(M.getContext(), 32);
+	GlobalVariable* G = cast<GlobalVariable>(M.getOrInsertGlobal("__cheerpInvokeHelperGlobal", Ty, [&M, Ty]()
+	{
+		auto* g = new GlobalVariable(M, Ty, false, GlobalVariable::ExternalLinkage, UndefValue::get(Ty));
+		g->setName("__cheerpInvokeHelperGlobal");
+		g->setLinkage(GlobalVariable::ExternalLinkage);
+		GlobalVariable* LPHelper = getOrInsertLPHelperGlobal(M);
+		g->setSection(LPHelper->getSection());
 		return g;
 	}));
 	return G;
@@ -247,11 +262,12 @@ static Function* getInvokeWrapper(Module& M, Function* F, Constant* PersonalityF
 		params.push_back(&arg);
 	InvokeInst* ForwardInvoke = Builder.CreateInvoke(F, Cont, Catch, params);
 
-	GlobalVariable* Helper = getOrInsertHelperGlobal(M);
+	GlobalVariable* LPHelper = getOrInsertLPHelperGlobal(M);
+	GlobalVariable* CondHelper = getOrInsertCondHelperGlobal(M);
 
 	Builder.SetInsertPoint(Cont);
 	Value* Ret = ForwardInvoke->getType()->isVoidTy() ? nullptr : ForwardInvoke;
-	Builder.CreateStore(ConstantPointerNull::get(cast<PointerType>(Helper->getValueType())), Helper);
+	Builder.CreateStore(ConstantInt::get(CondHelper->getValueType(), 0), CondHelper);
 	Builder.CreateRet(Ret);
 
 	Builder.SetInsertPoint(Catch);
@@ -260,7 +276,8 @@ static Function* getInvokeWrapper(Module& M, Function* F, Constant* PersonalityF
 	LandingPadInst* LP = Builder.CreateLandingPad(LPadTy, 0);
 	LP->setCleanup(true);
 	table.addEntry(LP, LandingPadTable::Entry { Start, N });
-	Builder.CreateStore(LP, Helper);
+	Builder.CreateStore(LP, LPHelper);
+	Builder.CreateStore(ConstantInt::get(IntegerType::get(M.getContext(), 32), 1), CondHelper);
 	Ret = ForwardInvoke->getType()->isVoidTy() ? nullptr : UndefValue::get(ForwardInvoke->getType());
 	Builder.CreateRet(Ret);
 
@@ -333,9 +350,9 @@ static Function* wrapInvoke(Module& M, InvokeInst& IV, DenseSet<Instruction*>& T
 	};
 	replaceInvokeWithWrapper(&IV, Wrapper, extraArgs);
 
-	GlobalVariable* Helper = getOrInsertHelperGlobal(M);
-	Value* Ex = Builder.CreateLoad(Helper->getValueType(), Helper);
-	Value* Cond = Builder.CreateICmpEQ(Ex, ConstantPointerNull::get(cast<PointerType>(Ex->getType())));
+	GlobalVariable* CondHelper = getOrInsertCondHelperGlobal(M);
+	Value* Ex = Builder.CreateLoad(CondHelper->getValueType(), CondHelper);
+	Value* Cond = Builder.CreateICmpEQ(Ex, ConstantInt::get(CondHelper->getValueType(), 0));
 	Builder.CreateCondBr(Cond, IV.getNormalDest(), IV.getUnwindDest());
 
 	IV.eraseFromParent();
@@ -349,11 +366,8 @@ static Function* wrapResume(Module& M, ResumeInst* RS)
 	assert(CxaResume);
 	IRBuilder<> Builder(RS);
 	Value* LP = RS->getOperand(0);
-	if (LP->getType() != CxaResume->getFunctionType()->getParamType(0))
-	{
-		LP = Builder.CreateBitCast(LP, CxaResume->getFunctionType()->getParamType(0));
-	}
-	Value* Call = Builder.CreateCall(CxaResume->getFunctionType(), CxaResume, LP);
+	Value* Val = Builder.CreateExtractValue(LP, {0});
+	Value* Call = Builder.CreateCall(CxaResume->getFunctionType(), CxaResume, Val);
 	RS->replaceAllUsesWith(Call);
 	Builder.CreateUnreachable();
 	RS->eraseFromParent();
@@ -399,8 +413,8 @@ bool InvokeWrapping::runOnModule(Module& M, cheerp::GlobalDepsAnalyzer& GDA)
 	for (auto* OldLP: OldLPs)
 	{
 		IRBuilder<> Builder(OldLP);
-		GlobalVariable* Helper = getOrInsertHelperGlobal(M);
-		Value* Ex = Builder.CreateLoad(Helper->getValueType(), Helper);
+		GlobalVariable* LPHelper = getOrInsertLPHelperGlobal(M);
+		Value* Ex = Builder.CreateLoad(LPHelper->getValueType(), LPHelper);
 		OldLP->replaceAllUsesWith(Ex);
 		OldLP->eraseFromParent();
 	}

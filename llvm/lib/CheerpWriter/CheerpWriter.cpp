@@ -3031,52 +3031,64 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileTerminatorInstru
 
 			if(retVal)
 			{
-				Registerize::REGISTER_KIND kind = registerize.getRegKindFromType(retVal->getType(), asmjs);
-				switch(kind)
+				if(auto* STy = dyn_cast<StructType>(retVal->getType()))
 				{
-					case Registerize::INTEGER:
-						stream << "return ";
-						if (retVal->getType()->isPointerTy())
-							compilePointerAs(retVal, RAW, BIT_OR);
-						else
-						{
-							compileOperand(retVal, BIT_OR);
-						}
-						stream << "|0";
-						break;
-					case Registerize::INTEGER64:
-						stream << "return ";
-						compileOperand(retVal, LOWEST);
-						break;
-					case Registerize::DOUBLE:
-						stream << "return ";
-						compileOperand(retVal, LOWEST);
-						break;
-					case Registerize::FLOAT:
-						stream << "return ";
-						stream << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '(';
-						compileOperand(retVal, FROUND);
-						stream << ')';
-						break;
-					case Registerize::VECTOR:
-						llvm::report_fatal_error("VECTOR register kind should not appear outside of WASM");
-						break;
-					case Registerize::OBJECT:
-						POINTER_KIND k=PA.getPointerKindForReturn(ri.getParent()->getParent());
-						// For SPLIT_REGULAR we return the .d part and store the .o part into oSlot
-						if(k==SPLIT_REGULAR)
-						{
-							stream << "oSlot=";
-							compilePointerOffset(retVal, LOWEST);
-							stream << ';' << NewLine;
-						}
-						stream << "return ";
-						assert(k != REGULAR);
-						if(k==SPLIT_REGULAR)
-							compilePointerBase(retVal);
-						else
-							compilePointerAs(retVal, k);
-						break;
+					assert(STy->getName() == "struct._ZN10__cxxabiv119__cheerp_landingpadE");
+					stream << "oSlot=";
+					compileAggregateElem(retVal, 1, 1, LOWEST);
+					stream << ";" << NewLine;
+					stream << "return ";
+					compileAggregateElem(retVal, 0, 0, LOWEST);
+				}
+				else
+				{
+					Registerize::REGISTER_KIND kind = registerize.getRegKindFromType(retVal->getType(), asmjs);
+					switch(kind)
+					{
+						case Registerize::INTEGER:
+							stream << "return ";
+							if (retVal->getType()->isPointerTy())
+								compilePointerAs(retVal, RAW, BIT_OR);
+							else
+							{
+								compileOperand(retVal, BIT_OR);
+							}
+							stream << "|0";
+							break;
+						case Registerize::INTEGER64:
+							stream << "return ";
+							compileOperand(retVal, LOWEST);
+							break;
+						case Registerize::DOUBLE:
+							stream << "return ";
+							compileOperand(retVal, LOWEST);
+							break;
+						case Registerize::FLOAT:
+							stream << "return ";
+							stream << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '(';
+							compileOperand(retVal, FROUND);
+							stream << ')';
+							break;
+						case Registerize::VECTOR:
+							llvm::report_fatal_error("VECTOR register kind should not appear outside of WASM");
+							break;
+						case Registerize::OBJECT:
+							POINTER_KIND k=PA.getPointerKindForReturn(ri.getParent()->getParent());
+							// For SPLIT_REGULAR we return the .d part and store the .o part into oSlot
+							if(k==SPLIT_REGULAR)
+							{
+								stream << "oSlot=";
+								compilePointerOffset(retVal, LOWEST);
+								stream << ';' << NewLine;
+							}
+							stream << "return ";
+							assert(k != REGULAR);
+							if(k==SPLIT_REGULAR)
+								compilePointerBase(retVal);
+							else
+								compilePointerAs(retVal, k);
+							break;
+					}
 				}
 			}
 			else if(blockDepth == 0)
@@ -3174,7 +3186,8 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			compileOperand(entry.start);
 			stream << ",";
 			compileOperand(entry.n);
-			stream << ")";
+			stream << ");" << NewLine;
+			stream << getName(&I, 1) << "=oSlot";
 			return COMPILE_OK;
 		}
 		case Instruction::InsertValue:
