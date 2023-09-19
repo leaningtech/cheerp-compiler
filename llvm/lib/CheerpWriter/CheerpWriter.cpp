@@ -1883,8 +1883,8 @@ void CheerpWriter::compileHeapAccess(const Value* p, Type* t, uint32_t offset)
 	stream << '[';
 	if(!symbolicGlobalsAsmJS && isa<GlobalVariable>(p))
 	{
-		assert(offset == 0);
-		stream << (linearHelper.getGlobalVariableAddress(cast<GlobalVariable>(p)) >> shift);
+		uint32_t addr = linearHelper.getGlobalVariableAddress(cast<GlobalVariable>(p)) + offset;
+		stream << (addr >> shift);
 	}
 	else
 	{
