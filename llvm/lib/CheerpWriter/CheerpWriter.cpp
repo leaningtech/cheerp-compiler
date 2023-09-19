@@ -4190,7 +4190,23 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		{
 			const auto& EV = cast<ExtractValueInst>(I);
 			assert(EV.getNumIndices() == 1);
-			compileAggregateElem(EV.getAggregateOperand(), EV.getIndices()[0], EV.getIndices()[0], parentPrio);
+			const Value* Op = EV.getAggregateOperand();
+			StructType* OpTy = cast<StructType>(Op->getType());
+			uint32_t structIdx = EV.getIndices()[0];
+			if(EV.getType()->isPointerTy() && PA.getPointerKind(&EV) == SPLIT_REGULAR)
+			{
+				// TODO be more general (like compileLoad) and handle more cases
+				// For now, such cases don't really exist, so we just assert asmjs
+				assert(OpTy->hasAsmJS());
+				compileHeapForType(EV.getType());
+				stream << ';' << NewLine;
+				stream << getName(&EV, 1) << '=';
+				compileAggregateElem(EV.getAggregateOperand(), structIdx, structIdx, parentPrio);
+			}
+			else
+			{
+				compileAggregateElem(EV.getAggregateOperand(), structIdx, structIdx, parentPrio);
+			}
 			return COMPILE_OK;
 		}
 		case Instruction::FPExt:

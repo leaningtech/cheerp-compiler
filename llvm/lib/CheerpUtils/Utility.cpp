@@ -487,7 +487,6 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 			case Instruction::ICmp:
 			case Instruction::ZExt:
 			case Instruction::SExt:
-			case Instruction::ExtractValue:
 			case Instruction::URem:
 			case Instruction::UDiv:
 			case Instruction::UIToFP:
@@ -503,6 +502,16 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 			{
 				//TODO: allow inlining aggregates by handling select in compileAggregateElem
 				return I.getType()->isStructTy()? false : true;
+			}
+			case Instruction::ExtractValue:
+			{
+				if(I.getType()->isPointerTy())
+				{
+					POINTER_KIND k = PA.getPointerKind(&I);
+					if(k != COMPLETE_OBJECT && k != RAW)
+						return false;
+				}
+				return true;
 			}
 			default:
 				llvm::report_fatal_error(Twine("Unsupported opcode: ",StringRef(I.getOpcodeName())), false);
