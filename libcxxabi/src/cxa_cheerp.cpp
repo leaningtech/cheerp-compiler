@@ -186,6 +186,43 @@ struct Exception
 	}
 #ifdef __ASMJS__
 	[[cheerp::wasm]]
+	__attribute((noinline))
+	void* getAdjustedPtrWasm(int ptr, bool deref, int adjustedOffset) noexcept
+	{
+		char* ret = reinterpret_cast<char*>(ptr);
+		if(deref)
+		{
+			ret = *reinterpret_cast<char**>(ret);
+		}
+		ret += adjustedOffset;
+		return ret;
+	}
+#endif
+	void* getAdjustedPtr(bool deref, int adjustedOffset) noexcept
+	{
+		if(objBase == nullptr && objOffset == 0)
+			return nullptr;
+#ifdef __ASMJS__
+		if(objBase == nullptr)
+		{
+			// Wasm pointer
+			return getAdjustedPtrWasm(objOffset, deref, adjustedOffset);
+		}
+#endif
+		void* ret = __builtin_cheerp_make_regular<void>(objBase, objOffset);
+		if(deref)
+		{
+			ret = *reinterpret_cast<void**>(ret);
+		}
+		if(adjustedOffset != 0 && ret != nullptr)
+		{
+			ret = __builtin_cheerp_downcast<void,void>(ret, -adjustedOffset);
+		}
+		return ret;
+	}
+#ifdef __ASMJS__
+	[[cheerp::wasm]]
+	__attribute((noinline))
 	static void run_wasm_dest(size_t dest, size_t obj) noexcept
 	{
 		void(*f)(void*) = reinterpret_cast<void(*)(void*)>(dest);
@@ -523,15 +560,7 @@ __gxx_personality_v0
 		can_catch_ret cc = can_catch(catcher, thrown);
 		if(cc.can_catch)
 		{
-			ex->adjustedPtr = __builtin_cheerp_make_regular<void>(ex->objBase, ex->objOffset);
-			if(cc.deref)
-			{
-				ex->adjustedPtr = *static_cast<void**>(ex->adjustedPtr);
-			}
-			if(cc.adjustedOffset != 0 && ex->adjustedPtr != nullptr)
-			{
-				ex->adjustedPtr = __builtin_cheerp_downcast<void,void>(ex->adjustedPtr, -cc.adjustedOffset);
-			}
+			ex->adjustedPtr = ex->getAdjustedPtr(cc.deref, cc.adjustedOffset);
 			lp.sel = clause.sel;
 			break;
 		}
