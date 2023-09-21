@@ -727,7 +727,7 @@ public:
 	/**
 	 * Compile a bound-checking statement for heap accesses in asm.js
 	 */
-	void compileCheckBoundsAsmJS(const llvm::Value* p, int alignMask);
+	void compileCheckBoundsAsmJS(int alignMask);
 	/**
 	 * Compile a bound-checking function definition for asm.js heap
 	 */

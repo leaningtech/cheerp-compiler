@@ -1881,14 +1881,29 @@ void CheerpWriter::compileHeapAccess(const Value* p, Type* t, uint32_t offset)
 	Type* et = (t==nullptr) ? pt->getPointerElementType() : t;
 	uint32_t shift = compileHeapForType(et);
 	stream << '[';
+	PARENT_PRIORITY prio = PARENT_PRIORITY::SHIFT;
+	if(checkBounds)
+	{
+		stream << '(';
+		compileCheckBoundsAsmJS(targetData.getTypeAllocSize(et)-1);
+		prio = PARENT_PRIORITY::BIT_OR;
+	}
+	bool needsShift = true;
 	if(!symbolicGlobalsAsmJS && isa<GlobalVariable>(p))
 	{
 		uint32_t addr = linearHelper.getGlobalVariableAddress(cast<GlobalVariable>(p)) + offset;
-		stream << (addr >> shift);
+		if(checkBounds)
+		{
+			stream << addr;
+		}
+		else
+		{
+			stream << (addr >> shift);
+			needsShift = false;
+		}
 	}
 	else
 	{
-		PARENT_PRIORITY prio = PARENT_PRIORITY::SHIFT;
 		if(offset != 0)
 		{
 			stream << '(';
@@ -1901,8 +1916,13 @@ void CheerpWriter::compileHeapAccess(const Value* p, Type* t, uint32_t offset)
 			stream << offset;
 			stream << "|0)";
 		}
-		stream << ">>" << shift;
 	}
+	if(checkBounds)
+	{
+		stream << "|0)|0)";
+	}
+	if(needsShift)
+		stream << ">>" << shift;
 	stream << ']';
 }
 void CheerpWriter::compilePointerBase(const Value* p, bool forEscapingPointer)
@@ -4366,13 +4386,6 @@ void CheerpWriter::compileLoad(const LoadInst& li, PARENT_PRIORITY parentPrio)
 					compileCheckDefined(ptrOp, needsOffset);
 					stream<<",";
 			}
-			else if(ptrKind == RAW)
-			{
-					needsCheckBounds = true;
-					stream<<"(";
-					compileCheckBoundsAsmJS(ptrOp, targetData.getTypeAllocSize(li.getType())-1);
-					stream<<",";
-			}
 	}
 	for(const auto& ie: getInstElems(&li, PA))
 	{
@@ -4552,11 +4565,6 @@ void CheerpWriter::compileStore(const StoreInst& si)
 		{
 			bool needsOffset = Ty->isPointerTy() && PA.getPointerKindAssert(&si) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&si);
 			compileCheckDefined(ptrOp, needsOffset);
-			stream<<",";
-		}
-		else if(ptrKind == RAW)
-		{
-			compileCheckBoundsAsmJS(ptrOp, targetData.getTypeAllocSize(Ty)-1);
 			stream<<",";
 		}
 	}
@@ -5955,14 +5963,14 @@ void CheerpWriter::compileCheckDefined(const Value* p, bool needsOffset)
 
 void CheerpWriter::compileCheckBoundsAsmJSHelper()
 {
-	stream << "function checkBoundsAsmJS(addr,align,size){if((addr&align) || addr>=size || addr<0) throw new Error('OutOfBoundsAsmJS: '+addr);}" << NewLine;
+	stream << "function checkBoundsAsmJS(align,size,addr){if((addr&align) || addr>=size || addr<0) throw new Error('OutOfBoundsAsmJS: '+addr);return addr;}" << NewLine;
 }
 
-void CheerpWriter::compileCheckBoundsAsmJS(const Value* p, int alignMask)
+void CheerpWriter::compileCheckBoundsAsmJS(int alignMask)
 {
+	// NOTE: the caller must add the address argument and the closing ')'
 	stream<<"checkBoundsAsmJS(";
-	compileOperand(p,BIT_OR);
-	stream<<"|0,"<<alignMask<<"|0,"<<heapSize*1024*1024<<"|0)|0";
+	stream<<alignMask<<"|0,"<<heapSize*1024*1024<<"|0,";
 }
 
 void CheerpWriter::compileFunctionTablesAsmJS()
