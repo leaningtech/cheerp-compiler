@@ -131,7 +131,10 @@ struct Exception
 	static IdAllocator<Exception> allocator;
 
 	client::Object* jsObj;
-	void* obj;
+	// NOTE: we keep the exception object as a pair base/offset manually to prevent
+	// optimizations from converting it to COMPLETE_OBJECT
+	client::Object* objBase;
+	int objOffset;
 	void* adjustedPtr;
 	const std::type_info* tinfo;
 	void (*dest)(void*);
@@ -143,18 +146,24 @@ struct Exception
 	Exception* global_next;
 	Exception* next;
 	Exception* primary; // null if this is the primary exception
-	Exception(void* obj, const std::type_info* tinfo, void(*dest)(void*), Exception* primary = nullptr) noexcept
-		: obj(obj), adjustedPtr(nullptr), tinfo(tinfo), dest(dest),
+	Exception(client::Object* objBase, int objOffset, const std::type_info* tinfo, void(*dest)(void*), Exception* primary = nullptr) noexcept
+		: objBase(objBase), objOffset(objOffset)
+		, adjustedPtr(nullptr), tinfo(tinfo), dest(dest),
 #ifdef __ASMJS__
           wasm_dest(0),
 #endif
 		  refCount(1), handlerCount(0), next(nullptr), primary(primary)
 	{
 	}
+	Exception(void* obj, const std::type_info* tinfo, void(*dest)(void*), Exception* primary = nullptr) noexcept
+		: Exception(__builtin_cheerp_pointer_base<client::Object>(obj), __builtin_cheerp_pointer_offset(obj), tinfo, dest, primary)
+	{
+	}
 #ifdef __ASMJS__
-	Exception(void* obj, const std::type_info* tinfo, int wasm_dest, Exception* primary = nullptr) noexcept
-		: obj(obj), adjustedPtr(nullptr), tinfo(tinfo), dest(nullptr), wasm_dest(wasm_dest), refCount(1), 
-		  handlerCount(0), next(nullptr), primary(primary)
+	Exception(int objOffset, const std::type_info* tinfo, int wasm_dest, Exception* primary = nullptr) noexcept
+		: objBase(nullptr), objOffset(objOffset)
+		, adjustedPtr(nullptr), tinfo(tinfo), dest(nullptr), wasm_dest(wasm_dest), refCount(1)
+		, handlerCount(0), next(nullptr), primary(primary)
 	{
 	}
 #endif
@@ -188,13 +197,13 @@ struct Exception
 	{
 		if(dest)
 		{
-			dest(obj);
+			dest(__builtin_cheerp_make_regular<void>(objBase, objOffset));
 			dest = nullptr;
 		}
 #ifdef __ASMJS__
 		else if(wasm_dest)
 		{
-			run_wasm_dest(wasm_dest, __builtin_cheerp_pointer_offset(obj));
+			run_wasm_dest(wasm_dest, size_t(objOffset));
 			wasm_dest = 0;
 		}
 #endif
@@ -289,7 +298,7 @@ __cxa_throw(void *thrown_object, std::type_info *tinfo, void (*dest)(void *)) {
 [[noreturn]]
 static void __cxa_throw_wasm_adapter(size_t thrown_object, std::type_info* tinfo, size_t dest)
 {
-	Exception* ex = Exception::allocate(__builtin_cheerp_make_regular<void>(static_cast<void*>(nullptr), thrown_object), tinfo, dest);
+	Exception* ex = Exception::allocate(int(thrown_object), tinfo, dest);
 	do_throw(ex);
 }
 
@@ -406,7 +415,7 @@ void __cxa_rethrow_primary_exception(void* obj)
 {
 	Exception* ex = find_exception_from_unwind_ptr(obj);
 	__cxa_increment_exception_refcount(ex);
-	Exception* dep = Exception::allocate(ex->obj, ex->tinfo, nullptr, ex);
+	Exception* dep = Exception::allocate(ex->objBase, ex->objOffset, ex->tinfo, nullptr, ex);
 	do_throw(dep);
 }
 
@@ -514,7 +523,7 @@ __gxx_personality_v0
 		can_catch_ret cc = can_catch(catcher, thrown);
 		if(cc.can_catch)
 		{
-			ex->adjustedPtr = ex->obj;
+			ex->adjustedPtr = __builtin_cheerp_make_regular<void>(ex->objBase, ex->objOffset);
 			if(cc.deref)
 			{
 				ex->adjustedPtr = *static_cast<void**>(ex->adjustedPtr);
