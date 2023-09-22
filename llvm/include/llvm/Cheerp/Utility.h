@@ -36,6 +36,64 @@
 namespace cheerp
 {
 
+struct InstElemIterator;
+struct InstElem
+{
+private:
+	friend struct InstElemIterator;
+	InstElem(const llvm::Instruction* inst)
+		: instruction(inst), structIdx(0), ptrIdx(0), totalIdx(0)
+	{
+	}
+public:
+	InstElem(): instruction(nullptr), structIdx(0), ptrIdx(0), totalIdx(0)
+	{
+	}
+	InstElem(const InstElem& other) = default;
+	InstElem& operator=(const InstElem& other) = default;
+	bool operator==(const InstElem& other) const
+	{
+		return instruction == other.instruction && totalIdx == other.totalIdx;
+	}
+	const llvm::Instruction* instruction;
+	uint32_t structIdx;
+	uint32_t ptrIdx;
+	uint32_t totalIdx;
+};
+struct InstElemIterator: public llvm::iterator_facade_base<InstElemIterator, std::forward_iterator_tag, InstElem>
+{
+	InstElemIterator(const llvm::Instruction* I, const PointerAnalyzer& PA): inner(I), PA(&PA)
+	{
+	}
+	InstElemIterator(InstElem start, const PointerAnalyzer& PA): inner(start), PA(&PA)
+	{
+	}
+	InstElemIterator& operator=(const InstElemIterator& other) = default;
+	InstElemIterator(const InstElemIterator& other) = default;
+	bool operator==(const InstElemIterator& other) const
+	{
+		return inner==other.inner;
+	}
+	InstElem& operator*() const
+	{
+		return const_cast<InstElem&>(inner);
+	}
+	static InstElemIterator end(const PointerAnalyzer& PA)
+	{
+		return InstElemIterator(InstElem(nullptr), PA);
+	}
+	InstElemIterator& operator++();
+private:
+	static bool isTwoElems(const llvm::Instruction* I, llvm::Type* Ty, int32_t structIdx, const PointerAnalyzer& PA);
+	InstElem inner;
+	const PointerAnalyzer* PA;
+};
+
+inline llvm::iterator_range<InstElemIterator> getInstElems(const llvm::Instruction* I, const PointerAnalyzer& PA)
+{
+	return llvm::make_range(InstElemIterator(I, PA), InstElemIterator::end(PA));
+}
+
 const static int V8MaxLiteralDepth = 3;
 const static int V8MaxLiteralProperties = 8;
 
@@ -152,22 +210,11 @@ bool isNumStatementsLessThan(const llvm::BasicBlock* BB,
 				Count+=!asmjs;
 			}
 		}
-		if (I.getType()->isPointerTy() && PA.getPointerKind(&I) == SPLIT_REGULAR)
-			Count++;
-		if (auto Store = llvm::dyn_cast<llvm::StoreInst>(&I))
-		{
-			const llvm::Value* ValueOp = Store->getValueOperand();
-			if (ValueOp->getType()->isPointerTy()
-				&& PA.getPointerKind(Store) == SPLIT_REGULAR)
-			{
-				Count++;
-			}
-		}
-		else if (llvm::isa<llvm::VAArgInst>(I))
+		Count += std::distance(InstElemIterator(&I, PA), InstElemIterator::end(PA));
+		if (llvm::isa<llvm::VAArgInst>(I))
 		{
 			Count+= asmjs;
 		}
-		Count++;
 		if (Count >= N)
 			return false;
 	}
@@ -179,6 +226,8 @@ bool isNumStatementsLessThan(const llvm::BasicBlock* BB,
 		{
 			Count++;
 		}
+		if (F->getReturnType()->isStructTy())
+			Count++;
 		Count++;
 	}
 	else if (auto* I = llvm::dyn_cast<llvm::InvokeInst>(BB->getTerminator()))
@@ -908,64 +957,6 @@ struct PairHash
 unsigned getVectorBitwidth(const llvm::FixedVectorType* vecType);
 bool hasSIMDAttribute(const llvm::Function* F);
 void removeSIMDAttribute(llvm::Function* F);
-
-struct InstElemIterator;
-struct InstElem
-{
-private:
-	friend struct InstElemIterator;
-	InstElem(const llvm::Instruction* inst)
-		: instruction(inst), structIdx(0), ptrIdx(0), totalIdx(0)
-	{
-	}
-public:
-	InstElem(): instruction(nullptr), structIdx(0), ptrIdx(0), totalIdx(0)
-	{
-	}
-	InstElem(const InstElem& other) = default;
-	InstElem& operator=(const InstElem& other) = default;
-	bool operator==(const InstElem& other) const
-	{
-		return instruction == other.instruction && totalIdx == other.totalIdx;
-	}
-	const llvm::Instruction* instruction;
-	uint32_t structIdx;
-	uint32_t ptrIdx;
-	uint32_t totalIdx;
-};
-struct InstElemIterator: public llvm::iterator_facade_base<InstElemIterator, std::forward_iterator_tag, InstElem>
-{
-	InstElemIterator(const llvm::Instruction* I, const PointerAnalyzer& PA): inner(I), PA(&PA)
-	{
-	}
-	InstElemIterator(InstElem start, const PointerAnalyzer& PA): inner(start), PA(&PA)
-	{
-	}
-	InstElemIterator& operator=(const InstElemIterator& other) = default;
-	InstElemIterator(const InstElemIterator& other) = default;
-	bool operator==(const InstElemIterator& other) const
-	{
-		return inner==other.inner;
-	}
-	InstElem& operator*() const
-	{
-		return const_cast<InstElem&>(inner);
-	}
-	static InstElemIterator end(const PointerAnalyzer& PA)
-	{
-		return InstElemIterator(InstElem(nullptr), PA);
-	}
-	InstElemIterator& operator++();
-private:
-	static bool isTwoElems(const llvm::Instruction* I, llvm::Type* Ty, int32_t structIdx, const PointerAnalyzer& PA);
-	InstElem inner;
-	const PointerAnalyzer* PA;
-};
-
-inline llvm::iterator_range<InstElemIterator> getInstElems(const llvm::Instruction* I, const PointerAnalyzer& PA)
-{
-	return llvm::make_range(InstElemIterator(I, PA), InstElemIterator::end(PA));
-}
 
 }
 
