@@ -17,6 +17,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/MDBuilder.h"
 #include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
@@ -34,7 +35,7 @@ void StructMemFuncLowering::createMemFunc(IRBuilder<>* IRB, Value* baseDst, Valu
 }
 
 void StructMemFuncLowering::recursiveCopy(IRBuilder<>* IRB, Value* baseDst, Value* baseSrc, Type* curType, Type* containingType,
-						Type* indexType, uint32_t baseAlign, SmallVector<Value*, 8>& indexes)
+						Type* indexType, uint32_t baseAlign, SmallVector<Value*, 8>& indexes, SmallVector<Metadata*, 8>& aliasScopes, MDNode* aliasDomain)
 {
 	// For aggregates we push a new index and overwrite it for each element
 	if(StructType* ST=dyn_cast<StructType>(curType))
@@ -51,7 +52,7 @@ void StructMemFuncLowering::recursiveCopy(IRBuilder<>* IRB, Value* baseDst, Valu
 			uint32_t elemAlign = baseAlign;
 			while(elemOffset % elemAlign != 0)
 				elemAlign /= 2;
-			recursiveCopy(IRB, baseDst, baseSrc, ST->getElementType(i), containingType, indexType, elemAlign, indexes);
+			recursiveCopy(IRB, baseDst, baseSrc, ST->getElementType(i), containingType, indexType, elemAlign, indexes, aliasScopes, aliasDomain);
 		}
 		indexes.pop_back();
 	}
@@ -74,7 +75,7 @@ void StructMemFuncLowering::recursiveCopy(IRBuilder<>* IRB, Value* baseDst, Valu
 			llvm::PHINode* index=IRB->CreatePHI(indexType, 2);
 			index->addIncoming(ConstantInt::get(indexType, 0), prevBlock);
 			indexes.back() = index;
-			recursiveCopy(IRB, baseDst, baseSrc, elementType, containingType, indexType, elemAlign, indexes);
+			recursiveCopy(IRB, baseDst, baseSrc, elementType, containingType, indexType, elemAlign, indexes, aliasScopes, aliasDomain);
 			Value* incrementedIndex = IRB->CreateAdd(index, ConstantInt::get(indexType, 1));
 			index->addIncoming(incrementedIndex, IRB->GetInsertBlock());
 			Value* finishedLooping=IRB->CreateICmp(CmpInst::ICMP_EQ, ConstantInt::get(indexType, AT->getNumElements()), incrementedIndex);
@@ -86,7 +87,7 @@ void StructMemFuncLowering::recursiveCopy(IRBuilder<>* IRB, Value* baseDst, Valu
 			for(uint32_t i=0;i<AT->getNumElements();i++)
 			{
 				indexes.back() = ConstantInt::get(indexType, i);
-				recursiveCopy(IRB, baseDst, baseSrc, elementType, containingType, indexType, elemAlign, indexes);
+				recursiveCopy(IRB, baseDst, baseSrc, elementType, containingType, indexType, elemAlign, indexes, aliasScopes, aliasDomain);
 			}
 		}
 		indexes.pop_back();
@@ -105,8 +106,21 @@ void StructMemFuncLowering::recursiveCopy(IRBuilder<>* IRB, Value* baseDst, Valu
 			loadType = cast<GEPOperator>(elementDst)->getResultElementType();
 		}
 		assert(loadType->getPointerTo() == elementSrc->getType());
-		Value* element = IRB->CreateAlignedLoad(loadType, elementSrc, MaybeAlign(baseAlign));
-		IRB->CreateAlignedStore(element, elementDst, MaybeAlign(baseAlign));
+		Instruction* element = IRB->CreateAlignedLoad(loadType, elementSrc, MaybeAlign(baseAlign));
+		MDNode* newAliasScope = NULL;
+		if(aliasDomain)
+		{
+			// This store can only alias the current element, but no other element
+			element->setMetadata(LLVMContext::MD_noalias, MDNode::get(IRB->getContext(), aliasScopes));
+		}
+		Instruction* store = IRB->CreateAlignedStore(element, elementDst, MaybeAlign(baseAlign));
+		if(aliasDomain)
+		{
+			MDBuilder MDB(IRB->getContext());
+			newAliasScope = MDB.createAnonymousAliasScope(aliasDomain, "MemCpy");
+			store->setMetadata(LLVMContext::MD_alias_scope, MDNode::get(IRB->getContext(), newAliasScope));
+			aliasScopes.emplace_back(newAliasScope);
+		}
 	}
 }
 
@@ -292,9 +306,20 @@ void StructMemFuncLowering::createGenericLoop(IRBuilder<>* IRB, BasicBlock* prev
 	indexes.push_back(ConstantInt::get(int32Type, 0));
 
 	if (mode == MEMSET)
+	{
 		recursiveReset(IRB, dstVal, srcVal, pointedType, pointedType, int32Type, baseAlign, indexes);
+	}
 	else
-		recursiveCopy(IRB, dstVal, srcVal, pointedType, pointedType, int32Type, baseAlign, indexes);
+	{
+		SmallVector<Metadata*, 8> aliasScopes;
+		MDNode* newDomain = NULL;
+		if(mode == MEMCPY)
+		{
+			MDBuilder MDB(IRB->getContext());
+			newDomain = MDB.createAnonymousAliasScopeDomain("StructMemFuncLoweringDomain");
+		}
+		recursiveCopy(IRB, dstVal, srcVal, pointedType, pointedType, int32Type, baseAlign, indexes, aliasScopes, newDomain);
+	}
 
 	if(needsLoop)
 	{
