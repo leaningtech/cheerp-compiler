@@ -583,19 +583,19 @@ CodeGenFunction::GenerateDowncast(Address Value,
                                   const CXXRecordDecl *Derived,
                                   llvm::Value* BaseIdOffset)
 {
-  QualType DerivedTy =
-    getContext().getCanonicalType(getContext().getTagDeclType(Derived));
-  llvm::Type *DerivedPtrTy = ConvertType(DerivedTy);
+  llvm::Type *DerivedTy =
+    ConvertType(getContext().getCanonicalType(getContext().getTagDeclType(Derived)));
+  llvm::Type *DerivedPtrTy = DerivedTy->getPointerTo(Value.getAddressSpace());
 
-  llvm::Type* types[] = { DerivedPtrTy->getPointerTo(), Value.getType() };
+  llvm::Type* types[] = { DerivedPtrTy, Value.getType() };
 
   llvm::Function* intrinsic = llvm::Intrinsic::getDeclaration(&CGM.getModule(),
                               llvm::Intrinsic::cheerp_downcast, types);
 
   llvm::CallBase* CB = Builder.CreateCall(intrinsic, {Value.getPointer(), BaseIdOffset});
   CB->addParamAttr(0, llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, Value.getElementType()));
-  CB->addRetAttr(llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, DerivedPtrTy));
-  return Address(CB, DerivedPtrTy, Value.getAlignment());
+  CB->addRetAttr(llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, DerivedTy));
+  return Address(CB, DerivedTy, Value.getAlignment());
 }
 
 llvm::Value *
