@@ -250,6 +250,8 @@ inline bool isBitCast(const llvm::Value* v)
 {
 	if( llvm::isa< llvm::BitCastInst>(v) )
 		return true;
+	if( llvm::isa< llvm::AddrSpaceCastInst>(v) )
+		return true;
 	if(const llvm::ConstantExpr * ce = llvm::dyn_cast<llvm::ConstantExpr>(v) )
 		return ce->getOpcode() == llvm::Instruction::BitCast;
 	if(const llvm::IntrinsicInst* II=llvm::dyn_cast<llvm::IntrinsicInst>(v))
