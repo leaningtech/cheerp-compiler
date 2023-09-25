@@ -237,6 +237,8 @@ private:
 	//Pre-process direct calls to possibly simplify them
 	void simplifyCalls(llvm::Module & module) const;
 
+	static void replaceFunctionAliasWithAliasee(llvm::Module &module, llvm::StringRef name);
+
 	//Extend lifetime of function, visiting them and declaring external
 	void extendLifetime(llvm::Function* F);
 
