@@ -14,6 +14,8 @@ llvm::cl::opt<std::string> SecondaryOutputFile("cheerp-secondary-output-file", l
 llvm::cl::opt<std::string> SecondaryOutputPath("cheerp-secondary-output-path", llvm::cl::Optional,
   llvm::cl::desc("If specified, the runtime relative path of the secondary output file"), llvm::cl::value_desc("filename"));
 
+llvm::cl::opt<std::string> DTSOutputFile("cheerp-dts-output-file", llvm::cl::Optional, llvm::cl::desc("If specified, the file name of the .d.ts output file"));
+
 llvm::cl::opt<std::string> SourceMap("cheerp-sourcemap", llvm::cl::Optional,
   llvm::cl::desc("If specified, the file name of the source map"), llvm::cl::value_desc("filename"));
 
@@ -21,6 +23,8 @@ llvm::cl::opt<std::string> SourceMapPrefix("cheerp-sourcemap-prefix", llvm::cl::
   llvm::cl::desc("If specified, this prefix will be removed from source map file paths"), llvm::cl::value_desc("path"));
 
 llvm::cl::opt<std::string> MakeModule("cheerp-make-module", llvm::cl::Optional, llvm::cl::desc("Create a [closure/commonjs] module around the generated code.") );
+
+llvm::cl::opt<bool> MakeDTS("cheerp-make-dts", llvm::cl::desc("Generate a .d.ts file for use by TypeScript"));
 
 llvm::cl::opt<bool> SourceMapStandAlone("cheerp-sourcemap-standalone", llvm::cl::desc("Generate a standalone sourcemap by including _all_ sources in the map file") );
 

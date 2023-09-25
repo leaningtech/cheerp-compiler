@@ -4939,6 +4939,8 @@ def cheerp_secondary_output_file_EQ : Joined<["-"], "cheerp-secondary-output-fil
   HelpText<"Write the secondary output file (wasm module or asm.js memory file) to <file>">, MetaVarName<"<file>">;
 def cheerp_secondary_output_path_EQ : Joined<["-"], "cheerp-secondary-output-path=">, Flags<[NoXarchOption]>,
   HelpText<"Assume the secondary output file (wasm module or asm.js memory file) to be in path <path> at runtime">, MetaVarName<"<path>">;
+def cheerp_dts_output_file_EQ : Joined<["-"], "cheerp-dts-output-file=">, Flags<[NoXarchOption]>,
+  HelpText<"Write the .d.ts output file to <file>">, MetaVarName<"<file>">;
 def cheerp_linear_heap_size : Joined<["-"], "cheerp-linear-heap-size=">, Flags<[NoXarchOption]>,
   HelpText<"Set wasm/asm.js heap size (in MB, default is 8)">;
 def cheerp_linear_stack_size : Joined<["-"], "cheerp-linear-stack-size=">, Flags<[NoXarchOption]>,
@@ -4957,6 +4959,8 @@ def cheerp_make_module : Flag<["-"], "cheerp-make-module">, Flags<[NoXarchOption
   HelpText<"Create a closure around JS to avoid global namespace pollution">;
 def cheerp_make_module_EQ : Joined<["-"], "cheerp-make-module=">, Flags<[NoXarchOption]>,
   HelpText<"Expose the compiled code as a [closure/commonjs/es6] module">;
+def cheerp_make_dts : Flag<["-"], "cheerp-make-dts">, Flags<[NoXarchOption]>,
+  HelpText<"Generate a .d.ts file for use with TypeScript">;
 def cheerp_no_lto : Flag<["-"], "cheerp-no-lto">, Flags<[NoXarchOption]>,
   HelpText<"Disable final optimization step at link time">;
 def cheerp_dump_bc : Flag<["-"], "cheerp-dump-bc">, Flags<[NoXarchOption]>,

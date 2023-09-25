@@ -25,6 +25,7 @@
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Cheerp/Writer.h"
 #include "llvm/Cheerp/WasmWriter.h"
+#include "llvm/Cheerp/DTSWriter.h"
 #include "llvm/Cheerp/PassRegistry.h"
 #include "llvm/Cheerp/PassUtility.h"
 #include "llvm/Cheerp/I64Lowering.h"
@@ -226,6 +227,14 @@ PreservedAnalyses cheerp::CheerpWritePassImpl::run(Module& M, ModuleAnalysisMana
   {
     secondaryOut.reset(new formatted_raw_ostream(Out));
   }
+  
+  std::error_code dtsErrorCode;
+  llvm::ToolOutputFile dtsFile(DTSOutputFile, dtsErrorCode, sys::fs::OF_None);
+  std::unique_ptr<llvm::formatted_raw_ostream> dtsOut;
+  if (!DTSOutputFile.empty())
+  {
+    dtsOut.reset(new formatted_raw_ostream(dtsFile.os()));
+  }
 
   // Build the ordered list of reserved names
   std::vector<std::string> reservedNames(ReservedNames.begin(), ReservedNames.end());
@@ -253,6 +262,12 @@ PreservedAnalyses cheerp::CheerpWritePassImpl::run(Module& M, ModuleAnalysisMana
       break;
   }
 
+  if (MakeDTS && dtsOut)
+  {
+    cheerp::CheerpDTSWriter dtsWriter(*dtsOut, sourceMapGenerator.get(), PrettyCode);
+    dtsWriter.makeDTS();
+  }
+
   if (!WasmOnly)
   {
     cheerp::CheerpWriter writer(M, MAM, Out, PA, registerize, GDA, linearHelper, namegen, allocaStoresExtractor, IW.getLandingPadTable(), memOut, asmjsMemFile,
@@ -270,6 +285,7 @@ PreservedAnalyses cheerp::CheerpWritePassImpl::run(Module& M, ModuleAnalysisMana
                                     WasmExportedTable);
     wasmWriter.makeWasm();
   }
+
   allocaStoresExtractor.destroyStores();
  
   if (!SecondaryOutputFile.empty() && ErrorCode)
@@ -278,9 +294,15 @@ PreservedAnalyses cheerp::CheerpWritePassImpl::run(Module& M, ModuleAnalysisMana
     llvm::report_fatal_error(StringRef(ErrorCode.message()), false);
     return PreservedAnalyses::none();
   }
+  if (!DTSOutputFile.empty() && dtsErrorCode)
+  {
+    llvm::report_fatal_error(StringRef(dtsErrorCode.message()), false);
+    return PreservedAnalyses::none();
+  }
   if (!WasmOnly)
     secondaryFile.keep();
-
+  if (MakeDTS)
+    dtsFile.keep();
 
 
 	return PreservedAnalyses::none();
