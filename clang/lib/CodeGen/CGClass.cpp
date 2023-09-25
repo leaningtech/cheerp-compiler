@@ -263,7 +263,7 @@ CodeGenFunction::GetAddressOfDirectBaseInCompleteClass(Address This,
   {
     // Cheerp: if the base class has no members create a bitcast with cheerp specific intrinsic
     if(Base->isEmpty() || Offset.isZero())
-       return GenerateUpcastCollapsed(This, ConvertType(Base), 0);
+       return GenerateUpcastCollapsed(This, ConvertType(Base), This.getAddressSpace());
     else
     {
       // Get the layout.
@@ -563,7 +563,7 @@ CodeGenFunction::GenerateUpcast(Address Value,
   //Cheerp: Check if the type is the expected one. If not create a builtin to handle this.
   //This may happen when empty base classes are used
   if(Value.getType()!=BasePtrTy)
-    Value = GenerateUpcastCollapsed(Value, BasePtrTy, 0);
+    Value = GenerateUpcastCollapsed(Value, BasePtrTy, Value.getAddressSpace());
   return Value;
 }
 
