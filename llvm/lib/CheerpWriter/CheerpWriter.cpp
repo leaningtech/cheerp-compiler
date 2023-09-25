@@ -6021,8 +6021,8 @@ void CheerpWriter::compileGrowMem()
 {
 	stream << "function " << namegen.getBuiltinName(NameGenerator::Builtin::GROW_MEM) << "(pages){" << NewLine;
 	stream << "try{" << NewLine;
-	stream << "var ret=__asm." << namegen.getBuiltinName(NameGenerator::MEMORY) << ".grow(pages);" << NewLine;
-	stream << "__heap=__asm." << namegen.getBuiltinName(NameGenerator::MEMORY) << ".buffer;" << NewLine;
+	stream << "var ret=" << namegen.getBuiltinName(NameGenerator::MEMORY) << ".grow(pages);" << NewLine;
+	stream << "__heap=" << namegen.getBuiltinName(NameGenerator::MEMORY) << ".buffer;" << NewLine;
 	stream << namegen.getBuiltinName(NameGenerator::Builtin::ASSIGN_HEAPS) << "(__heap);" << NewLine;
 	stream << "return ret;" << NewLine;
 	stream << "}catch(e){" << NewLine;
@@ -6487,6 +6487,8 @@ void CheerpWriter::compileWasmLoader()
 	stream << "__heap=null;";
 	compileDummies();
 
+	compileWasmMemory();
+
 	compileDeclareExports();
 
 	const std::string shortestName = namegen.getShortestLocalName();
@@ -6494,6 +6496,9 @@ void CheerpWriter::compileWasmLoader()
 	stream << ".then(" << shortestName << "=>" << NewLine;
 	stream << "WebAssembly.instantiate(" << shortestName << "," << NewLine;
 	stream << "{i:{" << NewLine;
+	// Import the memory.
+	StringRef memoryName = namegen.getBuiltinName(NameGenerator::Builtin::MEMORY);
+	stream << memoryName << ':' << memoryName << ',' << NewLine;
 	compileImports();
 	if(globalDeps.needsBuiltin(BuiltinInstr::BUILTIN::ACOS_F))
 		stream << namegen.getBuiltinName(NameGenerator::ACOS) << ":Math.acos," << NewLine;
@@ -6525,7 +6530,7 @@ void CheerpWriter::compileWasmLoader()
 	stream << "}})" << NewLine;
 	stream << ").then(" << shortestName << "=>{" << NewLine;
 	stream << "__asm=" << shortestName << ".instance.exports;" << NewLine;
-	stream << "__heap=__asm." << namegen.getBuiltinName(NameGenerator::MEMORY) << ".buffer;" << NewLine;
+	stream << "__heap=" << namegen.getBuiltinName(NameGenerator::MEMORY) << ".buffer;" << NewLine;
 	if (globalDeps.needAsmJSMemory())
 	{
 		stream << namegen.getBuiltinName(NameGenerator::Builtin::ASSIGN_HEAPS) << "(__heap);" << NewLine;
@@ -6576,6 +6581,19 @@ void CheerpWriter::compileDeclareExports()
 		//Set the promise of DUMMY_WITH_PROMISE
 		stream << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) << ".promise=" << NewLine;
 	}
+}
+
+void CheerpWriter::compileWasmMemory()
+{
+	uint32_t maxMemory = heapSize << 4;
+	uint32_t minMemory = (linearHelper.getHeapStart() + 65535) >> 16;
+	if (noGrowMemory)
+		minMemory = maxMemory;
+	stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::MEMORY);
+	stream << "=new WebAssembly.Memory({initial:" << minMemory << ",maximum:" << maxMemory;
+	if (WasmSharedMemory)
+		stream << ",shared:true";
+	stream << "});" << NewLine;
 }
 
 void CheerpWriter::compileNamespaces()

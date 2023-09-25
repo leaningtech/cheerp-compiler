@@ -4377,6 +4377,42 @@ void CheerpWasmWriter::compileImport(WasmBuffer& code, StringRef funcName, Funct
 	encodeULEB128(found->second, code);
 }
 
+void CheerpWasmWriter::compileImportMemory(WasmBuffer& code)
+{
+	// Define the memory for the module in WasmPage units. The heap size is
+	// defined in MiB and the wasm page size is 64 KiB. Thus, the wasm heap
+	// max size parameter is defined as: heapSize << 20 >> 16 = heapSize << 4.
+	uint32_t maxMemory = heapSize << 4;
+	uint32_t minMemory = (linearHelper.getHeapStart() + 65535) >> 16;
+	if (noGrowMemory)
+		minMemory = maxMemory;
+
+	// Encode the module name.
+	std::string moduleName = "i";
+	encodeULEB128(moduleName.size(), code);
+	code.write(moduleName.data(), moduleName.size());
+
+	// Encode the field name.
+	StringRef fieldName = namegen.getBuiltinName(NameGenerator::MEMORY);
+	encodeULEB128(fieldName.size(), code);
+	code.write(fieldName.data(), fieldName.size());
+
+	// Encode kind as 'Memory'.
+	encodeULEB128(0x02, code);
+
+	// Encode limits of the memory.
+	// from the spec:
+	//limits ::= 0x00 n:u32          => {min n, max e, unshared}
+	//           0x01 n:u32 m:u32    => {min n, max m, unshared}
+	//           0x03 n:u32 m:u32    => {min n, max m, shared}
+	// We use 0x01 and 0x03 only for now
+	int memType = sharedMemory ? 0x03 : 0x01;
+	encodeULEB128(memType, code);
+	// Encode minimum and maximum memory parameters.
+	encodeULEB128(minMemory, code);
+	encodeULEB128(maxMemory, code);
+}
+
 void CheerpWasmWriter::compileImportSection()
 {
 	// Count imported builtins
@@ -4391,13 +4427,14 @@ void CheerpWasmWriter::compileImportSection()
 
 	numberOfImportedFunctions = importedTotal;
 
-	if (importedTotal == 0)
-		return;
-
 	Section section(0x02, "Import", this);
 
 	// Encode number of entries in the import section.
-	encodeULEB128(importedTotal, section);
+	// The +1 is for memory that we import unconditionally.
+	encodeULEB128(importedTotal + 1, section);
+
+	// Import the memory
+	compileImportMemory(section);
 
 	for (const Function* F : globalDeps.asmJSImports())
 	{
@@ -4549,38 +4586,8 @@ CheerpWasmWriter::GLOBAL_CONSTANT_ENCODING CheerpWasmWriter::shouldEncodeConstan
 	}
 }
 
-void CheerpWasmWriter::compileMemoryAndGlobalSection()
+void CheerpWasmWriter::compileGlobalSection()
 {
-	// Define the memory for the module in WasmPage units. The heap size is
-	// defined in MiB and the wasm page size is 64 KiB. Thus, the wasm heap
-	// max size parameter is defined as: heapSize << 20 >> 16 = heapSize << 4.
-	uint32_t maxMemory = heapSize << 4;
-	uint32_t minMemory = (linearHelper.getHeapStart() + 65535) >> 16;
-
-	// TODO use WasmPage variable instead of hardcoded '1>>16'.
-	assert(WasmPage == 64 * 1024);
-	
-	if (noGrowMemory)
-		minMemory = maxMemory;
-
-	{
-		Section section(0x05, "Memory", this);
-
-		encodeULEB128(1, section);
-		// from the spec:
-		//limits ::= 0x00 n:u32          => {min n, max e, unshared}
-		//           0x01 n:u32 m:u32    => {min n, max m, unshared}
-		//           0x03 n:u32 m:u32    => {min n, max m, shared}
-		// We use 0x01 and 0x03 only for now
-		int memType = sharedMemory ? 0x03 : 0x01;
-		encodeULEB128(memType, section);
-		// Encode minimum and maximum memory parameters.
-		encodeULEB128(minMemory, section);
-		encodeULEB128(maxMemory, section);
-
-		section.encode();
-	}
-
 	// Temporary map for the globalized constants. We update the global one at the end, to avoid
 	// global constants referencing each other
 	std::unordered_map<const llvm::Constant*, std::pair<uint32_t, GLOBAL_CONSTANT_ENCODING>> globalizedConstantsTmp;
@@ -4753,18 +4760,19 @@ void CheerpWasmWriter::compileExportSection()
 	exports.insert(exports.end(), globalDeps.asmJSExports().begin(),
 			globalDeps.asmJSExports().end());
 
-	// We export the memory unconditionally, but may also need to export the table
-	uint32_t extraExports = 1;
-	if(exportedTable)
-		extraExports = 2;
+	// We may need to export the table and/or the memory.
+	uint32_t extraExports = uint32_t(exportedTable) + uint32_t(WasmExportedMemory);
 	encodeULEB128(exports.size() + extraExports, section);
 
-	// Encode the memory.
-	StringRef name = useWasmLoader? namegen.getBuiltinName(NameGenerator::MEMORY) : "memory";
-	encodeULEB128(name.size(), section);
-	section.write(name.data(), name.size());
-	encodeULEB128(0x02, section);
-	encodeULEB128(0, section);
+	if (WasmExportedMemory)
+	{
+		// Encode the memory.
+		StringRef name = useWasmLoader? namegen.getBuiltinName(NameGenerator::MEMORY) : "memory";
+		encodeULEB128(name.size(), section);
+		section.write(name.data(), name.size());
+		encodeULEB128(0x02, section);
+		encodeULEB128(0, section);
+	}
 
 	if(exportedTable)
 	{
@@ -5057,7 +5065,7 @@ void CheerpWasmWriter::compileModule()
 
 	compileTableSection();
 
-	compileMemoryAndGlobalSection();
+	compileGlobalSection();
 
 	compileExportSection();
 

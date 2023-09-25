@@ -371,7 +371,7 @@ private:
 	void compileFunctionSection();
 	void compileImportSection();
 	void compileTableSection();
-	void compileMemoryAndGlobalSection();
+	void compileGlobalSection();
 	void compileExportSection();
 	void compileElementSection();
 	void compileCodeSection();
@@ -389,6 +389,7 @@ private:
 	const llvm::BasicBlock* compileTokens(WasmBuffer& code, const TokenList& Tokens);
 	void compileMethod(WasmBuffer& code, const llvm::Function& F);
 	void compileImport(WasmBuffer& code, llvm::StringRef funcName, llvm::FunctionType* FTy);
+	void compileImportMemory(WasmBuffer& code);
 	void compileGlobal(const llvm::GlobalVariable& G);
 	// Returns true if it has handled local assignent internally
 	bool compileInstruction(WasmBuffer& code, const llvm::Instruction& I);

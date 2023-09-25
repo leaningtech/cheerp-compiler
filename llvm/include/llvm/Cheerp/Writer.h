@@ -271,8 +271,10 @@ private:
 	bool addCredits;
 	// Flag to signal if we should add code that measures time until main is reached
 	bool measureTimeToMain;
-	// The asm.js module heap size
+	// The wasm or asm.js module heap size
 	uint32_t heapSize;
+	// Whether to disable memory growth
+	bool noGrowMemory;
 	// Flag to signal if we should add bounds-checking code
 	bool checkBounds;
 	// The name of the external wasm file, or empty if not present
@@ -671,6 +673,7 @@ public:
 		addCredits(addCredits),
 		measureTimeToMain(measureTimeToMain),
 		heapSize(heapSize),
+		noGrowMemory(!linearHelper.canGrowMemory()),
 		checkBounds(checkBounds),
 		wasmFile(wasmFile),
 		forceTypedArrays(forceTypedArrays),
@@ -779,6 +782,7 @@ private:
 	void compileCommonJSModule();
 	void compileLoaderOrModuleEnd();
 	void compileDeclareExports();
+	void compileWasmMemory();
 	void compileDefineExports();
 	void compileCommonJSExports();
 	void compileEntryPoint();
