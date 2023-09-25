@@ -124,11 +124,32 @@ void GlobalDepsAnalyzer::extendLifetime(Function* F)
 	assert( visited.empty() );
 }
 
+void GlobalDepsAnalyzer::replaceFunctionAliasWithAliasee(llvm::Module &module, StringRef name)
+{
+	GlobalAlias *funcAlias = module.getNamedAlias(name);
+	if (funcAlias)
+	{
+		Function *actualFunc = dyn_cast<Function>(funcAlias->getAliaseeObject());
+
+		assert(actualFunc);
+
+		funcAlias->replaceAllUsesWith(actualFunc);
+		funcAlias->eraseFromParent();
+
+		actualFunc->setName(name);
+	}
+}
+
 bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 {
 	DL = &module.getDataLayout();
 	assert(DL);
 	VisitedSet visited;
+
+	replaceFunctionAliasWithAliasee(module, "malloc");
+	replaceFunctionAliasWithAliasee(module, "calloc");
+	replaceFunctionAliasWithAliasee(module, "realloc");
+	replaceFunctionAliasWithAliasee(module, "free");
 
 	// Replace the aliases with the actual values
 	for (auto& a: make_early_inc_range(module.aliases()))
