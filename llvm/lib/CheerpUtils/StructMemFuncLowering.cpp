@@ -420,8 +420,17 @@ bool StructMemFuncLowering::runOnBlock(BasicBlock& BB, bool asmjs)
 		assert(alignInt != 0);
 		// Do not inline memory intrinsics with a large or non-constant size
 		// argument, when in linear memory mode.
-		// Also, if the memcpy is nicely aligned, use 32 bit loads and stores
-		if (asmjs) {
+		// Prefer an untyped loop if we can use 8-byte wide unaligned load/store,
+		// otherwise only use it if src/dst are non-type safe to begin with
+		// A typed expansion might allow for better optimization of loads from the surrounding context
+		bool useUntypedLoop = !WasmNoUnalignedMem;
+		if (!useUntypedLoop)
+		{
+			bool typeSafe = mode == MEMSET || dst->getType() == src->getType();
+			if (!typeSafe)
+				useUntypedLoop = true;
+		}
+		if (asmjs && useUntypedLoop) {
 			ConstantInt *sizeConst = dyn_cast<ConstantInt>(size);
 			if (!sizeConst || sizeConst->getZExtValue() > INLINE_WRITE_LOOP_MAX)
 				continue;
