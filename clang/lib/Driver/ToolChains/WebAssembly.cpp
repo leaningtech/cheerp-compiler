@@ -843,6 +843,19 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
   if(Arg* cheerpSecondaryOutputPath = Args.getLastArg(options::OPT_cheerp_secondary_output_path_EQ))
     cheerpSecondaryOutputPath->render(Args, CmdArgs);
 
+  if(Arg* cheerpDTSOutputFile = Args.getLastArg(options::OPT_cheerp_dts_output_file_EQ))
+    cheerpDTSOutputFile->render(Args, CmdArgs);
+  else
+  {
+    SmallString<64> path(Output.getFilename());
+    StringRef ext = ".d.ts";
+    if (llvm::sys::path::extension(path) == ext)
+      path.append(ext);
+    else
+      llvm::sys::path::replace_extension(path, ext);
+    CmdArgs.push_back(Args.MakeArgString(Twine("-cheerp-dts-output-file=")+path));
+  }
+
   if(Args.getLastArg(options::OPT_cheerp_make_module)) {
     CmdArgs.push_back("-cheerp-make-module=closure");
   }
@@ -948,6 +961,8 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
     cheerpFixFuncCasts->render(Args, CmdArgs);
   if(Arg* cheerpUseBigInts = Args.getLastArg(options::OPT_cheerp_use_bigints))
     cheerpUseBigInts->render(Args, CmdArgs);
+  if(Arg* cheerpMakeDTS = Args.getLastArg(options::OPT_cheerp_make_dts))
+    cheerpMakeDTS->render(Args, CmdArgs);
   else if (getToolChain().getTriple().getOS() == llvm::Triple::WASI)
     CmdArgs.push_back("-cheerp-use-bigints");
 

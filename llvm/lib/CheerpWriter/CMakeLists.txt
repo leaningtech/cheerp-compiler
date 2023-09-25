@@ -3,6 +3,7 @@ add_llvm_component_library(LLVMCheerpWriter
   CheerpBaseWriter.cpp
   CheerpWriter.cpp
   CheerpWasmWriter.cpp
+  CheerpDTSWriter.cpp
   JSInterop.cpp
   NameGenerator.cpp
   Types.cpp

@@ -21,9 +21,11 @@ enum LinearOutputTy {
 extern llvm::cl::opt<LinearOutputTy> LinearOutput;
 extern llvm::cl::opt<std::string> SecondaryOutputFile;
 extern llvm::cl::opt<std::string> SecondaryOutputPath;
+extern llvm::cl::opt<std::string> DTSOutputFile;
 extern llvm::cl::opt<std::string> SourceMap;
 extern llvm::cl::opt<std::string> SourceMapPrefix;
 extern llvm::cl::opt<std::string> MakeModule;
+extern llvm::cl::opt<bool> MakeDTS;
 extern llvm::cl::opt<bool> WasmOnly;
 extern llvm::cl::opt<bool> SourceMapStandAlone;
 extern llvm::cl::opt<bool> PrettyCode;
