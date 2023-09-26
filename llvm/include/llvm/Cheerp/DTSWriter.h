@@ -20,14 +20,18 @@ namespace cheerp
 class CheerpDTSWriter final
 {
 private:
+  llvm::Module& module;
+  ostream_proxy stream;
+  llvm::StringRef makeModule;
+  std::vector<const llvm::Function*> exportedFunctions;
+
+  void declareFunction(const llvm::Function* f);
   void declareModule();
   void declareGlobal();
 
 public:
-  ostream_proxy stream;
-  llvm::StringRef makeModule;
-
-  CheerpDTSWriter(llvm::raw_ostream& s, SourceMapGenerator* sourceMapGenerator, bool readableOutput, llvm::StringRef makeModule):
+  CheerpDTSWriter(llvm::Module& module, llvm::raw_ostream& s, SourceMapGenerator* sourceMapGenerator, bool readableOutput, llvm::StringRef makeModule):
+    module(module),
     stream(s, sourceMapGenerator, readableOutput),
     makeModule(makeModule)
   {

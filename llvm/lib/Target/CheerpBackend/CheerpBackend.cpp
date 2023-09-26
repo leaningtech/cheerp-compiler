@@ -264,7 +264,7 @@ PreservedAnalyses cheerp::CheerpWritePassImpl::run(Module& M, ModuleAnalysisMana
 
   if (MakeDTS && dtsOut)
   {
-    cheerp::CheerpDTSWriter dtsWriter(*dtsOut, sourceMapGenerator.get(), PrettyCode, MakeModule);
+    cheerp::CheerpDTSWriter dtsWriter(M, *dtsOut, sourceMapGenerator.get(), PrettyCode, MakeModule);
     dtsWriter.makeDTS();
   }
 
