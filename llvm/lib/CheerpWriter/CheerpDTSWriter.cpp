@@ -17,7 +17,37 @@ using namespace cheerp;
 
 static const NewLineHandler NewLine;
 
+void CheerpDTSWriter::declareModule()
+{
+}
+
+void CheerpDTSWriter::declareGlobal()
+{
+}
+
 void CheerpDTSWriter::makeDTS()
 {
-  stream << "export default function(): Promise<object>;" << NewLine;
+  if (makeModule == "commonjs")
+  {
+    stream << "declare const __export: Promise<{" << NewLine;
+    declareModule();
+    stream << "}>;" << NewLine;
+    stream << "export = __export;" << NewLine;
+  }
+  else if (makeModule == "es6")
+  {
+    stream << "export default function(): Promise<{" << NewLine;
+    declareModule();
+    stream << "}>;" << NewLine;
+  }
+  else if (makeModule == "closure")
+  {
+    stream << "declare global {" << NewLine;
+    declareGlobal();
+    stream << "}" << NewLine;
+  }
+  else
+  {
+    // TODO: cannot make declarations if output is not a module
+  }
 }
