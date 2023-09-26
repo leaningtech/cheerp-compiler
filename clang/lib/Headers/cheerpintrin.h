@@ -12,6 +12,8 @@
 #ifndef __CHEERPINTRIN_H
 #define __CHEERPINTRIN_H
 
+#include <cstddef>
+
 namespace [[cheerp::genericjs]] {
 
 template<class R, class P>
