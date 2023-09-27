@@ -193,16 +193,17 @@ void StoreMerging::processBlockOfStores(const uint32_t dim, std::vector<StoreAnd
 		const Constant* constantLowValue = dyn_cast<Constant>(lowValue);
 		const Constant* constantHighValue = dyn_cast<Constant>(highValue);
 
-		bool isConvenient = false;
+		enum STRATEGY { NOT_CONVENIENT = 0, CONSTANT = 1, ZERO_EXTEND = 2};
+		STRATEGY strategy = NOT_CONVENIENT;
 
 		//Both ValueOperands constants -> folded in a single store
 		if (constantLowValue && constantHighValue)
-			isConvenient = true;
+			strategy = CONSTANT;
 		//Higher ValueOperands 0 -> folded in a single store
-		if (constantHighValue && constantHighValue->isNullValue())
-			isConvenient = true;
+		else if (constantHighValue && constantHighValue->isNullValue())
+			strategy = ZERO_EXTEND;
 
-		if (!isConvenient)
+		if (strategy == NOT_CONVENIENT)
 			continue;
 
 		auto& context = groupedSamePointer[a].store->getParent()->getContext();
@@ -227,16 +228,22 @@ void StoreMerging::processBlockOfStores(const uint32_t dim, std::vector<StoreAnd
 			return value;
 		};
 
-		Value* low = convertToBigType(lowValue);
-
-		Value* sum = low;
-
-		//Add shifted higher part
-		if (!constantHighValue || !constantHighValue->isNullValue())
+		Value* sum = nullptr;
+		if(strategy == CONSTANT || strategy == ZERO_EXTEND)
 		{
-			Value* high = convertToBigType(highValue);
-			Value* shiftToHigh = builder.CreateShl(high, dim*8);
-			sum = builder.CreateAdd(low, shiftToHigh);
+			sum = convertToBigType(lowValue);
+
+			//Add shifted higher part
+			if (strategy == CONSTANT)
+			{
+				Value* high = convertToBigType(highValue);
+				Value* shiftToHigh = builder.CreateShl(high, dim*8);
+				sum = builder.CreateAdd(sum, shiftToHigh);
+			}
+		}
+		else
+		{
+			assert(false);
 		}
 
 		//BitCast the pointer operand
