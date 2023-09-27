@@ -37,7 +37,6 @@ bool StoreMerging::runOnBasicBlock(BasicBlock& BB)
 {
 	assert(toErase.empty());
 
-	DL = &(BB.getParent()->getParent()->getDataLayout());
 	assert(DL);
 	const bool asmjs = BB.getParent()->getSection() == StringRef("asmjs");
 
@@ -308,7 +307,7 @@ std::pair<const llvm::Value*, int> StoreMerging::findBasePointerAndOffset(const 
 
 llvm::PreservedAnalyses StoreMergingPass::run(Function& F, FunctionAnalysisManager& FAM)
 {
-	StoreMerging inner(isWasm);
+	StoreMerging inner(F.getParent()->getDataLayout(), isWasm);
 	if (!inner.runOnFunction(F))
 		return PreservedAnalyses::all();
 

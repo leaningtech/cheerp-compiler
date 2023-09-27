@@ -30,8 +30,8 @@ private:
 		{
 		}
 	};
-	const bool isWasm;
 	const llvm::DataLayout* DL;
+	const bool isWasm;
 	std::vector<llvm::StoreInst*> toErase;
 	std::pair<const llvm::Value*, int> findBasePointerAndOffset(const llvm::Value* pointer);
 	std::pair<bool, int> compatibleAndOffset(const llvm::Value* currPtr, const llvm::Value* referencePtr);
@@ -40,7 +40,7 @@ private:
 	void processBlockOfStores(const uint32_t dim, std::vector<StoreAndOffset> & groupedSamePointer, std::vector<uint32_t>& dimension);
 	bool runOnBasicBlock(llvm::BasicBlock& BB);
 public:
-	explicit StoreMerging(const bool isWasm = false) : isWasm(isWasm), DL(NULL) { }
+	explicit StoreMerging(const llvm::DataLayout& DL, const bool isWasm) : DL(&DL), isWasm(isWasm) { }
 	bool runOnFunction(llvm::Function& F);
 };
 
