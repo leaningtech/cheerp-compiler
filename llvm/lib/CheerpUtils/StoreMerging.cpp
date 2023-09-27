@@ -62,7 +62,7 @@ bool StoreMerging::runOnBasicBlock(BasicBlock& BB)
 			}
 
 			currentPtr = pair.first;
-			basedOnCurrentPtr.push_back({SI, pair.second});
+			basedOnCurrentPtr.emplace_back(SI, pair.second, basedOnCurrentPtr.size());
 			continue;
 		}
 

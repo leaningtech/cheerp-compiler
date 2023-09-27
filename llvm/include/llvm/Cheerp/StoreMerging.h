@@ -26,7 +26,8 @@ private:
 	{
 		llvm::StoreInst* store;
 		int32_t offset;
-		StoreAndOffset(llvm::StoreInst* store, int32_t offset):store(store),offset(offset)
+		uint32_t blockIndex;
+		StoreAndOffset(llvm::StoreInst* store, int32_t offset, uint32_t blockIndex):store(store),offset(offset),blockIndex(blockIndex)
 		{
 		}
 	};
