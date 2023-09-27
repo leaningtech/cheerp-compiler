@@ -89,7 +89,10 @@ void StoreMerging::sortStores(std::vector<StoreAndOffset>& groupedSamePointer)
 	std::sort(groupedSamePointer.begin(), groupedSamePointer.end(),
 		[](const StoreAndOffset& left, const StoreAndOffset& right) -> bool
 		{
-			return left.offset < right.offset;
+			if(left.size == right.size)
+				return left.offset < right.offset;
+			else
+				return left.size < right.size;
 		});
 
 }
@@ -116,18 +119,7 @@ bool StoreMerging::processBlockOfStores(std::vector<StoreAndOffset>& groupedSame
 		return false;
 
 	sortStores(groupedSamePointer);
-	const uint32_t N = groupedSamePointer.size();
-	bool overlap = false;
-	for (uint32_t i=0; i+1<N; i++)
-	{
-		if (groupedSamePointer[i].offset + groupedSamePointer[i].size > groupedSamePointer[i+1].offset)
-			overlap = true;
-	}
 
-
-	//Avoid the optimization if any store overlap
-	if (overlap)
-		return false;
 	bool Changed = false;
 
 	//Alternatively process a block of stores and filter out already consumed ones
@@ -135,6 +127,7 @@ bool StoreMerging::processBlockOfStores(std::vector<StoreAndOffset>& groupedSame
 	Changed |= processBlockOfStores(1, groupedSamePointer);
 	filterAlreadyProcessedStores(groupedSamePointer);
 
+	sortStores(groupedSamePointer);
 	Changed |= processBlockOfStores(2, groupedSamePointer);
 	filterAlreadyProcessedStores(groupedSamePointer);
 
@@ -142,9 +135,30 @@ bool StoreMerging::processBlockOfStores(std::vector<StoreAndOffset>& groupedSame
 	if (!isWasm)
 		return Changed;
 
+	sortStores(groupedSamePointer);
 	Changed |= processBlockOfStores(4, groupedSamePointer);
 	filterAlreadyProcessedStores(groupedSamePointer);
 	return Changed;
+}
+
+bool StoreMerging::checkReordering(Instruction* startInst, Instruction* endInst, const StoreAndOffset& movedInst)
+{
+	Instruction* curInst = startInst->getNextNode();
+	while(curInst != endInst)
+	{
+		if(StoreInst* SI = dyn_cast<StoreInst>(curInst))
+		{
+			// TODO: We should use AA here as well, but somehow it misses obvious no-alias cases
+			auto checkBaseAndOffset = findBasePointerAndOffset(SI->getPointerOperand());
+			// NOTE: The base is the same by construction, check if they overlap
+			uint32_t movedInstEnd = movedInst.offset + movedInst.size;
+			uint32_t checkInstEnd = checkBaseAndOffset.second + DL->getTypeAllocSize(SI->getValueOperand()->getType());
+			if(movedInst.offset < checkInstEnd && checkBaseAndOffset.second < movedInstEnd)
+				return true;
+		}
+		curInst = curInst->getNextNode();
+	}
+	return false;
 }
 
 bool StoreMerging::processBlockOfStores(const uint32_t dim, std::vector<StoreAndOffset> & groupedSamePointer)
@@ -198,6 +212,17 @@ bool StoreMerging::processBlockOfStores(const uint32_t dim, std::vector<StoreAnd
 			strategy = ZERO_EXTEND;
 
 		if (strategy == NOT_CONVENIENT)
+			continue;
+
+		//We are effectively hoisting the high store at the location of the low store
+		//Make sure we don't cross any aliasing instruction along the way
+		Instruction* startInst = lowStore;
+		Instruction* endInst = highStore;
+		// Potentially swap the order, depending on their original position
+		if(groupedSamePointer[b].blockIndex < groupedSamePointer[a].blockIndex)
+			std::swap(startInst, endInst);
+		
+		if(checkReordering(startInst, endInst, groupedSamePointer[b]))
 			continue;
 
 		auto& context = lowStore->getParent()->getContext();
