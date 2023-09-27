@@ -17,30 +17,74 @@ using namespace cheerp;
 
 static const NewLineHandler NewLine;
 
-// TODO: this function makes some unsafe assumptions
-// - all function arguments are numbers
-// - all return types are numbers or void
-void CheerpDTSWriter::declareFunction(const std::string& name, const Function* f)
+std::string CheerpDTSWriter::getTypeName(const Type* type) const
+{
+  if (type->isPointerTy())
+    return exportedTypes.at(type->getPointerElementType());
+
+  return "number";
+}
+
+void CheerpDTSWriter::declareFunction(const std::string& name, const Function* f, bool isMember)
 {
   stream << name << "(";
 
   auto begin = f->arg_begin();
-  auto end = f->arg_end();
 
-  for (auto arg = begin; arg != end; ++arg)
+  if (isMember)
+    ++begin;
+
+  for (auto arg = begin; arg != f->arg_end(); ++arg)
   {
-    if (arg != begin)
+    if (arg != f->arg_begin())
       stream << ", ";
 
-    stream << arg->getName() << ": number";
+    if (arg->getName().empty())
+      stream << "_";
+    else
+      stream << arg->getName();
+
+    stream << ": " << getTypeName(arg->getType());
   }
 
   stream << ")";
 
   if (!f->getReturnType()->isVoidTy())
-    stream << ": number";
+    stream << ": " << getTypeName(f->getReturnType());
 
   stream << ";" << NewLine;
+}
+
+void CheerpDTSWriter::declareInterfaces(const Exports& exports)
+{
+  for (const auto& pair : exports.map)
+  {
+    const std::string& name = pair.first;
+    const Export& ex = pair.second;
+
+    std::visit([this, name](auto&& data) {
+      using T = std::decay_t<decltype(data)>;
+
+      if constexpr (std::is_same_v<T, ClassExport>)
+      {
+        stream << "export interface " << name << " {" << NewLine;
+
+        if (data.destructor)
+          declareFunction("delete", data.destructor, true);
+
+        for (const auto& [name, f] : data.instanceMethods)
+          declareFunction(name, f, true);
+
+        stream << "}" << NewLine;
+      }
+      else if constexpr (std::is_same_v<T, Exports>)
+      {
+        stream << "export module " << name << " {" << NewLine;
+        declareInterfaces(data);
+        stream << "}" << NewLine;
+      }
+    }, ex);
+  }
 }
 
 void CheerpDTSWriter::declareModule(const Exports& exports)
@@ -54,10 +98,18 @@ void CheerpDTSWriter::declareModule(const Exports& exports)
       using T = std::decay_t<decltype(data)>;
 
       if constexpr (std::is_same_v<T, const Function*>)
-        declareFunction(name, data);
-      else if constexpr (std::is_same_v<T, const StructType*>)
+        declareFunction(name, data, false);
+      else if constexpr (std::is_same_v<T, ClassExport>)
       {
+        stream << name << ": {" << NewLine;
 
+        if (data.constructor)
+          declareFunction("new", data.constructor, false);
+
+        for (const auto& [name, f] : data.staticMethods)
+          declareFunction(name, f, false);
+
+        stream << "};" << NewLine;
       }
       else if constexpr (std::is_same_v<T, Exports>)
       {
@@ -82,14 +134,31 @@ void CheerpDTSWriter::declareGlobal(const Exports& exports)
       if constexpr (std::is_same_v<T, const Function*>)
       {
         stream << "function ";
-        declareFunction(name, data);
+        declareFunction(name, data, false);
         stream << "module " << name << " {" << NewLine;
         stream << "const promise: Promise<void>;" << NewLine;
         stream << "}" << NewLine;
       }
-      else if constexpr (std::is_same_v<T, const StructType*>)
+      else if constexpr (std::is_same_v<T, ClassExport>)
       {
+        stream << "class " << name << " {" << NewLine;
 
+        if (data.constructor)
+          declareFunction("constructor", data.constructor, false);
+
+        if (data.destructor)
+          declareFunction("delete", data.destructor, true);
+
+        for (const auto& [name, f] : data.instanceMethods)
+          declareFunction(name, f, true);
+
+        for (const auto& [name, f] : data.staticMethods)
+        {
+          stream << "static ";
+          declareFunction(name, f, true);
+        }
+
+        stream << "}" << NewLine;
       }
       else if constexpr (std::is_same_v<T, Exports>)
       {
@@ -111,8 +180,34 @@ void CheerpDTSWriter::makeDTS()
 
   auto processRecord = [this](const NamedMDNode& namedNode, const StringRef& name)
   {
+    ClassExport ex;
     auto pair = TypeSupport::getJSExportedTypeFromMetadata(name, module);
-    addExport<const StructType*>(exports, pair.first, std::move(pair.second));
+
+    ex.type = pair.first;
+    ex.constructor = nullptr;
+    ex.destructor = nullptr;
+
+    for (auto it = namedNode.op_begin(); it != namedNode.op_end(); ++it)
+    {
+      const Function* f = cast<Function>(cast<ConstantAsMetadata>((*it)->getOperand(0))->getValue());
+      std::string name = TypeSupport::getNamespacedFunctionName(f->getName());
+      auto tail = name.find_last_of('.');
+
+      if (tail != std::string::npos)
+        name = name.substr(tail + 1);
+
+      if (name == "new")
+        ex.constructor = f;
+      else if (name == "delete")
+        ex.destructor = f;
+      else if (isStatic(cast<ConstantInt>(cast<ConstantAsMetadata>((*it)->getOperand(1))->getValue())->getZExtValue()))
+        ex.staticMethods.push_back({ std::move(name), f });
+      else
+        ex.instanceMethods.push_back({ std::move(name), f });
+    }
+
+    addExport(exports, std::move(ex), pair.second);
+    exportedTypes.insert({ pair.first, pair.second });
   };
 
   iterateOverJsExportedMetadata(module, processFunction, processRecord);
@@ -120,6 +215,7 @@ void CheerpDTSWriter::makeDTS()
   // TODO: use enum from CheerpWriter instead of string
   if (makeModule == "commonjs")
   {
+    declareInterfaces(exports);
     stream << "declare const __export: Promise<{" << NewLine;
     declareModule(exports);
     stream << "}>;" << NewLine;
@@ -127,6 +223,7 @@ void CheerpDTSWriter::makeDTS()
   }
   else if (makeModule == "es6")
   {
+    declareInterfaces(exports);
     stream << "export default function(): Promise<{" << NewLine;
     declareModule(exports);
     stream << "}>;" << NewLine;
@@ -136,10 +233,8 @@ void CheerpDTSWriter::makeDTS()
     stream << "declare global {" << NewLine;
     declareGlobal(exports);
     stream << "}" << NewLine;
+
+    // TODO: only emit if nothing else is exported
     stream << "export {};" << NewLine;
-  }
-  else
-  {
-    // TODO: cannot make declarations if output is not a module
   }
 }
