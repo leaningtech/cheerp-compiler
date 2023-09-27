@@ -173,13 +173,16 @@ void StoreMerging::processBlockOfStores(const uint32_t dim, std::vector<StoreAnd
 		if ((int)dim + groupedSamePointer[a].offset != groupedSamePointer[b].offset)
 			continue;
 
-		const uint32_t alignment = groupedSamePointer[a].store->getAlign().value();
+		StoreInst* lowStore = groupedSamePointer[a].store;
+		StoreInst* highStore = groupedSamePointer[b].store;
+
+		const uint32_t alignment = lowStore->getAlign().value();
 
 		if (!isWasm && alignment < dim * 2)
 			continue;
 
-		Value* lowValue = groupedSamePointer[a].store->getValueOperand();
-		Value* highValue = groupedSamePointer[b].store->getValueOperand();
+		Value* lowValue = lowStore->getValueOperand();
+		Value* highValue = highStore->getValueOperand();
 
 		//For now avoid complexities related to float/double to int bitcasts
 		if (lowValue->getType()->isFloatTy() || lowValue->getType()->isVectorTy())
@@ -203,12 +206,12 @@ void StoreMerging::processBlockOfStores(const uint32_t dim, std::vector<StoreAnd
 		if (strategy == NOT_CONVENIENT)
 			continue;
 
-		auto& context = groupedSamePointer[a].store->getParent()->getContext();
+		auto& context = lowStore->getParent()->getContext();
 		Type* bigType = IntegerType::get(context, dim * 16);
 		Type* int32Type = IntegerType::get(context, 32);
 
 		// The insertion point will be the store writing to the first byte
-		IRBuilder<> builder(groupedSamePointer[a].store);
+		IRBuilder<> builder(lowStore);
 
 		auto convertToBigType = [&builder, &bigType, &int32Type, &context, this](Value* value) -> Value*
 		{
@@ -247,15 +250,15 @@ void StoreMerging::processBlockOfStores(const uint32_t dim, std::vector<StoreAnd
 		}
 
 		//BitCast the pointer operand
-		Value* bitcast = builder.CreateBitCast(groupedSamePointer[a].store->getPointerOperand(), bigType->getPointerTo());
+		Value* bitcast = builder.CreateBitCast(lowStore->getPointerOperand(), bigType->getPointerTo());
 
 		//Actually create the store
 		StoreInst* biggerStore = cast<StoreInst>(builder.CreateStore(sum, bitcast));
 		biggerStore->setAlignment(llvm::Align(alignment));
 
 		//Bookkeeping 1: take note of what to later erase
-		toErase.push_back(groupedSamePointer[a].store);
-		toErase.push_back(groupedSamePointer[b].store);
+		toErase.push_back(lowStore);
+		toErase.push_back(highStore);
 
 		//Bookkeeping 2: insert biggerStore at the right point in groupedSamePointer
 		groupedSamePointer[a].store = biggerStore;
