@@ -15,6 +15,7 @@
 #include "llvm/Cheerp/InvokeWrapping.h"
 #include "llvm/Cheerp/Utility.h"
 #include "llvm/Cheerp/StoreMerging.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -110,10 +111,6 @@ void StoreMerging::processBlockOfStores(std::vector<StoreAndOffset>& groupedSame
 	if (groupedSamePointer.size() < 2)
 		return;
 
-	//The insertion point will be the last Store in the consecutive block
-	llvm::Instruction* insertionPoint = groupedSamePointer.back().store;
-	IRBuilder<> IRB(insertionPoint);
-
 	//Sort based on the offset
 	std::sort(groupedSamePointer.begin(), groupedSamePointer.end(),
 			[](const StoreAndOffset& left, const StoreAndOffset& right) -> bool
@@ -144,21 +141,21 @@ void StoreMerging::processBlockOfStores(std::vector<StoreAndOffset>& groupedSame
 
 	//Alternatively process a block of stores and filter out already consumed ones
 	//Processing with increasing dimension means that we may optimize even already optimized stores
-	processBlockOfStores(1, groupedSamePointer, dimension, IRB);
+	processBlockOfStores(1, groupedSamePointer, dimension);
 	filterAlreadyProcessedStores(groupedSamePointer, dimension);
 
-	processBlockOfStores(2, groupedSamePointer, dimension, IRB);
+	processBlockOfStores(2, groupedSamePointer, dimension);
 	filterAlreadyProcessedStores(groupedSamePointer, dimension);
 
 	//Do not create 64-bit asmjs stores
 	if (!isWasm)
 		return;
 
-	processBlockOfStores(4, groupedSamePointer, dimension, IRB);
+	processBlockOfStores(4, groupedSamePointer, dimension);
 	filterAlreadyProcessedStores(groupedSamePointer, dimension);
 }
 
-void StoreMerging::processBlockOfStores(const uint32_t dim, std::vector<StoreAndOffset> & groupedSamePointer, std::vector<uint32_t>& dimension, IRBuilder<>& builder)
+void StoreMerging::processBlockOfStores(const uint32_t dim, std::vector<StoreAndOffset> & groupedSamePointer, std::vector<uint32_t>& dimension)
 {
 	const uint32_t N = groupedSamePointer.size();
 
@@ -209,6 +206,9 @@ void StoreMerging::processBlockOfStores(const uint32_t dim, std::vector<StoreAnd
 		auto& context = groupedSamePointer[a].store->getParent()->getContext();
 		Type* bigType = IntegerType::get(context, dim * 16);
 		Type* int32Type = IntegerType::get(context, 32);
+
+		// The insertion point will be the store writing to the first byte
+		IRBuilder<> builder(groupedSamePointer[a].store);
 
 		auto convertToBigType = [&builder, &bigType, &int32Type, &context, this](Value* value) -> Value*
 		{
