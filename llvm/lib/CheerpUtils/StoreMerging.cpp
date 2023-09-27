@@ -80,6 +80,20 @@ bool StoreMerging::runOnBasicBlock(BasicBlock& BB)
 	return Changed;
 }
 
+void StoreMerging::sortStores(std::vector<StoreAndOffset>& groupedSamePointer)
+{
+	// We find candidates for merging by scanning this vector and looking
+	// at adjacent value. The order should be:
+	// 1) By size, since we can only merge stores of the same size
+	// 2) By offset, since we want adjacent values to be close to each other
+	std::sort(groupedSamePointer.begin(), groupedSamePointer.end(),
+		[](const StoreAndOffset& left, const StoreAndOffset& right) -> bool
+		{
+			return left.offset < right.offset;
+		});
+
+}
+
 void StoreMerging::filterAlreadyProcessedStores(std::vector<StoreAndOffset>& groupedSamePointer)
 {
 	//Bookkeeping 3: remove the stores with size set to 0
@@ -101,13 +115,7 @@ bool StoreMerging::processBlockOfStores(std::vector<StoreAndOffset>& groupedSame
 	if (groupedSamePointer.size() < 2)
 		return false;
 
-	//Sort based on the offset
-	std::sort(groupedSamePointer.begin(), groupedSamePointer.end(),
-			[](const StoreAndOffset& left, const StoreAndOffset& right) -> bool
-			{
-				return left.offset < right.offset;
-			});
-
+	sortStores(groupedSamePointer);
 	const uint32_t N = groupedSamePointer.size();
 	bool overlap = false;
 	for (uint32_t i=0; i+1<N; i++)
