@@ -46,6 +46,8 @@ bool StoreMerging::runOnBasicBlock(BasicBlock& BB)
 	const llvm::Value* currentPtr = nullptr;
 	std::vector<StoreAndOffset> basedOnCurrentPtr;
 
+	bool Changed = false;
+
 	for (Instruction& I : BB)
 	{
 		if (StoreInst* SI = dyn_cast<StoreInst>(&I))
@@ -57,7 +59,7 @@ bool StoreMerging::runOnBasicBlock(BasicBlock& BB)
 
 			if (currentPtr != pair.first)
 			{
-				processBlockOfStores(basedOnCurrentPtr);
+				Changed |= processBlockOfStores(basedOnCurrentPtr);
 				basedOnCurrentPtr.clear();
 			}
 
@@ -69,15 +71,13 @@ bool StoreMerging::runOnBasicBlock(BasicBlock& BB)
 
 		if (I.mayReadOrWriteMemory() || I.mayHaveSideEffects())
 		{
-			processBlockOfStores(basedOnCurrentPtr);
+			Changed |= processBlockOfStores(basedOnCurrentPtr);
 			currentPtr = nullptr;
 			basedOnCurrentPtr.clear();
 		}
 	}
 
-	processBlockOfStores(basedOnCurrentPtr);
-
-	const bool Changed = !toErase.empty();
+	Changed |= processBlockOfStores(basedOnCurrentPtr);
 
 	//Only now delete StoreInsts from the BasicBlock
 	for (auto store : toErase)
@@ -104,10 +104,10 @@ void StoreMerging::filterAlreadyProcessedStores(std::vector<StoreAndOffset>& gro
 	std::swap(newGroupedSamePointer, groupedSamePointer);
 }
 
-void StoreMerging::processBlockOfStores(std::vector<StoreAndOffset>& groupedSamePointer)
+bool StoreMerging::processBlockOfStores(std::vector<StoreAndOffset>& groupedSamePointer)
 {
 	if (groupedSamePointer.size() < 2)
-		return;
+		return false;
 
 	//Sort based on the offset
 	std::sort(groupedSamePointer.begin(), groupedSamePointer.end(),
@@ -127,27 +127,31 @@ void StoreMerging::processBlockOfStores(std::vector<StoreAndOffset>& groupedSame
 
 	//Avoid the optimization if any store overlap
 	if (overlap)
-		return;
+		return false;
+	bool Changed = false;
 
 	//Alternatively process a block of stores and filter out already consumed ones
 	//Processing with increasing size means that we may optimize even already optimized stores
-	processBlockOfStores(1, groupedSamePointer);
+	Changed |= processBlockOfStores(1, groupedSamePointer);
 	filterAlreadyProcessedStores(groupedSamePointer);
 
-	processBlockOfStores(2, groupedSamePointer);
+	Changed |= processBlockOfStores(2, groupedSamePointer);
 	filterAlreadyProcessedStores(groupedSamePointer);
 
 	//Do not create 64-bit asmjs stores
 	if (!isWasm)
-		return;
+		return Changed;
 
-	processBlockOfStores(4, groupedSamePointer);
+	Changed |= processBlockOfStores(4, groupedSamePointer);
 	filterAlreadyProcessedStores(groupedSamePointer);
+	return Changed;
 }
 
-void StoreMerging::processBlockOfStores(const uint32_t dim, std::vector<StoreAndOffset> & groupedSamePointer)
+bool StoreMerging::processBlockOfStores(const uint32_t dim, std::vector<StoreAndOffset> & groupedSamePointer)
 {
 	const uint32_t N = groupedSamePointer.size();
+
+	bool Changed = false;
 
 	for (uint32_t i=0; i+1<N; i++)
 	{
@@ -256,7 +260,10 @@ void StoreMerging::processBlockOfStores(const uint32_t dim, std::vector<StoreAnd
 		groupedSamePointer[b].size = 0;
 
 		i = b;
+
+		Changed = true;
 	}
+	return Changed;
 }
 
 std::pair<const llvm::Value*, int> StoreMerging::findBasePointerAndOffset(const llvm::Value* pointer)

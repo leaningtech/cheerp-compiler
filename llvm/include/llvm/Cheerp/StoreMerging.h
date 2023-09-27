@@ -37,8 +37,8 @@ private:
 	std::pair<const llvm::Value*, int> findBasePointerAndOffset(const llvm::Value* pointer);
 	std::pair<bool, int> compatibleAndOffset(const llvm::Value* currPtr, const llvm::Value* referencePtr);
 	static void filterAlreadyProcessedStores(std::vector<StoreAndOffset>& groupedSamePointer);
-	void processBlockOfStores(std::vector<StoreAndOffset>& groupedSamePointer);
-	void processBlockOfStores(const uint32_t dim, std::vector<StoreAndOffset> & groupedSamePointer);
+	bool processBlockOfStores(std::vector<StoreAndOffset>& groupedSamePointer);
+	bool processBlockOfStores(const uint32_t dim, std::vector<StoreAndOffset> & groupedSamePointer);
 	bool runOnBasicBlock(llvm::BasicBlock& BB);
 public:
 	explicit StoreMerging(const llvm::DataLayout& DL, const bool isWasm) : DL(&DL), isWasm(isWasm) { }
