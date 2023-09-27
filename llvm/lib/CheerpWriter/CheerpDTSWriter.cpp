@@ -13,7 +13,6 @@
 #include "llvm/Cheerp/JsExport.h"
 
 using namespace llvm;
-using namespace std;
 using namespace cheerp;
 
 static const NewLineHandler NewLine;
@@ -21,11 +20,8 @@ static const NewLineHandler NewLine;
 // TODO: this function makes some unsafe assumptions
 // - all function arguments are numbers
 // - all return types are numbers or void
-// - functions are not namespaced
-void CheerpDTSWriter::declareFunction(const Function* f)
+void CheerpDTSWriter::declareFunction(const std::string& name, const Function* f)
 {
-  std::string name = TypeSupport::getNamespacedFunctionName(f->getName());
-
   stream << name << "(";
 
   auto begin = f->arg_begin();
@@ -47,21 +43,61 @@ void CheerpDTSWriter::declareFunction(const Function* f)
   stream << ";" << NewLine;
 }
 
-void CheerpDTSWriter::declareModule()
+void CheerpDTSWriter::declareModule(const Exports& exports)
 {
-  for (const Function* f : exportedFunctions)
-    declareFunction(f);
+  for (const auto& pair : exports.map)
+  {
+    const std::string& name = pair.first;
+    const Export& ex = pair.second;
+
+    std::visit([this, name](auto&& data) {
+      using T = std::decay_t<decltype(data)>;
+
+      if constexpr (std::is_same_v<T, const Function*>)
+        declareFunction(name, data);
+      else if constexpr (std::is_same_v<T, const StructType*>)
+      {
+
+      }
+      else if constexpr (std::is_same_v<T, Exports>)
+      {
+        stream << name << ": {" << NewLine;
+        declareModule(data);
+        stream << "};" << NewLine;
+      }
+    }, ex);
+  }
 }
 
-void CheerpDTSWriter::declareGlobal()
+void CheerpDTSWriter::declareGlobal(const Exports& exports)
 {
-  for (const Function* f : exportedFunctions)
+  for (const auto& pair : exports.map)
   {
-    stream << "function ";
-    declareFunction(f);
-    stream << "module " << f->getName() << " {" << NewLine;
-    stream << "const promise: Promise<void>;" << NewLine;
-    stream << "}";
+    const std::string& name = pair.first;
+    const Export& ex = pair.second;
+
+    std::visit([this, name](auto&& data) {
+      using T = std::decay_t<decltype(data)>;
+
+      if constexpr (std::is_same_v<T, const Function*>)
+      {
+        stream << "function ";
+        declareFunction(name, data);
+        stream << "module " << name << " {" << NewLine;
+        stream << "const promise: Promise<void>;" << NewLine;
+        stream << "}" << NewLine;
+      }
+      else if constexpr (std::is_same_v<T, const StructType*>)
+      {
+
+      }
+      else if constexpr (std::is_same_v<T, Exports>)
+      {
+        stream << "module " << name << " {" << NewLine;
+        declareGlobal(data);
+        stream << "}" << NewLine;
+      }
+    }, ex);
   }
 }
 
@@ -69,33 +105,36 @@ void CheerpDTSWriter::makeDTS()
 {
   auto processFunction = [this](const Function* f)
   {
-    exportedFunctions.push_back(f);
+    std::string name = TypeSupport::getNamespacedFunctionName(f->getName());
+    addExport(exports, f, std::move(name));
   };
 
   auto processRecord = [this](const NamedMDNode& namedNode, const StringRef& name)
   {
-    // TODO: export the types
+    auto pair = TypeSupport::getJSExportedTypeFromMetadata(name, module);
+    addExport<const StructType*>(exports, pair.first, std::move(pair.second));
   };
 
   iterateOverJsExportedMetadata(module, processFunction, processRecord);
 
+  // TODO: use enum from CheerpWriter instead of string
   if (makeModule == "commonjs")
   {
     stream << "declare const __export: Promise<{" << NewLine;
-    declareModule();
+    declareModule(exports);
     stream << "}>;" << NewLine;
     stream << "export = __export;" << NewLine;
   }
   else if (makeModule == "es6")
   {
     stream << "export default function(): Promise<{" << NewLine;
-    declareModule();
+    declareModule(exports);
     stream << "}>;" << NewLine;
   }
   else if (makeModule == "closure")
   {
     stream << "declare global {" << NewLine;
-    declareGlobal();
+    declareGlobal(exports);
     stream << "}" << NewLine;
     stream << "export {};" << NewLine;
   }

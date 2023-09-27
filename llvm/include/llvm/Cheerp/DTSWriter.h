@@ -14,20 +14,46 @@
 
 #include "llvm/Cheerp/Writer.h"
 
+#include <variant>
+
 namespace cheerp
 {
 
 class CheerpDTSWriter final
 {
 private:
+  struct Exports;
+
+  using Export = std::variant<Exports, const llvm::Function*, const llvm::StructType*>;
+
+  struct Exports {
+    std::map<std::string, Export> map;
+  };
+
   llvm::Module& module;
   ostream_proxy stream;
   llvm::StringRef makeModule;
-  std::vector<const llvm::Function*> exportedFunctions;
+  Exports exports;
 
-  void declareFunction(const llvm::Function* f);
-  void declareModule();
-  void declareGlobal();
+  template<class T>
+  static T& addExport(Exports& exports, T data, std::string name)
+  {
+    auto sep = name.find('.');
+
+    if (sep == std::string::npos)
+    {
+      std::pair<std::string, T> pair(std::move(name), std::move(data));
+      return std::get<T>(exports.map.emplace(std::move(pair)).first->second);
+    }
+
+    Exports& node = std::get<Exports>(exports.map[name.substr(0, sep)]);
+
+    return addExport(node, std::move(data), name.substr(sep + 1));
+  }
+
+  void declareFunction(const std::string& name, const llvm::Function* f);
+  void declareModule(const Exports& exports);
+  void declareGlobal(const Exports& exports);
 
 public:
   CheerpDTSWriter(llvm::Module& module, llvm::raw_ostream& s, SourceMapGenerator* sourceMapGenerator, bool readableOutput, llvm::StringRef makeModule):
