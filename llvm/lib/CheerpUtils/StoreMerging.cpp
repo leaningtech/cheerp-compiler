@@ -62,7 +62,8 @@ bool StoreMerging::runOnBasicBlock(BasicBlock& BB)
 			}
 
 			currentPtr = pair.first;
-			basedOnCurrentPtr.emplace_back(SI, pair.second, basedOnCurrentPtr.size());
+			Type* storedType = SI->getValueOperand()->getType();
+			basedOnCurrentPtr.emplace_back(SI, DL->getTypeAllocSize(storedType), pair.second, basedOnCurrentPtr.size());
 			continue;
 		}
 
@@ -87,22 +88,20 @@ bool StoreMerging::runOnBasicBlock(BasicBlock& BB)
 	return Changed;
 }
 
-void StoreMerging::filterAlreadyProcessedStores(std::vector<StoreAndOffset>& groupedSamePointer, std::vector<uint32_t>& dimension)
+void StoreMerging::filterAlreadyProcessedStores(std::vector<StoreAndOffset>& groupedSamePointer)
 {
-	//Bookkeeping 3: remove the stores with dimension set to 0
-	//We use two temporary vectors, and then swap them out for the older ones
+	//Bookkeeping 3: remove the stores with size set to 0
+	//We use a temporary vector, and then swap it out for the older one
 	std::vector<StoreAndOffset> newGroupedSamePointer;
-	std::vector<uint32_t> newDimension;
 
-	for (uint32_t i=0; i<dimension.size(); i++)
-		if (dimension[i])
+	for (uint32_t i=0; i<groupedSamePointer.size(); i++)
 	{
+		if (groupedSamePointer[i].size == 0)
+			continue;
 		newGroupedSamePointer.push_back(groupedSamePointer[i]);
-		newDimension.push_back(dimension[i]);
 	}
 
 	std::swap(newGroupedSamePointer, groupedSamePointer);
-	std::swap(newDimension, dimension);
 }
 
 void StoreMerging::processBlockOfStores(std::vector<StoreAndOffset>& groupedSamePointer)
@@ -117,19 +116,11 @@ void StoreMerging::processBlockOfStores(std::vector<StoreAndOffset>& groupedSame
 				return left.offset < right.offset;
 			});
 
-	//Calculate dimension of the various pieces
 	const uint32_t N = groupedSamePointer.size();
-	std::vector<uint32_t> dimension(N);
-	for (uint32_t i=0; i<N; i++)
-	{
-		auto T = groupedSamePointer[i].store->getValueOperand()->getType();
-		dimension[i] = DL->getTypeAllocSize(T);
-	}
-
 	bool overlap = false;
 	for (uint32_t i=0; i+1<N; i++)
 	{
-		if (groupedSamePointer[i].offset + (int)dimension[i] > groupedSamePointer[i+1].offset)
+		if (groupedSamePointer[i].offset + groupedSamePointer[i].size > groupedSamePointer[i+1].offset)
 			overlap = true;
 	}
 
@@ -139,22 +130,22 @@ void StoreMerging::processBlockOfStores(std::vector<StoreAndOffset>& groupedSame
 		return;
 
 	//Alternatively process a block of stores and filter out already consumed ones
-	//Processing with increasing dimension means that we may optimize even already optimized stores
-	processBlockOfStores(1, groupedSamePointer, dimension);
-	filterAlreadyProcessedStores(groupedSamePointer, dimension);
+	//Processing with increasing size means that we may optimize even already optimized stores
+	processBlockOfStores(1, groupedSamePointer);
+	filterAlreadyProcessedStores(groupedSamePointer);
 
-	processBlockOfStores(2, groupedSamePointer, dimension);
-	filterAlreadyProcessedStores(groupedSamePointer, dimension);
+	processBlockOfStores(2, groupedSamePointer);
+	filterAlreadyProcessedStores(groupedSamePointer);
 
 	//Do not create 64-bit asmjs stores
 	if (!isWasm)
 		return;
 
-	processBlockOfStores(4, groupedSamePointer, dimension);
-	filterAlreadyProcessedStores(groupedSamePointer, dimension);
+	processBlockOfStores(4, groupedSamePointer);
+	filterAlreadyProcessedStores(groupedSamePointer);
 }
 
-void StoreMerging::processBlockOfStores(const uint32_t dim, std::vector<StoreAndOffset> & groupedSamePointer, std::vector<uint32_t>& dimension)
+void StoreMerging::processBlockOfStores(const uint32_t dim, std::vector<StoreAndOffset> & groupedSamePointer)
 {
 	const uint32_t N = groupedSamePointer.size();
 
@@ -163,9 +154,9 @@ void StoreMerging::processBlockOfStores(const uint32_t dim, std::vector<StoreAnd
 		const uint32_t a = i;
 		const uint32_t b = i+1;
 
-		if (dimension[a] != dim)
+		if (groupedSamePointer[a].size != dim)
 			continue;
-		if (dimension[b] != dim)
+		if (groupedSamePointer[b].size != dim)
 			continue;
 
 		//Check they are consecutive
@@ -261,8 +252,8 @@ void StoreMerging::processBlockOfStores(const uint32_t dim, std::vector<StoreAnd
 
 		//Bookkeeping 2: insert biggerStore at the right point in groupedSamePointer
 		groupedSamePointer[a].store = biggerStore;
-		dimension[a] = dim*2;
-		dimension[b] = 0;
+		groupedSamePointer[a].size = dim*2;
+		groupedSamePointer[b].size = 0;
 
 		i = b;
 	}

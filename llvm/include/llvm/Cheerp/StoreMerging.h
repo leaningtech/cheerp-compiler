@@ -24,9 +24,10 @@ private:
 	struct StoreAndOffset
 	{
 		llvm::StoreInst* store;
+		uint32_t size;
 		int32_t offset;
 		uint32_t blockIndex;
-		StoreAndOffset(llvm::StoreInst* store, int32_t offset, uint32_t blockIndex):store(store),offset(offset),blockIndex(blockIndex)
+		StoreAndOffset(llvm::StoreInst* store, uint32_t size, int32_t offset, uint32_t blockIndex):store(store),size(size),offset(offset),blockIndex(blockIndex)
 		{
 		}
 	};
@@ -35,9 +36,9 @@ private:
 	std::vector<llvm::StoreInst*> toErase;
 	std::pair<const llvm::Value*, int> findBasePointerAndOffset(const llvm::Value* pointer);
 	std::pair<bool, int> compatibleAndOffset(const llvm::Value* currPtr, const llvm::Value* referencePtr);
-	static void filterAlreadyProcessedStores(std::vector<StoreAndOffset>& groupedSamePointer, std::vector<uint32_t>& dimension);
+	static void filterAlreadyProcessedStores(std::vector<StoreAndOffset>& groupedSamePointer);
 	void processBlockOfStores(std::vector<StoreAndOffset>& groupedSamePointer);
-	void processBlockOfStores(const uint32_t dim, std::vector<StoreAndOffset> & groupedSamePointer, std::vector<uint32_t>& dimension);
+	void processBlockOfStores(const uint32_t dim, std::vector<StoreAndOffset> & groupedSamePointer);
 	bool runOnBasicBlock(llvm::BasicBlock& BB);
 public:
 	explicit StoreMerging(const llvm::DataLayout& DL, const bool isWasm) : DL(&DL), isWasm(isWasm) { }
