@@ -12,6 +12,7 @@
 #ifndef CHEERP_STORE_MERGING_H
 #define CHEERP_STORE_MERGING_H
 
+#include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/IR/Module.h"
 #include <vector>
 
@@ -31,6 +32,7 @@ private:
 		{
 		}
 	};
+	llvm::AliasAnalysis& AA;
 	const llvm::DataLayout* DL;
 	const bool isWasm;
 	std::pair<const llvm::Value*, int> findBasePointerAndOffset(const llvm::Value* pointer);
@@ -42,7 +44,7 @@ private:
 	bool processBlockOfStores(const uint32_t dim, std::vector<StoreAndOffset> & groupedSamePointer);
 	bool runOnBasicBlock(llvm::BasicBlock& BB);
 public:
-	explicit StoreMerging(const llvm::DataLayout& DL, const bool isWasm) : DL(&DL), isWasm(isWasm) { }
+	explicit StoreMerging(llvm::AliasAnalysis& AA, const llvm::DataLayout& DL, const bool isWasm) : AA(AA), DL(&DL), isWasm(isWasm) { }
 	bool runOnFunction(llvm::Function& F);
 };
 

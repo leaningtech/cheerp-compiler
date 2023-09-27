@@ -67,6 +67,10 @@ bool StoreMerging::runOnBasicBlock(BasicBlock& BB)
 			continue;
 		}
 
+		// Allow loads, we will later validate that we don't cross them if they alias with the store being moved
+		if (isa<LoadInst>(&I))
+			continue;
+
 		if (I.mayReadOrWriteMemory() || I.mayHaveSideEffects())
 		{
 			Changed |= processBlockOfStores(basedOnCurrentPtr);
@@ -143,6 +147,7 @@ bool StoreMerging::processBlockOfStores(std::vector<StoreAndOffset>& groupedSame
 
 bool StoreMerging::checkReordering(Instruction* startInst, Instruction* endInst, const StoreAndOffset& movedInst)
 {
+	MemoryLocation storeLoc = MemoryLocation::get(endInst);
 	Instruction* curInst = startInst->getNextNode();
 	while(curInst != endInst)
 	{
@@ -154,6 +159,12 @@ bool StoreMerging::checkReordering(Instruction* startInst, Instruction* endInst,
 			uint32_t movedInstEnd = movedInst.offset + movedInst.size;
 			uint32_t checkInstEnd = checkBaseAndOffset.second + DL->getTypeAllocSize(SI->getValueOperand()->getType());
 			if(movedInst.offset < checkInstEnd && checkBaseAndOffset.second < movedInstEnd)
+				return true;
+		}
+		else if(LoadInst* LI = dyn_cast<LoadInst>(curInst))
+		{
+			MemoryLocation loadLoc = MemoryLocation::get(LI);
+			if(AA.alias(storeLoc, loadLoc))
 				return true;
 		}
 		curInst = curInst->getNextNode();
@@ -330,7 +341,8 @@ std::pair<const llvm::Value*, int> StoreMerging::findBasePointerAndOffset(const 
 
 llvm::PreservedAnalyses StoreMergingPass::run(Function& F, FunctionAnalysisManager& FAM)
 {
-	StoreMerging inner(F.getParent()->getDataLayout(), isWasm);
+	AliasAnalysis &AA = FAM.getResult<AAManager>(F);
+	StoreMerging inner(AA, F.getParent()->getDataLayout(), isWasm);
 	if (!inner.runOnFunction(F))
 		return PreservedAnalyses::all();
 
