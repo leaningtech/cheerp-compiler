@@ -24,9 +24,19 @@ class CheerpDTSWriter final
 private:
   struct Exports;
 
-  using Export = std::variant<Exports, const llvm::Function*, const llvm::StructType*>;
+  struct ClassExport
+  {
+    const llvm::StructType* type;
+    const llvm::Function* constructor;
+    const llvm::Function* destructor;
+    std::vector<std::pair<std::string, const llvm::Function*>> instanceMethods;
+    std::vector<std::pair<std::string, const llvm::Function*>> staticMethods;
+  };
 
-  struct Exports {
+  using Export = std::variant<Exports, const llvm::Function*, ClassExport>;
+
+  struct Exports
+  {
     std::map<std::string, Export> map;
   };
 
@@ -34,6 +44,7 @@ private:
   ostream_proxy stream;
   llvm::StringRef makeModule;
   Exports exports;
+  std::map<const llvm::Type*, std::string> exportedTypes;
 
   template<class T>
   static T& addExport(Exports& exports, T data, std::string name)
@@ -51,7 +62,10 @@ private:
     return addExport(node, std::move(data), name.substr(sep + 1));
   }
 
-  void declareFunction(const std::string& name, const llvm::Function* f);
+  std::string getTypeName(const llvm::Type* type) const;
+
+  void declareFunction(const std::string& name, const llvm::Function* f, bool isMember);
+  void declareInterfaces(const Exports& exports);
   void declareModule(const Exports& exports);
   void declareGlobal(const Exports& exports);
 
