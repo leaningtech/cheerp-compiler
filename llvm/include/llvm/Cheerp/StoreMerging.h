@@ -33,7 +33,6 @@ private:
 	};
 	const llvm::DataLayout* DL;
 	const bool isWasm;
-	std::vector<llvm::StoreInst*> toErase;
 	std::pair<const llvm::Value*, int> findBasePointerAndOffset(const llvm::Value* pointer);
 	std::pair<bool, int> compatibleAndOffset(const llvm::Value* currPtr, const llvm::Value* referencePtr);
 	static void filterAlreadyProcessedStores(std::vector<StoreAndOffset>& groupedSamePointer);

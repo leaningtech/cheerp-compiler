@@ -35,8 +35,6 @@ bool StoreMerging::runOnFunction(Function& F)
 
 bool StoreMerging::runOnBasicBlock(BasicBlock& BB)
 {
-	assert(toErase.empty());
-
 	assert(DL);
 	const bool asmjs = BB.getParent()->getSection() == StringRef("asmjs");
 
@@ -78,12 +76,6 @@ bool StoreMerging::runOnBasicBlock(BasicBlock& BB)
 	}
 
 	Changed |= processBlockOfStores(basedOnCurrentPtr);
-
-	//Only now delete StoreInsts from the BasicBlock
-	for (auto store : toErase)
-		store->eraseFromParent();
-
-	toErase.clear();
 
 	return Changed;
 }
@@ -250,9 +242,9 @@ bool StoreMerging::processBlockOfStores(const uint32_t dim, std::vector<StoreAnd
 		StoreInst* biggerStore = cast<StoreInst>(builder.CreateStore(sum, bitcast));
 		biggerStore->setAlignment(llvm::Align(alignment));
 
-		//Bookkeeping 1: take note of what to later erase
-		toErase.push_back(lowStore);
-		toErase.push_back(highStore);
+		//Bookkeeping 1: erase used stores
+		lowStore->eraseFromParent();
+		highStore->eraseFromParent();
 
 		//Bookkeeping 2: insert biggerStore at the right point in groupedSamePointer
 		groupedSamePointer[a].store = biggerStore;
