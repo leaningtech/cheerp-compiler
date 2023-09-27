@@ -22,13 +22,22 @@ namespace cheerp
 class StoreMerging
 {
 private:
+	struct StoreAndOffset
+	{
+		llvm::StoreInst* store;
+		int32_t offset;
+		StoreAndOffset(llvm::StoreInst* store, int32_t offset):store(store),offset(offset)
+		{
+		}
+	};
 	const bool isWasm;
 	const llvm::DataLayout* DL;
 	std::vector<llvm::StoreInst*> toErase;
 	std::pair<const llvm::Value*, int> findBasePointerAndOffset(const llvm::Value* pointer);
 	std::pair<bool, int> compatibleAndOffset(const llvm::Value* currPtr, const llvm::Value* referencePtr);
-	void processBlockOfStores(std::vector<std::pair<llvm::StoreInst*, int> > groupedSamePointer);
-	void processBlockOfStores(const uint32_t dim, std::vector<std::pair<llvm::StoreInst*, int> > & groupedSamePointer, std::vector<uint32_t>& dimension, llvm::IRBuilder<>& builder);
+	static void filterAlreadyProcessedStores(std::vector<StoreAndOffset>& groupedSamePointer, std::vector<uint32_t>& dimension);
+	void processBlockOfStores(std::vector<StoreAndOffset>& groupedSamePointer);
+	void processBlockOfStores(const uint32_t dim, std::vector<StoreAndOffset> & groupedSamePointer, std::vector<uint32_t>& dimension, llvm::IRBuilder<>& builder);
 	bool runOnBasicBlock(llvm::BasicBlock& BB);
 public:
 	explicit StoreMerging(const bool isWasm = false) : isWasm(isWasm), DL(NULL) { }

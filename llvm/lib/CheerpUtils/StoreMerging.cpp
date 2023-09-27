@@ -44,7 +44,7 @@ bool StoreMerging::runOnBasicBlock(BasicBlock& BB)
 		return false;
 
 	const llvm::Value* currentPtr = nullptr;
-	std::vector<std::pair<llvm::StoreInst*, int> > basedOnCurrentPtr;
+	std::vector<StoreAndOffset> basedOnCurrentPtr;
 
 	for (Instruction& I : BB)
 	{
@@ -87,11 +87,11 @@ bool StoreMerging::runOnBasicBlock(BasicBlock& BB)
 	return Changed;
 }
 
-static void filterAlreadyProcessedStores(std::vector<std::pair<llvm::StoreInst*, int>>& groupedSamePointer, std::vector<uint32_t>& dimension)
+void StoreMerging::filterAlreadyProcessedStores(std::vector<StoreAndOffset>& groupedSamePointer, std::vector<uint32_t>& dimension)
 {
 	//Bookkeeping 3: remove the stores with dimension set to 0
 	//We use two temporary vectors, and then swap them out for the older ones
-	std::vector<std::pair<llvm::StoreInst*, int> > newGroupedSamePointer;
+	std::vector<StoreAndOffset> newGroupedSamePointer;
 	std::vector<uint32_t> newDimension;
 
 	for (uint32_t i=0; i<dimension.size(); i++)
@@ -105,20 +105,20 @@ static void filterAlreadyProcessedStores(std::vector<std::pair<llvm::StoreInst*,
 	std::swap(newDimension, dimension);
 }
 
-void StoreMerging::processBlockOfStores(std::vector<std::pair<llvm::StoreInst*, int> > groupedSamePointer)
+void StoreMerging::processBlockOfStores(std::vector<StoreAndOffset>& groupedSamePointer)
 {
 	if (groupedSamePointer.size() < 2)
 		return;
 
 	//The insertion point will be the last Store in the consecutive block
-	llvm::Instruction* insertionPoint = groupedSamePointer.back().first;
+	llvm::Instruction* insertionPoint = groupedSamePointer.back().store;
 	IRBuilder<> IRB(insertionPoint);
 
 	//Sort based on the offset
 	std::sort(groupedSamePointer.begin(), groupedSamePointer.end(),
-			[](const std::pair<llvm::StoreInst*, int>& left, const std::pair<llvm::StoreInst*, int>& right) -> bool
+			[](const StoreAndOffset& left, const StoreAndOffset& right) -> bool
 			{
-				return left.second < right.second;
+				return left.offset < right.offset;
 			});
 
 	//Calculate dimension of the various pieces
@@ -126,14 +126,14 @@ void StoreMerging::processBlockOfStores(std::vector<std::pair<llvm::StoreInst*, 
 	std::vector<uint32_t> dimension(N);
 	for (uint32_t i=0; i<N; i++)
 	{
-		auto T = groupedSamePointer[i].first->getValueOperand()->getType();
+		auto T = groupedSamePointer[i].store->getValueOperand()->getType();
 		dimension[i] = DL->getTypeAllocSize(T);
 	}
 
 	bool overlap = false;
 	for (uint32_t i=0; i+1<N; i++)
 	{
-		if (groupedSamePointer[i].second + (int)dimension[i] > groupedSamePointer[i+1].second)
+		if (groupedSamePointer[i].offset + (int)dimension[i] > groupedSamePointer[i+1].offset)
 			overlap = true;
 	}
 
@@ -158,7 +158,7 @@ void StoreMerging::processBlockOfStores(std::vector<std::pair<llvm::StoreInst*, 
 	filterAlreadyProcessedStores(groupedSamePointer, dimension);
 }
 
-void StoreMerging::processBlockOfStores(const uint32_t dim, std::vector<std::pair<llvm::StoreInst*, int> > & groupedSamePointer, std::vector<uint32_t>& dimension, IRBuilder<>& builder)
+void StoreMerging::processBlockOfStores(const uint32_t dim, std::vector<StoreAndOffset> & groupedSamePointer, std::vector<uint32_t>& dimension, IRBuilder<>& builder)
 {
 	const uint32_t N = groupedSamePointer.size();
 
@@ -173,16 +173,16 @@ void StoreMerging::processBlockOfStores(const uint32_t dim, std::vector<std::pai
 			continue;
 
 		//Check they are consecutive
-		if ((int)dim + groupedSamePointer[a].second != groupedSamePointer[b].second)
+		if ((int)dim + groupedSamePointer[a].offset != groupedSamePointer[b].offset)
 			continue;
 
-		const uint32_t alignment = groupedSamePointer[a].first->getAlign().value();
+		const uint32_t alignment = groupedSamePointer[a].store->getAlign().value();
 
 		if (!isWasm && alignment < dim * 2)
 			continue;
 
-		Value* lowValue = groupedSamePointer[a].first->getValueOperand();
-		Value* highValue = groupedSamePointer[b].first->getValueOperand();
+		Value* lowValue = groupedSamePointer[a].store->getValueOperand();
+		Value* highValue = groupedSamePointer[b].store->getValueOperand();
 
 		//For now avoid complexities related to float/double to int bitcasts
 		if (lowValue->getType()->isFloatTy() || lowValue->getType()->isVectorTy())
@@ -205,7 +205,7 @@ void StoreMerging::processBlockOfStores(const uint32_t dim, std::vector<std::pai
 		if (!isConvenient)
 			continue;
 
-		auto& context = groupedSamePointer[a].first->getParent()->getContext();
+		auto& context = groupedSamePointer[a].store->getParent()->getContext();
 		Type* bigType = IntegerType::get(context, dim * 16);
 		Type* int32Type = IntegerType::get(context, 32);
 
@@ -240,18 +240,18 @@ void StoreMerging::processBlockOfStores(const uint32_t dim, std::vector<std::pai
 		}
 
 		//BitCast the pointer operand
-		Value* bitcast = builder.CreateBitCast(groupedSamePointer[a].first->getPointerOperand(), bigType->getPointerTo());
+		Value* bitcast = builder.CreateBitCast(groupedSamePointer[a].store->getPointerOperand(), bigType->getPointerTo());
 
 		//Actually create the store
 		StoreInst* biggerStore = cast<StoreInst>(builder.CreateStore(sum, bitcast));
 		biggerStore->setAlignment(llvm::Align(alignment));
 
 		//Bookkeeping 1: take note of what to later erase
-		toErase.push_back(groupedSamePointer[a].first);
-		toErase.push_back(groupedSamePointer[b].first);
+		toErase.push_back(groupedSamePointer[a].store);
+		toErase.push_back(groupedSamePointer[b].store);
 
 		//Bookkeeping 2: insert biggerStore at the right point in groupedSamePointer
-		groupedSamePointer[a].first = biggerStore;
+		groupedSamePointer[a].store = biggerStore;
 		dimension[a] = dim*2;
 		dimension[b] = 0;
 
