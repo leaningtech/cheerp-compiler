@@ -36,7 +36,7 @@ void CheerpDTSWriter::declareFunction(const std::string& name, const Function* f
 
   for (auto arg = begin; arg != f->arg_end(); ++arg)
   {
-    if (arg != f->arg_begin())
+    if (arg != begin)
       stream << ", ";
 
     if (arg->getName().empty())
