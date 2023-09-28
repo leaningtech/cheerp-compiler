@@ -40,6 +40,12 @@ private:
     std::map<std::string, Export> map;
   };
 
+  enum struct FunctionType {
+    MEMBER_FUNC,
+    STATIC_FUNC,
+    CONSTRUCTOR,
+  };
+
   llvm::Module& module;
   ostream_proxy stream;
   llvm::StringRef makeModule;
@@ -64,7 +70,7 @@ private:
 
   std::string getTypeName(const llvm::Type* type) const;
 
-  void declareFunction(const std::string& name, const llvm::Function* f, bool isMember);
+  void declareFunction(const std::string& name, const llvm::Function* f, FunctionType type);
   void declareInterfaces(const Exports& exports);
   void declareModule(const Exports& exports);
   void declareGlobal(const Exports& exports);
