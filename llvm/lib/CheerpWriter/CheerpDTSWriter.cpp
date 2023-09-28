@@ -182,7 +182,7 @@ void CheerpDTSWriter::declareGlobal(const Exports& exports)
         for (const auto& [name, f] : data.staticMethods)
         {
           stream << "static ";
-          declareFunction(name, f, true);
+          declareFunction(name, f, false);
         }
 
         stream << "}" << NewLine;
