@@ -245,7 +245,7 @@ void CheerpDTSWriter::makeDTS()
     stream << "declare const __export: Promise<{" << NewLine;
     declareModule(exports);
     stream << "}>;" << NewLine;
-    stream << "export = __export;" << NewLine;
+    stream << "export default __export;" << NewLine;
   }
   else if (makeModule == "es6")
   {
