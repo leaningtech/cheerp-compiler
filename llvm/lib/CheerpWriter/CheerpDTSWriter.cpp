@@ -47,6 +47,14 @@ void CheerpDTSWriter::declareFunction(const std::string& name, const Function* f
     stream << ": " << getTypeName(arg->getType());
   }
 
+  if (f->isVarArg())
+  {
+    if (begin != f->arg_end())
+      stream << ", ";
+
+    stream << "...args";
+  }
+
   stream << ")";
 
   if (!f->getReturnType()->isVoidTy())
