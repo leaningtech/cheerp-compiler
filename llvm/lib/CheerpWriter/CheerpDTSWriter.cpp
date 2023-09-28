@@ -52,6 +52,7 @@ void CheerpDTSWriter::declareFunction(const std::string& name, const Function* f
   stream << name << "(";
 
   auto begin = f->arg_begin();
+  std::size_t index = 0;
 
   if (isMember)
     ++begin;
@@ -62,7 +63,7 @@ void CheerpDTSWriter::declareFunction(const std::string& name, const Function* f
       stream << ", ";
 
     if (arg->getName().empty())
-      stream << "_";
+      stream << "_" << index++;
     else
       stream << arg->getName();
 
@@ -258,8 +259,6 @@ void CheerpDTSWriter::makeDTS()
     stream << "declare global {" << NewLine;
     declareGlobal(exports);
     stream << "}" << NewLine;
-
-    // TODO: only emit if nothing else is exported
     stream << "export {};" << NewLine;
   }
 }
