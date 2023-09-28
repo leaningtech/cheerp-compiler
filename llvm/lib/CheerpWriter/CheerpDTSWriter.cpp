@@ -19,10 +19,29 @@ static const NewLineHandler NewLine;
 
 std::string CheerpDTSWriter::getTypeName(const Type* type) const
 {
-  if (type->isPointerTy())
+  if (!type->isPointerTy())
+    return "number";
+
+  if (!TypeSupport::isClientType(type->getPointerElementType()))
     return exportedTypes.at(type->getPointerElementType());
 
-  return "number";
+  StringRef name = type->getPointerElementType()->getStructName();
+
+  if (name.startswith("class."))
+    name = name.drop_front(6);
+  else
+    name = name.drop_front(7);
+
+  demangler_iterator demangler(name);
+  std::string jsName;
+
+  while (demangler != demangler_iterator())
+  {
+    jsName += *demangler++;
+    jsName += ".";
+  }
+
+  return jsName.substr(7, jsName.length() - 8);
 }
 
 void CheerpDTSWriter::declareFunction(const std::string& name, const Function* f, bool isMember)
