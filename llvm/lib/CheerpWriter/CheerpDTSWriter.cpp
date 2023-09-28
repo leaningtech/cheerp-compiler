@@ -249,7 +249,8 @@ void CheerpDTSWriter::makeDTS()
   else if (makeModule == "es6")
   {
     declareInterfaces(exports);
-    stream << "export default function(): Promise<{" << NewLine;
+    stream << "type __Options = { buffer: ArrayBuffer } | { absPath: String | URL };" << NewLine;
+    stream << "export default function(options?: __Options): Promise<{" << NewLine;
     declareModule(exports);
     stream << "}>;" << NewLine;
   }
