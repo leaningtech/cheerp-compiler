@@ -19,6 +19,9 @@ static const NewLineHandler NewLine;
 
 std::string CheerpDTSWriter::getTypeName(const Type* type) const
 {
+  if (type->isVoidTy())
+    return "void";
+
   if (!type->isPointerTy())
     return "number";
 
@@ -74,12 +77,7 @@ void CheerpDTSWriter::declareFunction(const std::string& name, const Function* f
     stream << "...args";
   }
 
-  stream << ")";
-
-  if (!f->getReturnType()->isVoidTy())
-    stream << ": " << getTypeName(f->getReturnType());
-
-  stream << ";" << NewLine;
+  stream << "): " << getTypeName(f->getReturnType()) << ";" << NewLine;
 }
 
 void CheerpDTSWriter::declareInterfaces(const Exports& exports)
