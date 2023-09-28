@@ -100,9 +100,6 @@ void CheerpDTSWriter::declareInterfaces(const Exports& exports)
       {
         stream << "export interface " << name << " {" << NewLine;
 
-        if (data.destructor)
-          declareFunction("delete", data.destructor, FunctionType::MEMBER_FUNC);
-
         for (const auto& [name, f] : data.instanceMethods)
           declareFunction(name, f, FunctionType::MEMBER_FUNC);
 
@@ -177,9 +174,6 @@ void CheerpDTSWriter::declareGlobal(const Exports& exports)
         if (data.constructor)
           declareFunction("constructor", data.constructor, FunctionType::CONSTRUCTOR);
 
-        if (data.destructor)
-          declareFunction("delete", data.destructor, FunctionType::MEMBER_FUNC);
-
         for (const auto& [name, f] : data.instanceMethods)
           declareFunction(name, f, FunctionType::MEMBER_FUNC);
 
@@ -219,7 +213,6 @@ void CheerpDTSWriter::makeDTS()
 
     ex.type = pair.first;
     ex.constructor = nullptr;
-    ex.destructor = nullptr;
 
     for (auto it = namedNode.op_begin(); it != namedNode.op_end(); ++it)
     {
@@ -232,8 +225,6 @@ void CheerpDTSWriter::makeDTS()
 
       if (name == "new")
         ex.constructor = f;
-      else if (name == "delete")
-        ex.destructor = f;
       else if (isStatic(cast<ConstantInt>(cast<ConstantAsMetadata>((*it)->getOperand(1))->getValue())->getZExtValue()))
         ex.staticMethods.push_back({ std::move(name), f });
       else

@@ -28,7 +28,6 @@ private:
   {
     const llvm::StructType* type;
     const llvm::Function* constructor;
-    const llvm::Function* destructor;
     std::vector<std::pair<std::string, const llvm::Function*>> instanceMethods;
     std::vector<std::pair<std::string, const llvm::Function*>> staticMethods;
   };
