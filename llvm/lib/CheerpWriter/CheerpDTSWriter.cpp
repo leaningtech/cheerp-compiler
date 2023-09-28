@@ -47,14 +47,14 @@ std::string CheerpDTSWriter::getTypeName(const Type* type) const
   return jsName.substr(7, jsName.length() - 8);
 }
 
-void CheerpDTSWriter::declareFunction(const std::string& name, const Function* f, bool isMember)
+void CheerpDTSWriter::declareFunction(const std::string& name, const Function* f, FunctionType type)
 {
   stream << name << "(";
 
   auto begin = f->arg_begin();
   std::size_t index = 0;
 
-  if (isMember)
+  if (type == FunctionType::MEMBER_FUNC)
     ++begin;
 
   for (auto arg = begin; arg != f->arg_end(); ++arg)
@@ -78,7 +78,12 @@ void CheerpDTSWriter::declareFunction(const std::string& name, const Function* f
     stream << "...args";
   }
 
-  stream << "): " << getTypeName(f->getReturnType()) << ";" << NewLine;
+  stream << ")";
+
+  if (type != FunctionType::CONSTRUCTOR)
+    stream << ": " << getTypeName(f->getReturnType());
+
+  stream << ";" << NewLine;
 }
 
 void CheerpDTSWriter::declareInterfaces(const Exports& exports)
@@ -96,10 +101,10 @@ void CheerpDTSWriter::declareInterfaces(const Exports& exports)
         stream << "export interface " << name << " {" << NewLine;
 
         if (data.destructor)
-          declareFunction("delete", data.destructor, true);
+          declareFunction("delete", data.destructor, FunctionType::MEMBER_FUNC);
 
         for (const auto& [name, f] : data.instanceMethods)
-          declareFunction(name, f, true);
+          declareFunction(name, f, FunctionType::MEMBER_FUNC);
 
         stream << "}" << NewLine;
       }
@@ -124,16 +129,16 @@ void CheerpDTSWriter::declareModule(const Exports& exports)
       using T = std::decay_t<decltype(data)>;
 
       if constexpr (std::is_same_v<T, const Function*>)
-        declareFunction(name, data, false);
+        declareFunction(name, data, FunctionType::STATIC_FUNC);
       else if constexpr (std::is_same_v<T, ClassExport>)
       {
         stream << name << ": {" << NewLine;
 
         if (data.constructor)
-          declareFunction("new", data.constructor, false);
+          declareFunction("new", data.constructor, FunctionType::STATIC_FUNC);
 
         for (const auto& [name, f] : data.staticMethods)
-          declareFunction(name, f, false);
+          declareFunction(name, f, FunctionType::STATIC_FUNC);
 
         stream << "};" << NewLine;
       }
@@ -160,7 +165,7 @@ void CheerpDTSWriter::declareGlobal(const Exports& exports)
       if constexpr (std::is_same_v<T, const Function*>)
       {
         stream << "function ";
-        declareFunction(name, data, false);
+        declareFunction(name, data, FunctionType::STATIC_FUNC);
         stream << "module " << name << " {" << NewLine;
         stream << "const promise: Promise<void>;" << NewLine;
         stream << "}" << NewLine;
@@ -170,18 +175,18 @@ void CheerpDTSWriter::declareGlobal(const Exports& exports)
         stream << "class " << name << " {" << NewLine;
 
         if (data.constructor)
-          declareFunction("constructor", data.constructor, false);
+          declareFunction("constructor", data.constructor, FunctionType::CONSTRUCTOR);
 
         if (data.destructor)
-          declareFunction("delete", data.destructor, true);
+          declareFunction("delete", data.destructor, FunctionType::MEMBER_FUNC);
 
         for (const auto& [name, f] : data.instanceMethods)
-          declareFunction(name, f, true);
+          declareFunction(name, f, FunctionType::MEMBER_FUNC);
 
         for (const auto& [name, f] : data.staticMethods)
         {
           stream << "static ";
-          declareFunction(name, f, false);
+          declareFunction(name, f, FunctionType::STATIC_FUNC);
         }
 
         stream << "}" << NewLine;
