@@ -190,6 +190,9 @@ void CheerpDTSWriter::declareGlobal(const Exports& exports)
         }
 
         stream << "}" << NewLine;
+        stream << "module " << name << " {" << NewLine;
+        stream << "const promise: Promise<void>;" << NewLine;
+        stream << "}" << NewLine;
       }
       else if constexpr (std::is_same_v<T, Exports>)
       {
