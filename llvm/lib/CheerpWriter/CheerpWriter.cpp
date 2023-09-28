@@ -6120,7 +6120,7 @@ void CheerpWriter::compileFetchBufferCall(const std::string& fileName, const std
 {
 	if (makeModule == MODULE_TYPE::ES6)
 	{
-		stream << "(" << argumentName << "&&" << argumentName << ".buffer)?" << NewLine;
+		stream << "((" << argumentName << "&&" << argumentName << ".buffer)?" << NewLine;
 		stream << "Promise.resolve(" << argumentName << ".buffer):" << NewLine;
 	}
 	stream << namegen.getBuiltinName(NameGenerator::FETCHBUFFER) << "(";
@@ -6135,6 +6135,8 @@ void CheerpWriter::compileFetchBufferCall(const std::string& fileName, const std
 	if (makeModule == MODULE_TYPE::ES6)
 		stream << ", import.meta.url)";
 	stream << ")";
+  if (makeModule == MODULE_TYPE::ES6)
+    stream << ")";
 }
 
 void CheerpWriter::compileSourceMapsBegin()
