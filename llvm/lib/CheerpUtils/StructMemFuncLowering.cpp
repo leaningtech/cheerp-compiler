@@ -448,7 +448,8 @@ bool StructMemFuncLowering::runOnBlock(BasicBlock& BB, bool asmjs)
 		// Prefer an untyped loop if we can use 8-byte wide unaligned load/store,
 		// otherwise only use it if src/dst are non-type safe to begin with
 		// A typed expansion might allow for better optimization of loads from the surrounding context
-		bool useUntypedLoop = !WasmNoUnalignedMem;
+		ConstantInt *sizeConst = dyn_cast<ConstantInt>(size);
+		bool useUntypedLoop = !WasmNoUnalignedMem || sizeConst == nullptr || sizeConst->getZExtValue() != DL->getTypeAllocSize(pointedType);
 		if (!useUntypedLoop)
 		{
 			bool typeSafe = mode == MEMSET || dst->getType() == src->getType();
@@ -456,7 +457,6 @@ bool StructMemFuncLowering::runOnBlock(BasicBlock& BB, bool asmjs)
 				useUntypedLoop = true;
 		}
 		if (asmjs && useUntypedLoop) {
-			ConstantInt *sizeConst = dyn_cast<ConstantInt>(size);
 			if (!sizeConst || sizeConst->getZExtValue() > INLINE_WRITE_LOOP_MAX)
 				continue;
 			bool useUnaligned = LinearOutput == Wasm && !WasmNoUnalignedMem && mode != MEMMOVE;
