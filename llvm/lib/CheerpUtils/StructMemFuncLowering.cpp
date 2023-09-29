@@ -75,7 +75,7 @@ void StructMemFuncLowering::recursiveCopy(IRBuilder<>* IRB, Value* baseDst, Valu
 			llvm::PHINode* index=IRB->CreatePHI(indexType, 2);
 			index->addIncoming(ConstantInt::get(indexType, 0), prevBlock);
 			indexes.back() = index;
-			recursiveCopy(IRB, baseDst, baseSrc, elementType, containingType, indexType, elemAlign, indexes, aliasScopes, aliasDomain);
+			recursiveCopy(IRB, baseDst, baseSrc, elementType, containingType, indexType, DL->getABITypeAlignment(elementType), indexes, aliasScopes, aliasDomain);
 			Value* incrementedIndex = IRB->CreateAdd(index, ConstantInt::get(indexType, 1));
 			index->addIncoming(incrementedIndex, IRB->GetInsertBlock());
 			Value* finishedLooping=IRB->CreateICmp(CmpInst::ICMP_EQ, ConstantInt::get(indexType, AT->getNumElements()), incrementedIndex);
@@ -162,7 +162,7 @@ void StructMemFuncLowering::recursiveReset(IRBuilder<>* IRB, Value* baseDst, Val
 			llvm::PHINode* index=IRB->CreatePHI(indexType, 2);
 			index->addIncoming(ConstantInt::get(indexType, 0), prevBlock);
 			indexes.back() = index;
-			recursiveReset(IRB, baseDst, resetVal, elementType, containingType, indexType, elemAlign, indexes);
+			recursiveReset(IRB, baseDst, resetVal, elementType, containingType, indexType, DL->getABITypeAlignment(elementType), indexes);
 			Value* incrementedIndex = IRB->CreateAdd(index, ConstantInt::get(indexType, 1));
 			index->addIncoming(incrementedIndex, IRB->GetInsertBlock());
 			Value* finishedLooping=IRB->CreateICmp(CmpInst::ICMP_EQ, ConstantInt::get(indexType, AT->getNumElements()), incrementedIndex);
@@ -292,6 +292,7 @@ void StructMemFuncLowering::createGenericLoop(IRBuilder<>* IRB, BasicBlock* prev
 		dstPHI = IRB->CreatePHI(pointedType->getPointerTo(), 2);
 		dstPHI->addIncoming(dst, previousBlock);
 		dstVal = dstPHI;
+		baseAlign = DL->getABITypeAlignment(pointedType);
 	}
 
 	// Immediately decrement by one, so that we are accessing a valid elements
