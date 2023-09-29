@@ -145,7 +145,7 @@ bool StoreMerging::processBlockOfStores(std::vector<StoreAndOffset>& groupedSame
 	return Changed;
 }
 
-bool StoreMerging::isReorderPossibleForStore(Instruction* startInst, Instruction* endInst, const StoreAndOffset& movedInst)
+bool StoreMerging::isReorderPossibleForStore(Instruction* startInst, Instruction* endInst, const StoreAndOffset& movedInst, LoadInst* loadToSkip)
 {
 	MemoryLocation storeLoc = MemoryLocation::get(movedInst.store);
 	Instruction* curInst = startInst->getNextNode();
@@ -163,10 +163,41 @@ bool StoreMerging::isReorderPossibleForStore(Instruction* startInst, Instruction
 		}
 		else if(LoadInst* LI = dyn_cast<LoadInst>(curInst))
 		{
-			MemoryLocation loadLoc = MemoryLocation::get(LI);
-			if(AA.alias(storeLoc, loadLoc))
-				return false;
+			if(LI != loadToSkip)
+			{
+				MemoryLocation loadLoc = MemoryLocation::get(LI);
+				if(AA.alias(storeLoc, loadLoc))
+					return false;
+			}
 		}
+		curInst = curInst->getNextNode();
+	}
+	return true;
+}
+
+bool StoreMerging::isReorderPossibleForLoad(llvm::Instruction* startInst, llvm::Instruction* endInst, llvm::LoadInst* movedInst, uint32_t maxAccessAlignment)
+{
+	MemoryLocation loadLoc = MemoryLocation::get(movedInst);
+	Instruction* curInst = startInst->getNextNode();
+	while(curInst != endInst)
+	{
+		if(StoreInst* SI = dyn_cast<StoreInst>(curInst))
+		{
+			// AA does not see a useful property: if a store is as wide as a load
+			// and the store has higher alignment tham the load then they don't overlap
+			// NOTE: We check for type, we should check on width
+			if(SI->getValueOperand()->getType() != movedInst->getType() || SI->getAlign().value() <= maxAccessAlignment)
+			{
+				MemoryLocation storeLoc = MemoryLocation::get(SI);
+				if(AA.alias(storeLoc, loadLoc))
+					return false;
+			}
+		}
+		else if(curInst->mayWriteToMemory() || curInst->mayHaveSideEffects())
+		{
+			return false;
+		}
+		// NOTE: Re-ordering across load is not a problem
 		curInst = curInst->getNextNode();
 	}
 	return true;
@@ -212,8 +243,10 @@ bool StoreMerging::processBlockOfStores(const uint32_t dim, std::vector<StoreAnd
 		const Constant* constantLowValue = dyn_cast<Constant>(lowValue);
 		const Constant* constantHighValue = dyn_cast<Constant>(highValue);
 
-		enum STRATEGY { NOT_CONVENIENT = 0, CONSTANT = 1, ZERO_EXTEND = 2};
+		enum STRATEGY { NOT_CONVENIENT = 0, CONSTANT = 1, ZERO_EXTEND = 2, LOAD = 3 };
 		STRATEGY strategy = NOT_CONVENIENT;
+
+		LoadInst* loadToSkip = nullptr;
 
 		//Both ValueOperands constants -> folded in a single store
 		if (constantLowValue && constantHighValue)
@@ -221,6 +254,42 @@ bool StoreMerging::processBlockOfStores(const uint32_t dim, std::vector<StoreAnd
 		//Higher ValueOperands 0 -> folded in a single store
 		else if (constantHighValue && constantHighValue->isNullValue())
 			strategy = ZERO_EXTEND;
+		else if(isa<LoadInst>(lowValue) && isa<LoadInst>(highValue))
+		{
+			LoadInst* lowLoad = cast<LoadInst>(lowValue);
+			LoadInst* highLoad = cast<LoadInst>(highValue);
+			// Verify if it's possible to re-order the high load at the location of the low load
+			auto IsSecondAfterFirst = [](Instruction* before, Instruction* after) -> bool
+			{
+				while(before != nullptr)
+				{
+					if(before == after)
+						return true;
+					before = before->getNextNode();
+				}
+				return false;
+			};
+			// NOTE: We only reason over values in the same block
+			if(lowLoad->getParent() == highLoad->getParent())
+			{
+				uint32_t lowLoadAlignment = lowLoad->getAlign().value();
+				auto lowBaseAndOffset = findBasePointerAndOffset(lowLoad->getPointerOperand());
+				auto highBaseAndOffset = findBasePointerAndOffset(highLoad->getPointerOperand());
+				if(lowLoadAlignment >= dim * 2 &&
+					lowBaseAndOffset.first == highBaseAndOffset.first &&
+					lowBaseAndOffset.second + dim == highBaseAndOffset.second)
+				{
+					bool isHighAfterLow = IsSecondAfterFirst(lowLoad, highLoad);
+					if((isHighAfterLow && isReorderPossibleForLoad(lowLoad, highLoad, highLoad, dim)) ||
+						(!isHighAfterLow && isReorderPossibleForLoad(highLoad, lowLoad, highLoad, dim)))
+					{
+						// We should skip the load when checking for store reodering, it will be moved out of the way
+						loadToSkip = highLoad;
+						strategy = LOAD;
+					}
+				}
+			}
+		}
 
 		if (strategy == NOT_CONVENIENT)
 			continue;
@@ -233,7 +302,7 @@ bool StoreMerging::processBlockOfStores(const uint32_t dim, std::vector<StoreAnd
 		if(groupedSamePointer[b].blockIndex < groupedSamePointer[a].blockIndex)
 			std::swap(startInst, endInst);
 		
-		if(!isReorderPossibleForStore(startInst, endInst, groupedSamePointer[b]))
+		if(!isReorderPossibleForStore(startInst, endInst, groupedSamePointer[b], loadToSkip))
 			continue;
 
 		auto& context = lowStore->getParent()->getContext();
@@ -276,7 +345,12 @@ bool StoreMerging::processBlockOfStores(const uint32_t dim, std::vector<StoreAnd
 		}
 		else
 		{
-			assert(false);
+			assert(strategy == LOAD);
+			LoadInst* lowLoad = cast<LoadInst>(lowValue);
+			Value* loadBitcast = builder.CreateBitCast(lowLoad->getPointerOperand(), bigType->getPointerTo());
+			LoadInst* newLoad = builder.CreateLoad(bigType, loadBitcast);
+			newLoad->setAlignment(llvm::Align(alignment));
+			sum = newLoad;
 		}
 
 		//BitCast the pointer operand
@@ -290,7 +364,18 @@ bool StoreMerging::processBlockOfStores(const uint32_t dim, std::vector<StoreAnd
 		lowStore->eraseFromParent();
 		highStore->eraseFromParent();
 
-		//Bookkeeping 2: insert biggerStore at the right point in groupedSamePointer
+		//Bookkeeping 2: erase used loads, if any
+		if(strategy == LOAD)
+		{
+			LoadInst* lowLoad = cast<LoadInst>(lowValue);
+			LoadInst* highLoad = cast<LoadInst>(highValue);
+			if(lowLoad->use_empty())
+				lowLoad->eraseFromParent();
+			if(highLoad->use_empty())
+				highLoad->eraseFromParent();
+		}
+
+		//Bookkeeping 3: insert biggerStore at the right point in groupedSamePointer
 		groupedSamePointer[a].store = biggerStore;
 		groupedSamePointer[a].size = dim*2;
 		groupedSamePointer[b].size = 0;

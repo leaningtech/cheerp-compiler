@@ -38,7 +38,8 @@ private:
 	std::pair<const llvm::Value*, int> findBasePointerAndOffset(const llvm::Value* pointer);
 	std::pair<bool, int> compatibleAndOffset(const llvm::Value* currPtr, const llvm::Value* referencePtr);
 	static void filterAlreadyProcessedStores(std::vector<StoreAndOffset>& groupedSamePointer);
-	bool isReorderPossibleForStore(llvm::Instruction* startInst, llvm::Instruction* endInst, const StoreAndOffset& movedInst);
+	bool isReorderPossibleForStore(llvm::Instruction* startInst, llvm::Instruction* endInst, const StoreAndOffset& movedInst, llvm::LoadInst* loadToSkip);
+	bool isReorderPossibleForLoad(llvm::Instruction* startInst, llvm::Instruction* endInst, llvm::LoadInst* movedInst, uint32_t maxAccessAlignment);
 	static void sortStores(std::vector<StoreAndOffset>& groupedSamePointer);
 	bool processBlockOfStores(std::vector<StoreAndOffset>& groupedSamePointer);
 	bool processBlockOfStores(const uint32_t dim, std::vector<StoreAndOffset> & groupedSamePointer);
