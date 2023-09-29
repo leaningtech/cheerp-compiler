@@ -14746,7 +14746,7 @@ CXXMethodDecl *Sema::DeclareImplicitJsExportHelper(CXXRecordDecl *ClassDecl, CXX
     for (auto& p : Constructor->parameters()) {
       QualType paramType(p->getType());
       ArgTypes.push_back(paramType);
-      ParamDecls.push_back(ParmVarDecl::Create(Context, Helper, ClassLoc, ClassLoc, nullptr, paramType, nullptr, SC_None, nullptr));
+      ParamDecls.push_back(ParmVarDecl::Create(Context, Helper, ClassLoc, ClassLoc, p->getIdentifier(), paramType, nullptr, SC_None, nullptr));
     }
   }
   setupImplicitSpecialMemberType(Helper, RetType, ArgTypes);
