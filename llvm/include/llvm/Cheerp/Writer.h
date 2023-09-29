@@ -174,7 +174,6 @@ private:
 		LAST_WASM = HEAP64,
 		LAST_ASMJS = HEAPF64
 	};
-	enum MODULE_TYPE { NONE = 0, CLOSURE, COMMONJS, ES6 };
 	// COMPILE_EMPTY is returned if there is no need to add a ;\n to end the line
 	enum COMPILE_INSTRUCTION_FEEDBACK { COMPILE_OK = 0, COMPILE_UNSUPPORTED, COMPILE_EMPTY };
 
@@ -610,16 +609,6 @@ private:
 		void addValue(const llvm::Value* v, uint32_t size) override;
 		void addConst(int64_t v) override;
 	};
-	static MODULE_TYPE getModuleType(llvm::StringRef makeModule)
-	{
-		if (makeModule==llvm::StringRef("closure"))
-			return MODULE_TYPE::CLOSURE;
-		if (makeModule==llvm::StringRef("commonjs"))
-			return MODULE_TYPE::COMMONJS;
-		if (makeModule==llvm::StringRef("es6"))
-			return MODULE_TYPE::ES6;
-		return MODULE_TYPE::NONE;
-	}
 public:
 	// Data to optimize asm.js rendering of return statements
 	uint32_t blockDepth;
@@ -636,7 +625,7 @@ public:
 			const std::string& asmJSMemFile,
 			SourceMapGenerator* sourceMapGenerator,
 			bool readableOutput,
-			llvm::StringRef makeModule,
+			MODULE_TYPE makeModule,
 			bool useNativeJavaScriptMath,
 			bool useMathImul,
 			bool useMathFround,
@@ -669,7 +658,7 @@ public:
 		useNativeJavaScriptMath(useNativeJavaScriptMath),
 		useMathImul(useMathImul),
 		useMathFround(useMathFround),
-		makeModule(getModuleType(makeModule)),
+		makeModule(makeModule),
 		addCredits(addCredits),
 		measureTimeToMain(measureTimeToMain),
 		heapSize(heapSize),

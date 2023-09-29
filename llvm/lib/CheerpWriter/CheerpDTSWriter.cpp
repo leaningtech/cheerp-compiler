@@ -240,7 +240,7 @@ void CheerpDTSWriter::makeDTS()
   iterateOverJsExportedMetadata(module, processFunction, processRecord);
 
   // TODO: use enum from CheerpWriter instead of string
-  if (makeModule == "commonjs")
+  if (makeModule == MODULE_TYPE::COMMONJS)
   {
     declareInterfaces(exports);
     stream << "declare const __export: Promise<{" << NewLine;
@@ -248,7 +248,7 @@ void CheerpDTSWriter::makeDTS()
     stream << "}>;" << NewLine;
     stream << "export default __export;" << NewLine;
   }
-  else if (makeModule == "es6")
+  else if (makeModule == MODULE_TYPE::ES6)
   {
     declareInterfaces(exports);
     stream << "type __Options = { buffer: ArrayBuffer } | { absPath: String | URL };" << NewLine;
@@ -256,7 +256,7 @@ void CheerpDTSWriter::makeDTS()
     declareModule(exports);
     stream << "}>;" << NewLine;
   }
-  else if (makeModule == "closure")
+  else if (makeModule == MODULE_TYPE::CLOSURE)
   {
     stream << "declare global {" << NewLine;
     declareGlobal(exports);
