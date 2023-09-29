@@ -355,6 +355,19 @@ const llvm::Instruction* getUniqueIncomingInst(const llvm::Value* v, const Point
  */
 void setForceRawAttribute(llvm::Module& M, llvm::Function* Wrapper);
 
+enum MODULE_TYPE { NONE = 0, CLOSURE, COMMONJS, ES6 };
+
+inline MODULE_TYPE getModuleType(llvm::StringRef makeModule)
+{
+  if (makeModule==llvm::StringRef("closure"))
+    return MODULE_TYPE::CLOSURE;
+  if (makeModule==llvm::StringRef("commonjs"))
+    return MODULE_TYPE::COMMONJS;
+  if (makeModule==llvm::StringRef("es6"))
+    return MODULE_TYPE::ES6;
+  return MODULE_TYPE::NONE;
+}
+
 class TypeSupport
 {
 public:

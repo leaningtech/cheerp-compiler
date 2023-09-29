@@ -262,16 +262,18 @@ PreservedAnalyses cheerp::CheerpWritePassImpl::run(Module& M, ModuleAnalysisMana
       break;
   }
 
+  MODULE_TYPE makeModule = getModuleType(MakeModule);
+
   if (MakeDTS && dtsOut)
   {
-    cheerp::CheerpDTSWriter dtsWriter(M, *dtsOut, sourceMapGenerator.get(), PrettyCode, MakeModule);
+    cheerp::CheerpDTSWriter dtsWriter(M, *dtsOut, sourceMapGenerator.get(), PrettyCode, makeModule);
     dtsWriter.makeDTS();
   }
 
   if (!WasmOnly)
   {
     cheerp::CheerpWriter writer(M, MAM, Out, PA, registerize, GDA, linearHelper, namegen, allocaStoresExtractor, IW.getLandingPadTable(), memOut, asmjsMemFile,
-            sourceMapGenerator.get(), PrettyCode, MakeModule, !NoNativeJavaScriptMath,
+            sourceMapGenerator.get(), PrettyCode, makeModule, !NoNativeJavaScriptMath,
             !NoJavaScriptMathImul, !NoJavaScriptMathFround, !NoCredits, MeasureTimeToMain, CheerpHeapSize,
             BoundsCheck, SymbolicGlobalsAsmJS, wasmFile, ForceTypedArrays);
     writer.makeJS();

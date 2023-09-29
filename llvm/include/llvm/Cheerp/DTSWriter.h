@@ -48,7 +48,7 @@ private:
 
   llvm::Module& module;
   ostream_proxy stream;
-  llvm::StringRef makeModule;
+  MODULE_TYPE makeModule;
   Exports exports;
   std::map<const llvm::Type*, std::string> exportedTypes;
 
@@ -79,7 +79,7 @@ private:
   void declareGlobal(const Exports& exports);
 
 public:
-  CheerpDTSWriter(llvm::Module& module, llvm::raw_ostream& s, SourceMapGenerator* sourceMapGenerator, bool readableOutput, llvm::StringRef makeModule):
+  CheerpDTSWriter(llvm::Module& module, llvm::raw_ostream& s, SourceMapGenerator* sourceMapGenerator, bool readableOutput, MODULE_TYPE makeModule):
     module(module),
     stream(s, sourceMapGenerator, readableOutput),
     makeModule(makeModule)
