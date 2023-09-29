@@ -408,7 +408,10 @@ public:
 
 	static bool isClientPtrType(llvm::PointerType* ptr)
 	{
-		return isClientType(ptr->getPointerElementType());
+		bool ret = ptr->getAddressSpace() == 1;
+			// Sanity check. remove when we drop non-opaque pointer types
+		assert(ret == isClientType(ptr->getPointerElementType()));
+		return ret;
 	}
 
 	static bool isWasiFuncName(llvm::StringRef ident)
