@@ -24,6 +24,14 @@ using namespace llvm;
 
 const unsigned INLINE_WRITE_LOOP_MAX = 128;
 
+uint32_t StructMemFuncLowering::computeElemAlign(uint32_t baseAlign, uint32_t baseOffset)
+{
+	uint32_t ret = baseAlign;
+	while(baseOffset % ret != 0)
+		ret /= 2;
+	return ret;
+}
+
 void StructMemFuncLowering::createMemFunc(IRBuilder<>* IRB, Value* baseDst, Value* baseSrc, Type* containingType, size_t size,
 						SmallVector<Value*, 8>& indexes)
 {
@@ -48,10 +56,7 @@ void StructMemFuncLowering::recursiveCopy(IRBuilder<>* IRB, Value* baseDst, Valu
 		for(uint32_t i=0;i<ST->getNumElements();i++)
 		{
 			indexes.back() = ConstantInt::get(indexType, i);
-			uint32_t elemOffset = SL->getElementOffset(i);
-			uint32_t elemAlign = baseAlign;
-			while(elemOffset % elemAlign != 0)
-				elemAlign /= 2;
+			uint32_t elemAlign = computeElemAlign(baseAlign, SL->getElementOffset(i));
 			recursiveCopy(IRB, baseDst, baseSrc, ST->getElementType(i), containingType, indexType, elemAlign, indexes, aliasScopes, aliasDomain);
 		}
 		indexes.pop_back();
@@ -60,10 +65,6 @@ void StructMemFuncLowering::recursiveCopy(IRBuilder<>* IRB, Value* baseDst, Valu
 	{
 		Type* elementType = AT->getElementType();
 		indexes.push_back(NULL);
-		uint32_t elemSize = DL->getTypeAllocSize(elementType);
-		uint32_t elemAlign = baseAlign;
-		while(elemSize % elemAlign != 0)
-			elemAlign /= 2;
 		if(AT->getNumElements() > 6)
 		{
 			// Create a loop instead of unrolling
@@ -84,9 +85,11 @@ void StructMemFuncLowering::recursiveCopy(IRBuilder<>* IRB, Value* baseDst, Valu
 		}
 		else
 		{
+			uint32_t elemSize = DL->getTypeAllocSize(elementType);
 			for(uint32_t i=0;i<AT->getNumElements();i++)
 			{
 				indexes.back() = ConstantInt::get(indexType, i);
+				uint32_t elemAlign = computeElemAlign(baseAlign, elemSize * i);
 				recursiveCopy(IRB, baseDst, baseSrc, elementType, containingType, indexType, elemAlign, indexes, aliasScopes, aliasDomain);
 			}
 		}
@@ -135,10 +138,7 @@ void StructMemFuncLowering::recursiveReset(IRBuilder<>* IRB, Value* baseDst, Val
 		for(uint32_t i=0;i<ST->getNumElements();i++)
 		{
 			indexes.back() = ConstantInt::get(indexType, i);
-			uint32_t elemOffset = SL->getElementOffset(i);
-			uint32_t elemAlign = baseAlign;
-			while(elemOffset % elemAlign != 0)
-				elemAlign /= 2;
+			uint32_t elemAlign = computeElemAlign(baseAlign, SL->getElementOffset(i));
 			recursiveReset(IRB, baseDst, resetVal, ST->getElementType(i), containingType, indexType, elemAlign, indexes);
 		}
 		indexes.pop_back();
@@ -147,10 +147,6 @@ void StructMemFuncLowering::recursiveReset(IRBuilder<>* IRB, Value* baseDst, Val
 	{
 		Type* elementType = AT->getElementType();
 		indexes.push_back(NULL);
-		uint32_t elemSize = DL->getTypeAllocSize(elementType);
-		uint32_t elemAlign = baseAlign;
-		while(elemSize % elemAlign != 0)
-			elemAlign /= 2;
 		if(AT->getNumElements() > 6)
 		{
 			// Create a loop instead of unrolling
@@ -171,9 +167,11 @@ void StructMemFuncLowering::recursiveReset(IRBuilder<>* IRB, Value* baseDst, Val
 		}
 		else
 		{
+			uint32_t elemSize = DL->getTypeAllocSize(elementType);
 			for(uint32_t i=0;i<AT->getNumElements();i++)
 			{
 				indexes.back() = ConstantInt::get(indexType, i);
+				uint32_t elemAlign = computeElemAlign(baseAlign, elemSize * i);
 				recursiveReset(IRB, baseDst, resetVal, elementType, containingType, indexType, elemAlign, indexes);
 			}
 		}
