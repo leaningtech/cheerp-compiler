@@ -27,7 +27,7 @@ private:
   struct ClassExport
   {
     const llvm::StructType* type;
-    const llvm::Function* constructor;
+    const llvm::Function* constructor = nullptr;
     std::vector<std::pair<std::string, const llvm::Function*>> instanceMethods;
     std::vector<std::pair<std::string, const llvm::Function*>> staticMethods;
   };
@@ -37,6 +37,7 @@ private:
   struct Exports
   {
     std::map<std::string, Export> map;
+    bool hasTypes = false;
   };
 
   enum struct FunctionType {
@@ -55,6 +56,9 @@ private:
   static T& addExport(Exports& exports, T data, std::string name)
   {
     auto sep = name.find('.');
+
+    if constexpr (std::is_same_v<std::decay_t<T>, ClassExport>)
+      exports.hasTypes = true;
 
     if (sep == std::string::npos)
     {

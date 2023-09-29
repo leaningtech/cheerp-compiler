@@ -107,9 +107,12 @@ void CheerpDTSWriter::declareInterfaces(const Exports& exports)
       }
       else if constexpr (std::is_same_v<T, Exports>)
       {
-        stream << "export module " << name << " {" << NewLine;
-        declareInterfaces(data);
-        stream << "}" << NewLine;
+        if (data.hasTypes)
+        {
+          stream << "export module " << name << " {" << NewLine;
+          declareInterfaces(data);
+          stream << "}" << NewLine;
+        }
       }
     }, ex);
   }
@@ -212,7 +215,6 @@ void CheerpDTSWriter::makeDTS()
     auto pair = TypeSupport::getJSExportedTypeFromMetadata(name, module);
 
     ex.type = pair.first;
-    ex.constructor = nullptr;
 
     for (auto it = namedNode.op_begin(); it != namedNode.op_end(); ++it)
     {
