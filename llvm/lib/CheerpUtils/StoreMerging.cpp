@@ -145,9 +145,9 @@ bool StoreMerging::processBlockOfStores(std::vector<StoreAndOffset>& groupedSame
 	return Changed;
 }
 
-bool StoreMerging::checkReordering(Instruction* startInst, Instruction* endInst, const StoreAndOffset& movedInst)
+bool StoreMerging::isReorderPossibleForStore(Instruction* startInst, Instruction* endInst, const StoreAndOffset& movedInst)
 {
-	MemoryLocation storeLoc = MemoryLocation::get(endInst);
+	MemoryLocation storeLoc = MemoryLocation::get(movedInst.store);
 	Instruction* curInst = startInst->getNextNode();
 	while(curInst != endInst)
 	{
@@ -159,17 +159,17 @@ bool StoreMerging::checkReordering(Instruction* startInst, Instruction* endInst,
 			uint32_t movedInstEnd = movedInst.offset + movedInst.size;
 			uint32_t checkInstEnd = checkBaseAndOffset.second + DL->getTypeAllocSize(SI->getValueOperand()->getType());
 			if(movedInst.offset < checkInstEnd && checkBaseAndOffset.second < movedInstEnd)
-				return true;
+				return false;
 		}
 		else if(LoadInst* LI = dyn_cast<LoadInst>(curInst))
 		{
 			MemoryLocation loadLoc = MemoryLocation::get(LI);
 			if(AA.alias(storeLoc, loadLoc))
-				return true;
+				return false;
 		}
 		curInst = curInst->getNextNode();
 	}
-	return false;
+	return true;
 }
 
 bool StoreMerging::processBlockOfStores(const uint32_t dim, std::vector<StoreAndOffset> & groupedSamePointer)
@@ -233,7 +233,7 @@ bool StoreMerging::processBlockOfStores(const uint32_t dim, std::vector<StoreAnd
 		if(groupedSamePointer[b].blockIndex < groupedSamePointer[a].blockIndex)
 			std::swap(startInst, endInst);
 		
-		if(checkReordering(startInst, endInst, groupedSamePointer[b]))
+		if(!isReorderPossibleForStore(startInst, endInst, groupedSamePointer[b]))
 			continue;
 
 		auto& context = lowStore->getParent()->getContext();
