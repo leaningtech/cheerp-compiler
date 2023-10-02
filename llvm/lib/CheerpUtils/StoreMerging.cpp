@@ -44,6 +44,7 @@ bool StoreMerging::runOnBasicBlock(BasicBlock& BB)
 	const llvm::Value* currentPtr = nullptr;
 	uint32_t currentPtrAlignment = 0;
 	std::vector<StoreAndOffset> basedOnCurrentPtr;
+	std::unordered_map<const Value*, uint32_t> loadedValuesAlignment;
 
 	bool Changed = false;
 
@@ -58,7 +59,7 @@ bool StoreMerging::runOnBasicBlock(BasicBlock& BB)
 
 			if (currentPtr != pair.first)
 			{
-				Changed |= processBlockOfStores(currentPtrAlignment, basedOnCurrentPtr);
+				Changed |= processBlockOfStores(loadedValuesAlignment, currentPtrAlignment, basedOnCurrentPtr);
 				currentPtrAlignment = 0;
 				basedOnCurrentPtr.clear();
 			}
@@ -70,27 +71,42 @@ bool StoreMerging::runOnBasicBlock(BasicBlock& BB)
 			// NOTE: We only extract the info for perfectly aligned offsets, we could do better
 			//       but we really assume the base pointer is itself maximally aligned anyway
 			uint32_t instAlignment = SI->getAlign().value();
-			if((pair.second % instAlignment) == 0 && instAlignment > currentPtrAlignment)
-				currentPtrAlignment = instAlignment;
+			if((pair.second % instAlignment) == 0)
+			{
+				if(instAlignment > currentPtrAlignment)
+					currentPtrAlignment = instAlignment;
+			}
 			Type* storedType = SI->getValueOperand()->getType();
 			basedOnCurrentPtr.emplace_back(SI, DL->getTypeAllocSize(storedType), pair.second, basedOnCurrentPtr.size());
 			continue;
 		}
 
 		// Allow loads, we will later validate that we don't cross them if they alias with the store being moved
-		if (isa<LoadInst>(&I))
+		if (LoadInst* LI = dyn_cast<LoadInst>(&I))
+		{
+			uint32_t instAlignment = LI->getAlign().value();
+			auto pair = findBasePointerAndOffset(LI->getPointerOperand());
+			if((pair.second % instAlignment) == 0)
+			{
+				auto it = loadedValuesAlignment.find(pair.first);
+				if(it == loadedValuesAlignment.end())
+					loadedValuesAlignment.emplace(pair.first, instAlignment);
+				else if(instAlignment > it->second)
+					it->second = instAlignment;
+			}
 			continue;
+		}
 
 		if (I.mayReadOrWriteMemory() || I.mayHaveSideEffects())
 		{
-			Changed |= processBlockOfStores(currentPtrAlignment, basedOnCurrentPtr);
+			Changed |= processBlockOfStores(loadedValuesAlignment, currentPtrAlignment, basedOnCurrentPtr);
 			currentPtrAlignment = 0;
 			currentPtr = nullptr;
 			basedOnCurrentPtr.clear();
 		}
 	}
 
-	Changed |= processBlockOfStores(currentPtrAlignment, basedOnCurrentPtr);
+	Changed |= processBlockOfStores(loadedValuesAlignment, currentPtrAlignment, basedOnCurrentPtr);
 	currentPtrAlignment = 0;
 
 	return Changed;
@@ -129,7 +145,7 @@ void StoreMerging::filterAlreadyProcessedStores(std::vector<StoreAndOffset>& gro
 	std::swap(newGroupedSamePointer, groupedSamePointer);
 }
 
-bool StoreMerging::processBlockOfStores(uint32_t currentPtrAlignment, std::vector<StoreAndOffset>& groupedSamePointer)
+bool StoreMerging::processBlockOfStores(const std::unordered_map<const llvm::Value*, uint32_t>& loadedValuesAlignment, uint32_t currentPtrAlignment, std::vector<StoreAndOffset>& groupedSamePointer)
 {
 	if (groupedSamePointer.size() < 2)
 		return false;
@@ -140,11 +156,11 @@ bool StoreMerging::processBlockOfStores(uint32_t currentPtrAlignment, std::vecto
 
 	//Alternatively process a block of stores and filter out already consumed ones
 	//Processing with increasing size means that we may optimize even already optimized stores
-	Changed |= processBlockOfStores(currentPtrAlignment, 1, groupedSamePointer);
+	Changed |= processBlockOfStores(loadedValuesAlignment, currentPtrAlignment, 1, groupedSamePointer);
 	filterAlreadyProcessedStores(groupedSamePointer);
 
 	sortStores(groupedSamePointer);
-	Changed |= processBlockOfStores(currentPtrAlignment, 2, groupedSamePointer);
+	Changed |= processBlockOfStores(loadedValuesAlignment, currentPtrAlignment, 2, groupedSamePointer);
 	filterAlreadyProcessedStores(groupedSamePointer);
 
 	//Do not create 64-bit asmjs stores
@@ -152,7 +168,7 @@ bool StoreMerging::processBlockOfStores(uint32_t currentPtrAlignment, std::vecto
 		return Changed;
 
 	sortStores(groupedSamePointer);
-	Changed |= processBlockOfStores(currentPtrAlignment, 4, groupedSamePointer);
+	Changed |= processBlockOfStores(loadedValuesAlignment, currentPtrAlignment, 4, groupedSamePointer);
 	filterAlreadyProcessedStores(groupedSamePointer);
 	return Changed;
 }
@@ -215,7 +231,7 @@ bool StoreMerging::isReorderPossibleForLoad(llvm::Instruction* startInst, llvm::
 	return true;
 }
 
-bool StoreMerging::processBlockOfStores(uint32_t currentPtrAlignment, const uint32_t dim, std::vector<StoreAndOffset> & groupedSamePointer)
+bool StoreMerging::processBlockOfStores(const std::unordered_map<const llvm::Value*, uint32_t>& loadedValuesAlignment, uint32_t currentPtrAlignment, const uint32_t dim, std::vector<StoreAndOffset> & groupedSamePointer)
 {
 	const uint32_t N = groupedSamePointer.size();
 
@@ -297,6 +313,9 @@ bool StoreMerging::processBlockOfStores(uint32_t currentPtrAlignment, const uint
 				uint32_t lowLoadAlignment = lowLoad->getAlign().value();
 				auto lowBaseAndOffset = findBasePointerAndOffset(lowLoad->getPointerOperand());
 				auto highBaseAndOffset = findBasePointerAndOffset(highLoad->getPointerOperand());
+				auto it = loadedValuesAlignment.find(lowBaseAndOffset.first);
+				if(it != loadedValuesAlignment.end() && it->second > lowLoadAlignment)
+					lowLoadAlignment = it->second;
 				if(lowLoadAlignment >= dim * 2 &&
 					lowBaseAndOffset.first == highBaseAndOffset.first &&
 					lowBaseAndOffset.second + dim == highBaseAndOffset.second)
