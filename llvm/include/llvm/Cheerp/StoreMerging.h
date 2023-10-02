@@ -41,8 +41,8 @@ private:
 	bool isReorderPossibleForStore(llvm::Instruction* startInst, llvm::Instruction* endInst, const StoreAndOffset& movedInst, llvm::LoadInst* loadToSkip);
 	bool isReorderPossibleForLoad(llvm::Instruction* startInst, llvm::Instruction* endInst, llvm::LoadInst* movedInst, uint32_t maxAccessAlignment);
 	static void sortStores(std::vector<StoreAndOffset>& groupedSamePointer);
-	bool processBlockOfStores(std::vector<StoreAndOffset>& groupedSamePointer);
-	bool processBlockOfStores(const uint32_t dim, std::vector<StoreAndOffset> & groupedSamePointer);
+	bool processBlockOfStores(uint32_t currentPtrAlignment, std::vector<StoreAndOffset>& groupedSamePointer);
+	bool processBlockOfStores(uint32_t currentPtrAlignment, const uint32_t dim, std::vector<StoreAndOffset> & groupedSamePointer);
 	bool runOnBasicBlock(llvm::BasicBlock& BB);
 public:
 	explicit StoreMerging(llvm::AliasAnalysis& AA, const llvm::DataLayout& DL, const bool isWasm) : AA(AA), DL(&DL), isWasm(isWasm) { }

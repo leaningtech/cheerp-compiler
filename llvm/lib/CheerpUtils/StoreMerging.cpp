@@ -42,6 +42,7 @@ bool StoreMerging::runOnBasicBlock(BasicBlock& BB)
 		return false;
 
 	const llvm::Value* currentPtr = nullptr;
+	uint32_t currentPtrAlignment = 0;
 	std::vector<StoreAndOffset> basedOnCurrentPtr;
 
 	bool Changed = false;
@@ -57,11 +58,20 @@ bool StoreMerging::runOnBasicBlock(BasicBlock& BB)
 
 			if (currentPtr != pair.first)
 			{
-				Changed |= processBlockOfStores(basedOnCurrentPtr);
+				Changed |= processBlockOfStores(currentPtrAlignment, basedOnCurrentPtr);
+				currentPtrAlignment = 0;
 				basedOnCurrentPtr.clear();
 			}
 
 			currentPtr = pair.first;
+			// Keep track of the maximal alignment we can deduce for a base pointer given the
+			// stores which are based on it. We can later use this info to deduce more convenient
+			// alignments for smaller stores
+			// NOTE: We only extract the info for perfectly aligned offsets, we could do better
+			//       but we really assume the base pointer is itself maximally aligned anyway
+			uint32_t instAlignment = SI->getAlign().value();
+			if((pair.second % instAlignment) == 0 && instAlignment > currentPtrAlignment)
+				currentPtrAlignment = instAlignment;
 			Type* storedType = SI->getValueOperand()->getType();
 			basedOnCurrentPtr.emplace_back(SI, DL->getTypeAllocSize(storedType), pair.second, basedOnCurrentPtr.size());
 			continue;
@@ -73,13 +83,15 @@ bool StoreMerging::runOnBasicBlock(BasicBlock& BB)
 
 		if (I.mayReadOrWriteMemory() || I.mayHaveSideEffects())
 		{
-			Changed |= processBlockOfStores(basedOnCurrentPtr);
+			Changed |= processBlockOfStores(currentPtrAlignment, basedOnCurrentPtr);
+			currentPtrAlignment = 0;
 			currentPtr = nullptr;
 			basedOnCurrentPtr.clear();
 		}
 	}
 
-	Changed |= processBlockOfStores(basedOnCurrentPtr);
+	Changed |= processBlockOfStores(currentPtrAlignment, basedOnCurrentPtr);
+	currentPtrAlignment = 0;
 
 	return Changed;
 }
@@ -117,7 +129,7 @@ void StoreMerging::filterAlreadyProcessedStores(std::vector<StoreAndOffset>& gro
 	std::swap(newGroupedSamePointer, groupedSamePointer);
 }
 
-bool StoreMerging::processBlockOfStores(std::vector<StoreAndOffset>& groupedSamePointer)
+bool StoreMerging::processBlockOfStores(uint32_t currentPtrAlignment, std::vector<StoreAndOffset>& groupedSamePointer)
 {
 	if (groupedSamePointer.size() < 2)
 		return false;
@@ -128,11 +140,11 @@ bool StoreMerging::processBlockOfStores(std::vector<StoreAndOffset>& groupedSame
 
 	//Alternatively process a block of stores and filter out already consumed ones
 	//Processing with increasing size means that we may optimize even already optimized stores
-	Changed |= processBlockOfStores(1, groupedSamePointer);
+	Changed |= processBlockOfStores(currentPtrAlignment, 1, groupedSamePointer);
 	filterAlreadyProcessedStores(groupedSamePointer);
 
 	sortStores(groupedSamePointer);
-	Changed |= processBlockOfStores(2, groupedSamePointer);
+	Changed |= processBlockOfStores(currentPtrAlignment, 2, groupedSamePointer);
 	filterAlreadyProcessedStores(groupedSamePointer);
 
 	//Do not create 64-bit asmjs stores
@@ -140,7 +152,7 @@ bool StoreMerging::processBlockOfStores(std::vector<StoreAndOffset>& groupedSame
 		return Changed;
 
 	sortStores(groupedSamePointer);
-	Changed |= processBlockOfStores(4, groupedSamePointer);
+	Changed |= processBlockOfStores(currentPtrAlignment, 4, groupedSamePointer);
 	filterAlreadyProcessedStores(groupedSamePointer);
 	return Changed;
 }
@@ -203,7 +215,7 @@ bool StoreMerging::isReorderPossibleForLoad(llvm::Instruction* startInst, llvm::
 	return true;
 }
 
-bool StoreMerging::processBlockOfStores(const uint32_t dim, std::vector<StoreAndOffset> & groupedSamePointer)
+bool StoreMerging::processBlockOfStores(uint32_t currentPtrAlignment, const uint32_t dim, std::vector<StoreAndOffset> & groupedSamePointer)
 {
 	const uint32_t N = groupedSamePointer.size();
 
@@ -226,7 +238,17 @@ bool StoreMerging::processBlockOfStores(const uint32_t dim, std::vector<StoreAnd
 		StoreInst* lowStore = groupedSamePointer[a].store;
 		StoreInst* highStore = groupedSamePointer[b].store;
 
-		const uint32_t alignment = lowStore->getAlign().value();
+		uint32_t alignment = lowStore->getAlign().value();
+		// See if we can get a better alignment from the current pointer
+		if(currentPtrAlignment > alignment)
+		{
+			// Can we extract better alignment from the base pointer and the known offset?
+			uint32_t newAlignment = currentPtrAlignment;
+			while(groupedSamePointer[a].offset % newAlignment != 0)
+				newAlignment /= 2;
+			assert(newAlignment >= alignment);
+			alignment = newAlignment;
+		}
 
 		if (!isWasm && alignment < dim * 2)
 			continue;
