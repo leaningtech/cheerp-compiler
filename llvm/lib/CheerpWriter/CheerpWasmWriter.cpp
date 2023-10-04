@@ -4427,14 +4427,18 @@ void CheerpWasmWriter::compileImportSection()
 
 	numberOfImportedFunctions = importedTotal;
 
+	if (!useWasmLoader && importedTotal == 0)
+		return;
+
 	Section section(0x02, "Import", this);
 
 	// Encode number of entries in the import section.
-	// The +1 is for memory that we import unconditionally.
-	encodeULEB128(importedTotal + 1, section);
+	// We import the memory in all cases, except when the target is WASI.
+	encodeULEB128(importedTotal + useWasmLoader, section);
 
-	// Import the memory
-	compileImportMemory(section);
+	// Import the memory if target is not WASI.
+	if (useWasmLoader)
+		compileImportMemory(section);
 
 	for (const Function* F : globalDeps.asmJSImports())
 	{
@@ -4583,6 +4587,37 @@ CheerpWasmWriter::GLOBAL_CONSTANT_ENCODING CheerpWasmWriter::shouldEncodeConstan
 	else
 	{
 		return NONE;
+	}
+}
+
+void CheerpWasmWriter::compileMemorySection()
+{
+	// Define the memory for the module in WasmPage units. The heap size is
+	// defined in MiB and the wasm page size is 64 KiB. Thus, the wasm heap
+	// max size parameter is defined as: heapSize << 20 >> 16 = heapSize << 4.
+	uint32_t maxMemory = heapSize << 4;
+	uint32_t minMemory = (linearHelper.getHeapStart() + 65535) >> 16;
+
+	// TODO use WasmPage variable instead of hardcoded '1>>16'.
+	assert(WasmPage == 64 * 1024);
+
+	if (noGrowMemory)
+		minMemory = maxMemory;
+
+	{
+		Section section(0x05, "Memory", this);
+		encodeULEB128(1, section);
+		// from the spec:
+		//limits ::= 0x00 n:u32          => {min n, max e, unshared}
+		//           0x01 n:u32 m:u32    => {min n, max m, unshared}
+		//           0x03 n:u32 m:u32    => {min n, max m, shared}
+		// We use 0x01 and 0x03 only for now
+		int memType = sharedMemory ? 0x03 : 0x01;
+		encodeULEB128(memType, section);
+		// Encode minimum and maximum memory parameters.
+		encodeULEB128(minMemory, section);
+		encodeULEB128(maxMemory, section);
+		section.encode();
 	}
 }
 
@@ -5064,6 +5099,9 @@ void CheerpWasmWriter::compileModule()
 	compileFunctionSection();
 
 	compileTableSection();
+
+	if (!useWasmLoader)
+		compileMemorySection();
 
 	compileGlobalSection();
 

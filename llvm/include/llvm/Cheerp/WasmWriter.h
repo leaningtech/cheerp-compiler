@@ -371,6 +371,7 @@ private:
 	void compileFunctionSection();
 	void compileImportSection();
 	void compileTableSection();
+	void compileMemorySection();
 	void compileGlobalSection();
 	void compileExportSection();
 	void compileElementSection();
