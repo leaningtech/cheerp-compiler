@@ -4796,10 +4796,11 @@ void CheerpWasmWriter::compileExportSection()
 			globalDeps.asmJSExports().end());
 
 	// We may need to export the table and/or the memory.
-	uint32_t extraExports = uint32_t(exportedTable) + uint32_t(WasmExportedMemory);
+	bool exportMemory = WasmExportedMemory || !useWasmLoader;
+	uint32_t extraExports = uint32_t(exportedTable) + uint32_t(exportMemory);
 	encodeULEB128(exports.size() + extraExports, section);
 
-	if (WasmExportedMemory)
+	if (exportMemory)
 	{
 		// Encode the memory.
 		StringRef name = useWasmLoader? namegen.getBuiltinName(NameGenerator::MEMORY) : "memory";
