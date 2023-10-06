@@ -105,7 +105,12 @@ bool AllocaLowering::runOnFunction(Function& F, DominatorTree& DT, cheerp::Globa
 					continue;
 				}
 				uint32_t size = targetData.getTypeAllocSize(allocTy);
-				uint32_t alignment = cheerp::TypeSupport::getAlignmentAsmJS(targetData, allocTy);
+
+				uint64_t alignment64 = ai->getAlign().value();
+				assert(alignment64 <= std::numeric_limits<uint32_t>::max());
+				uint32_t asmjsAlignment = cheerp::TypeSupport::getAlignmentAsmJS(targetData, allocTy);
+				uint32_t alignment = std::max(static_cast<uint32_t>(alignment64), asmjsAlignment);
+
 				size_t num  = 1;
 				if (ai->isArrayAllocation())
 				{
