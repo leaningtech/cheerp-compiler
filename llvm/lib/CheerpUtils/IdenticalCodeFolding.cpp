@@ -457,8 +457,8 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 		{
 			const SelectInst* siA = cast<SelectInst>(A);
 			const SelectInst* siB = cast<SelectInst>(B);
-			return CacheAndReturn(equivalentOperand(siA->getTrueValue(), siB->getTrueValue()) ||
-				equivalentOperand(siA->getFalseValue(), siB->getFalseValue()) ||
+			return CacheAndReturn(equivalentOperand(siA->getTrueValue(), siB->getTrueValue()) &&
+				equivalentOperand(siA->getFalseValue(), siB->getFalseValue()) &&
 				equivalentOperand(siA->getCondition(), siB->getCondition()));
 		}
 		case Instruction::SIToFP:
