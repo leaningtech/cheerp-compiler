@@ -5805,53 +5805,30 @@ void CheerpWriter::compileGlobalAsmJS(const GlobalVariable& G)
 
 void CheerpWriter::compileGlobalsInitAsmJS()
 {
-
 	if (asmJSMem)
 	{
 		ostream_proxy os(*asmJSMem, nullptr, false);
-		BinaryBytesWriter bytesWriter(os);
-		uint32_t last_address = linearHelper.getStackStart();
-		uint32_t last_size = 0;
-		for ( const GlobalVariable* GV : linearHelper.globals() )
-		{
-			if (GV->hasInitializer())
-			{
-				const Constant* init = GV->getInitializer();
-				Type* ty = init->getType();
-				uint32_t cur_address = linearHelper.getGlobalVariableAddress(GV);
-				uint32_t padding = cur_address - (last_address+last_size);
-				for ( uint32_t i = 0; i < padding; i++ )
-				{
-					os << (char)0;
-				}
-				linearHelper.compileConstantAsBytes(init,/* asmjs */ true, &bytesWriter);
-				last_size = targetData.getTypeAllocSize(ty);
-				last_address = cur_address;
-			}
-			else
-			{
-				last_size = 0;
-			}
-		}
+
+		const LinearMemoryHelper::GlobalDataChunk &chunk = linearHelper.getGlobalDataChunk(0);
+		for (uint32_t i = 0; i < chunk.view.size(); i++)
+			os << (char)chunk.view[i];
 	}
 	else
 	{
-		for ( const GlobalVariable* GV : linearHelper.globals() )
+		for (uint32_t i = 0; i < linearHelper.getAmountChunks(); i++)
 		{
-			if (GV->hasInitializer())
+			const LinearMemoryHelper::GlobalDataChunk &chunk = linearHelper.getGlobalDataChunk(i);
+			assert(isHeapNameUsed(HEAP8));
+			stream << getHeapName(HEAP8) << ".set([";
+			bool first = true;
+			for (uint32_t j = 0; j < chunk.view.size(); j++)
 			{
-				const Constant* init = GV->getInitializer();
-
-				// Skip global variables that are zero-initialised.
-				if (linearHelper.isZeroInitializer(init))
-					continue;
-
-				assert(isHeapNameUsed(HEAP8));
-				stream  << getHeapName(HEAP8) << ".set([";
-				JSBytesWriter bytesWriter(stream);
-				linearHelper.compileConstantAsBytes(init,/* asmjs */ true, &bytesWriter);
-				stream << "]," << linearHelper.getGlobalVariableAddress(GV) << ");" << NewLine;
+				if (!first)
+					stream << ",";
+				stream << (int)chunk.view[j];
+				first = false;
 			}
+			stream << "]," << chunk.address << ");" << NewLine;
 		}
 	}
 }

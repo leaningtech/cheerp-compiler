@@ -422,18 +422,6 @@ private:
 	void flushGeneric(WasmBuffer& code, const llvm::Instruction& I, const InstructionToDependenciesMap& dependencies);
 	void flushMemoryDependencies(WasmBuffer& code, const llvm::Instruction& I);
 	void flushSetLocalDependencies(WasmBuffer& code, const llvm::Instruction& I);
-
-	struct WasmBytesWriter: public LinearMemoryHelper::ByteListener
-	{
-		WasmBuffer& code;
-		const CheerpWasmWriter& writer;
-		WasmBytesWriter(WasmBuffer& code, const CheerpWasmWriter& writer)
-			: code(code), writer(writer)
-		{
-		}
-		void addByte(uint8_t b) override;
-	};
-
 	struct WasmGepWriter: public LinearMemoryHelper::LinearGepListener
 	{
 		CheerpWasmWriter& writer;
@@ -541,7 +529,6 @@ public:
 	void encodeWasmIntrinsic(WasmBuffer& code, const llvm::Function* F);
 	void encodeBranchTable(WasmBuffer& code, std::vector<uint32_t> table, int32_t defaultBlock);
 	void encodeDataSectionChunk(WasmBuffer& data, uint32_t address, llvm::StringRef buf);
-	uint32_t encodeDataSectionChunks(WasmBuffer& data, uint32_t address, llvm::StringRef buf);
 	void compileFloatToText(WasmBuffer& code, const llvm::APFloat& f, uint32_t precision);
 	GLOBAL_CONSTANT_ENCODING shouldEncodeConstantAsGlobal(const llvm::Constant* C, uint32_t useCount, uint32_t getGlobalCost);
 	bool requiresExplicitAssigment(const llvm::Instruction* phi, const llvm::Value* incoming);
