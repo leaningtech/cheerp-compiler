@@ -2860,6 +2860,13 @@ void CXXNameMangler::mangleType(QualType T) {
   Qualifiers quals = split.Quals;
   const Type *ty = split.Ty;
 
+  // CHEERP: We allow address spaces in more places than normal, and the substitution
+  // logic does not handle this well. For now, just ignore the client address space,
+  // But a better approach would be to strip the address space only when not expected.
+  // For example, when mangling the class name of methods.
+  if(quals.getAddressSpace() == LangAS::cheerp_client)
+    quals.removeAddressSpace();
+
   bool isSubstitutable =
     isTypeSubstitutable(quals, ty, Context.getASTContext());
   if (isSubstitutable && mangleSubstitution(T))
