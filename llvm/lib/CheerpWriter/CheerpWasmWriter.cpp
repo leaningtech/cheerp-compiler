@@ -4955,100 +4955,19 @@ void CheerpWasmWriter::encodeDataSectionChunk(WasmBuffer& data, uint32_t address
 	data.write(buf.data(), buf.size());
 }
 
-uint32_t CheerpWasmWriter::encodeDataSectionChunks(WasmBuffer& data, uint32_t address, StringRef buf)
-{
-	// Split data section buffer into chunks based on 9 (or more) zero bytes.
-	uint32_t chunks = 0;
-	size_t cur = 0, last = 0, end = 0;
-	std::string delimiter(9, '\0');
-	while ((cur = buf.find(delimiter, last)) != std::string::npos) {
-		if (chunks + 1 == 1e5)
-		{
-			// V8 and SpiderMonkey have an hard limit of 1e5 chunks, and we potentially need a last one to encode the remaining bytes
-			break;
-		}
-		std::string chunk(buf.substr(last, cur - last));
-		assert(chunk.size() == cur - last);
-		assert(address + last > end);
-		encodeDataSectionChunk(data, address + last, chunk);
-		chunks++;
-
-		end = address + last + chunk.size();
-
-		// Skip the delimiter and all consecutive zero bytes.
-		last = cur + delimiter.length();
-		for (; last < buf.size() && buf[last] == 0; last++);
-	}
-
-	// If the buffer ends with zero bytes (last == buf.size()), an empty chunk
-	// will be encoded. This should not happen, and is prevented by stripping
-	// leading and trailing zeros from the buffer when this function is called.
-	assert(last < buf.size());
-	encodeDataSectionChunk(data, address + last, buf.substr(last));
-
-	return chunks + 1;
-}
-
 void CheerpWasmWriter::compileDataSection()
 {
 	Section section(0x0b, "Data", this);
 
-	Chunk<128> data;
-	uint32_t count = 0;
+	uint32_t amountChunks = linearHelper.getAmountChunks();
+	encodeULEB128(amountChunks, section);
 
-	auto globals = linearHelper.addressableGlobals();
-	// Concatenate global variables into one big binary blob.
-	//
-	// NOTE(carlo): To avoid the intermediate buffer, that potentially could be bigger than
-	// the resulting Wasm file (since there might be big segments that are zero-initialized),
-	// a solution could be iterating twice on globals.
-	// First iteration to to find the (ordered) boundaries of the segments to be initialized;
-	// Second iteration then to then directly write in the Wasm buffer
-
-	Chunk<128> bytes;
-	uint32_t starting_address = 0;
-	WasmBytesWriter bytesWriter(bytes, *this);
-	for (auto g = globals.begin(), e = globals.end(); g != e; ++g)
+	for (uint32_t i = 0; i < amountChunks; i++)
 	{
-		const GlobalVariable* GV = *g;
-
-		// Skip global variables that are zero-initialised.
-		if (!linearHelper.hasNonZeroInitialiser(GV))
-			continue;
-		const Constant* init = GV->getInitializer();
-
-		uint32_t address = linearHelper.getGlobalVariableAddress(GV);
-		long written = bytes.tell();
-		if (written == 0)
-			starting_address = address;
-		uint32_t padding = address - (starting_address + written);
-		// Determine amount of padding bytes necessary for the alignment.
-		for (uint32_t i = 0; i < padding; i++)
-			bytes << (char)0;
-
-		linearHelper.compileConstantAsBytes(init,/* asmjs */ true, &bytesWriter);
-
+		const LinearMemoryHelper::GlobalDataChunk &chunk = linearHelper.getGlobalDataChunk(i);
+		std::string buf(reinterpret_cast<const char *>(&chunk.view[0]), chunk.view.size());
+		encodeDataSectionChunk(section, chunk.address, buf);
 	}
-
-	StringRef buf = bytes.str();
-
-	// Strip leading and trailing zeros.
-	size_t pos = 0, len = buf.size();
-	for (unsigned i = 0; i < buf.size() && !buf[i]; i++) {
-		pos++;
-		len--;
-	}
-	for (unsigned i = buf.size(); i > 0 && !buf[--i];)
-		len--;
-	buf = buf.substr(pos, len);
-
-	starting_address += pos;
-
-	if (len)
-		count = encodeDataSectionChunks(data, starting_address, buf);
-
-	encodeULEB128(count, section);
-	section << data.str();
 
 	section.encode();
 }
@@ -5122,11 +5041,6 @@ void CheerpWasmWriter::compileModule()
 void CheerpWasmWriter::makeWasm()
 {
 	compileModule();
-}
-
-void CheerpWasmWriter::WasmBytesWriter::addByte(uint8_t byte)
-{
-	code.write(reinterpret_cast<char*>(&byte), 1);
 }
 
 void CheerpWasmWriter::WasmGepWriter::addValue(const llvm::Value* v, uint32_t size)

@@ -35,6 +35,7 @@ struct LinearMemoryHelperInitializer
 	uint32_t memorySize;
 	uint32_t stackSize;
 	bool growMem;
+	bool hasAsmjsMem;
 };
 
 class LinearMemoryHelperWrapper;
@@ -117,6 +118,17 @@ public:
 		}
 	};
 
+	struct GlobalDataChunk
+	{
+	public:
+		GlobalDataChunk(uint32_t address, std::vector<uint8_t> &rawData, uint32_t start, uint32_t length) : address(address), view(&rawData[start], length)
+		{
+		}
+		uint32_t address;
+		llvm::ArrayRef<uint8_t> view;
+	};
+	const GlobalDataChunk &getGlobalDataChunk(uint32_t number) const;
+
 	static std::string getFunctionTableName(const llvm::FunctionType* ft)
 	{
 		auto getTypeKindChar = [](const llvm::Type* ty)
@@ -176,7 +188,8 @@ public:
 		mode(data.mode), functionTables(3, FunctionSignatureHash(/*isStrict*/false), FunctionSignatureCmp(/*isStrict*/false)),
 		functionTypeIndices(3, FunctionSignatureHash(/*isStrict*/false), FunctionSignatureCmp(/*isStrict*/false)),
 		maxFunctionId(0), memorySize(data.memorySize*1024*1024),
-		stackSize(data.stackSize*1024*1024), growMem(data.growMem)
+		stackSize(data.stackSize*1024*1024), growMem(data.growMem),
+		hasAsmjsMem(data.hasAsmjsMem)
 	{
 	}
 	bool runOnModule(llvm::Module& module, GlobalDepsAnalyzer* GDA)
@@ -189,6 +202,7 @@ public:
 		addGlobals();
 		checkMemorySize();
 		addHeapStartAndEnd();
+		populateGlobalData();
 
 		return false;
 	}
@@ -234,6 +248,9 @@ public:
 	}
 	uint32_t getHeapStart() const {
 		return heapStart;
+	}
+	uint32_t getAmountChunks() const {
+		return globalDataChunks.size();
 	}
 
 	/**
@@ -346,11 +363,38 @@ private:
 		llvm_unreachable("unrecognized type kind");
 	}
 
+	// The VectorWriter struct is used while populating the global data.
+	struct VectorWriter : public ByteListener
+	{
+		uint32_t address;
+		uint32_t currentZeroStreak;
+		uint32_t splitThreshold;
+		uint32_t maxChunks;
+		uint32_t startOfChunk;
+		uint32_t lastNonZero;
+		uint32_t startAddress;
+		bool isDataAvailable;
+		std::vector<uint8_t> &rawData;
+		std::vector<GlobalDataChunk> &chunks;
+		VectorWriter(std::vector<uint8_t> &rawGlobalData, std::vector<GlobalDataChunk> &chunks, uint32_t splitThreshold, uint32_t maxChunks, uint32_t startAddress) : address(0), currentZeroStreak(0), splitThreshold(splitThreshold), maxChunks(maxChunks), startOfChunk(0), lastNonZero(0), startAddress(startAddress), isDataAvailable(false), rawData(rawGlobalData), chunks(chunks)
+		{
+		}
+		void addByte(uint8_t b) override;
+		void setAddress(uint32_t newAddress)
+		{
+			uint32_t offsetAddress = newAddress - startAddress;
+			currentZeroStreak += (offsetAddress - address);
+			address = offsetAddress;
+		}
+		bool splitChunk(bool force = false, bool hasAsmjsMem = false);
+	};
+
 	void addGlobals();
 	void addFunctions();
 	void addStack();
 	void addHeapStartAndEnd();
 	void checkMemorySize();
+	void populateGlobalData();
 
 	llvm::Module* module;
 	GlobalDepsAnalyzer* globalDeps;
@@ -371,6 +415,8 @@ private:
 	std::vector<const llvm::GlobalVariable*> asmjsAddressableGlobals;
 	GlobalUsageMap globalizedGlobalsUsage;
 	void generateGlobalizedGlobalsUsage();
+	std::vector<uint8_t> rawGlobalData;
+	std::vector<GlobalDataChunk> globalDataChunks;
 
 	FunctionAddressesMap functionAddresses;
 	GlobalAddressesMap globalAddresses;
@@ -386,6 +432,8 @@ private:
 	uint32_t stackStart;
 	// Whether memory can grow at runtime or not
 	bool growMem;
+	// Whether there is an extra asmjs memory file.
+	bool hasAsmjsMem;
 	llvm::ModuleAnalysisManager* MAM;
 	friend LinearMemoryHelperWrapper;
 };

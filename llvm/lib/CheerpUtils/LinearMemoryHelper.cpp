@@ -669,6 +669,86 @@ void LinearMemoryHelper::addHeapStartAndEnd()
 	}
 }
 
+void LinearMemoryHelper::VectorWriter::addByte(uint8_t b)
+{
+	rawData[address] = b;
+	if (b == 0)
+	{
+		currentZeroStreak++;
+		address++;
+		return;
+	}
+	// If no data was available yet, we mark it now.
+	if (!isDataAvailable)
+	{
+		isDataAvailable = true;
+		startOfChunk = address;
+	}
+	// If data was already available, and we hit the split threshold, we split a chunk.
+	else if (currentZeroStreak >= splitThreshold)
+	{
+		bool split = splitChunk();
+		// We also start a new chunk with this byte.
+		if (split)
+			startOfChunk = address;
+	}
+	lastNonZero = address;
+	address++;
+	currentZeroStreak = 0;
+}
+
+bool LinearMemoryHelper::VectorWriter::splitChunk(bool force, bool hasAsmjsMem)
+{
+	if (force && !isDataAvailable)
+		return false;
+	if (!force && chunks.size() + 1 == maxChunks)
+		return false;
+	uint32_t address = startAddress + startOfChunk;
+	uint32_t startPosition = hasAsmjsMem ? 0 : startOfChunk;
+	uint32_t length = hasAsmjsMem ? rawData.size() : lastNonZero - startPosition + 1;
+	GlobalDataChunk globalChunk(address, rawData, startPosition, length);
+	chunks.push_back(globalChunk);
+	return true;
+}
+
+void LinearMemoryHelper::populateGlobalData()
+{
+	// costToSplit is based on the cost of characters needed to encode data. Currently it is actually
+	// the same between asmjs and Wasm, but this will change soon.
+	uint32_t costToSplit = (mode == FunctionAddressMode::AsmJS) ? 9 : 9;
+
+	// maxChunks differs. In Wasm this is 1e5 (V8 and SpiderMonkey apparently have a hard limit there)
+	// In AsmJS with extra memory there is only 1 chunk, and without extra memory we can have infinite.
+	uint32_t maxChunks = UINT_MAX;
+	if (mode == FunctionAddressMode::Wasm)
+		maxChunks = 1e5;
+	else if (hasAsmjsMem)
+		maxChunks = 1;
+
+	// This vector will keep the raw byte data of the globals.
+	rawGlobalData.resize(heapStart - stackSize);
+	VectorWriter vectorWriter(rawGlobalData, globalDataChunks, costToSplit, maxChunks, stackStart);
+
+	// Now loop over all the globals and compile them into the vector.
+	for (const GlobalVariable *GV : globals())
+	{
+		if (GV->hasInitializer() && globalAddresses.count(GV))
+		{
+			const Constant* init = GV->getInitializer();
+			uint32_t curAddress = getGlobalVariableAddress(GV);
+			vectorWriter.setAddress(curAddress);
+			compileConstantAsBytes(init,/* asmjs */ true, &vectorWriter);
+		}
+	}
+	vectorWriter.splitChunk(true, hasAsmjsMem);
+}
+
+const LinearMemoryHelper::GlobalDataChunk &LinearMemoryHelper::getGlobalDataChunk(uint32_t number) const
+{
+	assert(number < globalDataChunks.size());
+	return globalDataChunks[number];
+}
+
 uint32_t LinearMemoryHelper::getGlobalVariableAddress(const GlobalVariable* G) const
 {
 	assert(globalAddresses.count(G));

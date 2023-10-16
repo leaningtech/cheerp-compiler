@@ -121,6 +121,8 @@ bool CheerpWritePass::runOnModule(Module& M)
                  // NOTE: this is not actually required by the spec, but for now chrome
                  // doesn't like growing shared memory
                  !WasmSharedMemory;
+  bool hasAsmjsMem = functionAddressMode == cheerp::LinearMemoryHelperInitializer::FunctionAddressMode::AsmJS &&
+                     (!SecondaryOutputFile.empty() || !SecondaryOutputPath.empty());
 
   if (FixWrongFuncCasts)
     MPM.addPass(cheerp::FixFunctionCastsPass());
@@ -158,7 +160,7 @@ bool CheerpWritePass::runOnModule(Module& M)
   // inside not used instructions which are then not rendered.
   MPM.addPass(createModuleToFunctionPassAdaptor(cheerp::PreserveCheerpAnalysisPassWrapper<DCEPass, Function, FunctionAnalysisManager>()));
   MPM.addPass(cheerp::RegisterizePass(!NoJavaScriptMathFround, LinearOutput == Wasm));
-  MPM.addPass(cheerp::LinearMemoryHelperPass(cheerp::LinearMemoryHelperInitializer({functionAddressMode, CheerpHeapSize, CheerpStackSize, growMem})));
+  MPM.addPass(cheerp::LinearMemoryHelperPass(cheerp::LinearMemoryHelperInitializer({functionAddressMode, CheerpHeapSize, CheerpStackSize, growMem, hasAsmjsMem})));
   MPM.addPass(cheerp::ConstantExprLoweringPass());
   MPM.addPass(cheerp::PointerAnalyzerPass());
   MPM.addPass(cheerp::DelayInstsPass());

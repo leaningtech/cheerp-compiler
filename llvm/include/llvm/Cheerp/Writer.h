@@ -589,14 +589,6 @@ private:
 		}
 		void addByte(uint8_t b) override;
 	};
-	struct BinaryBytesWriter: public LinearMemoryHelper::ByteListener
-	{
-		ostream_proxy& stream;
-		BinaryBytesWriter(ostream_proxy& stream):stream(stream)
-		{
-		}
-		void addByte(uint8_t b) override {stream <<(char)b;};
-	};
 
 	struct AsmJSGepWriter: public LinearMemoryHelper::LinearGepListener
 	{
