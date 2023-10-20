@@ -50,12 +50,14 @@ PreservedAnalyses CallConstructorsPass::run(llvm::Module &M, llvm::ModuleAnalysi
 		Value* ExitCode = nullptr;
 		if (Main->arg_size())
 		{
-			if (Main->arg_size() != 2)
+			if (Main->arg_size() != 2 && Main->arg_size() != 3)
 				llvm::report_fatal_error("main function has a strange signature");
 			Type* ArgcTy = Main->getArg(0)->getType();
 			Type* ArgvTy = Main->getArg(1)->getType();
+			Type* EnvTy = Main->arg_size() == 3? Main->getArg(2)->getType() : ArgvTy;
 			Value* Argc = nullptr;
 			Value* Argv = nullptr;
+			Value* Env = nullptr;
 			Function* GetArgs = M.getFunction("__syscall_main_args");
 			if (GetArgs)
 			{
@@ -74,7 +76,15 @@ PreservedAnalyses CallConstructorsPass::run(llvm::Module &M, llvm::ModuleAnalysi
 				Argc = ConstantInt::get(ArgcTy, 0);
 				Argv = ConstantPointerNull::get(cast<PointerType>(ArgvTy));
 			}
-			ExitCode = Builder.CreateCall(Main->getFunctionType(), Main, { Argc, Argv });
+			if (Main->arg_size() == 3)
+			{
+				Env = ConstantPointerNull::get(cast<PointerType>(EnvTy));
+				ExitCode = Builder.CreateCall(Main->getFunctionType(), Main, { Argc, Argv, Env });
+			}
+			else
+			{
+				ExitCode = Builder.CreateCall(Main->getFunctionType(), Main, { Argc, Argv });
+			}
 		}
 		else
 		{
