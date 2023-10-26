@@ -496,6 +496,13 @@ CodeGenModule::ComputeBaseIdOffset(const CXXRecordDecl *DerivedClass,
 unsigned
 CodeGenModule::ComputeVirtualBaseIdOffset(const CXXRecordDecl *Derived,
                                    const CXXRecordDecl* VBase) {
+  // Empty base classes are handled differently because getVirtualBaseIndex
+  // uses CompleteObjectVirtualBases, which does not store empty base classes.
+  // The actual offset returned here is not very important because an empty
+  // class does not have any members to dereference.
+  if (VBase->isEmpty())
+    return 0;
+
   // Get the layout.
   const CGRecordLayout &Layout = getTypes().getCGRecordLayout(Derived);
   unsigned baseId = Layout.getVirtualBaseIndex(VBase);
