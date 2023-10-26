@@ -33,6 +33,7 @@
 #include "llvm/Cheerp/SIMDTransform.h"
 #include "llvm/Cheerp/BitCastLowering.h"
 #include "llvm/Cheerp/JSStringLiteralLowering.h"
+#include "llvm/Cheerp/MemoryInit.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/EarlyCSE.h"
 #include "llvm/Passes/PassBuilder.h"
@@ -161,6 +162,8 @@ bool CheerpWritePass::runOnModule(Module& M)
   MPM.addPass(createModuleToFunctionPassAdaptor(cheerp::PreserveCheerpAnalysisPassWrapper<DCEPass, Function, FunctionAnalysisManager>()));
   MPM.addPass(cheerp::RegisterizePass(!NoJavaScriptMathFround, LinearOutput == Wasm));
   MPM.addPass(cheerp::LinearMemoryHelperPass(cheerp::LinearMemoryHelperInitializer({functionAddressMode, CheerpHeapSize, CheerpStackSize, growMem, hasAsmjsMem})));
+  if (LinearOutput == LinearOutputTy::Wasm)
+    MPM.addPass(cheerp::MemoryInitPass());
   MPM.addPass(cheerp::ConstantExprLoweringPass());
   MPM.addPass(cheerp::PointerAnalyzerPass());
   MPM.addPass(cheerp::DelayInstsPass());

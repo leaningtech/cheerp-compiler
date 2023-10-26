@@ -37,6 +37,14 @@ PreservedAnalyses CallConstructorsPass::run(llvm::Module &M, llvm::ModuleAnalysi
 	BasicBlock* Entry = BasicBlock::Create(M.getContext(),"entry", Ctors);
 	IRBuilder<> Builder(Entry);
 
+	if (LinearOutput == LinearOutputTy::Wasm)
+	{
+		// Here we declare the memory_init function, which will be called by _start.
+		Function* memoryInit = cast<Function>(M.getOrInsertFunction("__memory_init", Ty).getCallee());
+		memoryInit->setSection("asmjs");
+		Builder.CreateCall(Ty, memoryInit);
+	}
+
 	for (Constant* C: cheerp::getGlobalConstructors(M))
 	{
 		Builder.CreateCall(Ty, cast<Function>(C->getAggregateElement(1)));
