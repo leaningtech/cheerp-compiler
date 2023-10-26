@@ -666,6 +666,14 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 		extendLifetime(startFunc);
 		if (startFunc->getSection() == "asmjs")
 			asmJSExportedFuncions.insert(startFunc);
+		else if (LinearOutput == LinearOutputTy::Wasm)
+		{
+			// Because memory_init is empty, it will not be automatically tagged as asmjs
+			// when the _start function is not, but it should. So we do it manually.
+			llvm::Function* initFunc = module.getFunction("__memory_init");
+			assert(initFunc);
+			asmJSExportedFuncions.insert(initFunc);
+		}
 	}
 	else
 	{
@@ -1664,7 +1672,9 @@ int GlobalDepsAnalyzer::filterModule( const DenseSet<const Function*>& droppedMa
 			!TypeSupport::isClientFunc(f) && !TypeSupport::isClientConstructorName(f->getName()) &&
 			!TypeSupport::isWasiFuncName(f->getName()) &&
 			// Special case "free" here, it might be used in genericjs code and lowered by the backend
-			f->getName() != "free")
+			f->getName() != "free" &&
+			// Special case "__memory_init", it will be populated just before the writer.
+			f->getName() != "__memory_init")
 		{
 			logUndefinedSymbol(f);
 		}

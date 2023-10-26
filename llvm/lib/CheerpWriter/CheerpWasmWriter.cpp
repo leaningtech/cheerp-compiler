@@ -4983,12 +4983,8 @@ void CheerpWasmWriter::encodeDataSectionChunk(WasmBuffer& data, uint32_t address
 {
 	// In the current version of WebAssembly, 0x00 encodes an active data segment on memory 0
 	// (0x01 encodes passive data segment, and 0x02 an active data segment followed by actual memory index)
-	encodeULEB128(0, data);
-	// The offset into memory, which is the address
-	encodeLiteralType(Type::getInt32Ty(Ctx), data);
-	encodeSLEB128(address, data);
-	// Encode the end of the instruction sequence.
-	encodeULEB128(0x0b, data);
+	// We encode the memory as passive, and initialize them in a custom function called by _start.
+	encodeULEB128(1, data);
 	// Prefix the number of bytes to the bytes vector.
 	encodeULEB128(buf.size(), data);
 	data.write(buf.data(), buf.size());

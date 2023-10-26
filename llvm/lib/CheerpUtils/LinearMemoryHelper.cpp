@@ -504,6 +504,15 @@ void LinearMemoryHelper::addFunctions()
 		unsorted.push_back(&F);
 	}
 
+	if (LinearOutput == LinearOutputTy::Wasm)
+	{
+		// __memory_init will be populated in a later pass, with data calculated in LinearMemoryHelper.
+		// But it should be compiled in wasm, so manually add it to the list.
+		Function* memoryInit = module->getFunction("__memory_init");
+		if (memoryInit)
+			unsorted.push_back(memoryInit);
+	}
+
 	// Sort the list of functions by their usage.
 	std::sort(unsorted.begin(), unsorted.end(),
 		[] (const Function* a, const Function* b) {
@@ -713,9 +722,8 @@ bool LinearMemoryHelper::VectorWriter::splitChunk(bool force, bool hasAsmjsMem)
 
 void LinearMemoryHelper::populateGlobalData()
 {
-	// costToSplit is based on the cost of characters needed to encode data. Currently it is actually
-	// the same between asmjs and Wasm, but this will change soon.
-	uint32_t costToSplit = (mode == FunctionAddressMode::AsmJS) ? 9 : 9;
+	// costToSplit is based on the cost of characters needed to encode data.
+	uint32_t costToSplit = (mode == FunctionAddressMode::AsmJS) ? 9 : 19;
 
 	// maxChunks differs. In Wasm this is 1e5 (V8 and SpiderMonkey apparently have a hard limit there)
 	// In AsmJS with extra memory there is only 1 chunk, and without extra memory we can have infinite.
