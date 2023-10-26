@@ -4905,6 +4905,13 @@ void CheerpWasmWriter::compileElementSection()
 	section.encode();
 }
 
+void CheerpWasmWriter::compileDataCountSection()
+{
+	Section dataCountSection(0x0c, "Data Count", this);
+	encodeULEB128(linearHelper.getAmountChunks(), dataCountSection);
+	dataCountSection.encode();
+}
+
 void CheerpWasmWriter::compileCodeSection()
 {
 	Section codeSection(0x0a, "Code", this);
@@ -5060,6 +5067,8 @@ void CheerpWasmWriter::compileModule()
 	compileExportSection();
 
 	compileElementSection();
+
+	compileDataCountSection();
 
 	compileCodeSection();
 
