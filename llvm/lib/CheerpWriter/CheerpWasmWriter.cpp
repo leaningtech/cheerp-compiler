@@ -2439,6 +2439,23 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						}
 						return false;
 					}
+					case Intrinsic::cheerp_memory_init:
+					{
+						compileOperand(code, ci.getOperand(1));
+						compileOperand(code, ci.getOperand(2));
+						compileOperand(code, ci.getOperand(3));
+						llvm::ConstantInt *constInt = cast<llvm::ConstantInt>(ci.getOperand(0));
+						// The second immediate for MEMORY_INIT is the memory index.
+						// As there is currently no support for multiple memories, this has to be 0.
+						encodeInst(WasmFCU32U32Opcode::MEMORY_INIT, constInt->getZExtValue(), 0, code);
+						return true;
+					}
+					case Intrinsic::cheerp_data_drop:
+					{
+						llvm::ConstantInt *constInt = cast<llvm::ConstantInt>(ci.getOperand(0));
+						encodeInst(WasmFCU32Opcode::DATA_DROP, constInt->getZExtValue(), code);
+						return true;
+					}
 					case Intrinsic::flt_rounds:
 					{
 						// Rounding mode 1: nearest
