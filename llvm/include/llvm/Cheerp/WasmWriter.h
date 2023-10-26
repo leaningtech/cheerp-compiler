@@ -375,6 +375,7 @@ private:
 	void compileGlobalSection();
 	void compileExportSection();
 	void compileElementSection();
+	void compileDataCountSection();
 	void compileCodeSection();
 	void compileDataSection();
 	void compileNameSection();
