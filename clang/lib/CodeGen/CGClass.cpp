@@ -424,7 +424,9 @@ Address CodeGenFunction::GetAddressOfBaseClass(
   // First handle the non-byte addressable case (Cheerp normal)
   if (!getTarget().isByteAddressable() && !asmjs)
   {
-    if (VBase) {
+    // No cast is needed for virtual classes in the client namespace, all
+    // fields are accessible directly on the derived class.
+    if (VBase && !VBase->isClientNamespace()) {
       Value = GenerateVirtualcast(Value, VBase, VirtualOffset);
       Derived = VBase;
     }
