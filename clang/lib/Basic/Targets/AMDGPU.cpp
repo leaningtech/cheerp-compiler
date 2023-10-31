@@ -58,6 +58,7 @@ const LangASMap AMDGPUTargetInfo::AMDGPUDefIsGenMap = {
     Generic,  // ptr64
     Generic,  // hlsl_groupshared
     Generic,  // cheerp_client
+    Generic,  // cheerp_genericjs
 };
 
 const LangASMap AMDGPUTargetInfo::AMDGPUDefIsPrivMap = {
@@ -83,6 +84,7 @@ const LangASMap AMDGPUTargetInfo::AMDGPUDefIsPrivMap = {
     Generic, // ptr64
     Generic, // hlsl_groupshared
     Generic,  // cheerp_client
+    Generic,  // cheerp_genericjs
 
 };
 } // namespace targets
