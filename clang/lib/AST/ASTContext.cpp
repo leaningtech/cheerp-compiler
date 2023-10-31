@@ -957,6 +957,7 @@ static const LangASMap *getAddressSpaceMap(const TargetInfo &T,
         12, // ptr64
         13, // hlsl_groupshared
         14, // cheerp_client
+        15, // cheerp_genericjs
     };
     return &FakeAddrSpaceMap;
   } else {
