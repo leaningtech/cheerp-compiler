@@ -13668,8 +13668,8 @@ void Sema::setupImplicitSpecialMemberType(CXXMethodDecl *SpecialMem,
   FunctionProtoType::ExtProtoInfo EPI = getImplicitMethodEPI(*this, SpecialMem);
 
   LangAS AS = getDefaultCXXMethodAddrSpace();
-  if (clang::AnalysisDeclContext::isInClientNamespace(SpecialMem->getParent())) {
-    AS = LangAS::cheerp_client;
+  if (!Context.getTargetInfo().isByteAddressable()) {
+    AS = Context.getCheerpTypeAddressSpace(SpecialMem->getParent());
   }
   if (AS != LangAS::Default) {
     EPI.TypeQuals.addAddressSpace(AS);
@@ -14622,6 +14622,9 @@ CXXMethodDecl *Sema::DeclareImplicitCopyAssignment(CXXRecordDecl *ClassDecl) {
 
   QualType ArgType = Context.getTypeDeclType(ClassDecl);
   LangAS AS = getDefaultCXXMethodAddrSpace();
+  if (!Context.getTargetInfo().isByteAddressable()) {
+    AS = Context.getCheerpTypeAddressSpace(ClassDecl);
+  }
   if (AS != LangAS::Default)
     ArgType = Context.getAddrSpaceQualType(ArgType, AS);
   QualType RetType = Context.getLValueReferenceType(ArgType);
@@ -15186,6 +15189,9 @@ CXXMethodDecl *Sema::DeclareImplicitMoveAssignment(CXXRecordDecl *ClassDecl) {
 
   QualType ArgType = Context.getTypeDeclType(ClassDecl);
   LangAS AS = getDefaultCXXMethodAddrSpace();
+  if (!Context.getTargetInfo().isByteAddressable()) {
+    AS = Context.getCheerpTypeAddressSpace(ClassDecl);
+  }
   if (AS != LangAS::Default)
     ArgType = Context.getAddrSpaceQualType(ArgType, AS);
   QualType RetType = Context.getLValueReferenceType(ArgType);
@@ -15564,6 +15570,9 @@ CXXConstructorDecl *Sema::DeclareImplicitCopyConstructor(
     ArgType = ArgType.withConst();
 
   LangAS AS = getDefaultCXXMethodAddrSpace();
+  if (!Context.getTargetInfo().isByteAddressable()) {
+    AS = Context.getCheerpTypeAddressSpace(ClassDecl);
+  }
   if (AS != LangAS::Default)
     ArgType = Context.getAddrSpaceQualType(ArgType, AS);
 

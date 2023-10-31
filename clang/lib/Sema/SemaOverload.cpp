@@ -32,7 +32,6 @@
 #include "clang/Sema/SemaInternal.h"
 #include "clang/Sema/Template.h"
 #include "clang/Sema/TemplateDeduction.h"
-#include "clang/Analysis/AnalysisDeclContext.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/STLExtras.h"
@@ -5457,13 +5456,13 @@ TryObjectArgumentInitialization(Sema &S, SourceLocation Loc, QualType FromType,
     Quals.addConst();
     Quals.addVolatile();
   }
+  if (!S.Context.getTargetInfo().isByteAddressable()) {
+    LangAS AS = S.Context.getCheerpTypeAddressSpace(ActingContext);
+    if (AS != LangAS::Default)
+      Quals.addAddressSpace(AS);
+  }
 
   QualType ImplicitParamType = S.Context.getQualifiedType(ClassType, Quals);
-
-  if(clang::AnalysisDeclContext::isInClientNamespace(ActingContext))
-  {
-    ImplicitParamType = S.Context.getAddrSpaceQualType(ImplicitParamType, clang::LangAS::cheerp_client);
-  }
 
   // Set up the conversion sequence as a "bad" conversion, to allow us
   // to exit early.

@@ -35,7 +35,6 @@
 #include "clang/Sema/SemaInternal.h"
 #include "clang/Sema/Template.h"
 #include "clang/Sema/TemplateInstCallback.h"
-#include "clang/Analysis/AnalysisDeclContext.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallString.h"
@@ -1909,12 +1908,10 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
   }
 
 
-  if(auto* C = Result->getAsCXXRecordDecl())
-  {
-    if(clang::AnalysisDeclContext::isInClientNamespace(C))
-    {
-      Result = Context.getAddrSpaceQualType(Result, clang::LangAS::cheerp_client);
-    }
+  if (!S.Context.getTargetInfo().isByteAddressable()) {
+    LangAS AS = Context.getCheerpTypeAddressSpace(Result);
+    if (AS != LangAS::Default)
+      Result = Context.getAddrSpaceQualType(Result, AS);
   }
 
   assert(!Result.isNull() && "This function should not return a null type");
@@ -5557,15 +5554,13 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
                  state.getDeclarator().getContext() ==
                      DeclaratorContext::LambdaExpr;
         };
-        auto IsClientClassMember = [&]() {
+        auto GetParentClass = [&]() {
           CXXRecordDecl* C = nullptr;
           if (!state.getDeclarator().getCXXScopeSpec().isEmpty())
             C = state.getDeclarator().getCXXScopeSpec().getScopeRep()->getAsRecordDecl();
           if (!C)
             C = dyn_cast<CXXRecordDecl>(S.CurContext);
-          if (!C)
-            return false;
-          return clang::AnalysisDeclContext::isInClientNamespace(C);
+          return C;
         };
 
         if (state.getSema().getLangOpts().OpenCLCPlusPlus && IsClassMember()) {
@@ -5588,8 +5583,10 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
                                         : ASIdx);
           EPI.TypeQuals.addAddressSpace(AS);
         }
-        if (IsClientClassMember()) {
-          EPI.TypeQuals.addAddressSpace(LangAS::cheerp_client);
+        if (auto* C = GetParentClass()) {
+          LangAS AS = S.Context.getCheerpTypeAddressSpace(C);
+          if (!S.Context.getTargetInfo().isByteAddressable() && AS != LangAS::Default)
+            EPI.TypeQuals.addAddressSpace(AS);
         }
         T = Context.getFunctionType(T, ParamTys, EPI);
       }

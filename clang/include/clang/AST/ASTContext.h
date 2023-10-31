@@ -2816,6 +2816,9 @@ public:
 
   LangAS getLangASForBuiltinAddressSpace(unsigned AS) const;
 
+  LangAS getCheerpTypeAddressSpace(QualType T) const;
+  LangAS getCheerpTypeAddressSpace(TagDecl* D) const;
+
   /// Get target-dependent integer value for null pointer which is used for
   /// constant folding.
   uint64_t getTargetNullPointerValue(QualType QT) const;
