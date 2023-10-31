@@ -10221,6 +10221,13 @@ private:
     return DefaultABIInfo::classifyReturnType(RetTy);
   };
   ABIArgInfo classifyArgumentType(QualType Ty) const {
+    if (isAggregateTypeForABI(Ty)) {
+      LangAS AS = getContext().getCheerpTypeAddressSpace(Ty);
+      return ABIArgInfo::getIndirectAliased(
+          getContext().getTypeAlignInChars(Ty),
+          getContext().getTargetAddressSpace(AS),
+          false /*Realign*/, nullptr /*Padding*/);
+    }
     return DefaultABIInfo::classifyArgumentType(Ty);
   };
 
