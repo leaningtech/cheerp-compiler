@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -x c++ -std=c++14 -fsyntax-only -verify %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -x c++ -std=c++14 -fsyntax-only -verify %s
 
 template <int I, int J, int K>
 void car() {

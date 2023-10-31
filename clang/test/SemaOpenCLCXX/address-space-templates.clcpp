@@ -1,4 +1,4 @@
-//RUN: %clang_cc1 %s -pedantic -verify -ast-dump  | FileCheck %s
+//RUN: %clang_cc1 -triple %itanium_abi_triple %s -pedantic -verify -ast-dump  | FileCheck %s
 
 template <typename T>
 struct S {

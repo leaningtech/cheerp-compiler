@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -verify -std=c2x %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -verify -std=c2x %s
 
 // Demonstrate that we get the correct type information. Do this by leaning
 // heavily on redeclarations needing to use the same type for both decls.
