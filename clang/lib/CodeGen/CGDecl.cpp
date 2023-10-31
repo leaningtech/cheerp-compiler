@@ -1553,11 +1553,12 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
         allocaAlignment = alignment;
       }
 
+      uint32_t AS = getTarget().isByteAddressable()? 0 : getContext().getTargetAddressSpace(Ty.getAddressSpace());
       // Create the alloca.  Note that we set the name separately from
       // building the instruction so that it's there even in no-asserts
       // builds.
       address = CreateTempAlloca(allocaTy, allocaAlignment, D.getName(),
-                                 /*ArraySize=*/nullptr, &AllocaAddr);
+                                 /*ArraySize=*/nullptr, &AllocaAddr, AS);
 
       // Don't emit lifetime markers for MSVC catch parameters. The lifetime of
       // the catch parameter starts in the catchpad instruction, and we can't
