@@ -8513,7 +8513,7 @@ void Sema::CheckVariableDeclarationType(VarDecl *NewVD) {
   // This includes arrays of objects with address space qualifiers, but not
   // automatic variables that point to other address spaces.
   // ISO/IEC TR 18037 S5.1.2
-  if (!getLangOpts().OpenCL && NewVD->hasLocalStorage() &&
+  if (!getLangOpts().OpenCL && Context.getTargetInfo().isByteAddressable() && NewVD->hasLocalStorage() &&
       T.getAddressSpace() != LangAS::Default) {
     Diag(NewVD->getLocation(), diag::err_as_qualified_auto_decl) << 0;
     NewVD->setInvalidDecl();
@@ -14770,6 +14770,8 @@ ParmVarDecl *Sema::CheckParameter(DeclContext *DC, SourceLocation StartLoc,
   // Since all parameters have automatic store duration, they can not have
   // an address space.
   if (T.getAddressSpace() != LangAS::Default &&
+      // CHEERP: allow locals/args with address spaces
+      Context.getTargetInfo().isByteAddressable() &&
       // OpenCL allows function arguments declared to be an array of a type
       // to be qualified with an address space.
       !(getLangOpts().OpenCL &&
