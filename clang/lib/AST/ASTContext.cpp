@@ -13181,6 +13181,8 @@ LangAS ASTContext::getCheerpTypeAddressSpace(TagDecl* D) const {
   LangAS AS = LangAS::Default;
   if (AnalysisDeclContext::isInClientNamespace(D)) {
     AS = clang::LangAS::cheerp_client;
+  } else if (D->hasAttr<GenericJSAttr>()) {
+    AS = LangAS::cheerp_genericjs;
   }
   return AS;
 }
