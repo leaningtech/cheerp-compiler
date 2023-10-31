@@ -2691,6 +2691,9 @@ void CXXNameMangler::mangleQualifiers(Qualifiers Quals, const DependentAddressSp
       case LangAS::cheerp_client:
         ASString = "";
         break;
+      case LangAS::cheerp_genericjs:
+        ASString = "";
+        break;
       }
     }
     if (!ASString.empty())
@@ -2864,7 +2867,7 @@ void CXXNameMangler::mangleType(QualType T) {
   // logic does not handle this well. For now, just ignore the client address space,
   // But a better approach would be to strip the address space only when not expected.
   // For example, when mangling the class name of methods.
-  if(quals.getAddressSpace() == LangAS::cheerp_client)
+  if(quals.getAddressSpace() == LangAS::cheerp_client || quals.getAddressSpace() == LangAS::cheerp_genericjs)
     quals.removeAddressSpace();
 
   bool isSubstitutable =
