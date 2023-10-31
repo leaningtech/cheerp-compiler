@@ -68,8 +68,9 @@ llvm::Value *CodeGenFunction::EmitCastToVoidPtr(llvm::Value *value) {
 Address CodeGenFunction::CreateTempAllocaWithoutCast(llvm::Type *Ty,
                                                      CharUnits Align,
                                                      const Twine &Name,
-                                                     llvm::Value *ArraySize) {
-  auto Alloca = CreateTempAlloca(Ty, Name, ArraySize);
+                                                     llvm::Value *ArraySize,
+                                                     uint32_t AS) {
+  auto Alloca = CreateTempAlloca(Ty, Name, ArraySize, AS);
   Alloca->setAlignment(Align.getAsAlign());
   return Address(Alloca, Ty, Align);
 }
@@ -79,8 +80,9 @@ Address CodeGenFunction::CreateTempAllocaWithoutCast(llvm::Type *Ty,
 Address CodeGenFunction::CreateTempAlloca(llvm::Type *Ty, CharUnits Align,
                                           const Twine &Name,
                                           llvm::Value *ArraySize,
-                                          Address *AllocaAddr) {
-  auto Alloca = CreateTempAllocaWithoutCast(Ty, Align, Name, ArraySize);
+                                          Address *AllocaAddr,
+                                          uint32_t AS) {
+  auto Alloca = CreateTempAllocaWithoutCast(Ty, Align, Name, ArraySize, AS);
   if (AllocaAddr)
     *AllocaAddr = Alloca;
   llvm::Value *V = Alloca.getPointer();
@@ -109,10 +111,11 @@ Address CodeGenFunction::CreateTempAlloca(llvm::Type *Ty, CharUnits Align,
 /// insertion point of the builder.
 llvm::AllocaInst *CodeGenFunction::CreateTempAlloca(llvm::Type *Ty,
                                                     const Twine &Name,
-                                                    llvm::Value *ArraySize) {
+                                                    llvm::Value *ArraySize,
+                                                    uint32_t AS) {
   if (ArraySize)
     return Builder.CreateAlloca(Ty, ArraySize, Name);
-  return new llvm::AllocaInst(Ty, CGM.getDataLayout().getAllocaAddrSpace(),
+  return new llvm::AllocaInst(Ty, AS == 0? CGM.getDataLayout().getAllocaAddrSpace() : AS,
                               ArraySize, Name, AllocaInsertPt);
 }
 

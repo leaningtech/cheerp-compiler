@@ -2586,14 +2586,17 @@ public:
   /// The cast is not performaed in CreateTempAllocaWithoutCast. This is
   /// more efficient if the caller knows that the address will not be exposed.
   llvm::AllocaInst *CreateTempAlloca(llvm::Type *Ty, const Twine &Name = "tmp",
-                                     llvm::Value *ArraySize = nullptr);
+                                     llvm::Value *ArraySize = nullptr,
+                                     uint32_t AS = 0);
   Address CreateTempAlloca(llvm::Type *Ty, CharUnits align,
                            const Twine &Name = "tmp",
                            llvm::Value *ArraySize = nullptr,
-                           Address *Alloca = nullptr);
+                           Address *Alloca = nullptr,
+                           uint32_t AS = 0);
   Address CreateTempAllocaWithoutCast(llvm::Type *Ty, CharUnits align,
                                       const Twine &Name = "tmp",
-                                      llvm::Value *ArraySize = nullptr);
+                                      llvm::Value *ArraySize = nullptr,
+                                      uint32_t AS = 0);
 
   /// CreateDefaultAlignedTempAlloca - This creates an alloca with the
   /// default ABI alignment of the given LLVM type.
