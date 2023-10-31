@@ -52,6 +52,7 @@ static const unsigned TCEOpenCLAddrSpaceMap[] = {
     0, // ptr64
     0, // hlsl_groupshared
     0, // cheerp_client
+    0, // cheerp_genericjs
 };
 
 class LLVM_LIBRARY_VISIBILITY TCETargetInfo : public TargetInfo {

@@ -2234,6 +2234,8 @@ std::string Qualifiers::getAddrSpaceAsString(LangAS AS) {
     return "groupshared";
   case LangAS::cheerp_client:
     return "client_as";
+  case LangAS::cheerp_genericjs:
+    return "js_as";
   default:
     return std::to_string(toTargetAddressSpace(AS));
   }
