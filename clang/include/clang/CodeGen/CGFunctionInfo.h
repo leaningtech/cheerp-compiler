@@ -396,7 +396,7 @@ public:
   }
 
   bool getIndirectByVal() const {
-    assert(isIndirect() && "Invalid kind!");
+    assert((isIndirect() || isIndirectAliased() ) && "Invalid kind!");
     return IndirectByVal;
   }
   void setIndirectByVal(bool IBV) {
