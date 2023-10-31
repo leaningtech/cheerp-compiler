@@ -5019,9 +5019,12 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
           I->copyInto(*this, AI);
         } else {
           // Skip the extra memcpy call.
+		  // CHEERP: TODO figure out the address space for variadic args
+          unsigned AS = getTarget().isByteAddressable() || IRFuncTy->getNumParams() <= FirstIRArg
+            ? CGM.getDataLayout().getAllocaAddrSpace()
+            : IRFuncTy->getParamType(FirstIRArg)->getPointerAddressSpace();
           auto *T = llvm::PointerType::getWithSamePointeeType(
-              cast<llvm::PointerType>(V->getType()),
-              CGM.getDataLayout().getAllocaAddrSpace());
+              cast<llvm::PointerType>(V->getType()), AS);
 
           llvm::Value *Val = getTargetHooks().performAddrSpaceCast(
               *this, V, LangAS::Default, CGM.getASTAllocaAddressSpace(), T,
