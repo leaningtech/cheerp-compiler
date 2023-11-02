@@ -115,7 +115,8 @@ void GlobalDepsAnalyzer::simplifyCalls(llvm::Module & module) const
 
 void GlobalDepsAnalyzer::extendLifetime(Function* F)
 {
-	assert(F);
+	if(!F)
+		return;
 
 	externals.push_back(F);
 	VisitedSet visited;
