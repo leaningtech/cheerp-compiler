@@ -48,7 +48,7 @@ void StructMemFuncLowering::recursiveCopy(IRBuilder<>* IRB, Value* baseDst, Valu
 	// For aggregates we push a new index and overwrite it for each element
 	if(StructType* ST=dyn_cast<StructType>(curType))
 	{
-		assert(baseDst->getType() == containingType->getPointerTo());
+		assert(baseDst->getType() == containingType->getPointerTo(baseDst->getType()->getPointerAddressSpace()));
 		if (ST->hasByteLayout())
 			return createMemFunc(IRB, baseDst, baseSrc, containingType, DL->getTypeAllocSize(curType), indexes);
 		indexes.push_back(NULL);
@@ -102,13 +102,13 @@ void StructMemFuncLowering::recursiveCopy(IRBuilder<>* IRB, Value* baseDst, Valu
 		Type* loadType = containingType;
 		if(indexes.size() != 1 || !isa<ConstantInt>(indexes[0]) || cast<ConstantInt>(indexes[0])->getZExtValue()!=0)
 		{
-			assert(baseSrc->getType() == containingType->getPointerTo());
+			assert(baseSrc->getType() == containingType->getPointerTo(baseSrc->getType()->getPointerAddressSpace()));
 			assert(baseSrc->getType() == baseDst->getType());
 			elementSrc = IRB->CreateGEP(containingType, baseSrc, indexes);
 			elementDst = IRB->CreateGEP(containingType, baseDst, indexes);
 			loadType = cast<GEPOperator>(elementDst)->getResultElementType();
 		}
-		assert(loadType->getPointerTo() == elementSrc->getType());
+		assert(loadType->getPointerTo(elementSrc->getType()->getPointerAddressSpace()) == elementSrc->getType());
 		Instruction* element = IRB->CreateAlignedLoad(loadType, elementSrc, MaybeAlign(baseAlign));
 		MDNode* newAliasScope = NULL;
 		if(aliasDomain)
@@ -188,7 +188,7 @@ void StructMemFuncLowering::recursiveReset(IRBuilder<>* IRB, Value* baseDst, Val
 			computedResetVal=IRB->CreateShl(computedResetVal, 8);
 			computedResetVal=IRB->CreateOr(computedResetVal, expandedResetVal);
 		}
-		assert(containingType->getPointerTo() == baseDst->getType());
+		assert(containingType->getPointerTo(baseDst->getType()->getPointerAddressSpace()) == baseDst->getType());
 		Value* elementDst = IRB->CreateGEP(containingType, baseDst, indexes);
 		IRB->CreateAlignedStore(computedResetVal, elementDst, MaybeAlign(baseAlign));
 	}
@@ -209,7 +209,7 @@ void StructMemFuncLowering::recursiveReset(IRBuilder<>* IRB, Value* baseDst, Val
 			Function* splatIntrinsic = Intrinsic::getDeclaration(BB->getModule(), Intrinsic::cheerp_wasm_splat, argTypes);
 			computedResetVal = IRB->CreateCall(splatIntrinsic, { resetVal });
 		}
-		assert(containingType->getPointerTo() == baseDst->getType());
+		assert(containingType->getPointerTo(baseDst->getType()->getPointerAddressSpace()) == baseDst->getType());
 		Value* elementDst = IRB->CreateGEP(containingType, baseDst, indexes);
 		IRB->CreateAlignedStore(computedResetVal, elementDst, MaybeAlign(baseAlign));
 	}
@@ -230,7 +230,7 @@ void StructMemFuncLowering::recursiveReset(IRBuilder<>* IRB, Value* baseDst, Val
 			floatResetVal = ConstantFP::get(curType->getContext(), APFloat(APFloat::IEEEsingle(), floatConstant));
 		else
 			floatResetVal = ConstantFP::get(curType->getContext(), APFloat(APFloat::IEEEdouble(), floatConstant));
-		assert(containingType->getPointerTo() == baseDst->getType());
+		assert(containingType->getPointerTo(baseDst->getType()->getPointerAddressSpace()) == baseDst->getType());
 		Value* elementDst = IRB->CreateGEP(containingType, baseDst, indexes);
 		IRB->CreateAlignedStore(floatResetVal, elementDst, MaybeAlign(baseAlign));
 	}
@@ -239,7 +239,7 @@ void StructMemFuncLowering::recursiveReset(IRBuilder<>* IRB, Value* baseDst, Val
 		// Only constant NULL is supported
 		// TODO: Stop non constant in the frontend
 		assert(cast<ConstantInt>( resetVal )->getZExtValue() == 0);
-		assert(containingType->getPointerTo() == baseDst->getType());
+		assert(containingType->getPointerTo(baseDst->getType()->getPointerAddressSpace()) == baseDst->getType());
 		Value* elementDst = IRB->CreateGEP(containingType, baseDst, indexes);
 		IRB->CreateAlignedStore(ConstantPointerNull::get(PT), elementDst, MaybeAlign(baseAlign));
 	}
@@ -283,11 +283,11 @@ void StructMemFuncLowering::createGenericLoop(IRBuilder<>* IRB, BasicBlock* prev
 	{
 		if(mode != MEMSET)
 		{
-			srcPHI = IRB->CreatePHI(pointedType->getPointerTo(), 2);
+			srcPHI = IRB->CreatePHI(pointedType->getPointerTo(srcVal->getType()->getPointerAddressSpace()), 2);
 			srcPHI->addIncoming(src, previousBlock);
 			srcVal = srcPHI;
 		}
-		dstPHI = IRB->CreatePHI(pointedType->getPointerTo(), 2);
+		dstPHI = IRB->CreatePHI(pointedType->getPointerTo(dstVal->getType()->getPointerAddressSpace()), 2);
 		dstPHI->addIncoming(dst, previousBlock);
 		dstVal = dstPHI;
 		baseAlign = DL->getABITypeAlignment(pointedType);
@@ -498,10 +498,10 @@ bool StructMemFuncLowering::runOnBlock(BasicBlock& BB, bool asmjs)
 					elemSize = sizeInt - (sizeInt % elemSize);
 				}
 				IRBuilder<> IRB(CI);
-				dst = IRB.CreateBitCast(dst, pointedType->getPointerTo());
+				dst = IRB.CreateBitCast(dst, pointedType->getPointerTo(dst->getType()->getPointerAddressSpace()));
 				// In MEMSET mode src is the i8 value to write
 				if(mode != MEMSET)
-					src = IRB.CreateBitCast(src, pointedType->getPointerTo());
+					src = IRB.CreateBitCast(src, pointedType->getPointerTo(src->getType()->getPointerAddressSpace()));
 				// We have found a good alignment above, check if we need to split the intrinsic to deal with an unaligned tail
 				if(uint32_t tailSize = sizeInt % elemSize) {
 					IRBuilder<> IRB(CI->getNextNode());
