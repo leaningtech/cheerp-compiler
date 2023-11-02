@@ -1757,6 +1757,15 @@ public:
     return nullptr;
   }
 
+  /// Extract the byref type for a call or parameter.
+  Type *getParamByRefType(unsigned ArgNo) const {
+    if (auto *Ty = Attrs.getParamByRefType(ArgNo))
+      return Ty;
+    if (const Function *F = getCalledFunction())
+      return F->getAttributes().getParamByRefType(ArgNo);
+    return nullptr;
+  }
+
   /// Extract the preallocated type for a call or parameter.
   Type *getParamPreallocatedType(unsigned ArgNo) const {
     if (auto *Ty = Attrs.getParamPreallocatedType(ArgNo))
@@ -1921,6 +1930,11 @@ public:
   /// Determine if any call argument is an aggregate passed by value.
   bool hasByValArgument() const {
     return Attrs.hasAttrSomewhere(Attribute::ByVal);
+  }
+
+  /// Determine if any call argument is an aggregate passed by reference.
+  bool hasByRefArgument() const {
+    return Attrs.hasAttrSomewhere(Attribute::ByRef);
   }
 
   ///@{
