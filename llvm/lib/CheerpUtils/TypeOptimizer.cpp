@@ -1419,6 +1419,16 @@ Function* TypeOptimizer::rewriteFunctionSignature(Function* F)
 					PAL = PAL.addParamAttribute(F->getContext(), i, Attribute::getWithByValType(F->getContext(), rewrittenArgType));
 				}
 			}
+			if(CurAttrs.hasAttribute(Attribute::ByRef))
+			{
+				Type* argElemType = F->getParamByRefType(i);
+				PAL = PAL.removeParamAttribute(F->getContext(), i, Attribute::ByRef);
+				Type* rewrittenArgType = rewriteType(argElemType);
+				if(rewrittenArgType->isStructTy())
+				{
+					PAL = PAL.addParamAttribute(F->getContext(), i, Attribute::getWithByRefType(F->getContext(), rewrittenArgType));
+				}
+			}
 			if(CurAttrs.hasAttribute(Attribute::StructRet))
 			{
 				Type* argElemType = F->getParamStructRetType(i);
@@ -1701,7 +1711,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 					}
 					else
 					{
-						if(CI->hasByValArgument() || CI->hasStructRetAttr())
+						if(CI->hasByValArgument() || CI->hasByRefArgument() || CI->hasStructRetAttr())
 						{
 							// We need to make sure that no byval attribute is applied to pointers to arrays
 							// as they will be rewritten to plain pointers and less memory will be copied
@@ -1757,6 +1767,19 @@ void TypeOptimizer::rewriteFunction(Function* F)
 									if(rewrittenArgType->isStructTy())
 									{
 										newAttrs = newAttrs.addParamAttribute(module->getContext(), i, Attribute::getWithStructRetType(F->getContext(), rewrittenArgType));
+										continue;
+									}
+								}
+								if(newAttrs.hasParamAttr(i, Attribute::ByRef))
+								{
+									Type* argType = localTypeMapping.getOriginalOperandType(CI->getArgOperand(i));
+									assert(argType->isPointerTy());
+									Type* rewrittenArgType = rewriteType(CI->getParamByRefType(i));
+									newAttrs=newAttrs.removeParamAttribute(module->getContext(), i, Attribute::ByRef);
+									attributesChanged = true;
+									if(rewrittenArgType->isStructTy())
+									{
+										newAttrs = newAttrs.addParamAttribute(module->getContext(), i, Attribute::getWithByRefType(F->getContext(), rewrittenArgType));
 										continue;
 									}
 								}
