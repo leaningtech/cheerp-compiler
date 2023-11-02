@@ -116,7 +116,7 @@ inline llvm::Type* getElementType(llvm::Type* t, llvm::Type* candidate)
 {
 	if(llvm::isa<llvm::PointerType>(t))
 	{
-		assert(candidate && candidate->getPointerTo() == t);
+		assert(candidate && candidate->getPointerTo(t->getPointerAddressSpace()) == t);
 		return candidate;
 	}
 	else if (t->isVectorTy())
