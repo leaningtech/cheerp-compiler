@@ -68,6 +68,7 @@ private:
 	std::unordered_map<std::pair<const llvm::Function*, const llvm::Function*>, bool, pair_hash> functionEquivalence;
 	std::unordered_map<const llvm::Function*, bool> externalFunctionMapping;
 	std::vector<llvm::Function*> deleteList;
+	std::unordered_map<const llvm::AllocaInst*, const llvm::AllocaInst*> allocaPairs;
 };
 
 class HashAccumulator64 {
