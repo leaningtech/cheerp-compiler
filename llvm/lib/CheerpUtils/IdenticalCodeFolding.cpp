@@ -92,6 +92,8 @@ bool IdenticalCodeFolding::equivalentFunction(const llvm::Function* A, const llv
 	llvm::errs() << "function A: " << A->getName() << '\n';
 	llvm::errs() << "function B: " << B->getName() << '\n';
 #endif
+	// Clear up equivalent allocas of previous function
+	allocaPairs.clear();
 
 	// Do not fold wasm/asmjs with generic JS functions.
 	if (A->getSection() != StringRef("asmjs") || B->getSection() != StringRef("asmjs"))
@@ -232,9 +234,20 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 		{
 			const AllocaInst* a = cast<AllocaInst>(A);
 			const AllocaInst* b = cast<AllocaInst>(B);
-			return CacheAndReturn(equivalentType(a->getAllocatedType(), b->getAllocatedType()) &&
+
+			auto it = allocaPairs.find(a);
+			if (it != allocaPairs.end() && it->second != b)
+				return CacheAndReturn(false);
+
+			const bool equivalent =  equivalentType(a->getAllocatedType(), b->getAllocatedType()) &&
 				equivalentOperand(a->getArraySize(), b->getArraySize()) &&
-				a->getAlign() == b->getAlign());
+				a->getAlign() == b->getAlign();
+
+			if (equivalent) {
+				allocaPairs[a] = b;
+				allocaPairs[b] = a;
+			}
+			return CacheAndReturn(equivalent);
 		}
 		case Instruction::Unreachable:
 		{
