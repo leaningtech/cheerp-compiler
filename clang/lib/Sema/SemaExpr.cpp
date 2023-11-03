@@ -7387,6 +7387,8 @@ Sema::BuildCompoundLiteralExpr(SourceLocation LParenLoc, TypeSourceInfo *TInfo,
       if (CheckForConstantInitializer(LiteralExpr, literalType))
         return ExprError();
   } else if (literalType.getAddressSpace() != LangAS::opencl_private &&
+             literalType.getAddressSpace() != LangAS::cheerp_client &&
+             literalType.getAddressSpace() != LangAS::cheerp_genericjs &&
              literalType.getAddressSpace() != LangAS::Default) {
     // Embedded-C extensions to C99 6.5.2.5:
     //   "If the compound literal occurs inside the body of a function, the
@@ -8393,7 +8395,7 @@ static QualType checkConditionalPointerCompatibility(Sema &S, ExprResult &LHS,
   // which is a superset of address spaces of both the 2nd and the 3rd
   // operands of the conditional operator.
   QualType ResultTy = [&, ResultAddrSpace]() {
-    if (S.getLangOpts().OpenCL) {
+    if (S.getLangOpts().OpenCL || !S.getASTContext().getTargetInfo().isByteAddressable()) {
       Qualifiers CompositeQuals = CompositeTy.getQualifiers();
       CompositeQuals.setAddressSpace(ResultAddrSpace);
       return S.Context
