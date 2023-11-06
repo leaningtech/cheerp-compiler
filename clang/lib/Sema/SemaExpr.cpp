@@ -6449,6 +6449,10 @@ static FunctionDecl *rewriteBuiltinFunctionDecl(Sema *Sema, ASTContext &Context,
                                                 FunctionDecl *FDecl,
                                                 MultiExprArg ArgExprs) {
 
+  // CHEERP: TODO: be more nuanced here
+  if (!Context.getTargetInfo().isByteAddressable()) {
+	return nullptr;
+  }
   QualType DeclType = FDecl->getType();
   const FunctionProtoType *FT = dyn_cast<FunctionProtoType>(DeclType);
 
