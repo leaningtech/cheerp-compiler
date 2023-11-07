@@ -13173,6 +13173,8 @@ LangAS ASTContext::getLangASForBuiltinAddressSpace(unsigned AS) const {
 }
 
 LangAS ASTContext::getCheerpTypeAddressSpace(QualType Ty) const {
+  if (Ty.hasAddressSpace())
+    return Ty.getAddressSpace();
   if (Ty->getAsTagDecl())
     return getCheerpTypeAddressSpace(Ty->getAsTagDecl());
   return LangAS::Default;
