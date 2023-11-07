@@ -326,7 +326,8 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 			const Function * calledFunc = ci->getCalledFunction();
 			const Value * calledValue = ci->getCalledOperand();
 			const FunctionType* fTy = ci->getFunctionType();
-			assert(!ci->isInlineAsm());
+			if (ci->isInlineAsm())
+				return CacheAndReturn(true); // We only allow empty asm statements in wasm, so they're always the same
 
 			if (calledFunc)
 			{

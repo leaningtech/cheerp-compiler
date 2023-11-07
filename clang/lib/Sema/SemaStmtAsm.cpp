@@ -245,18 +245,18 @@ StmtResult Sema::ActOnGCCAsmStmt(SourceLocation AsmLoc, bool IsSimple,
                                  Expr *asmString, MultiExprArg clobbers,
                                  unsigned NumLabels,
                                  SourceLocation RParenLoc) {
-
-  if (const FunctionDecl *Caller = dyn_cast<FunctionDecl>(CurContext)) {
-    if (Caller->hasAttr<AsmJSAttr>()) {
-      return StmtError(Diag(AsmLoc, diag::err_cheerp_asm_in_asmjs)
-                << Caller->getAttr<AsmJSAttr>());
-    }
-  }
   unsigned NumClobbers = clobbers.size();
   StringLiteral **Constraints =
     reinterpret_cast<StringLiteral**>(constraints.data());
   StringLiteral *AsmString = cast<StringLiteral>(asmString);
   StringLiteral **Clobbers = reinterpret_cast<StringLiteral**>(clobbers.data());
+
+  if (const FunctionDecl *Caller = dyn_cast<FunctionDecl>(CurContext)) {
+    if (Caller->hasAttr<AsmJSAttr>() && AsmString->getString().size()) {
+      return StmtError(Diag(AsmLoc, diag::err_cheerp_asm_in_asmjs)
+                << Caller->getAttr<AsmJSAttr>());
+    }
+  }
 
   SmallVector<TargetInfo::ConstraintInfo, 4> OutputConstraintInfos;
 
