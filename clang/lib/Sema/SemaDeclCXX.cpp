@@ -8795,8 +8795,14 @@ bool Sema::CheckExplicitlyDefaultedComparison(Scope *S, FunctionDecl *FD,
       // Is it `T const &`?
       bool Ok = !IsMethod;
       QualType ExpectedTy;
-      if (RD)
+      if (RD) {
         ExpectedTy = Context.getRecordType(RD);
+        if (!Context.getTargetInfo().isByteAddressable()) {
+          LangAS AS = Context.getCheerpTypeAddressSpace(RD);
+          if (AS != LangAS::Default)
+            ExpectedTy = Context.getAddrSpaceQualType(ExpectedTy, AS);
+        }
+      }
       if (auto *Ref = CTy->getAs<ReferenceType>()) {
         CTy = Ref->getPointeeType();
         if (RD)
