@@ -2119,6 +2119,76 @@ void Interpreter::visitInsertValueInst(InsertValueInst &I) {
   SetValue(&I, Dest, SF);
 }
 
+void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
+{
+  ExecutionContext &SF = ECStack.back();
+  GenericValue Src1 = getOperandValue(I.getPointerOperand(), SF);
+  GenericValue *Ptr = (GenericValue*)GVTORP(Src1);
+  GenericValue Src2 = getOperandValue(I.getValOperand(), SF);
+  GenericValue Orig;
+  LoadValueFromMemory(Orig, Ptr, I.getType());
+  GenericValue Result;
+
+  switch (I.getOperation()) {
+    default:
+      dbgs() << "Don't know how to handle this binary operator!\n-->" << I;
+      llvm_unreachable(nullptr);
+      break;
+    case AtomicRMWInst::BinOp::Add:   Result.IntVal = Orig.IntVal + Src2.IntVal; break;
+    case AtomicRMWInst::BinOp::Sub:   Result.IntVal = Orig.IntVal - Src2.IntVal; break;
+    case AtomicRMWInst::BinOp::And:   Result.IntVal = Orig.IntVal & Src2.IntVal; break;
+    case AtomicRMWInst::BinOp::Or:    Result.IntVal = Orig.IntVal | Src2.IntVal; break;
+    case AtomicRMWInst::BinOp::Xor:   Result.IntVal = Orig.IntVal ^ Src2.IntVal; break;
+  }
+  GenericValue Val = getOperandValue(I.getOperand(0), SF);
+  StoreValueToMemory(Result, Ptr, I.getValOperand()->getType());
+  if (StoreListener)
+  {
+    assert(ForPreExecute);
+    StoreListener(GVTORP(Src1));
+  }
+  SetValue(&I, Result, SF);
+}
+
+void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
+{
+  ExecutionContext &SF = ECStack.back();
+  GenericValue Src1 = getOperandValue(I.getPointerOperand(), SF);
+  GenericValue *Ptr = (GenericValue*)GVTORP(Src1);
+  GenericValue Cmp = getOperandValue(I.getCompareOperand(), SF);
+  GenericValue NewVal = getOperandValue(I.getNewValOperand(), SF);
+  GenericValue Orig;
+  GenericValue Result;
+  GenericValue Equal;
+
+  // Load the original value at the pointer.
+  LoadValueFromMemory(Orig, Ptr, I.getNewValOperand()->getType());
+
+  // Compare the original and the compare operand.
+  // If they are equal, store the newval.
+  Equal.IntVal = APInt(1,Orig.IntVal.eq(Cmp.IntVal));
+  if (Equal.IntVal == 1)
+  {
+    StoreValueToMemory(NewVal, Ptr, I.getNewValOperand()->getType());
+    if (StoreListener)
+    {
+      assert(ForPreExecute);
+      StoreListener(GVTORP(Src1));
+    }
+  }
+
+  // Now build the resulting value struct.
+  Result.AggregateVal.resize(2);
+  Result.AggregateVal[0] = Orig;
+  Result.AggregateVal[1] = Equal;
+  SetValue(&I, Result, SF);
+}
+
+void Interpreter::visitFenceInst(FenceInst &I)
+{
+  return ;
+}
+
 GenericValue Interpreter::getConstantExprValue (ConstantExpr *CE,
                                                 ExecutionContext &SF) {
   switch (CE->getOpcode()) {
