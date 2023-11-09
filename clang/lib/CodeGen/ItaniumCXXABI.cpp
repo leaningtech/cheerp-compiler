@@ -1827,9 +1827,7 @@ ItaniumCXXABI::buildStructorSignature(GlobalDecl GD,
   // These are Clang types, so we don't need to worry about sret yet.
 
   // Check if we need to add a VTT parameter (which has type void **).
-  if ((isa<CXXConstructorDecl>(GD.getDecl()) ? GD.getCtorType() == Ctor_Base
-                                             : GD.getDtorType() == Dtor_Base) &&
-      cast<CXXMethodDecl>(GD.getDecl())->getParent()->getNumVBases() != 0) {
+  if (NeedsVTTParameter(GD)) {
     ArgTys.insert(ArgTys.begin() + 1,
                   Context.getPointerType(Context.VoidPtrTy));
     return AddedStructorArgCounts::prefix(1);
@@ -3378,6 +3376,11 @@ LValue ItaniumCXXABI::EmitThreadLocalVarDeclLValue(CodeGenFunction &CGF,
 /// if it's a base constructor or destructor with virtual bases.
 bool ItaniumCXXABI::NeedsVTTParameter(GlobalDecl GD) {
   const CXXMethodDecl *MD = cast<CXXMethodDecl>(GD.getDecl());
+
+  // Cheerp: client classes are constructed in javascript,
+  // they do not need VTTs.
+  if (MD->isClientNamespace())
+    return false;
 
   // We don't have any virtual bases, just return early.
   if (!MD->getParent()->getNumVBases())

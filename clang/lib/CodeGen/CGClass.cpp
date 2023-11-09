@@ -1525,6 +1525,19 @@ void CodeGenFunction::EmitCtorPrologue(const CXXConstructorDecl *CD,
   CXXConstructorDecl::init_const_iterator B = CD->init_begin(),
                                           E = CD->init_end();
 
+  // Cheerp: a client constructor with a written base initializer only needs to
+  // call that initializer.
+  if (CD->isClientNamespace()) {
+    CXXConstructorDecl::init_const_iterator I = B;
+
+    for (; I != E && (*I)->isBaseInitializer(); I++) {
+      if ((*I)->isWritten()) {
+        EmitBaseInitializer(*this, ClassDecl, *I);
+        return;
+      }
+    }
+  }
+
   // Virtual base initializers first, if any. They aren't needed if:
   // - This is a base ctor variant
   // - There are no vbases
@@ -2961,6 +2974,11 @@ void CodeGenFunction::getVTablePointers(BaseSubobject Base,
 }
 
 void CodeGenFunction::InitializeVTablePointers(const CXXRecordDecl *RD) {
+  // Cheerp: client classes are constructed in javascript,
+  // they do not need vtables.
+  if (RD->isClientNamespace())
+    return;
+
   // Ignore classes without a vtable.
   if (!RD->isDynamicClass())
     return;
