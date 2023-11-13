@@ -45,7 +45,7 @@ GlobalDepsAnalyzer::GlobalDepsAnalyzer(MATH_MODE mathMode_, bool llcPass)
 	  entryPoint(NULL), hasCreateClosureUsers(false), hasVAArgs(false),
 	  hasPointerArrays(false), hasAsmJSCode(false), hasAsmJSMemory(false), hasAsmJSMalloc(false),
 	  hasCheerpException(false), mayNeedAsmJSFree(false), llcPass(llcPass),
-	  hasUndefinedSymbolErrors(false), forceTypedArrays(false)
+	  hasUndefinedSymbolErrors(false), forceTypedArrays(false), preserveFree(PreserveFree)
 {
 }
 static void createNullptrFunction(llvm::Module& module)
@@ -694,7 +694,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 		Function* ffree = module.getFunction("free");
 		if (ffree)
 		{
-			if(!hasAsmJSMalloc)
+			if(!hasAsmJSMalloc && !preserveFree)
 			{
 				// The symbol is still used around, so keep it but make it empty
 				ffree->deleteBody();

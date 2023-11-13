@@ -641,6 +641,12 @@ void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
     cheerpUseBigInts->render(Args, CmdArgs);
   else if (getToolChain().getTriple().getOS() == llvm::Triple::WASI)
     CmdArgs.push_back("-cheerp-use-bigints");
+
+  // Malloc/Free are probably intercepted when using sanitizers, don't optimize
+  // them out
+  if(Args.hasArg(options::OPT_fsanitize_EQ))
+    CmdArgs.push_back("-cheerp-preserve-free");
+
   if(Arg* cheerpStrictLinkingEq = Args.getLastArg(options::OPT_cheerp_strict_linking_EQ)) {
     if (cheerpStrictLinkingEq->getValue() != StringRef("warning") &&
         cheerpStrictLinkingEq->getValue() != StringRef("error")) {
@@ -649,7 +655,6 @@ void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
     }
     cheerpStrictLinkingEq->render(Args, CmdArgs);
   }
-
 
   if(Arg* cheerpLinearOutput = Args.getLastArg(options::OPT_cheerp_linear_output_EQ))
     cheerpLinearOutput->render(Args, CmdArgs);
@@ -822,6 +827,10 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back(Args.MakeArgString(linearOut));
   }
 
+  // Malloc/Free are probably intercepted when using sanitizers, don't optimize
+  // them out
+  if(Args.hasArg(options::OPT_fsanitize_EQ))
+    CmdArgs.push_back("-cheerp-preserve-free");
 
   if(Arg* cheerpSecondaryOutputFile = Args.getLastArg(options::OPT_cheerp_secondary_output_file_EQ))
     cheerpSecondaryOutputFile->render(Args, CmdArgs);

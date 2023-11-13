@@ -277,6 +277,7 @@ private:
 
 	bool llcPass;
 	bool hasUndefinedSymbolErrors;
+	bool preserveFree;
 public:
 	bool forceTypedArrays;
 	bool needsBuiltin(BuiltinInstr::BUILTIN b)

@@ -87,3 +87,5 @@ llvm::cl::opt<bool> WasmNoUnalignedMem("cheerp-wasm-no-unaligned-mem", llvm::cl:
 llvm::cl::opt<bool> UseBigInts("cheerp-use-bigints", llvm::cl::desc("Use the BigInt type in JS to represent i64 values"));
 
 llvm::cl::opt<bool> KeepInvokes("cheerp-keep-invokes", llvm::cl::desc("Don't lower invokes to calls"));
+
+llvm::cl::opt<bool> PreserveFree("cheerp-preserve-free", llvm::cl::desc("Don't optimize out calls to free"));
