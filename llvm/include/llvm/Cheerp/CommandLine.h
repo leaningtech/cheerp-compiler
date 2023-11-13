@@ -58,5 +58,6 @@ extern llvm::cl::opt<bool> WasmNoGlobalization;
 extern llvm::cl::opt<bool> WasmNoUnalignedMem;
 extern llvm::cl::opt<bool> UseBigInts;
 extern llvm::cl::opt<bool> KeepInvokes;
+extern llvm::cl::opt<bool> PreserveFree;
 
 #endif //_CHEERP_COMMAND_LINE_H
