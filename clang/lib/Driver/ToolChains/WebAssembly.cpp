@@ -961,10 +961,10 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
     cheerpFixFuncCasts->render(Args, CmdArgs);
   if(Arg* cheerpUseBigInts = Args.getLastArg(options::OPT_cheerp_use_bigints))
     cheerpUseBigInts->render(Args, CmdArgs);
-  if(Arg* cheerpMakeDTS = Args.getLastArg(options::OPT_cheerp_make_dts))
-    cheerpMakeDTS->render(Args, CmdArgs);
   else if (getToolChain().getTriple().getOS() == llvm::Triple::WASI)
     CmdArgs.push_back("-cheerp-use-bigints");
+  if(Arg* cheerpMakeDTS = Args.getLastArg(options::OPT_cheerp_make_dts))
+    cheerpMakeDTS->render(Args, CmdArgs);
 
   // Set output to binary mode to avoid linefeed conversion on Windows.
   CmdArgs.push_back("-filetype");
