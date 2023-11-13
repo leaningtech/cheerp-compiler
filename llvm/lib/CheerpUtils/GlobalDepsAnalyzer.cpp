@@ -150,6 +150,9 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	replaceFunctionAliasWithAliasee(module, "calloc");
 	replaceFunctionAliasWithAliasee(module, "realloc");
 	replaceFunctionAliasWithAliasee(module, "free");
+	replaceFunctionAliasWithAliasee(module, "memcpy");
+	replaceFunctionAliasWithAliasee(module, "memset");
+	replaceFunctionAliasWithAliasee(module, "memmove");
 
 	// Replace the aliases with the actual values
 	for (auto& a: make_early_inc_range(module.aliases()))
