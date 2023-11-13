@@ -1139,6 +1139,7 @@ Decl *TemplateDeclInstantiator::VisitVarDecl(VarDecl *D,
       SemaRef.inferObjCARCLifetime(Var))
     Var->setInvalidDecl();
 
+  SemaRef.deduceCheerpAddressSpace(Var);
   if (SemaRef.getLangOpts().OpenCL)
     SemaRef.deduceOpenCLAddressSpace(Var);
 
@@ -3945,6 +3946,7 @@ Decl *TemplateDeclInstantiator::VisitVarTemplateSpecializationDecl(
     VarTemplate->AddSpecialization(Var, InsertPos);
   }
 
+  SemaRef.deduceCheerpAddressSpace(Var);
   if (SemaRef.getLangOpts().OpenCL)
     SemaRef.deduceOpenCLAddressSpace(Var);
 
@@ -5186,6 +5188,7 @@ VarTemplateSpecializationDecl *Sema::CompleteVarTemplateSpecializationDecl(
   // Instantiate the initializer.
   InstantiateVariableInitializer(VarSpec, PatternDecl, TemplateArgs);
 
+  deduceCheerpAddressSpace(VarSpec);
   if (getLangOpts().OpenCL)
     deduceOpenCLAddressSpace(VarSpec);
 

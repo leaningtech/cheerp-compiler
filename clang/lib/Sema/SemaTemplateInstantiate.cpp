@@ -2003,6 +2003,8 @@ TemplateInstantiator::TransformFunctionTypeParam(ParmVarDecl *OldParm,
   auto NewParm = SemaRef.SubstParmVarDecl(
       OldParm, TemplateArgs, indexAdjustment, NumExpansions,
       ExpectParameterPack, EvaluateConstraints);
+  if (NewParm)
+    SemaRef.deduceCheerpAddressSpace(NewParm);
   if (NewParm && SemaRef.getLangOpts().OpenCL)
     SemaRef.deduceOpenCLAddressSpace(NewParm);
   return NewParm;

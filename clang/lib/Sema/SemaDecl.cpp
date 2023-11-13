@@ -6872,6 +6872,36 @@ bool Sema::inferObjCARCLifetime(ValueDecl *decl) {
   return false;
 }
 
+void Sema::deduceCheerpAddressSpace(ValueDecl *Decl) {
+  if (Context.getTargetInfo().isByteAddressable())
+    return;
+  if (Decl->getType().hasAddressSpace())
+    return;
+  if (Decl->getType()->isDependentType())
+    return;
+  if (VarDecl *Var = dyn_cast<VarDecl>(Decl)) {
+    QualType Type = Var->getType();
+    if (Type->isVoidType())
+      return;
+    if (auto DT = dyn_cast<DecayedType>(Type)) {
+      auto OrigTy = DT->getOriginalType();
+      if (!OrigTy.hasAddressSpace() && OrigTy->isArrayType()) {
+        // Add the address space to the original array type and then propagate
+        // that to the element type through `getAsArrayType`. 
+        LangAS OAS = Context.getCheerpTypeAddressSpace(OrigTy);
+        OrigTy = Context.getAddrSpaceQualType(OrigTy, OAS);
+        OrigTy = QualType(Context.getAsArrayType(OrigTy), 0);
+        // Re-generate the decayed type.
+        Type = Context.getDecayedType(OrigTy);
+      }
+    }
+    LangAS AS = Context.getCheerpTypeAddressSpace(Type);
+    if (AS != LangAS::Default)
+      Type = Context.getAddrSpaceQualType(Type, AS);
+    Decl->setType(Type);
+  }
+}
+
 void Sema::deduceOpenCLAddressSpace(ValueDecl *Decl) {
   if (Decl->getType().hasAddressSpace())
     return;
@@ -7795,6 +7825,7 @@ NamedDecl *Sema::ActOnVariableDeclarator(
     }
   }
 
+  deduceCheerpAddressSpace(NewVD);
   if (getLangOpts().OpenCL) {
     deduceOpenCLAddressSpace(NewVD);
 
@@ -12641,6 +12672,7 @@ bool Sema::DeduceVariableDeclarationType(VarDecl *VDecl, bool DirectInit,
   if (getLangOpts().ObjCAutoRefCount && inferObjCARCLifetime(VDecl))
     VDecl->setInvalidDecl();
 
+  deduceCheerpAddressSpace(VDecl);
   if (getLangOpts().OpenCL)
     deduceOpenCLAddressSpace(VDecl);
 
@@ -14636,6 +14668,7 @@ Decl *Sema::ActOnParamDeclarator(Scope *S, Declarator &D) {
     Diag(New->getLocation(), diag::err_block_on_nonlocal);
   }
 
+  deduceCheerpAddressSpace(New);
   if (getLangOpts().OpenCL)
     deduceOpenCLAddressSpace(New);
 

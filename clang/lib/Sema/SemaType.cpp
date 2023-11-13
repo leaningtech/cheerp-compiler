@@ -1907,13 +1907,6 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
       Result = Qualified;
   }
 
-
-  if (!S.Context.getTargetInfo().isByteAddressable()) {
-    LangAS AS = Context.getCheerpTypeAddressSpace(Result);
-    if (AS != LangAS::Default)
-      Result = Context.getAddrSpaceQualType(Result, AS);
-  }
-
   assert(!Result.isNull() && "This function should not return a null type");
   return Result;
 }
@@ -2158,6 +2151,17 @@ static QualType deduceOpenCLPointeeAddrSpace(Sema &S, QualType PointeeType) {
   return PointeeType;
 }
 
+static QualType deduceCheerpPointeeAddrSpace(Sema &S, QualType PointeeType) {
+  if (!PointeeType->isUndeducedAutoType() && !PointeeType->isDependentType() &&
+      !PointeeType->isSamplerT() &&
+      !PointeeType.hasAddressSpace()) {
+    LangAS AS = S.getASTContext().getCheerpTypeAddressSpace(PointeeType);
+    PointeeType = S.getASTContext().getAddrSpaceQualType(
+        PointeeType, AS);
+  }
+  return PointeeType;
+}
+
 /// Build a pointer type.
 ///
 /// \param T The type to which we'll be building a pointer.
@@ -2203,6 +2207,8 @@ QualType Sema::BuildPointerType(QualType T,
 
   if (getLangOpts().OpenCL)
     T = deduceOpenCLPointeeAddrSpace(*this, T);
+  if (!Context.getTargetInfo().isByteAddressable())
+    T = deduceCheerpPointeeAddrSpace(*this, T);
 
   // Build the pointer type.
   return Context.getPointerType(T);
@@ -2278,6 +2284,8 @@ QualType Sema::BuildReferenceType(QualType T, bool SpelledAsLValue,
 
   if (getLangOpts().OpenCL)
     T = deduceOpenCLPointeeAddrSpace(*this, T);
+  if (!Context.getTargetInfo().isByteAddressable())
+    T = deduceCheerpPointeeAddrSpace(*this, T);
 
   // Handle restrict on references.
   if (LValueRef)
@@ -3103,6 +3111,8 @@ QualType Sema::BuildBlockPointerType(QualType T,
 
   if (getLangOpts().OpenCL)
     T = deduceOpenCLPointeeAddrSpace(*this, T);
+  if (!Context.getTargetInfo().isByteAddressable())
+    T = deduceCheerpPointeeAddrSpace(*this, T);
 
   return Context.getBlockPointerType(T);
 }
