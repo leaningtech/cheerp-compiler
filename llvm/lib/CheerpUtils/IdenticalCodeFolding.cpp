@@ -1032,13 +1032,14 @@ void IdenticalCodeFolding::mergeTwoFunctions(Function *F, Function *G) {
 	FunctionType* FType = F->getFunctionType();
 	FunctionType* GType = G->getFunctionType();
 
+	bool isAsmJS = F->getSection() == StringRef("asmjs");
 	assert(FType->getNumParams() == GType->getNumParams());
 	for (CallBase* CS: directCalls) {
 		// BitCasts in call sites causes spurious indirect call
 		// Avoid this problem by bitcasting parameters and return values as appropriate
 		CS->setCalledOperand(ConstantExpr::getBitCast(G, CS->getCalledOperand()->getType()));
 
-		replaceCallOfBitCastWithBitCastOfCall(*CS, /*mayFail*/ false, /*performPtrIntConversions*/ true);
+		replaceCallOfBitCastWithBitCastOfCall(*CS, /*mayFail*/ false, /*performPtrIntConversions*/ isAsmJS);
 	}
 	if(!F->use_empty()){
 		Value* replacement = G;
