@@ -653,29 +653,29 @@ void LinearMemoryHelper::checkMemorySize()
 	// Not enough memory, error
 	report_fatal_error("Cheerp: Not enough linear memory. Try to increase it with -cheerp-linear-heap-size");
 }
-void LinearMemoryHelper::addHeapStartAndEnd()
+
+void LinearMemoryHelper::setGlobalPtrIfPresent(llvm::StringRef name, uint32_t ptr)
 {
-	GlobalVariable* heapStartVar = module->getNamedGlobal("_heapStart");
-	GlobalVariable* heapEndVar = module->getNamedGlobal("_heapEnd");
-
-	if (heapStartVar)
+	if (GlobalVariable* G = module->getNamedGlobal(name))
 	{
-		assert(heapEndVar && "No _heapEnd global variable found");
-		// Align to 8 bytes
-		heapStart = (heapStart + 7) & ~7;
-		ConstantInt* startAddr = ConstantInt::get(IntegerType::getInt32Ty(module->getContext()), heapStart, false);
-		Constant* startInit = ConstantExpr::getIntToPtr(startAddr, heapStartVar->getValueType(), false);
-		heapStartVar->setInitializer(startInit);
-		heapStartVar->setSection("asmjs");
+		ConstantInt* value = ConstantInt::get(IntegerType::getInt32Ty(module->getContext()), ptr, false);
+		Constant* initializer = ConstantExpr::getIntToPtr(value, G->getValueType(), false);
 
-		uint32_t heapEnd = growMem ? heapStart : memorySize;
-		// Align heapEnd to a wasm page size
-		heapEnd = (heapEnd + 65535) & ~65535;
-		ConstantInt* endAddr = ConstantInt::get(IntegerType::getInt32Ty(module->getContext()), heapEnd, false);
-		Constant* endInit = ConstantExpr::getIntToPtr(endAddr, heapEndVar->getValueType(), false);
-		heapEndVar->setInitializer(endInit);
-		heapEndVar->setSection("asmjs");
+		G->setInitializer(initializer);
+		G->setSection("asmjs");
 	}
+}
+
+void LinearMemoryHelper::addMemoryInfo()
+{
+	//Align to 8 bytes
+	heapStart = (heapStart + 7) & ~7;
+	setGlobalPtrIfPresent("_heapStart", heapStart);
+
+	uint32_t heapEnd = growMem ? heapStart : memorySize;
+	// Align heapEnd to a wasm page size
+	heapEnd = (heapEnd + 65535) & ~65535;
+	setGlobalPtrIfPresent("_heapEnd", heapEnd);
 }
 
 void LinearMemoryHelper::VectorWriter::addByte(uint8_t b)
