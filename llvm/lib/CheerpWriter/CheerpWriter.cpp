@@ -1067,6 +1067,12 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(const
 		compileOperand(*it, LOWEST);
 		return COMPILE_OK;
 	}
+	else if (intrinsicId==Intrinsic::get_dynamic_area_offset)
+	{
+		// The stack pointer is the same as the address of the most recent alloca, so 0 offset
+		stream << "0|0";
+		return COMPILE_OK;
+	}
 	else if(intrinsicId==Intrinsic::eh_typeid_for)
 	{
 		stream << getTypeIdFor(*it);
