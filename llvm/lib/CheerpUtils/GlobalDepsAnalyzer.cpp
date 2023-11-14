@@ -88,9 +88,10 @@ void GlobalDepsAnalyzer::simplifyCalls(llvm::Module & module) const
 				if (isa<CallInst>(I)) {
 					CallInst& ci = cast<CallInst>(I);
 
+					bool isAsmJS = F.getSection() == StringRef("asmjs");
 					//Replace call(bitcast) with bitcast(call)
 					//Might fail and leave the CI calling to a bitcast if the prerequisite are not met (eg. the number of paramethers differ)
-					replaceCallOfBitCastWithBitCastOfCall(ci, /*mayFail*/ true);
+					replaceCallOfBitCastWithBitCastOfCall(ci, /*mayFail*/ true, isAsmJS);
 
 					Function* calledFunc = ci.getCalledFunction();
 
@@ -943,7 +944,8 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 							devirtualizedCall = ConstantExpr::getBitCast(devirtualizedCall, calledValue->getType());
 						ci->setCalledOperand(devirtualizedCall);
 
-						replaceCallOfBitCastWithBitCastOfCall(*ci);
+						// Always an asmjs functions, thus it is ok to perform ptr to int conversions
+						replaceCallOfBitCastWithBitCastOfCall(*ci, false, true);
 
 						devirtualizedCalls.push_back({ci, toBeCalledFunc});
 					}
