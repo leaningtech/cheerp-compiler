@@ -24,6 +24,7 @@ struct AddressSanitizerOptions {
   bool CompileKernel = false;
   bool Recover = false;
   bool UseAfterScope = false;
+  bool AlignedPoisoning = false;
   AsanDetectStackUseAfterReturnMode UseAfterReturn =
       AsanDetectStackUseAfterReturnMode::Runtime;
 };

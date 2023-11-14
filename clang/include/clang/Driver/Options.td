@@ -1744,6 +1744,11 @@ defm sanitize_address_use_after_scope : BoolOption<"f", "sanitize-address-use-af
   PosFlag<SetTrue, [], "Enable">, NegFlag<SetFalse, [CoreOption, NoXarchOption], "Disable">,
   BothFlags<[], " use-after-scope detection in AddressSanitizer">>,
   Group<f_clang_Group>;
+defm sanitize_address_aligned_poisoning : BoolOption<"f", "sanitize-address-aligned-poisoning",
+  CodeGenOpts<"SanitizeAddressAlignedPoisoning">, DefaultFalse,
+  PosFlag<SetTrue, [], "Enable">, NegFlag<SetFalse, [CoreOption, NoXarchOption], "Disable">,
+  BothFlags<[], " natural alignment for address poisoning">>,
+  Group<f_clang_Group>;
 def sanitize_address_use_after_return_EQ
   : Joined<["-"], "fsanitize-address-use-after-return=">,
     MetaVarName<"<mode>">,

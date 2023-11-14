@@ -5899,8 +5899,15 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (getToolChain().getArch() == llvm::Triple::cheerp)
   {
   // Forward cheerp-linear-output argument
-  if (Arg *CheerpLinearOutput = Args.getLastArg(options::OPT_cheerp_linear_output_EQ))
+  if (Arg *CheerpLinearOutput = Args.getLastArg(options::OPT_cheerp_linear_output_EQ)) {
     CheerpLinearOutput->render(Args, CmdArgs);
+
+    Arg *Sanitizers = Args.getLastArg(options::OPT_fsanitize_EQ);
+    // AsmJS requires natural alignment, which ASan doesn't do by default
+    if (Sanitizers && Sanitizers->containsValue("address") &&
+        CheerpLinearOutput->containsValue("asmjs"))
+        CmdArgs.push_back("-fsanitize-address-aligned-poisoning");
+  }
   // Forward cheerp-no-pointer-scev argument
   if (Arg *CheerpNoPointerSCEV = Args.getLastArg(options::OPT_cheerp_no_pointer_scev)) {
     CmdArgs.push_back("-mllvm");
