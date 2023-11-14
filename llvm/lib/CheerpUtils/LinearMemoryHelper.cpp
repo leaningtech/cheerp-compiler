@@ -668,6 +668,9 @@ void LinearMemoryHelper::setGlobalPtrIfPresent(llvm::StringRef name, uint32_t pt
 
 void LinearMemoryHelper::addMemoryInfo()
 {
+	setGlobalPtrIfPresent("_stackBottom", stackStart);
+	setGlobalPtrIfPresent("_stackTop", stackStart + 8 - stackSize);
+
 	//Align to 8 bytes
 	heapStart = (heapStart + 7) & ~7;
 	setGlobalPtrIfPresent("_heapStart", heapStart);
