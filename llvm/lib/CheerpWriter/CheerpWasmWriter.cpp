@@ -2350,6 +2350,12 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 							encodeInst(WasmOpcode::RETURN, code);
 						return true;
 					}
+					case Intrinsic::get_dynamic_area_offset:
+					{
+						// The stack pointer is the same as the address of the most recent alloca, so 0 offset
+						compileUnsignedInteger(code, ConstantInt::get(ci.getType(), 0));
+						return false;
+					}
 					case Intrinsic::vastart:
 					{
 						llvm::report_fatal_error("Vastart in wasm should be removed in the AllocaLowering pass. This is a bug");
