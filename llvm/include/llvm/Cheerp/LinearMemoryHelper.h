@@ -202,7 +202,7 @@ public:
 		addStack();
 		addGlobals();
 		checkMemorySize();
-		addHeapStartAndEnd();
+		addMemoryInfo();
 		populateGlobalData();
 
 		return false;
@@ -390,10 +390,11 @@ private:
 		bool splitChunk(bool force = false, bool hasAsmjsMem = false);
 	};
 
+	void setGlobalPtrIfPresent(llvm::StringRef name, uint32_t ptr);
 	void addGlobals();
 	void addFunctions();
 	void addStack();
-	void addHeapStartAndEnd();
+	void addMemoryInfo();
 	void checkMemorySize();
 	void populateGlobalData();
 
