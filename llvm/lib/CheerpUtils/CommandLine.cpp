@@ -52,6 +52,8 @@ llvm::cl::opt<unsigned> CheerpHeapSize("cheerp-linear-heap-size", llvm::cl::init
 
 llvm::cl::opt<unsigned> CheerpStackSize("cheerp-linear-stack-size", llvm::cl::init(1), llvm::cl::desc("Desired stack size for the cheerp wasm/asmjs module (in MB)") );
 
+llvm::cl::opt<unsigned> CheerpStackOffset("cheerp-linear-stack-offset", llvm::cl::init(0), llvm::cl::desc("Desired offset from address 0x0 to stack top") );
+
 llvm::cl::opt<bool> CheerpNoICF("cheerp-no-icf", llvm::cl::init(0), llvm::cl::desc("Disable identical code folding for wasm/asmjs") );
 
 llvm::cl::opt<bool> BoundsCheck("cheerp-bounds-check", llvm::cl::desc("Generate debug code for bounds-checking arrays") );

@@ -642,7 +642,7 @@ if (!functionTypeIndices.count(fTy)) { \
 
 void LinearMemoryHelper::addStack()
 {
-	heapStart += stackSize;
+	heapStart += stackSize + stackOffset;
 	stackStart = heapStart - 8;
 }
 

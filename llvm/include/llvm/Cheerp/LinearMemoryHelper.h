@@ -34,6 +34,7 @@ struct LinearMemoryHelperInitializer
 	FunctionAddressMode mode;
 	uint32_t memorySize;
 	uint32_t stackSize;
+	uint32_t stackOffset;
 	bool growMem;
 	bool hasAsmjsMem;
 };
@@ -188,7 +189,7 @@ public:
 		mode(data.mode), functionTables(3, FunctionSignatureHash(/*isStrict*/false), FunctionSignatureCmp(/*isStrict*/false)),
 		functionTypeIndices(3, FunctionSignatureHash(/*isStrict*/false), FunctionSignatureCmp(/*isStrict*/false)),
 		maxFunctionId(0), memorySize(data.memorySize*1024*1024),
-		stackSize(data.stackSize*1024*1024), growMem(data.growMem),
+		stackSize(data.stackSize*1024*1024), stackOffset((data.stackOffset+7) & ~7), growMem(data.growMem),
 		hasAsmjsMem(data.hasAsmjsMem)
 	{
 	}
@@ -430,6 +431,9 @@ private:
 	uint32_t stackSize;
 	// Stack start (it grows downwards)
 	uint32_t stackStart;
+	// Offset from 0x0 to the stack top. Primarily used with Asan to reserve
+	// the lower addresses for null pointer checks
+	uint32_t stackOffset;
 	// Whether memory can grow at runtime or not
 	bool growMem;
 	// Whether there is an extra asmjs memory file.
