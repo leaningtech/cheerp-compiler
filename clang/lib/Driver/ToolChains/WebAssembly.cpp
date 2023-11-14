@@ -827,10 +827,18 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back(Args.MakeArgString(linearOut));
   }
 
-  // Malloc/Free are probably intercepted when using sanitizers, don't optimize
-  // them out
-  if(Args.hasArg(options::OPT_fsanitize_EQ))
+  if(Args.hasArg(options::OPT_fsanitize_EQ)) {
+    // Malloc/Free are probably intercepted when using sanitizers, don't
+    // optimize them out
     CmdArgs.push_back("-cheerp-preserve-free");
+
+    if (Args.getLastArg(options::OPT_fsanitize_EQ)->containsValue("address")) {
+      // AddressSanitizer for Cheerp will poison the range [0x0, stack_top) to
+      // find nullptr derefs. We offset the stack_top location here to find more
+      // nullptr derefs.
+      CmdArgs.push_back("-cheerp-linear-stack-offset=4096");
+    }
+  }
 
   if(Arg* cheerpSecondaryOutputFile = Args.getLastArg(options::OPT_cheerp_secondary_output_file_EQ))
     cheerpSecondaryOutputFile->render(Args, CmdArgs);
