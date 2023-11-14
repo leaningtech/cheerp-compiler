@@ -7308,8 +7308,21 @@ Sema::ActOnCompoundLiteral(SourceLocation LParenLoc, ParsedType Ty,
 
   TypeSourceInfo *TInfo;
   QualType literalType = GetTypeFromParser(Ty, &TInfo);
+
+  if(!Context.getTargetInfo().isByteAddressable()) {
+    LangAS AS = Context.getCheerpTypeAddressSpace(literalType);
+    if (AS != LangAS::Default) {
+      literalType = Context.getAddrSpaceQualType(literalType, AS);
+      if(literalType->isArrayType()) {
+        literalType = QualType(Context.getAsArrayType(literalType), 0);
+      }
+    }
+  }
+
   if (!TInfo)
     TInfo = Context.getTrivialTypeSourceInfo(literalType);
+  else
+    TInfo->overrideType(literalType);
 
   return BuildCompoundLiteralExpr(LParenLoc, TInfo, RParenLoc, InitExpr);
 }
