@@ -233,6 +233,8 @@ CODEGENOPT(NewStructPathTBAA , 1, 0) ///< Whether or not to use enhanced struct-
 CODEGENOPT(SaveTempLabels    , 1, 0) ///< Save temporary labels.
 CODEGENOPT(SanitizeAddressUseAfterScope , 1, 0) ///< Enable use-after-scope detection
                                                 ///< in AddressSanitizer
+CODEGENOPT(SanitizeAddressAlignedPoisoning , 1, 0) ///< Require natural alignment when
+                                                   ///< poisoning in AddressSanitizer
 ENUM_CODEGENOPT(SanitizeAddressUseAfterReturn,
                 llvm::AsanDetectStackUseAfterReturnMode, 2,
                 llvm::AsanDetectStackUseAfterReturnMode::Runtime

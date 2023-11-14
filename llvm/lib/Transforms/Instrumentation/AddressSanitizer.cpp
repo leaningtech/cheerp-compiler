@@ -292,6 +292,10 @@ static cl::opt<bool> ClUseAfterScope("asan-use-after-scope",
                                      cl::desc("Check stack-use-after-scope"),
                                      cl::Hidden, cl::init(false));
 
+static cl::opt<bool> ClAlignedPoisoning("asan-use-aligned-poisoning",
+                                     cl::desc("Use natural alignment for poisoning memory"),
+                                     cl::Hidden, cl::init(false));
+
 // This flag may need to be replaced with -f[no]asan-globals.
 static cl::opt<bool> ClGlobals("asan-globals",
                                cl::desc("Handle global objects"), cl::Hidden,
@@ -640,14 +644,16 @@ struct AddressSanitizer {
                    bool CompileKernel = false, bool Recover = false,
                    bool UseAfterScope = false,
                    AsanDetectStackUseAfterReturnMode UseAfterReturn =
-                       AsanDetectStackUseAfterReturnMode::Runtime)
+                       AsanDetectStackUseAfterReturnMode::Runtime, bool AlignedPoisoning = false)
       : CompileKernel(ClEnableKasan.getNumOccurrences() > 0 ? ClEnableKasan
                                                             : CompileKernel),
         Recover(ClRecover.getNumOccurrences() > 0 ? ClRecover : Recover),
         UseAfterScope(UseAfterScope || ClUseAfterScope),
         UseAfterReturn(ClUseAfterReturn.getNumOccurrences() ? ClUseAfterReturn
                                                             : UseAfterReturn),
-        SSGI(SSGI) {
+        AlignedPoisoning(AlignedPoisoning || ClAlignedPoisoning),
+        SSGI(SSGI)
+        {
     C = &(M.getContext());
     LongSize = M.getDataLayout().getPointerSizeInBits();
     IntptrTy = Type::getIntNTy(*C, LongSize);
@@ -742,6 +748,7 @@ private:
   bool Recover;
   bool UseAfterScope;
   AsanDetectStackUseAfterReturnMode UseAfterReturn;
+  bool AlignedPoisoning;
   Type *IntptrTy;
   Type *Int8PtrTy;
   Type *Int32Ty;
@@ -772,7 +779,7 @@ public:
   ModuleAddressSanitizer(Module &M, bool CompileKernel = false,
                          bool Recover = false, bool UseGlobalsGC = true,
                          bool UseOdrIndicator = true,
-                         AsanDtorKind DestructorKind = AsanDtorKind::Global)
+                         AsanDtorKind DestructorKind = AsanDtorKind::Global, bool AlignedPoisoning = false)
       : CompileKernel(ClEnableKasan.getNumOccurrences() > 0 ? ClEnableKasan
                                                             : CompileKernel),
         Recover(ClRecover.getNumOccurrences() > 0 ? ClRecover : Recover),
@@ -792,7 +799,8 @@ public:
         // ClWithComdat and ClUseGlobalsGC unless the frontend says it's ok to
         // do globals-gc.
         UseCtorComdat(UseGlobalsGC && ClWithComdat && !this->CompileKernel),
-        DestructorKind(DestructorKind) {
+        DestructorKind(DestructorKind),
+        AlignedPoisoning(AlignedPoisoning)  {
     C = &(M.getContext());
     int LongSize = M.getDataLayout().getPointerSizeInBits();
     IntptrTy = Type::getIntNTy(*C, LongSize);
@@ -850,6 +858,7 @@ private:
   bool UseOdrIndicator;
   bool UseCtorComdat;
   AsanDtorKind DestructorKind;
+  bool AlignedPoisoning;
   Type *IntptrTy;
   LLVMContext *C;
   Triple TargetTriple;
@@ -1139,7 +1148,7 @@ PreservedAnalyses AddressSanitizerPass::run(Module &M,
                                             ModuleAnalysisManager &MAM) {
   ModuleAddressSanitizer ModuleSanitizer(M, Options.CompileKernel,
                                          Options.Recover, UseGlobalGC,
-                                         UseOdrIndicator, DestructorKind);
+                                         UseOdrIndicator, DestructorKind, Options.AlignedPoisoning);
   bool Modified = false;
   auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
   const StackSafetyGlobalInfo *const SSGI =
@@ -1147,7 +1156,7 @@ PreservedAnalyses AddressSanitizerPass::run(Module &M,
   for (Function &F : M) {
     AddressSanitizer FunctionSanitizer(M, SSGI, Options.CompileKernel,
                                        Options.Recover, Options.UseAfterScope,
-                                       Options.UseAfterReturn);
+                                       Options.UseAfterReturn, Options.AlignedPoisoning);
     const TargetLibraryInfo &TLI = FAM.getResult<TargetLibraryAnalysis>(F);
     Modified |= FunctionSanitizer.instrumentFunction(F, &TLI);
   }
@@ -2841,7 +2850,9 @@ void FunctionStackPoisoner::copyToShadowInline(ArrayRef<uint8_t> ShadowMask,
     return;
 
   const size_t LargestStoreSizeInBytes =
-      std::min<size_t>(sizeof(uint64_t), ASan.LongSize / 8);
+      ASan.AlignedPoisoning
+          ? 1
+          : std::min<size_t>(sizeof(uint64_t), ASan.LongSize / 8);
 
   const bool IsLittleEndian = F.getParent()->getDataLayout().isLittleEndian();
 
