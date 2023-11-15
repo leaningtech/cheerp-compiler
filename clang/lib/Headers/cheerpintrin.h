@@ -12,7 +12,13 @@
 #ifndef __CHEERPINTRIN_H
 #define __CHEERPINTRIN_H
 
-#include <cstddef>
+__attribute__ ((cheerp_genericjs)) int __builtin_cheerp_grow_memory(int pages);
+__attribute__ ((cheerp_genericjs)) void* __builtin_cheerp_stack_save(void);
+__attribute__ ((cheerp_genericjs)) void __builtin_cheerp_restore(void*);
+
+#ifdef __cplusplus
+
+#include <stddef.h>
 
 namespace [[cheerp::genericjs]] {
 
@@ -39,12 +45,6 @@ R* __builtin_cheerp_make_regular(T*, int);
 template<class P>
 size_t __builtin_cheerp_pointer_kind(const P* ptr);
 
-int __builtin_cheerp_grow_memory(int bytes);
-
-void* __buitin_cheerp_stack_save();
-
-void __buitin_cheerp_stack_restore(void*);
-
 template<class R, class P>
 R* __builtin_cheerp_downcast(const P* ptr, int offset);
 
@@ -54,6 +54,6 @@ int __builtin_cheerp_downcast_current(const P* ptr);
 template<class P>
 [[noreturn]]
 void __builtin_cheerp_throw(const P* ptr);
-
 }
+#endif // __cplusplus
 #endif /* __CHEERPINTRIN_H */
