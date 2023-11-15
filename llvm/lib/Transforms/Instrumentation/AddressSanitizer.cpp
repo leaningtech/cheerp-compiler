@@ -129,6 +129,7 @@ static const uintptr_t kRetiredStackFrameMagic = 0x45E0360E;
 
 const char kAsanModuleCtorName[] = "asan.module_ctor";
 const char kAsanModuleDtorName[] = "asan.module_dtor";
+const char kAsanAllGlobalsName[] = "__asan_all_globals";
 static const uint64_t kAsanCtorAndDtorPriority = 1;
 // On Emscripten, the system needs more than one priorities for constructors.
 static const uint64_t kAsanEmscriptenCtorAndDtorPriority = 50;
@@ -2201,7 +2202,7 @@ void ModuleAddressSanitizer::InstrumentGlobalsWithMetadataArray(
       ArrayType::get(MetadataInitializers[0]->getType(), N);
   auto AllGlobals = new GlobalVariable(
       M, ArrayOfGlobalStructTy, false, GlobalVariable::InternalLinkage,
-      ConstantArray::get(ArrayOfGlobalStructTy, MetadataInitializers), "");
+      ConstantArray::get(ArrayOfGlobalStructTy, MetadataInitializers), kAsanAllGlobalsName);
 
   if (TargetTriple.isCheerpWasm())
     AllGlobals->setSection("asmjs");
