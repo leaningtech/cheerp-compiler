@@ -1754,6 +1754,11 @@ bool ModuleAddressSanitizer::shouldInstrumentGlobal(GlobalVariable *G) const {
   Type *Ty = G->getValueType();
   LLVM_DEBUG(dbgs() << "GLOBAL: " << *G << "\n");
 
+  if (TargetTriple.isCheerpWasm()) {
+    if (G->getSection() != StringRef("asmjs"))
+      return false;
+  }
+
   if (G->hasSanitizerMetadata() && G->getSanitizerMetadata().NoAddress)
     return false;
   if (!Ty->isSized()) return false;
@@ -2011,6 +2016,10 @@ Instruction *ModuleAddressSanitizer::CreateAsanModuleDtor(Module &M) {
   AsanDtorFunction = Function::createWithDefaultAttr(
       FunctionType::get(Type::getVoidTy(*C), false),
       GlobalValue::InternalLinkage, 0, kAsanModuleDtorName, &M);
+
+  if (TargetTriple.isCheerpWasm())
+    AsanDtorFunction->setSection("asmjs");
+
   AsanDtorFunction->addFnAttr(Attribute::NoUnwind);
   // Ensure Dtor cannot be discarded, even if in a comdat.
   appendToUsed(M, {AsanDtorFunction});
@@ -2193,6 +2202,10 @@ void ModuleAddressSanitizer::InstrumentGlobalsWithMetadataArray(
   auto AllGlobals = new GlobalVariable(
       M, ArrayOfGlobalStructTy, false, GlobalVariable::InternalLinkage,
       ConstantArray::get(ArrayOfGlobalStructTy, MetadataInitializers), "");
+
+  if (TargetTriple.isCheerpWasm())
+    AllGlobals->setSection("asmjs");
+
   if (Mapping.Scale > 3)
     AllGlobals->setAlignment(Align(1ULL << Mapping.Scale));
 
@@ -2253,9 +2266,11 @@ bool ModuleAddressSanitizer::InstrumentGlobals(IRBuilder<> &IRB, Module &M,
   //   size_t padding_for_windows_msvc_incremental_link;
   //   size_t odr_indicator;
   // We initialize an array of such structures and pass it to a run-time call.
-  StructType *GlobalStructTy =
-      StructType::get(IntptrTy, IntptrTy, IntptrTy, IntptrTy, IntptrTy,
-                      IntptrTy, IntptrTy, IntptrTy);
+  StructType *GlobalStructTy = StructType::get(
+      IntptrTy->getContext(),
+      ArrayRef<Type *>({IntptrTy, IntptrTy, IntptrTy, IntptrTy, IntptrTy,
+                        IntptrTy, IntptrTy, IntptrTy}),
+      false, NULL, false, TargetTriple.isCheerpWasm());
   SmallVector<GlobalVariable *, 16> NewGlobals(n);
   SmallVector<Constant *, 16> Initializers(n);
 
@@ -2265,6 +2280,8 @@ bool ModuleAddressSanitizer::InstrumentGlobals(IRBuilder<> &IRB, Module &M,
   // module ID in runtime.
   GlobalVariable *ModuleName = createPrivateGlobalForString(
       M, M.getModuleIdentifier(), /*AllowMerging*/ false, kAsanGenPrefix);
+  if (TargetTriple.isCheerpWasm())
+    ModuleName->setSection("asmjs");
 
   for (size_t i = 0; i < n; i++) {
     GlobalVariable *G = GlobalsToChange[i];
@@ -2280,13 +2297,17 @@ bool ModuleAddressSanitizer::InstrumentGlobals(IRBuilder<> &IRB, Module &M,
     GlobalVariable *Name =
         createPrivateGlobalForString(M, llvm::demangle(NameForGlobal),
                                      /*AllowMerging*/ true, kAsanGenPrefix);
+    if (TargetTriple.isCheerpWasm())
+      Name->setSection("asmjs");
 
     Type *Ty = G->getValueType();
     const uint64_t SizeInBytes = DL.getTypeAllocSize(Ty);
     const uint64_t RightRedzoneSize = getRedzoneSizeForGlobal(SizeInBytes);
     Type *RightRedZoneTy = ArrayType::get(IRB.getInt8Ty(), RightRedzoneSize);
 
-    StructType *NewTy = StructType::get(Ty, RightRedZoneTy);
+    StructType *NewTy = StructType::get(Ty->getContext(),
+                                        ArrayRef<Type *>({Ty, RightRedZoneTy}),
+                                        false, NULL, false, TargetTriple.isCheerpWasm());
     Constant *NewInitializer = ConstantStruct::get(
         NewTy, G->getInitializer(), Constant::getNullValue(RightRedZoneTy));
 
@@ -2357,6 +2378,8 @@ bool ModuleAddressSanitizer::InstrumentGlobals(IRBuilder<> &IRB, Module &M,
       ODRIndicatorSym->setVisibility(NewGlobal->getVisibility());
       ODRIndicatorSym->setDLLStorageClass(NewGlobal->getDLLStorageClass());
       ODRIndicatorSym->setAlignment(Align(1));
+      if (TargetTriple.isCheerpWasm())
+        ODRIndicatorSym->setSection("asmjs");
       ODRIndicator = ODRIndicatorSym;
     }
 
@@ -2464,6 +2487,8 @@ bool ModuleAddressSanitizer::instrumentModule(Module &M) {
         createSanitizerCtorAndInitFunctions(M, kAsanModuleCtorName,
                                             kAsanInitName, /*InitArgTypes=*/{},
                                             /*InitArgs=*/{}, VersionCheckName);
+    if (TargetTriple.isCheerpWasm())
+      AsanCtorFunction->setSection("asmjs");
   }
 
   bool CtorComdat = true;
@@ -3287,6 +3312,8 @@ void FunctionStackPoisoner::processStaticAllocas() {
   GlobalVariable *StackDescriptionGlobal =
       createPrivateGlobalForString(*F.getParent(), DescriptionString,
                                    /*AllowMerging*/ true, kAsanGenPrefix);
+  if (ASan.TargetTriple.isCheerpWasm())
+    StackDescriptionGlobal->setSection("asmjs");
   Value *Description = IRB.CreatePointerCast(StackDescriptionGlobal, IntptrTy);
   IRB.CreateStore(Description, BasePlus1);
   // Write the PC to redzone[2].
