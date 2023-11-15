@@ -1722,6 +1722,7 @@ void ModuleAddressSanitizer::createInitializerPoisonCalls(
     // Must have a function or null ptr.
     if (Function *F = dyn_cast<Function>(CS->getOperand(1))) {
       if (F->getName() == kAsanModuleCtorName) continue;
+      if (TargetTriple.isCheerpWasm() && F->getSection() != StringRef("asmjs")) continue;
       auto *Priority = cast<ConstantInt>(CS->getOperand(0));
       // Don't instrument CTORs that will run before asan.module_ctor.
       if (Priority->getLimitedValue() <= GetCtorAndDtorPriority(TargetTriple))
@@ -2653,6 +2654,11 @@ bool AddressSanitizer::instrumentFunction(Function &F,
   if (F.getLinkage() == GlobalValue::AvailableExternallyLinkage) return false;
   if (!ClDebugFunc.empty() && ClDebugFunc == F.getName()) return false;
   if (F.getName().startswith("__asan_")) return false;
+
+  if (TargetTriple.isCheerpWasm()) {
+    if (!F.hasSection() || F.getSection() != StringRef("asmjs"))
+      return false;
+  }
 
   bool FunctionModified = false;
 
