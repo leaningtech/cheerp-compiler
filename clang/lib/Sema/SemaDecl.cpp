@@ -6883,19 +6883,20 @@ void Sema::deduceCheerpAddressSpace(ValueDecl *Decl) {
     QualType Type = Var->getType();
     if (Type->isVoidType())
       return;
+    bool asmjs = Var->hasAttr<AsmJSAttr>();
     if (auto DT = dyn_cast<DecayedType>(Type)) {
       auto OrigTy = DT->getOriginalType();
       if (!OrigTy.hasAddressSpace() && OrigTy->isArrayType()) {
         // Add the address space to the original array type and then propagate
         // that to the element type through `getAsArrayType`. 
-        LangAS OAS = Context.getCheerpTypeAddressSpace(OrigTy);
+        LangAS OAS = !asmjs ? LangAS::cheerp_genericjs : Context.getCheerpTypeAddressSpace(OrigTy);
         OrigTy = Context.getAddrSpaceQualType(OrigTy, OAS);
         OrigTy = QualType(Context.getAsArrayType(OrigTy), 0);
         // Re-generate the decayed type.
         Type = Context.getDecayedType(OrigTy);
       }
     }
-    LangAS AS = Context.getCheerpTypeAddressSpace(Type);
+    LangAS AS = !asmjs? LangAS::cheerp_genericjs : Context.getCheerpTypeAddressSpace(Type);
     if (AS != LangAS::Default)
       Type = Context.getAddrSpaceQualType(Type, AS);
     Decl->setType(Type);

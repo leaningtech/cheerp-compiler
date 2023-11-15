@@ -2153,11 +2153,36 @@ static QualType deduceOpenCLPointeeAddrSpace(Sema &S, QualType PointeeType) {
 
 static QualType deduceCheerpPointeeAddrSpace(Sema &S, QualType PointeeType) {
   if (!PointeeType->isUndeducedAutoType() && !PointeeType->isDependentType() &&
-      !PointeeType->isSamplerT() &&
       !PointeeType.hasAddressSpace()) {
-    LangAS AS = S.getASTContext().getCheerpTypeAddressSpace(PointeeType);
-    PointeeType = S.getASTContext().getAddrSpaceQualType(
-        PointeeType, AS);
+    LangAS AS = LangAS::Default;
+    if (PointeeType->getAsTagDecl()) {
+      AS = S.getASTContext().getCheerpTypeAddressSpace(PointeeType);
+    } else {
+      DeclContext* C = S.CurContext;
+      bool asmjs = false;
+      bool genericjs = false;
+      while (C) {
+        Decl* D = cast<Decl>(C);
+        if (D->hasAttr<clang::AsmJSAttr>()) {
+          asmjs = true;
+          break;
+        } else if (D->hasAttr<clang::GenericJSAttr>()) {
+          genericjs = true;
+          break;
+        } else {
+          C = D->getDeclContext();
+        };
+      }
+      if (!asmjs && !genericjs)
+      {
+        asmjs = S.getASTContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly;
+      }
+      AS = asmjs? LangAS::Default : LangAS::cheerp_genericjs;
+    }
+    if (AS != LangAS::Default) {
+      PointeeType = S.getASTContext().getAddrSpaceQualType(
+          PointeeType, AS);
+    }
   }
   return PointeeType;
 }
