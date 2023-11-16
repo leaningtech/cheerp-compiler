@@ -16830,6 +16830,12 @@ ExprResult Sema::BuildVAArgExpr(SourceLocation BuiltinLoc,
     }
   }
 
+  if (!Context.getTargetInfo().isByteAddressable()) {
+    if (E->getType().hasAddressSpace()) {
+      VaListType = Context.getAddrSpaceQualType(VaListType, E->getType().getAddressSpace());
+    }
+  };
+
   if (!IsMS && !E->isTypeDependent() &&
       !Context.hasSameType(VaListType, E->getType()))
     return ExprError(
