@@ -3085,12 +3085,12 @@ private:
     return ParseParameterDeclarationClause(
         D.getContext(), attrs, ParamInfo, EllipsisLoc,
         D.getCXXScopeSpec().isSet() &&
-            D.isFunctionDeclaratorAFunctionDeclaration());
+            D.isFunctionDeclaratorAFunctionDeclaration(), &D);
   }
   void ParseParameterDeclarationClause(
-      DeclaratorContext DeclaratorContext, ParsedAttributes &attrs,
+      DeclaratorContext DeclaratorCtx, ParsedAttributes &attrs,
       SmallVectorImpl<DeclaratorChunk::ParamInfo> &ParamInfo,
-      SourceLocation &EllipsisLoc, bool IsACXXFunctionDeclaration = false);
+      SourceLocation &EllipsisLoc, bool IsACXXFunctionDeclaration = false, Declarator* ParentDeclarator = nullptr);
 
   void ParseBracketDeclarator(Declarator &D);
   void ParseMisplacedBracketDeclarator(Declarator &D);
