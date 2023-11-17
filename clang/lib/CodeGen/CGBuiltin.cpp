@@ -12640,9 +12640,13 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
     return Builder.CreateCall(Callee, {Vec});
   }
   else if (BuiltinID == Builtin::BImalloc) {
-    const FunctionDecl* FD=dyn_cast<FunctionDecl>(CurFuncDecl);
-    assert(FD);
-    ParentMap PM(FD->getBody());
+    const FunctionDecl* FD=dyn_cast_if_present<FunctionDecl>(CurFuncDecl);
+    const VarDecl* VD=dyn_cast_if_present<VarDecl>(CurCodeDecl);
+    // Malloc might be used as a global initializer, thus CurFuncDecl being null
+    assert(FD || VD);
+    // This const_cast below probably is completely safe. When taking a brief
+    // look at ParentMap, it doesn't seem to ever modify what's passed to it
+    ParentMap PM(FD ? FD->getBody() : const_cast<Expr*>(VD->getInit()));
     const Stmt* parent=PM.getParent(E);
     // We need an explicit cast after the call, void* can't be used
     llvm::Type *Tys[] = { VoidPtrTy, VoidPtrTy };
@@ -12667,9 +12671,11 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
     return CB;
   }
   else if (BuiltinID == Builtin::BIcalloc) {
-    const FunctionDecl* FD=dyn_cast<FunctionDecl>(CurFuncDecl);
-    assert(FD);
-    ParentMap PM(FD->getBody());
+    const FunctionDecl* FD=dyn_cast_if_present<FunctionDecl>(CurFuncDecl);
+    const VarDecl* VD=dyn_cast_if_present<VarDecl>(CurCodeDecl);
+    assert(FD || VD);
+    // See malloc for note on const_cast
+    ParentMap PM(FD ? FD->getBody() : const_cast<Expr*>(VD->getInit()));
     const Stmt* parent=PM.getParent(E);
     // We need an explicit cast after the call, void* can't be used
     llvm::Type *Tys[] = { VoidPtrTy , VoidPtrTy};
@@ -12714,9 +12720,11 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
     llvm::Type *Tys[] = { VoidPtrTy, ConvertType(reallocType) };
     Ops[0]=EmitScalarExpr(existingMem);
     // Some additional checks that can't be done in Sema
-    const FunctionDecl* FD=dyn_cast<FunctionDecl>(CurFuncDecl);
-    assert(FD);
-    ParentMap PM(FD->getBody());
+    const FunctionDecl* FD=dyn_cast_if_present<FunctionDecl>(CurFuncDecl);
+    const VarDecl* VD=dyn_cast_if_present<VarDecl>(CurCodeDecl);
+    assert(FD || VD);
+    // See malloc for note on const_cast
+    ParentMap PM(FD ? FD->getBody() : const_cast<Expr*>(VD->getInit()));
     const Stmt* parent=PM.getParent(E);
     // We need an explicit cast after the call, void* can't be used
     const CastExpr* retCE=dyn_cast_or_null<CastExpr>(parent);
