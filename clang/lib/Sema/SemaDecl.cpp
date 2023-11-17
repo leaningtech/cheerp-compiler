@@ -7826,7 +7826,6 @@ NamedDecl *Sema::ActOnVariableDeclarator(
     }
   }
 
-  deduceCheerpAddressSpace(NewVD);
   if (getLangOpts().OpenCL) {
     deduceOpenCLAddressSpace(NewVD);
 
@@ -7842,6 +7841,8 @@ NamedDecl *Sema::ActOnVariableDeclarator(
 
   // Handle attributes prior to checking for duplicates in MergeVarDecl
   ProcessDeclAttributes(S, NewVD, D);
+
+  deduceCheerpAddressSpace(NewVD);
 
   // FIXME: This is probably the wrong location to be doing this and we should
   // probably be doing this for more attributes (especially for function
