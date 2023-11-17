@@ -7124,7 +7124,7 @@ void Parser::ParseFunctionDeclaratorIdentifierList(
 void Parser::ParseParameterDeclarationClause(
     DeclaratorContext DeclaratorCtx, ParsedAttributes &FirstArgAttrs,
     SmallVectorImpl<DeclaratorChunk::ParamInfo> &ParamInfo,
-    SourceLocation &EllipsisLoc, bool IsACXXFunctionDeclaration) {
+    SourceLocation &EllipsisLoc, bool IsACXXFunctionDeclaration, Declarator* ParentDeclarator) {
 
   // Avoid exceeding the maximum function scope depth.
   // See https://bugs.llvm.org/show_bug.cgi?id=19607
@@ -7167,6 +7167,16 @@ void Parser::ParseParameterDeclarationClause(
 
     ParsedAttributes ArgDeclAttrs(AttrFactory);
     ParsedAttributes ArgDeclSpecAttrs(AttrFactory);
+
+    // CHEERP: Ugly hack to propagate the attributes from the function to the parameters.
+    // Parameters are handled before the function itself, so this is the only way to infer their
+    // attributes correctly.
+    if (ParentDeclarator) {
+      for (auto& A: ParentDeclarator->getDeclSpec().getAttributes()) {
+        if (A.getKind() == ParsedAttr::AT_AsmJS || A.getKind() == ParsedAttr::AT_GenericJS)
+          ArgDeclSpecAttrs.addAtEnd(&A);
+      }
+    }
 
     if (FirstArgAttrs.Range.isValid()) {
       // If the caller parsed attributes for the first argument, add them now.
