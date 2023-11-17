@@ -12653,8 +12653,9 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
     const CastExpr* retCE=dyn_cast_or_null<CastExpr>(parent);
     if (!retCE || retCE->getType()->isVoidPointerType())
     {
-        if (asmjs) return 0;
-        CGM.getDiags().Report(E->getBeginLoc(), diag::err_cheerp_alloc_requires_cast);
+        if (!asmjs)
+          CGM.getDiags().Report(E->getBeginLoc(), diag::err_cheerp_alloc_requires_cast);
+        return 0;
     }
     else
     {
@@ -12682,8 +12683,9 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
     const CastExpr* retCE=dyn_cast_or_null<CastExpr>(parent);
     if (!retCE || retCE->getType()->isVoidPointerType())
     {
-        if (asmjs) return 0;
-        CGM.getDiags().Report(E->getBeginLoc(), diag::err_cheerp_alloc_requires_cast);
+        if (!asmjs)
+          CGM.getDiags().Report(E->getBeginLoc(), diag::err_cheerp_alloc_requires_cast);
+        return 0;
     }
     else
     {
@@ -12730,8 +12732,9 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
     const CastExpr* retCE=dyn_cast_or_null<CastExpr>(parent);
     if (!retCE || retCE->getType()->isVoidPointerType())
     {
-        if (asmjs) return 0;
-        CGM.getDiags().Report(E->getBeginLoc(), diag::err_cheerp_alloc_requires_cast);
+        if (!asmjs)
+          CGM.getDiags().Report(E->getBeginLoc(), diag::err_cheerp_alloc_requires_cast);
+        return 0;
     }
     else if(retCE->getType().getCanonicalType()!=reallocType.getCanonicalType())
     {
