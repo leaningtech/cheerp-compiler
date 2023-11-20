@@ -6450,7 +6450,7 @@ static FunctionDecl *rewriteBuiltinFunctionDecl(Sema *Sema, ASTContext &Context,
                                                 MultiExprArg ArgExprs) {
 
   // CHEERP: TODO: be more nuanced here
-  if (!Context.getTargetInfo().isByteAddressable()) {
+  if (false && !Context.getTargetInfo().isByteAddressable()) {
 	return nullptr;
   }
   QualType DeclType = FDecl->getType();

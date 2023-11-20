@@ -6872,10 +6872,31 @@ bool Sema::inferObjCARCLifetime(ValueDecl *decl) {
   return false;
 }
 
+static QualType applyCheerpAddressSpace(Sema& S, QualType Type, bool genericjs, bool force) {
+  if (auto DT = dyn_cast<DecayedType>(Type)) {
+    auto OrigTy = DT->getOriginalType();
+    if (OrigTy->isArrayType()) {
+      OrigTy = applyCheerpAddressSpace(S, OrigTy, genericjs, force);
+      OrigTy = QualType(S.Context.getAsArrayType(OrigTy), 0);
+      // Re-generate the decayed type.
+      Type = S.Context.getDecayedType(OrigTy);
+    }
+  } else if (auto PT = dyn_cast<PointerType>(Type)) {
+    auto PointeeTy = PT->getPointeeType();
+    PointeeTy = applyCheerpAddressSpace(S, PointeeTy, genericjs, force);
+    Type = S.Context.getPointerType(PointeeTy);
+  }
+  if (force)
+   Type = S.Context.removeAddrSpaceQualType(Type);
+  LangAS fallback = genericjs? LangAS::cheerp_genericjs : LangAS::Default;
+  LangAS AS = S.Context.getCheerpTypeAddressSpace(Type, fallback);
+  if (AS != LangAS::Default)
+    Type = S.Context.getAddrSpaceQualType(Type, AS);
+  return Type;
+}
+
 void Sema::deduceCheerpAddressSpace(ValueDecl *Decl) {
   if (Context.getTargetInfo().isByteAddressable())
-    return;
-  if (Decl->getType().hasAddressSpace())
     return;
   if (Decl->getType()->isDependentType())
     return;
@@ -6884,21 +6905,9 @@ void Sema::deduceCheerpAddressSpace(ValueDecl *Decl) {
     if (Type->isVoidType())
       return;
     bool asmjs = Var->hasAttr<AsmJSAttr>();
-    if (auto DT = dyn_cast<DecayedType>(Type)) {
-      auto OrigTy = DT->getOriginalType();
-      if (!OrigTy.hasAddressSpace() && OrigTy->isArrayType()) {
-        // Add the address space to the original array type and then propagate
-        // that to the element type through `getAsArrayType`. 
-        LangAS OAS = !asmjs ? LangAS::cheerp_genericjs : Context.getCheerpTypeAddressSpace(OrigTy);
-        OrigTy = Context.getAddrSpaceQualType(OrigTy, OAS);
-        OrigTy = QualType(Context.getAsArrayType(OrigTy), 0);
-        // Re-generate the decayed type.
-        Type = Context.getDecayedType(OrigTy);
-      }
-    }
-    LangAS AS = !asmjs? LangAS::cheerp_genericjs : Context.getCheerpTypeAddressSpace(Type);
-    if (AS != LangAS::Default)
-      Type = Context.getAddrSpaceQualType(Type, AS);
+    bool genericjs = Var->hasAttr<GenericJSAttr>();
+    bool force = asmjs || genericjs;
+    Type = applyCheerpAddressSpace(*this, Type, genericjs, force);
     Decl->setType(Type);
   }
 }
@@ -10217,6 +10226,20 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
 
   // Handle attributes.
   ProcessDeclAttributes(S, NewFD, D);
+
+  if (!Context.getTargetInfo().isByteAddressable()) {
+    if (auto FPT = NewFD->getType()->getAs<FunctionProtoType>()) {
+      auto Ret = NewFD->getReturnType();
+      if (!Ret->isVoidType()) {
+        bool genericjs = NewFD->hasAttr<GenericJSAttr>();
+        // TODO: don't force if the address space was spelled-out, somehow.
+        bool force = true;
+        Ret = applyCheerpAddressSpace(*this, Ret, genericjs, force);
+        NewFD->setType(Context.getFunctionType(Ret, FPT->getParamTypes(),
+                                                   FPT->getExtProtoInfo()));
+      }
+    }
+  }
 
   if (getLangOpts().OpenCL) {
     // OpenCL v1.1 s6.5: Using an address space qualifier in a function return

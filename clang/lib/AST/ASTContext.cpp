@@ -13172,17 +13172,17 @@ LangAS ASTContext::getLangASForBuiltinAddressSpace(unsigned AS) const {
   return getLangASFromTargetAS(AS);
 }
 
-LangAS ASTContext::getCheerpTypeAddressSpace(QualType Ty) const {
+LangAS ASTContext::getCheerpTypeAddressSpace(QualType Ty, LangAS fallback) const {
   if (Ty.hasAddressSpace())
     return Ty.getAddressSpace();
   if (Ty->isArrayType() && Ty->getBaseElementTypeUnsafe()->getAsTagDecl())
     return getCheerpTypeAddressSpace(Ty->getBaseElementTypeUnsafe()->getAsTagDecl());
   if (Ty->getAsTagDecl())
     return getCheerpTypeAddressSpace(Ty->getAsTagDecl());
-  return LangAS::Default;
+  return fallback;
 }
-LangAS ASTContext::getCheerpTypeAddressSpace(TagDecl* D) const {
-  LangAS AS = LangAS::Default;
+LangAS ASTContext::getCheerpTypeAddressSpace(TagDecl* D, LangAS fallback) const {
+  LangAS AS = fallback;
   if (AnalysisDeclContext::isInClientNamespace(D)) {
     AS = clang::LangAS::cheerp_client;
   } else if (D->hasAttr<GenericJSAttr>()) {

@@ -2158,7 +2158,7 @@ static QualType deduceCheerpPointeeAddrSpace(Sema &S, QualType PointeeType) {
     if (PointeeType->getAsTagDecl()) {
       AS = S.getASTContext().getCheerpTypeAddressSpace(PointeeType);
     } else {
-      DeclContext* C = S.CurContext;
+      DeclContext* C = S.getCurLexicalContext();
       bool asmjs = false;
       bool genericjs = false;
       while (C) {
