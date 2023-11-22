@@ -10228,17 +10228,24 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
   ProcessDeclAttributes(S, NewFD, D);
 
   if (!Context.getTargetInfo().isByteAddressable()) {
+    bool genericjs = NewFD->hasAttr<GenericJSAttr>();
+    auto FTy = NewFD->getType();
     if (auto FPT = NewFD->getType()->getAs<FunctionProtoType>()) {
       auto Ret = NewFD->getReturnType();
-      if (!Ret->isVoidType()) {
-        bool genericjs = NewFD->hasAttr<GenericJSAttr>();
+      if (Ret->isPointerType()) {
         // TODO: don't force if the address space was spelled-out, somehow.
         bool force = true;
-        Ret = applyCheerpAddressSpace(*this, Ret, genericjs, force);
-        NewFD->setType(Context.getFunctionType(Ret, FPT->getParamTypes(),
-                                                   FPT->getExtProtoInfo()));
+        auto Pointee = Ret->getPointeeType();
+        Pointee = applyCheerpAddressSpace(*this, Pointee, genericjs, force);
+        Ret = Context.getPointerType(Pointee);
+        FTy = Context.getFunctionType(Ret, FPT->getParamTypes(),
+                                                   FPT->getExtProtoInfo());
       }
     }
+    if (genericjs) {
+      FTy = Context.getAddrSpaceQualType(FTy, LangAS::cheerp_genericjs);
+    }
+    NewFD->setType(FTy);
   }
 
   if (getLangOpts().OpenCL) {
