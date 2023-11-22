@@ -1,23 +1,29 @@
-// RUN: %clangxx_asan -O2 -fsanitize-address-outline-instrumentation %s -o %t
-// RUN: not %run %t A 2>&1 | FileCheck %s --check-prefix=CHECK_0_BYTES
-// RUN: not %run %t B 2>&1 | FileCheck %s --check-prefix=CHECK_0_BYTES
-// RUN: not %run %t C 2>&1 | FileCheck %s --check-prefix=CHECK_1_BYTES
-// RUN: not %run %t D 2>&1 | FileCheck %s --check-prefix=CHECK_1_BYTES
+// RUN: %clangxx_asan -O2 -DCHECK=0 -fsanitize-address-outline-instrumentation %s -o %t && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK_0_BYTES
+// RUN: %clangxx_asan -O2 -DCHECK=1 -fsanitize-address-outline-instrumentation %s -o %t && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK_0_BYTES
+// RUN: %clangxx_asan -O2 -DCHECK=2 -fsanitize-address-outline-instrumentation %s -o %t && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK_1_BYTES
+// RUN: %clangxx_asan -O2 -DCHECK=3 -fsanitize-address-outline-instrumentation %s -o %t && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK_1_BYTES
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O2 -DCHECK=0 -fsanitize-address-outline-instrumentation %s -o %t && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK_0_BYTES
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O2 -DCHECK=1 -fsanitize-address-outline-instrumentation %s -o %t && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK_0_BYTES
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O2 -DCHECK=2 -fsanitize-address-outline-instrumentation %s -o %t && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK_1_BYTES
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O2 -DCHECK=3 -fsanitize-address-outline-instrumentation %s -o %t && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK_1_BYTES
 
-// RUN: %clangxx_asan -O2 -fsanitize-address-outline-instrumentation %s -o %t \
-// RUN:   -mllvm -asan-recover=1
-// RUN: not %run %t A 2>&1 | FileCheck %s --check-prefix=CHECK_0_BYTES
-// RUN: not %run %t B 2>&1 | FileCheck %s --check-prefix=CHECK_0_BYTES
-// RUN: not %run %t C 2>&1 | FileCheck %s --check-prefix=CHECK_1_BYTES
-// RUN: not %run %t D 2>&1 | FileCheck %s --check-prefix=CHECK_1_BYTES
+// RUN: %clangxx_asan -O2 -DCHECK=0 -fsanitize-address-outline-instrumentation %s -o %t -mllvm -asan-recover=1 && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK_0_BYTES
+// RUN: %clangxx_asan -O2 -DCHECK=1 -fsanitize-address-outline-instrumentation %s -o %t -mllvm -asan-recover=1 && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK_0_BYTES
+// RUN: %clangxx_asan -O2 -DCHECK=2 -fsanitize-address-outline-instrumentation %s -o %t -mllvm -asan-recover=1 && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK_1_BYTES
+// RUN: %clangxx_asan -O2 -DCHECK=3 -fsanitize-address-outline-instrumentation %s -o %t -mllvm -asan-recover=1 && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK_1_BYTES
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O2 -DCHECK=0 -fsanitize-address-outline-instrumentation %s -o %t -mllvm -asan-recover=1 && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK_0_BYTES
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O2 -DCHECK=1 -fsanitize-address-outline-instrumentation %s -o %t -mllvm -asan-recover=1 && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK_0_BYTES
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O2 -DCHECK=2 -fsanitize-address-outline-instrumentation %s -o %t -mllvm -asan-recover=1 && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK_1_BYTES
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O2 -DCHECK=3 -fsanitize-address-outline-instrumentation %s -o %t -mllvm -asan-recover=1 && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK_1_BYTES
 
-// RUN: %clangxx_asan -O2 -fsanitize-address-outline-instrumentation %s -o %t \
-// RUN:   -mllvm -asan-force-experiment=42
-// RUN: not %run %t A 2>&1 | FileCheck %s --check-prefix=CHECK_0_BYTES
-// RUN: not %run %t B 2>&1 | FileCheck %s --check-prefix=CHECK_0_BYTES
-// RUN: not %run %t C 2>&1 | FileCheck %s --check-prefix=CHECK_1_BYTES
-// RUN: not %run %t D 2>&1 | FileCheck %s --check-prefix=CHECK_1_BYTES
-
+// RUN: %clangxx_asan -O2 -DCHECK=0 -fsanitize-address-outline-instrumentation %s -o %t -mllvm -asan-force-experiment=42 && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK_0_BYTES
+// RUN: %clangxx_asan -O2 -DCHECK=1 -fsanitize-address-outline-instrumentation %s -o %t -mllvm -asan-force-experiment=42 && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK_0_BYTES
+// RUN: %clangxx_asan -O2 -DCHECK=2 -fsanitize-address-outline-instrumentation %s -o %t -mllvm -asan-force-experiment=42 && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK_1_BYTES
+// RUN: %clangxx_asan -O2 -DCHECK=3 -fsanitize-address-outline-instrumentation %s -o %t -mllvm -asan-force-experiment=42 && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK_1_BYTES
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O2 -DCHECK=0 -fsanitize-address-outline-instrumentation %s -o %t -mllvm -asan-force-experiment=42 && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK_0_BYTES
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O2 -DCHECK=1 -fsanitize-address-outline-instrumentation %s -o %t -mllvm -asan-force-experiment=42 && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK_0_BYTES
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O2 -DCHECK=2 -fsanitize-address-outline-instrumentation %s -o %t -mllvm -asan-force-experiment=42 && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK_1_BYTES
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O2 -DCHECK=3 -fsanitize-address-outline-instrumentation %s -o %t -mllvm -asan-force-experiment=42 && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK_1_BYTES
 // CHECK_0_BYTES: ERROR: AddressSanitizer: global-buffer-overflow on address [[ADDR:.*]] at
 // CHECK_0_BYTES: [[ADDR]] is located 0 bytes after
 
@@ -43,20 +49,18 @@ inline void UNALIGNED_STORE(uint16_t data, void *p) {
 }
 
 int main(int argc, char **argv) {
-  if (argc != 2)
-    return 1;
   int res = 1;
-  switch (argv[1][0]) {
-  case 'A':
+  switch (CHECK) {
+  case 0:
     res = UNALIGNED_LOAD(reinterpret_cast<char *>(G) + 7);
     break;
-  case 'B':
+  case 1:
     UNALIGNED_STORE(0, reinterpret_cast<char *>(G) + 7);
     break;
-  case 'C':
+  case 2:
     res = UNALIGNED_LOAD(reinterpret_cast<char *>(G) + 9);
     break;
-  case 'D':
+  case 3:
     UNALIGNED_STORE(0, reinterpret_cast<char *>(G) + 9);
     break;
   }

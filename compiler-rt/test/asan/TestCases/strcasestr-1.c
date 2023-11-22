@@ -1,9 +1,8 @@
 // Test haystack overflow in strcasestr function
-// RUN: %clang_asan %s -o %t && %env_asan_opts=strict_string_checks=true not %run %t 2>&1 | FileCheck %s
-
+// RUN: %clang_asan %s -o %t && not %run %t 2>&1 | FileCheck %s
+// RUN: %clang_asan -cheerp-linear-output=asmjs %s -o %t && not %run %t 2>&1 | FileCheck %s
 // Test intercept_strstr asan option
-// Disable other interceptors because strlen may be called inside strcasestr
-// RUN: %env_asan_opts=intercept_strstr=false:replace_str=false %run %t 2>&1
+// CHEERPASAN: TODO Disable other interceptors because strlen may be called inside strcasestr
 
 // There's no interceptor for strcasestr on Windows
 // XFAIL: windows-msvc

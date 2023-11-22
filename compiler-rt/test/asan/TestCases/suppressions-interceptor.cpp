@@ -6,6 +6,7 @@
 // RUN: %env_asan_opts=suppressions='"%t.supp"' %run %t 2>&1 | FileCheck --check-prefix=CHECK-IGNORE %s
 
 // XFAIL: android
+// UNSUPPORTED: cheerp
 
 #include <stdio.h>
 #include <stdlib.h>

@@ -1,10 +1,9 @@
-// RUN: %clang_asan -O0 %s -o %t
-// RUN: %run %t 0x00 2>&1 | FileCheck %s -check-prefix=X00
-// RUN: not %run %t 0xf1 2>&1 | FileCheck %s -check-prefix=XF1
-// RUN: not %run %t 0xf2 2>&1 | FileCheck %s -check-prefix=XF2
-// RUN: not %run %t 0xf3 2>&1 | FileCheck %s -check-prefix=XF3
-// RUN: not %run %t 0xf5 2>&1 | FileCheck %s -check-prefix=XF5
-// RUN: not %run %t 0xf8 2>&1 | FileCheck %s -check-prefix=XF8
+// RUN: %clang_asan -O0 %s -o %t -DSHADOW_BYTE=0x00 && %run %t 2>&1 | FileCheck %s -check-prefix=X00
+// RUN: %clang_asan -O0 %s -o %t -DSHADOW_BYTE=0xf1 && not %run %t 2>&1 | FileCheck %s -check-prefix=XF1
+// RUN: %clang_asan -O0 %s -o %t -DSHADOW_BYTE=0xf2 && not %run %t 2>&1 | FileCheck %s -check-prefix=XF2
+// RUN: %clang_asan -O0 %s -o %t -DSHADOW_BYTE=0xf3 && not %run %t 2>&1 | FileCheck %s -check-prefix=XF3
+// RUN: %clang_asan -O0 %s -o %t -DSHADOW_BYTE=0xf5 && not %run %t 2>&1 | FileCheck %s -check-prefix=XF5
+// RUN: %clang_asan -O0 %s -o %t -DSHADOW_BYTE=0xf8 && not %run %t 2>&1 | FileCheck %s -check-prefix=XF8
 
 #include <assert.h>
 #include <sanitizer/asan_interface.h>
@@ -28,11 +27,12 @@ void __asan_set_shadow_f8(size_t addr, size_t size);
 
 char* a;
 
-void f(long arg) {
+void f() {
   size_t shadow_offset;
   size_t shadow_scale;
   __asan_get_shadow_mapping(&shadow_scale, &shadow_offset);
   size_t addr = (((size_t)a) >> shadow_scale) + shadow_offset;
+  long arg = SHADOW_BYTE;
 
   switch (arg) {
   // X00-NOT: AddressSanitizer
@@ -92,11 +92,8 @@ void f(long arg) {
 }
 
 int main(int argc, char **argv) {
-  assert(argc > 1);
-
   a = malloc(8);
-  long arg = strtol(argv[1], 0, 16);
-  f(arg);
+  f();
   *a = 1;
   printf("PASS\n");
   return 0;

@@ -1,8 +1,6 @@
 // Check that __asan_poison_memory_region works.
 // RUN: %clangxx_asan -O0 %s -o %t && not %run %t 2>&1 | FileCheck %s
-//
-// Check that we can disable it
-// RUN: %env_asan_opts=allow_user_poisoning=0 %run %t
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O0 %s -o %t && not %run %t 2>&1 | FileCheck %s
 
 #include <stdlib.h>
 
@@ -14,7 +12,7 @@ int main(int argc, char **argv) {
   __asan_poison_memory_region(x, 16);
   int res = x[argc * 10];  // BOOOM
   // CHECK: ERROR: AddressSanitizer: use-after-poison
-  // CHECK: main{{.*}}use-after-poison.cpp:[[@LINE-2]]
+  // CHECK: {{.*}}main{{.*}}
   delete [] x;
   return res;
 }

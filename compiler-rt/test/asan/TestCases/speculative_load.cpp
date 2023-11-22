@@ -3,6 +3,10 @@
 // RUN: %clangxx_asan -O1 %s -o %t && %run %t 2>&1
 // RUN: %clangxx_asan -O2 %s -o %t && %run %t 2>&1
 // RUN: %clangxx_asan -O3 %s -o %t && %run %t 2>&1
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O0 %s -o %t && %run %t 2>&1
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O1 %s -o %t && %run %t 2>&1
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O2 %s -o %t && %run %t 2>&1
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O3 %s -o %t && %run %t 2>&1
 
 #include <sanitizer/asan_interface.h>
 
@@ -42,7 +46,7 @@ struct S {
 
 
 inline void side_effect(const void *arg) {
-  __asm__ __volatile__("" : : "r" (arg) : "memory");
+  __asm__ __volatile__("" : : "r"(reinterpret_cast<unsigned>(arg)) : "memory");
 }
 
 int main(int argc, char **argv) {

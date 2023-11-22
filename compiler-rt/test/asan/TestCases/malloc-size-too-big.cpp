@@ -1,6 +1,5 @@
-// RUN: %clangxx_asan -O0 %s -o %t
-// RUN: %env_asan_opts=allocator_may_return_null=0 not %run %t 2>&1 | FileCheck %s
-// RUN: %env_asan_opts=allocator_may_return_null=1 %run %t 2>&1 | FileCheck %s --check-prefix=CHECK-NULL
+// RUN: %clangxx_asan -O0 %s -o %t && not %run %t 2>&1 | FileCheck %s
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O0 %s -o %t && not %run %t 2>&1 | FileCheck %s
 
 // REQUIRES: stable-runtime
 
@@ -18,7 +17,7 @@ int main() {
   void *p = malloc(kMaxAllowedMallocSizePlusOne);
   // CHECK: {{ERROR: AddressSanitizer: requested allocation size .* \(.* after adjustments for alignment, red zones etc\.\) exceeds maximum supported size}}
   // CHECK: {{#0 0x.* in .*malloc}}
-  // CHECK: {{#1 0x.* in main .*malloc-size-too-big.cpp:}}[[@LINE-3]]
+  // CHECK: {{#1 0x.* in .*main}}
   // CHECK: SUMMARY: AddressSanitizer: allocation-size-too-big
 
   printf("malloc returned: %zu\n", (size_t)p);

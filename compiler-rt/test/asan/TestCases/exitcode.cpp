@@ -2,7 +2,7 @@
 // RUN: %env_asan_opts=exitcode=42 %run %t | FileCheck %s
 
 // Android doesn't have spawn.h or posix_spawn.
-// UNSUPPORTED: android
+// UNSUPPORTED: android, cheerp
 
 // CHECK: got expected 42 exit code
 

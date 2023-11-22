@@ -14,7 +14,7 @@
 
 #if !defined(__linux__) && !defined(__FreeBSD__) && !defined(__NetBSD__) && \
     !defined(__APPLE__) && !defined(_WIN32) && !defined(__Fuchsia__) &&     \
-    !(defined(__sun__) && defined(__svr4__))
+    !(defined(__sun__) && defined(__svr4__)) && !defined(__ASMJS__)
 #  error "This operating system is not supported"
 #endif
 
@@ -127,6 +127,12 @@
 #  define SANITIZER_FUCHSIA 1
 #else
 #  define SANITIZER_FUCHSIA 0
+#endif
+
+#if defined(__ASMJS__)
+#  define SANITIZER_CHEERPWASM 1
+#else
+#  define SANITIZER_CHEERPWASM 0
 #endif
 
 // Assume linux that is not glibc or android is musl libc.

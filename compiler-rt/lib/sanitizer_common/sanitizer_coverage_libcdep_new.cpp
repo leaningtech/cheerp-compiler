@@ -9,7 +9,7 @@
 
 #include "sanitizer_platform.h"
 
-#if !SANITIZER_FUCHSIA
+#if !SANITIZER_FUCHSIA && !SANITIZER_CHEERPWASM
 #  include "sancov_flags.h"
 #  include "sanitizer_allocator_internal.h"
 #  include "sanitizer_atomic.h"
@@ -285,4 +285,4 @@ SANITIZER_INTERFACE_WEAK_DEF(void, __sanitizer_cov_pcs_init, const uptr* beg,
 SANITIZER_INTERFACE_ATTRIBUTE SANITIZER_WEAK_ATTRIBUTE
 SANITIZER_TLS_INITIAL_EXEC_ATTRIBUTE uptr __sancov_lowest_stack;
 
-#endif  // !SANITIZER_FUCHSIA
+#endif  // !SANITIZER_FUCHSIA && !SANITIZER_CHEERPWASM

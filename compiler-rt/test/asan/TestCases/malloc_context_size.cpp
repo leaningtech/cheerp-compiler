@@ -5,6 +5,8 @@
 // RUN: %env_asan_opts=malloc_context_size=1:fast_unwind_on_malloc=1 not %run %t 2>&1 | FileCheck %s
 // RUN: %env_asan_opts=malloc_context_size=2 not %run %t 2>&1 | FileCheck %s --check-prefix=TWO
 
+// UNSUPPORTED: cheerp
+
 int main() {
   char *x = new char[20];
   delete[] x;

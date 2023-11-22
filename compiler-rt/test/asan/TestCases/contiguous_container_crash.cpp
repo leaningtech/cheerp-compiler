@@ -1,9 +1,11 @@
-// RUN: %clangxx_asan -O %s -o %t
-// RUN: not %run %t crash 2>&1 | FileCheck --check-prefix=CHECK-CRASH %s
-// RUN: not %run %t bad-bounds 2>&1 | FileCheck --check-prefix=CHECK-BAD-BOUNDS %s
-// RUN: not %run %t odd-alignment 2>&1 | FileCheck --check-prefix=CHECK-CRASH %s
-// RUN: not %run %t odd-alignment-end 2>&1 | FileCheck --check-prefix=CHECK-CRASH %s
-// RUN: %env_asan_opts=detect_container_overflow=0 %run %t crash
+// RUN: %clangxx_asan -DTEST=0 -O %s -o %t && not %run %t 2>&1 | FileCheck --check-prefix=CHECK-CRASH %s
+// RUN: %clangxx_asan -DTEST=1 -O %s -o %t && not %run %t 2>&1 | FileCheck --check-prefix=CHECK-BAD-BOUNDS %s
+// RUN: %clangxx_asan -DTEST=2 -O %s -o %t && not %run %t 2>&1 | FileCheck --check-prefix=CHECK-CRASH %s
+// RUN: %clangxx_asan -DTEST=3 -O %s -o %t && not %run %t 2>&1 | FileCheck --check-prefix=CHECK-CRASH %s
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -DTEST=0 -O %s -o %t && not %run %t 2>&1 | FileCheck --check-prefix=CHECK-CRASH %s
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -DTEST=1 -O %s -o %t && not %run %t 2>&1 | FileCheck --check-prefix=CHECK-BAD-BOUNDS %s
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -DTEST=2 -O %s -o %t && not %run %t 2>&1 | FileCheck --check-prefix=CHECK-CRASH %s
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -DTEST=3 -O %s -o %t && not %run %t 2>&1 | FileCheck --check-prefix=CHECK-CRASH %s
 //
 // Test crash due to __sanitizer_annotate_contiguous_container.
 
@@ -52,14 +54,13 @@ int OddAlignmentEnd() {
 }
 
 int main(int argc, char **argv) {
-  assert(argc == 2);
-  if (!strcmp(argv[1], "crash"))
+  if (TEST == 0)
     return TestCrash();
-  else if (!strcmp(argv[1], "bad-bounds"))
+  else if (TEST == 1)
     BadBounds();
-  else if (!strcmp(argv[1], "odd-alignment"))
+  else if (TEST == 2)
     return OddAlignment();
-  else if (!strcmp(argv[1], "odd-alignment-end"))
+  else if (TEST == 3)
     return OddAlignmentEnd();
   return 0;
 }

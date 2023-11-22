@@ -131,24 +131,27 @@ set_target_properties(AsanDynamicUnitTests PROPERTIES FOLDER "Compiler-RT Tests"
 add_custom_target(AsanBenchmarks)
 set_target_properties(AsanBenchmarks PROPERTIES FOLDER "Compiler-RT Tests")
 
-set(ASAN_NOINST_TEST_SOURCES
-  ${COMPILER_RT_GTEST_SOURCE}
-  asan_fake_stack_test.cpp
-  asan_noinst_test.cpp
-  asan_test_main.cpp
-  )
+if (NOT OS_NAME MATCHES "Cheerp")
+  set(ASAN_NOINST_TEST_SOURCES
+    ${COMPILER_RT_GTEST_SOURCE}
+    asan_fake_stack_test.cpp
+    asan_noinst_test.cpp
+    asan_test_main.cpp
+    )
 
-set(ASAN_INST_TEST_SOURCES
-  ${COMPILER_RT_GTEST_SOURCE}
-  asan_globals_test.cpp
-  asan_interface_test.cpp
-  asan_internal_interface_test.cpp
-  asan_test.cpp
-  asan_oob_test.cpp
-  asan_mem_test.cpp
-  asan_str_test.cpp
-  asan_test_main.cpp
-  )
+  set(ASAN_INST_TEST_SOURCES
+    ${COMPILER_RT_GTEST_SOURCE}
+    asan_globals_test.cpp
+    asan_interface_test.cpp
+    asan_internal_interface_test.cpp
+    asan_test.cpp
+    asan_oob_test.cpp
+    asan_mem_test.cpp
+    asan_str_test.cpp
+    asan_test_main.cpp
+    )
+endif()
+
 if(APPLE)
   list(APPEND ASAN_INST_TEST_SOURCES
     asan_mac_test.cpp
@@ -173,13 +176,15 @@ function(add_asan_tests arch test_runtime)
 
   # Closure to keep the values.
   function(generate_asan_tests test_objects test_suite testname)
-    generate_compiler_rt_tests(${test_objects} ${test_suite} ${testname} ${arch}
-      COMPILE_DEPS ${ASAN_UNITTEST_HEADERS} ${ASAN_IGNORELIST_FILE}
-      DEPS llvm_gtest asan
-      KIND ${TEST_KIND}
-      ${ARGN}
-      )
-    set("${test_objects}" "${${test_objects}}" PARENT_SCOPE)
+    if (NOT OS_NAME MATCHES "Cheerp")
+      generate_compiler_rt_tests(${test_objects} ${test_suite} ${testname} ${arch}
+        COMPILE_DEPS ${ASAN_UNITTEST_HEADERS} ${ASAN_IGNORELIST_FILE}
+        DEPS llvm_gtest asan
+        KIND ${TEST_KIND}
+        ${ARGN}
+        )
+      set("${test_objects}" "${${test_objects}}" PARENT_SCOPE)
+    endif()
   endfunction()
 
   set(TARGET_LINK_FLAGS)
@@ -221,22 +226,24 @@ function(add_asan_tests arch test_runtime)
   endif()
 
   # Uninstrumented tests.
-  set(ASAN_NOINST_TEST_OBJECTS)
-  generate_asan_tests(ASAN_NOINST_TEST_OBJECTS
-    AsanUnitTests "Asan-${arch}${TEST_KIND}-Noinst-Test"
-    SUBDIR "${CONFIG_NAME}"
-    CFLAGS ${ASAN_UNITTEST_COMMON_CFLAGS}
-    LINK_FLAGS ${ASAN_UNITTEST_NOINST_LINK_FLAGS} ${TARGET_LINK_FLAGS}
-    SOURCES ${ASAN_NOINST_TEST_SOURCES}
-    RUNTIME ${test_runtime})
+  if (NOT OS_NAME MATCHES "Cheerp")
+    set(ASAN_NOINST_TEST_OBJECTS)
+    generate_asan_tests(ASAN_NOINST_TEST_OBJECTS
+      AsanUnitTests "Asan-${arch}${TEST_KIND}-Noinst-Test"
+      SUBDIR "${CONFIG_NAME}"
+      CFLAGS ${ASAN_UNITTEST_COMMON_CFLAGS}
+      LINK_FLAGS ${ASAN_UNITTEST_NOINST_LINK_FLAGS} ${TARGET_LINK_FLAGS}
+      SOURCES ${ASAN_NOINST_TEST_SOURCES}
+      RUNTIME ${test_runtime})
 
-  set(ASAN_BENCHMARK_OBJECTS)
-  generate_asan_tests(ASAN_BENCHMARK_OBJECTS
-    AsanBenchmarks "Asan-${arch}${TEST_KIND}-Benchmark"
-    SUBDIR "${CONFIG_NAME}"
-    CFLAGS ${ASAN_UNITTEST_INSTRUMENTED_CFLAGS}
-    SOURCES ${ASAN_BENCHMARKS_SOURCES}
-    LINK_FLAGS ${ASAN_UNITTEST_INSTRUMENTED_LINK_FLAGS} ${TARGET_LINK_FLAGS})
+    set(ASAN_BENCHMARK_OBJECTS)
+    generate_asan_tests(ASAN_BENCHMARK_OBJECTS
+      AsanBenchmarks "Asan-${arch}${TEST_KIND}-Benchmark"
+      SUBDIR "${CONFIG_NAME}"
+      CFLAGS ${ASAN_UNITTEST_INSTRUMENTED_CFLAGS}
+      SOURCES ${ASAN_BENCHMARKS_SOURCES}
+      LINK_FLAGS ${ASAN_UNITTEST_INSTRUMENTED_LINK_FLAGS} ${TARGET_LINK_FLAGS})
+  endif()
 endfunction()
 
 if(COMPILER_RT_CAN_EXECUTE_TESTS AND NOT ANDROID)

@@ -1,5 +1,6 @@
 // RUN: %clangxx_asan -O0 %s -o %t && not %run %t 2>&1 | FileCheck %s
 
+// UNSUPPORTED: cheerp
 #include <string.h>
 
 namespace XXX {

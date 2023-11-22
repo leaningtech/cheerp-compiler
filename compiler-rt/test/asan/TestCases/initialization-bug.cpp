@@ -7,6 +7,7 @@
 
 // FIXME: https://code.google.com/p/address-sanitizer/issues/detail?id=186
 // XFAIL: windows-msvc
+// UNSUPPORTED: cheerp
 
 #include <cstdio>
 

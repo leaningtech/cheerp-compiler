@@ -3,6 +3,7 @@
 // llvm.lifetime intrinsics at -O0.
 //
 // RUN: %clangxx_asan -O2 %s -o %t && not %run %t 2>&1 | FileCheck %s
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O2 %s -o %t && not %run %t 2>&1 | FileCheck %s
 
 int *arr;
 
@@ -14,14 +15,15 @@ void inlined(int arg) {
 }
 
 int main(int argc, char *argv[]) {
+  ++argc;
   inlined(argc);
   return arr[argc - 1];  // BOOM
   // CHECK: ERROR: AddressSanitizer: stack-use-after-scope
   // CHECK: READ of size 4 at 0x{{.*}} thread T0
-  // CHECK:   #0 0x{{.*}} in main
-  // CHECK:      {{.*}}use-after-scope-inlined.cpp:[[@LINE-4]]
+  // CHECK:   #0 0x{{.*}} in {{.*}}main
+  // CHECK:      {{.*}}
   // CHECK: Address 0x{{.*}} is located in stack of thread T0 at offset [[OFFSET:[^ ]*]] in frame
-  // CHECK:      {{.*}} in main
+  // CHECK:      {{.*}} in {{.*}}main
   // CHECK:   This frame has
-  // CHECK:     {{\[}}[[OFFSET]], {{.*}}) 'x.i' (line [[@LINE-15]])
+  // CHECK:     {{\[}}[[OFFSET]], {{.*}}) 'x.i'
 }

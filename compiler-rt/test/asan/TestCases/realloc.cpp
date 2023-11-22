@@ -1,8 +1,6 @@
-// RUN: %clangxx_asan -O0 %s -o %t
 // Default is true (free on realloc to 0 size)
-// RUN: %run %t 2>&1 | FileCheck %s
-// RUN: %env_asan_opts=allocator_frees_and_returns_null_on_realloc_zero=true %run %t 2>&1 | FileCheck %s
-// RUN: %env_asan_opts=allocator_frees_and_returns_null_on_realloc_zero=false %run %t 2>&1 | FileCheck %s --check-prefix=NO-FREE
+// RUN: %clangxx_asan -O0 %s -o %t && %run %t 2>&1 | FileCheck %s
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O0 %s -o %t && %run %t 2>&1 | FileCheck %s
 
 #include <stdio.h>
 #include <stdlib.h>

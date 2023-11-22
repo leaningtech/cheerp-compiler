@@ -13,6 +13,10 @@
 
 #include "lsan_common.h"
 
+#if SANITIZER_CHEERPWASM
+#  include <alloca.h>
+#endif
+
 #include "sanitizer_common/sanitizer_common.h"
 #include "sanitizer_common/sanitizer_flag_parser.h"
 #include "sanitizer_common/sanitizer_flags.h"
@@ -36,6 +40,10 @@
 #    endif
 // https://github.com/apple-oss-distributions/objc4/blob/8701d5672d3fd3cd817aeb84db1077aafe1a1604/runtime/objc-runtime-new.h#L139
 #    define OBJC_FAST_IS_RW 0x8000000000000000UL
+#  endif
+
+#  if SANITIZER_CHEERPWASM
+extern char *volatile _heapEnd;
 #  endif
 
 namespace __lsan {
@@ -369,6 +377,12 @@ extern "C" SANITIZER_WEAK_ATTRIBUTE void __libc_iterate_dynamic_tls(
     pid_t, void (*cb)(void *, void *, uptr, void *), void *);
 #    endif
 
+#    if SANITIZER_CHEERPWASM
+
+void ProcessThreads(SuspendedThreadsList const &suspended_threads,
+                    Frontier *frontier, tid_t caller_tid, uptr caller_sp);
+#    else
+
 static void ProcessThreadRegistry(Frontier *frontier) {
   InternalMmapVector<uptr> ptrs;
   GetThreadRegistryLocked()->RunCallbackForEachThreadLocked(
@@ -475,7 +489,7 @@ static void ProcessThreads(SuspendedThreadsList const &suspended_threads,
                                  kReachable);
         }
       }
-#    if SANITIZER_ANDROID
+#      if SANITIZER_ANDROID
       auto *cb = +[](void *dtls_begin, void *dtls_end, uptr /*dso_idd*/,
                      void *arg) -> void {
         ScanRangeForPointers(reinterpret_cast<uptr>(dtls_begin),
@@ -488,7 +502,7 @@ static void ProcessThreads(SuspendedThreadsList const &suspended_threads,
       // thread is suspended in the middle of updating its DTLS. IOWs, we
       // could scan already freed memory. (probably fine for now)
       __libc_iterate_dynamic_tls(os_id, cb, frontier);
-#    else
+#      else
       if (dtls && !DTLSInDestruction(dtls)) {
         ForEachDVT(dtls, [&](const DTLS::DTV &dtv, int id) {
           uptr dtls_beg = dtv.beg;
@@ -505,13 +519,15 @@ static void ProcessThreads(SuspendedThreadsList const &suspended_threads,
         // this and continue.
         LOG_THREADS("Thread %llu has DTLS under destruction.\n", os_id);
       }
-#    endif
+#      endif
     }
   }
 
   // Add pointers reachable from ThreadContexts
   ProcessThreadRegistry(frontier);
 }
+
+#    endif  // !SANITIZER_CHEERPWASM
 
 #  endif  // SANITIZER_FUCHSIA
 
@@ -533,12 +549,17 @@ void ScanRootRegion(Frontier *frontier, const RootRegion &root_region,
 
 static void ProcessRootRegion(Frontier *frontier,
                               const RootRegion &root_region) {
+#  if SANITIZER_CHEERPWASM
+  ScanRootRegion(frontier, root_region, 0, reinterpret_cast<uptr>(_heapEnd),
+                 true);
+#  else
   MemoryMappingLayout proc_maps(/*cache_enabled*/ true);
   MemoryMappedSegment segment;
   while (proc_maps.Next(&segment)) {
     ScanRootRegion(frontier, root_region, segment.start, segment.end,
                    segment.IsReadable());
   }
+#  endif
 }
 
 // Scans root regions for heap pointers.
@@ -681,13 +702,13 @@ static void ReportIfNotSuspended(ThreadContextBase *tctx, void *arg) {
   }
 }
 
-#  if SANITIZER_FUCHSIA
+#  if SANITIZER_FUCHSIA || SANITIZER_CHEERPWASM
 
 // Fuchsia provides a libc interface that guarantees all threads are
 // covered, and SuspendedThreadList is never really used.
 static void ReportUnsuspendedThreads(const SuspendedThreadsList &) {}
 
-#  else  // !SANITIZER_FUCHSIA
+#  else  // !SANITIZER_FUCHSIA && !SANITIZER_CHERPWASM
 
 static void ReportUnsuspendedThreads(
     const SuspendedThreadsList &suspended_threads) {
@@ -701,7 +722,7 @@ static void ReportUnsuspendedThreads(
       &ReportIfNotSuspended, &threads);
 }
 
-#  endif  // !SANITIZER_FUCHSIA
+#  endif  // !SANITIZER_FUCHSIA && !SANITIZER_CHEERPWASM
 
 static void CheckForLeaksCallback(const SuspendedThreadsList &suspended_threads,
                                   void *arg) {
@@ -757,7 +778,13 @@ static bool CheckForLeaks() {
     // CheckForLeaks which does not use bytes with pointers before the
     // threads are suspended and stack pointers captured.
     param.caller_tid = GetTid();
+
+#  if SANITIZER_CHEERPWASM
+    param.caller_sp = reinterpret_cast<uptr>(alloca(0));
+#  else
     param.caller_sp = reinterpret_cast<uptr>(__builtin_frame_address(0));
+#  endif
+
     LockStuffAndStopTheWorld(CheckForLeaksCallback, &param);
     if (!param.success) {
       Report("LeakSanitizer has encountered a fatal error.\n");

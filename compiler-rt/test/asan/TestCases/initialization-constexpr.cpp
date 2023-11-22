@@ -13,6 +13,7 @@
 // RUN: %clangxx_asan -O3 %s %p/Helpers/initialization-constexpr-extra.cpp --std=c++11 -o %t
 // RUN: %env_asan_opts=check_initialization_order=true %run %t 2>&1
 
+// UNSUPPORTED: cheerp
 class Integer {
 private:
   int value;

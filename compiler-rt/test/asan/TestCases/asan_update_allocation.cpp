@@ -7,6 +7,7 @@
 // RUN: not %run %t 10000000 1 2>&1 | FileCheck %s --check-prefixes=CHECK,T1
 
 // REQUIRES: stable-runtime
+// UNSUPPORTED: cheerp
 
 #include <sanitizer/asan_interface.h>
 #include <stdlib.h>

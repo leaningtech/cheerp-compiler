@@ -1,5 +1,5 @@
-// RUN: %clangxx_asan -O0 -mllvm -asan-instrument-dynamic-allocas %s -o %t
-// RUN: %run %t 2>&1
+// RUN: %clangxx_asan -cheerp-no-lto -O0 -mllvm -asan-instrument-dynamic-allocas %s -o %t && %run %t 2>&1
+// CHEERPASAN: TODO check if this test should also work for asmjs
 //
 // REQUIRES: stable-runtime
 

@@ -9,7 +9,7 @@
 
 // On Windows, defining strtoll in a static build results in linker errors, but
 // it works with the dynamic runtime.
-// XFAIL: win32-static-asan
+// XFAIL: win32-static-asan, cheerp
 
 // On NetBSD, defining strtol in a static build results in linker errors, but
 // it works with the dynamic runtime.

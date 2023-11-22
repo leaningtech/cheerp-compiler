@@ -337,7 +337,20 @@ if(NOT WIN32)
   append_list_if(COMPILER_RT_HAS_FPIC_FLAG -fPIC SANITIZER_COMMON_CFLAGS)
 endif()
 append_list_if(COMPILER_RT_HAS_FNO_BUILTIN_FLAG -fno-builtin SANITIZER_COMMON_CFLAGS)
-append_list_if(COMPILER_RT_HAS_FNO_EXCEPTIONS_FLAG -fno-exceptions SANITIZER_COMMON_CFLAGS)
+if (NOT OS_NAME MATCHES "Cheerp")
+  append_list_if(COMPILER_RT_HAS_FNO_EXCEPTIONS_FLAG -fno-exceptions SANITIZER_COMMON_CFLAGS)
+else()
+  # By default, Cheerp assumes non-throwing code unless -fexceptions is
+  # specified. And because we compile the libraries to LLVM bitcode, the
+  # nothrow attribute is preserved in the library. However, for example
+  # ASan intercepts the throwing ABI calls, and afterwards actually throws the
+  # exception, it would cause undefined behavior when combined with throwing
+  # code.
+  #
+  # This doesn't seem to be a problem on native as the nothrow attribute isn't
+  # preserved in the library
+  append_list_if(TRUE  -fexceptions SANITIZER_COMMON_CFLAGS)
+endif()
 if(NOT COMPILER_RT_DEBUG AND NOT APPLE)
   append_list_if(COMPILER_RT_HAS_FOMIT_FRAME_POINTER_FLAG -fomit-frame-pointer SANITIZER_COMMON_CFLAGS)
 endif()
@@ -764,3 +777,4 @@ if(COMPILER_RT_INCLUDE_TESTS)
 endif()
 
 add_subdirectory(tools)
+include(Demangle)

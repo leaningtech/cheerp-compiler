@@ -5,6 +5,7 @@
 
 // There's no interceptor for strcasestr on Windows
 // XFAIL: windows-msvc
+// UNSUPPORTED: cheerp
 
 #define _GNU_SOURCE
 #include <assert.h>

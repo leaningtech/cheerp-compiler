@@ -17,6 +17,8 @@
 namespace __sanitizer {
 
 void StaticSpinMutex::LockSlow() {
+#if SANITIZER_CHEERPWASM
+#else
   for (int i = 0;; i++) {
     if (i < 100)
       proc_yield(1);
@@ -26,6 +28,7 @@ void StaticSpinMutex::LockSlow() {
         atomic_exchange(&state_, 1, memory_order_acquire) == 0)
       return;
   }
+#endif
 }
 
 void Semaphore::Wait() {

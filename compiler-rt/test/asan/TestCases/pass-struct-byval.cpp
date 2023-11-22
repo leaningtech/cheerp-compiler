@@ -1,5 +1,5 @@
-// RUN: %clangxx_asan -O0 %s -o %t
-// RUN: not %run %t 2>&1 | FileCheck %s
+// RUN: %clangxx_asan -O0 %s -o %t && not %run %t 2>&1 | FileCheck %s
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O0 %s -o %t && not %run %t 2>&1 | FileCheck %s
 
 struct A {
   int a[8];

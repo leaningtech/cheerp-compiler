@@ -1,6 +1,7 @@
-// RUN: %clangxx_asan -O0 -mllvm -asan-instrument-dynamic-allocas %s -o %t
-// RUN: %clangxx_asan -O3 -mllvm -asan-instrument-dynamic-allocas %s -o %t
-// RUN: %run %t 2>&1
+// RUN: %clangxx_asan -O0 -mllvm -asan-instrument-dynamic-allocas %s -o %t && %run %t 2>&1
+// RUN: %clangxx_asan -O3 -mllvm -asan-instrument-dynamic-allocas %s -o %t && %run %t 2>&1
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O0 -mllvm -asan-instrument-dynamic-allocas %s -o %t && %run %t 2>&1
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O3 -mllvm -asan-instrument-dynamic-allocas %s -o %t && %run %t 2>&1
 //
 
 #include "sanitizer/asan_interface.h"

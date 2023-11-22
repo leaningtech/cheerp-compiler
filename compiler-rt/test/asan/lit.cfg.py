@@ -97,6 +97,9 @@ clang_asan_static_cflags = (["-fsanitize=address",
                             config.debug_info_flags + target_cflags)
 if config.target_arch == 's390x':
   clang_asan_static_cflags.append("-mbackchain")
+if config.host_os == 'Cheerp':
+  clang_asan_static_cflags.append("-cheerp-pretty-code")
+  clang_asan_static_cflags.append("-g0")
 clang_asan_static_cxxflags = config.cxx_mode_flags + clang_asan_static_cflags
 
 asan_dynamic_flags = []
@@ -239,7 +242,7 @@ else:
   config.substitutions.append(('%pie', '-pie'))
 
 # Only run the tests on supported OSs.
-if config.host_os not in ['Linux', 'Darwin', 'FreeBSD', 'SunOS', 'Windows', 'NetBSD']:
+if config.host_os not in ['Linux', 'Darwin', 'FreeBSD', 'SunOS', 'Windows', 'NetBSD', "Cheerp"]:
   config.unsupported = True
 
 if not config.parallelism_group:
@@ -247,3 +250,5 @@ if not config.parallelism_group:
 
 if config.host_os == 'NetBSD':
   config.substitutions.insert(0, ('%run', config.netbsd_noaslr_prefix))
+if config.host_os == 'Cheerp':
+  config.substitutions.insert(0, ('%run', config.executor))

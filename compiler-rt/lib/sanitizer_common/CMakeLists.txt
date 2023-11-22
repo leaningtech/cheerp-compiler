@@ -16,6 +16,8 @@ set(SANITIZER_SOURCES_NOTERMINATION
   sanitizer_linux.cpp
   sanitizer_linux_s390.cpp
   sanitizer_mac.cpp
+  sanitizer_cheerpwasm.cpp
+  sanitizer_cheerpwasm_mmap.cpp
   sanitizer_mutex.cpp
   sanitizer_netbsd.cpp
   sanitizer_platform_limits_freebsd.cpp
@@ -23,6 +25,7 @@ set(SANITIZER_SOURCES_NOTERMINATION
   sanitizer_platform_limits_netbsd.cpp
   sanitizer_platform_limits_posix.cpp
   sanitizer_platform_limits_solaris.cpp
+  sanitizer_platform_limits_cheerpwasm.cpp
   sanitizer_posix.cpp
   sanitizer_printf.cpp
   sanitizer_procmaps_common.cpp
@@ -35,6 +38,7 @@ set(SANITIZER_SOURCES_NOTERMINATION
   sanitizer_stoptheworld_fuchsia.cpp
   sanitizer_stoptheworld_mac.cpp
   sanitizer_stoptheworld_win.cpp
+  sanitizer_stoptheworld_cheerpwasm.cpp
   sanitizer_suppressions.cpp
   sanitizer_tls_get_addr.cpp
   sanitizer_thread_registry.cpp
@@ -80,6 +84,7 @@ set(SANITIZER_SYMBOLIZER_SOURCES
   sanitizer_stacktrace_libcdep.cpp
   sanitizer_stacktrace_printer.cpp
   sanitizer_stacktrace_sparc.cpp
+  sanitizer_stacktrace_cheerpwasm.cpp
   sanitizer_symbolizer.cpp
   sanitizer_symbolizer_libbacktrace.cpp
   sanitizer_symbolizer_libcdep.cpp
@@ -88,6 +93,7 @@ set(SANITIZER_SYMBOLIZER_SOURCES
   sanitizer_symbolizer_posix_libcdep.cpp
   sanitizer_symbolizer_report.cpp
   sanitizer_symbolizer_win.cpp
+  sanitizer_symbolizer_cheerpwasm.cpp
   sanitizer_unwind_linux_libcdep.cpp
   sanitizer_unwind_win.cpp
   )

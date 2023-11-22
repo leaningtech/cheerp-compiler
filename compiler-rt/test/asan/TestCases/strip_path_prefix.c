@@ -1,6 +1,7 @@
 // RUN: %clang_asan -O2 %s -o %t
 // RUN: %env_asan_opts=strip_path_prefix='"%S/"' not %run %t 2>&1 | FileCheck %s
 
+// UNSUPPORTED: cheerp
 #include <stdlib.h>
 int main() {
   char *x = (char*)malloc(10 * sizeof(char));

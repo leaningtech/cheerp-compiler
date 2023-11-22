@@ -4,6 +4,7 @@
 
 // There's no interceptor for time() on Windows yet.
 // XFAIL: windows-msvc
+// UNSUPPORTED: cheerp
 
 #include <stdio.h>
 #include <stdlib.h>
