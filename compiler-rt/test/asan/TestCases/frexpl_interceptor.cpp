@@ -2,6 +2,7 @@
 
 // Test the frexpl() interceptor.
 
+// UNSUPPORTED: cheerp
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>

@@ -1,4 +1,5 @@
 // RUN: %clangxx_asan -O1 %s -o %t && not %run %t 2>&1 | FileCheck %s
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O1 %s -o %t && not %run %t 2>&1 | FileCheck %s
 
 #include <stdio.h>
 
@@ -7,7 +8,7 @@ struct IntHolder {
   __attribute__((noinline)) ~IntHolder() {
     printf("Value: %d\n", *val_);  // BOOM
     // CHECK: ERROR: AddressSanitizer: stack-use-after-scope
-    // CHECK:  #0 0x{{.*}} in IntHolder::~IntHolder{{.*}}.cpp:[[@LINE-2]]
+    // CHECK:  #0 0x{{.*}} in {{.*}}IntHolder{{.*}}
   }
   void set(int *val) { val_ = val; }
   int *get() { return val_; }

@@ -202,7 +202,7 @@ void ProtectGap(uptr addr, uptr size, uptr zero_base_shadow_start,
   Die();
 }
 
-#endif  // !SANITIZER_FUCHSIA
+#endif  // !SANITIZER_FUCHSIA && !SANITIZER_CHEERPWASM
 
 #if !SANITIZER_WINDOWS && !SANITIZER_GO
 // Weak default implementation for when sanitizer_stackdepot is not linked in.

@@ -11,6 +11,7 @@ set(LSAN_COMMON_SOURCES
   lsan_common_fuchsia.cpp
   lsan_common_linux.cpp
   lsan_common_mac.cpp
+  lsan_common_cheerpwasm.cpp
   )
 
 set(LSAN_SOURCES

@@ -3,6 +3,8 @@
 // Default to strict_memcmp=1.
 // RUN: %clangxx_asan -O0 %s -o %t && not %run %t 2>&1 | FileCheck %s
 
+// UNSUPPORTED: cheerp
+
 #include <stdio.h>
 #include <string.h>
 int main() {

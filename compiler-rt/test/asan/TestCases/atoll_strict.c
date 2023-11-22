@@ -12,6 +12,7 @@
 
 // FIXME: Needs Windows interceptor.
 // XFAIL: windows-msvc
+// UNSUPPORTED: cheerp
 
 #include <assert.h>
 #include <stdlib.h>

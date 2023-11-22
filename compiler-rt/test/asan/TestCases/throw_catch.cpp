@@ -1,4 +1,5 @@
-// RUN: %clangxx_asan -fsanitize-address-use-after-return=never -O %s -o %t && %run %t
+// RUN: %clangxx_asan -fexceptions -fsanitize-address-use-after-return=never -O %s -o %t && %run %t
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -fexceptions -fsanitize-address-use-after-return=never -O %s -o %t && %run %t
 
 #include <assert.h>
 #include <stdio.h>

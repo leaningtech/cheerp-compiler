@@ -3,6 +3,8 @@
 // Function jumps over variable initialization making lifetime analysis
 // ambiguous. Asan should ignore such variable and program must not fail.
 
+// XFAIL: cheerp
+
 #include <stdlib.h>
 
 int *ptr;

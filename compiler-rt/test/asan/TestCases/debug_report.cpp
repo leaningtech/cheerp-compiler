@@ -1,6 +1,7 @@
 // Checks that the ASan debugging API for getting report information
 // returns correct values.
 // RUN: %clangxx_asan -O0 %s -o %t && not %run %t 2>&1 | FileCheck %s
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O0 %s -o %t && not %run %t 2>&1 | FileCheck %s
 
 #include <sanitizer/asan_interface.h>
 #include <stdio.h>
@@ -56,7 +57,7 @@ __asan_on_error() {
   // CHECK: report
   fprintf(stderr, "pc: " PTR_FMT "\n", pc);
   // CHECK: pc: 0x[[PC:[0-9a-f]+]]
-  fprintf(stderr, "bp: " PTR_FMT "\n", bp);
+  fprintf(stderr, "bp: 0x" PTR_FMT "\n", bp);
   // CHECK: bp: 0x[[BP:[0-9a-f]+]]
   fprintf(stderr, "sp: " PTR_FMT "\n", sp);
   // CHECK: sp: 0x[[SP:[0-9a-f]+]]

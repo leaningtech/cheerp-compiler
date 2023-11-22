@@ -1,4 +1,5 @@
-// RUN: %clangxx_asan -fexceptions -O %s -o %t && %env_asan_opts=detect_stack_use_after_return=0 %run %t
+// RUN: %clangxx_asan -fexceptions -O %s -o %t && %run %t
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -fexceptions -O %s -o %t && %run %t
 //
 // Test __sanitizer_annotate_contiguous_container.
 
@@ -269,9 +270,8 @@ void TestThrow() {
   assert(!__asan_address_is_poisoned(x + 14));
 }
 
-int main(int argc, char **argv) {
-  int n = argc == 1 ? 64 : atoi(argv[1]);
-  for (int i = 0; i <= n; i++) {
+int main() {
+  for (int i = 0; i <= 64; i++) {
     for (int j = 0; j < kGranularity * 2; j++) {
       for (int poison = 0; poison < 2; ++poison) {
         TestContainer(i, j, poison);

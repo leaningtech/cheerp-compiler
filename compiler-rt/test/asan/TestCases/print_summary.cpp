@@ -3,6 +3,7 @@
 // RUN: %env_asan_opts=symbolize=false not %run %t 2>&1 | FileCheck %s --check-prefix=MODULE
 // RUN: %env_asan_opts=print_summary=false not %run %t 2>&1 | FileCheck %s --check-prefix=MISSING
 
+// UNSUPPORTED: cheerp
 int main() {
   char *x = new char[20];
   delete[] x;

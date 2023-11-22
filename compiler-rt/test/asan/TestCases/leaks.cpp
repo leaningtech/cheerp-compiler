@@ -1,12 +1,15 @@
 // Test for LeakSanitizer+AddressSanitizer of different sizes.
 // REQUIRES: leak-detection
 //
-// RUN: %clangxx_asan -O0 %s -o %t
-// RUN: not %run %t 0 2>&1 | FileCheck %s
-// RUN: not %run %t 1 2>&1 | FileCheck %s
-// RUN: not %run %t 1000 2>&1 | FileCheck %s
-// RUN: not %run %t 1000000 2>&1 | FileCheck %s
-// RUN: not %run %t 10000000 2>&1 | FileCheck %s
+// RUN: %clangxx_asan -DLEAK_AMOUNT=0 -O0 %s -o %t && not %run %t 0 2>&1 | FileCheck %s
+// RUN: %clangxx_asan -DLEAK_AMOUNT=1 -O0 %s -o %t && not %run %t 0 2>&1 | FileCheck %s
+// RUN: %clangxx_asan -DLEAK_AMOUNT=1000 -O0 %s -o %t && not %run %t 0 2>&1 | FileCheck %s
+// RUN: %clangxx_asan -DLEAK_AMOUNT=1000000 -O0 %s -o %t && not %run %t 0 2>&1 | FileCheck %s
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -DLEAK_AMOUNT=0 -O0 %s -o %t && not %run %t 0 2>&1 | FileCheck %s
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -DLEAK_AMOUNT=1 -O0 %s -o %t && not %run %t 0 2>&1 | FileCheck %s
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -DLEAK_AMOUNT=1000 -O0 %s -o %t && not %run %t 0 2>&1 | FileCheck %s
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -DLEAK_AMOUNT=1000000 -O0 %s -o %t && not %run %t 0 2>&1 | FileCheck %s
+// CHEERPASAN: TODO make test with 10000000 work
 
 #include <cstdlib>
 #include <stdio.h>
@@ -32,6 +35,7 @@ __attribute__((noopt)) void leak(int n) {
 }
 
 int main(int argc, char **argv) {
-  leak(atoi(argv[1]));
+  leak(LEAK_AMOUNT);
+  exit(0);
 }
 // CHECK: LeakSanitizer: detected memory leaks

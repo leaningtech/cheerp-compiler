@@ -2,6 +2,7 @@
 
 // RUN: %env_asan_opts=detect_invalid_pointer_pairs=2:halt_on_error=0 %run %t 2>&1 | FileCheck %s
 
+// UNSUPPORTED: cheerp
 #include <assert.h>
 #include <stdlib.h>
 

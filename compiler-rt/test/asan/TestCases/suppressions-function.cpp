@@ -11,7 +11,7 @@
 
 // FIXME: atos does not work for inlined functions, yet llvm-symbolizer
 // does not always work with debug info on Darwin.
-// UNSUPPORTED: darwin
+// UNSUPPORTED: darwin, cheerp
 
 #include <stdio.h>
 #include <stdlib.h>

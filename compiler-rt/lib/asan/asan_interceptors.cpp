@@ -304,10 +304,12 @@ INTERCEPTOR(int, swapcontext, struct ucontext_t *oucp,
 #define siglongjmp __siglongjmp14
 #endif
 
+#if !SANITIZER_CHEERPWASM
 INTERCEPTOR(void, longjmp, void *env, int val) {
   __asan_handle_no_return();
   REAL(longjmp)(env, val);
 }
+#endif
 
 #if ASAN_INTERCEPT__LONGJMP
 INTERCEPTOR(void, _longjmp, void *env, int val) {
@@ -338,9 +340,17 @@ INTERCEPTOR(void, __cxa_throw, void *a, void *b, void *c) {
 }
 #endif
 
+#if SANITIZER_CHEERPWASM
+extern "C" void __cxa_throw_wasm_adapter(size_t, void*, size_t);
+extern "C" void __cxa_throw_wasm(void *a, void *b, void *c) {
+  __asan_handle_no_return();
+  __cxa_throw_wasm_adapter(reinterpret_cast<size_t>(a), b, reinterpret_cast<size_t>(c));
+}
+#endif
+
+
 #if ASAN_INTERCEPT___CXA_RETHROW_PRIMARY_EXCEPTION
 INTERCEPTOR(void, __cxa_rethrow_primary_exception, void *a) {
-  CHECK(REAL(__cxa_rethrow_primary_exception));
   __asan_handle_no_return();
   REAL(__cxa_rethrow_primary_exception)(a);
 }
@@ -627,6 +637,7 @@ DECLARE_EXTERN_INTERCEPTOR_AND_WRAPPER(int, vfork)
 
 // ---------------------- InitializeAsanInterceptors ---------------- {{{1
 namespace __asan {
+#if !SANITIZER_CHEERPWASM
 void InitializeAsanInterceptors() {
   static bool was_called_once;
   CHECK(!was_called_once);
@@ -655,8 +666,10 @@ void InitializeAsanInterceptors() {
   ASAN_INTERCEPT_FUNC(strtoll);
 #endif
 
+#if !SANITIZER_CHEERPWASM
   // Intecept jump-related functions.
   ASAN_INTERCEPT_FUNC(longjmp);
+#endif
 
 #if ASAN_INTERCEPT_SWAPCONTEXT
   ASAN_INTERCEPT_FUNC(getcontext);
@@ -720,6 +733,7 @@ void InitializeAsanInterceptors() {
 
   VReport(1, "AddressSanitizer: libc interceptors initialized\n");
 }
+#endif // !SANITIZER_CHEERPWASM
 
 } // namespace __asan
 

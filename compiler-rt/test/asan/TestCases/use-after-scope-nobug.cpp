@@ -1,4 +1,5 @@
 // RUN: %clangxx_asan -O1 %s -o %t && %run %t
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O1 %s -o %t && %run %t
 
 #include <stdio.h>
 #include <stdlib.h>

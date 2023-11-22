@@ -249,7 +249,14 @@ void AsanMapUnmapCallback::OnMap(uptr p, uptr size) const {
   thread_stats.mmaped += size;
 }
 void AsanMapUnmapCallback::OnUnmap(uptr p, uptr size) const {
+#if SANITIZER_CHEERPWASM
+  // CHEERP: as wasm has no memory protection, trying to access unmapped
+  // pages doesn't actually result in segfault or something like that, so we
+  // should just poison unmapped pages so asan can detect their accesses
+  PoisonShadow(p, size, 0xfe);
+#else
   PoisonShadow(p, size, 0);
+#endif
   // We are about to unmap a chunk of user memory.
   // Mark the corresponding shadow memory as not needed.
   FlushUnneededASanShadowMemory(p, size);

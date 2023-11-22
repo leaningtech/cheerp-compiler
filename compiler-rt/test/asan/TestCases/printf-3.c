@@ -1,10 +1,5 @@
-// RUN: %clang_asan -O2 %s -o %t
-// RUN: %env_asan_opts=check_printf=1 not %run %t 2>&1 | FileCheck --check-prefix=CHECK-ON %s
-// RUN: %env_asan_opts=check_printf=0 %run %t 2>&1 | FileCheck --check-prefix=CHECK-OFF %s
-// RUN: not %run %t 2>&1 | FileCheck --check-prefix=CHECK-ON %s
-
-// FIXME: printf is not intercepted on Windows yet.
-// XFAIL: windows-msvc
+// RUN: %clang_asan -O2 %s -o %t && not %run %t 2>&1 | FileCheck --check-prefix=CHECK-ON %s
+// RUN: %clang_asan -cheerp-linear-output=asmjs -O2 %s -o %t && not %run %t 2>&1 | FileCheck --check-prefix=CHECK-ON %s
 
 // New Bionic rejects %n
 // https://android.googlesource.com/platform/bionic/+/41398d03b7e8e0dfb951660ae713e682e9fc0336

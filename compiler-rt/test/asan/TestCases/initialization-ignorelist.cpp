@@ -13,6 +13,7 @@
 // RUN:   -fsanitize-ignorelist=%p/Helpers/initialization-ignorelist.txt -o %t
 // RUN: %env_asan_opts=check_initialization_order=true %run %t 2>&1
 
+// UNSUPPORTED: cheerp
 // Function is defined in another TU.
 int readBadGlobal();
 int x = readBadGlobal();  // init-order bug.

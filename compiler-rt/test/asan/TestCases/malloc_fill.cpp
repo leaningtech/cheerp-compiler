@@ -4,6 +4,8 @@
 // RUN: %env_asan_opts=max_malloc_fill_size=10:malloc_fill_byte=8 %run %t | FileCheck %s --check-prefix=CHECK-10-8
 // RUN: %env_asan_opts=max_malloc_fill_size=20:malloc_fill_byte=171 %run %t | FileCheck %s --check-prefix=CHECK-20-ab
 
+// UNSUPPORTED: cheerp
+
 #include <stdio.h>
 int main(int argc, char **argv) {
   // With asan allocator this makes sure we get memory from mmap.

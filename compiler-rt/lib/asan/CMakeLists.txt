@@ -14,10 +14,12 @@ set(ASAN_SOURCES
   asan_interceptors.cpp
   asan_interceptors_memintrinsics.cpp
   asan_linux.cpp
+  asan_cheerpwasm.cpp
   asan_mac.cpp
   asan_malloc_linux.cpp
   asan_malloc_mac.cpp
   asan_malloc_win.cpp
+  asan_malloc_cheerpwasm.cpp
   asan_memory_profile.cpp
   asan_poisoning.cpp
   asan_posix.cpp
@@ -32,7 +34,7 @@ set(ASAN_SOURCES
   asan_win.cpp
   )
 
-if (NOT WIN32 AND NOT APPLE)
+if (NOT WIN32 AND NOT APPLE AND NOT OS_NAME MATCHES "Cheerp")
   list(APPEND ASAN_SOURCES
     asan_interceptors_vfork.S
     )
@@ -46,7 +48,7 @@ set(ASAN_STATIC_SOURCES
   asan_rtl_static.cpp
   )
 
-if (NOT WIN32 AND NOT APPLE)
+if (NOT WIN32 AND NOT APPLE AND NOT OS_NAME MATCHES "Cheerp")
   list(APPEND ASAN_STATIC_SOURCES
     asan_rtl_x86_64.S
   )

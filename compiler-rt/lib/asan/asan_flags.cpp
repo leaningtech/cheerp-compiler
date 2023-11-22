@@ -22,6 +22,10 @@
 #include "ubsan/ubsan_flags.h"
 #include "ubsan/ubsan_platform.h"
 
+#if SANITIZER_CHEERPWASM
+#  include "sanitizer_common/sanitizer_cheerpwasm.h"
+#endif
+
 namespace __asan {
 
 Flags asan_flags_dont_use_directly;  // use via flags().
@@ -58,6 +62,9 @@ void InitializeFlags() {
     cf.malloc_context_size = kDefaultMallocContextSize;
     cf.intercept_tls_get_addr = true;
     cf.exitcode = 1;
+#if SANITIZER_CHEERPWASM
+    cf.disable_traces = IsWasi();
+#endif
     OverrideCommonFlags(cf);
   }
   Flags *f = flags();

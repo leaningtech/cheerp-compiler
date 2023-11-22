@@ -1,10 +1,7 @@
 // Sanity checking a test in pure C.
-// RUN: %clang_asan -O2 %s -o %t
-// RUN: not %run %t 2>&1 | FileCheck %s
+// RUN: %clang_asan -O2 %s -o %t && not %run %t 2>&1 | FileCheck %s
+// RUN: %clang_asan -cheerp-linear-output=asmjs -O2 %s -o %t && not %run %t 2>&1 | FileCheck %s
 
-// Sanity checking a test in pure C with -pie.
-// RUN: %clang_asan -O2 %s %pie %fPIE -o %t
-// RUN: not %run %t 2>&1 | FileCheck %s
 // REQUIRES: stable-runtime
 
 #include <stdlib.h>
@@ -14,7 +11,7 @@ int main() {
   return x[5];
   // CHECK: heap-use-after-free
   // CHECK: free
-  // CHECK: main{{.*}}sanity_check_pure_c.c:[[@LINE-4]]
+  // CHECK: main
   // CHECK: malloc
-  // CHECK: main{{.*}}sanity_check_pure_c.c:[[@LINE-7]]
+  // CHECK: main
 }

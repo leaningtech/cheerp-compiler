@@ -1,8 +1,7 @@
 // Verify that objects passed by value get red zones and that the copy
 // constructor is called.
-// RUN: %clangxx_asan -O0 %s -o %t
-// RUN: not %run %t 2>&1 | FileCheck %s --implicit-check-not \
-// RUN:     Assertion{{.*}}failed
+// RUN: %clangxx_asan -O0 %s -o %t && not %run %t 2>&1 | FileCheck %s --implicit-check-not Assertion{{.*}}failed
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O0 %s -o %t && not %run %t 2>&1 | FileCheck %s --implicit-check-not Assertion{{.*}}failed
 
 // ASan instrumentation can't insert red-zones around inalloca parameters.
 // XFAIL: windows-msvc && asan-32-bits

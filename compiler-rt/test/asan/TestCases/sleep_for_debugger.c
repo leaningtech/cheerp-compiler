@@ -1,6 +1,7 @@
 // RUN: %clang_asan -O2 %s -o %t
 // RUN: %env_asan_opts=verbosity=1:sleep_before_init=1:sleep_after_init=1:sleep_before_dying=1 not %run %t 2>&1 | FileCheck %s
 
+// UNSUPPORTED: cheerp
 #include <stdlib.h>
 
 int main() {

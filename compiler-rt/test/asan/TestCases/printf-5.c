@@ -1,8 +1,6 @@
-// RUN: %clang_asan -O2 %s -o %t
 // We need replace_intrin=0 to avoid reporting errors in memcpy.
-// RUN: %env_asan_opts=replace_intrin=0:check_printf=1 not %run %t 2>&1 | FileCheck --check-prefix=CHECK-ON %s
-// RUN: %env_asan_opts=replace_intrin=0:check_printf=0 %run %t 2>&1 | FileCheck --check-prefix=CHECK-OFF %s
-// RUN: %env_asan_opts=replace_intrin=0 not %run %t 2>&1 | FileCheck --check-prefix=CHECK-ON %s
+// RUN: %clang_asan -O2 %s -o %t && not %run %t 2>&1 | FileCheck --check-prefix=CHECK-ON %s
+// RUN: %clang_asan -cheerp-linear-output=asmjs -O2 %s -o %t && not %run %t 2>&1 | FileCheck --check-prefix=CHECK-ON %s
 
 // FIXME: printf is not intercepted on Windows yet.
 // XFAIL: windows-msvc

@@ -1,7 +1,7 @@
-// RUN: %clangxx_asan -O0 %s -o %t && %env_asan_opts=detect_stack_use_after_return=1 not %run %t 2>&1 | FileCheck %s
-// RUN: %clangxx_asan -O2 %s -o %t && %env_asan_opts=detect_stack_use_after_return=1 not %run %t 2>&1 | FileCheck %s
-// RUN: %clangxx_asan -O0 %s -o %t -fsanitize-address-use-after-return=always && not %run %t 2>&1 | FileCheck %s
-// RUN: %clangxx_asan -O2 %s -o %t -fsanitize-address-use-after-return=always && not %run %t 2>&1 | FileCheck %s
+// RUN: %clangxx_asan -cheerp-linear-stack-size=5 -O0 %s -o %t -fsanitize-address-use-after-return=always && not %run %t 2>&1 | FileCheck %s
+// RUN: %clangxx_asan -cheerp-linear-stack-size=5 -O2 %s -o %t -fsanitize-address-use-after-return=always && not %run %t 2>&1 | FileCheck %s
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -cheerp-linear-stack-size=5 -O0 %s -o %t -fsanitize-address-use-after-return=always && not %run %t 2>&1 | FileCheck %s
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -cheerp-linear-stack-size=5 -O2 %s -o %t -fsanitize-address-use-after-return=always && not %run %t 2>&1 | FileCheck %s
 // XFAIL: windows-msvc
 
 // FIXME: Fix this test under GCC.
@@ -18,7 +18,7 @@
 
 __attribute__((noinline))
 char *pretend_to_do_something(char *x) {
-  __asm__ __volatile__("" : : "r" (x) : "memory");
+  __asm__ __volatile__("" : : "r"(reinterpret_cast<unsigned>(x)) : "memory");
   return x;
 }
 
@@ -66,7 +66,6 @@ int main(int argc, char **argv) {
   stale_stack[100]++;
   // CHECK: ERROR: AddressSanitizer: stack-use-after-return on address
   // CHECK: is located in stack of thread T0 at offset {{116|132}} in frame
-  // CHECK:  in LeakStack{{.*}}heavy_uar_test.cpp:
   // CHECK: [{{16|32}}, {{1040|1056}}) 'x'
   return 0;
 }

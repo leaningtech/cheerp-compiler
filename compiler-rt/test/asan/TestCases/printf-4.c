@@ -1,6 +1,5 @@
-// RUN: %clang_asan -O2 %s -o %t
-// RUN: %env_asan_opts=check_printf=1 not %run %t 2>&1 | FileCheck --check-prefix=CHECK-ON %s
-// RUN: not %run %t 2>&1 | FileCheck --check-prefix=CHECK-ON %s
+// RUN: %clang_asan -O2 %s -o %t && not %run %t 2>&1 | FileCheck --check-prefix=CHECK-ON %s
+// RUN: %clang_asan -cheerp-linear-output=asmjs -O2 %s -o %t && not %run %t 2>&1 | FileCheck --check-prefix=CHECK-ON %s
 
 // FIXME: sprintf is not intercepted on Windows yet. But this test can
 // pass if sprintf calls memmove, which is intercepted, so we can't XFAIL it.

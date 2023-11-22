@@ -1,5 +1,5 @@
-// RUN: %clangxx_asan %s -o %t && %run %t
-// RUN: %clangxx_asan %s -o %t %linux_static_libstdcplusplus && %run %t
+// RUN: %clangxx_asan -fexceptions %s -o %t && %run %t
+// RUN: %clangxx_asan -fexceptions %s -o %t %linux_static_libstdcplusplus && %run %t
 
 // Investigate why it fails with NDK 21.
 // UNSUPPORTED: android
@@ -7,7 +7,7 @@
 #include <stdio.h>
 static volatile int zero = 0;
 inline void pretend_to_do_something(void *x) {
-  __asm__ __volatile__("" : : "r" (x) : "memory");
+  __asm__ __volatile__("" : : "r"(reinterpret_cast<unsigned>(x)) : "memory");
 }
 
 __attribute__((noinline))

@@ -7,6 +7,8 @@
 // RUN: %clangxx_asan -O0 %s %p/Helpers/init-order-atexit-extra.cpp -o %t
 // RUN: %env_asan_opts=strict_init_order=true not %run %t 2>&1 | FileCheck %s
 
+// UNSUPPORTED: cheerp
+
 #include <stdio.h>
 #include <stdlib.h>
 

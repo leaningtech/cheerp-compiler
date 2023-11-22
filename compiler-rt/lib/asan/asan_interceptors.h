@@ -41,7 +41,7 @@ void InitializePlatformInterceptors();
 
 // Use macro to describe if specific function should be
 // intercepted on a given platform.
-#if !SANITIZER_WINDOWS
+#if !SANITIZER_WINDOWS && !SANITIZER_CHEERPWASM
 # define ASAN_INTERCEPT_ATOLL_AND_STRTOLL 1
 # define ASAN_INTERCEPT__LONGJMP 1
 # define ASAN_INTERCEPT_INDEX 1
@@ -66,7 +66,7 @@ void InitializePlatformInterceptors();
 # define ASAN_INTERCEPT_SWAPCONTEXT 0
 #endif
 
-#if !SANITIZER_WINDOWS
+#if !SANITIZER_WINDOWS && !SANITIZER_CHEERPWASM
 # define ASAN_INTERCEPT_SIGLONGJMP 1
 #else
 # define ASAN_INTERCEPT_SIGLONGJMP 0
@@ -79,7 +79,7 @@ void InitializePlatformInterceptors();
 #endif
 
 #if ASAN_HAS_EXCEPTIONS && !SANITIZER_WINDOWS && !SANITIZER_SOLARIS && \
-    !SANITIZER_NETBSD
+    !SANITIZER_NETBSD && !SANITIZER_CHEERPWASM
 # define ASAN_INTERCEPT___CXA_THROW 1
 # define ASAN_INTERCEPT___CXA_RETHROW_PRIMARY_EXCEPTION 1
 # if defined(_GLIBCXX_SJLJ_EXCEPTIONS) || (SANITIZER_IOS && defined(__arm__))
@@ -87,6 +87,11 @@ void InitializePlatformInterceptors();
 # else
 #  define ASAN_INTERCEPT__UNWIND_RAISEEXCEPTION 1
 # endif
+#elif SANITIZER_CHEERPWASM
+# define ASAN_INTERCEPT___CXA_THROW 1
+# define ASAN_INTERCEPT___CXA_RETHROW_PRIMARY_EXCEPTION 1
+# define ASAN_INTERCEPT__UNWIND_RAISEEXCEPTION 0
+# define ASAN_INTERCEPT__UNWIND_SJLJ_RAISEEXCEPTION 0
 #else
 # define ASAN_INTERCEPT___CXA_THROW 0
 # define ASAN_INTERCEPT___CXA_RETHROW_PRIMARY_EXCEPTION 0
@@ -94,7 +99,7 @@ void InitializePlatformInterceptors();
 # define ASAN_INTERCEPT__UNWIND_SJLJ_RAISEEXCEPTION 0
 #endif
 
-#if !SANITIZER_WINDOWS
+#if !SANITIZER_WINDOWS && !SANITIZER_CHEERPWASM //CHEERPASAN: TODO probably should be implemented at some point
 # define ASAN_INTERCEPT___CXA_ATEXIT 1
 #else
 # define ASAN_INTERCEPT___CXA_ATEXIT 0
@@ -132,6 +137,43 @@ DECLARE_REAL(SIZE_T, strlen, const char *s)
 DECLARE_REAL(char*, strncpy, char *to, const char *from, uptr size)
 DECLARE_REAL(uptr, strnlen, const char *s, uptr maxlen)
 DECLARE_REAL(char*, strstr, const char *s1, const char *s2)
+
+#if SANITIZER_CHEERPWASM
+#include <stdarg.h>
+
+DECLARE_REAL(void*, memmove, void* dest, const void* src, uptr n)
+DECLARE_REAL(char*, strcat, char* dst, const char* src)
+DECLARE_REAL(char*, strncat, char* dst, const char* src, uptr sz)
+DECLARE_REAL(char*, strcpy, char* dst, const char* src)
+DECLARE_REAL(long, strtol, const char *nptr, char **endptr, int base)
+DECLARE_REAL(int, atoi, const char* nptr)
+DECLARE_REAL(long, atol, const char* nptr)
+DECLARE_REAL(char*, strdup, const char* s)
+
+DECLARE_REAL(int, printf, const char *format, ...)
+DECLARE_REAL(int, sprintf, char *str, const char *format, ...)
+DECLARE_REAL(int, snprintf, char *str, size_t size, const char *format, ...)
+DECLARE_REAL(int, vprintf, const char *format, va_list ap)
+DECLARE_REAL(int, vsprintf, char *str, const char *format, va_list ap)
+DECLARE_REAL(int, vsnprintf, char *str, size_t size, const char *format, va_list ap)
+DECLARE_REAL(int, asprintf, char **strp, const char *format, ...)
+DECLARE_REAL(int, vasprintf, char **strp, const char *format, va_list ap)
+DECLARE_REAL(int, fprintf, FILE *stream, const char *format, ...)
+DECLARE_REAL(int, vfprintf, FILE *stream, const char *format, va_list ap)
+
+DECLARE_REAL(size_t, fwrite, const void *ptr, size_t size, size_t nmemb, FILE *stream)
+
+DECLARE_REAL(char*, strcasestr, const char *haystack, const char *needle)
+
+DECLARE_REAL(int, strcmp, const char *s1, const char *s2)
+DECLARE_REAL(int, strncmp, const char *s1, const char *s2, size_t n)
+
+DECLARE_REAL(size_t, mbstowcs, wchar_t *dest, const char *src, size_t len);
+DECLARE_REAL(size_t, mbsrtowcs, wchar_t *dest, const char **src, size_t len, void *ps);
+
+extern "C" void __cheerp___cxa_throw(void *, void *, void *);
+extern "C" void __cheerp___cxa_rethrow_primary_exception(void*);
+#endif // SANITIZER_CHEERPWASM
 
 #  if !SANITIZER_APPLE
 #    define ASAN_INTERCEPT_FUNC(name)                                        \

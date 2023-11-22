@@ -22,7 +22,7 @@
 // RUN:    FileCheck %s --check-prefix=CHECK6
 // RUN: %env_asan_opts=intercept_strtok=false %run %t test6 2>&1
 
-
+// UNSUPPORTED: cheerp
 #include <assert.h>
 #include <string.h>
 #include <sanitizer/asan_interface.h>

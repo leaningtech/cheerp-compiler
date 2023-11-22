@@ -4,6 +4,7 @@
 // Test intercept_strcspn asan option
 // RUN: %env_asan_opts=intercept_strspn=false %run %t 2>&1
 
+// UNSUPPORTED: cheerp
 #include <assert.h>
 #include <string.h>
 #include <sanitizer/asan_interface.h>

@@ -5,6 +5,7 @@
 // Disable other interceptors because strlen may be called inside strstr
 // RUN: %env_asan_opts=intercept_strstr=false:replace_str=false %run %t 2>&1
 
+// UNSUPPORTED: cheerp
 #include <assert.h>
 #include <string.h>
 #include <sanitizer/asan_interface.h>

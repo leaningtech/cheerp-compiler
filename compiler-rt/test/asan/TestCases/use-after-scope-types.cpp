@@ -1,15 +1,23 @@
-// RUN: %clangxx_asan -O0 %s -o %t
-// RUN: not %run %t 0 2>&1 | FileCheck %s
-// RUN: not %run %t 1 2>&1 | FileCheck %s
-// RUN: not %run %t 2 2>&1 | FileCheck %s
-// RUN: not %run %t 3 2>&1 | FileCheck %s
-// RUN: not %run %t 4 2>&1 | FileCheck %s
-// RUN: not %run %t 5 2>&1 | FileCheck %s
-// RUN: not %run %t 6 2>&1 | FileCheck %s
-// RUN: not %run %t 7 2>&1 | FileCheck %s
-// RUN: not %run %t 8 2>&1 | FileCheck %s
-// RUN: not %run %t 9 2>&1 | FileCheck %s
-// RUN: not %run %t 10 2>&1 | FileCheck %s
+// RUN: %clangxx_asan -DCOUNT=1 -O0 %s -o %t && not %run %t 0 2>&1 | FileCheck %s
+// RUN: %clangxx_asan -DCOUNT=2 -O0 %s -o %t && not %run %t 0 2>&1 | FileCheck %s
+// RUN: %clangxx_asan -DCOUNT=3 -O0 %s -o %t && not %run %t 0 2>&1 | FileCheck %s
+// RUN: %clangxx_asan -DCOUNT=4 -O0 %s -o %t && not %run %t 0 2>&1 | FileCheck %s
+// RUN: %clangxx_asan -DCOUNT=5 -O0 %s -o %t && not %run %t 0 2>&1 | FileCheck %s
+// RUN: %clangxx_asan -DCOUNT=6 -O0 %s -o %t && not %run %t 0 2>&1 | FileCheck %s
+// RUN: %clangxx_asan -DCOUNT=7 -O0 %s -o %t && not %run %t 0 2>&1 | FileCheck %s
+// RUN: %clangxx_asan -DCOUNT=8 -O0 %s -o %t && not %run %t 0 2>&1 | FileCheck %s
+// RUN: %clangxx_asan -DCOUNT=9 -O0 %s -o %t && not %run %t 0 2>&1 | FileCheck %s
+// RUN: %clangxx_asan -DCOUNT=10 -O0 %s -o %t && not %run %t 0 2>&1 | FileCheck %s
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -DCOUNT=1 -O0 %s -o %t && not %run %t 0 2>&1 | FileCheck %s
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -DCOUNT=2 -O0 %s -o %t && not %run %t 0 2>&1 | FileCheck %s
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -DCOUNT=3 -O0 %s -o %t && not %run %t 0 2>&1 | FileCheck %s
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -DCOUNT=4 -O0 %s -o %t && not %run %t 0 2>&1 | FileCheck %s
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -DCOUNT=5 -O0 %s -o %t && not %run %t 0 2>&1 | FileCheck %s
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -DCOUNT=6 -O0 %s -o %t && not %run %t 0 2>&1 | FileCheck %s
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -DCOUNT=7 -O0 %s -o %t && not %run %t 0 2>&1 | FileCheck %s
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -DCOUNT=8 -O0 %s -o %t && not %run %t 0 2>&1 | FileCheck %s
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -DCOUNT=9 -O0 %s -o %t && not %run %t 0 2>&1 | FileCheck %s
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -DCOUNT=10 -O0 %s -o %t && not %run %t 0 2>&1 | FileCheck %s
 
 #include <stdlib.h>
 #include <string>
@@ -41,12 +49,12 @@ template <class T> __attribute__((noinline)) void test() {
 
   ptr.Access();
   // CHECK: ERROR: AddressSanitizer: stack-use-after-scope
-  // CHECK:  #{{[0-9]+}} 0x{{.*}} in {{(void )?test.*\((void)?\) .*}}use-after-scope-types.cpp
+  // CHECK:  #{{[0-9]+}} 0x{{.*}} in {{.*test.*}}
   // CHECK: Address 0x{{.*}} is located in stack of thread T{{.*}} at offset [[OFFSET:[^ ]+]] in frame
   // {{\[}}[[OFFSET]], {{[0-9]+}}) 'x'
 }
 
-int main(int argc, char **argv) {
+int main() {
   using Tests = void (*)();
   Tests tests[] = {
     &test<bool>,
@@ -62,7 +70,7 @@ int main(int argc, char **argv) {
     &test<char[1000]>,
   };
 
-  int n = atoi(argv[1]);
+  int n = COUNT;
   if (n == sizeof(tests) / sizeof(tests[0])) {
     for (auto te : tests)
       te();

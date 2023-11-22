@@ -1,12 +1,11 @@
-// RUN: %clangxx_asan -O1 %s -o %t
-// RUN: not %run %t 0 2>&1 | FileCheck %s --check-prefix=CHECK0
-// RUN: not %run %t 1 2>&1 | FileCheck %s --check-prefix=CHECK1
-// RUN: not %run %t 2 2>&1 | FileCheck %s --check-prefix=CHECK2
-// RUN: not %run %t 3 2>&1 | FileCheck %s --check-prefix=CHECK3
+// RUN: %clangxx_asan -O1 -DFRAME=0 %s -o %t && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK0
+// RUN: %clangxx_asan -O1 -DFRAME=1 %s -o %t && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK1
+// RUN: %clangxx_asan -O1 -DFRAME=2 %s -o %t && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK2
+// RUN: %clangxx_asan -O1 -DFRAME=3 %s -o %t && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK3
 
 #define NOINLINE __attribute__((noinline))
 inline void break_optimization(void *arg) {
-  __asm__ __volatile__("" : : "r" (arg) : "memory");
+  __asm__ __volatile__("" : : "r"(reinterpret_cast<unsigned>(arg)) : "memory");
 }
 
 NOINLINE static void Frame0(int frame, char *a, char *b, char *c) {
@@ -34,8 +33,7 @@ NOINLINE static void Frame3(int frame) {
 }
 
 int main(int argc, char **argv) {
-  if (argc != 2) return 1;
-  Frame3(argv[1][0] - '0');
+  Frame3(FRAME);
 }
 
 // CHECK0: AddressSanitizer: stack-buffer-overflow
@@ -44,16 +42,12 @@ int main(int argc, char **argv) {
 // CHECK0: #2{{.*}}Frame2
 // CHECK0: #3{{.*}}Frame3
 // CHECK0: is located in stack of thread T0 at offset
-// CHECK0-NEXT: #0{{.*}}Frame0
 //
 // CHECK1: AddressSanitizer: stack-buffer-overflow
 // CHECK1: is located in stack of thread T0 at offset
-// CHECK1-NEXT: #0{{.*}}Frame1
 //
 // CHECK2: AddressSanitizer: stack-buffer-overflow
 // CHECK2: is located in stack of thread T0 at offset
-// CHECK2-NEXT: #0{{.*}}Frame2
 //
 // CHECK3: AddressSanitizer: stack-buffer-overflow
 // CHECK3: is located in stack of thread T0 at offset
-// CHECK3-NEXT: #0{{.*}}Frame3

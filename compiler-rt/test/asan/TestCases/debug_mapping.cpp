@@ -2,6 +2,7 @@
 // RUN: %clangxx_asan -O %s -o %t
 // RUN: %env_asan_opts=verbosity=1 %run %t 2>&1 | FileCheck %s
 
+// UNSUPPORTED: cheerp
 #include <sanitizer/asan_interface.h>
 #include <stdio.h>
 #include <stdlib.h>

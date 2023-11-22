@@ -1,5 +1,6 @@
 // RUN: %clangxx_asan -fsanitize-address-use-after-return=never -O %s -o %t && %run %t
 
+// UNSUPPORTED: cheerp
 #include <assert.h>
 #include <setjmp.h>
 #include <stdio.h>

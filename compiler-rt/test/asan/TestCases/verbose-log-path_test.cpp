@@ -11,7 +11,7 @@
 
 // FIXME: only FreeBSD, NetBSD and Linux have verbose log paths now.
 // XFAIL: windows-msvc,android
-// UNSUPPORTED: ios
+// UNSUPPORTED: ios, cheerp
 
 #include <stdlib.h>
 #include <string.h>

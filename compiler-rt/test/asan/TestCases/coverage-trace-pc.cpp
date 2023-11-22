@@ -2,6 +2,8 @@
 // RUN: %clangxx_asan -O0 -DTRACE_RT %s -o %t-rt.o -c
 // RUN: %clangxx_asan -O0 -fsanitize-coverage=edge,trace-pc,indirect-calls %s -o %t %t-rt.o
 // RUN: %run %t
+
+// UNSUPPORTED: cheerp
 #ifdef TRACE_RT
 int pc_count;
 void *last_callee;

@@ -25,6 +25,7 @@
 // FIXME: Enable strtoll interceptor.
 // REQUIRES: shadow-scale-3
 // XFAIL: windows-msvc
+// UNSUPPORTED: cheerp
 
 #include <assert.h>
 #include <stdlib.h>

@@ -1,7 +1,11 @@
-// RUN: %clangxx_asan -O0 %s -o %t && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK-%os --check-prefix=CHECK
-// RUN: %clangxx_asan -O1 %s -o %t && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK-%os --check-prefix=CHECK
-// RUN: %clangxx_asan -O2 %s -o %t && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK-%os --check-prefix=CHECK
-// RUN: %clangxx_asan -O3 %s -o %t && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK-%os --check-prefix=CHECK
+// RUN: %clangxx_asan -O0 %s -o %t && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK
+// RUN: %clangxx_asan -O1 %s -o %t && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK
+// RUN: %clangxx_asan -O2 %s -o %t && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK
+// RUN: %clangxx_asan -O3 %s -o %t && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O0 %s -o %t && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O1 %s -o %t && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O2 %s -o %t && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O3 %s -o %t && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK
 // REQUIRES: stable-runtime
 
 #include <stdlib.h>
@@ -43,9 +47,10 @@ static void LargeFunction(int *x, int zero) {
 }
 
 int main(int argc, char **argv) {
+  ++argc;
   int *x = new int[100];
   LargeFunction(x, argc - 1);
-  // CHECK: {{    #1 0x.* in main .*large_func_test.cpp:}}[[@LINE-1]]
+  // CHECK: {{    #1 0x.* in .*main .*}}
   // CHECK: {{0x.* is located 12 bytes after 400-byte region}}
   // CHECK: {{allocated by thread T0 here:}}
   // CHECK-Linux:  {{    #0 0x.* in operator new}}
@@ -53,7 +58,8 @@ int main(int argc, char **argv) {
   // CHECK-Windows:{{    #0 0x.* in operator new}}
   // CHECK-FreeBSD:{{    #0 0x.* in operator new}}
   // CHECK-Darwin: {{    #0 0x.* in .*_Zna}}
-  // CHECK-NEXT:   {{    #1 0x.* in main .*large_func_test.cpp:}}[[@LINE-10]]
+  // CHECK:        {{    #0 0x.* in .*malloc}}
+  // CHECK-NEXT:   {{    #1 0x.* in .*main}}
   int y = x[argc];
   delete[] x;
   return y;

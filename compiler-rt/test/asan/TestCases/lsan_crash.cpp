@@ -1,5 +1,6 @@
 // RUN: %clangxx_asan -O2 %s --std=c++14 -o %t && %run %t
 
+// UNSUPPORTED: cheerp
 #include <atomic>
 #include <memory>
 #include <sanitizer/lsan_interface.h>

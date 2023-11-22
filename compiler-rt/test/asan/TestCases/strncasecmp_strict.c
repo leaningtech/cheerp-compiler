@@ -15,6 +15,7 @@
 // RUN: %env_asan_opts=strict_string_checks=true not %run %t i 2>&1 | FileCheck %s
 
 // XFAIL: windows-msvc
+// UNSUPPORTED: cheerp
 
 #include <assert.h>
 #include <stdlib.h>
