@@ -1107,6 +1107,8 @@ SanitizerMask ToolChain::getSupportedSanitizers() const {
     Res |= SanitizerKind::ShadowCallStack;
   if (getTriple().isAArch64(64))
     Res |= SanitizerKind::MemTag;
+  if (getTriple().isCheerpWasm())
+    Res |= SanitizerKind::Address;
   return Res;
 }
 
