@@ -1599,15 +1599,20 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
     llvm::Value *elementCount = vlaData.NumElts;
     QualType elementType = vlaData.Type;
 
+
     llvm::Type *llvmTy = ConvertTypeForMem(elementType);
     uint64_t size = CGM.getDataLayout().getTypeAllocSize(llvmTy);
     llvm::Constant* typeSize = llvm::ConstantInt::get(elementCount->getType(), size);
 
-    llvm::Type* Tys[] = { llvmTy->getPointerTo(), llvmTy->getPointerTo() };
+    // CHEERP: TODO: actually just use the regular linear memory alloca if the address
+    // space is not genericjs
+    unsigned AS = getContext().getTargetAddressSpace(elementType.getAddressSpace());
+
+    llvm::Type* Tys[] = { llvmTy->getPointerTo(AS), llvmTy->getPointerTo(AS) };
     llvm::Function *F = CGM.getIntrinsic(llvm::Intrinsic::cheerp_allocate, Tys);
     // Compute the size in bytes
     llvm::Value* sizeInBytes = Builder.CreateMul(elementCount, typeSize);
-    llvm::Value* Args[2] = { llvm::Constant::getNullValue(llvmTy->getPointerTo()), sizeInBytes };
+    llvm::Value* Args[2] = { llvm::Constant::getNullValue(llvmTy->getPointerTo(AS)), sizeInBytes };
     // Allocate memory for the array.
     llvm::Value* Ret = Builder.CreateCall(F, Args);
     cast<llvm::CallInst>(Ret)->addParamAttr(0, llvm::Attribute::get(Ret->getContext(), llvm::Attribute::ElementType, llvmTy));
