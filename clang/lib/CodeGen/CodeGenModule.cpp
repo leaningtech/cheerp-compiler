@@ -1632,7 +1632,7 @@ void CodeGenModule::EmitCtorList(CtorList &Fns, const char *GlobalName) {
   for (const auto &I : Fns) {
     auto ctor = ctors.beginStruct(CtorStructTy);
     ctor.addInt(Int32Ty, I.Priority);
-    ctor.add(llvm::ConstantExpr::getBitCast(I.Initializer, CtorPFTy));
+    ctor.add(llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(I.Initializer, CtorPFTy));
     if (I.AssociatedData)
       ctor.add(llvm::ConstantExpr::getBitCast(I.AssociatedData, VoidPtrTy));
     else
