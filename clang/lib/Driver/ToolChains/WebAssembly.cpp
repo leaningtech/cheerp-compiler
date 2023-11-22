@@ -582,6 +582,15 @@ void cheerp::Link::ConstructJob(Compilation &C, const JobAction &JA,
 
     // Add wasm helper if needed
     Arg *CheerpLinearOutput = Args.getLastArg(options::OPT_cheerp_linear_output_EQ);
+
+    Arg *Sanitizers = Args.getLastArg(options::OPT_fsanitize_EQ);
+    if (Sanitizers && Sanitizers->containsValue("address")) {
+      CmdArgs.push_back(Args.MakeArgString(getToolChain().GetFilePath("asmjs/libclang_rt.asan-Cheerp.bc")));
+      if (D.CCCIsCXX())
+        CmdArgs.push_back(
+            Args.MakeArgString(getToolChain().GetFilePath("libdemangle.bc")));
+    }
+
     llvm::Triple::EnvironmentType env = getToolChain().getTriple().getEnvironment();
     if(((CheerpLinearOutput && CheerpLinearOutput->getValue() == StringRef("wasm")) ||
        (!CheerpLinearOutput && env == llvm::Triple::WebAssembly)) &&
