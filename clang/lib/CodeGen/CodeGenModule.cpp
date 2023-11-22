@@ -4071,8 +4071,15 @@ llvm::Constant *CodeGenModule::GetOrCreateLLVMFunction(
     IsIncompleteFunction = true;
   }
 
+  unsigned AS = getDataLayout().getProgramAddressSpace();
+  if (D) {
+    if (D->hasAttr<GenericJSAttr>())
+      AS = Context.getTargetAddressSpace(LangAS::cheerp_genericjs);
+  } else if (getTriple().getEnvironment() == llvm::Triple::GenericJs) {
+    AS = Context.getTargetAddressSpace(LangAS::cheerp_genericjs);
+  }
   llvm::Function *F =
-      llvm::Function::Create(FTy, llvm::Function::ExternalLinkage,
+      llvm::Function::Create(FTy, llvm::Function::ExternalLinkage, AS,
                              Entry ? StringRef() : MangledName, &getModule());
 
   // If we already created a function with the same mangled name (but different
@@ -4096,7 +4103,7 @@ llvm::Constant *CodeGenModule::GetOrCreateLLVMFunction(
     }
 
     llvm::Constant *BC = llvm::ConstantExpr::getBitCast(
-        F, Entry->getValueType()->getPointerTo());
+        F, Entry->getValueType()->getPointerTo(AS));
     addGlobalValReplacement(Entry, BC);
   }
 
@@ -4160,7 +4167,7 @@ llvm::Constant *CodeGenModule::GetOrCreateLLVMFunction(
     return F;
   }
 
-  llvm::Type *PTy = llvm::PointerType::getUnqual(Ty);
+  llvm::Type *PTy = llvm::PointerType::get(Ty, AS);
   return llvm::ConstantExpr::getBitCast(F, PTy);
 }
 
