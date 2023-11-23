@@ -6873,7 +6873,9 @@ bool Sema::inferObjCARCLifetime(ValueDecl *decl) {
 }
 
 static QualType applyCheerpAddressSpace(Sema& S, QualType Type, bool genericjs, bool force) {
-  if (auto DT = dyn_cast<DecayedType>(Type)) {
+  if (Type->isTypedefNameType()) {
+    // Don't look into typedefs
+  } else if (auto DT = dyn_cast<DecayedType>(Type)) {
     auto OrigTy = DT->getOriginalType();
     if (OrigTy->isArrayType()) {
       OrigTy = applyCheerpAddressSpace(S, OrigTy, genericjs, force);
@@ -10232,7 +10234,7 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
     auto FTy = NewFD->getType();
     if (auto FPT = NewFD->getType()->getAs<FunctionProtoType>()) {
       auto Ret = NewFD->getReturnType();
-      if (Ret->isPointerType()) {
+      if (Ret->isPointerType() && !Ret->isTypedefNameType()) {
         // TODO: don't force if the address space was spelled-out, somehow.
         bool force = true;
         auto Pointee = Ret->getPointeeType();
