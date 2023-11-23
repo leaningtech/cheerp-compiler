@@ -1233,6 +1233,9 @@ workflows:
       - build-cheerp-headers-and-libs:
           requires:
             - build-libraries
+          filters:
+            branches:
+              only: master
       - build-macos:
           requires:
             - build-cheerp-headers-and-libs
