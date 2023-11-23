@@ -37,6 +37,8 @@ TEST(CheerpTest, PointerAnalyzerTest) {
 	SMDiagnostic Err;
 
 	std::unique_ptr<Module> M = parseIRFile( "test/test1.ll", Err, C );
+	if (!M)
+		M = parseIRFile( "test1.ll", Err, C );
 	ASSERT_TRUE( M.get() );
 	
 	const Function * webMain = M->getFunction("_Z7webMainv");

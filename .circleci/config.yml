@@ -73,6 +73,9 @@ jobs:
             - cheerp-llvm-clang_*.deb
             - cheerp-build.tar.bz2
   llvm-check:
+    parameters:
+      rule:
+        type: string
     docker:
       - image: leaningtech/cheerp_ci_base:20.04
     resource_class: large
@@ -80,19 +83,8 @@ jobs:
       - NINJA_STATUS: "[%u/%r/%f] "
       - CCACHE_DISABLE: 1
     steps:
-      - attach_workspace:
-          at: ~/project/packages
-      - run: mkdir ~/project/cheerp-compiler
-      - run:
-          name: Extract archive
-          working_directory: ~/project/cheerp-compiler
-          command: |
-            mv ~/project/packages/cheerp-build.tar.bz2 .
-            tar -xf cheerp-build.tar.bz2
-      - run:
-          name: Run llvm check
-          working_directory: ~/project/cheerp-compiler/build
-          command: ninja -j6 check
+      - run-llvm-tests:
+          rule: << parameters.rule >>
   build-libraries:
     docker:
       - image: leaningtech/cheerp_ci_base:20.04
@@ -937,6 +929,28 @@ commands:
           package-name: << parameters.package-name >>
       - install-deb:
           package-name: << parameters.package-name >>
+  run-llvm-tests:
+    parameters:
+      rule:
+        type: string
+    steps:
+      - attach_workspace:
+          at: ~/project/packages
+      - run:
+          name: Install and setup ccache
+          command: |
+            apt update && apt install -y ccache
+      - run: mkdir ~/project/cheerp-compiler
+      - run:
+          name: Extract archive
+          working_directory: ~/project/cheerp-compiler
+          command: |
+            mv ~/project/packages/cheerp-build.tar.bz2 .
+            tar -xf cheerp-build.tar.bz2
+      - run:
+          name: Run llvm << parameters.rule >>
+          working_directory: ~/project/cheerp-compiler/build
+          command: ninja -j6 << parameters.rule >>
   run-cheerp-tests:
     parameters:
       target:
@@ -1181,6 +1195,9 @@ workflows:
           requires:
             - define-version-no
       - llvm-check:
+          matrix:
+            parameters:
+              rule: ["check-llvm", "check-clang"]
           requires:
             - build-cheerp-compiler
       - build-libraries:
