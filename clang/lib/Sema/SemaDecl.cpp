@@ -6872,14 +6872,51 @@ bool Sema::inferObjCARCLifetime(ValueDecl *decl) {
   return false;
 }
 
+static QualType applyCheerpAddressSpace(Sema& S, QualType Type, bool genericjs, bool force);
+// CHEERP: this is a loose copy of ASTContext::getAsArrayType with a twist:
+// we want to use our own logic for applying an address space to the element
+// type. Unfortunately there is some complexity involved in regenerating the
+// array type, as you can see below
+static const ArrayType *applyCheerpAddressSpaceToArrayType(Sema& S, QualType T, bool genericjs, bool force) {
+  assert(isa<ArrayType>(T));
+
+  const auto *ATy = cast<ArrayType>(T);
+
+  QualType NewEltTy = applyCheerpAddressSpace(S, ATy->getElementType(), genericjs, force);
+
+  auto& C = S.getASTContext();
+  if (const auto *CAT = dyn_cast<ConstantArrayType>(ATy))
+    return cast<ArrayType>(C.getConstantArrayType(NewEltTy, CAT->getSize(),
+                                                CAT->getSizeExpr(),
+                                                CAT->getSizeModifier(),
+                                           CAT->getIndexTypeCVRQualifiers()));
+  if (const auto *IAT = dyn_cast<IncompleteArrayType>(ATy))
+    return cast<ArrayType>(C.getIncompleteArrayType(NewEltTy,
+                                                  IAT->getSizeModifier(),
+                                           IAT->getIndexTypeCVRQualifiers()));
+
+  if (const auto *DSAT = dyn_cast<DependentSizedArrayType>(ATy))
+    return cast<ArrayType>(
+                     C.getDependentSizedArrayType(NewEltTy,
+                                                DSAT->getSizeExpr(),
+                                                DSAT->getSizeModifier(),
+                                              DSAT->getIndexTypeCVRQualifiers(),
+                                                DSAT->getBracketsRange()));
+
+  const auto *VAT = cast<VariableArrayType>(ATy);
+  return cast<ArrayType>(C.getVariableArrayType(NewEltTy,
+                                              VAT->getSizeExpr(),
+                                              VAT->getSizeModifier(),
+                                              VAT->getIndexTypeCVRQualifiers(),
+                                              VAT->getBracketsRange()));
+}
 static QualType applyCheerpAddressSpace(Sema& S, QualType Type, bool genericjs, bool force) {
   if (Type->isTypedefNameType()) {
     // Don't look into typedefs
   } else if (auto DT = dyn_cast<DecayedType>(Type)) {
     auto OrigTy = DT->getOriginalType();
-    if (OrigTy->isArrayType()) {
-      OrigTy = applyCheerpAddressSpace(S, OrigTy, genericjs, force);
-      OrigTy = QualType(S.Context.getAsArrayType(OrigTy), 0);
+    if (isa<ArrayType>(OrigTy)) {
+      OrigTy = QualType(applyCheerpAddressSpaceToArrayType(S, OrigTy, genericjs, force), 0);
       // Re-generate the decayed type.
       Type = S.Context.getDecayedType(OrigTy);
     }
