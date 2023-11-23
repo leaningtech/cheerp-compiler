@@ -40,16 +40,23 @@ jobs:
           keys:
             - cheerp-compiler-<< pipeline.git.branch >>-
             - cheerp-compiler-
-      - run:
-          name: Clone Cheerp
-          command: |
-            git clone https://github.com/leaningtech/cheerp-compiler.git
-            cd cheerp-compiler
-            if [ << pipeline.parameters.release-tag >> != 'master' ]; then
-              git checkout << pipeline.parameters.release-tag >>
-            else
-              git checkout << pipeline.parameters.cheerp-compiler-commit >>
-            fi
+      - when:
+          condition:
+            equal: [ master, << pipeline.parameters.release-tag >>  ]
+          steps:
+            shallow-clone:
+              ref: << pipeline.parameters.cheerp-compiler-commit >>
+              dir: cheerp-compiler
+              remote: https://github.com/leaningtech/cheerp-compiler
+      - when:
+          condition:
+            not:
+              equal: [ master, << pipeline.parameters.release-tag >>  ]
+          steps:
+            shallow-clone:
+              ref: << pipeline.parameters.release-tag >>
+              dir: cheerp-compiler
+              remote: https://github.com/leaningtech/cheerp-compiler
       - run:
           name: Set up environment
           working_directory: ~/project/cheerp-compiler
@@ -94,24 +101,47 @@ jobs:
     steps:
       - attach_workspace:
           at: packages
-      - run:
-          name: Get repos
-          command: |
-            git clone https://github.com/leaningtech/cheerp-compiler.git
-            git clone https://github.com/leaningtech/cheerp-utils.git
-            git clone https://github.com/leaningtech/cheerp-libs.git
-            git clone https://github.com/leaningtech/cheerp-musl.git
-            if [ << pipeline.parameters.release-tag >> != master ]; then
-              cd cheerp-compiler && git checkout << pipeline.parameters.release-tag >> && cd ..
-              cd cheerp-utils && git checkout << pipeline.parameters.release-tag >> && cd ..
-              cd cheerp-libs && git checkout << pipeline.parameters.release-tag >> && cd ..
-              cd cheerp-musl && git checkout << pipeline.parameters.release-tag >>
-            else
-              cd cheerp-compiler && git checkout << pipeline.parameters.cheerp-compiler-commit >> && cd ..
-              cd cheerp-utils && git checkout << pipeline.parameters.cheerp-utils-commit >> && cd ..
-              cd cheerp-libs && git checkout << pipeline.parameters.cheerp-libs-commit >> && cd ..
-              cd cheerp-musl && git checkout << pipeline.parameters.cheerp-musl-commit >>
-            fi
+      - when:
+          condition:
+            equal: [ master, << pipeline.parameters.release-tag >>  ]
+          steps:
+            - shallow-clone:
+                ref: << pipeline.parameters.cheerp-compiler-commit >>
+                dir: cheerp-compiler
+                remote: https://github.com/leaningtech/cheerp-compiler
+            - shallow-clone:
+                ref: << pipeline.parameters.cheerp-utils-commit >>
+                dir: cheerp-utils
+                remote: https://github.com/leaningtech/cheerp-utils
+            - shallow-clone:
+                ref: << pipeline.parameters.cheerp-musl-commit >>
+                dir: cheerp-musl
+                remote: https://github.com/leaningtech/cheerp-musl
+            - shallow-clone:
+                ref: << pipeline.parameters.cheerp-libs-commit >>
+                dir: cheerp-libs
+                remote: https://github.com/leaningtech/cheerp-libs
+      - when:
+          condition:
+            not:
+              equal: [ master, << pipeline.parameters.release-tag >>  ]
+          steps:
+            - shallow-clone:
+                ref: << pipeline.parameters.release-tag >>
+                dir: cheerp-compiler
+                remote: https://github.com/leaningtech/cheerp-compiler
+            - shallow-clone:
+                ref: << pipeline.parameters.release-tag >>
+                dir: cheerp-utils
+                remote: https://github.com/leaningtech/cheerp-utils
+            - shallow-clone:
+                ref: << pipeline.parameters.release-tag >>
+                dir: cheerp-musl
+                remote: https://github.com/leaningtech/cheerp-musl
+            - shallow-clone:
+                ref: << pipeline.parameters.release-tag >>
+                dir: cheerp-libs
+                remote: https://github.com/leaningtech/cheerp-libs
       - run:
           name: Set up workspace
           command: |
@@ -917,6 +947,35 @@ jobs:
           path: ~/project/packages
 
 commands:
+  shallow-clone:
+    parameters:
+      ref:
+        type: string
+      dir:
+        type: string
+      remote:
+        type: string
+    steps:
+      - run:
+          name: Get git version info
+          command: git --version
+      - run:
+          name: Create repository directory
+          command: mkdir -p << parameters.dir >>
+      - run:
+          working_directory: << parameters.dir >>
+          name: Initialize repository
+          command: |
+            git init
+            git remote add origin << parameters.remote >>
+      - run:
+          working_directory: << parameters.dir >>
+          name: Fetch repository
+          command: git fetch --progress --depth=1 origin  << parameters.ref >>
+      - run:
+          working_directory: << parameters.dir >>
+          name: Checkout ref
+          command: git checkout --progress --force FETCH_HEAD
   create-deb:
     parameters:
       directory:
