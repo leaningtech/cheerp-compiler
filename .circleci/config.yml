@@ -153,45 +153,15 @@ jobs:
             - cheerp-libcxx-libcxxabi_*.deb
             - cheerp-libs_*.deb
   test:
+    parameters:
+      target:
+        type: string
     docker:
       - image: leaningtech/cheerp_ci_base:20.04
     resource_class: large
     steps:
-      - attach_workspace:
-          at: packages
-      - run:
-          name: Get tests
-          command: |
-            git clone https://github.com/leaningtech/cheerp-utils.git
-            cd cheerp-utils
-            if [ << pipeline.parameters.release-tag >> != master ]; then
-              git checkout << pipeline.parameters.release-tag >>
-            else
-              git checkout << pipeline.parameters.cheerp-utils-commit >>
-            fi
-      - run: mkdir -p /opt/cheerp
-      - install-deb:
-          package-name: llvm-clang
-      - install-deb:
-          package-name: utils
-      - install-deb:
-          package-name: musl
-      - install-deb:
-          package-name: libcxx-libcxxabi
-      - install-deb:
-          package-name: libs
-      - run:
-          name: test
-          working_directory: ~/project/cheerp-utils/tests
-          command: ./run_tests.py --all --determinism=3 --determinism-probability=0.2 "/opt/cheerp/bin/clang++" "node --experimental-wasm-reftypes" -j4
-          no_output_timeout: 30m
-      - run:
-          name: Store test results
-          command: |
-            mkdir -p ~/project/testResults
-            mv ~/project/cheerp-utils/tests/testReport.test ~/project/testResults
-      - store_artifacts:
-          path: ~/project/testResults
+      - run-cheerp-tests:
+          target: << parameters.target >>
   RPM-cheerp-compiler:
     docker:
       - image: leaningtech/cheerp_rpm_base:8
@@ -967,6 +937,46 @@ commands:
           package-name: << parameters.package-name >>
       - install-deb:
           package-name: << parameters.package-name >>
+  run-cheerp-tests:
+    parameters:
+      target:
+        type: string
+    steps:
+      - attach_workspace:
+          at: packages
+      - run:
+          name: Get tests
+          command: |
+            git clone https://github.com/leaningtech/cheerp-utils.git
+            cd cheerp-utils
+            if [ << pipeline.parameters.release-tag >> != master ]; then
+              git checkout << pipeline.parameters.release-tag >>
+            else
+              git checkout << pipeline.parameters.cheerp-utils-commit >>
+            fi
+      - run: mkdir -p /opt/cheerp
+      - install-deb:
+          package-name: llvm-clang
+      - install-deb:
+          package-name: utils
+      - install-deb:
+          package-name: musl
+      - install-deb:
+          package-name: libcxx-libcxxabi
+      - install-deb:
+          package-name: libs
+      - run:
+          name: test
+          working_directory: ~/project/cheerp-utils/tests
+          command: ./run_tests.py --<< parameters.target >> --determinism=3 --determinism-probability=0.2 "/opt/cheerp/bin/clang++" "node --experimental-wasm-reftypes" -j4
+          no_output_timeout: 30m
+      - run:
+          name: Store test results
+          command: |
+            mkdir -p ~/project/testResults
+            mv ~/project/cheerp-utils/tests/testReport.test ~/project/<< parameters.target >>testResults
+      - store_artifacts:
+          path: ~/project/<< parameters.target >>testResults
   build-internal:
     parameters:
       directory:
@@ -1178,6 +1188,9 @@ workflows:
             - define-version-no
             - build-cheerp-compiler
       - test:
+          matrix:
+            parameters:
+              target: ["genericjs", "asmjs", "wasm", "preexecute", "preexecute-asmjs"]
           requires:
             - build-cheerp-compiler
             - build-libraries
