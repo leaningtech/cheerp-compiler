@@ -38,7 +38,8 @@ jobs:
       - restore_cache:
           name: Restore ccache
           keys:
-            - cheerp-compiler
+            - cheerp-compiler-<< pipeline.git.branch >>-
+            - cheerp-compiler-
       - run:
           name: Clone Cheerp
           command: |
@@ -59,7 +60,7 @@ jobs:
           package-name: llvm-clang
       - save_cache:
           name: Save ccache
-          key: cheerp-compiler
+          key: cheerp-compiler-<< pipeline.git.branch >>-{{ epoch }}
           paths:
             - /ccache
       - run:
