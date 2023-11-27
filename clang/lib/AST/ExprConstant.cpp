@@ -8908,6 +8908,8 @@ bool PointerExprEvaluator::VisitCastExpr(const CastExpr *E) {
           (Info.getStdAllocatorCaller("allocate") ||
            IsDeclSourceLocationCurrent(Info.CurrentCall->Callee))) {
         // Permitted.
+      } else if (E->getCastKind() == CK_AddressSpaceConversion) {
+        // CHEERP: Permitted.
       } else {
         Result.Designator.setInvalid();
         if (SubExpr->getType()->isVoidPointerType())
