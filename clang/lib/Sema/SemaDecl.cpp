@@ -3913,7 +3913,9 @@ bool Sema::MergeFunctionDecl(FunctionDecl *New, NamedDecl *&OldD, Scope *S,
     //   with a declared return type that uses a placeholder type shall also
     //   use that placeholder, not a deduced type.
     QualType OldDeclaredReturnType = Old->getDeclaredReturnType();
-    QualType NewDeclaredReturnType = New->getDeclaredReturnType();
+    // CHEERP: TODO use getDeclaredReturnType() here and fix the return type in
+    // the TInfo
+    QualType NewDeclaredReturnType = New->getReturnType();
     if (!Context.hasSameType(OldDeclaredReturnType, NewDeclaredReturnType) &&
         canFullyTypeCheckRedeclaration(New, Old, NewDeclaredReturnType,
                                        OldDeclaredReturnType)) {
