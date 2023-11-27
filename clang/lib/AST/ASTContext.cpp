@@ -13181,7 +13181,7 @@ LangAS ASTContext::getCheerpTypeAddressSpace(QualType Ty, LangAS fallback) const
     return getCheerpTypeAddressSpace(Ty->getAsTagDecl());
   return fallback;
 }
-LangAS ASTContext::getCheerpTypeAddressSpace(TagDecl* D, LangAS fallback) const {
+LangAS ASTContext::getCheerpTypeAddressSpace(const TagDecl* D, LangAS fallback) const {
   LangAS AS = fallback;
   if (AnalysisDeclContext::isInClientNamespace(D)) {
     AS = clang::LangAS::cheerp_client;
