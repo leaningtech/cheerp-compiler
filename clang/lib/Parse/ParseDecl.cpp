@@ -7176,6 +7176,10 @@ void Parser::ParseParameterDeclarationClause(
         if (A.getKind() == ParsedAttr::AT_AsmJS || A.getKind() == ParsedAttr::AT_GenericJS)
           ArgDeclSpecAttrs.addAtEnd(&A);
       }
+      for (auto& A: ParentDeclarator->getDeclarationAttributes()) {
+        if (A.getKind() == ParsedAttr::AT_AsmJS || A.getKind() == ParsedAttr::AT_GenericJS)
+          ArgDeclAttrs.addAtEnd(&A);
+      }
     }
 
     if (FirstArgAttrs.Range.isValid()) {
