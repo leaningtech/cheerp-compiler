@@ -1,0 +1,23 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@
+
+override_dh_auto_configure:
+	ls -lRa /root/project/cheerp-compiler/build/lib/cmake/llvm
+	cmake -S compiler-rt -B build_compiler_rt_wasm \
+		-C compiler-rt/CheerpCmakeConf.cmake \
+		-DCMAKE_BUILD_TYPE=Release -DLLVM_DIR="$(PWD)/build/lib/cmake/llvm" \
+		-DCMAKE_TOOLCHAIN_FILE="/opt/cheerp/share/cmake/Modules/CheerpWasmToolchain.cmake"
+
+override_dh_auto_build:
+	dh_auto_build -Bbuild_compiler_rt_wasm
+
+override_dh_auto_test:
+
+
+override_dh_auto_install:
+	dh_auto_install -Bbuild_compiler_rt_wasm
+
+override_dh_installdocs:
+	dh_installdocs
