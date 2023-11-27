@@ -257,7 +257,7 @@ else()
     PARENT_TARGET asan)
 
   foreach(arch ${ASAN_SUPPORTED_ARCH})
-    if (COMPILER_RT_HAS_VERSION_SCRIPT)
+    if (COMPILER_RT_HAS_VERSION_SCRIPT AND NOT OS_NAME MATCHES "Cheerp")
       add_sanitizer_rt_version_list(clang_rt.asan-dynamic-${arch}
                                     LIBS clang_rt.asan-${arch} clang_rt.asan_cxx-${arch}
                                     EXTRA asan.syms.extra)

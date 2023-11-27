@@ -98,6 +98,7 @@ jobs:
     resource_class: medium
     environment:
       - NINJA_STATUS: "[%u/%r/%f] "
+      - VERBOSE: 1
     steps:
       - attach_workspace:
           at: packages
@@ -167,16 +168,43 @@ jobs:
       - build-internal:
           directory: cheerp-libs
           package-name: libs
+      - install-deb:
+          package-name: utils
+      - install-deb:
+          package-name: musl
+      - install-deb:
+          package-name: libcxx-libcxxabi
+      - install-deb:
+          package-name: libs
+      - run:
+          name: Setup compiler-rt dependencies
+          command: |
+            mkdir tmp
+            mv ~/project/packages/cheerp-build.tar.bz2 .
+            tar -xvf cheerp-build.tar.bz2 -C /tmp
+            mv /tmp/build ~/project/cheerp-compiler/
+      - run:
+          name: Set up for compiler-rt
+          working_directory: ~/project/cheerp-compiler
+          command: |
+            rm -rf debian/
+            cp -rv compiler-rt/debian debian/
+      - create-deb:
+          directory: cheerp-compiler
+          package-name: compiler-rt
       - persist_to_workspace:
           root: packages
           paths:
             - cheerp-utils_*.deb
             - cheerp-musl_*.deb
+            - cheerp-compiler-rt_*.deb
             - cheerp-libcxx-libcxxabi_*.deb
             - cheerp-libs_*.deb
   test:
     parameters:
       target:
+        type: string
+      asan:
         type: string
     docker:
       - image: leaningtech/cheerp_ci_base:20.04
@@ -184,6 +212,68 @@ jobs:
     steps:
       - run-cheerp-tests:
           target: << parameters.target >>
+          asan: << parameters.asan >>
+  run-asan-tests:
+    docker:
+      - image: leaningtech/cheerp_ci_base:20.04
+    resource_class: large
+    environment:
+      - VERBOSE: 1
+    steps:
+      - attach_workspace:
+          at: ~/project/packages
+      - run: mkdir -p /opt/cheerp
+      - install-deb:
+          package-name: llvm-clang
+      - install-deb:
+          package-name: utils
+      - install-deb:
+          package-name: musl
+      - install-deb:
+          package-name: compiler-rt
+      - install-deb:
+          package-name: libcxx-libcxxabi
+      - install-deb:
+          package-name: libs
+      - run: mkdir ~/project/cheerp-compiler
+      - when:
+          condition:
+            equal: [ master, << pipeline.parameters.release-tag >>  ]
+          steps:
+            shallow-clone:
+              ref: << pipeline.parameters.cheerp-compiler-commit >>
+              dir: cheerp-compiler
+              remote: https://github.com/leaningtech/cheerp-compiler
+      - when:
+          condition:
+            not:
+              equal: [ master, << pipeline.parameters.release-tag >>  ]
+          steps:
+            shallow-clone:
+              ref: << pipeline.parameters.release-tag >>
+              dir: cheerp-compiler
+              remote: https://github.com/leaningtech/cheerp-compiler
+      - run:
+          name: Get cmake utilities
+          command: |
+            mkdir tmp
+            mv ~/project/packages/cheerp-build.tar.bz2 .
+            tar -xvf cheerp-build.tar.bz2 -C /tmp
+            mv /tmp/build ~/project/cheerp-compiler/
+      - run:
+          name: Build dependencies
+          command: |
+            ninja -C ~/project/cheerp-compiler/build llvm-config
+            ninja -C ~/project/cheerp-compiler/build FileCheck
+            ninja -C ~/project/cheerp-compiler/build not
+      - run:
+          name: Setup tests
+          working_directory: ~/project/cheerp-compiler/compiler-rt
+          command: cmake -B build -C CheerpCmakeConf.cmake -DCMAKE_TOOLCHAIN_FILE="/opt/cheerp/share/cmake/Modules/CheerpWasmToolchain.cmake" -DLLVM_DIR="$PWD/../build/lib/cmake/llvm"
+      - run:
+          name: Check asan
+          working_directory: ~/project/cheerp-compiler/compiler-rt/build
+          command: make -j check-asan
   RPM-cheerp-compiler:
     docker:
       - image: leaningtech/cheerp_rpm_base:8
@@ -305,6 +395,10 @@ jobs:
           directory: cheerp-libs
           package-name: libs
           branch-name: << pipeline.parameters.cheerp-libs-commit >>
+      - create-rpm-package:
+          directory: cheerp-compiler
+          package-name: compiler-rt
+          branch-name: << pipeline.parameters.cheerp-compiler-commit >>
       - build-deploy-rpm:
           directory: cheerp-internal/tools/releasing/cheerp-core
           package-name: core
@@ -454,6 +548,24 @@ jobs:
             sed -i "s/\${source:Version}/${VERSION_NO}/g" debian/control
             debuild -sa -S -kB5208673E6848661 -d
       - run:
+          name: Prepare compiler-rt sources
+          working_directory: cheerp-compiler
+          command: |
+            if [ << pipeline.parameters.release-tag >> != 'master' ]; then
+              ../cheerp-internal/tools/releasing/compiler-rt_debian_archives.sh $VERSION_NO << pipeline.parameters.release-tag >>
+            else
+              ../cheerp-internal/tools/releasing/compiler-rt_debian_archives.sh $VERSION_NO << pipeline.parameters.cheerp-compiler-commit >>
+            fi
+
+            cd ../pkg
+            tar -xf cheerp-compiler-rt_${VERSION_NO}.orig.tar.gz
+            cd cheerp-compiler-rt-${VERSION_NO}
+            rm -rf debian/
+            cp -rv compiler-rt/debian/ debian/
+            dch -b -v ${VERSION_NO}-1~${DISTRO} "${CHANGELOG_MESSAGE}" -D ${DISTRO} -m
+            sed -i "s/\${source:Version}/${VERSION_NO}/g" debian/control
+            debuild -sa -S -kB5208673E6848661 -d
+      - run:
           name: Prepare cheerp metapackage sources
           working_directory: cheerp-internal/tools/releasing
           command: |
@@ -471,6 +583,7 @@ jobs:
             dput ${PPA} cheerp-musl*_source.changes
             dput ${PPA} cheerp-libcxx-libcxxabi*_source.changes
             dput ${PPA} cheerp-libs*_source.changes
+            dput ${PPA} cheerp-compiler-rt*_source.changes
             dput ${PPA} ../cheerp-internal/tools/releasing/cheerp-core*_source.changes
             if [ << pipeline.parameters.release-tag >> != 'master' ]; then
               cp cheerp-llvm-clang_${VERSION_NO}.orig.tar.gz cheerp-llvm-clang-${VERSION_NO}.tar.gz
@@ -478,9 +591,11 @@ jobs:
               cp cheerp-utils_${VERSION_NO}.orig.tar.gz cheerp-utils-${VERSION_NO}.tar.gz
               cp cheerp-musl_${VERSION_NO}.orig.tar.gz cheerp-musl-${VERSION_NO}.tar.gz
               cp cheerp-libs_${VERSION_NO}.orig.tar.gz cheerp-libs-${VERSION_NO}.tar.gz
+              cp cheerp-compiler-rt_${VERSION_NO}.orig.tar.gz cheerp-compiler-rt-${VERSION_NO}.tar.gz
               python3 ../cheerp-internal/tools/releasing/github_upload.py << pipeline.parameters.release-tag >> "Cheerp ${VERSION_NO}" cheerp-utils-${VERSION_NO}.tar.gz cheerp-utils-${VERSION_NO}.tar.gz
               python3 ../cheerp-internal/tools/releasing/github_upload.py << pipeline.parameters.release-tag >> "Cheerp ${VERSION_NO}" cheerp-musl-${VERSION_NO}.tar.gz cheerp-musl-${VERSION_NO}.tar.gz
               python3 ../cheerp-internal/tools/releasing/github_upload.py << pipeline.parameters.release-tag >> "Cheerp ${VERSION_NO}" cheerp-libs-${VERSION_NO}.tar.gz cheerp-libs-${VERSION_NO}.tar.gz
+              python3 ../cheerp-internal/tools/releasing/github_upload.py << pipeline.parameters.release-tag >> "Cheerp ${VERSION_NO}" cheerp-compiler-rt-${VERSION_NO}.tar.gz cheerp-compiler-rt-${VERSION_NO}.tar.gz
             fi
   build-cheerp-headers-and-libs:
     docker:
@@ -1014,6 +1129,8 @@ commands:
     parameters:
       target:
         type: string
+      asan:
+        type: string
     steps:
       - attach_workspace:
           at: packages
@@ -1035,21 +1152,23 @@ commands:
       - install-deb:
           package-name: musl
       - install-deb:
+          package-name: compiler-rt
+      - install-deb:
           package-name: libcxx-libcxxabi
       - install-deb:
           package-name: libs
       - run:
           name: test
           working_directory: ~/project/cheerp-utils/tests
-          command: ./run_tests.py --<< parameters.target >> --determinism=3 --determinism-probability=0.2 "/opt/cheerp/bin/clang++" "node --experimental-wasm-reftypes" -j4
+          command: ./run_tests.py --<< parameters.target >> << parameters.asan >> --determinism=3 --determinism-probability=0.2 "/opt/cheerp/bin/clang++" "node --experimental-wasm-reftypes" -j4
           no_output_timeout: 30m
       - run:
           name: Store test results
           command: |
             mkdir -p ~/project/testResults
-            mv ~/project/cheerp-utils/tests/testReport.test ~/project/<< parameters.target >>testResults
+            mv ~/project/cheerp-utils/tests/testReport.test ~/project/<< parameters.target >><< parameters.asan >>testResults
       - store_artifacts:
-          path: ~/project/<< parameters.target >>testResults
+          path: ~/project/<< parameters.target >><< parameters.asan >>testResults
   build-internal:
     parameters:
       directory:
@@ -1267,8 +1386,17 @@ workflows:
           matrix:
             parameters:
               target: ["genericjs", "asmjs", "wasm", "preexecute", "preexecute-asmjs"]
+              asan: ["", "--asan"]
+            exclude:
+              - target: "genericjs"
+                asan: "--asan"
+              - target: "preexecute"
+                asan: "--asan"
           requires:
             - build-cheerp-compiler
+            - build-libraries
+      - run-asan-tests:
+          requires:
             - build-libraries
       - RPM-cheerp-compiler:
           requires:
