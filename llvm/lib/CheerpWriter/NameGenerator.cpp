@@ -10,6 +10,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/Cheerp/Demangler.h"
 #include "llvm/Cheerp/NameGenerator.h"
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
 #include "llvm/Cheerp/PHIHandler.h"
@@ -102,6 +103,22 @@ SmallString< 4 > NameGenerator::filterLLVMName(StringRef s, NAME_FILTER_MODE fil
 	}
 
 	return ans;
+}
+
+static SmallString<4> getClientGlobalName(const GlobalValue& GV)
+{
+	demangler_iterator dmg( GV.getName() );
+	assert(*dmg == "client");
+
+	SmallString<4> name = *++dmg;
+
+	for (++dmg; dmg != demangler_iterator(); ++dmg)
+	{
+		name.push_back('.');
+		name.append(*dmg);
+	}
+
+	return name;
 }
 
 void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAnalyzer& gda, LinearMemoryHelper& linearHelper, bool exportedMemory)
@@ -284,10 +301,7 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 	{
 		if ( isa<GlobalVariable>(GV) && TypeSupport::isClientGlobal(cast<GlobalVariable>(&GV)) )
 		{
-			demangler_iterator dmg( GV.getName() );
-			assert(*dmg == "client");
-			
-			namemap.emplace( &GV, *(++dmg) );
+			namemap.emplace( &GV, getClientGlobalName(GV) );
 			
 			continue;
 		}
@@ -576,11 +590,7 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 	{
 		if (TypeSupport::isClientGlobal(&GV) )
 		{
-			demangler_iterator dmg( GV.getName() );
-			assert(*dmg == "client");
-			
-			namemap.emplace( &GV, *(++dmg) );
-			
+			namemap.emplace( &GV, getClientGlobalName(GV) );
 		}
 		else
 		{
