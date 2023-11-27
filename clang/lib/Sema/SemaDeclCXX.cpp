@@ -16273,7 +16273,7 @@ CheckOperatorNewDeleteTypes(Sema &SemaRef, const FunctionDecl *FnDecl,
   QualType ResultType =
       FnDecl->getType()->castAs<FunctionType>()->getReturnType();
 
-  if (SemaRef.getLangOpts().OpenCLCPlusPlus) {
+  if (SemaRef.getLangOpts().OpenCLCPlusPlus || !SemaRef.Context.getTargetInfo().isByteAddressable()) {
     // The operator is valid on any address space for OpenCL.
     // Drop address space from actual and expected result types.
     if (const auto *PtrTy = ResultType->getAs<PointerType>())
@@ -16308,7 +16308,7 @@ CheckOperatorNewDeleteTypes(Sema &SemaRef, const FunctionDecl *FnDecl,
       << FnDecl->getDeclName();
 
   QualType FirstParamType = FnDecl->getParamDecl(0)->getType();
-  if (SemaRef.getLangOpts().OpenCLCPlusPlus) {
+  if (SemaRef.getLangOpts().OpenCLCPlusPlus || !SemaRef.Context.getTargetInfo().isByteAddressable()) {
     // The operator is valid on any address space for OpenCL.
     // Drop address space from actual and expected first parameter types.
     if (const auto *PtrTy =
