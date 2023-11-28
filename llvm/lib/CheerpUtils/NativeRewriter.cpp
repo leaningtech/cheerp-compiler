@@ -338,15 +338,14 @@ void CheerpNativeRewriterPass::rewriteConstructorImplementation(Module& M, Funct
 	//Find the right place to add the base construtor call
 	if (lowerConstructor->arg_size()>1)
 		llvm::report_fatal_error("Native constructors with multiple args are not supported", false);
-	Instruction* callPred = NULL;
-	if (lowerConstructor->arg_size()==1 && Instruction::classof(lowerConstructor->getArgOperand(0)))
+	Instruction* callPred = &newFunc->getEntryBlock().front();
+	if (lowerConstructor->arg_size()==1)
 	{
 		//Switch the argument to the one in the new func
 		lowerConstructor->setArgOperand(0, valueMap[lowerConstructor->getArgOperand(0)]);
-		callPred = cast<Instruction>(lowerConstructor->getArgOperand(0));
+		if (Instruction::classof(lowerConstructor->getArgOperand(0)))
+			callPred = cast<Instruction>(lowerConstructor->getArgOperand(0));
 	}
-	else
-		callPred = &newFunc->getEntryBlock().front();
 
 	//And add it
 	lowerConstructor->insertAfter(callPred);
