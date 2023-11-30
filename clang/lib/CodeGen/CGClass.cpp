@@ -430,7 +430,7 @@ Address CodeGenFunction::GetAddressOfBaseClass(
       Value = GenerateVirtualcast(Value, VBase, VirtualOffset);
       Derived = VBase;
     }
-    if (NonVirtualOffset.isZero()) {
+    if (NonVirtualOffset.isZero() || Derived->isClientNamespace()) {
       Value = GenerateUpcastCollapsed(Value, BaseValueTy, Value.getType()->getPointerAddressSpace());
     } else {
       Value = GenerateUpcast(Value, Derived, Start, PathEnd);
