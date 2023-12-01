@@ -85,25 +85,28 @@ void GlobalDepsAnalyzer::simplifyCalls(llvm::Module & module) const
 		{
 			for (Instruction& I : bb)
 			{
-				if (isa<CallInst>(I)) {
-					CallInst& ci = cast<CallInst>(I);
+				if (isa<CallBase>(I)) {
+					CallBase& cb = cast<CallBase>(I);
 
 					bool isAsmJS = F.getSection() == StringRef("asmjs");
 					//Replace call(bitcast) with bitcast(call)
 					//Might fail and leave the CI calling to a bitcast if the prerequisite are not met (eg. the number of paramethers differ)
-					replaceCallOfBitCastWithBitCastOfCall(ci, /*mayFail*/ true, isAsmJS);
+					replaceCallOfBitCastWithBitCastOfCall(cb, /*mayFail*/ true, isAsmJS);
 
-					Function* calledFunc = ci.getCalledFunction();
+					Function* calledFunc = cb.getCalledFunction();
 
 					// Skip indirect calls
 					if (calledFunc == nullptr)
 						continue;
 
-					IRBuilder<> Builder(&ci);
-					if (Value* with = callSimplifier.optimizeCall(&ci, Builder)) {
-						ci.replaceAllUsesWith(with);
-						deleteList.push_back(&ci);
-						continue;
+					if (isa<CallInst>(I)) {
+						CallInst& ci = cast<CallInst>(I);
+						IRBuilder<> Builder(&ci);
+						if (Value* with = callSimplifier.optimizeCall(&ci, Builder)) {
+							ci.replaceAllUsesWith(with);
+							deleteList.push_back(&ci);
+							continue;
+						}
 					}
 				}
 			}
