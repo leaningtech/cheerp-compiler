@@ -325,8 +325,7 @@ static void do_throw(Exception* ex)
 
 [[noreturn]]
 __attribute((noinline))
-void
-__cxa_throw(void *thrown_object, std::type_info *tinfo, void (*dest)(void *)) {
+void ____cxa_throw(void *thrown_object, std::type_info *tinfo, void (*dest)(void *)) {
 	Exception* ex = Exception::allocate(thrown_object, tinfo, dest);
 	do_throw(ex);
 }
@@ -447,8 +446,9 @@ void* __cxa_current_primary_exception() noexcept
 	return ex;
 }
 
-[[noreturn]]
-void __cxa_rethrow_primary_exception(void* obj)
+
+[[noreturn]] 
+void ____cxa_rethrow_primary_exception(void* obj)
 {
 	Exception* ex = find_exception_from_unwind_ptr(obj);
 	__cxa_increment_exception_refcount(ex);
@@ -568,5 +568,9 @@ __gxx_personality_v0
 	return lp;
 }
 
+__attribute__ ((__weak__, alias("____cxa_rethrow_primary_exception"))) void __cxa_rethrow_primary_exception(void* obj);
+__attribute__ ((alias("____cxa_rethrow_primary_exception"))) void __cheerp___cxa_rethrow_primary_exception(void* obj);
+__attribute__ ((__weak__, alias("____cxa_throw"))) void __cxa_throw(void *thrown_object, std::type_info *tinfo, void (*dest)(void *));
+__attribute__ ((alias("____cxa_throw"))) void __cheerp___cxa_throw(void *thrown_object, std::type_info *tinfo, void (*dest)(void *));
 }
 }
