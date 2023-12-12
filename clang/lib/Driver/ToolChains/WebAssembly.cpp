@@ -697,9 +697,14 @@ void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
   if (Args.hasArg(options::OPT_cheerp_no_icf))
     CmdArgs.push_back("-cheerp-no-icf");
 
+  if (!Args.hasArg(options::OPT_pthread))
+    CmdArgs.push_back("-cheerp-lower-atomics");
+
   addPass("function(CheerpLowerInvoke)");
   if (Args.hasArg(options::OPT_fexceptions))
     CmdArgs.push_back("-cheerp-keep-invokes");
+  // This pass will remove atomics from genericjs functions
+  addPass("CheerpLowerAtomic");
   addPass("function(simplifycfg)");
 
   addPass("CallConstructors");

@@ -97,3 +97,5 @@ llvm::cl::opt<std::string> EnvironName("cheerp-environ-name", llvm::cl::Optional
 
 llvm::cl::opt<std::string> ArgvName("cheerp-argv-name", llvm::cl::Optional,
   llvm::cl::desc("If specified, the identifier name storing the arguments"), llvm::cl::value_desc("name"));
+
+llvm::cl::opt<bool> LowerAtomics("cheerp-lower-atomics", llvm::cl::desc("Lower all atomic operations"));

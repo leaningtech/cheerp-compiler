@@ -87,7 +87,6 @@
 #include "llvm/Transforms/Scalar/EarlyCSE.h"
 #include "llvm/Transforms/Scalar/GVN.h"
 #include "llvm/Transforms/Scalar/JumpThreading.h"
-#include "llvm/Transforms/Scalar/LowerAtomicPass.h"
 #include "llvm/Transforms/Scalar/LowerMatrixIntrinsics.h"
 #include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Utils/CanonicalizeAliases.h"
@@ -948,8 +947,6 @@ void EmitAssemblyHelper::RunOptimizationPipeline(
             //We need this to track this in custom constructors for DOM types, such as String::String(const char*)
             MPM.addPass(createModuleToFunctionPassAdaptor(cheerp::RequiredPassWrapper<PromotePass>()));
             MPM.addPass(createModuleToFunctionPassAdaptor(cheerp::CheerpNativeRewriterPass()));
-            //Cheerp is single threaded, convert atomic instructions to regular ones
-            MPM.addPass(createModuleToFunctionPassAdaptor(LowerAtomicPass()));
           });
       PB.registerOptimizerLastEPCallback(
           [](ModulePassManager &MPM, OptimizationLevel Level) {
