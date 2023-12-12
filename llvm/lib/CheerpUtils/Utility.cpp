@@ -184,6 +184,11 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 				//Abs will be rendered as (X >= 0) ? X : -X in both writers
 				return true;
 		}
+		if(const AtomicCmpXchgInst* ai = dyn_cast<AtomicCmpXchgInst>(userInst))
+		{
+			if (&I == ai->getCompareOperand())
+				return true;
+		}
 		return false;
 	};
 	// Do not inline the instruction if the use is in another block
@@ -497,6 +502,8 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 				return true;
 			case Instruction::ExtractElement:
 			case Instruction::InsertElement:
+			case Instruction::AtomicRMW:
+			case Instruction::AtomicCmpXchg:
 				return false;
 			case Instruction::Select:
 			{
