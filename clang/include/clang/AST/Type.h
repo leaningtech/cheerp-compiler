@@ -375,6 +375,7 @@ public:
   }
 
   bool hasAddressSpace() const { return Mask & AddressSpaceMask; }
+  bool hasOnlyAddressSpace() const { return hasAddressSpace() && (Mask & ~AddressSpaceMask) == 0; }
   LangAS getAddressSpace() const {
     return static_cast<LangAS>(Mask >> AddressSpaceShift);
   }

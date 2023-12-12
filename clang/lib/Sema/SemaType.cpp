@@ -2123,6 +2123,9 @@ static bool checkQualifiedFunction(Sema &S, QualType T, SourceLocation Loc,
   if (!FPT ||
       (FPT->getMethodQuals().empty() && FPT->getRefQualifier() == RQ_None))
     return false;
+  if (!S.Context.getTargetInfo().isByteAddressable() && FPT->getMethodQuals().hasOnlyAddressSpace()) {
+    return false;
+  }
 
   S.Diag(Loc, diag::err_compound_qualified_function_type)
     << QFK << isa<FunctionType>(T.IgnoreParens()) << T
