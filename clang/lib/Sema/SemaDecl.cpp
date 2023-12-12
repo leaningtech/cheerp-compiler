@@ -3913,9 +3913,25 @@ bool Sema::MergeFunctionDecl(FunctionDecl *New, NamedDecl *&OldD, Scope *S,
     //   with a declared return type that uses a placeholder type shall also
     //   use that placeholder, not a deduced type.
     QualType OldDeclaredReturnType = Old->getDeclaredReturnType();
-    // CHEERP: TODO use getDeclaredReturnType() here and fix the return type in
-    // the TInfo
-    QualType NewDeclaredReturnType = New->getReturnType();
+    QualType NewDeclaredReturnType = New->getDeclaredReturnType();
+
+    // CHEERP: apply address space rules to NewDeclaredReturnType
+    // TODO: this is a bit duplicated from ActOnFunctionDeclarator, but
+    // we can't change the declared return type easily
+    auto fixCheerpAddrSpace = [this](QualType Ret, bool genericjs) -> QualType {
+      if (!Context.getTargetInfo().isByteAddressable()) {
+        if (Ret->isPointerType() && !Ret->isTypedefNameType() && !Ret->isDependentType()) {
+          // TODO: don't force if the address space was spelled-out, somehow.
+          bool force = true;
+          auto Pointee = Ret->getPointeeType();
+          Pointee = applyCheerpAddressSpace(Pointee, genericjs, force);
+          Ret = Context.getPointerType(Pointee);
+        }
+      }
+      return Ret;
+    };
+    OldDeclaredReturnType = fixCheerpAddrSpace(OldDeclaredReturnType, Old->hasAttr<GenericJSAttr>());
+    NewDeclaredReturnType = fixCheerpAddrSpace(NewDeclaredReturnType, New->hasAttr<GenericJSAttr>());
     if (!Context.hasSameType(OldDeclaredReturnType, NewDeclaredReturnType) &&
         canFullyTypeCheckRedeclaration(New, Old, NewDeclaredReturnType,
                                        OldDeclaredReturnType)) {
