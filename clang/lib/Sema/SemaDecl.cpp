@@ -6874,7 +6874,6 @@ bool Sema::inferObjCARCLifetime(ValueDecl *decl) {
   return false;
 }
 
-static QualType applyCheerpAddressSpace(Sema& S, QualType Type, bool genericjs, bool force);
 // CHEERP: this is a loose copy of ASTContext::getAsArrayType with a twist:
 // we want to use our own logic for applying an address space to the element
 // type. Unfortunately there is some complexity involved in regenerating the
@@ -6884,7 +6883,7 @@ static const ArrayType *applyCheerpAddressSpaceToArrayType(Sema& S, QualType T, 
 
   const auto *ATy = cast<ArrayType>(T);
 
-  QualType NewEltTy = applyCheerpAddressSpace(S, ATy->getElementType(), genericjs, force);
+  QualType NewEltTy = S.applyCheerpAddressSpace(ATy->getElementType(), genericjs, force);
 
   auto& C = S.getASTContext();
   if (const auto *CAT = dyn_cast<ConstantArrayType>(ATy))
@@ -6912,27 +6911,27 @@ static const ArrayType *applyCheerpAddressSpaceToArrayType(Sema& S, QualType T, 
                                               VAT->getIndexTypeCVRQualifiers(),
                                               VAT->getBracketsRange()));
 }
-static QualType applyCheerpAddressSpace(Sema& S, QualType Type, bool genericjs, bool force) {
+QualType Sema::applyCheerpAddressSpace(QualType Type, bool genericjs, bool force) {
   if (Type->isTypedefNameType()) {
     // Don't look into typedefs
   } else if (auto DT = dyn_cast<DecayedType>(Type)) {
     auto OrigTy = DT->getOriginalType();
     if (isa<ArrayType>(OrigTy)) {
-      OrigTy = QualType(applyCheerpAddressSpaceToArrayType(S, OrigTy, genericjs, force), 0);
+      OrigTy = QualType(applyCheerpAddressSpaceToArrayType(*this, OrigTy, genericjs, force), 0);
       // Re-generate the decayed type.
-      Type = S.Context.getDecayedType(OrigTy);
+      Type = Context.getDecayedType(OrigTy);
     }
   } else if (auto PT = dyn_cast<PointerType>(Type)) {
     auto PointeeTy = PT->getPointeeType();
-    PointeeTy = applyCheerpAddressSpace(S, PointeeTy, genericjs, force);
-    Type = S.Context.getPointerType(PointeeTy);
+    PointeeTy = applyCheerpAddressSpace(PointeeTy, genericjs, force);
+    Type = Context.getPointerType(PointeeTy);
   }
   if (force)
-   Type = S.Context.removeAddrSpaceQualType(Type);
+   Type = Context.removeAddrSpaceQualType(Type);
   LangAS fallback = genericjs? LangAS::cheerp_genericjs : LangAS::Default;
-  LangAS AS = S.Context.getCheerpTypeAddressSpace(Type, fallback);
+  LangAS AS = Context.getCheerpTypeAddressSpace(Type, fallback);
   if (AS != LangAS::Default)
-    Type = S.Context.getAddrSpaceQualType(Type, AS);
+    Type = Context.getAddrSpaceQualType(Type, AS);
   return Type;
 }
 
@@ -6948,7 +6947,7 @@ void Sema::deduceCheerpAddressSpace(ValueDecl *Decl) {
     bool asmjs = Var->hasAttr<AsmJSAttr>();
     bool genericjs = Var->hasAttr<GenericJSAttr>();
     bool force = asmjs || genericjs;
-    Type = applyCheerpAddressSpace(*this, Type, genericjs, force);
+    Type = applyCheerpAddressSpace(Type, genericjs, force);
     Decl->setType(Type);
   }
 }
@@ -10277,7 +10276,7 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
         // TODO: don't force if the address space was spelled-out, somehow.
         bool force = true;
         auto Pointee = Ret->getPointeeType();
-        Pointee = applyCheerpAddressSpace(*this, Pointee, genericjs, force);
+        Pointee = applyCheerpAddressSpace(Pointee, genericjs, force);
         Ret = Context.getPointerType(Pointee);
         FTy = Context.getFunctionType(Ret, FPT->getParamTypes(),
                                                    FPT->getExtProtoInfo());

@@ -10329,6 +10329,7 @@ public:
 
   void deduceOpenCLAddressSpace(ValueDecl *decl);
   void deduceCheerpAddressSpace(ValueDecl *decl);
+  QualType applyCheerpAddressSpace(QualType Type, bool genericjs, bool force);
 
   ExprResult
   HandleExprPropertyRefExpr(const ObjCObjectPointerType *OPT,
