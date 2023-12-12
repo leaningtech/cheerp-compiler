@@ -10288,7 +10288,7 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
     auto FTy = NewFD->getType();
     if (auto FPT = NewFD->getType()->getAs<FunctionProtoType>()) {
       auto Ret = NewFD->getReturnType();
-      if (Ret->isPointerType() && !Ret->isTypedefNameType()) {
+      if (Ret->isPointerType() && !Ret->isTypedefNameType() && !Ret->isDependentType()) {
         // TODO: don't force if the address space was spelled-out, somehow.
         bool force = true;
         auto Pointee = Ret->getPointeeType();
