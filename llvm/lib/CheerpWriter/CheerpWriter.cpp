@@ -4391,6 +4391,18 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			}
 			return COMPILE_OK;
 		}
+		case Instruction::AtomicRMW:
+		{
+			const AtomicRMWInst& ai = cast<AtomicRMWInst>(I);
+			compileAtomicRMW(ai, parentPrio);
+			return COMPILE_OK;
+		}
+		case Instruction::AtomicCmpXchg:
+		{
+			const AtomicCmpXchgInst& ai = cast<AtomicCmpXchgInst>(I);
+			compileAtomicCmpXchg(ai, parentPrio);
+			return COMPILE_OK;
+		}
 		default:
 			stream << "alert('Unsupported code')";
 			llvm::errs() << "\tImplement inst " << I.getOpcodeName() << '\n';
@@ -4449,7 +4461,7 @@ void CheerpWriter::compileLoad(const LoadInst& li, PARENT_PRIORITY parentPrio)
 			elemPtrKind = PA.getPointerKind(&li);
 		}
 		bool isOffset = ie.ptrIdx == 1;
-		compileLoadElem(ptrOp, Ty, STy, ptrKind, elemPtrKind, isOffset, elemRegKind, ie.structIdx, asmjs, parentPrio);
+		compileLoadElem(li, Ty, STy, ptrKind, elemPtrKind, isOffset, elemRegKind, ie.structIdx, asmjs, parentPrio);
 		if(needsCheckBounds)
 		{
 			needsCheckBounds = false;
@@ -4458,9 +4470,42 @@ void CheerpWriter::compileLoad(const LoadInst& li, PARENT_PRIORITY parentPrio)
 	}
 }
 
-void CheerpWriter::compileLoadElem(const Value* ptrOp, Type* Ty, StructType* STy, POINTER_KIND ptrKind, POINTER_KIND loadKind, bool isOffset, Registerize::REGISTER_KIND regKind, uint32_t structElemIdx, bool asmjs, PARENT_PRIORITY parentPrio)
+void CheerpWriter::compileLoadElem(const LoadInst& li, Type* Ty, StructType* STy, POINTER_KIND ptrKind, POINTER_KIND loadKind, bool isOffset, Registerize::REGISTER_KIND regKind, uint32_t structElemIdx, bool asmjs, PARENT_PRIORITY parentPrio)
 {
-	if(regKind==Registerize::INTEGER && needsIntCoercion(parentPrio))
+	const Value* ptrOp = li.getPointerOperand();
+	if (li.isAtomic())
+	{
+		assert(!STy);
+		assert(!isOffset);
+		PARENT_PRIORITY shiftPrio = SHIFT;
+		uint32_t shift = getHeapShiftForType(Ty);
+		if (shift == 0)
+			shiftPrio = LOWEST;
+		if (parentPrio > BIT_OR)
+			stream << "(";
+		stream << namegen.getBuiltinName(NameGenerator::Builtin::ATOMICLOAD) << "(";
+		if (Ty->isIntegerTy(1) || Ty->isIntegerTy(8))
+			stream << "8,";
+		else if (Ty->isIntegerTy(16))
+			stream << "16,";
+		else if (Ty->isIntegerTy(32))
+			stream << "32,";
+		else if (Ty->isIntegerTy(64) && UseBigInts && LinearOutput!=AsmJs)
+			stream << "64,";
+		else
+			llvm::report_fatal_error("Unsupported bitwidth for atomic load");
+		compileRawPointer(ptrOp, shiftPrio);
+		if (shift != 0)
+			stream << ">>" << shift;
+		stream << ")";
+
+		if (li.getType()->isIntegerTy() && parentPrio != BIT_OR)
+			stream << "|0";
+		if (parentPrio > BIT_OR)
+			stream << ")";
+		return ;
+	}
+	else if(regKind==Registerize::INTEGER && needsIntCoercion(parentPrio))
 	{
 		if (parentPrio > BIT_OR)
 			stream << '(';
@@ -4636,6 +4681,34 @@ void CheerpWriter::compileStoreElem(const StoreInst& si, Type* Ty, StructType* S
 	const Value* ptrOp=si.getPointerOperand();
 	const Value* valOp=si.getValueOperand();
 	assert(ptrKind != CONSTANT);
+	if (si.isAtomic())
+	{
+		assert(!STy);
+		assert(!isOffset);
+		stream << namegen.getBuiltinName(NameGenerator::Builtin::ATOMICSTORE) << "(";
+		Type* t = valOp->getType();
+		PARENT_PRIORITY shiftPrio = SHIFT;
+		uint32_t shift = getHeapShiftForType(t);
+		if (shift == 0)
+			shiftPrio = LOWEST;
+		if (t->isIntegerTy(1) || t->isIntegerTy(8))
+			stream << "8,";
+		else if (t->isIntegerTy(16))
+			stream << "16,";
+		else if (t->isIntegerTy(32))
+			stream << "32,";
+		else if (t->isIntegerTy(64) && UseBigInts && LinearOutput!=AsmJs)
+			stream << "64,";
+		else
+			llvm::report_fatal_error("Unsupported bitwidth for atomic store");
+		compileRawPointer(ptrOp, shiftPrio);
+		if (shift != 0)
+			stream << ">>" << shift;
+		stream << ",";
+		compileOperand(valOp, BIT_OR);
+		stream << "|0)";
+		return ;
+	}
 	if (RAW == ptrKind || (asmjs && ptrKind == CONSTANT))
 	{
 		assert(!isOffset);
@@ -4736,6 +4809,107 @@ void CheerpWriter::compileStoreElem(const StoreInst& si, Type* Ty, StructType* S
 			}
 			compileOperand(valOp, storePrio);
 		}
+	}
+}
+
+void CheerpWriter::compileAtomicRMW(const AtomicRMWInst& ai, PARENT_PRIORITY parentPrio)
+{
+	if (parentPrio > BIT_OR)
+		stream << "(";
+	switch(ai.getOperation())
+	{
+		case AtomicRMWInst::BinOp::Xchg:
+			stream << namegen.getBuiltinName(NameGenerator::Builtin::ATOMICXCHG) << "(";
+			break;
+		case AtomicRMWInst::BinOp::Add:
+			stream << namegen.getBuiltinName(NameGenerator::Builtin::ATOMICADD) << "(";
+			break;
+		case AtomicRMWInst::BinOp::Sub:
+			stream << namegen.getBuiltinName(NameGenerator::Builtin::ATOMICSUB) << "(";
+			break;
+		case AtomicRMWInst::BinOp::And:
+			stream << namegen.getBuiltinName(NameGenerator::Builtin::ATOMICAND) << "(";
+			break;
+		case AtomicRMWInst::BinOp::Or:
+			stream << namegen.getBuiltinName(NameGenerator::Builtin::ATOMICOR) << "(";
+			break;
+		case AtomicRMWInst::BinOp::Xor:
+			stream << namegen.getBuiltinName(NameGenerator::Builtin::ATOMICXOR) << "(";
+			break;
+		default:
+			llvm::report_fatal_error("Unsupported atomicrmw opcode");
+	}
+	const Value* ptrOp=ai.getPointerOperand();
+	const Value* valOp=ai.getValOperand();
+	Type* t = valOp->getType();
+	PARENT_PRIORITY shiftPrio = SHIFT;
+	uint32_t shift = getHeapShiftForType(t);
+	if (shift == 0)
+		shiftPrio = LOWEST;
+	if (t->isIntegerTy(1) || t->isIntegerTy(8))
+		stream << "8,";
+	else if (t->isIntegerTy(16))
+		stream << "16,";
+	else if (t->isIntegerTy(32))
+		stream << "32,";
+	else if (t->isIntegerTy(64) && UseBigInts && LinearOutput!=AsmJs)
+		stream << "64,";
+	else
+		llvm::report_fatal_error("Unsupported bitwidth for atomicrmw");
+	compileRawPointer(ptrOp, shiftPrio);
+	if (shift != 0)
+		stream << ">>" << shift;
+	stream << ",";
+	compileOperand(valOp, BIT_OR);
+	stream << "|0)";
+
+	if (ai.getType()->isIntegerTy() && parentPrio != BIT_OR)
+		stream << "|0";
+	if (parentPrio > BIT_OR)
+		stream << ")";
+}
+
+void CheerpWriter::compileAtomicCmpXchg(const AtomicCmpXchgInst& ai, PARENT_PRIORITY parentPrio)
+{
+	const Value* ptrOp=ai.getPointerOperand();
+	const Value* cmpOp=ai.getCompareOperand();
+	const Value* newValOp=ai.getNewValOperand();
+	Type* t = newValOp->getType();
+	PARENT_PRIORITY shiftPrio = SHIFT;
+	uint32_t shift = getHeapShiftForType(t);
+	if (shift == 0)
+		shiftPrio = LOWEST;
+
+	stream << namegen.getBuiltinName(NameGenerator::Builtin::ATOMICCMPXCHG) << "(";
+	if (t->isIntegerTy(1) || t->isIntegerTy(8))
+		stream << "8,";
+	else if (t->isIntegerTy(16))
+		stream << "16,";
+	else if (t->isIntegerTy(32))
+		stream << "32,";
+	else if (t->isIntegerTy(64) && UseBigInts && LinearOutput!=AsmJs)
+		stream << "64,";
+	else
+		llvm::report_fatal_error("Unsupported bitwidth for atomicmpxchg");
+	compileRawPointer(ptrOp, shiftPrio);
+	if (shift != 0)
+		stream << ">>" << shift;
+	stream << ",";
+	compileOperand(cmpOp, BIT_OR);
+	stream << "|0,";
+	compileOperand(newValOp, BIT_OR);
+	stream << "|0)|0";
+
+	// Compile the second part of this instruction, the comparison between the loaded value
+	// and the compare operand. A compare operand to a cmpxchg instruction cannot be inlined, so
+	// calling compileOperand twice is safe.
+	// We only compile this part if this instruction has uses.
+	if (!ai.use_empty())
+	{
+		stream << ";" << NewLine;
+		stream << namegen.getName(&ai, 1) << "=(" << namegen.getName(&ai, 0) << "|0)==(";
+		compileOperand(cmpOp, BIT_OR);
+		stream << "|0)";
 	}
 }
 
@@ -6044,6 +6218,64 @@ void CheerpWriter::compileGrowMem()
 	stream << "}" << NewLine;
 }
 
+void CheerpWriter::compileAtomicFunctions()
+{
+	auto funcName = namegen.getBuiltinName(NameGenerator::Builtin::ATOMICLOAD);
+	stream << "function " << funcName << "(bitwidth, addr){" << NewLine;
+	stream << "if(bitwidth==8)" << NewLine;
+	stream << "return Atomics.load(" << getHeapName(HEAP8) << ", addr);" << NewLine;
+	stream << "else if(bitwidth==16)" << NewLine;
+	stream << "return Atomics.load(" << getHeapName(HEAP16) << ", addr);" << NewLine;
+	stream << "else if(bitwidth==32)" << NewLine;
+	stream << "return Atomics.load(" << getHeapName(HEAP32) << ", addr);" << NewLine;
+	if (UseBigInts && LinearOutput!=AsmJs)
+	{
+		stream << "else if(bitwidth==64)" << NewLine;
+		stream << "return Atomics.load(" << getHeapName(HEAP64) << ", addr);" << NewLine;
+	}
+	stream << "else " << NewLine;
+	stream << "throw new Error('Wrong bitwidth');" << NewLine;
+	stream << "}" << NewLine;
+	std::vector<std::string> opNames={"store","add","sub","and","or","xor","exchange"};
+	for (uint32_t i = 0; i < opNames.size(); i++)
+	{
+		auto b = static_cast<NameGenerator::Builtin>(i + NameGenerator::Builtin::ATOMICSTORE);
+		auto opName = opNames[i];
+		funcName = namegen.getBuiltinName(b);
+		stream << "function " << funcName << "(bitwidth, addr, val){" << NewLine;
+		stream << "if(bitwidth==8)" << NewLine;
+		stream << "return Atomics." << opName << "(" << getHeapName(HEAP8) << ", addr, val);" << NewLine;
+		stream << "else if(bitwidth==16)" << NewLine;
+		stream << "return Atomics." << opName << "(" << getHeapName(HEAP16) << ", addr, val);" << NewLine;
+		stream << "else if(bitwidth==32)" << NewLine;
+		stream << "return Atomics." << opName << "(" << getHeapName(HEAP32) << ", addr, val);" << NewLine;
+		if (UseBigInts && LinearOutput!=AsmJs)
+		{
+			stream << "else if(bitwidth==64)" << NewLine;
+			stream << "return Atomics." << opName << "(" << getHeapName(HEAP64) << ", addr, val);" << NewLine;
+		}
+		stream << "else " << NewLine;
+		stream << "throw new Error('Wrong bitwidth');" << NewLine;
+		stream << "}" << NewLine;
+	}
+	funcName = namegen.getBuiltinName(NameGenerator::Builtin::ATOMICCMPXCHG);
+	stream << "function " << funcName << "(bitwidth, addr, expected, replacement){" << NewLine;
+	stream << "if(bitwidth==8)" << NewLine;
+	stream << "return Atomics.compareExchange(" << getHeapName(HEAP8) << ", addr, expected, replacement);" << NewLine;
+	stream << "else if(bitwidth==16)" << NewLine;
+	stream << "return Atomics.compareExchange(" << getHeapName(HEAP16) << ", addr, expected, replacement);" << NewLine;
+	stream << "else if(bitwidth==32)" << NewLine;
+	stream << "return Atomics.compareExchange(" << getHeapName(HEAP32) << ", addr, expected, replacement);" << NewLine;
+	if (UseBigInts && LinearOutput!=AsmJs)
+	{
+		stream << "else if(bitwidth==64)" << NewLine;
+		stream << "return Atomics.compareExchange(" << getHeapName(HEAP64) << ", addr, expected, replacement);" << NewLine;
+	}
+	stream << "else " << NewLine;
+	stream << "throw new Error('Wrong bitwidth');" << NewLine;
+	stream << "}" << NewLine;
+}
+
 void CheerpWriter::compileMathDeclAsmJS()
 {
 	stream << "var Infinity=stdlib.Infinity;" << NewLine;
@@ -6335,6 +6567,14 @@ void CheerpWriter::compileAsmJSClosure()
 		stream << namegen.getBuiltinName(NameGenerator::Builtin::GROW_MEM);
 		stream << ';' << NewLine;
 	}
+	if (globalDeps.usesAtomics())
+	{
+		for (int i = NameGenerator::Builtin::ATOMICLOAD; i <= NameGenerator::Builtin::ATOMICCMPXCHG; i++)
+		{
+			auto b = static_cast<NameGenerator::Builtin>(i);
+			stream << "var " << namegen.getBuiltinName(b) << "=ffi." << namegen.getBuiltinName(b) << ";" << NewLine;
+		}
+	}
 
 	// Declare globals
 	for ( const GlobalVariable* GV : linearHelper.globals() )
@@ -6378,6 +6618,14 @@ void CheerpWriter::compileAsmJSffiObject()
 		stream << namegen.getBuiltinName(NameGenerator::Builtin::GROW_MEM);
 		stream << ',' << NewLine;
 	}
+	if (globalDeps.usesAtomics())
+	{
+		for (int i = NameGenerator::Builtin::ATOMICLOAD; i <= NameGenerator::Builtin::ATOMICCMPXCHG; i++)
+		{
+			auto b = static_cast<NameGenerator::Builtin>(i);
+			stream << namegen.getBuiltinName(b) << ":" << namegen.getBuiltinName(b) << "," << NewLine;
+		}
+	}
 	stream << "}";
 }
 
@@ -6385,7 +6633,10 @@ void CheerpWriter::compileAsmJSTopLevel()
 {
 	compileDummies();
 
-	stream << "var __heap = new ArrayBuffer("<<heapSize*1024*1024<<");" << NewLine;
+	stream << "var __heap = new ";
+	if (globalDeps.usesAtomics())
+		stream << "Shared";
+	stream << "ArrayBuffer(" << heapSize * 1024 * 1024 << ");" << NewLine;
 	{
 		//Declare used HEAPs variables to null, to be inizializated by a later call to ASSIGN_HEAPS
 		bool isFirst = true;
@@ -6482,6 +6733,9 @@ void CheerpWriter::compileGenericJS()
 	//Compile growLinearMemory if needed
 	if (globalDeps.needsBuiltin(BuiltinInstr::BUILTIN::GROW_MEM))
 		compileGrowMem();
+
+	if (globalDeps.usesAtomics() && wasmFile.empty())
+		compileAtomicFunctions();
 }
 
 void CheerpWriter::compileDummies()

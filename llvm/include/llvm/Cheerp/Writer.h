@@ -453,11 +453,12 @@ private:
 	COMPILE_INSTRUCTION_FEEDBACK compileNotInlineableInstruction(const llvm::Instruction& I, PARENT_PRIORITY parentPrio);
 	COMPILE_INSTRUCTION_FEEDBACK compileInlineableInstruction(const llvm::Instruction& I, PARENT_PRIORITY parentPrio);
 	COMPILE_INSTRUCTION_FEEDBACK compileCallInstruction(const llvm::CallBase& I, PARENT_PRIORITY parentPrio);
-	void compileLoadElem(const llvm::Value* ptrOp, llvm::Type* Ty, llvm::StructType* STy, POINTER_KIND ptrKind, POINTER_KIND loadKind, bool isOffset, Registerize::REGISTER_KIND regKind, uint32_t structElemIdx, bool asmjs, PARENT_PRIORITY parentPrio);
-	void compileLoadElem(const llvm::Value* ptrOp, llvm::Type* Ty, POINTER_KIND ptrKind, POINTER_KIND loadKind, bool isOffset, Registerize::REGISTER_KIND regKind, bool asmjs, PARENT_PRIORITY parentPrio);
+	void compileLoadElem(const llvm::LoadInst& li, llvm::Type* Ty, llvm::StructType* STy, POINTER_KIND ptrKind, POINTER_KIND loadKind, bool isOffset, Registerize::REGISTER_KIND regKind, uint32_t structElemIdx, bool asmjs, PARENT_PRIORITY parentPrio);
 	void compileLoad(const llvm::LoadInst& li, PARENT_PRIORITY parentPrio);
 	void compileStoreElem(const llvm::StoreInst& si, llvm::Type* Ty, llvm::StructType* STy, POINTER_KIND ptrKind, POINTER_KIND storedKind, bool isOffset, Registerize::REGISTER_KIND regKind, uint32_t structElemIdx, uint32_t elemIdx, bool asmjs);
 	void compileStore(const llvm::StoreInst& si);
+	void compileAtomicRMW(const llvm::AtomicRMWInst& ai, PARENT_PRIORITY parentPrio);
+	void compileAtomicCmpXchg(const llvm::AtomicCmpXchgInst& ai, PARENT_PRIORITY parentPrio);
 
 	void compileSignedInteger(const llvm::Value* v, bool forComparison, PARENT_PRIORITY parentPrio);
 	void compileUnsignedInteger(const llvm::Value* v, bool forAsmJSComparison, PARENT_PRIORITY parentPrio, bool forceTruncation = false);
@@ -692,6 +693,10 @@ public:
 	 * Compile the function for growing the wasm linear memory
 	 */
 	void compileGrowMem();
+	/**
+	 * Compile the atomic functions
+	 */
+	void compileAtomicFunctions();
 	/**
 	 * Compile an helper function to assign all global heap symbols
 	 */
