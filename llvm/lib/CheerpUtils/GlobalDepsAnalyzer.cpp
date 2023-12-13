@@ -144,11 +144,23 @@ void GlobalDepsAnalyzer::replaceFunctionAliasWithAliasee(llvm::Module &module, S
 	}
 }
 
+bool GlobalDepsAnalyzer::isAtomicInstruction(const llvm::Instruction& I)
+{
+	if (isa<AtomicRMWInst>(I) || isa<AtomicCmpXchgInst>(I) || isa<FenceInst>(I))
+		return true;
+	else if (const llvm::LoadInst* li = dyn_cast<llvm::LoadInst>(&I))
+		return li->isAtomic();
+	else if (const llvm::StoreInst* si = dyn_cast<llvm::StoreInst>(&I))
+		return si->isAtomic();
+	return false;
+}
+
 bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 {
 	DL = &module.getDataLayout();
 	assert(DL);
 	VisitedSet visited;
+	hasAtomics = false;
 
 	replaceFunctionAliasWithAliasee(module, "malloc");
 	replaceFunctionAliasWithAliasee(module, "calloc");
@@ -208,6 +220,9 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 				if (instructionIterator == bb.end())
 					break;
 				Instruction& I = *instructionIterator;
+
+				if (isAtomicInstruction(I))
+					hasAtomics = true;
 
 				if (isa<CallInst>(I)) {
 					CallInst* ci = cast<CallInst>(&I);

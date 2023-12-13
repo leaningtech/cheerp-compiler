@@ -137,6 +137,8 @@ public:
 	 */
 	bool usesAsmJSMalloc() const { return hasAsmJSMalloc; }
 
+	bool usesAtomics() const { return hasAtomics; }
+
 	bool runOnModule( llvm::Module & );
 
 	void visitType( llvm::Type* t, bool forceTypedArray );
@@ -242,6 +244,9 @@ private:
 	//Extend lifetime of function, visiting them and declaring external
 	void extendLifetime(llvm::Function* F);
 
+	//Determine whether an instruction is atomic.
+	bool isAtomicInstruction(const llvm::Instruction& I);
+
 	std::unordered_set< const llvm::GlobalValue * > reachableGlobals; // Set of all the reachable globals
 	
 	FixupMap varsFixups;
@@ -270,6 +275,7 @@ private:
 	bool hasVAArgs;
 	bool hasPointerArrays;
 	bool hasAsmJSCode;
+	bool hasAtomics;
 	bool hasAsmJSMemory;
 	bool hasAsmJSMalloc;
 	bool hasCheerpException;
