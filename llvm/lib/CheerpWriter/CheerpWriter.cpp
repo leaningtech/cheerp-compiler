@@ -67,7 +67,17 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinNamespace(
 	{
 		if (v->getType()->isPointerTy())
 		{
-			compilePointerAs(v, COMPLETE_OBJECT, LOWEST);
+			if (jsExportedTypes.count(v->getType()->getPointerElementType()))
+			{
+				const auto& name = jsExportedTypes.find(v->getType()->getPointerElementType())->getSecond();
+				stream << "Object.create(" << name << ".prototype,{this:{value:";
+				compilePointerAs(v, COMPLETE_OBJECT, LOWEST);
+				stream << "}})";
+			}
+			else
+			{
+				compilePointerAs(v, COMPLETE_OBJECT, LOWEST);
+			}
 		}
 		else
 		{
