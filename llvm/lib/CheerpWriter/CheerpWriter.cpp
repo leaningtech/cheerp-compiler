@@ -71,7 +71,8 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinNamespace(
 			{
 				const auto& name = jsExportedTypes.find(v->getType()->getPointerElementType())->getSecond();
 				stream << "Object.create(" << name << ".prototype,{this:{value:";
-				compilePointerAs(v, COMPLETE_OBJECT, LOWEST);
+				POINTER_KIND kind = PA.getPointerKindForJSExportedType(v->getType()->getPointerElementType());
+				compilePointerAs(v, kind, LOWEST);
 				stream << "}})";
 			}
 			else
