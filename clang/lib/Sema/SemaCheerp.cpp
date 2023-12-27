@@ -196,6 +196,7 @@ void cheerp::TypeChecker::checkTypeImpl(const clang::QualType& Ty, clang::Source
 		case TypeKind::UnsignedInt32Bit:
 		case TypeKind::SignedInt32Bit:
 		case TypeKind::FloatingPoint:
+		case TypeKind::NullPtr:
 		{
 			//Good!
 			return;
@@ -334,6 +335,10 @@ cheerp::TypeKind cheerp::TypeChecker::classifyType(const clang::QualType& Qy, co
 	if (Ty->isPointerType())
 	{
 		return TypeKind::Pointer;
+	}
+	if (Ty->isNullPtrType())
+	{
+		return TypeKind::NullPtr;
 	}
 
 	const clang::CXXRecordDecl* Record = Ty->getAsCXXRecordDecl();

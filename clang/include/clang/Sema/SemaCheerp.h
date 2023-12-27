@@ -24,7 +24,7 @@ namespace cheerp{
 
 enum class TypeKind
 {
-	Void, Boolean, IntLess32Bit, UnsignedInt32Bit, SignedInt32Bit, IntGreater32Bit, FloatingPoint, NamespaceClient, Pointer, Function, FunctionPointer, Reference, JsExportable, Other, Impossible,
+	Void, Boolean, IntLess32Bit, UnsignedInt32Bit, SignedInt32Bit, IntGreater32Bit, FloatingPoint, NamespaceClient, Pointer, Function, FunctionPointer, Reference, JsExportable, Other, Impossible, NullPtr,
 };
 
 enum class SpecialFunctionClassify
