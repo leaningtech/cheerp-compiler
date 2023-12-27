@@ -332,7 +332,8 @@ void ____cxa_throw(void *thrown_object, std::type_info *tinfo, void (*dest)(void
 
 #ifdef __ASMJS__
 [[noreturn]]
-static void __cxa_throw_wasm_adapter(size_t thrown_object, std::type_info* tinfo, size_t dest)
+__attribute((weak))
+void __cxa_throw_wasm_adapter(size_t thrown_object, std::type_info* tinfo, size_t dest)
 {
 	Exception* ex = Exception::allocate(int(thrown_object), tinfo, dest);
 	do_throw(ex);
