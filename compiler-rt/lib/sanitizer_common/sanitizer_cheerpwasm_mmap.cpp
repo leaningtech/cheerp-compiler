@@ -82,6 +82,11 @@ static bool IsFree(uptr page, uptr page_count) {
   return true;
 }
 
+// This function must not be inlined, as it is referenced in the PreExecutor
+[[clang::noinline]] static int GrowMemory(int pages) {
+  return __builtin_cheerp_grow_memory(pages);
+}
+
 static void ReservePages(uptr page, uptr page_count) {
   CHECK_LT(page, PageCount());
 
@@ -91,7 +96,7 @@ static void ReservePages(uptr page, uptr page_count) {
 
     uptr wasm_pages =
         RoundUpTo(needed_pages * MMAP_PAGESIZE, WASM_PAGESIZE) / WASM_PAGESIZE;
-    if (__builtin_cheerp_grow_memory(wasm_pages) == -1) {
+    if (GrowMemory(wasm_pages) == -1) {
       assert(0 &&
              "If this triggered, you probably did not give enough memory to "
              "your program");
@@ -156,7 +161,7 @@ void SetupMemoryMapping() {
 
   _max_page_count = reinterpret_cast<uptr>(_heapEnd) / MMAP_PAGESIZE;
 
-  _mapped_pages = __builtin_cheerp_grow_memory(0);
+  _mapped_pages = GrowMemory(0);
   if (_mapped_pages == -1) {
     _mapped_pages = _max_page_count;  // and hope for the best
   } else {

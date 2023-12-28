@@ -971,6 +971,7 @@ bool PreExecute::runOnModule(Module& m)
     FD.detach("mALLOc");
     FD.detach("fREe");
     FD.detach("rEALLOc");
+    FD.detach("_ZN11__sanitizerL10GrowMemoryEi");
 
     bool abortAtNextPrio = false;
     if (constructorVar)
