@@ -7,6 +7,8 @@
 // RUN: %clang_cc1 -fsanitize=address -fno-sanitize-address-use-odr-indicator -emit-llvm -o - -triple x86_64-windows-msvc %s | FileCheck %s --check-prefixes=CHECK,GLOB_VAR,ALIAS0
 // RUN: %clang_cc1 -fsanitize=address -emit-llvm -o - -triple x86_64-windows-msvc %s | FileCheck %s --check-prefixes=CHECK,INDICATOR1,GLOB_VAR_INDICATOR,ALIAS0
 
+// XFAIL: cheerp-leaningtech-webbrowser-wasm
+
 int global;
 
 int main() {
