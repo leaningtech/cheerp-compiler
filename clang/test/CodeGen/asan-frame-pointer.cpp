@@ -6,14 +6,14 @@
 
 int global;
 
-// NONE: define internal void @asan.module_ctor() #[[#ATTR:]] {
-// NONE: define internal void @asan.module_dtor() #[[#ATTR]] {
+// NONE: define internal void @asan.module_ctor() #[[#ATTR:]] section "asmjs" {
+// NONE: define internal void @asan.module_dtor() #[[#ATTR]] section "asmjs" {
 // NONE: attributes #[[#ATTR]] = { nounwind }
 
-// NONLEAF: define internal void @asan.module_ctor() #[[#ATTR:]] {
-// NONLEAF: define internal void @asan.module_dtor() #[[#ATTR]] {
+// NONLEAF: define internal void @asan.module_ctor() #[[#ATTR:]] section "asmjs" {
+// NONLEAF: define internal void @asan.module_dtor() #[[#ATTR]] section "asmjs" {
 // NONLEAF: attributes #[[#ATTR]] = { nounwind "frame-pointer"="non-leaf" }
 
-// ALL: define internal void @asan.module_ctor() #[[#ATTR:]] {
-// ALL: define internal void @asan.module_dtor() #[[#ATTR]] {
+// ALL: define internal void @asan.module_ctor() #[[#ATTR:]] section "asmjs" {
+// ALL: define internal void @asan.module_dtor() #[[#ATTR]] section "asmjs" {
 // ALL: attributes #[[#ATTR]] = { nounwind "frame-pointer"="all" }

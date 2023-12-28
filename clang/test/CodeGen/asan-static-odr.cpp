@@ -3,6 +3,8 @@
 // No alias on Windows but indicators should work.
 // RUN: %clang_cc1 -fsanitize=address -fno-sanitize-address-use-odr-indicator -emit-llvm -o - -triple x86_64-windows-msvc %s | FileCheck %s
 
+// XFAIL: cheerp-leaningtech-webbrowser-wasm
+
 static int global;
 
 int main() {
