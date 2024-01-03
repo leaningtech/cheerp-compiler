@@ -4,11 +4,14 @@ deb_version := $(shell dpkg-parsechangelog | sed -n 's/^Version: //p')
 ifndef CIRCLECI
 	FLAGS_RELEASE="-DNDEBUG -O2"
 	USE_CCACHE=Off
+	ENABLE_LLVM_ASSERTIONS=Off
 else
 	ifeq (${CIRCLE_BRANCH}, master)
 		USE_CCACHE=Off
+		ENABLE_LLVM_ASSERTIONS=Off
 	else
 		USE_CCACHE=On
+		ENABLE_LLVM_ASSERTIONS=On
 	endif
 	FLAGS_RELEASE="-O2"
 endif
@@ -26,6 +29,7 @@ override_dh_auto_configure:
 		-DLLVM_ENABLE_PROJECTS=clang \
 		../llvm/ \
 		-GNinja \
+		-DLLVM_ENABLE_ASSERTIONS=${ENABLE_LLVM_ASSERTIONS} \
 		-DCMAKE_CXX_COMPILER=clang++ \
 		-DCMAKE_C_COMPILER=clang \
 		-DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=lld \
