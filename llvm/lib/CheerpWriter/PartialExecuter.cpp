@@ -629,9 +629,10 @@ public:
 		// We need to allocate a virtual frame for the sake of resolving CEs
 		createStartingCallFrame();
 		bool changed = false;
-		for(const auto& it: fullyKnownCEs)
-		{
-			llvm::ConstantExpr* CE = dyn_cast<llvm::ConstantExpr>(it.first);
+		while (!fullyKnownCEs.empty())  {
+			auto it = fullyKnownCEs.begin();
+			llvm::ConstantExpr* CE = dyn_cast<llvm::ConstantExpr>(it->first);
+			fullyKnownCEs.erase(it);
 			if(CE == nullptr)
 			{
 				// CEs might have already collapse due to previous replacements
