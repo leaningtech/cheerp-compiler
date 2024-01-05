@@ -842,7 +842,7 @@ bool ConstStructBuilder::Build(const APValue &Val, const RecordDecl *RD,
           CGM.getCXXABI().getVTableAddressPointForConstExpr(
               BaseSubobject(CD, Offset), VTableClass);
       if (!CGM.getTarget().isByteAddressable()) {
-        llvm::Type* VTableType = CGM.getTypes().GetVTableBaseType(RD->hasAttr<AsmJSAttr>())->getPointerTo();
+        llvm::Type* VTableType = CGM.getTypes().GetVTableBaseType(RD->hasAttr<AsmJSAttr>())->getPointerTo(VTableAddressPoint->getType()->getPointerAddressSpace());
         VTableAddressPoint = llvm::ConstantExpr::getBitCast(VTableAddressPoint, VTableType);
       }
       if (!AppendBytes(Offset, VTableAddressPoint))

@@ -5621,7 +5621,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
                                         : ASIdx);
           EPI.TypeQuals.addAddressSpace(AS);
         }
-        if (!S.Context.getTargetInfo().isByteAddressable() && IsClassMember() && !D.getDeclSpec().isFriendSpecified()) {
+        if (!S.Context.getTargetInfo().isByteAddressable() && IsClassMember() && !IsTypedefName && !D.getDeclSpec().isFriendSpecified()) {
           if (auto* C = GetParentClass()) {
             LangAS AS = S.Context.getCheerpTypeAddressSpace(C);
             if (AS != LangAS::Default)

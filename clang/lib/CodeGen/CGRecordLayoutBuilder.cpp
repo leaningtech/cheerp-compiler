@@ -662,7 +662,7 @@ void CGRecordLowering::accumulateVPtrs() {
   if (Layout.hasOwnVFPtr()) {
     llvm::Type* VFPtrTy = Types.getTarget().isByteAddressable() ?
                           llvm::FunctionType::get(getIntNType(32), /*isVarArg=*/true)->getPointerTo()->getPointerTo() :
-                          Types.GetVTableBaseType(RD->hasAttr<AsmJSAttr>())->getPointerTo();
+                          Types.GetVTableBaseType(RD->hasAttr<AsmJSAttr>())->getPointerTo(Context.getTargetAddressSpace(Context.getCheerpTypeAddressSpace(RD)));
     Members.push_back(MemberInfo(CharUnits::Zero(), MemberInfo::VFPtr, VFPtrTy));
   }
   if (Layout.hasOwnVBPtr())

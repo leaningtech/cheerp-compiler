@@ -802,8 +802,9 @@ void CodeGenVTables::addVTableComponent(ConstantAggregateBuilderBase &builder,
       useRelativeLayout() ? AddRelativeLayoutOffset : AddPointerLayoutOffset;
 
   bool asmjs = LayoutClass->hasAttr<AsmJSAttr>();
+  unsigned AS = CGM.getContext().getTargetAddressSpace(asmjs? LangAS::Default : LangAS::cheerp_genericjs);
 
-  llvm::PointerType* elemType = CGM.getTarget().isByteAddressable() ? CGM.Int8PtrTy : llvm::FunctionType::get( CGM.Int32Ty, true )->getPointerTo();
+  llvm::PointerType* elemType = CGM.getTarget().isByteAddressable() ? CGM.Int8PtrTy : llvm::FunctionType::get( CGM.Int32Ty, true )->getPointerTo(AS);
 
   switch (component.getKind()) {
   case VTableComponent::CK_VCallOffset:
@@ -839,7 +840,9 @@ void CodeGenVTables::addVTableComponent(ConstantAggregateBuilderBase &builder,
                                   vtableHasLocalLinkage,
                                   /*isCompleteDtor=*/false);
     else
-      return builder.add(llvm::ConstantExpr::getBitCast(rtti, CGM.getTarget().isByteAddressable() ? CGM.Int8PtrTy : CGM.getTypes().GetClassTypeInfoType()->getPointerTo()));
+    {
+      return builder.add(llvm::ConstantExpr::getBitCast(rtti, CGM.getTarget().isByteAddressable() ? CGM.Int8PtrTy : CGM.getTypes().GetClassTypeInfoType()->getPointerTo(rtti->getType()->getPointerAddressSpace())));
+    }
 
   case VTableComponent::CK_FunctionPointer:
   case VTableComponent::CK_CompleteDtorPointer:
@@ -1509,7 +1512,8 @@ llvm::Type* CodeGenTypes::GetVTableSubObjectType(CodeGenModule& CGM,
                                           bool asmjs)
 {
   llvm::Type* OffsetTy = CGM.getTypes().ConvertType(CGM.getContext().getPointerDiffType());
-  llvm::Type* FuncPtrTy = llvm::FunctionType::get( CGM.Int32Ty, true )->getPointerTo();
+  unsigned AS = asmjs? 0 : CGM.getContext().getTargetAddressSpace(LangAS::cheerp_genericjs);
+  llvm::Type* FuncPtrTy = llvm::FunctionType::get( CGM.Int32Ty, true )->getPointerTo(AS);
   llvm::SmallVector<llvm::Type*, 16> VTableTypes;
 
   for (auto C = begin; C!= end; C++) {

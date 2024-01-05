@@ -1470,7 +1470,8 @@ static llvm::FunctionCallee getItaniumDynamicCastFn(CodeGenFunction &CGF, bool a
   llvm::StringRef FName;
   if(!CGF.getTarget().isByteAddressable()) {
     llvm::Type* classTypeInfoPtr = CGF.getTypes().GetClassTypeInfoType()->getPointerTo();
-    llvm::Type *Args[5] = { PtrDiffTy, CGF.getTypes().GetVTableBaseType(asmjs)->getPointerTo(), classTypeInfoPtr, classTypeInfoPtr, PtrDiffTy };
+    unsigned AS = asmjs? 0 : CGF.getContext().getTargetAddressSpace(LangAS::cheerp_genericjs);
+    llvm::Type *Args[5] = { PtrDiffTy, CGF.getTypes().GetVTableBaseType(asmjs)->getPointerTo(AS), classTypeInfoPtr, classTypeInfoPtr, PtrDiffTy };
     FTy = llvm::FunctionType::get(PtrDiffTy, Args, false);
     FName = asmjs? "__dynamic_cast_asmjs" : "__dynamic_cast_genericjs";
   } else {
@@ -1593,7 +1594,8 @@ llvm::Value *ItaniumCXXABI::EmitTypeid(CodeGenFunction &CGF,
         CGF.Builder.CreateConstInBoundsGEP1_64(StdTypeInfoPtrTy, Value, -1ULL);
   } else {
     llvm::Type* VTablePointedType = CGM.getTypes().GetPrimaryVTableType(ClassDecl);
-    llvm::Type* VTableType = VTablePointedType->getPointerTo();
+    unsigned AS = CGM.getContext().getTargetAddressSpace(CGM.getContext().getCheerpTypeAddressSpace(ClassDecl));
+    llvm::Type* VTableType = VTablePointedType->getPointerTo(AS);
     Value = CGF.GetVTablePtr(ThisPtr, VTableType, ClassDecl);
     bool asmjs = SrcRecordTy->getAsCXXRecordDecl()->hasAttr<AsmJSAttr>(); 
     int offset = asmjs? 1 : 0;
@@ -1771,7 +1773,8 @@ ItaniumCXXABI::GetVirtualBaseClassOffset(CodeGenFunction &CGF,
                                          const CXXRecordDecl *BaseClassDecl) {
   if (!CGM.getTarget().isByteAddressable()) {
     llvm::Type* VTablePointedType = CGM.getTypes().GetPrimaryVTableType(ClassDecl);
-    llvm::Type* VTableType = VTablePointedType->getPointerTo();
+    unsigned AS = CGM.getContext().getTargetAddressSpace(CGM.getContext().getCheerpTypeAddressSpace(ClassDecl));
+    llvm::Type* VTableType = VTablePointedType->getPointerTo(AS);
     llvm::Value *VTablePtr = CGF.GetVTablePtr(This, VTableType, ClassDecl);
     CharUnits VBaseOffsetOffset =
         CGM.getItaniumVTableContext().getVirtualBaseOffsetOffset(ClassDecl,
@@ -2127,9 +2130,14 @@ llvm::GlobalVariable *ItaniumCXXABI::getAddrOfVTable(const CXXRecordDecl *RD,
                         ? 32
                         : CGM.getTarget().getPointerAlign(LangAS::Default);
 
+  unsigned AS = 0;
+  if (CGM.getContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::GenericJs)
+  {
+    AS = CGM.getContext().getTargetAddressSpace(LangAS::cheerp_genericjs);
+  }
   VTable = CGM.CreateOrReplaceCXXRuntimeVariable(
       Name, VTableType, llvm::GlobalValue::ExternalLinkage,
-      getContext().toCharUnitsFromBits(PAlign).getQuantity());
+      getContext().toCharUnitsFromBits(PAlign).getQuantity(), AS);
   VTable->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
 
   // In MS C++ if you have a class with virtual functions in which you are using
@@ -2170,6 +2178,7 @@ CGCallee ItaniumCXXABI::getVirtualFunctionPointer(CodeGenFunction &CGF,
   llvm::Type *VTablePointedType = nullptr;
   auto *MethodDecl = cast<CXXMethodDecl>(GD.getDecl());
   llvm::Value* VTable = NULL;
+  unsigned AS = 0;
   if(CGF.getTarget().isByteAddressable()) {
     VTablePointedType = TyPtr;
     VTable = CGF.GetVTablePtr(
@@ -2177,7 +2186,8 @@ CGCallee ItaniumCXXABI::getVirtualFunctionPointer(CodeGenFunction &CGF,
   } else {
     const CXXRecordDecl *RD = MethodDecl->getParent();
     VTablePointedType = CGM.getTypes().GetPrimaryVTableType(RD);
-    llvm::Type* VTableType = VTablePointedType->getPointerTo();
+    AS = CGM.getContext().getTargetAddressSpace(CGM.getContext().getCheerpTypeAddressSpace(RD));
+    llvm::Type* VTableType = VTablePointedType->getPointerTo(AS);
     VTable = CGF.GetVTablePtr(This, VTableType, MethodDecl->getParent());
   }
 
@@ -2202,7 +2212,7 @@ CGCallee ItaniumCXXABI::getVirtualFunctionPointer(CodeGenFunction &CGF,
       VFuncLoad = CGF.Builder.CreateBitCast(Load, TyPtr);
     } else if(CGF.getTarget().isByteAddressable()) {
       VTable =
-          CGF.Builder.CreateBitCast(VTable, TyPtr->getPointerTo());
+          CGF.Builder.CreateBitCast(VTable, TyPtr->getPointerTo(AS));
       VTablePointedType = TyPtr;
       llvm::Value *VTableSlotPtr = CGF.Builder.CreateConstInBoundsGEP1_64(
           TyPtr, VTable, VTableIndex, "vfn");
@@ -2232,7 +2242,7 @@ CGCallee ItaniumCXXABI::getVirtualFunctionPointer(CodeGenFunction &CGF,
     if(CGF.getTarget().isByteAddressable()) {
       VFunc = VFuncLoad;
     } else {
-      VFunc = CGF.Builder.CreateBitCast(VFuncLoad, Ty->getPointerTo());
+      VFunc = CGF.Builder.CreateBitCast(VFuncLoad, Ty->getPointerTo(AS));
     }
   }
 
@@ -3514,8 +3524,13 @@ llvm::GlobalVariable *ItaniumRTTIBuilder::GetAddrOfTypeName(
                                                             Name.substr(4));
   auto Align = CGM.getContext().getTypeAlignInChars(CGM.getContext().CharTy);
 
+  unsigned AS = 0;
+  if (CGM.getContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::GenericJs)
+  {
+    AS = CGM.getContext().getTargetAddressSpace(LangAS::cheerp_genericjs);
+  }
   llvm::GlobalVariable *GV = CGM.CreateOrReplaceCXXRuntimeVariable(
-      Name, Init->getType(), Linkage, Align.getQuantity());
+      Name, Init->getType(), Linkage, Align.getQuantity(), AS);
 
   GV->setInitializer(Init);
 
@@ -3944,7 +3959,7 @@ void ItaniumRTTIBuilder::BuildVTablePointer(const Type *Ty) {
     GepIndexes.push_back(Zero);
     GepIndexes.push_back(Zero);
     VTable = llvm::ConstantExpr::getInBoundsGetElementPtr(VTableType, VTable, GepIndexes);
-    VTable = llvm::ConstantExpr::getBitCast(VTable, CGM.getTypes().GetVTableBaseType(asmjs)->getPointerTo());
+    VTable = llvm::ConstantExpr::getBitCast(VTable, CGM.getTypes().GetVTableBaseType(asmjs)->getPointerTo(VTable->getType()->getPointerAddressSpace()));
     Fields.push_back(VTable);
     return;
   }
