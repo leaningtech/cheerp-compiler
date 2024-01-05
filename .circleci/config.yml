@@ -395,6 +395,12 @@ jobs:
           directory: cheerp-libs
           package-name: libs
           branch-name: << pipeline.parameters.cheerp-libs-commit >>
+      - run:
+          name: Set up for compiler-rt
+          working_directory: ~/project/cheerp-compiler
+          command: |
+            rm -rf rpmbuild
+            cp -r compiler-rt/rpmbuild .
       - create-rpm-package:
           directory: cheerp-compiler
           package-name: compiler-rt
@@ -416,6 +422,7 @@ jobs:
                     repo_remove_old utils
                     repo_remove_old musl
                     repo_remove_old libcxx-libcxxabi
+                    repo_remove_old compiler-rt
                     repo_remove_old libs
                     repo_remove_old core
                     repo_update
