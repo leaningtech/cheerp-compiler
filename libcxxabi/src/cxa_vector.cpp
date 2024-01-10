@@ -163,6 +163,7 @@ size_t calculate_allocation_size_or_throw(size_t element_count,
 
 extern "C" {
 
+#ifndef __CHEERP__
 // Equivalent to
 //
 //   __cxa_vec_new2(element_count, element_size, padding_size, constructor,
@@ -414,7 +415,7 @@ __cxa_vec_delete3(void *array_address, size_t element_size, size_t padding_size,
             __cxa_vec_dtor ( array_address, element_count, element_size, destructor );
     }
 }
-
+#endif
 
 }  // extern "C"
 
