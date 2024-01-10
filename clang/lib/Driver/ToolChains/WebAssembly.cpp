@@ -851,6 +851,11 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
     }
   }
 
+  CmdArgs.push_back("-cheerp-environ-name=CHEERP_ENV");
+  CmdArgs.push_back("-cheerp-reserved-names=CHEERP_ENV");
+  CmdArgs.push_back("-cheerp-argv-name=CHEERP_ARGV");
+  CmdArgs.push_back("-cheerp-reserved-names=CHEERP_ARGV");
+
   if(Arg* cheerpSecondaryOutputFile = Args.getLastArg(options::OPT_cheerp_secondary_output_file_EQ))
     cheerpSecondaryOutputFile->render(Args, CmdArgs);
   else if(

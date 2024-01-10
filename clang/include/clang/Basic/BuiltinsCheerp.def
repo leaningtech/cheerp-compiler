@@ -34,6 +34,8 @@ BUILTIN(__builtin_cheerp_throw, "", "rB")
 BUILTIN(__builtin_cheerp_downcast, "", "B")
 BUILTIN(__builtin_cheerp_downcast_current, "", "B")
 BUILTIN(__builtin_cheerp_coro_alloc, "v*z", "n")
+BUILTIN(__builtin_cheerp_environ, "vC*", "B")
+BUILTIN(__builtin_cheerp_argv, "vC*", "B")
 
 // SIMD builtins
 TARGET_BUILTIN(__builtin_wasm_swizzle_i8x16, "V16ScV16ScV16Sc", "nc", "simd128")

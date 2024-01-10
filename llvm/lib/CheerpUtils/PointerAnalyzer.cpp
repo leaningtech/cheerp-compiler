@@ -626,6 +626,9 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 		isIntrinsic = true;
 		switch ( intrinsic->getIntrinsicID() )
 		{
+                case Intrinsic::cheerp_environ:
+                case Intrinsic::cheerp_argv:
+                        break;
 		case Intrinsic::cheerp_virtualcast:
 		case Intrinsic::cheerp_downcast:
 		case Intrinsic::cheerp_upcast_collapsed:

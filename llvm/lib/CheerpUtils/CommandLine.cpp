@@ -91,3 +91,9 @@ llvm::cl::opt<bool> UseBigInts("cheerp-use-bigints", llvm::cl::desc("Use the Big
 llvm::cl::opt<bool> KeepInvokes("cheerp-keep-invokes", llvm::cl::desc("Don't lower invokes to calls"));
 
 llvm::cl::opt<bool> PreserveFree("cheerp-preserve-free", llvm::cl::desc("Don't optimize out calls to free"));
+
+llvm::cl::opt<std::string> EnvironName("cheerp-environ-name", llvm::cl::Optional,
+  llvm::cl::desc("If specified, the identifier name storing the environment variables"), llvm::cl::value_desc("name"));
+
+llvm::cl::opt<std::string> ArgvName("cheerp-argv-name", llvm::cl::Optional,
+  llvm::cl::desc("If specified, the identifier name storing the arguments"), llvm::cl::value_desc("name"));
