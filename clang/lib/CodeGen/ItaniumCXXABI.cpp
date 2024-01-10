@@ -1633,9 +1633,10 @@ llvm::Value *ItaniumCXXABI::EmitDynamicCastCall(
   assert((SrcDecl->hasAttr<AsmJSAttr>() == SrcDecl->hasAttr<AsmJSAttr>())
       && "Cannot dynamic_cast between genericjs and asmjs types");
   bool asmjs = SrcDecl->hasAttr<AsmJSAttr>();
+  unsigned AS = asmjs? 0 : CGF.getContext().getTargetAddressSpace(LangAS::cheerp_genericjs);
   assert(!(CGF.getContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::GenericJs && asmjs)
       && "Cannot use dynamic_cast on asmjs types in the genericjs target");
-  llvm::Value *VTable = CGF.GetVTablePtr(ThisAddr, CGF.getTypes().GetVTableBaseType(asmjs)->getPointerTo(), SrcDecl);
+  llvm::Value *VTable = CGF.GetVTablePtr(ThisAddr, CGF.getTypes().GetVTableBaseType(asmjs)->getPointerTo(AS), SrcDecl);
   llvm::Value *DynCastObj = Value;
 
   // Emit the call to __dynamic_cast.
