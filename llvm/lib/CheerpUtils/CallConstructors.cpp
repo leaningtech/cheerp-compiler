@@ -58,18 +58,15 @@ PreservedAnalyses CallConstructorsPass::run(llvm::Module &M, llvm::ModuleAnalysi
 		Value* ExitCode = nullptr;
 		if (Main->arg_size())
 		{
-			if (Main->arg_size() != 2)
+			if (Main->arg_size() != 2 && Main->arg_size() != 3)
 				llvm::report_fatal_error("main function has a strange signature");
 			Type* ArgcTy = Main->getArg(0)->getType();
 			Type* ArgvTy = Main->getArg(1)->getType();
 			Value* Argc = nullptr;
 			Value* Argv = nullptr;
 			Function* GetArgs = M.getFunction("__syscall_main_args");
-			if (GetArgs)
+			if (GetArgs && GetArgs->getSection() == Main->getSection())
 			{
-				if (GetArgs->getSection() != Main->getSection())
-					llvm::report_fatal_error("__syscall_main_args must have the same section as main");
-
 				Value* ArgcA = Builder.CreateAlloca(ArgcTy);
 				Value* ArgvA = Builder.CreateAlloca(ArgvTy);
 				ArrayRef<Value*> ArgsA = { ArgcA, ArgvA };
@@ -82,7 +79,32 @@ PreservedAnalyses CallConstructorsPass::run(llvm::Module &M, llvm::ModuleAnalysi
 				Argc = ConstantInt::get(ArgcTy, 0);
 				Argv = ConstantPointerNull::get(cast<PointerType>(ArgvTy));
 			}
-			ExitCode = Builder.CreateCall(Main->getFunctionType(), Main, { Argc, Argv });
+
+			if (Main->arg_size() == 3)
+			{
+				Type* EnvTy = Main->getArg(2)->getType();
+				Value* Env = nullptr;
+
+				if (GetEnviron->getSection() == Main->getSection())
+				{
+					Value* Environ = M.getNamedValue("environ");
+					assert(Environ && "environ not present");
+					Env = Builder.CreateLoad(EnvTy, Environ);
+				}
+				else
+				{
+					Value* EnvA = Builder.CreateAlloca(EnvTy);
+					Env = Builder.CreateLoad(EnvTy, EnvA);
+					Builder.CreateStore(ConstantPointerNull::get(cast<PointerType>(EnvTy->getPointerElementType())), Env);
+				}
+
+
+				ExitCode = Builder.CreateCall(Main->getFunctionType(), Main, { Argc, Argv, Env });
+			}
+			else
+			{
+				ExitCode = Builder.CreateCall(Main->getFunctionType(), Main, { Argc, Argv });
+			}
 		}
 		else
 		{
