@@ -12506,6 +12506,16 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
     Function *F = CGM.getIntrinsic(Intrinsic::cheerp_grow_memory);
     return Builder.CreateCall(F, Ops);
   }
+  else if (BuiltinID == Cheerp::BI__builtin_cheerp_environ) {
+    llvm::Type *Tys[] = { ConvertType(E->getType()) };
+    Function *F = CGM.getIntrinsic(Intrinsic::cheerp_environ, Tys);
+    return Builder.CreateCall(F, Ops);
+  }
+  else if (BuiltinID == Cheerp::BI__builtin_cheerp_argv) {
+    llvm::Type *Tys[] = { ConvertType(E->getType()) };
+    Function *F = CGM.getIntrinsic(Intrinsic::cheerp_argv, Tys);
+    return Builder.CreateCall(F, Ops);
+  }
   else if (BuiltinID == Cheerp::BI__builtin_cheerp_stack_save) {
     Function *F = CGM.getIntrinsic(Intrinsic::stacksave);
     return Builder.CreateCall(F, Ops);

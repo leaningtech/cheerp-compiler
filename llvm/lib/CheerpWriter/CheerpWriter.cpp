@@ -46,6 +46,9 @@ using namespace llvm;
 using namespace std;
 using namespace cheerp;
 
+extern llvm::cl::opt<std::string> EnvironName;
+extern llvm::cl::opt<std::string> ArgvName;
+
 //De-comment this to debug the pointer kind of every function
 //#define CHEERP_DEBUG_POINTERS
 
@@ -990,6 +993,22 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(const
 		stream << namegen.getBuiltinName(NameGenerator::Builtin::GROW_MEM) << '(';
 		compileOperand(*it, BIT_OR);
 		stream << "|0)|0";
+		return COMPILE_OK;
+	}
+	else if(intrinsicId==Intrinsic::cheerp_environ)
+	{
+		if (makeModule == MODULE_TYPE::ES6)
+			stream << EnvironName;
+		else
+			stream  << "typeof " << EnvironName << " == 'undefined' ? [] : " << EnvironName;
+		return COMPILE_OK;
+	}
+	else if(intrinsicId==Intrinsic::cheerp_argv)
+	{
+		if (makeModule == MODULE_TYPE::ES6)
+			stream << ArgvName;
+		else
+			stream  << "typeof " << ArgvName << " == 'undefined' ? [] : " << ArgvName;
 		return COMPILE_OK;
 	}
 	else if(intrinsicId==Intrinsic::abs)
@@ -6247,6 +6266,11 @@ void CheerpWriter::compileHelpers()
 		stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::STACKPTR) << '=' <<
 			linearHelper.getStackStart() << "|0;" << NewLine;
 	}
+
+	if (makeModule == MODULE_TYPE::ES6) {
+		stream << "var " <<  EnvironName << "=[],";
+		stream << ArgvName << "=[];" << NewLine;
+	}
 }
 
 void CheerpWriter::compileImports()
@@ -6569,6 +6593,8 @@ void CheerpWriter::compileDeclareExports()
 	{
 		const std::string shortestName = namegen.getShortestLocalName();
 		stream << "export default function(" << shortestName << "){" << NewLine;
+		stream << EnvironName << "=" << shortestName << "?.env??[];" << NewLine;
+		stream << ArgvName << "=" << shortestName << "?.argv??[];" << NewLine;
 		stream << "return ";
 	}
 	else
