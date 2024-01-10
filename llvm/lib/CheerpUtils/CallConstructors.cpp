@@ -43,7 +43,12 @@ PreservedAnalyses CallConstructorsPass::run(llvm::Module &M, llvm::ModuleAnalysi
 		Function* memoryInit = cast<Function>(M.getOrInsertFunction("__memory_init", Ty).getCallee());
 		memoryInit->setSection("asmjs");
 		Builder.CreateCall(Ty, memoryInit);
+
 	}
+
+	Function* GetEnviron = M.getFunction("__syscall_main_environ");
+	if (GetEnviron)
+		Builder.CreateCall(GetEnviron->getFunctionType(), GetEnviron);
 
 	for (Constant* C: cheerp::getGlobalConstructors(M))
 	{
