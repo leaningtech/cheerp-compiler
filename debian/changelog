@@ -1,3 +1,9 @@
+cheerp-core (3.0-1) focal; urgency=medium
+
+  * New release
+
+ -- Daan Meijer <daan@leaningtech.com>  Fri, 19 Jan 2024 10:57:13 +0100
+
 cheerp-llvm-clang (2.6-1ubuntu1) focal; urgency=medium
 
   * New release

@@ -1,54 +1,10 @@
 #!/usr/bin/make -f
 
-deb_version := $(shell dpkg-parsechangelog | sed -n 's/^Version: //p')
-ifndef CIRCLECI
-	FLAGS_RELEASE="-DNDEBUG -O2"
-	USE_CCACHE=Off
-	ENABLE_LLVM_ASSERTIONS=Off
-else
-	ifeq (${CIRCLE_BRANCH}, master)
-		USE_CCACHE=Off
-		ENABLE_LLVM_ASSERTIONS=Off
-	else
-		USE_CCACHE=On
-		ENABLE_LLVM_ASSERTIONS=On
-	endif
-	FLAGS_RELEASE="-O2"
-endif
-
 %:
-	dh $@ --parallel --builddirectory=build
-
-override_dh_auto_configure:
-	mkdir -p build
-	cd build && cmake \
-		-C ../llvm/CheerpCmakeConf.cmake \
-		-DCMAKE_BUILD_TYPE=Release \
-		-DCMAKE_CXX_FLAGS_RELEASE=${FLAGS_RELEASE} \
-		-DCLANG_VENDOR="Cheerp ${deb_version}" \
-		-DLLVM_ENABLE_PROJECTS=clang \
-		../llvm/ \
-		-GNinja \
-		-DLLVM_ENABLE_ASSERTIONS=${ENABLE_LLVM_ASSERTIONS} \
-		-DCMAKE_CXX_COMPILER=clang++ \
-		-DCMAKE_C_COMPILER=clang \
-		-DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=lld \
-		-DCMAKE_SHARED_LINKER_FLAGS=-fuse-ld=lld \
-		-DCMAKE_MODULE_LINKER_FLAGS=-fuse-ld=lld \
-		-DLLVM_CCACHE_BUILD=${USE_CCACHE}
-
-override_dh_auto_install:
-	cd build && DESTDIR=${PWD}/debian/tmp ninja install-distribution
+	dh $@
 
 override_dh_auto_build:
-    ifndef CIRCLECI
-		cd build && ninja distribution
-    else
-		cd build && ninja -j${THREADS} distribution
-    endif
+	./debian/build.sh all
 
-
-override_dh_auto_test:
-    ifndef CIRCLECI
-		cd build && ninja check
-    endif
+override_dh_auto_install:
+	CHEERP_DEST=$$(pwd)/debian/cheerp-core ./debian/build.sh install

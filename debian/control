@@ -1,14 +1,13 @@
-Source: cheerp-llvm-clang
+Source: cheerp-core
 Maintainer: Alessandro Pignotti <alessandro@leaningtech.com>
 Section: devel
 Priority: optional
 Standards-Version: 3.9.2
 Build-Depends: debhelper (>=8), cmake, python3, python3-distutils, ninja-build, clang, lld, git
 
-Package: cheerp-llvm-clang
+Package: cheerp-core
 Architecture: i386 amd64 arm64
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Conflicts: cheerp
 Description: A C++ compiler for the Web
  Cheerp is a tool to bring C++ programming to the Web. It can generate a seamless
  combination of JavaScript, WebAssembly and Asm.js from a single C++ codebase.
