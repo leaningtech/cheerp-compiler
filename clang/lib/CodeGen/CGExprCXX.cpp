@@ -2295,8 +2295,12 @@ static llvm::Value *EmitTypeidFromVTable(CodeGenFunction &CGF, const Expr *E,
 }
 
 llvm::Value *CodeGenFunction::EmitCXXTypeidExpr(const CXXTypeidExpr *E) {
+
+  unsigned AS = getContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::GenericJs
+    ? CGM.getContext().getTargetAddressSpace(LangAS::cheerp_genericjs)
+    : 0;
   llvm::Type *StdTypeInfoPtrTy =
-    ConvertType(E->getType())->getPointerTo();
+    ConvertType(E->getType())->getPointerTo(AS);
 
   if (E->isTypeOperand()) {
     llvm::Constant *TypeInfo =

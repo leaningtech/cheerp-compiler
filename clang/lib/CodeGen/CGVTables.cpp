@@ -1524,7 +1524,7 @@ llvm::Type* CodeGenTypes::GetVTableSubObjectType(CodeGenModule& CGM,
       VTableTypes.push_back(OffsetTy);
       break;
     case VTableComponent::CK_RTTI:
-      VTableTypes.push_back(CGM.getTypes().GetClassTypeInfoType()->getPointerTo());
+      VTableTypes.push_back(CGM.getTypes().GetClassTypeInfoType()->getPointerTo(AS));
       break;
     case VTableComponent::CK_FunctionPointer:
     case VTableComponent::CK_CompleteDtorPointer:
@@ -1564,9 +1564,10 @@ llvm::Type* CodeGenTypes::GetSecondaryVTableType(const CXXRecordDecl* RD) {
 
 llvm::Type* CodeGenTypes::GetBasicVTableType(uint32_t virtualMethodsCount, bool asmjs)
 {
+  unsigned AS = CGM.getContext().getTargetAddressSpace(asmjs? LangAS::Default : LangAS::cheerp_genericjs);
   llvm::SmallVector<llvm::Type*, 16> VTableTypes;
   llvm::Type* OffsetTy = CGM.getTypes().ConvertType(CGM.getContext().getPointerDiffType());
-  llvm::Type* FuncPtrTy = llvm::FunctionType::get( CGM.Int32Ty, true )->getPointerTo();
+  llvm::Type* FuncPtrTy = llvm::FunctionType::get( CGM.Int32Ty, true )->getPointerTo(AS);
 
   if (asmjs)
   {
@@ -1575,7 +1576,7 @@ llvm::Type* CodeGenTypes::GetBasicVTableType(uint32_t virtualMethodsCount, bool 
   }
 
   // RTTI
-  VTableTypes.push_back(GetClassTypeInfoType()->getPointerTo());
+  VTableTypes.push_back(GetClassTypeInfoType()->getPointerTo(AS));
 
   // Virtual functions
   for(uint32_t j=0;j<virtualMethodsCount;j++)

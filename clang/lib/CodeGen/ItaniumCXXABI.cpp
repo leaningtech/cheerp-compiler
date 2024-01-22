@@ -50,9 +50,10 @@ class ItaniumCXXABI : public CodeGen::CGCXXABI {
   llvm::StructType* GetMemberPtrTy(bool asmjs) {
     if (MemberPtrTyCache[asmjs])
       return MemberPtrTyCache[asmjs];
+    unsigned AS = CGM.getContext().getTargetAddressSpace(asmjs? LangAS::Default : LangAS::cheerp_genericjs);
     llvm::Type* elementType = CGM.getTarget().isByteAddressable()?
                               (llvm::Type*)CGM.PtrDiffTy:
-                              (llvm::Type*)llvm::FunctionType::get(CGM.Int32Ty, true)->getPointerTo();
+                              (llvm::Type*)llvm::FunctionType::get(CGM.Int32Ty, true)->getPointerTo(AS);
     SmallVector<llvm::Type*, 2> Tys { elementType, CGM.PtrDiffTy };
     StringRef name = asmjs ? "memberptr.asmjs" : "memberptr";
     MemberPtrTyCache[asmjs] = llvm::StructType::create(Tys, name, false, nullptr, false, asmjs);
@@ -653,7 +654,7 @@ CGCallee ItaniumCXXABI::EmitLoadOfMemberFunctionPointer(
   llvm::Value *FnAsInt = Builder.CreateExtractValue(MemFnPtr, 0, "memptr.ptr");
   
   if (!CGF.getTarget().isByteAddressable()) {
-    return CGCallee(FPT, Builder.CreateBitCast(FnAsInt, FTy->getPointerTo(), "memptr.nonvirtualfn"));
+    return CGCallee(FPT, Builder.CreateBitCast(FnAsInt, FTy->getPointerTo(ThisAddr.getAddressSpace()), "memptr.nonvirtualfn"));
   }
 
   // If the LSB in the function pointer is 1, the function pointer points to
@@ -1010,13 +1011,14 @@ ItaniumCXXABI::EmitNullMemberPointer(const MemberPointerType *MPT) {
   if (MPT->isMemberDataPointer())
     return llvm::ConstantInt::get(CGM.PtrDiffTy, -1ULL, /*isSigned=*/true);
 
+  bool asmjs = MPT->getClass()->getAsCXXRecordDecl()->hasAttr<AsmJSAttr>();
+  unsigned AS = CGM.getContext().getTargetAddressSpace(asmjs? LangAS::Default : LangAS::cheerp_genericjs);
   llvm::Constant *Zero = llvm::ConstantInt::get(CGM.PtrDiffTy, 0);
   llvm::Constant *Zero2 = CGM.getTarget().isByteAddressable()?
                           (llvm::Constant*)llvm::ConstantInt::get(CGM.PtrDiffTy, 0):
                           (llvm::Constant*)llvm::ConstantPointerNull::get(
-					llvm::FunctionType::get(CGM.Int32Ty, true)->getPointerTo());
+					llvm::FunctionType::get(CGM.Int32Ty, true)->getPointerTo(AS));
   llvm::Constant *Values[2] = { Zero2, Zero };
-  bool asmjs = MPT->getClass()->getAsCXXRecordDecl()->hasAttr<AsmJSAttr>();
   return llvm::ConstantStruct::get(GetMemberPtrTy(asmjs), Values);
 }
 
@@ -1060,7 +1062,8 @@ llvm::Constant *ItaniumCXXABI::BuildMemberPointer(const CXXMethodDecl *MD,
     llvm::Type *ThunkVTableTy = CGM.getTypes().GetFunctionTypeForVTable(GD);
     llvm::Constant *Thunk = CGM.GetAddrOfThunk(Name, ThunkVTableTy, GD);
     CGM.addDeferredDeclToEmit(GD);
-    MemPtr[0] = llvm::ConstantExpr::getBitCast(Thunk, llvm::FunctionType::get(CGM.Int32Ty, true)->getPointerTo());
+    unsigned AS = CGM.getContext().getTargetAddressSpace(asmjs? LangAS::Default : LangAS::cheerp_genericjs);
+    MemPtr[0] = llvm::ConstantExpr::getBitCast(Thunk, llvm::FunctionType::get(CGM.Int32Ty, true)->getPointerTo(AS));
     MemPtr[1] = llvm::ConstantInt::get(CGM.PtrDiffTy, ThisAdjustment.getQuantity());
     return llvm::ConstantStruct::get(GetMemberPtrTy(asmjs), MemPtr);
   }
@@ -1469,7 +1472,10 @@ static llvm::FunctionCallee getItaniumDynamicCastFn(CodeGenFunction &CGF, bool a
   llvm::FunctionType *FTy = NULL;
   llvm::StringRef FName;
   if(!CGF.getTarget().isByteAddressable()) {
-    llvm::Type* classTypeInfoPtr = CGF.getTypes().GetClassTypeInfoType()->getPointerTo();
+    unsigned TypeInfoAS = CGF.getContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::GenericJs
+      ? CGF.getContext().getTargetAddressSpace(LangAS::cheerp_genericjs)
+      : 0;
+    llvm::Type* classTypeInfoPtr = CGF.getTypes().GetClassTypeInfoType()->getPointerTo(TypeInfoAS);
     unsigned AS = asmjs? 0 : CGF.getContext().getTargetAddressSpace(LangAS::cheerp_genericjs);
     llvm::Type *Args[5] = { PtrDiffTy, CGF.getTypes().GetVTableBaseType(asmjs)->getPointerTo(AS), classTypeInfoPtr, classTypeInfoPtr, PtrDiffTy };
     FTy = llvm::FunctionType::get(PtrDiffTy, Args, false);
@@ -2131,11 +2137,7 @@ llvm::GlobalVariable *ItaniumCXXABI::getAddrOfVTable(const CXXRecordDecl *RD,
                         ? 32
                         : CGM.getTarget().getPointerAlign(LangAS::Default);
 
-  unsigned AS = 0;
-  if (CGM.getContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::GenericJs)
-  {
-    AS = CGM.getContext().getTargetAddressSpace(LangAS::cheerp_genericjs);
-  }
+  unsigned AS = CGM.getContext().getTargetAddressSpace(RD->hasAttr<GenericJSAttr>() ? LangAS::cheerp_genericjs : LangAS::Default);
   VTable = CGM.CreateOrReplaceCXXRuntimeVariable(
       Name, VTableType, llvm::GlobalValue::ExternalLinkage,
       getContext().toCharUnitsFromBits(PAlign).getQuantity(), AS);
@@ -3554,6 +3556,10 @@ ItaniumRTTIBuilder::GetAddrOfExternalRTTIDescriptor(QualType Ty) {
   // Look for an existing global.
   llvm::GlobalVariable *GV = CGM.getModule().getNamedGlobal(Name);
 
+  unsigned AS = CGM.getContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::GenericJs
+    ? CGM.getContext().getTargetAddressSpace(LangAS::cheerp_genericjs)
+    : 0;
+
   if (!GV) {
     // Create a new global variable.
     // Note for the future: If we would ever like to do deferred emission of
@@ -3562,7 +3568,7 @@ ItaniumRTTIBuilder::GetAddrOfExternalRTTIDescriptor(QualType Ty) {
     GV = new llvm::GlobalVariable(CGM.getModule(), CGM.Int8PtrTy,
                                   /*isConstant=*/true,
                                   llvm::GlobalValue::ExternalLinkage, nullptr,
-                                  Name);
+                                  Name, nullptr, llvm::GlobalVariable::NotThreadLocal, AS);
     const CXXRecordDecl *RD = Ty->getAsCXXRecordDecl();
     CGM.setGVProperties(GV, RD);
     // Import the typeinfo symbol when all non-inline virtual methods are
@@ -3575,7 +3581,7 @@ ItaniumRTTIBuilder::GetAddrOfExternalRTTIDescriptor(QualType Ty) {
     }
   }
 
-  return llvm::ConstantExpr::getBitCast(GV, CGM.getTarget().isByteAddressable() ? CGM.Int8PtrTy : CGM.getTypes().GetClassTypeInfoType()->getPointerTo());
+  return llvm::ConstantExpr::getBitCast(GV, CGM.getTarget().isByteAddressable() ? CGM.Int8PtrTy : CGM.getTypes().GetClassTypeInfoType()->getPointerTo(AS));
 }
 
 /// TypeInfoIsInStandardLibrary - Given a builtin type, returns whether the type
@@ -3952,15 +3958,18 @@ void ItaniumRTTIBuilder::BuildVTablePointer(const Type *Ty) {
     } else {
       asmjs = CGM.getContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly;
     }
+    unsigned AS = CGM.getContext().getTargetAddressSpace(asmjs? LangAS::Default : LangAS::cheerp_genericjs);
     llvm::Type* WrapperTypes[] = {CGM.getTypes().GetBasicVTableType(8, asmjs)};
     llvm::Type* VTableType = llvm::StructType::get(CGM.getLLVMContext(), WrapperTypes, false, NULL, /*bytelayout*/false, asmjs);
-    llvm::Constant *VTable = CGM.getModule().getOrInsertGlobal(VTableName, VTableType);
+    llvm::Constant *VTable = CGM.getModule().getOrInsertGlobal(VTableName, VTableType, [&] {
+      return new llvm::GlobalVariable(CGM.getModule(), VTableType, false, llvm::GlobalVariable::ExternalLinkage, nullptr, VTableName, nullptr, llvm::GlobalVariable::NotThreadLocal, AS);
+    });
     llvm::Constant *Zero = llvm::ConstantInt::get(CGM.Int32Ty, 0);
     llvm::SmallVector<llvm::Constant*, 2> GepIndexes;
     GepIndexes.push_back(Zero);
     GepIndexes.push_back(Zero);
     VTable = llvm::ConstantExpr::getInBoundsGetElementPtr(VTableType, VTable, GepIndexes);
-    VTable = llvm::ConstantExpr::getBitCast(VTable, CGM.getTypes().GetVTableBaseType(asmjs)->getPointerTo(VTable->getType()->getPointerAddressSpace()));
+    VTable = llvm::ConstantExpr::getBitCast(VTable, CGM.getTypes().GetVTableBaseType(asmjs)->getPointerTo(AS));
     Fields.push_back(VTable);
     return;
   }
@@ -4063,7 +4072,11 @@ llvm::Constant *ItaniumRTTIBuilder::BuildTypeInfo(QualType Ty) {
     assert(!OldGV->hasAvailableExternallyLinkage() &&
            "available_externally typeinfos not yet implemented");
 
-    return llvm::ConstantExpr::getBitCast(OldGV, CGM.getTarget().isByteAddressable() ? CGM.Int8PtrTy : CGM.getTypes().GetClassTypeInfoType()->getPointerTo());
+    unsigned AS = CGM.getContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::GenericJs
+    ? CGM.getContext().getTargetAddressSpace(LangAS::cheerp_genericjs)
+    : 0;
+
+    return llvm::ConstantExpr::getBitCast(OldGV, CGM.getTarget().isByteAddressable() ? CGM.Int8PtrTy : CGM.getTypes().GetClassTypeInfoType()->getPointerTo(AS));
   }
 
   // Check if there is already an external RTTI descriptor for this type.
@@ -4133,6 +4146,9 @@ llvm::Constant *ItaniumRTTIBuilder::BuildTypeInfo(
 
   // CHEERP: for the cheerp-wasm target, we put the RTTI in the asmjs section
   bool asmjs = CGM.getContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly;
+  unsigned AS = CGM.getContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::GenericJs
+    ? CGM.getContext().getTargetAddressSpace(LangAS::cheerp_genericjs)
+    : 0;
 
   switch (Ty->getTypeClass()) {
 #define TYPE(Class, Base)
@@ -4234,7 +4250,8 @@ llvm::Constant *ItaniumRTTIBuilder::BuildTypeInfo(
   llvm::GlobalVariable *OldGV = M.getNamedGlobal(Name);
   llvm::GlobalVariable *GV =
       new llvm::GlobalVariable(M, Init->getType(),
-                               /*isConstant=*/true, Linkage, Init, Name);
+                               /*isConstant=*/true, Linkage, Init, Name,
+                               nullptr, llvm::GlobalVariable::NotThreadLocal, AS);
 
   // Export the typeinfo in the same circumstances as the vtable is exported.
   auto GVDLLStorageClass = DLLStorageClass;
@@ -4298,7 +4315,7 @@ llvm::Constant *ItaniumRTTIBuilder::BuildTypeInfo(
   TypeName->setPartition(CGM.getCodeGenOpts().SymbolPartition);
   GV->setPartition(CGM.getCodeGenOpts().SymbolPartition);
 
-  return llvm::ConstantExpr::getBitCast(GV, CGM.getTarget().isByteAddressable() ? CGM.Int8PtrTy : CGM.getTypes().GetClassTypeInfoType()->getPointerTo());
+  return llvm::ConstantExpr::getBitCast(GV, CGM.getTarget().isByteAddressable() ? CGM.Int8PtrTy : CGM.getTypes().GetClassTypeInfoType()->getPointerTo(AS));
 }
 
 /// BuildObjCObjectTypeInfo - Build the appropriate kind of type_info
