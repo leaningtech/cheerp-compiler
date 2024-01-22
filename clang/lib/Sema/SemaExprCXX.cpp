@@ -672,6 +672,9 @@ Sema::ActOnCXXTypeid(SourceLocation OpLoc, SourceLocation LParenLoc,
   }
 
   QualType TypeInfoType = Context.getTypeDeclType(CXXTypeInfoDecl);
+  if (Context.getTargetInfo().getTriple().getEnvironment() == llvm::Triple::GenericJs) {
+    TypeInfoType = Context.getAddrSpaceQualType(TypeInfoType, LangAS::cheerp_genericjs);
+  }
 
   if (isType) {
     // The operand is a type; handle it as such.
