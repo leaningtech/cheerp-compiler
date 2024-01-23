@@ -115,69 +115,6 @@ uptr Utf16ToUtf8(char *dest, uptr dlen, const char16_t *src, uptr slen) {
   return j;
 }
 
-extern "C" char **environ;
-
-[[cheerp::genericjs]] static uptr GetEnvCount() {
-  uptr count = 0;
-  __asm__("typeof CHEERP_ENV == 'undefined' ? 0 : CHEERP_ENV.length"
-          : "=r"(count));
-  return count;
-}
-
-[[cheerp::genericjs]] static const client::String *GetJSEnv(uptr idx) {
-  client::String *res = nullptr;
-  __asm__("(CHEERP_ENV[%1][0] + '=' + CHEERP_ENV[%1][1])"
-          : "=r"(res)
-          : "r"(idx));
-  return res;
-}
-
-[[cheerp::genericjs]] static uptr GetEnvLength(uptr idx) {
-  return GetJSEnv(idx)->get_length();
-}
-
-[[cheerp::genericjs]] static void ReadEnv(char16_t *dest, uptr idx) {
-  const client::String *env = GetJSEnv(idx);
-  const uptr len = env->get_length();
-
-  for (uptr i = 0; i < len; ++i) {
-    dest[i] = env->charCodeAt(i);
-  }
-}
-
-__attribute__((weak)) void InitEnv() {
-  const uptr env_count = GetEnvCount();
-  environ = reinterpret_cast<char **>(
-      InternalAlloc(sizeof *environ * (env_count + 1)));
-  CHECK(environ);
-
-  char16_t cb_cap = 0;
-  char16_t *cb = nullptr;
-
-  for (uptr i = 0; i < env_count; ++i) {
-    const uptr len16 = GetEnvLength(i);
-    if (len16 > cb_cap) {
-      cb = reinterpret_cast<char16_t *>(
-          InternalRealloc(cb, sizeof(char16_t) * len16));
-      cb_cap = len16;
-      CHECK(cb);
-    }
-
-    ReadEnv(cb, i);
-
-    const uptr len8 = Utf16ToUtf8(nullptr, 0, cb, len16);
-    environ[i] = reinterpret_cast<char *>(InternalAlloc(len8 + 1));
-    CHECK(environ[i]);
-
-    Utf16ToUtf8(environ[i], len8, cb, len16);
-    environ[i][len8] = 0;
-  }
-
-  environ[env_count] = nullptr;
-
-  InternalFree(cb);
-}
-
 /* This function is overwritten in libwasi so to be able to detect if libasan is
  * running in wasi or not */
 __attribute__((weak)) bool IsWasi() { return false; }

@@ -394,7 +394,6 @@ static void AsanInitInternal() {
 
 #if SANITIZER_CHEERPWASM
   SetupMemoryMapping();
-  InitEnv();
 #endif
 
   CacheBinaryName();
