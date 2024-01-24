@@ -222,14 +222,15 @@ bool AllocaLowering::runOnFunction(Function& F, DominatorTree& DT, cheerp::Globa
 			Constant* typeSize = ConstantInt::get(int32Ty,typeSizeVal,false);
 			size = Builder.CreateMul(a.second,typeSize);
 		}
-		// Make sure the size of the alloca is aligned
-		Constant* seven = ConstantInt::get(int32Ty, 7, true);
-		Value* aligned = Builder.CreateAdd(size, seven);
-		Constant* mask = ConstantInt::get(int32Ty, -8, true);
-		aligned = Builder.CreateAnd(aligned, mask);
+
+		uint64_t alignment64 = a.first->getAlign().value();
+		assert(alignment64 <= std::numeric_limits<uint32_t>::max());
+		Type* allocTy = a.first->getAllocatedType();
+		uint32_t asmjsAlignment = cheerp::TypeSupport::getAlignmentAsmJS(targetData, allocTy);
+		uint32_t alignment = std::max(static_cast<uint32_t>(alignment64), asmjsAlignment);
 
 		Value* stackPtr = Builder.CreateCall(getStack, {});
-		Value* addr = Builder.CreateIntToPtr(Builder.CreateSub(Builder.CreatePtrToInt(stackPtr, int32Ty), aligned), stackPtr->getType());
+		Value* addr = Builder.CreateIntToPtr(Builder.CreateAnd(Builder.CreateSub(Builder.CreatePtrToInt(stackPtr, int32Ty), size), ~(alignment - 1)), stackPtr->getType());
 		Builder.CreateCall(setStack, addr);
 		addr = Builder.CreateBitCast(addr, a.first->getType());
 		ReplaceInstWithValue(a.first->getParent()->getInstList(), ii, addr);
