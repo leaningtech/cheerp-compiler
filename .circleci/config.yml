@@ -282,6 +282,7 @@ jobs:
               runtimes/ third-party/ debian/
       - run:
           name: Package cheerp toolchain
+          no_output_timeout: 30m
           command: |
             rm -rf cheerp-compiler/
 
