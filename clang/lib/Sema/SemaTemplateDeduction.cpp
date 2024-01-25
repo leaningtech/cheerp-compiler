@@ -3359,6 +3359,10 @@ Sema::TemplateDeductionResult Sema::SubstituteExplicitTemplateArguments(
                                       EPI);
     if (FunctionType->isNull() || Trap.hasErrorOccurred())
       return TDK_SubstitutionFailure;
+
+    if (Function->getType().hasAddressSpace()) {
+      *FunctionType = Context.getAddrSpaceQualType(*FunctionType, Function->getType().getAddressSpace());
+    }
   }
 
   // C++ [temp.arg.explicit]p2:

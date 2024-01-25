@@ -2378,6 +2378,11 @@ Decl *TemplateDeclInstantiator::VisitFunctionDecl(
       PrincipalDecl->isInIdentifierNamespace(Decl::IDNS_Ordinary))
     PrincipalDecl->setNonMemberOperator();
 
+  if (D->hasAttr<GenericJSAttr>()) {
+    auto NewTy = SemaRef.Context.getAddrSpaceQualType(Function->getType(), LangAS::cheerp_genericjs);
+    Function->setType(NewTy);
+  }
+
   return Function;
 }
 
