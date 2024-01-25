@@ -18012,13 +18012,11 @@ FieldDecl *Sema::CheckFieldDecl(DeclarationName Name, QualType T,
   }
 
   // TR 18037 does not allow fields to be declared with address space
-  if (Context.getTargetInfo().isByteAddressable()) {
-    if (T.hasAddressSpace() || T->isDependentAddressSpaceType() ||
-        T->getBaseElementTypeUnsafe()->isDependentAddressSpaceType()) {
-      Diag(Loc, diag::err_field_with_address_space);
-      Record->setInvalidDecl();
-      InvalidDecl = true;
-    }
+  if (T.hasAddressSpace() || T->isDependentAddressSpaceType() ||
+      T->getBaseElementTypeUnsafe()->isDependentAddressSpaceType()) {
+    Diag(Loc, diag::err_field_with_address_space);
+    Record->setInvalidDecl();
+    InvalidDecl = true;
   }
 
   if (LangOpts.OpenCL) {
