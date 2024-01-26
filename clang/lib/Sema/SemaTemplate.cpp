@@ -10545,13 +10545,20 @@ DeclResult Sema::ActOnExplicitInstantiation(Scope *S,
     if (!FunTmpl)
       continue;
 
+    // CHEERP: NOTE: Here we are eagerly trying to match the address space of the candidate
+    // This might not be correct in the hypotetical case of multiple candidates with different
+    // address spaces, but it might not be a real situation in practice
+    QualType TmpR = R;
+    if(FunTmpl->getTemplatedDecl()->hasAttr<GenericJSAttr>()) {
+      TmpR = Context.getAddrSpaceQualType(R, LangAS::cheerp_genericjs);
+    }
     TemplateDeductionInfo Info(FailedCandidates.getLocation());
     FunctionDecl *Specialization = nullptr;
     if (TemplateDeductionResult TDK
           = DeduceTemplateArguments(FunTmpl,
                                (HasExplicitTemplateArgs ? &TemplateArgs
                                                         : nullptr),
-                                    R, Specialization, Info)) {
+                                    TmpR, Specialization, Info)) {
       // Keep track of almost-matches.
       FailedCandidates.addCandidate()
           .set(P.getPair(), FunTmpl->getTemplatedDecl(),
