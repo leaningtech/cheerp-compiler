@@ -31,6 +31,7 @@ static uptr _prev_trace[256];
 static [[cheerp::genericjs]] client::Object* _symbols = nullptr;
 static char _name_cache[256];
 static uptr _name_len = 0;
+constexpr uptr INVALID_PC = 0x7ffffffe;
 
 [[cheerp::genericjs]] static uptr ConvertFrameToPc(client::String* frame) {
   if (client::TArray<client::String>* match =
@@ -127,8 +128,8 @@ static uptr _name_len = 0;
 }
 
 const char* GetFunctionNameAtPc(uptr pc) {
-  if (common_flags()->disable_traces)
-    return "<stacktraces were disabled due to the 'disable_traces' flag>";
+  if (pc == INVALID_PC)
+    return "<stacktraces were disabled>";
   char16_t buffer[256];
   uptr buffer_len =
       GetUtf16FunctionNameAtPc(pc, buffer, sizeof(buffer) / sizeof(buffer[0]));
@@ -154,10 +155,10 @@ void BufferedStackTrace::UnwindFast(uptr pc, uptr bp, uptr stack_top,
 }
 
 [[clang::always_inline]] uptr GetReturnAddress(uptr idx) {
-  if (common_flags()->disable_traces) {
-    _prev_trace[0] = 1;
+  if (!__sanitizer_cheerp_get_collect_traces()) {
+    _prev_trace[0] = INVALID_PC;
     _prev_trace_len = 1;
-    return 1;
+    return INVALID_PC;
   }
   _prev_trace_len = GetCallstack(
       _prev_trace, sizeof(_prev_trace) / sizeof(_prev_trace[0]), idx + 1);

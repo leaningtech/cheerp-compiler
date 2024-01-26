@@ -402,6 +402,10 @@ static void AsanInitInternal() {
   // initialization steps look at flags().
   InitializeFlags();
 
+#if SANITIZER_CHEERPWASM
+  __sanitizer_cheerp_set_collect_traces(!common_flags()->disable_traces);
+#endif
+
   WaitForDebugger(flags()->sleep_before_init, "before init");
 
   // Stop performing init at this point if we are being loaded via

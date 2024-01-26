@@ -20,6 +20,18 @@
 __attribute__((cheerp_asmjs)) char *volatile _stackBottom = (char *)0xdeadbeef;
 __attribute__((cheerp_asmjs)) char *volatile _stackTop = (char *)0xdeadbeef;
 
+static __asan::atomic_sint32_t _collect_traces;
+
+extern "C" {
+void  __sanitizer_cheerp_set_collect_traces(int32_t enabled) {
+  atomic_store(&_collect_traces, enabled, __asan::memory_order_release);
+}
+
+int32_t __sanitizer_cheerp_get_collect_traces() {
+  return atomic_load(&_collect_traces, __asan::memory_order_acquire);
+}
+}
+
 namespace __sanitizer {
 
 void ListOfModules::init() {
