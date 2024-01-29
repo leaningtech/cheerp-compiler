@@ -1,7 +1,9 @@
-// RUN: %clangxx_asan -O1 -DFRAME=0 %s -o %t && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK0
-// RUN: %clangxx_asan -O1 -DFRAME=1 %s -o %t && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK1
-// RUN: %clangxx_asan -O1 -DFRAME=2 %s -o %t && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK2
-// RUN: %clangxx_asan -O1 -DFRAME=3 %s -o %t && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK3
+// RUN: %clangxx_asan -O1 %s -o %t
+// RUN: not %run %t --cheerp-arg=0 2>&1 | FileCheck %s --check-prefix=CHECK0
+// RUN: not %run %t --cheerp-arg=1 2>&1 | FileCheck %s --check-prefix=CHECK1
+// RUN: not %run %t --cheerp-arg=2 2>&1 | FileCheck %s --check-prefix=CHECK2
+// RUN: not %run %t --cheerp-arg=3 2>&1 | FileCheck %s --check-prefix=CHECK3
+// TODO asmjs
 
 #define NOINLINE __attribute__((noinline))
 inline void break_optimization(void *arg) {
@@ -33,7 +35,8 @@ NOINLINE static void Frame3(int frame) {
 }
 
 int main(int argc, char **argv) {
-  Frame3(FRAME);
+  if (argc != 1) return 1;
+  Frame3(argv[0][0] - '0');
 }
 
 // CHECK0: AddressSanitizer: stack-buffer-overflow

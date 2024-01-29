@@ -1,23 +1,25 @@
-// RUN: %clangxx_asan -DCOUNT=1 -O0 %s -o %t && not %run %t 0 2>&1 | FileCheck %s
-// RUN: %clangxx_asan -DCOUNT=2 -O0 %s -o %t && not %run %t 0 2>&1 | FileCheck %s
-// RUN: %clangxx_asan -DCOUNT=3 -O0 %s -o %t && not %run %t 0 2>&1 | FileCheck %s
-// RUN: %clangxx_asan -DCOUNT=4 -O0 %s -o %t && not %run %t 0 2>&1 | FileCheck %s
-// RUN: %clangxx_asan -DCOUNT=5 -O0 %s -o %t && not %run %t 0 2>&1 | FileCheck %s
-// RUN: %clangxx_asan -DCOUNT=6 -O0 %s -o %t && not %run %t 0 2>&1 | FileCheck %s
-// RUN: %clangxx_asan -DCOUNT=7 -O0 %s -o %t && not %run %t 0 2>&1 | FileCheck %s
-// RUN: %clangxx_asan -DCOUNT=8 -O0 %s -o %t && not %run %t 0 2>&1 | FileCheck %s
-// RUN: %clangxx_asan -DCOUNT=9 -O0 %s -o %t && not %run %t 0 2>&1 | FileCheck %s
-// RUN: %clangxx_asan -DCOUNT=10 -O0 %s -o %t && not %run %t 0 2>&1 | FileCheck %s
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -DCOUNT=1 -O0 %s -o %t && not %run %t 0 2>&1 | FileCheck %s
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -DCOUNT=2 -O0 %s -o %t && not %run %t 0 2>&1 | FileCheck %s
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -DCOUNT=3 -O0 %s -o %t && not %run %t 0 2>&1 | FileCheck %s
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -DCOUNT=4 -O0 %s -o %t && not %run %t 0 2>&1 | FileCheck %s
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -DCOUNT=5 -O0 %s -o %t && not %run %t 0 2>&1 | FileCheck %s
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -DCOUNT=6 -O0 %s -o %t && not %run %t 0 2>&1 | FileCheck %s
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -DCOUNT=7 -O0 %s -o %t && not %run %t 0 2>&1 | FileCheck %s
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -DCOUNT=8 -O0 %s -o %t && not %run %t 0 2>&1 | FileCheck %s
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -DCOUNT=9 -O0 %s -o %t && not %run %t 0 2>&1 | FileCheck %s
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -DCOUNT=10 -O0 %s -o %t && not %run %t 0 2>&1 | FileCheck %s
+// RUN: %clangxx_asan -O0 %s -o %t
+// RUN: not %run %t --cheerp-arg=1  2>&1 | FileCheck %s
+// RUN: not %run %t --cheerp-arg=2  2>&1 | FileCheck %s
+// RUN: not %run %t --cheerp-arg=3  2>&1 | FileCheck %s
+// RUN: not %run %t --cheerp-arg=4  2>&1 | FileCheck %s
+// RUN: not %run %t --cheerp-arg=5  2>&1 | FileCheck %s
+// RUN: not %run %t --cheerp-arg=6  2>&1 | FileCheck %s
+// RUN: not %run %t --cheerp-arg=7  2>&1 | FileCheck %s
+// RUN: not %run %t --cheerp-arg=8  2>&1 | FileCheck %s
+// RUN: not %run %t --cheerp-arg=9  2>&1 | FileCheck %s
+// RUN: not %run %t --cheerp-arg=10 2>&1 | FileCheck %s
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O0 %s -o %t && not %run %t 0 2>&1 | FileCheck %s
+// RUN: not %run %t --cheerp-arg=1  2>&1 | FileCheck %s
+// RUN: not %run %t --cheerp-arg=2  2>&1 | FileCheck %s
+// RUN: not %run %t --cheerp-arg=3  2>&1 | FileCheck %s
+// RUN: not %run %t --cheerp-arg=4  2>&1 | FileCheck %s
+// RUN: not %run %t --cheerp-arg=5  2>&1 | FileCheck %s
+// RUN: not %run %t --cheerp-arg=6  2>&1 | FileCheck %s
+// RUN: not %run %t --cheerp-arg=7  2>&1 | FileCheck %s
+// RUN: not %run %t --cheerp-arg=8  2>&1 | FileCheck %s
+// RUN: not %run %t --cheerp-arg=9  2>&1 | FileCheck %s
+// RUN: not %run %t --cheerp-arg=10 2>&1 | FileCheck %s
 
 #include <stdlib.h>
 #include <string>
@@ -54,7 +56,7 @@ template <class T> __attribute__((noinline)) void test() {
   // {{\[}}[[OFFSET]], {{[0-9]+}}) 'x'
 }
 
-int main() {
+int main(int argc, char **argv) {
   using Tests = void (*)();
   Tests tests[] = {
     &test<bool>,
@@ -70,7 +72,7 @@ int main() {
     &test<char[1000]>,
   };
 
-  int n = COUNT;
+  int n = atoi(argv[0]);
   if (n == sizeof(tests) / sizeof(tests[0])) {
     for (auto te : tests)
       te();
