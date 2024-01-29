@@ -13,8 +13,8 @@
 #define __CHEERPINTRIN_H
 
 __attribute__ ((cheerp_genericjs)) int __builtin_cheerp_grow_memory(int pages);
-__attribute__ ((cheerp_genericjs)) void* __builtin_cheerp_stack_save(void);
-__attribute__ ((cheerp_genericjs)) void __builtin_cheerp_restore(void*);
+__attribute__ ((cheerp_wasm)) void* __builtin_cheerp_stack_save(void);
+__attribute__ ((cheerp_wasm)) void __builtin_cheerp_restore(void*);
 
 #ifdef __cplusplus
 
