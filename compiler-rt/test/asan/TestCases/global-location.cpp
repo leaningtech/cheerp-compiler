@@ -2,10 +2,6 @@
 // RUN: %clangxx_asan -O2 %s -o %t -DCHECK=1 && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CLASS_STATIC
 // RUN: %clangxx_asan -O2 %s -o %t -DCHECK=2 && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=FUNC_STATIC
 // RUN: %clangxx_asan -O2 %s -o %t -DCHECK=3 && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=LITERAL
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O2 %s -o %t -DCHECK=0 && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=GLOB
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O2 %s -o %t -DCHECK=1 && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CLASS_STATIC
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O2 %s -o %t -DCHECK=2 && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=FUNC_STATIC
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O2 %s -o %t -DCHECK=3 && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=LITERAL
 
 // COFF doesn't support debuginfo for globals. For the non-debuginfo tests, see global-location-nodebug.cpp.
 // XFAIL: windows-msvc

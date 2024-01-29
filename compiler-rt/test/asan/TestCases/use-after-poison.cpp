@@ -1,6 +1,5 @@
 // Check that __asan_poison_memory_region works.
 // RUN: %clangxx_asan -O0 %s -o %t && not %run %t 2>&1 | FileCheck %s
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O0 %s -o %t && not %run %t 2>&1 | FileCheck %s
 
 #include <stdlib.h>
 

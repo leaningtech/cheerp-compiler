@@ -1,5 +1,4 @@
 // RUN: %clangxx_asan -fexceptions %s -o %t && %run %t
-// RUN: %clangxx_asan -fexceptions -cheerp-linear-output=asmjs %s -o %t && %run %t
 // http://code.google.com/p/address-sanitizer/issues/detail?id=147 (not fixed).
 // BROKEN: %clangxx_asan %s -o %t -static-libstdc++ && %run %t
 

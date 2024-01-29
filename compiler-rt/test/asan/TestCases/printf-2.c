@@ -1,5 +1,4 @@
 // RUN: %clang_asan -O2 %s -o %t && not %run %t 2>&1 | FileCheck --check-prefix=CHECK-ON %s
-// RUN: %clang_asan -cheerp-linear-output=asmjs -O2 %s -o %t && not %run %t 2>&1 | FileCheck --check-prefix=CHECK-ON %s
 
 // FIXME: printf is not intercepted on Windows yet.
 // XFAIL: windows-msvc

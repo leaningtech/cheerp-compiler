@@ -3,11 +3,6 @@
 // RUN: not %run %t --cheerp-arg=bad-bounds 2>&1 | FileCheck --check-prefix=CHECK-BAD-BOUNDS %s
 // RUN: not %run %t --cheerp-arg=odd-alignment 2>&1 | FileCheck --check-prefix=CHECK-CRASH %s
 // RUN: not %run %t --cheerp-arg=odd-alignment-end 2>&1 | FileCheck --check-prefix=CHECK-CRASH %s
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O %s -o %t
-// RUN: not %run %t --cheerp-arg=crash 2>&1 | FileCheck --check-prefix=CHECK-CRASH %s
-// RUN: not %run %t --cheerp-arg=bad-bounds 2>&1 | FileCheck --check-prefix=CHECK-BAD-BOUNDS %s
-// RUN: not %run %t --cheerp-arg=odd-alignment 2>&1 | FileCheck --check-prefix=CHECK-CRASH %s
-// RUN: not %run %t --cheerp-arg=odd-alignment-end 2>&1 | FileCheck --check-prefix=CHECK-CRASH %s
 // TODO: %env_asan_opts=detect_container_overflow=0 %run %t crash
 //
 // Test crash due to __sanitizer_annotate_contiguous_container.

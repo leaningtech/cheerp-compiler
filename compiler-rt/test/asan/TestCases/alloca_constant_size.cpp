@@ -3,9 +3,6 @@
 // RUN: %clangxx_asan -O0 %s -o %t -fstack-protector
 // RUN: %run %t --cheerp-arg=1 2>&1 | FileCheck %s
 // RUN: %run %t --cheerp-arg=2 2>&1 | FileCheck %s
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O0 %s -o %t -fstack-protector
-// RUN: %run %t --cheerp-arg=1 2>&1 | FileCheck %s
-// RUN: %run %t --cheerp-arg=2 2>&1 | FileCheck %s
 
 #include <stdio.h>
 #include <string.h>

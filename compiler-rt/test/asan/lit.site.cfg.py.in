@@ -11,6 +11,7 @@ config.apple_platform_min_deployment_target_flag = "@ASAN_TEST_MIN_DEPLOYMENT_TA
 config.asan_dynamic = @ASAN_TEST_DYNAMIC@
 config.target_arch = "@ASAN_TEST_TARGET_ARCH@"
 config.executor = "@ASAN_TEST_EXECUTOR@"
+config.linear_output = "@CHEERP_LINEAR_OUTPUT@"
 
 # Load common config for all compiler-rt lit tests.
 lit_config.load_config(config, "@COMPILER_RT_BINARY_DIR@/test/lit.common.configured")

@@ -100,6 +100,8 @@ if config.target_arch == 's390x':
 if config.host_os == 'Cheerp':
   clang_asan_static_cflags.append("-cheerp-pretty-code")
   clang_asan_static_cflags.append("-g0")
+if config.linear_output:
+  clang_asan_static_cflags.append("-cheerp-linear-output=" + config.linear_output)
 clang_asan_static_cxxflags = config.cxx_mode_flags + clang_asan_static_cflags
 
 asan_dynamic_flags = []

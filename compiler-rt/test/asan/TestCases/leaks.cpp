@@ -6,11 +6,6 @@
 // RUN: not %run --cheerp-arg=1 %t 0 2>&1 | FileCheck %s
 // RUN: not %run --cheerp-arg=1000 %t 0 2>&1 | FileCheck %s
 // RUN: not %run --cheerp-arg=1000000 %t 0 2>&1 | FileCheck %s
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O0 %s -o %t && not %run %t 0 2>&1 | FileCheck %s
-// RUN: not %run --cheerp-arg=0 %t 0 2>&1 | FileCheck %s
-// RUN: not %run --cheerp-arg=1 %t 0 2>&1 | FileCheck %s
-// RUN: not %run --cheerp-arg=1000 %t 0 2>&1 | FileCheck %s
-// RUN: not %run --cheerp-arg=1000000 %t 0 2>&1 | FileCheck %s
 // CHEERPASAN: TODO make test with 10000000 work
 
 #include <cstdlib>

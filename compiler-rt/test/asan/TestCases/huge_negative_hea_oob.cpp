@@ -1,7 +1,5 @@
 // RUN: %clangxx_asan %s -o %t && not %run %t 2>&1 | FileCheck %s
 // RUN: %clangxx_asan -O %s -o %t && not %run %t 2>&1 | FileCheck %s
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs %s -o %t && not %run %t 2>&1 | FileCheck %s
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O %s -o %t && not %run %t 2>&1 | FileCheck %s
 // Check that we can find huge buffer overflows before.
 #include <stdlib.h>
 #include <string.h>

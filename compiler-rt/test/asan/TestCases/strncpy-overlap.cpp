@@ -2,10 +2,6 @@
 // RUN: %clangxx_asan -O1 -fno-builtin %s -o %t && not %run %t 2>&1 | FileCheck %s
 // RUN: %clangxx_asan -O2 -fno-builtin %s -o %t && not %run %t 2>&1 | FileCheck %s
 // RUN: %clangxx_asan -O3 -fno-builtin %s -o %t && not %run %t 2>&1 | FileCheck %s
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O0 -fno-builtin %s -o %t && not %run %t 2>&1 | FileCheck %s
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O1 -fno-builtin %s -o %t && not %run %t 2>&1 | FileCheck %s
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O2 -fno-builtin %s -o %t && not %run %t 2>&1 | FileCheck %s
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O3 -fno-builtin %s -o %t && not %run %t 2>&1 | FileCheck %s
 
 // UNSUPPORTED: android
 
