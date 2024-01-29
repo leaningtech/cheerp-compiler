@@ -117,6 +117,9 @@ jobs:
       - store_artifacts:
           path: ~/project/<< parameters.target >><< parameters.asan >>testResults
   run-asan-tests:
+    parameters:
+      linear-output:
+        type: string
     executor: cheerp-large
     environment:
       - VERBOSE: 1
@@ -141,7 +144,7 @@ jobs:
       - run:
           name: Setup tests
           working_directory: ~/project/cheerp-compiler/compiler-rt
-          command: cmake -B build -C CheerpCmakeConf.cmake -DCMAKE_TOOLCHAIN_FILE="/opt/cheerp/share/cmake/Modules/CheerpWasmToolchain.cmake"
+          command: cmake -B build -C CheerpCmakeConf.cmake -DCMAKE_TOOLCHAIN_FILE="/opt/cheerp/share/cmake/Modules/CheerpWasmToolchain.cmake" -DCHEERP_LINEAR_OUTPUT=<< parameters.linear-output >>
       - run:
           name: Check asan
           working_directory: ~/project/cheerp-compiler/compiler-rt/build
@@ -998,6 +1001,9 @@ workflows:
           requires:
             - build-cheerp-toolchain
       - run-asan-tests:
+          matrix:
+            parameters:
+              linear-output: ["wasm", "asmjs"]
           requires:
             - build-cheerp-toolchain
       - RPM-cheerp-toolchain:

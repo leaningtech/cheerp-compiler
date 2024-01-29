@@ -18,26 +18,6 @@
 // RUN: not %run %t --cheerp-arg=C 2>&1 | FileCheck %s --check-prefix=CHECK_1_BYTES
 // RUN: not %run %t --cheerp-arg=D 2>&1 | FileCheck %s --check-prefix=CHECK_1_BYTES
 
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O2 -fsanitize-address-outline-instrumentation %s -o %t
-// RUN: not %run %t --cheerp-arg=A 2>&1 | FileCheck %s --check-prefix=CHECK_0_BYTES
-// RUN: not %run %t --cheerp-arg=B 2>&1 | FileCheck %s --check-prefix=CHECK_0_BYTES
-// RUN: not %run %t --cheerp-arg=C 2>&1 | FileCheck %s --check-prefix=CHECK_1_BYTES
-// RUN: not %run %t --cheerp-arg=D 2>&1 | FileCheck %s --check-prefix=CHECK_1_BYTES
-
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O2 -fsanitize-address-outline-instrumentation %s -o %t \
-// RUN:   -mllvm -asan-recover=1
-// RUN: not %run %t --cheerp-arg=A 2>&1 | FileCheck %s --check-prefix=CHECK_0_BYTES
-// RUN: not %run %t --cheerp-arg=B 2>&1 | FileCheck %s --check-prefix=CHECK_0_BYTES
-// RUN: not %run %t --cheerp-arg=C 2>&1 | FileCheck %s --check-prefix=CHECK_1_BYTES
-// RUN: not %run %t --cheerp-arg=D 2>&1 | FileCheck %s --check-prefix=CHECK_1_BYTES
-
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O2 -fsanitize-address-outline-instrumentation %s -o %t \
-// RUN:   -mllvm -asan-force-experiment=42
-// RUN: not %run %t --cheerp-arg=A 2>&1 | FileCheck %s --check-prefix=CHECK_0_BYTES
-// RUN: not %run %t --cheerp-arg=B 2>&1 | FileCheck %s --check-prefix=CHECK_0_BYTES
-// RUN: not %run %t --cheerp-arg=C 2>&1 | FileCheck %s --check-prefix=CHECK_1_BYTES
-// RUN: not %run %t --cheerp-arg=D 2>&1 | FileCheck %s --check-prefix=CHECK_1_BYTES
-
 // CHECK_0_BYTES: ERROR: AddressSanitizer: global-buffer-overflow on address [[ADDR:.*]] at
 // CHECK_0_BYTES: [[ADDR]] is located 0 bytes after
 

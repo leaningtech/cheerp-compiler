@@ -30,36 +30,6 @@
 // RUN: %clangxx_asan -O2 -DTEST_MEMCPY_SIZE_OVERFLOW %s -o %t && not %run %t 2>&1 | \
 // RUN:     FileCheck %s --check-prefix=CHECK-MEMCPY_SIZE_OVERFLOW
 
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O0 -DTEST_MEMSET %s -o %t && not %run %t 2>&1 | \
-// RUN:     FileCheck %s --check-prefix=CHECK-MEMSET
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O1 -DTEST_MEMSET %s -o %t && not %run %t 2>&1 | \
-// RUN:     FileCheck %s --check-prefix=CHECK-MEMSET
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O2 -DTEST_MEMSET %s -o %t && not %run %t 2>&1 | \
-// RUN:     FileCheck %s --check-prefix=CHECK-MEMSET
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O3 -DTEST_MEMSET %s -o %t && not %run %t 2>&1 | \
-// RUN:     FileCheck %s --check-prefix=CHECK-MEMSET
-
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O0 -DTEST_MEMCPY %s -o %t && not %run %t 2>&1 | \
-// RUN:     FileCheck %s --check-prefix=CHECK-MEMCPY
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O1 -DTEST_MEMCPY %s -o %t && not %run %t 2>&1 | \
-// RUN:     FileCheck %s --check-prefix=CHECK-MEMCPY
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O2 -DTEST_MEMCPY %s -o %t && not %run %t 2>&1 | \
-// RUN:     FileCheck %s --check-prefix=CHECK-MEMCPY
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O3 -DTEST_MEMCPY %s -o %t && not %run %t 2>&1 | \
-// RUN:     FileCheck %s --check-prefix=CHECK-MEMCPY
-
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O0 -DTEST_MEMMOVE %s -o %t && not %run %t 2>&1 | \
-// RUN:     FileCheck %s --check-prefix=CHECK-MEMMOVE
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O1 -DTEST_MEMMOVE %s -o %t && not %run %t 2>&1 | \
-// RUN:     FileCheck %s --check-prefix=CHECK-MEMMOVE
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O2 -DTEST_MEMMOVE %s -o %t && not %run %t 2>&1 | \
-// RUN:     FileCheck %s --check-prefix=CHECK-MEMMOVE
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O3 -DTEST_MEMMOVE %s -o %t && not %run %t 2>&1 | \
-// RUN:     FileCheck %s --check-prefix=CHECK-MEMMOVE
-
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O2 -DTEST_MEMCPY_SIZE_OVERFLOW %s -o %t && not %run %t 2>&1 | \
-// RUN:     FileCheck %s --check-prefix=CHECK-MEMCPY_SIZE_OVERFLOW
-
 #include <assert.h>
 #include <string.h>
 #include <stdlib.h>

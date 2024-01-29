@@ -1,5 +1,4 @@
 // RUN: %clang_asan %s -o %t && not %run %t 2>&1 | FileCheck %s
-// RUN: %clang_asan -cheerp-linear-output=asmjs %s -o %t && not %run %t 2>&1 | FileCheck %s
 
 #include <assert.h>
 #include <stdlib.h>

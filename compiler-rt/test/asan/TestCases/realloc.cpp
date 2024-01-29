@@ -1,6 +1,5 @@
 // Default is true (free on realloc to 0 size)
 // RUN: %clangxx_asan -O0 %s -o %t && %run %t 2>&1 | FileCheck %s
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O0 %s -o %t && %run %t 2>&1 | FileCheck %s
 
 #include <stdio.h>
 #include <stdlib.h>

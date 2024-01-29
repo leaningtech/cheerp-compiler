@@ -1,9 +1,6 @@
 // RUN: %clangxx_asan -O0 -std=c++11 %s -o %t && %run %t 2>&1 | FileCheck %s
 // RUN: %clangxx_asan -O1 -std=c++11 %s -o %t && %run %t 2>&1 | FileCheck %s
 // RUN: %clangxx_asan -O2 -std=c++11 %s -o %t && %run %t 2>&1 | FileCheck %s
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O0 -std=c++11 %s -o %t && %run %t 2>&1 | FileCheck %s
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O1 -std=c++11 %s -o %t && %run %t 2>&1 | FileCheck %s
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O2 -std=c++11 %s -o %t && %run %t 2>&1 | FileCheck %s
 
 // Test that we do not detect false buffer overflows cased by optimization when
 // when local variable replaced by a smaller global constant.

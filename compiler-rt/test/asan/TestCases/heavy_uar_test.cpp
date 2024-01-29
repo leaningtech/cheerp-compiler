@@ -1,7 +1,5 @@
 // RUN: %clangxx_asan -cheerp-linear-stack-size=5 -O0 %s -o %t -fsanitize-address-use-after-return=always && not %run %t 2>&1 | FileCheck %s
 // RUN: %clangxx_asan -cheerp-linear-stack-size=5 -O2 %s -o %t -fsanitize-address-use-after-return=always && not %run %t 2>&1 | FileCheck %s
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -cheerp-linear-stack-size=5 -O0 %s -o %t -fsanitize-address-use-after-return=always && not %run %t 2>&1 | FileCheck %s
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -cheerp-linear-stack-size=5 -O2 %s -o %t -fsanitize-address-use-after-return=always && not %run %t 2>&1 | FileCheck %s
 // XFAIL: windows-msvc
 
 // FIXME: Fix this test under GCC.

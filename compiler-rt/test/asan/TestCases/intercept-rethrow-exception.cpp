@@ -4,7 +4,6 @@
 // REQUIRES: shared_cxxabi
 
 // RUN: %clangxx_asan -fexceptions -O0 %s -o %t && %run %t
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -fexceptions -O0 %s -o %t && %run %t
 
 // The current implementation of this functionality requires special
 // combination of libraries that are not used by default on NetBSD

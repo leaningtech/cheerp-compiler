@@ -5,10 +5,6 @@
 // RUN: not %run %t --cheerp-arg=12     2>&1 | FileCheck %s
 // RUN: not %run %t --cheerp-arg=1000   2>&1 | FileCheck %s
 // RUN: not %run %t --cheerp-arg=100000 2>&1 | FileCheck %s
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O2 %s -o %t
-// RUN: not %run %t --cheerp-arg=12     2>&1 | FileCheck %s
-// RUN: not %run %t --cheerp-arg=1000   2>&1 | FileCheck %s
-// RUN: not %run %t --cheerp-arg=100000 2>&1 | FileCheck %s
 
 #include <stdlib.h>
 #include <string.h>

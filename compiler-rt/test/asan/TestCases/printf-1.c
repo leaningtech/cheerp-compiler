@@ -1,5 +1,4 @@
 // RUN: %clang_asan -O2 %s -o %t && %run %t 2>&1 | FileCheck %s
-// RUN: %clang_asan -cheerp-linear-output=asmjs -O2 %s -o %t && %run %t 2>&1 | FileCheck %s
 
 #include <stdio.h>
 #if defined(_WIN32)

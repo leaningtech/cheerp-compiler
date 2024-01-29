@@ -3,7 +3,6 @@
 // llvm.lifetime intrinsics at -O0.
 //
 // RUN: %clangxx_asan -O2 %s -o %t && not %run %t 2>&1 | FileCheck %s
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O2 %s -o %t && not %run %t 2>&1 | FileCheck %s
 
 int *arr;
 

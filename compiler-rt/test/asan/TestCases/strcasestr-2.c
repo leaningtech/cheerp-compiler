@@ -1,6 +1,5 @@
 // Test needle overflow in strcasestr function
 // RUN: %clang_asan %s -o %t && not %run %t 2>&1 | FileCheck %s
-// RUN: %clang_asan -cheerp-linear-output=asmjs %s -o %t && not %run %t 2>&1 | FileCheck %s
 // Test intercept_strstr asan option
 // CHEERPASAN: TODO Disable other interceptors because strlen may be called inside strcasestr
 
