@@ -1,37 +1,40 @@
-// RUN: %clangxx_asan -DINDEX=-2 -O2 %s -o %t && not %run %t -2 2>&1 | FileCheck --check-prefix=CHECK-m2 %s
-// RUN: %clangxx_asan -DINDEX=-1 -O2 %s -o %t && not %run %t -1 2>&1 | FileCheck --check-prefix=CHECK-m1 %s
-// RUN: %clangxx_asan -DINDEX=0 -O2 %s -o %t && %run %t 0
-// RUN: %clangxx_asan -DINDEX=8 -O2 %s -o %t && %run %t 8
-// RUN: %clangxx_asan -DINDEX=9 -O2 %s -o %t && not %run %t 9  2>&1 | FileCheck --check-prefix=CHECK-9  %s
-// RUN: %clangxx_asan -DINDEX=10 -O2 %s -o %t && not %run %t 10 2>&1 | FileCheck --check-prefix=CHECK-10 %s
-// RUN: %clangxx_asan -DINDEX=30 -O2 %s -o %t && not %run %t 30 2>&1 | FileCheck --check-prefix=CHECK-30 %s
-// RUN: %clangxx_asan -DINDEX=31 -O2 %s -o %t && not %run %t 31 2>&1 | FileCheck --check-prefix=CHECK-31 %s
-// RUN: %clangxx_asan -DINDEX=41 -O2 %s -o %t && not %run %t 41 2>&1 | FileCheck --check-prefix=CHECK-41 %s
-// RUN: %clangxx_asan -DINDEX=42 -O2 %s -o %t && not %run %t 42 2>&1 | FileCheck --check-prefix=CHECK-42 %s
-// RUN: %clangxx_asan -DINDEX=62 -O2 %s -o %t && not %run %t 62 2>&1 | FileCheck --check-prefix=CHECK-62 %s
-// RUN: %clangxx_asan -DINDEX=63 -O2 %s -o %t && not %run %t 63 2>&1 | FileCheck --check-prefix=CHECK-63 %s
-// RUN: %clangxx_asan -DINDEX=73 -O2 %s -o %t && not %run %t 73 2>&1 | FileCheck --check-prefix=CHECK-73 %s
-// RUN: %clangxx_asan -DINDEX=74 -O2 %s -o %t && not %run %t 74 2>&1 | FileCheck --check-prefix=CHECK-74 %s
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -DINDEX=-2 -O2 %s -o %t && not %run %t -2 2>&1 | FileCheck --check-prefix=CHECK-m2 %s
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -DINDEX=-1 -O2 %s -o %t && not %run %t -1 2>&1 | FileCheck --check-prefix=CHECK-m1 %s
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -DINDEX=0 -O2 %s -o %t && %run %t 0
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -DINDEX=8 -O2 %s -o %t && %run %t 8
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -DINDEX=9 -O2 %s -o %t && not %run %t 9  2>&1 | FileCheck --check-prefix=CHECK-9  %s
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -DINDEX=10 -O2 %s -o %t && not %run %t 10 2>&1 | FileCheck --check-prefix=CHECK-10 %s
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -DINDEX=30 -O2 %s -o %t && not %run %t 30 2>&1 | FileCheck --check-prefix=CHECK-30 %s
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -DINDEX=31 -O2 %s -o %t && not %run %t 31 2>&1 | FileCheck --check-prefix=CHECK-31 %s
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -DINDEX=41 -O2 %s -o %t && not %run %t 41 2>&1 | FileCheck --check-prefix=CHECK-41 %s
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -DINDEX=42 -O2 %s -o %t && not %run %t 42 2>&1 | FileCheck --check-prefix=CHECK-42 %s
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -DINDEX=62 -O2 %s -o %t && not %run %t 62 2>&1 | FileCheck --check-prefix=CHECK-62 %s
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -DINDEX=63 -O2 %s -o %t && not %run %t 63 2>&1 | FileCheck --check-prefix=CHECK-63 %s
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -DINDEX=73 -O2 %s -o %t && not %run %t 73 2>&1 | FileCheck --check-prefix=CHECK-73 %s
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -DINDEX=74 -O2 %s -o %t && not %run %t 74 2>&1 | FileCheck --check-prefix=CHECK-74 %s
+// RUN: %clangxx_asan -O2 %s -o %t
+// RUN: not %run %t --cheerp-arg=test --cheerp-arg=-2 2>&1 | FileCheck --check-prefix=CHECK-m2 %s
+// RUN: not %run %t --cheerp-arg=test --cheerp-arg=-1 2>&1 | FileCheck --check-prefix=CHECK-m1 %s
+// RUN: %run %t     --cheerp-arg=test --cheerp-arg=0
+// RUN: %run %t     --cheerp-arg=test --cheerp-arg=8
+// RUN: not %run %t --cheerp-arg=test --cheerp-arg=9  2>&1 | FileCheck --check-prefix=CHECK-9  %s
+// RUN: not %run %t --cheerp-arg=test --cheerp-arg=10 2>&1 | FileCheck --check-prefix=CHECK-10 %s
+// RUN: not %run %t --cheerp-arg=test --cheerp-arg=30 2>&1 | FileCheck --check-prefix=CHECK-30 %s
+// RUN: not %run %t --cheerp-arg=test --cheerp-arg=31 2>&1 | FileCheck --check-prefix=CHECK-31 %s
+// RUN: not %run %t --cheerp-arg=test --cheerp-arg=41 2>&1 | FileCheck --check-prefix=CHECK-41 %s
+// RUN: not %run %t --cheerp-arg=test --cheerp-arg=42 2>&1 | FileCheck --check-prefix=CHECK-42 %s
+// RUN: not %run %t --cheerp-arg=test --cheerp-arg=62 2>&1 | FileCheck --check-prefix=CHECK-62 %s
+// RUN: not %run %t --cheerp-arg=test --cheerp-arg=63 2>&1 | FileCheck --check-prefix=CHECK-63 %s
+// RUN: not %run %t --cheerp-arg=test --cheerp-arg=73 2>&1 | FileCheck --check-prefix=CHECK-73 %s
+// RUN: not %run %t --cheerp-arg=test --cheerp-arg=74 2>&1 | FileCheck --check-prefix=CHECK-74 %s
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O2 %s -o %t
+// RUN: not %run %t --cheerp-arg=test --cheerp-arg=-2 2>&1 | FileCheck --check-prefix=CHECK-m2 %s
+// RUN: not %run %t --cheerp-arg=test --cheerp-arg=-1 2>&1 | FileCheck --check-prefix=CHECK-m1 %s
+// RUN: %run %t     --cheerp-arg=test --cheerp-arg=0
+// RUN: %run %t     --cheerp-arg=test --cheerp-arg=8
+// RUN: not %run %t --cheerp-arg=test --cheerp-arg=9  2>&1 | FileCheck --check-prefix=CHECK-9  %s
+// RUN: not %run %t --cheerp-arg=test --cheerp-arg=10 2>&1 | FileCheck --check-prefix=CHECK-10 %s
+// RUN: not %run %t --cheerp-arg=test --cheerp-arg=30 2>&1 | FileCheck --check-prefix=CHECK-30 %s
+// RUN: not %run %t --cheerp-arg=test --cheerp-arg=31 2>&1 | FileCheck --check-prefix=CHECK-31 %s
+// RUN: not %run %t --cheerp-arg=test --cheerp-arg=41 2>&1 | FileCheck --check-prefix=CHECK-41 %s
+// RUN: not %run %t --cheerp-arg=test --cheerp-arg=42 2>&1 | FileCheck --check-prefix=CHECK-42 %s
+// RUN: not %run %t --cheerp-arg=test --cheerp-arg=62 2>&1 | FileCheck --check-prefix=CHECK-62 %s
+// RUN: not %run %t --cheerp-arg=test --cheerp-arg=63 2>&1 | FileCheck --check-prefix=CHECK-63 %s
+// RUN: not %run %t --cheerp-arg=test --cheerp-arg=73 2>&1 | FileCheck --check-prefix=CHECK-73 %s
+// RUN: not %run %t --cheerp-arg=test --cheerp-arg=74 2>&1 | FileCheck --check-prefix=CHECK-74 %s
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
 int main(int argc, char **argv) {
-  int idx = INDEX;
+  assert(argc >= 2);
+  int idx = atoi(argv[1]);
   char AAA[10], BBB[10], CCC[10];
   memset(AAA, 0, sizeof(AAA));
   memset(BBB, 0, sizeof(BBB));

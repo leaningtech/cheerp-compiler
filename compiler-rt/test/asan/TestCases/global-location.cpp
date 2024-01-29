@@ -27,17 +27,16 @@ int global[10];
 int C::array[10];
 
 int main(int argc, char **argv) {
-  int one = argc + 1;
-  volatile int check = CHECK;
-  switch (check) {
-  case 0: return global[one * 11];
-  case 1: return C::array[one * 11];
-  case 2:
+  int one = argc;
+  switch (argv[0][0]) {
+  case 'g': return global[one * 11];
+  case 'c': return C::array[one * 11];
+  case 'f':
     static int array[10];
     // FUNC_STATIC:      0x{{.*}} is located 4 bytes after global variable 'main::array' defined in '{{.*}}global-location.cpp:[[@LINE-1]]' {{.*}} of size 40
     memset(array, 0, 10);
     return array[one * 11];
-  case 3:
+  case 'l':
     const char *str = "0123456789";
     // LITERAL:      0x{{.*}} is located 0 bytes after global variable {{.*}} defined in '{{.*}}global-location.cpp:[[@LINE-1]]' {{.*}} of size 11
     return str[one * 11];

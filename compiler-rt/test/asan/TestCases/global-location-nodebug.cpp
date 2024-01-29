@@ -2,14 +2,16 @@
 /// allow this test to also run on Windows (which can't be done for the
 /// debuginfo variant).
 
-// RUN: %clangxx_asan -O2 %S/global-location.cpp -o %t -DCHECK=0 && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=GLOB-NO-G
-// RUN: %clangxx_asan -O2 %S/global-location.cpp -o %t -DCHECK=1 && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CLASS_STATIC-NO-G
-// RUN: %clangxx_asan -O2 %S/global-location.cpp -o %t -DCHECK=2 && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=FUNC_STATIC-NO-G
-// RUN: %clangxx_asan -O2 %S/global-location.cpp -o %t -DCHECK=3 && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=LITERAL-NO-G
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O2 %S/global-location.cpp -o %t -DCHECK=0 && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=GLOB-NO-G
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O2 %S/global-location.cpp -o %t -DCHECK=1 && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CLASS_STATIC-NO-G
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O2 %S/global-location.cpp -o %t -DCHECK=2 && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=FUNC_STATIC-NO-G
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O2 %S/global-location.cpp -o %t -DCHECK=3 && not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=LITERAL-NO-G
+// RUN: %clangxx_asan -O2 %S/global-location.cpp -o %t
+// RUN: not %run %t --cheerp-arg=g 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=GLOB-NO-G
+// RUN: not %run %t --cheerp-arg=c 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CLASS_STATIC-NO-G
+// RUN: not %run %t --cheerp-arg=f 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=FUNC_STATIC-NO-G
+// RUN: not %run %t --cheerp-arg=l 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=LITERAL-NO-G
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O2 %S/global-location.cpp -o %t
+// RUN: not %run %t --cheerp-arg=g 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=GLOB-NO-G
+// RUN: not %run %t --cheerp-arg=c 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CLASS_STATIC-NO-G
+// RUN: not %run %t --cheerp-arg=f 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=FUNC_STATIC-NO-G
+// RUN: not %run %t --cheerp-arg=l 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=LITERAL-NO-G
 
 /// Solaris ld -S has different semantics.
 // XFAIL: solaris

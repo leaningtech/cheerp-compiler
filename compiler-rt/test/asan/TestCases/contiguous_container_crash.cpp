@@ -1,11 +1,14 @@
-// RUN: %clangxx_asan -DTEST=0 -O %s -o %t && not %run %t 2>&1 | FileCheck --check-prefix=CHECK-CRASH %s
-// RUN: %clangxx_asan -DTEST=1 -O %s -o %t && not %run %t 2>&1 | FileCheck --check-prefix=CHECK-BAD-BOUNDS %s
-// RUN: %clangxx_asan -DTEST=2 -O %s -o %t && not %run %t 2>&1 | FileCheck --check-prefix=CHECK-CRASH %s
-// RUN: %clangxx_asan -DTEST=3 -O %s -o %t && not %run %t 2>&1 | FileCheck --check-prefix=CHECK-CRASH %s
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -DTEST=0 -O %s -o %t && not %run %t 2>&1 | FileCheck --check-prefix=CHECK-CRASH %s
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -DTEST=1 -O %s -o %t && not %run %t 2>&1 | FileCheck --check-prefix=CHECK-BAD-BOUNDS %s
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -DTEST=2 -O %s -o %t && not %run %t 2>&1 | FileCheck --check-prefix=CHECK-CRASH %s
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -DTEST=3 -O %s -o %t && not %run %t 2>&1 | FileCheck --check-prefix=CHECK-CRASH %s
+// RUN: %clangxx_asan -O %s -o %t
+// RUN: not %run %t --cheerp-arg=crash 2>&1 | FileCheck --check-prefix=CHECK-CRASH %s
+// RUN: not %run %t --cheerp-arg=bad-bounds 2>&1 | FileCheck --check-prefix=CHECK-BAD-BOUNDS %s
+// RUN: not %run %t --cheerp-arg=odd-alignment 2>&1 | FileCheck --check-prefix=CHECK-CRASH %s
+// RUN: not %run %t --cheerp-arg=odd-alignment-end 2>&1 | FileCheck --check-prefix=CHECK-CRASH %s
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O %s -o %t
+// RUN: not %run %t --cheerp-arg=crash 2>&1 | FileCheck --check-prefix=CHECK-CRASH %s
+// RUN: not %run %t --cheerp-arg=bad-bounds 2>&1 | FileCheck --check-prefix=CHECK-BAD-BOUNDS %s
+// RUN: not %run %t --cheerp-arg=odd-alignment 2>&1 | FileCheck --check-prefix=CHECK-CRASH %s
+// RUN: not %run %t --cheerp-arg=odd-alignment-end 2>&1 | FileCheck --check-prefix=CHECK-CRASH %s
+// TODO: %env_asan_opts=detect_container_overflow=0 %run %t crash
 //
 // Test crash due to __sanitizer_annotate_contiguous_container.
 
@@ -54,13 +57,14 @@ int OddAlignmentEnd() {
 }
 
 int main(int argc, char **argv) {
-  if (TEST == 0)
+  assert(argc == 1);
+  if (!strcmp(argv[0], "crash"))
     return TestCrash();
-  else if (TEST == 1)
+  else if (!strcmp(argv[0], "bad-bounds"))
     BadBounds();
-  else if (TEST == 2)
+  else if (!strcmp(argv[0], "odd-alignment"))
     return OddAlignment();
-  else if (TEST == 3)
+  else if (!strcmp(argv[0], "odd-alignment-end"))
     return OddAlignmentEnd();
   return 0;
 }

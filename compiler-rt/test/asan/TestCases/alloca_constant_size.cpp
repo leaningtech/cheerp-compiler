@@ -1,9 +1,11 @@
 // Regression test for https://github.com/google/sanitizers/issues/691
 
-// RUN: %clangxx_asan -DTEST=1 -O0 %s -o %t -fstack-protector && %run %t 2>&1 | FileCheck %s
-// RUN: %clangxx_asan -DTEST=2 -O0 %s -o %t -fstack-protector && %run %t 2>&1 | FileCheck %s
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -DTEST=1 -O0 %s -o %t -fstack-protector && %run %t 2>&1 | FileCheck %s
-// RUN: %clangxx_asan -cheerp-linear-output=asmjs -DTEST=2 -O0 %s -o %t -fstack-protector && %run %t 2>&1 | FileCheck %s
+// RUN: %clangxx_asan -O0 %s -o %t -fstack-protector
+// RUN: %run %t --cheerp-arg=1 2>&1 | FileCheck %s
+// RUN: %run %t --cheerp-arg=2 2>&1 | FileCheck %s
+// RUN: %clangxx_asan -cheerp-linear-output=asmjs -O0 %s -o %t -fstack-protector
+// RUN: %run %t --cheerp-arg=1 2>&1 | FileCheck %s
+// RUN: %run %t --cheerp-arg=2 2>&1 | FileCheck %s
 
 #include <stdio.h>
 #include <string.h>
@@ -41,9 +43,9 @@ void f2() {
 }
 
 int main(int argc, const char *argv[]) {
-  if (TEST == 1) {
+  if (!strcmp(argv[0], "1")) {
     f1_alloca();
-  } else if (TEST == 2) {
+  } else if (!strcmp(argv[0], "2")) {
     f1_vla();
   }
   f2();
