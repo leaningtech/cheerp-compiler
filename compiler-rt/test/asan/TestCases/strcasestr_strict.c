@@ -1,11 +1,10 @@
 // Test strict_string_checks option in strcasestr function
 // RUN: %clang_asan %s -o %t && %run %t 2>&1
-// RUN: %env_asan_opts=strict_string_checks=false %run %t 2>&1
-// RUN: %env_asan_opts=strict_string_checks=true not %run %t 2>&1 | FileCheck %s
+// RUN: %run     %t --cheerp-env=ASAN_OPTIONS=strict_string_checks=false 2>&1
+// RUN: not %run %t --cheerp-env=ASAN_OPTIONS=strict_string_checks=true  2>&1
 
 // There's no interceptor for strcasestr on Windows
 // XFAIL: windows-msvc
-// UNSUPPORTED: cheerp
 
 #define _GNU_SOURCE
 #include <assert.h>

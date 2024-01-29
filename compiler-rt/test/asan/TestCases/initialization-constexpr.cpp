@@ -5,13 +5,13 @@
 // not dynamic initialization).
 
 // RUN: %clangxx_asan -O0 %s %p/Helpers/initialization-constexpr-extra.cpp --std=c++11 -o %t
-// RUN: %env_asan_opts=check_initialization_order=true %run %t 2>&1
+// RUN: %run %t --cheerp-env=ASAN_OPTIONS=check_initialization_order=true 2>&1
 // RUN: %clangxx_asan -O1 %s %p/Helpers/initialization-constexpr-extra.cpp --std=c++11 -o %t
-// RUN: %env_asan_opts=check_initialization_order=true %run %t 2>&1
+// RUN: %run %t --cheerp-env=ASAN_OPTIONS=check_initialization_order=true 2>&1
 // RUN: %clangxx_asan -O2 %s %p/Helpers/initialization-constexpr-extra.cpp --std=c++11 -o %t
-// RUN: %env_asan_opts=check_initialization_order=true %run %t 2>&1
+// RUN: %run %t --cheerp-env=ASAN_OPTIONS=check_initialization_order=true 2>&1
 // RUN: %clangxx_asan -O3 %s %p/Helpers/initialization-constexpr-extra.cpp --std=c++11 -o %t
-// RUN: %env_asan_opts=check_initialization_order=true %run %t 2>&1
+// RUN: %run %t --cheerp-env=ASAN_OPTIONS=check_initialization_order=true 2>&1
 
 // UNSUPPORTED: cheerp
 class Integer {

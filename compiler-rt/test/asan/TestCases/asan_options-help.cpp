@@ -1,7 +1,5 @@
 // RUN: %clangxx_asan -O0 %s -o %t
-// RUN: %env_asan_opts=help=1 %run %t 2>&1 | FileCheck %s
-
-// UNSUPPORTED: cheerp
+// RUN: %run %t --cheerp-env=ASAN_OPTIONS=help=1 2>&1 | FileCheck %s
 
 int main() {
 }

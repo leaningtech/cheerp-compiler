@@ -1,9 +1,7 @@
 // Test strict_string_checks option in strcmp function
 // RUN: %clang_asan %s -o %t && %run %t 2>&1
-// RUN: %env_asan_opts=strict_string_checks=false %run %t 2>&1
-// RUN: %env_asan_opts=strict_string_checks=true not %run %t 2>&1 | FileCheck %s
-
-// UNSUPPORTED: cheerp
+// RUN: %run %t --cheerp-env=ASAN_OPTIONS=strict_string_checks=false 2>&1
+// RUN: not %run %t --cheerp-env=ASAN_OPTIONS=strict_string_checks=true 2>&1 | FileCheck %s
 
 #include <assert.h>
 #include <stdlib.h>
