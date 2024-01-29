@@ -1,10 +1,8 @@
 // Check that we fill malloc-ed memory correctly.
 // RUN: %clangxx_asan %s -o %t
 // RUN: %run %t | FileCheck %s
-// RUN: %env_asan_opts=max_malloc_fill_size=10:malloc_fill_byte=8 %run %t | FileCheck %s --check-prefix=CHECK-10-8
-// RUN: %env_asan_opts=max_malloc_fill_size=20:malloc_fill_byte=171 %run %t | FileCheck %s --check-prefix=CHECK-20-ab
-
-// UNSUPPORTED: cheerp
+// RUN: %run %t --cheerp-env=ASAN_OPTIONS=max_malloc_fill_size=10:malloc_fill_byte=8 | FileCheck %s --check-prefix=CHECK-10-8
+// RUN: %run %t --cheerp-env=ASAN_OPTIONS=max_malloc_fill_size=20:malloc_fill_byte=171 | FileCheck %s --check-prefix=CHECK-20-ab
 
 #include <stdio.h>
 int main(int argc, char **argv) {
