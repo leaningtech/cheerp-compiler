@@ -2005,12 +2005,15 @@ static QualType adjustFunctionTypeForInstantiation(ASTContext &Context,
     = D->getType()->castAs<FunctionProtoType>();
   const FunctionProtoType *NewFunc
     = TInfo->getType()->castAs<FunctionProtoType>();
-  if (OrigFunc->getExtInfo() == NewFunc->getExtInfo())
+  if (OrigFunc->getExtInfo() == NewFunc->getExtInfo() && !NewFunc->getReturnType().hasAddressSpace())
     return TInfo->getType();
 
+  auto RetTy = NewFunc->getReturnType();
+  if (RetTy.hasAddressSpace())
+    RetTy = Context.removeAddrSpaceQualType(RetTy);
   FunctionProtoType::ExtProtoInfo NewEPI = NewFunc->getExtProtoInfo();
   NewEPI.ExtInfo = OrigFunc->getExtInfo();
-  return Context.getFunctionType(NewFunc->getReturnType(),
+  return Context.getFunctionType(RetTy,
                                  NewFunc->getParamTypes(), NewEPI);
 }
 
@@ -2214,6 +2217,11 @@ Decl *TemplateDeclInstantiator::VisitFunctionDecl(
       FT->setObjectOfFriendDecl();
   }
 
+  if (D->hasAttr<GenericJSAttr>()) {
+    auto NewTy = SemaRef.Context.getAddrSpaceQualType(Function->getType(), LangAS::cheerp_genericjs);
+    Function->setType(NewTy);
+  }
+
   if (InitFunctionInstantiation(Function, D))
     Function->setInvalidDecl();
 
@@ -2377,11 +2385,6 @@ Decl *TemplateDeclInstantiator::VisitFunctionDecl(
   if (Function->isOverloadedOperator() && !DC->isRecord() &&
       PrincipalDecl->isInIdentifierNamespace(Decl::IDNS_Ordinary))
     PrincipalDecl->setNonMemberOperator();
-
-  if (D->hasAttr<GenericJSAttr>()) {
-    auto NewTy = SemaRef.Context.getAddrSpaceQualType(Function->getType(), LangAS::cheerp_genericjs);
-    Function->setType(NewTy);
-  }
 
   return Function;
 }
