@@ -1000,7 +1000,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(const
 		if (makeModule == MODULE_TYPE::ES6)
 			stream << EnvironName;
 		else
-			stream  << "typeof " << EnvironName << " == 'undefined' ? null : " << EnvironName;
+			stream  << "typeof " << EnvironName << " == 'undefined' ? [] : " << EnvironName;
 		return COMPILE_OK;
 	}
 	else if(intrinsicId==Intrinsic::cheerp_argv)
@@ -1008,7 +1008,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(const
 		if (makeModule == MODULE_TYPE::ES6)
 			stream << ArgvName;
 		else
-			stream  << "typeof " << ArgvName << " == 'undefined' ? null : " << ArgvName;
+			stream  << "typeof " << ArgvName << " == 'undefined' ? [] : " << ArgvName;
 		return COMPILE_OK;
 	}
 	else if(intrinsicId==Intrinsic::abs)
@@ -6268,8 +6268,8 @@ void CheerpWriter::compileHelpers()
 	}
 
 	if (makeModule == MODULE_TYPE::ES6) {
-		stream << "var " <<  EnvironName << "=null,";
-		stream << ArgvName << "=null;" << NewLine;
+		stream << "var " <<  EnvironName << "=[],";
+		stream << ArgvName << "=[];" << NewLine;
 	}
 }
 
@@ -6593,8 +6593,8 @@ void CheerpWriter::compileDeclareExports()
 	{
 		const std::string shortestName = namegen.getShortestLocalName();
 		stream << "export default function(" << shortestName << "){" << NewLine;
-		stream << EnvironName << "=" << shortestName << "?.env??null;" << NewLine;
-		stream << ArgvName << "=" << shortestName << "?.argv??null;" << NewLine;
+		stream << EnvironName << "=" << shortestName << "?.env??[];" << NewLine;
+		stream << ArgvName << "=" << shortestName << "?.argv??[];" << NewLine;
 		stream << "return ";
 	}
 	else
