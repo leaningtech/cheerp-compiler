@@ -920,6 +920,9 @@ OptimizeGlobalAddressOfAllocation(GlobalVariable *GV, CallInst *CI,
                        ConstantInt::getFalse(GV->getContext()),
                        GV->getName()+".init", GV->getThreadLocalMode());
   bool InitBoolUsed = false;
+  // CHEERP: this is needed to propagate the "asmjs" section. It is probably
+  // a good idea in general, so we will do it for any section.
+  InitBool->setSection(NewGV->getSection());
 
   // Loop over all instruction uses of GV, processing them in turn.
   SmallVector<Value *, 4> Guses;
