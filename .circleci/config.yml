@@ -1019,7 +1019,6 @@ workflows:
           requires:
             - define-version-no
             - test
-            - run-asan-tests
             - llvm-check
           filters:
             branches:
