@@ -34,8 +34,8 @@ BUILD_DIR="$PWD/build"
 mkdir -p "$BUILD_DIR"
 
 if [ -n "$CIRCLECI" ]; then
+  USE_CCACHE=On
   if [ "$CIRCLE_BRANCH" != "master" ]; then
-    USE_CCACHE=On
     ENABLE_LLVM_ASSERTIONS=On
   fi
   FLAGS_RELEASE="-O2"
