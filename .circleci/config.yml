@@ -36,8 +36,7 @@ jobs:
       - restore_cache:
           name: Restore ccache
           keys:
-            - cheerp-compiler-<< pipeline.git.branch >>-
-            - cheerp-compiler-
+            - cheerp-compiler-feat-node-env
       - run:
           name: Set up environment
           working_directory: ~/project/cheerp-compiler
