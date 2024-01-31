@@ -963,7 +963,7 @@ parameters:
     default: "master"
   cheerp-libs-commit:
     type: string
-    default: "feat-env"
+    default: "master"
 
 executors:
   cheerp-large:
