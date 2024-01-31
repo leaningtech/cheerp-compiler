@@ -6593,8 +6593,8 @@ void CheerpWriter::compileDeclareExports()
 	{
 		const std::string shortestName = namegen.getShortestLocalName();
 		stream << "export default function(" << shortestName << "){" << NewLine;
-		stream << EnvironName << "=" << shortestName << "?.env??null;" << NewLine;
-		stream << ArgvName << "=" << shortestName << "?.argv??null;" << NewLine;
+		stream << EnvironName << "=(typeof " << shortestName << " == 'undefined' ? null : " << shortestName << ".env) || null;" << NewLine;
+		stream << ArgvName << "=(typeof " << shortestName << " == 'undefined' ? null : " << shortestName << ".argv) || null;" << NewLine;
 		stream << "return ";
 	}
 	else
