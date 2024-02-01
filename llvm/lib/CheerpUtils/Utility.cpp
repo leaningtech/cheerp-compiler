@@ -739,6 +739,8 @@ char TypeSupport::getPrefixCharForMember(const PointerAnalyzer& PA, llvm::Struct
 
 bool TypeSupport::isJSExportedType(StructType* st, const Module& m)
 {
+	if (st->isLiteral())
+		return false;
 	return m.getNamedMetadata(llvm::Twine(st->getName(),"_methods"))!=NULL;
 }
 

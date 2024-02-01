@@ -289,6 +289,11 @@ bool TypeOptimizer::isUnsafeDowncastSource(StructType* st)
 
 bool TypeOptimizer::canCollapseStruct(llvm::StructType* st, llvm::StructType* newStruct, llvm::Type* newType)
 {
+	if (newStruct == nullptr)
+	{
+		assert(st->isLiteral());
+		return false;
+	}
 	// Stop if the element is just a int8, we may be dealing with an empty struct
 	// Empty structs are unsafe as the int8 inside is just a placeholder and will be replaced
 	// by a different type in a derived class
@@ -445,8 +450,11 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 			return CacheAndReturn(newType, TypeMappingInfo::BYTE_LAYOUT_TO_ARRAY);
 		}
 
-		// Generate a new type inconditionally, it may end up being the same as the old one
-		StructType* newStruct=StructType::create(st->getContext());
+		// Generate a new type if it's not a literal struct. It may end up being the same as the old one
+		// In case of literal, it will be created as a literal at the end.
+		StructType* newStruct=nullptr;
+		if (!st->isLiteral())
+			newStruct=StructType::create(st->getContext());
 #ifndef NDEBUG
 		newStructTypes.insert(newStruct);
 #endif
@@ -457,7 +465,8 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 			newStruct->setName(name);
 		}
 		// Tentatively map the type to the newStruct, it may be overridden if the type is collapsed
-		typesMapping[t] = TypeMappingInfo(newStruct, TypeMappingInfo::IDENTICAL);
+		if (!st->isLiteral())
+			typesMapping[t] = TypeMappingInfo(newStruct, TypeMappingInfo::IDENTICAL);
 
 		// Since we can merge arrays of the same type in an struct it is possible that at the end of the process a single type will remain
 		TypeMappingInfo::MAPPING_KIND newStructKind = TypeMappingInfo::IDENTICAL;
@@ -556,7 +565,9 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 			std::vector<std::pair<uint32_t, uint8_t>> mergedInts;
 			uint32_t directBaseLimit=0;
 			// We may need to update the bases metadata for this type
-			NamedMDNode* namedBasesMetadata = TypeSupport::getBasesMetadata(newStruct, *module);
+			NamedMDNode* namedBasesMetadata = nullptr;
+			if (!st->isLiteral())
+				namedBasesMetadata = TypeSupport::getBasesMetadata(newStruct, *module);
 			uint32_t firstBaseBegin, firstBaseEnd;
 			if(namedBasesMetadata)
 			{
@@ -698,7 +709,13 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 		}
 
 		StructType* newDirectBase = st->getDirectBase() ? dyn_cast<StructType>(rewriteType(st->getDirectBase()).mappedType) : NULL;
-		newStruct->setBody(newTypes, st->isPacked(), newDirectBase, st->hasByteLayout(), st->hasAsmJS());
+		if (st->isLiteral())
+		{
+			newStruct = StructType::get(st->getContext(), newTypes, st->isPacked(), newDirectBase, st->hasByteLayout(), st->hasAsmJS());
+			typesMapping[t] = TypeMappingInfo(newStruct, TypeMappingInfo::IDENTICAL);
+		}
+		else
+			newStruct->setBody(newTypes, st->isPacked(), newDirectBase, st->hasByteLayout(), st->hasAsmJS());
 
 		return CacheAndReturn(newStruct, newStructKind);
 	}
