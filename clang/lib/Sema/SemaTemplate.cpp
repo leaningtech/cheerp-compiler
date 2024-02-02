@@ -5255,6 +5255,12 @@ bool Sema::CheckTemplateTypeArgument(
     ArgType = Context.getQualifiedType(ArgType, Qs);
   }
 
+  if (auto* D = dyn_cast<Decl>(Param->getDeclContext())) {
+    if (!Context.getTargetInfo().isByteAddressable() && !ArgType->isDependentType()) {
+      ArgType = applyCheerpAddressSpace(ArgType, D->hasAttr<GenericJSAttr>(), /*force*/true);
+    }
+  }
+
   SugaredConverted.push_back(TemplateArgument(ArgType));
   CanonicalConverted.push_back(
       TemplateArgument(Context.getCanonicalType(ArgType)));
