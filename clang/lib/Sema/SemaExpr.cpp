@@ -519,8 +519,9 @@ ExprResult Sema::DefaultFunctionArrayConversion(Expr *E, bool Diagnose) {
           return ExprError();
 
     // CHEERP: Cannot take function addresses from genericjs to asmjs and vice versa
-    if (CurScope && CurScope->getFnParent() && CurScope->getFnParent()->getEntity()) {
-      if (FunctionDecl* Caller = dyn_cast<FunctionDecl>(CurScope->getFnParent()->getEntity())) {
+    // except in decltype context
+    if (ExprEvalContexts.back().ExprContext != ExpressionEvaluationContextRecord::EK_Decltype) {
+      if (FunctionDecl* Caller = getCurFunctionDecl()) {
         if (DeclRefExpr* DR = dyn_cast<DeclRefExpr>(E)) {
           NamedDecl* D = DR->getFoundDecl();
           FunctionDecl* Callee = isa<FunctionTemplateDecl>(D) ?
@@ -14472,9 +14473,10 @@ QualType Sema::CheckAddressOfOperand(ExprResult &OrigOp, SourceLocation OpLoc) {
     }
   }
   // CHEERP: Cannot take function addresses from genericjs to asmjs and vice versa
+  // except in decltype context
   else if (op->getType()->isFunctionType()) {
-    if (CurScope && CurScope->getFnParent()) {
-      if (FunctionDecl* Caller = dyn_cast_or_null<FunctionDecl>(CurScope->getFnParent()->getEntity())) {
+    if (ExprEvalContexts.back().ExprContext != ExpressionEvaluationContextRecord::EK_Decltype) {
+      if (FunctionDecl* Caller = getCurFunctionDecl()) {
         if (DeclRefExpr* DR = dyn_cast<DeclRefExpr>(op)) {
           if (FunctionDecl* Callee = dyn_cast<FunctionDecl>(DR->getFoundDecl())) {
             if (Caller->hasAttr<GenericJSAttr>() && Callee->hasAttr<AsmJSAttr>()) {
