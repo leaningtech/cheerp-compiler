@@ -99,16 +99,15 @@ void StructMemFuncLowering::recursiveCopy(IRBuilder<>* IRB, Value* baseDst, Valu
 	{
 		Value* elementSrc = baseSrc;
 		Value* elementDst = baseDst;
-		Type* loadType = containingType;
-		if(indexes.size() != 1 || !isa<ConstantInt>(indexes[0]) || cast<ConstantInt>(indexes[0])->getZExtValue()!=0)
-		{
-			assert(baseSrc->getType() == containingType->getPointerTo());
-			assert(baseSrc->getType() == baseDst->getType());
-			elementSrc = IRB->CreateGEP(containingType, baseSrc, indexes);
-			elementDst = IRB->CreateGEP(containingType, baseDst, indexes);
-			loadType = cast<GEPOperator>(elementDst)->getResultElementType();
-		}
+
+		assert(baseSrc->getType() == containingType->getPointerTo());
+		assert(baseSrc->getType() == baseDst->getType());
+		elementSrc = IRB->CreateGEP(containingType, baseSrc, indexes);
+		elementDst = IRB->CreateGEP(containingType, baseDst, indexes);
+
+		Type* loadType = GetElementPtrInst::getIndexedType(containingType, indexes);
 		assert(loadType->getPointerTo() == elementSrc->getType());
+
 		Instruction* element = IRB->CreateAlignedLoad(loadType, elementSrc, MaybeAlign(baseAlign));
 		MDNode* newAliasScope = NULL;
 		if(aliasDomain)
