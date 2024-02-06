@@ -17,9 +17,13 @@ set(LLVM_TOOLCHAIN_TOOLS
   llc
   CACHE STRING "")
 
+if("${LLVM_ENABLE_PROJECTS}" MATCHES ".*clang-tools-extra.*")
+  set(CHEERP_CLANGD clangd)
+endif()
+
 set(LLVM_DISTRIBUTION_COMPONENTS
   clang
   clang-resource-headers
+  ${CHEERP_CLANGD}
   ${LLVM_TOOLCHAIN_TOOLS}
   CACHE STRING "")
-

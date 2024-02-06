@@ -37,6 +37,8 @@ if [ -n "$CIRCLECI" ]; then
   USE_CCACHE=On
   if [ "$CIRCLE_BRANCH" != "master" ]; then
     ENABLE_LLVM_ASSERTIONS=On
+  else
+    BUILD_CLANGD=1
   fi
   FLAGS_RELEASE="-O2"
 fi
@@ -65,12 +67,17 @@ llvm_ninja_command() {
 }
 
 build_compiler() {
+  if [ -n "$BUILD_CLANGD" ]; then
+    LLVM_PROJECTS="clang;clang-tools-extra"
+  else
+    LLVM_PROJECTS="clang"
+  fi
+
   cmake \
-    -C llvm/CheerpCmakeConf.cmake \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_CXX_FLAGS_RELEASE="$FLAGS_RELEASE" \
     -DCLANG_VENDOR="Cheerp $deb_version" \
-    -DLLVM_ENABLE_PROJECTS=clang \
+    -DLLVM_ENABLE_PROJECTS="$LLVM_PROJECTS" \
     llvm/ \
     -GNinja \
     -DLLVM_ENABLE_ASSERTIONS="$ENABLE_LLVM_ASSERTIONS" \
@@ -80,10 +87,13 @@ build_compiler() {
     -DCMAKE_SHARED_LINKER_FLAGS=-fuse-ld=ld \
     -DCMAKE_MODULE_LINKER_FLAGS=-fuse-ld=ld \
     -DLLVM_CCACHE_BUILD="$USE_CCACHE" \
+    -C llvm/CheerpCmakeConf.cmake \
     -B build_llvm
 
   export DESTDIR="$BUILD_DIR"
   llvm_ninja_command install-distribution
+
+  unset LLVM_PROJECTS
   unset DESTDIR
 }
 
@@ -227,7 +237,7 @@ case "$1" in
     install_all
     ;;
   tar-compiler)
-    tar -cvjf "$2" build_llvm debian/build.sh cmake third-party llvm clang .git/logs/HEAD
+    tar -cvjf "$2" build_llvm debian/build.sh cmake third-party llvm clang clang-tools-extra .git/logs/HEAD
     ;;
   tar-install)
     tar -cvjf "$2" "$BUILD_DIR/."
