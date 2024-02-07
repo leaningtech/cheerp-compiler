@@ -71,6 +71,37 @@ jobs:
           paths:
             - cheerp-build.tar.bz2
             - cheerp-core_*.deb
+  build-clangd:
+    executor: cheerp-large
+    environment:
+      - NINJA_STATUS: "[%u/%r/%f] "
+      - THREADS: 6
+      - CCACHE_DISABLE: 1
+      - ONLY_CLANGD: 1
+    steps:
+      - attach_workspace:
+          at: ~/project/packages
+      - run:
+          name: Set up environment
+          working_directory: ~/project/cheerp-compiler
+          command: |
+            cat ~/project/packages/version >> $BASH_ENV
+      - run:
+          name: Extract build
+          working_directory: ~/project/cheerp-compiler
+          command: tar -C . -xvf ~/project/packages/cheerp-build.tar.bz2
+      - run:
+          name: Build clangd
+          working_directory: ~/project/cheerp-compiler
+          command: |
+            dch -b -v "$VERSION_NO-1" "Internal build" -m
+            dpkg-buildpackage -d -b
+            mkdir -p ~/project/packages/with_clangd
+            mv -v ../cheerp-core_*.deb ~/project/packages/with_clangd
+      - persist_to_workspace:
+          root: ~/project/packages/with_clangd
+          paths:
+            - cheerp-core_*.deb
   llvm-check:
     parameters:
       rule:
@@ -287,7 +318,7 @@ jobs:
             tar -czvf ~/project/packages/cheerp-core_$VERSION_NO.orig-cheerp-musl.tar.gz cheerp-musl/
             tar -czvf ~/project/packages/cheerp-core_$VERSION_NO.orig-cheerp-utils.tar.gz cheerp-utils/
             tar -czvf ~/project/packages/cheerp-core_$VERSION_NO.orig.tar.gz clang/ llvm/ cmake/ compiler-rt/ libcxx/ libcxxabi/ \
-              runtimes/ third-party/ debian/
+              runtimes/ third-party/ debian/ clang-tools-extra/
       - run:
           name: Package cheerp toolchain
           no_output_timeout: 30m
@@ -982,6 +1013,12 @@ workflows:
       - build-cheerp-toolchain:
           requires:
             - define-version-no
+      - build-clangd:
+          requires:
+            - build-cheerp-toolchain
+          filters:
+            branches:
+              only: master
       - llvm-check:
           matrix:
             parameters:
@@ -1019,6 +1056,7 @@ workflows:
           requires:
             - define-version-no
             - test
+            - build-clangd
             - llvm-check
           filters:
             branches:
