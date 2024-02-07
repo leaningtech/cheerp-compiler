@@ -2026,7 +2026,9 @@ QualType TemplateInstantiator::BuildSubstTemplateTypeParmType(
         SemaRef.Context.getQualifiedType(Replacement.getUnqualifiedType(), RQs);
   }
 
-  Replacement = getSema().applyCheerpAddressSpace(Replacement, AssociatedDecl->hasAttr<GenericJSAttr>(), false);
+  if (!getSema().Context.getTargetInfo().isByteAddressable() && ! Replacement->isDependentType()) {
+    Replacement = getSema().applyCheerpAddressSpace(Replacement, AssociatedDecl->hasAttr<GenericJSAttr>(), false);
+  }
   if (Final) {
     TLB.pushTrivial(SemaRef.Context, Replacement, NameLoc);
     return Replacement;
