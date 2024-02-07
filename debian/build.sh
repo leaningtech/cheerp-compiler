@@ -31,14 +31,14 @@ USE_CCACHE=Off
 ENABLE_LLVM_ASSERTIONS=Off
 
 BUILD_DIR="$PWD/build"
+BUILD_CLANGD=1
 mkdir -p "$BUILD_DIR"
 
 if [ -n "$CIRCLECI" ]; then
   USE_CCACHE=On
+  unset BUILD_CLANGD # circleci would timeout if we tried
   if [ "$CIRCLE_BRANCH" != "master" ]; then
     ENABLE_LLVM_ASSERTIONS=On
-  else
-    BUILD_CLANGD=1
   fi
   FLAGS_RELEASE="-O2"
 fi
@@ -66,18 +66,12 @@ llvm_ninja_command() {
   ninja $JOBS_OPT -v -C build_llvm "$1"
 }
 
-build_compiler() {
-  if [ -n "$BUILD_CLANGD" ]; then
-    LLVM_PROJECTS="clang;clang-tools-extra"
-  else
-    LLVM_PROJECTS="clang"
-  fi
-
+configure_llvm() {
   cmake \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_CXX_FLAGS_RELEASE="$FLAGS_RELEASE" \
     -DCLANG_VENDOR="Cheerp $deb_version" \
-    -DLLVM_ENABLE_PROJECTS="$LLVM_PROJECTS" \
+    -DLLVM_ENABLE_PROJECTS="$1" \
     llvm/ \
     -GNinja \
     -DLLVM_ENABLE_ASSERTIONS="$ENABLE_LLVM_ASSERTIONS" \
@@ -89,12 +83,23 @@ build_compiler() {
     -DLLVM_CCACHE_BUILD="$USE_CCACHE" \
     -C llvm/CheerpCmakeConf.cmake \
     -B build_llvm
+}
 
+build_compiler() {
+  PROJECTS="clang"
+  if [ -n "$BUILD_CLANGD" ]; then
+    PROJECTS="$PROJECTS;clang-tools-extra"
+  fi
+
+  configure_llvm clang
   export DESTDIR="$BUILD_DIR"
   llvm_ninja_command install-distribution
-
-  unset LLVM_PROJECTS
   unset DESTDIR
+}
+
+build_clangd() {
+  configure_llvm "clang;clang-tools-extra"
+  llvm_ninja_command install-clangd
 }
 
 prepare() {
@@ -189,6 +194,10 @@ build_compiler_rt() {
   make -C build_compiler_rt install
 }
 
+copy_install() {
+  cp -r "$BUILD_DIR/." "$CHEERP_DEST"
+}
+
 install_all() {
   # cheerp-utils will install stuff with absolute paths. To fix this, during compilation we'll use a temporary cheerp-utils,
   # with the directories pointing to the build dirs, and just before installing, we'll change the paths to the actual install dir
@@ -196,7 +205,7 @@ install_all() {
   make -C cheerp-utils/build install
 
   mkdir -p "$CHEERP_DEST"
-  cp -r "$BUILD_DIR/." "$CHEERP_DEST"
+  copy_install
   cp cheerp-utils/LICENSE.TXT "$CHEERP_DEST/$CHEERP_PREFIX/"
   cp cheerp-utils/README "$CHEERP_DEST/$CHEERP_PREFIX/"
   cp cheerp-utils/ChangeLog "$CHEERP_DEST/$CHEERP_PREFIX/"
@@ -234,10 +243,15 @@ case "$1" in
     build_all_libraries
     ;;
   install)
-    install_all
+    if [ -n "$ONLY_CLANGD" ]; then
+      echo "ONLY_CLANGD is only meant as a workaround for circleci, do not rely on this behavior!" >&2
+      copy_install
+    else
+      install_all
+    fi
     ;;
   tar-compiler)
-    tar -cvjf "$2" build_llvm debian/build.sh cmake third-party llvm clang clang-tools-extra .git/logs/HEAD
+    tar -cvjf "$2" build_llvm debian cmake third-party llvm clang clang-tools-extra .git/logs/HEAD
     ;;
   tar-install)
     tar -cvjf "$2" "$BUILD_DIR/."
@@ -246,7 +260,12 @@ case "$1" in
     llvm_ninja_command "$2"
     ;;
   all)
-    build_all
+    if [ -n "$ONLY_CLANGD" ]; then
+      echo "ONLY_CLANGD is only meant as a workaround for circleci, do not rely on this behavior!" >&2
+      build_clangd
+    else
+      build_all
+    fi
     ;;
   *)
     echo "Unknown command $1" >&2
