@@ -1699,20 +1699,17 @@ void PartialInterpreter::visitOuter(FunctionData& data, llvm::Instruction& I)
 		{
 			BasicBlock* next = findNextBasicBlock(I);
 
-			if (next)
+			if (next && data.getVisitCounter(next) < MAX_NUMBER_OF_VISITS_PER_BB)
 			{
 				data.incrementVisitCounter(next);
 
-				if (data.getVisitCounter(next) < MAX_NUMBER_OF_VISITS_PER_BB)
-				{
-					// We know where execution should proceed
-					incomingBB = I.getParent();
-					getTopCallFrame().CurBB = next;
-					getTopCallFrame().CurInst = getTopCallFrame().CurBB->begin();
+				// We know where execution should proceed
+				incomingBB = I.getParent();
+				getTopCallFrame().CurBB = next;
+				getTopCallFrame().CurInst = getTopCallFrame().CurBB->begin();
 
-					// Also here we have set the proper state for the execution so we can return
-					return;
-				}
+				// Also here we have set the proper state for the execution so we can return
+				return;
 			}
 			skip = true;
 		}
