@@ -91,7 +91,7 @@ build_compiler() {
     PROJECTS="$PROJECTS;clang-tools-extra"
   fi
 
-  configure_llvm clang
+  configure_llvm "$PROJECTS"
   export DESTDIR="$BUILD_DIR"
   llvm_ninja_command install-distribution
   unset DESTDIR
