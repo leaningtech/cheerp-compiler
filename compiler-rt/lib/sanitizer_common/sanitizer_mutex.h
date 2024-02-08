@@ -163,7 +163,11 @@ class SANITIZER_MUTEX Mutex : CheckedMutex {
   explicit constexpr Mutex(MutexType type = MutexUnchecked)
       : CheckedMutex(type) {}
 
+  // CHEERP: This mutex uses a 64-bit state value, meaning 64-bit atomic operations.
+  // These are not supported in asmjs currently, so we've disabled the Mutex
+  // by returning early from all functions.
   void Lock() SANITIZER_ACQUIRE() {
+    return;
     CheckedMutex::Lock();
     u64 reset_mask = ~0ull;
     u64 state = atomic_load_relaxed(&state_);
@@ -209,6 +213,7 @@ class SANITIZER_MUTEX Mutex : CheckedMutex {
   }
 
   bool TryLock() SANITIZER_TRY_ACQUIRE(true) {
+    return true;
     u64 state = atomic_load_relaxed(&state_);
     for (;;) {
       if (UNLIKELY(state & (kWriterLock | kReaderLockMask)))
@@ -223,6 +228,7 @@ class SANITIZER_MUTEX Mutex : CheckedMutex {
   }
 
   void Unlock() SANITIZER_RELEASE() {
+    return;
     CheckedMutex::Unlock();
     bool wake_writer;
     u64 wake_readers;
@@ -251,6 +257,7 @@ class SANITIZER_MUTEX Mutex : CheckedMutex {
   }
 
   void ReadLock() SANITIZER_ACQUIRE_SHARED() {
+    return;
     CheckedMutex::Lock();
     u64 reset_mask = ~0ull;
     u64 state = atomic_load_relaxed(&state_);
@@ -288,6 +295,7 @@ class SANITIZER_MUTEX Mutex : CheckedMutex {
   }
 
   void ReadUnlock() SANITIZER_RELEASE_SHARED() {
+    return;
     CheckedMutex::Unlock();
     bool wake;
     u64 new_state;
@@ -314,12 +322,14 @@ class SANITIZER_MUTEX Mutex : CheckedMutex {
   // maintaining complex state to work around those situations, the check only
   // checks that the mutex is owned.
   void CheckWriteLocked() const SANITIZER_CHECK_LOCKED() {
+    return;
     CHECK(atomic_load(&state_, memory_order_relaxed) & kWriterLock);
   }
 
   void CheckLocked() const SANITIZER_CHECK_LOCKED() { CheckWriteLocked(); }
 
   void CheckReadLocked() const SANITIZER_CHECK_LOCKED() {
+    return;
     CHECK(atomic_load(&state_, memory_order_relaxed) & kReaderLockMask);
   }
 
