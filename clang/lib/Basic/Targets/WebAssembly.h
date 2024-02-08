@@ -212,6 +212,8 @@ public:
     LongDoubleWidth = LongDoubleAlign = 64;
     LongDoubleFormat = &llvm::APFloat::IEEEdouble();
     SizeType = UnsignedInt;
+    // We define these as 32-bit for now, since AsmJS cannot handle 64-bit atomic operations currently.
+    MaxAtomicPromoteWidth = MaxAtomicInlineWidth = 32;
 
     // Use 32-bit integers for two separated bit fields.
     UseBitFieldTypeAlignment = true;
