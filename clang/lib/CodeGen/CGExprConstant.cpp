@@ -2025,6 +2025,8 @@ private:
           int32_t fieldIndex = cgLayout.getLLVMFieldNo(FD);
           if(fieldIndex == -1) {
             // Collapsed struct
+            CElementType = CGM.getTypes().ConvertTypeForMem(CurType);
+            C = llvm::ConstantExpr::getBitCast(C, CElementType->getPointerTo());
             continue;
           }
           Indexes.push_back(llvm::ConstantInt::get(CGM.Int32Ty, fieldIndex));
