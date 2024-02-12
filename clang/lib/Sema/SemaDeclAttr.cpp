@@ -8500,6 +8500,16 @@ static void handleClientLayoutAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
 
 static void handleClientTransparentAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
   D->addAttr(::new (S.Context) ClientTransparentAttr(S.Context, Attr));
+  // Can only be used on client conversion constructors
+  if (!D->getDeclContext()->isClientNamespace())
+    S.Diag(Attr.getLoc(), diag::err_cheerp_client_transparent_non_client);
+  if (auto* CD = dyn_cast<CXXConstructorDecl>(D))
+  {
+    if (CD->getNumParams() != 1)
+      S.Diag(Attr.getLoc(), diag::err_cheerp_client_transparent_bad_parameter_count);
+  }
+  else
+    S.Diag(Attr.getLoc(), diag::err_cheerp_attribute_not_on_constructor);
 }
 
 //===----------------------------------------------------------------------===//
