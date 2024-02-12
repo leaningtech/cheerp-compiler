@@ -11763,12 +11763,18 @@ def err_cheerp_invalid_plament_new : Error<
   "Cheerp: Placement new is only valid on memory of the same type. If this is a custom allocator, disable it">;
 def err_cheerp_invalid_static : Error<
   "Cheerp: Only static member might be tagged with the legacy [[cheerp::static]] attribute">;
+def err_cheerp_attribute_not_on_constructor : Error<
+  "Cheerp: This attribute can only be used on constructors">;
 def err_cheerp_attribute_not_on_function : Error<
   "Cheerp: This attribute can only be used on functions">;
 def err_cheerp_attribute_on_virtual_class : Error<
   "Cheerp: A virtual class cannot have the %0 attribute">;
 def err_cheerp_interface_name_non_client : Error<
   "Cheerp: Interface name should only be added to namespace client declarations">;
+def err_cheerp_client_transparent_non_client : Error<
+  "Cheerp: [[cheerp::client_transparent]] should only be added to namespace client declarations">;
+def err_cheerp_client_transparent_bad_parameter_count : Error<
+  "Cheerp: A [[cheerp::client_transparent]] constructor must have exactly one parameter">;
 def err_cheerp_jsexport_TODO : Error<
   "Cheerp: Unknown [[cheerp::jsexport]] related problem">;
 def err_cheerp_jsexport_only_static : Error<
