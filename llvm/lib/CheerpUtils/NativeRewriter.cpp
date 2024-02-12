@@ -159,6 +159,13 @@ static bool redundantStringConstructor(Instruction* ci, SmallVectorImpl<Value*>&
 	return false;
 }
 
+static bool isClientTransparent(Function* called)
+{
+	if (auto* metadata = called->getMetadata("cheerp.clienttransparent"))
+		return dyn_cast<MDString>(metadata->getOperand(0))->getString() == "true";
+	return false;
+}
+
 bool CheerpNativeRewriterPass::rewriteIfNativeConstructorCall(Module& M, Instruction* i, AllocaInst* newI, Instruction* callInst,
 						  Function* called, const std::string& builtinTypeName,
 						  SmallVector<Value*, 4>& initialArgs)
@@ -179,6 +186,15 @@ bool CheerpNativeRewriterPass::rewriteIfNativeConstructorCall(Module& M, Instruc
 	//Verify that this one is not already a returning construtor
 	if(!callInst->getType()->isVoidTy())
 		return false;
+
+	//Transparent client constructors only cast their argument to the type that
+	//is being constructed, without actually calling any constructor
+	if (isClientTransparent(called))
+	{
+		auto* castInst = new BitCastInst(newI, PointerType::getUnqual(initialArgs[0]->getType()), "", callInst);
+		new StoreInst(initialArgs[0], castInst, callInst);
+		return true;
+	}
 
 	//We optimize the special case of String(String), removing the constructor
 	//call entirely
@@ -294,6 +310,15 @@ void CheerpNativeRewriterPass::rewriteConstructorImplementation(Module& M, Funct
 			}
 			if(firstArg!=&*F.arg_begin())
 				continue;
+			oldLowerConstructor = &callInst;
+			if(isClientTransparent(f))
+			{
+				//If this is a transparent client constructor, cast the first argument
+				//to the type that is being constructed, without calling any base
+				//constructor
+				lowerCast = new BitCastInst(callInst.getOperand(1), F.arg_begin()->getType());
+				break;
+			}
 			//If this is another constructor for the same type, change it to a
 			//returning constructor and use it as the 'this' argument
 			Function* newFunc = getReturningConstructor(M, f);
@@ -301,10 +326,9 @@ void CheerpNativeRewriterPass::rewriteConstructorImplementation(Module& M, Funct
 			for(auto& arg: make_range(callInst.arg_begin()+1, callInst.arg_end()))
 				newArgs.push_back(arg.get());
 			lowerConstructor = CallInst::Create(newFunc, newArgs);
-			oldLowerConstructor = &callInst;
 			break;
 		}
-		if(lowerConstructor)
+		if(!oldLowerConstructor)
 			break;
 	}
 
@@ -312,13 +336,15 @@ void CheerpNativeRewriterPass::rewriteConstructorImplementation(Module& M, Funct
 	newFunc->setLinkage(F.getLinkage());
 	Function::arg_iterator origArg=F.arg_begin() + 1;
 	Function::arg_iterator newArg=newFunc->arg_begin();
-	if (!lowerConstructor)
+	if (!oldLowerConstructor)
 	{
 		std::string diag = "No native constructor found for class ";
 		diag.append(getClassName(F.getName().data()));
 		llvm::report_fatal_error(StringRef(diag), false);
 	}
-	if(lowerConstructor->getType() != F.arg_begin()->getType())
+	if(lowerCast)
+		valueMap.insert(make_pair(&*F.arg_begin(), lowerCast));
+	else if(lowerConstructor->getType() != F.arg_begin()->getType())
 	{
 		lowerCast = new BitCastInst( lowerConstructor, F.arg_begin()->getType());
 		valueMap.insert(make_pair(&*F.arg_begin(), lowerCast));
@@ -336,10 +362,16 @@ void CheerpNativeRewriterPass::rewriteConstructorImplementation(Module& M, Funct
 	CloneFunctionInto(newFunc, &F, valueMap, CloneFunctionChangeType::LocalChangesOnly, returns);
 
 	//Find the right place to add the base construtor call
-	if (lowerConstructor->arg_size()>1)
-		llvm::report_fatal_error("Native constructors with multiple args are not supported", false);
 	Instruction* callPred = &newFunc->getEntryBlock().front();
-	if (lowerConstructor->arg_size()==1)
+	if (!lowerConstructor)
+	{
+		lowerCast->setOperand(0, valueMap[lowerCast->getOperand(0)]);
+		if (Instruction::classof(lowerCast->getOperand(0)))
+			callPred = cast<Instruction>(lowerCast->getOperand(0));
+	}
+	else if (lowerConstructor->arg_size()>1)
+		llvm::report_fatal_error("Native constructors with multiple args are not supported", false);
+	else if (lowerConstructor->arg_size()==1)
 	{
 		//Switch the argument to the one in the new func
 		lowerConstructor->setArgOperand(0, valueMap[lowerConstructor->getArgOperand(0)]);
@@ -348,9 +380,10 @@ void CheerpNativeRewriterPass::rewriteConstructorImplementation(Module& M, Funct
 	}
 
 	//And add it
-	lowerConstructor->insertAfter(callPred);
 	if(lowerCast)
-		lowerCast->insertAfter(lowerConstructor);
+		lowerCast->insertAfter(callPred);
+	if(lowerConstructor)
+		lowerConstructor->insertAfter(callPred);
 
 	//Override the return values
 	for(unsigned i=0;i<returns.size();i++)
