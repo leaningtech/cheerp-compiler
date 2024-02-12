@@ -2185,6 +2185,11 @@ def ClientLayout : Attr {
   let Documentation = [Undocumented];
 }
 
+def ClientTransparent : Attr {
+  let Spellings = [CXX11<"cheerp", "client_transparent">, GNU<"cheerp_client_transparent">];
+  let Documentation = [Undocumented];
+}
+
 def ObjCBridge : InheritableAttr {
   let Spellings = [Clang<"objc_bridge">];
   let Subjects = SubjectList<[Record, TypedefName], ErrorDiag>;
