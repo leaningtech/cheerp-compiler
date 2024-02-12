@@ -8498,6 +8498,10 @@ static void handleClientLayoutAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
   D->addAttr(::new (S.Context) ClientLayoutAttr(S.Context, Attr));
 }
 
+static void handleClientTransparentAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
+  D->addAttr(::new (S.Context) ClientTransparentAttr(S.Context, Attr));
+}
+
 //===----------------------------------------------------------------------===//
 // Top Level Sema Entry Points
 //===----------------------------------------------------------------------===//
@@ -9348,6 +9352,9 @@ ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D, const ParsedAttr &AL,
     break;
   case ParsedAttr::AT_ClientLayout:
     handleClientLayoutAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_ClientTransparent:
+    handleClientTransparentAttr(S, D, AL);
     break;
   }
 }

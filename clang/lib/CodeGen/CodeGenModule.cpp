@@ -2405,7 +2405,7 @@ void CodeGenModule::SetFunctionAttributes(GlobalDecl GD, llvm::Function *F,
   }
 
   const auto *FD = cast<FunctionDecl>(GD.getDecl());
-  if (FD)
+  if (FD) {
     if (const auto *Attr = FD->getAttr<CheerpInterfaceNameAttr>()) {
       llvm::Metadata *AttrMDArgs[] = {
         llvm::MDString::get(getLLVMContext(), Attr->getNameInterface()),
@@ -2413,6 +2413,15 @@ void CodeGenModule::SetFunctionAttributes(GlobalDecl GD, llvm::Function *F,
 
       F->setMetadata("cheerp.interfacename", llvm::MDNode::get(getLLVMContext(), AttrMDArgs));
     }
+
+    if (const auto *Attr = FD->getAttr<ClientTransparentAttr>()) {
+      llvm::Metadata *AttrMDArgs[] = {
+        llvm::MDString::get(getLLVMContext(), "true"),
+      };
+
+      F->setMetadata("cheerp.clienttransparent", llvm::MDNode::get(getLLVMContext(), AttrMDArgs));
+    }
+  }
 
   if (!IsIncompleteFunction)
     SetLLVMFunctionAttributes(GD, getTypes().arrangeGlobalDeclaration(GD), F,
