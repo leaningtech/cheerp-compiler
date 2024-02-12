@@ -392,13 +392,6 @@ void CheerpNativeRewriterPass::rewriteConstructorImplementation(Module& M, Funct
 
 bool CheerpNativeRewriterPass::rewriteNativeObjectsConstructors(Module& M, Function& F, DominatorTree& DT)
 {
-	if(isBuiltinConstructor(F.getName().data()) &&
-		F.getReturnType()->isVoidTy())
-	{
-		assert(!F.empty());
-		rewriteConstructorImplementation(M, F, DT);
-		return true;
-	}
 	//Vector of the instructions to be removed in the second pass
 	SmallVector<Instruction*, 4> toRemove;
 
@@ -446,6 +439,15 @@ bool CheerpNativeRewriterPass::rewriteNativeObjectsConstructors(Module& M, Funct
 	//Remove the instructions in backward order to avoid dependency issues
 	for(int i=toRemove.size();i>0;i--)
 		toRemove[i-1]->eraseFromParent();
+
+	if(isBuiltinConstructor(F.getName().data()) &&
+		F.getReturnType()->isVoidTy())
+	{
+		assert(!F.empty());
+		rewriteConstructorImplementation(M, F, DT);
+		return true;
+	}
+
 	return Changed;
 }
 
