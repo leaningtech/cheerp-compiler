@@ -1674,7 +1674,7 @@ Value *SCEVExpander::visitPtrToIntExpr(const SCEVPtrToIntExpr *S) {
 
 Value *SCEVExpander::visitGEPPointer(const SCEVGEPPointer *S) {
   llvm::Value* ptrVal = expand(S->getOperand(0));
-  llvm::Type* ptrType = ptrVal->getType();
+  llvm::Type* ptrType = S->getOperand(0)->getType();
   SmallVector<Value *, 4> GepIndices;
   // The pointer is implicitly dereferenced
   GepIndices.push_back(ConstantInt::get(Type::getInt32Ty(SE.getContext()), 0));
@@ -1692,8 +1692,9 @@ Value *SCEVExpander::visitGEPPointer(const SCEVGEPPointer *S) {
       sTy = directBase;
     }
     gepType = sTy;
-    ptrVal = Builder.CreateBitCast(ptrVal, sTy->getPointerTo());
   }
+  if (ptrVal->getType() != gepType->getPointerTo())
+    ptrVal = Builder.CreateBitCast(ptrVal, gepType->getPointerTo());
   Value *GEP = Builder.CreateGEP(gepType, ptrVal, GepIndices, "safescevgep");
   rememberInstruction(GEP);
   return GEP;
