@@ -13,6 +13,7 @@
 #include "clang/AST/ASTContext.h"
 #include "CXXABI.h"
 #include "Interp/Context.h"
+#include "clang/Analysis/AnalysisDeclContext.h"
 #include "clang/AST/APValue.h"
 #include "clang/AST/ASTConcept.h"
 #include "clang/AST/ASTMutationListener.h"
@@ -13169,6 +13170,25 @@ LangAS ASTContext::getLangASForBuiltinAddressSpace(unsigned AS) const {
     return getTargetInfo().getCUDABuiltinAddressSpace(AS);
 
   return getLangASFromTargetAS(AS);
+}
+
+LangAS ASTContext::getCheerpTypeAddressSpace(QualType Ty, LangAS fallback) const {
+  if (Ty.hasAddressSpace())
+    return Ty.getAddressSpace();
+  if (Ty->isArrayType() && Ty->getBaseElementTypeUnsafe()->getAsTagDecl())
+    return getCheerpTypeAddressSpace(Ty->getBaseElementTypeUnsafe()->getAsTagDecl());
+  if (Ty->getAsTagDecl())
+    return getCheerpTypeAddressSpace(Ty->getAsTagDecl());
+  return fallback;
+}
+LangAS ASTContext::getCheerpTypeAddressSpace(const TagDecl* D, LangAS fallback) const {
+  LangAS AS = fallback;
+  if (AnalysisDeclContext::isInClientNamespace(D)) {
+    AS = clang::LangAS::cheerp_client;
+  } else if (D->hasAttr<GenericJSAttr>()) {
+    AS = LangAS::cheerp_genericjs;
+  }
+  return AS;
 }
 
 // Explicitly instantiate this in case a Redeclarable<T> is used from a TU that
