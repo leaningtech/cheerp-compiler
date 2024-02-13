@@ -499,6 +499,7 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 			case Instruction::PtrToInt:
 			case Instruction::IntToPtr:
 			case Instruction::ShuffleVector:
+			case Instruction::AddrSpaceCast:
 				return true;
 			case Instruction::ExtractElement:
 			case Instruction::InsertElement:
