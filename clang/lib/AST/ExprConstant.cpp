@@ -8879,11 +8879,13 @@ bool PointerExprEvaluator::VisitCastExpr(const CastExpr *E) {
   switch (E->getCastKind()) {
   default:
     break;
+  case CK_AddressSpaceConversion:
+    if (Info.Ctx.getLangOpts().Cheerp)
+      return Visit(SubExpr);
   case CK_BitCast:
   case CK_CPointerToObjCPointerCast:
   case CK_BlockPointerToObjCPointerCast:
   case CK_AnyPointerToBlockPointerCast:
-  case CK_AddressSpaceConversion:
     if (!Visit(SubExpr))
       return false;
     // Bitcasts to cv void* are static_casts, not reinterpret_casts, so are

@@ -5596,6 +5596,7 @@ Sema::PerformObjectArgumentInitialization(Expr *From,
       From = CreateMaterializeTemporaryExpr(FromRecordType, From,
                                             Method->getRefQualifier() !=
                                                 RefQualifierKind::RQ_RValue);
+      FromRecordType = From->getType();
     }
   }
 
@@ -12320,6 +12321,11 @@ private:
   // R (S::*)(A) --> R (A), IsNonStaticMemberFunction = true
   void inline ExtractUnqualifiedFunctionTypeFromTargetType() {
     TargetFunctionType = S.ExtractUnqualifiedFunctionType(TargetType);
+
+    // CHEERP: We lost the function's address space :(. Add it back.
+    if (S.getLangOpts().Cheerp && (TargetType->isPointerType() || TargetType->isReferenceType() || TargetType->isMemberPointerType())) {
+      TargetFunctionType = S.Context.getAddrSpaceQualType(TargetFunctionType, TargetType->getPointeeType().getAddressSpace());
+    }
   }
 
   // return true if any matching specializations were found

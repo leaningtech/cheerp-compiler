@@ -35,7 +35,7 @@ PreservedAnalyses JSStringLiteralLoweringPass::run(Function& F, FunctionAnalysis
 		Function* F = CB->getCalledFunction();
 		if (F == nullptr)
 			continue;
-		if (F->getName() != "cheerpCreate_ZN6client6StringC2EPKc")
+		if (F->getName() != "cheerpCreate_ZN6client6StringC2EPU2jsKc")
 			continue;
 		if (CB->arg_size() != 1)
 			continue;
