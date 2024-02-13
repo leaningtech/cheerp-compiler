@@ -1770,6 +1770,12 @@ GenericValue Interpreter::executeBitCastInst(Value *SrcVal, Type *DstTy,
   return Dest;
 }
 
+GenericValue Interpreter::executeAddrSpaceCastInst(Value *SrcVal, Type *DstTy,
+                                             ExecutionContext &SF) {
+  GenericValue Dest, Src = getOperandValue(SrcVal, SF);
+  return Dest;
+}
+
 void Interpreter::visitTruncInst(TruncInst &I) {
   ExecutionContext &SF = ECStack.back();
   SetValue(&I, executeTruncInst(I.getOperand(0), I.getType(), SF), SF);
@@ -1828,6 +1834,11 @@ void Interpreter::visitIntToPtrInst(IntToPtrInst &I) {
 void Interpreter::visitBitCastInst(BitCastInst &I) {
   ExecutionContext &SF = ECStack.back();
   SetValue(&I, executeBitCastInst(I.getOperand(0), I.getType(), SF), SF);
+}
+
+void Interpreter::visitAddrSpaceCastInst(AddrSpaceCastInst &I) {
+  ExecutionContext &SF = ECStack.back();
+  SetValue(&I, executeAddrSpaceCastInst(I.getOperand(0), I.getType(), SF), SF);
 }
 
 void Interpreter::visitFreezeInst(FreezeInst &I) {
@@ -2216,6 +2227,8 @@ GenericValue Interpreter::getConstantExprValue (ConstantExpr *CE,
       return executeIntToPtrInst(CE->getOperand(0), CE->getType(), SF);
   case Instruction::BitCast:
       return executeBitCastInst(CE->getOperand(0), CE->getType(), SF);
+  case Instruction::AddrSpaceCast:
+      return executeAddrSpaceCastInst(CE->getOperand(0), CE->getType(), SF);
   case Instruction::GetElementPtr:
     return executeGEPOperation(CE->getOperand(0), gep_type_begin(CE),
                                gep_type_end(CE), SF);
