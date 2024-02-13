@@ -5255,6 +5255,17 @@ bool Sema::CheckTemplateTypeArgument(
     ArgType = Context.getQualifiedType(ArgType, Qs);
   }
 
+  // CHEERP: If a template argument is a pointer/reference type, make sure
+  // that it has a non-default address space
+  if (getLangOpts().Cheerp && (ArgType->isReferenceType() || ArgType->isPointerType() || ArgType->isMemberPointerType())) {
+    QualType Pointee = ArgType->getPointeeType();
+    if (!Pointee.hasAddressSpace()) {
+      LangAS AS = Context.getCheerpPointeeAddrSpace(Pointee.getTypePtr(), Param, CurCheerpFallbackAS);
+      if (AS != LangAS::Default)
+        ArgType = Context.addPointeeAddrSpace(ArgType, AS);
+    }
+  }
+
   SugaredConverted.push_back(TemplateArgument(ArgType));
   CanonicalConverted.push_back(
       TemplateArgument(Context.getCanonicalType(ArgType)));
@@ -10544,6 +10555,16 @@ DeclResult Sema::ActOnExplicitInstantiation(Scope *S,
     FunctionTemplateDecl *FunTmpl = dyn_cast<FunctionTemplateDecl>(Prev);
     if (!FunTmpl)
       continue;
+
+        if (Context.getLangOpts().Cheerp && isa<CXXMethodDecl>(FunTmpl->getTemplatedDecl())) {
+          if (cast<CXXMethodDecl>(FunTmpl->getTemplatedDecl())->isStatic()) {
+            const auto *ArgFunctionTypeP = R->castAs<FunctionProtoType>();
+            FunctionProtoType::ExtProtoInfo EPI = ArgFunctionTypeP->getExtProtoInfo();
+            EPI.TypeQuals.removeAddressSpace();
+            R = Context.getFunctionType(ArgFunctionTypeP->getReturnType(),
+                                   ArgFunctionTypeP->getParamTypes(), EPI);
+          }
+        }
 
     TemplateDeductionInfo Info(FailedCandidates.getLocation());
     FunctionDecl *Specialization = nullptr;

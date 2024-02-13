@@ -4837,7 +4837,7 @@ public:
   void addMethodToGlobalList(ObjCMethodList *List, ObjCMethodDecl *Method);
 
   /// Returns default addr space for method qualifiers.
-  LangAS getDefaultCXXMethodAddrSpace() const;
+  LangAS getDefaultCXXMethodAddrSpace(CXXRecordDecl* D) const;
 
 private:
   /// AddMethodToGlobalPool - Add an instance or factory method to the global
@@ -10332,6 +10332,9 @@ public:
 
   void deduceOpenCLAddressSpace(ValueDecl *decl);
 
+  void deduceCheerpAddressSpace(ValueDecl *decl);
+  QualType deduceCheerpPointeeAddrSpace(QualType PointeeType, Decl* D = nullptr);
+
   ExprResult
   HandleExprPropertyRefExpr(const ObjCObjectPointerType *OPT,
                             Expr *BaseExpr,
@@ -13413,9 +13416,9 @@ private:
   bool SemaValueIsRunOfOnes(CallExpr *TheCall, unsigned ArgNum);
 
   void CheckCheerpAttributesConsistency(NamedDecl* New, NamedDecl* Old, bool newIsDefinition);
+public:
   // CHEERP: Inject asmjs/genericjs attribute if required, optionally using inheritFrom's one
   void MaybeInjectCheerpModeAttr(Decl* D, const Decl* inheritFrom = nullptr);
-public:
   // Used by C++ template instantiation.
   ExprResult SemaBuiltinShuffleVector(CallExpr *TheCall);
   ExprResult SemaConvertVectorExpr(Expr *E, TypeSourceInfo *TInfo,
