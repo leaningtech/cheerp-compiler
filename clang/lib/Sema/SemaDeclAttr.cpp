@@ -8550,7 +8550,7 @@ static bool MustDelayAttributeArguments(const ParsedAttr &AL) {
 static void checkCheerpUnprefixedDeprecations(Sema &S,
                                               const ParsedAttr &Attr) {
   const IdentifierInfo *scope = Attr.getScopeName();
-  if (!scope || scope->getName() != "cheerp") {
+  if (Attr.isCXX11Attribute() && (!scope || scope->getName() != "cheerp")) {
     S.Diag(Attr.getLoc(), diag::warn_cheerp_deprecated_attribute)
         << Attr.getAttrName();
   }
