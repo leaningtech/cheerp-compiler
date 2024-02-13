@@ -801,6 +801,9 @@ GenericValue ExecutionEngine::getConstantValue(const Constant *C) {
       }
       return GV;
     }
+    case Instruction::AddrSpaceCast: {
+      return getConstantValue(Op0);
+    }
     case Instruction::Add:
     case Instruction::FAdd:
     case Instruction::Sub:
