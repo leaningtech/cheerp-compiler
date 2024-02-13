@@ -1483,7 +1483,10 @@ NamedDecl *Sema::getCurFunctionOrMethodDecl() {
   return nullptr;
 }
 
-LangAS Sema::getDefaultCXXMethodAddrSpace() const {
+LangAS Sema::getDefaultCXXMethodAddrSpace(CXXRecordDecl* D) const {
+  if (D != nullptr && !Context.getTargetInfo().isByteAddressable()) {
+    return Context.getCheerpTypeAddressSpace(D);
+  }
   if (getLangOpts().OpenCL)
     return getASTContext().getDefaultOpenCLPointeeAddrSpace();
   return LangAS::Default;
