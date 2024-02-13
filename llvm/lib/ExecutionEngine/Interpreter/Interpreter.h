@@ -200,6 +200,7 @@ public:
   void visitPtrToIntInst(PtrToIntInst &I);
   void visitIntToPtrInst(IntToPtrInst &I);
   void visitBitCastInst(BitCastInst &I);
+  void visitAddrSpaceCastInst(AddrSpaceCastInst &I);
   void visitFreezeInst(FreezeInst &I);
   void visitSelectInst(SelectInst &I);
 
@@ -303,6 +304,8 @@ private:
   GenericValue executeIntToPtrInst(Value *SrcVal, Type *DstTy,
                                    ExecutionContext &SF);
   GenericValue executeBitCastInst(Value *SrcVal, Type *DstTy,
+                                  ExecutionContext &SF);
+  GenericValue executeAddrSpaceCastInst(Value *SrcVal, Type *DstTy,
                                   ExecutionContext &SF);
   GenericValue executeFreezeInst(Value *SrcVal, ExecutionContext &SF);
   GenericValue executeCastOperation(Instruction::CastOps opcode, Value *SrcVal,
