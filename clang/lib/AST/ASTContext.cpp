@@ -13,6 +13,7 @@
 #include "clang/AST/ASTContext.h"
 #include "CXXABI.h"
 #include "Interp/Context.h"
+#include "clang/Analysis/AnalysisDeclContext.h"
 #include "clang/AST/APValue.h"
 #include "clang/AST/ASTConcept.h"
 #include "clang/AST/ASTMutationListener.h"
@@ -3180,6 +3181,39 @@ QualType ASTContext::getObjCGCQualType(QualType T,
   return getExtQualType(TypeNode, Quals);
 }
 
+QualType ASTContext::addPointeeAddrSpace(QualType T, LangAS AS) const {
+  if (!T->isPointerType() && !T->isReferenceType() && !T->isMemberPointerType()) {
+    return T;
+  }
+  if (const auto *DT = T->getAs<DecayedType>()) {
+      QualType OrigTy = DT->getOriginalType();
+      if (OrigTy->isArrayType()) {
+        if (OrigTy.hasAddressSpace())
+          OrigTy = removeAddrSpaceQualType(OrigTy);
+        // Add the address space to the original array type and then propagate
+        // that to the element type through `getAsArrayType`.
+        OrigTy = getAddrSpaceQualType(OrigTy, AS);
+        OrigTy = QualType(getAsArrayType(OrigTy), 0);
+        // Re-generate the decayed type.
+        T = getDecayedType(OrigTy);
+      }
+      return T;
+  }
+  QualType Pointee = T->getPointeeType();
+  if (Pointee.hasAddressSpace())
+    Pointee = removeAddrSpaceQualType(Pointee);
+  Pointee = getAddrSpaceQualType(Pointee, AS);
+  if (T->isPointerType())
+    return getPointerType(Pointee);
+  if (T->isLValueReferenceType())
+    return getLValueReferenceType(Pointee);
+  if (T->isRValueReferenceType())
+    return getLValueReferenceType(Pointee);
+  if (auto *MPT = T->getAs<MemberPointerType>())
+    return getMemberPointerType(Pointee, MPT->getClass());
+  llvm_unreachable("not a pointer or reference type");
+}
+
 QualType ASTContext::removePtrSizeAddrSpace(QualType T) const {
   if (const PointerType *Ptr = T->getAs<PointerType>()) {
     QualType Pointee = Ptr->getPointeeType();
@@ -3214,7 +3248,12 @@ void ASTContext::adjustDeducedFunctionResultType(FunctionDecl *FD,
   while (true) {
     const auto *FPT = FD->getType()->castAs<FunctionProtoType>();
     FunctionProtoType::ExtProtoInfo EPI = FPT->getExtProtoInfo();
-    FD->setType(getFunctionType(ResultType, FPT->getParamTypes(), EPI));
+    LangAS AS = FD->getType().getAddressSpace();
+    QualType FTy = getFunctionType(ResultType, FPT->getParamTypes(), EPI);
+    if (AS != LangAS::Default) {
+      FTy = getAddrSpaceQualType(FTy, AS);
+    }
+    FD->setType(FTy);
     if (FunctionDecl *Next = FD->getPreviousDecl())
       FD = Next;
     else
@@ -3251,9 +3290,13 @@ QualType ASTContext::getFunctionTypeWithExceptionSpec(
   // Anything else must be a function type. Rebuild it with the new exception
   // specification.
   const auto *Proto = Orig->castAs<FunctionProtoType>();
-  return getFunctionType(
+  auto Ret = getFunctionType(
       Proto->getReturnType(), Proto->getParamTypes(),
       Proto->getExtProtoInfo().withExceptionSpec(ESI));
+  if (Orig.hasAddressSpace()) {
+    Ret = getAddrSpaceQualType(Ret, Orig.getAddressSpace());
+  }
+  return Ret;
 }
 
 bool ASTContext::hasSameFunctionTypeIgnoringExceptionSpec(QualType T,
@@ -3412,7 +3455,7 @@ QualType ASTContext::getDecayedType(QualType Orig, QualType Decayed) const {
   return QualType(AT, 0);
 }
 
-QualType ASTContext::getDecayedType(QualType T) const {
+QualType ASTContext::getDecayedType(QualType T, LangAS ptrAS) const {
   assert((T->isArrayType() || T->isFunctionType()) && "T does not decay");
 
   QualType Decayed;
@@ -3423,14 +3466,18 @@ QualType ASTContext::getDecayedType(QualType T) const {
   //   qualifiers (if any) are those specified within the [ and ] of
   //   the array type derivation.
   if (T->isArrayType())
-    Decayed = getArrayDecayedType(T);
+    Decayed = getArrayDecayedType(T, ptrAS);
 
   // C99 6.7.5.3p8:
   //   A declaration of a parameter as "function returning type"
   //   shall be adjusted to "pointer to function returning type", as
   //   in 6.3.2.1.
   if (T->isFunctionType())
+  {
+    if (ptrAS != LangAS::Default)
+      T = getAddrSpaceQualType(T, ptrAS);
     Decayed = getPointerType(T);
+  }
 
   return getDecayedType(T, Decayed);
 }
@@ -6935,15 +6982,15 @@ const ArrayType *ASTContext::getAsArrayType(QualType T) const {
                                               VAT->getBracketsRange()));
 }
 
-QualType ASTContext::getAdjustedParameterType(QualType T) const {
+QualType ASTContext::getAdjustedParameterType(QualType T, LangAS ptrAS) const {
   if (T->isArrayType() || T->isFunctionType())
     return getDecayedType(T);
   return T;
 }
 
-QualType ASTContext::getSignatureParameterType(QualType T) const {
+QualType ASTContext::getSignatureParameterType(QualType T, LangAS ptrAS) const {
   T = getVariableArrayDecayedType(T);
-  T = getAdjustedParameterType(T);
+  T = getAdjustedParameterType(T, ptrAS);
   return T.getUnqualifiedType();
 }
 
@@ -6966,7 +7013,7 @@ QualType ASTContext::getExceptionObjectType(QualType T) const {
 /// this returns a pointer to a properly qualified element of the array.
 ///
 /// See C99 6.7.5.3p7 and C99 6.3.2.1p3.
-QualType ASTContext::getArrayDecayedType(QualType Ty) const {
+QualType ASTContext::getArrayDecayedType(QualType Ty, LangAS ptrAS) const {
   // Get the element type with 'getAsArrayType' so that we don't lose any
   // typedefs in the element type of the array.  This also handles propagation
   // of type qualifiers from the array type into the element type if present
@@ -6974,7 +7021,10 @@ QualType ASTContext::getArrayDecayedType(QualType Ty) const {
   const ArrayType *PrettyArrayType = getAsArrayType(Ty);
   assert(PrettyArrayType && "Not an array type!");
 
-  QualType PtrTy = getPointerType(PrettyArrayType->getElementType());
+  QualType ElemTy = PrettyArrayType->getElementType();
+  if (ptrAS != LangAS::Default)
+    ElemTy = getAddrSpaceQualType(ElemTy, ptrAS);
+  QualType PtrTy = getPointerType(ElemTy);
 
   // int x[restrict 4] ->  int *restrict
   QualType Result = getQualifiedType(PtrTy,
@@ -7511,6 +7561,74 @@ OpenCLTypeKind ASTContext::getOpenCLTypeKind(const Type *T) const {
 
 LangAS ASTContext::getOpenCLTypeAddrSpace(const Type *T) const {
   return Target->getOpenCLTypeAddrSpace(getOpenCLTypeKind(T));
+}
+
+LangAS ASTContext::getCheerpPointeeAddrSpace(const Type *PointeeType, DeclContext* DC, LangAS Fallback) {
+  return getCheerpPointeeAddrSpace(PointeeType, DC? cast<Decl>(DC) : nullptr, Fallback);
+}
+LangAS ASTContext::getCheerpPointeeAddrSpace(const Type *PointeeType, Decl* D, LangAS Fallback) {
+  if (PointeeType->isUndeducedAutoType() || PointeeType->isDependentType()) {
+    if (auto* DTS = dyn_cast<DependentSizedArrayType>(PointeeType->getUnqualifiedDesugaredType())) {
+      if (DTS->getElementType()->isDependentType()) {
+        return LangAS::Default;
+      }
+      // If it is a DTS but the element type is concrete, don't bail out
+    } else if (PointeeType->isFunctionType()) {
+      // If it is a templated function, don't bail out
+    } else {
+      return LangAS::Default;
+    }
+  }
+  if (auto* TagTy = PointeeType->getAsTagDecl()) {
+    return getCheerpTypeAddressSpace(TagTy, Fallback);
+  }
+  if (PointeeType->isPointerType() || PointeeType->isReferenceType() || PointeeType->isMemberPointerType()) {
+    LangAS PointeePointeeAS = getCheerpPointeeAddrSpace(PointeeType->getPointeeType().getTypePtr(), D, Fallback);
+    switch (PointeePointeeAS) {
+      case LangAS::cheerp_client:
+      case LangAS::cheerp_bytelayout:
+        return LangAS::cheerp_genericjs;
+      default:
+        break;
+    }
+  }
+  if (auto* TdTy = PointeeType->getAs<TypedefType>()) {
+    return getCheerpPointeeAddrSpace(TdTy->desugar().getTypePtr(), D, Fallback);
+  }
+  if (auto* ATy = dyn_cast<ArrayType>(PointeeType)) {
+    return getCheerpPointeeAddrSpace(ATy->getElementType().getTypePtr(), D, Fallback);
+  }
+  LangAS Ret = Fallback;
+  if (D && isa<EnumDecl>(D)) {
+    D = nullptr;
+  }
+  while (D) {
+    if (D->hasAttr<clang::ByteLayoutAttr>()) {
+      Ret = LangAS::cheerp_bytelayout;
+      break;
+    }
+    if (D->hasAttr<clang::AsmJSAttr>()) {
+      Ret = LangAS::cheerp_wasm;
+      break;
+    }
+    if (D->hasAttr<clang::GenericJSAttr>()) {
+      RecordDecl* RD = dyn_cast<RecordDecl>(D);
+      if (RD && RD->isUnion()) {
+        Ret = LangAS::cheerp_bytelayout;
+      } else {
+        Ret = LangAS::cheerp_genericjs;
+      }
+      break;
+    }
+    DeclContext* C = D->getDeclContext();
+    D = C? cast<Decl>(C) : nullptr;
+  }
+  // TODO giving client_as to js functions is a dirty hack to make sure they
+  // are made into complete objects.
+  if (PointeeType->isFunctionType() && Ret == LangAS::cheerp_genericjs) {
+    Ret = LangAS::cheerp_client;
+  }
+  return Ret;
 }
 
 /// BlockRequiresCopying - Returns true if byref variable "D" of type "Ty"
@@ -8746,7 +8864,13 @@ ObjCInterfaceDecl *ASTContext::getObjCProtocolDecl() const {
 static TypedefDecl *CreateCharPtrNamedVaListDecl(const ASTContext *Context,
                                                  StringRef Name) {
   // typedef char* __builtin[_ms]_va_list;
-  QualType T = Context->getPointerType(Context->CharTy);
+  QualType C = Context->CharTy;
+  if (Context->getTargetInfo().getTriple().getEnvironment() == llvm::Triple::GenericJs) {
+    C = Context->getAddrSpaceQualType(C, LangAS::cheerp_genericjs);
+  } else if (Context->getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly) {
+    C = Context->getAddrSpaceQualType(C, LangAS::cheerp_wasm);
+  }
+  QualType T = Context->getPointerType(C);
   return Context->buildImplicitTypedef(T, Name);
 }
 
@@ -13170,7 +13294,68 @@ LangAS ASTContext::getLangASForBuiltinAddressSpace(unsigned AS) const {
   if (LangOpts.CUDA)
     return getTargetInfo().getCUDABuiltinAddressSpace(AS);
 
+  if (LangOpts.Cheerp) {
+    switch (AS) {
+      case 0:
+        return LangAS::Default;
+      case 1:
+        return LangAS::cheerp_client;
+      case 2:
+        return LangAS::cheerp_genericjs;
+      case 3:
+        return LangAS::cheerp_bytelayout;
+      case 4:
+        return LangAS::cheerp_wasm;
+    }
+  }
+
   return getLangASFromTargetAS(AS);
+}
+
+LangAS ASTContext::getCheerpTypeAddressSpace(QualType Ty, LangAS fallback) const {
+  if (Ty.hasAddressSpace())
+    return Ty.getAddressSpace();
+  if (Ty->isArrayType() && Ty->getBaseElementTypeUnsafe()->getAsTagDecl())
+    return getCheerpTypeAddressSpace(Ty->getBaseElementTypeUnsafe()->getAsTagDecl(), fallback);
+  if (Ty->getAsTagDecl())
+    return getCheerpTypeAddressSpace(Ty->getAsTagDecl(), fallback);
+  return fallback;
+}
+LangAS ASTContext::getCheerpTypeAddressSpace(const Decl* D, LangAS fallback) const {
+  if (isa<EnumDecl>(D)) {
+    return fallback;
+  }
+  LangAS AS = fallback;
+  if (D->hasAttr<ByteLayoutAttr>() || (isa<RecordDecl>(D) && cast<RecordDecl>(D)->isByteLayout())) {
+    AS = LangAS::cheerp_bytelayout;
+  } else if (AnalysisDeclContext::isInClientNamespace(D)) {
+    AS = clang::LangAS::cheerp_client;
+  } else if (D->hasAttr<GenericJSAttr>()) {
+    AS = LangAS::cheerp_genericjs;
+  } else if (D->hasAttr<AsmJSAttr>()) {
+    AS = LangAS::cheerp_wasm;
+  }
+  return AS;
+}
+
+QualType ASTContext::adjustCheerpFunctionAddressSpace(QualType T, LangAS AS) const {
+  const FunctionProtoType* FnTy = T->castAs<FunctionProtoType>();
+  FunctionProtoType::ExtProtoInfo EPI = FnTy->getExtProtoInfo();
+
+  if (AS == EPI.TypeQuals.getAddressSpace()) {
+    return T;
+  }
+
+  EPI.TypeQuals.setAddressSpace(AS);
+  QualType NewType = getFunctionType(FnTy->getReturnType(), FnTy->getParamTypes(), EPI);
+  if (T.hasAddressSpace()) {
+    NewType = getAddrSpaceQualType(NewType, T.getAddressSpace());
+  }
+  return getAdjustedType(T, NewType);
+}
+
+QualType ASTContext::adjustCheerpMemberFunctionAddressSpace(QualType T, QualType ClassType) const {
+  return adjustCheerpFunctionAddressSpace(T, getCheerpTypeAddressSpace(ClassType));
 }
 
 // Explicitly instantiate this in case a Redeclarable<T> is used from a TU that

@@ -3200,7 +3200,12 @@ bool FunctionDecl::isReservedGlobalPlacementOperator() const {
 
   // The result type and first argument type are constant across all
   // these operators.  The second argument must be exactly void*.
-  return (proto->getParamType(1).getCanonicalType() == Context.VoidPtrTy);
+  // CHEERP: any address space is accepted
+  QualType PtrArgTy = proto->getParamType(1).getCanonicalType();
+  if (getLangOpts().Cheerp && PtrArgTy->isPointerType()) {
+    PtrArgTy = Context.addPointeeAddrSpace(PtrArgTy, LangAS::Default);
+  }
+  return (PtrArgTy == Context.VoidPtrTy);
 }
 
 bool FunctionDecl::isReplaceableGlobalAllocationFunction(
