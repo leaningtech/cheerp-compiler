@@ -2255,6 +2255,11 @@ void CheerpWriter::compileConstantExpr(const ConstantExpr* ce, PARENT_PRIORITY p
 			compileBitCast(ce, k, parentPrio);
 			break;
 		}
+		case Instruction::AddrSpaceCast:
+		{
+			compileOperand(ce->getOperand(0), parentPrio);
+			break;
+		}
 		case Instruction::IntToPtr:
 		{
 			compileOperand(ce->getOperand(0), parentPrio);
@@ -3677,6 +3682,11 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		{
 			POINTER_KIND k=PA.getPointerKindAssert(&I);
 			compileBitCast(&I, k, parentPrio);
+			return COMPILE_OK;
+		}
+		case Instruction::AddrSpaceCast:
+		{
+			compileOperand(I.getOperand(0), parentPrio);
 			return COMPILE_OK;
 		}
 		case Instruction::FPToSI:
