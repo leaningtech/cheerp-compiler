@@ -5593,6 +5593,15 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
                      DeclaratorContext::LambdaExpr;
         };
 
+        auto GetParentClass = [&]() {
+          CXXRecordDecl* C = nullptr;
+          if (!state.getDeclarator().getCXXScopeSpec().isEmpty())
+            C = state.getDeclarator().getCXXScopeSpec().getScopeRep()->getAsRecordDecl();
+          if (!C)
+            C = dyn_cast<CXXRecordDecl>(S.CurContext);
+          return C;
+        };
+
         if (state.getSema().getLangOpts().OpenCLCPlusPlus && IsClassMember()) {
           LangAS ASIdx = LangAS::Default;
           // Take address space attr if any and mark as invalid to avoid adding
@@ -5609,9 +5618,16 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
           // If a class member function's address space is not set, set it to
           // __generic.
           LangAS AS =
-              (ASIdx == LangAS::Default ? S.getDefaultCXXMethodAddrSpace()
+              (ASIdx == LangAS::Default ? S.getDefaultCXXMethodAddrSpace(nullptr)
                                         : ASIdx);
           EPI.TypeQuals.addAddressSpace(AS);
+        }
+        if (!S.Context.getTargetInfo().isByteAddressable() && IsClassMember() && !IsTypedefName && !D.getDeclSpec().isFriendSpecified() && state.getDeclarator().isFunctionDeclarator()) {
+          if (auto* C = GetParentClass()) {
+            LangAS AS = S.Context.getCheerpTypeAddressSpace(C);
+            if (AS != LangAS::Default)
+              EPI.TypeQuals.addAddressSpace(AS);
+          }
         }
         T = Context.getFunctionType(T, ParamTys, EPI);
       }
