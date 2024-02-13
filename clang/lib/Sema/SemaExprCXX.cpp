@@ -2126,6 +2126,10 @@ Sema::BuildCXXNew(SourceRange Range, bool UseGlobal,
     }
   }
 
+  if (!Context.getTargetInfo().isByteAddressable()) {
+    AllocType = deduceCheerpPointeeAddrSpace(AllocType);
+  }
+
   if (CheckAllocatedType(AllocType, TypeRange.getBegin(), TypeRange))
     return ExprError();
 
