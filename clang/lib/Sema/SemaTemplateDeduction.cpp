@@ -239,6 +239,22 @@ checkDeducedTemplateArguments(ASTContext &Context,
   case TemplateArgument::Type: {
     // If two template type arguments have the same type, they're compatible.
     QualType TX = X.getAsType(), TY = Y.getAsType();
+    // CHEERP: allow different pointee address spaces if one of them is Default
+    if (Y.getKind() == TemplateArgument::Type && !Context.hasSameType(TX, TY) &&
+        ((TX->isPointerType() && TY->isPointerType()) || (TX->isReferenceType() && TY->isReferenceType())) &&
+        TX->getPointeeType().getAddressSpace() != TY->getPointeeType().getAddressSpace()) {
+      LangAS TXAS = TX->getPointeeType().getAddressSpace();
+      LangAS TYAS = TY->getPointeeType().getAddressSpace();
+      if (TXAS == LangAS::Default) {
+        TX = Context.addPointeeAddrSpace(TX, TYAS);
+      } else if (TYAS == LangAS::Default) {
+        TY = Context.addPointeeAddrSpace(TY, TXAS);
+      } else if (TXAS == LangAS::cheerp_bytelayout && TYAS == LangAS::cheerp_genericjs) {
+          TX = Context.addPointeeAddrSpace(TX, TYAS);
+      } else if (TYAS == LangAS::cheerp_bytelayout && TXAS == LangAS::cheerp_genericjs) {
+          TY = Context.addPointeeAddrSpace(TY, TXAS);
+      }
+    }
     if (Y.getKind() == TemplateArgument::Type && Context.hasSameType(TX, TY))
       return DeducedTemplateArgument(Context.getCommonSugaredType(TX, TY),
                                      X.wasDeducedFromArrayBound() ||
@@ -1485,6 +1501,13 @@ static Sema::TemplateDeductionResult DeduceTemplateArgumentsByTypeMatch(
         A = S.Context.getQualifiedType(A, Quals);
     }
 
+    // CHEERP: This makes it so that A's address space qualifier is not included
+    // in T. P will behave as-if it had the same address space as A when matching.
+    // It might end up having a different one in the end though.
+    if (S.getLangOpts().Cheerp && !P.hasAddressSpace() && A.hasAddressSpace()) {
+      P = S.Context.getAddrSpaceQualType(P, A.getAddressSpace());
+    }
+
     // The argument type can not be less qualified than the parameter
     // type.
     if (!(TDF & TDF_IgnoreQualifiers) &&
@@ -1497,7 +1520,7 @@ static Sema::TemplateDeductionResult DeduceTemplateArgumentsByTypeMatch(
 
     // Do not match a function type with a cv-qualified type.
     // http://www.open-std.org/jtc1/sc22/wg21/docs/cwg_active.html#1584
-    if (A->isFunctionType() && P.hasQualifiers())
+    if (A->isFunctionType() && P.hasQualifiers() && !S.getLangOpts().Cheerp)
       return Sema::TDK_NonDeducedMismatch;
 
     assert(TTP->getDepth() == Info.getDeducedDepth() &&
@@ -1770,7 +1793,15 @@ static Sema::TemplateDeductionResult DeduceTemplateArgumentsByTypeMatch(
       if (!FPA)
         return Sema::TDK_NonDeducedMismatch;
 
-      if (FPP->getMethodQuals() != FPA->getMethodQuals() ||
+      Qualifiers FPPQuals = FPP->getMethodQuals(),
+                 FPAQuals = FPA->getMethodQuals();
+
+      // CHEERP: Allow any method address space on the argument if the
+      // parameter has default method address space.
+      if (S.getLangOpts().Cheerp && !FPPQuals.hasAddressSpace() && FPAQuals.hasAddressSpace())
+        FPPQuals.setAddressSpace(FPAQuals.getAddressSpace());
+
+      if (FPPQuals != FPAQuals ||
           FPP->getRefQualifier() != FPA->getRefQualifier() ||
           FPP->isVariadic() != FPA->isVariadic())
         return Sema::TDK_NonDeducedMismatch;
@@ -2468,9 +2499,17 @@ static bool isSameTemplateArg(ASTContext &Context,
     case TemplateArgument::Null:
       llvm_unreachable("Comparing NULL template argument");
 
-    case TemplateArgument::Type:
-      return Context.getCanonicalType(X.getAsType()) ==
-             Context.getCanonicalType(Y.getAsType());
+    case TemplateArgument::Type: {
+      QualType XT = X.getAsType(), YT = Y.getAsType();
+      // CHEERP: accept an extra address space on the deduced argument
+      // This is a consequence of the tweak in DeduceTemplateArgumentsByTypeMatch
+      // Without this, we would not match partial specializations after deduction
+      if (Context.getLangOpts().Cheerp && XT.hasAddressSpace() && !YT.hasAddressSpace()) {
+        XT = Context.removeAddrSpaceQualType(XT);
+      }
+      return Context.getCanonicalType(XT) ==
+             Context.getCanonicalType(YT);
+    }
 
     case TemplateArgument::Declaration:
       return isSameDeclaration(X.getAsDecl(), Y.getAsDecl());
@@ -4286,6 +4325,13 @@ Sema::TemplateDeductionResult Sema::DeduceTemplateArguments(
     TemplateArgumentListInfo *ExplicitTemplateArgs, QualType ArgFunctionType,
     FunctionDecl *&Specialization, TemplateDeductionInfo &Info,
     bool IsAddressOfFunction) {
+
+  // Cheerp: Clang does not like when function types are qualified here
+  // Since the purpose is just matching the specialization with the base
+  // template, just strip it here
+  if (!ArgFunctionType.isNull())
+    ArgFunctionType = Context.removeAddrSpaceQualType(ArgFunctionType);
+
   if (FunctionTemplate->isInvalidDecl())
     return TDK_Invalid;
 
@@ -4378,6 +4424,10 @@ Sema::TemplateDeductionResult Sema::DeduceTemplateArguments(
   // noreturn can't be dependent, so we don't actually need this for them
   // right now.)
   QualType SpecializationType = Specialization->getType();
+  // Cheerp: Clang does not like when function types are qualified here
+  // Since the purpose is just matching the specialization with the base
+  // template, just strip it here
+  SpecializationType = Context.removeAddrSpaceQualType(SpecializationType);
   if (!IsAddressOfFunction)
     ArgFunctionType = adjustCCAndNoReturn(ArgFunctionType, SpecializationType,
                                           /*AdjustExceptionSpec*/true);

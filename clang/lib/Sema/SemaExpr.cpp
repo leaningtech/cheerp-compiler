@@ -1935,8 +1935,20 @@ Sema::ActOnStringLiteral(ArrayRef<Token> StringToks, Scope *UDLScope) {
     Diag(RemovalDiagLoc, RemovalDiag);
   }
 
+  // CHEERP: String literals are always in linear memory, even in genericjs
+  // contexts.
+  if (getLangOpts().Cheerp) {
+    if (Context.getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly) {
+      CharTy = Context.getAddrSpaceQualType(CharTy, LangAS::cheerp_wasm);
+    }
+  }
+
   QualType StrTy =
       Context.getStringLiteralArrayType(CharTy, Literal.GetNumStringChars());
+
+  if (getLangOpts().Cheerp) {
+    StrTy = deduceCheerpPointeeAddrSpace(StrTy);
+  }
 
   // Pass &StringTokLocs[0], StringTokLocs.size() to factory!
   StringLiteral *Lit = StringLiteral::Create(Context, Literal.GetString(),
@@ -7040,16 +7052,17 @@ ExprResult Sema::BuildResolvedCallExpr(Expr *Fn, NamedDecl *NDecl,
             QualType t = e->getType().getCanonicalType();
             if(const PointerType* pt = dyn_cast<PointerType>(t)) {
                 QualType pointedType = pt->getPointeeType().getCanonicalType();
-                return pointedType->isCharType();
+                return pointedType->isCharType() || !pointedType.hasAddressSpace() || pointedType.getAddressSpace() == LangAS::cheerp_wasm;
             } else if(const ArrayType* at = dyn_cast<ArrayType>(t)) {
                 QualType pointedType = at->getElementType().getCanonicalType();
-                return pointedType->isCharType();
+                return pointedType->isCharType() || !pointedType.hasAddressSpace() || pointedType.getAddressSpace() == LangAS::cheerp_wasm;
             }
             return false;
         };
         if(Args.size() != 3 || !IsValidMemcmpSource(Args[0]) || !IsValidMemcmpSource(Args[1]))
             return ExprError(Diag(LParenLoc, diag::err_cheerp_type_unsafe_functions)
                          << FDecl << "cheerp::memcmp or CHEERP_MEMCMP in <cheerp/memory.h>");
+        break;
       }
       default:
         break;
@@ -7392,6 +7405,12 @@ Sema::BuildCompoundLiteralExpr(SourceLocation LParenLoc, TypeSourceInfo *TInfo,
         ILE->setInit(i, ConstantExpr::Create(Context, Init));
       }
 
+  // CHEERP: Since in C compound literals are l-values, we need to give them
+  // an appropriate address space. This avoid issues with expressions like:
+  // long* p = cond()? (long[]){1,2} : 0
+  if (getLangOpts().Cheerp && !getLangOpts().CPlusPlus) {
+    literalType = deduceCheerpPointeeAddrSpace(literalType);
+  }
   auto *E = new (Context) CompoundLiteralExpr(LParenLoc, TInfo, literalType,
                                               VK, LiteralExpr, isFileScope);
   if (isFileScope) {
@@ -7400,7 +7419,8 @@ Sema::BuildCompoundLiteralExpr(SourceLocation LParenLoc, TypeSourceInfo *TInfo,
         !literalType->isDependentType()) // C99 6.5.2.5p3
       if (CheckForConstantInitializer(LiteralExpr, literalType))
         return ExprError();
-  } else if (literalType.getAddressSpace() != LangAS::opencl_private &&
+  } else if (!getLangOpts().Cheerp &&
+             literalType.getAddressSpace() != LangAS::opencl_private &&
              literalType.getAddressSpace() != LangAS::Default) {
     // Embedded-C extensions to C99 6.5.2.5:
     //   "If the compound literal occurs inside the body of a function, the
@@ -8409,7 +8429,7 @@ static QualType checkConditionalPointerCompatibility(Sema &S, ExprResult &LHS,
   // which is a superset of address spaces of both the 2nd and the 3rd
   // operands of the conditional operator.
   QualType ResultTy = [&, ResultAddrSpace]() {
-    if (S.getLangOpts().OpenCL) {
+    if (S.getLangOpts().OpenCL || !S.Context.getTargetInfo().isByteAddressable()) {
       Qualifiers CompositeQuals = CompositeTy.getQualifiers();
       CompositeQuals.setAddressSpace(ResultAddrSpace);
       return S.Context
@@ -8475,7 +8495,9 @@ checkConditionalObjectPointersCompatibility(Sema &S, ExprResult &LHS,
     // Add qualifiers if necessary.
     LHS = S.ImpCastExprToType(LHS.get(), destType, CK_NoOp);
     // Promote to void*.
-    RHS = S.ImpCastExprToType(RHS.get(), destType, CK_BitCast);
+    bool ASMatch = lhptee.getAddressSpace() == rhptee.getAddressSpace();
+    auto Conv = ASMatch? CK_BitCast : CK_AddressSpaceConversion;
+    RHS = S.ImpCastExprToType(RHS.get(), destType, Conv);
     return destType;
   }
   if (rhptee->isVoidType() && lhptee->isIncompleteOrObjectType()) {
@@ -8485,7 +8507,9 @@ checkConditionalObjectPointersCompatibility(Sema &S, ExprResult &LHS,
     // Add qualifiers if necessary.
     RHS = S.ImpCastExprToType(RHS.get(), destType, CK_NoOp);
     // Promote to void*.
-    LHS = S.ImpCastExprToType(LHS.get(), destType, CK_BitCast);
+    bool ASMatch = lhptee.getAddressSpace() == rhptee.getAddressSpace();
+    auto Conv = ASMatch? CK_BitCast : CK_AddressSpaceConversion;
+    LHS = S.ImpCastExprToType(LHS.get(), destType, Conv);
     return destType;
   }
 
@@ -14649,8 +14673,15 @@ QualType Sema::CheckAddressOfOperand(ExprResult &OrigOp, SourceLocation OpLoc) {
           while (cast<RecordDecl>(Ctx)->isAnonymousStructOrUnion())
             Ctx = Ctx->getParent();
 
+          QualType T = op->getType();
+
+          // CHEERP: the address space of a pointer-to-member is the address
+          // space of the class that contains the member
+          if (LangOpts.Cheerp)
+            T = Context.getAddrSpaceQualType(T, Context.getCheerpTypeAddressSpace(cast<RecordDecl>(Ctx)));
+
           QualType MPTy = Context.getMemberPointerType(
-              op->getType(),
+              T,
               Context.getTypeDeclType(cast<RecordDecl>(Ctx)).getTypePtr());
           // Under the MS ABI, lock down the inheritance model now.
           if (Context.getTargetInfo().getCXXABI().isMicrosoft())

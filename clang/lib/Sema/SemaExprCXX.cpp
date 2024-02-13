@@ -2126,6 +2126,10 @@ Sema::BuildCXXNew(SourceRange Range, bool UseGlobal,
     }
   }
 
+  if (!Context.getTargetInfo().isByteAddressable()) {
+    AllocType = deduceCheerpPointeeAddrSpace(AllocType);
+  }
+
   if (CheckAllocatedType(AllocType, TypeRange.getBegin(), TypeRange))
     return ExprError();
 
@@ -2519,6 +2523,7 @@ bool Sema::CheckAllocatedType(QualType AllocType, SourceLocation Loc,
     return Diag(Loc, diag::err_variably_modified_new_type)
              << AllocType;
   else if (AllocType.getAddressSpace() != LangAS::Default &&
+           Context.getTargetInfo().isByteAddressable() &&
            !getLangOpts().OpenCLCPlusPlus)
     return Diag(Loc, diag::err_address_space_qualified_new)
       << AllocType.getUnqualifiedType()
@@ -3108,7 +3113,11 @@ void Sema::DeclareGlobalNewDelete() {
 
   GlobalNewDeleteDeclared = true;
 
-  QualType VoidPtr = Context.getPointerType(Context.VoidTy);
+  QualType VoidTy = Context.VoidTy;
+  if (Context.getLangOpts().Cheerp) {
+    VoidTy = Context.getAddrSpaceQualType(VoidTy, CurCheerpFallbackAS);
+  }
+  QualType VoidPtr = Context.getPointerType(VoidTy);
   QualType SizeT = Context.getSizeType();
 
   auto DeclareGlobalAllocationFunctions = [&](OverloadedOperatorKind Kind,
@@ -3731,7 +3740,7 @@ Sema::ActOnCXXDelete(SourceLocation StartLoc, bool UseGlobal,
     QualType PointeeElem = Context.getBaseElementType(Pointee);
 
     if (Pointee.getAddressSpace() != LangAS::Default &&
-        !getLangOpts().OpenCLCPlusPlus)
+        !getLangOpts().OpenCLCPlusPlus && !getLangOpts().Cheerp)
       return Diag(Ex.get()->getBeginLoc(),
                   diag::err_address_space_qualified_delete)
              << Pointee.getUnqualifiedType()
@@ -6651,6 +6660,26 @@ QualType Sema::CXXCheckConditionalOperands(ExprResult &Cond, ExprResult &LHS,
     if (TryClassUnification(*this, RHS.get(), LHS.get(), QuestionLoc, HaveR2L, R2LType))
       return QualType();
 
+    // CHEERP: since we allow AS conversions to AND from the default AS, and
+    // function return values have the default AS, we can find ourselves in this situation:
+    //
+    // struct Foo;
+    // Foo foo();
+    // Foo f;
+    // Foo f2 = cond()? f : foo();
+    //
+    // Here the ternary operator does not know if it should have the default AS
+    // or the AS of `f`. We forcibly decide here that we prefer the non-default
+    // AS. There might be trickier situations that are not accounted for.
+    // We might also decide to give non-default AS to return values, or to restrict
+    // the superset relations, in which case this might not be necessary anymore
+    if (getLangOpts().Cheerp && HaveR2L && HaveL2R) {
+      if (!L2RType.hasAddressSpace() && R2LType.hasAddressSpace()) {
+        HaveL2R = false;
+      } else if (L2RType.hasAddressSpace() && !R2LType.hasAddressSpace()) {
+        HaveR2L = false;
+      }
+    }
     //   If both can be converted, [...] the program is ill-formed.
     if (HaveL2R && HaveR2L) {
       Diag(QuestionLoc, diag::err_conditional_ambiguous)
@@ -6968,6 +6997,13 @@ QualType Sema::FindCompositePointerType(SourceLocation Loc,
       } else if (Steps.size() == 1) {
         bool MaybeQ1 = Q1.isAddressSpaceSupersetOf(Q2, CT1, CT2);
         bool MaybeQ2 = Q2.isAddressSpaceSupersetOf(Q1, CT2, CT1);
+        // CHEERP: if one of the address spaces is Default, choose the other one
+        if (MaybeQ1 == MaybeQ2 && Context.getLangOpts().Cheerp) {
+          if (Q1.getAddressSpace() == LangAS::Default)
+            MaybeQ1 = false;
+          if (Q2.getAddressSpace() == LangAS::Default)
+            MaybeQ2 = false;
+        }
         if (MaybeQ1 == MaybeQ2) {
           // Exception for ptr size address spaces. Should be able to choose
           // either address space during comparison.
