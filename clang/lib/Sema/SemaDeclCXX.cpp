@@ -8802,12 +8802,17 @@ bool Sema::CheckExplicitlyDefaultedComparison(Scope *S, FunctionDecl *FD,
       // Is it `T const &`?
       bool Ok = !IsMethod;
       QualType ExpectedTy;
-      if (RD)
+      if (RD) {
         ExpectedTy = Context.getRecordType(RD);
+        if (Context.getLangOpts().Cheerp) {
+          ExpectedTy = deduceCheerpPointeeAddrSpace(ExpectedTy, RD);
+        }
+      }
       if (auto *Ref = CTy->getAs<ReferenceType>()) {
         CTy = Ref->getPointeeType();
-        if (RD)
+        if (RD) {
           ExpectedTy.addConst();
+        }
         Ok = true;
       }
 
@@ -13674,7 +13679,7 @@ void Sema::setupImplicitSpecialMemberType(CXXMethodDecl *SpecialMem,
   // Build an exception specification pointing back at this constructor.
   FunctionProtoType::ExtProtoInfo EPI = getImplicitMethodEPI(*this, SpecialMem);
 
-  LangAS AS = getDefaultCXXMethodAddrSpace();
+  LangAS AS = getDefaultCXXMethodAddrSpace(SpecialMem->getParent());
   if (AS != LangAS::Default) {
     EPI.TypeQuals.addAddressSpace(AS);
   }
@@ -13754,8 +13759,11 @@ CXXConstructorDecl *Sema::DeclareImplicitDefaultConstructor(
     PushOnScopeChains(DefaultCon, S, false);
   ClassDecl->addDecl(DefaultCon);
 
-  // CHEERP: Inject asmjs/genericjs attribute if required
-  MaybeInjectCheerpModeAttr(DefaultCon);
+  if (getLangOpts().Cheerp) {
+    // CHEERP: Inject asmjs/genericjs attribute if required
+    MaybeInjectCheerpModeAttr(DefaultCon);
+    deduceCheerpAddressSpace(DefaultCon);
+  }
 
   return DefaultCon;
 }
@@ -13833,7 +13841,7 @@ Sema::findInheritingConstructor(SourceLocation Loc,
   TypeSourceInfo *TInfo =
       Context.getTrivialTypeSourceInfo(BaseCtor->getType(), UsingLoc);
   FunctionProtoTypeLoc ProtoLoc =
-      TInfo->getTypeLoc().IgnoreParens().castAs<FunctionProtoTypeLoc>();
+      TInfo->getTypeLoc().IgnoreParens().getUnqualifiedLoc().castAs<FunctionProtoTypeLoc>();
 
   // Check the inherited constructor is valid and find the list of base classes
   // from which it was inherited.
@@ -13972,7 +13980,11 @@ void Sema::DefineInheritingConstructor(SourceLocation CurrentLocation,
 
   Constructor->setBody(new (Context) CompoundStmt(InitLoc));
   Constructor->markUsed(Context);
-  MaybeInjectCheerpModeAttr(Constructor);
+  if (getLangOpts().Cheerp) {
+    // CHEERP: Inject asmjs/genericjs attribute if required
+    MaybeInjectCheerpModeAttr(Constructor);
+    deduceCheerpAddressSpace(Constructor);
+  }
 
   if (ASTMutationListener *L = getASTMutationListener()) {
     L->CompletedImplicitDefinition(Constructor);
@@ -14045,8 +14057,11 @@ CXXDestructorDecl *Sema::DeclareImplicitDestructor(CXXRecordDecl *ClassDecl) {
     PushOnScopeChains(Destructor, S, false);
   ClassDecl->addDecl(Destructor);
 
-  // CHEERP: Inject asmjs/genericjs attribute if required
-  MaybeInjectCheerpModeAttr(Destructor);
+  if (getLangOpts().Cheerp) {
+    // CHEERP: Inject asmjs/genericjs attribute if required
+    MaybeInjectCheerpModeAttr(Destructor);
+    deduceCheerpAddressSpace(Destructor);
+  }
 
   return Destructor;
 }
@@ -14625,7 +14640,7 @@ CXXMethodDecl *Sema::DeclareImplicitCopyAssignment(CXXRecordDecl *ClassDecl) {
     return nullptr;
 
   QualType ArgType = Context.getTypeDeclType(ClassDecl);
-  LangAS AS = getDefaultCXXMethodAddrSpace();
+  LangAS AS = getDefaultCXXMethodAddrSpace(ClassDecl);
   if (AS != LangAS::Default)
     ArgType = Context.getAddrSpaceQualType(ArgType, AS);
   QualType RetType = Context.getLValueReferenceType(ArgType);
@@ -14691,8 +14706,11 @@ CXXMethodDecl *Sema::DeclareImplicitCopyAssignment(CXXRecordDecl *ClassDecl) {
     PushOnScopeChains(CopyAssignment, S, false);
   ClassDecl->addDecl(CopyAssignment);
 
-  // CHEERP: Inject asmjs/genericjs attribute if required
-  MaybeInjectCheerpModeAttr(CopyAssignment);
+  if (getLangOpts().Cheerp) {
+    // CHEERP: Inject asmjs/genericjs attribute if required
+    MaybeInjectCheerpModeAttr(CopyAssignment);
+    deduceCheerpAddressSpace(CopyAssignment);
+  }
 
   return CopyAssignment;
 }
@@ -14717,7 +14735,7 @@ CXXMethodDecl *Sema::DeclareImplicitJsExportHelper(CXXRecordDecl *ClassDecl, CXX
   if (isNewHelper) {
     // new return a pointer to the object just being constructed
     RetType = Context.getTypeDeclType(ClassDecl);
-    LangAS AS = getDefaultCXXMethodAddrSpace();
+    LangAS AS = getDefaultCXXMethodAddrSpace(ClassDecl);
     if (AS != LangAS::Default)
       RetType = Context.getAddrSpaceQualType(RetType, AS);
     RetType = Context.getPointerType(RetType);
@@ -14760,6 +14778,9 @@ CXXMethodDecl *Sema::DeclareImplicitJsExportHelper(CXXRecordDecl *ClassDecl, CXX
   setupImplicitSpecialMemberType(Helper, RetType, ArgTypes);
 
   FunctionProtoType::ExtProtoInfo EPI;
+  LangAS AS = Context.getCheerpTypeAddressSpace(ClassDecl);
+  if (AS != LangAS::Default)
+    EPI.TypeQuals.addAddressSpace(AS);
   Helper->setParams(ParamDecls);
   Helper->setType(Context.getFunctionType(RetType, ArgTypes,
 					 EPI));
@@ -14772,10 +14793,13 @@ CXXMethodDecl *Sema::DeclareImplicitJsExportHelper(CXXRecordDecl *ClassDecl, CXX
 
   Helper->addAttr(JsExportAttr::CreateImplicit(Context));
 
-  // CHEERP: Inject asmjs/genericjs attribute
-  // This will use the class's one for deleteHelper and
-  // the Constructor's one for newHelper
-  MaybeInjectCheerpModeAttr(Helper, Constructor);
+  if (getLangOpts().Cheerp) {
+    // CHEERP: Inject asmjs/genericjs attribute
+    // This will use the class's one for deleteHelper and
+    // the Constructor's one for newHelper
+    // CHEERP: Inject asmjs/genericjs attribute if required
+    MaybeInjectCheerpModeAttr(Helper, Constructor);
+  }
 
   return Helper;
 }
@@ -14914,6 +14938,8 @@ void Sema::DefineImplicitJsExportHelper(CXXRecordDecl *ClassDecl, CXXMethodDecl*
   if (ASTMutationListener *L = getASTMutationListener()) {
     L->CompletedImplicitDefinition(Helper);
   }
+
+  deduceCheerpAddressSpace(Helper);
 }
 
 /// Diagnose an implicit copy operation for a class which is odr-used, but
@@ -15189,7 +15215,7 @@ CXXMethodDecl *Sema::DeclareImplicitMoveAssignment(CXXRecordDecl *ClassDecl) {
   // constructor rules.
 
   QualType ArgType = Context.getTypeDeclType(ClassDecl);
-  LangAS AS = getDefaultCXXMethodAddrSpace();
+  LangAS AS = getDefaultCXXMethodAddrSpace(ClassDecl);
   if (AS != LangAS::Default)
     ArgType = Context.getAddrSpaceQualType(ArgType, AS);
   QualType RetType = Context.getLValueReferenceType(ArgType);
@@ -15251,8 +15277,11 @@ CXXMethodDecl *Sema::DeclareImplicitMoveAssignment(CXXRecordDecl *ClassDecl) {
     PushOnScopeChains(MoveAssignment, S, false);
   ClassDecl->addDecl(MoveAssignment);
 
-  // CHEERP: Inject asmjs/genericjs attribute if required
-  MaybeInjectCheerpModeAttr(MoveAssignment);
+  if (getLangOpts().Cheerp) {
+    // CHEERP: Inject asmjs/genericjs attribute if required
+    MaybeInjectCheerpModeAttr(MoveAssignment);
+    deduceCheerpAddressSpace(MoveAssignment);
+  }
   return MoveAssignment;
 }
 
@@ -15567,7 +15596,7 @@ CXXConstructorDecl *Sema::DeclareImplicitCopyConstructor(
   if (Const)
     ArgType = ArgType.withConst();
 
-  LangAS AS = getDefaultCXXMethodAddrSpace();
+  LangAS AS = getDefaultCXXMethodAddrSpace(ClassDecl);
   if (AS != LangAS::Default)
     ArgType = Context.getAddrSpaceQualType(ArgType, AS);
 
@@ -15644,8 +15673,11 @@ CXXConstructorDecl *Sema::DeclareImplicitCopyConstructor(
     PushOnScopeChains(CopyConstructor, S, false);
   ClassDecl->addDecl(CopyConstructor);
 
-  // CHEERP: Inject asmjs/genericjs attribute if required
-  MaybeInjectCheerpModeAttr(CopyConstructor);
+  if (getLangOpts().Cheerp) {
+    // CHEERP: Inject asmjs/genericjs attribute if required
+    MaybeInjectCheerpModeAttr(CopyConstructor);
+    deduceCheerpAddressSpace(CopyConstructor);
+  }
 
   return CopyConstructor;
 }
@@ -15709,7 +15741,7 @@ CXXConstructorDecl *Sema::DeclareImplicitMoveConstructor(
   QualType ClassType = Context.getTypeDeclType(ClassDecl);
 
   QualType ArgType = ClassType;
-  LangAS AS = getDefaultCXXMethodAddrSpace();
+  LangAS AS = getDefaultCXXMethodAddrSpace(ClassDecl);
   if (AS != LangAS::Default)
     ArgType = Context.getAddrSpaceQualType(ClassType, AS);
   ArgType = Context.getRValueReferenceType(ArgType);
@@ -15780,8 +15812,11 @@ CXXConstructorDecl *Sema::DeclareImplicitMoveConstructor(
     PushOnScopeChains(MoveConstructor, S, false);
   ClassDecl->addDecl(MoveConstructor);
 
-  // CHEERP: Inject asmjs/genericjs attribute if required
-  MaybeInjectCheerpModeAttr(MoveConstructor);
+  if (getLangOpts().Cheerp) {
+    // CHEERP: Inject asmjs/genericjs attribute if required
+    MaybeInjectCheerpModeAttr(MoveConstructor);
+    deduceCheerpAddressSpace(MoveConstructor);
+  }
 
   return MoveConstructor;
 }
@@ -15881,8 +15916,11 @@ void Sema::DefineImplicitLambdaToFunctionPointerConversion(
     Invoker->setBody(new (Context) CompoundStmt(Conv->getLocation()));
   }
 
-  // CHEERP: inherit the asmjs/genericjs attributes from the lambda decl
-  MaybeInjectCheerpModeAttr(Invoker);
+  if (getLangOpts().Cheerp) {
+    // CHEERP: inherit the asmjs/genericjs attributes from the lambda decl
+    MaybeInjectCheerpModeAttr(Invoker);
+    deduceCheerpAddressSpace(Invoker);
+  }
 
   // Construct the body of the conversion function { return __invoke; }.
   Expr *FunctionRef = BuildDeclRefExpr(Invoker, Invoker->getType(), VK_LValue,
@@ -16281,7 +16319,7 @@ CheckOperatorNewDeleteTypes(Sema &SemaRef, const FunctionDecl *FnDecl,
   QualType ResultType =
       FnDecl->getType()->castAs<FunctionType>()->getReturnType();
 
-  if (SemaRef.getLangOpts().OpenCLCPlusPlus) {
+  if (SemaRef.getLangOpts().OpenCLCPlusPlus || !SemaRef.Context.getTargetInfo().isByteAddressable()) {
     // The operator is valid on any address space for OpenCL.
     // Drop address space from actual and expected result types.
     if (const auto *PtrTy = ResultType->getAs<PointerType>())
@@ -16316,7 +16354,7 @@ CheckOperatorNewDeleteTypes(Sema &SemaRef, const FunctionDecl *FnDecl,
       << FnDecl->getDeclName();
 
   QualType FirstParamType = FnDecl->getParamDecl(0)->getType();
-  if (SemaRef.getLangOpts().OpenCLCPlusPlus) {
+  if (SemaRef.getLangOpts().OpenCLCPlusPlus || !SemaRef.Context.getTargetInfo().isByteAddressable()) {
     // The operator is valid on any address space for OpenCL.
     // Drop address space from actual and expected first parameter types.
     if (const auto *PtrTy =
@@ -17103,6 +17141,9 @@ Decl *Sema::ActOnExceptionDeclarator(Scope *S, Declarator &D) {
     CurContext->addDecl(ExDecl);
 
   ProcessDeclAttributes(S, ExDecl, D);
+  if (Context.getLangOpts().Cheerp) {
+    deduceCheerpAddressSpace(ExDecl);
+  }
   return ExDecl;
 }
 
