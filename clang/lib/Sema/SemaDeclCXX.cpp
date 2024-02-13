@@ -8802,12 +8802,17 @@ bool Sema::CheckExplicitlyDefaultedComparison(Scope *S, FunctionDecl *FD,
       // Is it `T const &`?
       bool Ok = !IsMethod;
       QualType ExpectedTy;
-      if (RD)
+      if (RD) {
         ExpectedTy = Context.getRecordType(RD);
+        if (Context.getLangOpts().Cheerp) {
+          ExpectedTy = deduceCheerpPointeeAddrSpace(ExpectedTy, RD);
+        }
+      }
       if (auto *Ref = CTy->getAs<ReferenceType>()) {
         CTy = Ref->getPointeeType();
-        if (RD)
+        if (RD) {
           ExpectedTy.addConst();
+        }
         Ok = true;
       }
 
@@ -13674,7 +13679,7 @@ void Sema::setupImplicitSpecialMemberType(CXXMethodDecl *SpecialMem,
   // Build an exception specification pointing back at this constructor.
   FunctionProtoType::ExtProtoInfo EPI = getImplicitMethodEPI(*this, SpecialMem);
 
-  LangAS AS = getDefaultCXXMethodAddrSpace();
+  LangAS AS = getDefaultCXXMethodAddrSpace(SpecialMem->getParent());
   if (AS != LangAS::Default) {
     EPI.TypeQuals.addAddressSpace(AS);
   }
@@ -14625,7 +14630,7 @@ CXXMethodDecl *Sema::DeclareImplicitCopyAssignment(CXXRecordDecl *ClassDecl) {
     return nullptr;
 
   QualType ArgType = Context.getTypeDeclType(ClassDecl);
-  LangAS AS = getDefaultCXXMethodAddrSpace();
+  LangAS AS = getDefaultCXXMethodAddrSpace(ClassDecl);
   if (AS != LangAS::Default)
     ArgType = Context.getAddrSpaceQualType(ArgType, AS);
   QualType RetType = Context.getLValueReferenceType(ArgType);
@@ -14717,7 +14722,7 @@ CXXMethodDecl *Sema::DeclareImplicitJsExportHelper(CXXRecordDecl *ClassDecl, CXX
   if (isNewHelper) {
     // new return a pointer to the object just being constructed
     RetType = Context.getTypeDeclType(ClassDecl);
-    LangAS AS = getDefaultCXXMethodAddrSpace();
+    LangAS AS = getDefaultCXXMethodAddrSpace(ClassDecl);
     if (AS != LangAS::Default)
       RetType = Context.getAddrSpaceQualType(RetType, AS);
     RetType = Context.getPointerType(RetType);
@@ -15189,7 +15194,7 @@ CXXMethodDecl *Sema::DeclareImplicitMoveAssignment(CXXRecordDecl *ClassDecl) {
   // constructor rules.
 
   QualType ArgType = Context.getTypeDeclType(ClassDecl);
-  LangAS AS = getDefaultCXXMethodAddrSpace();
+  LangAS AS = getDefaultCXXMethodAddrSpace(ClassDecl);
   if (AS != LangAS::Default)
     ArgType = Context.getAddrSpaceQualType(ArgType, AS);
   QualType RetType = Context.getLValueReferenceType(ArgType);
@@ -15567,7 +15572,7 @@ CXXConstructorDecl *Sema::DeclareImplicitCopyConstructor(
   if (Const)
     ArgType = ArgType.withConst();
 
-  LangAS AS = getDefaultCXXMethodAddrSpace();
+  LangAS AS = getDefaultCXXMethodAddrSpace(ClassDecl);
   if (AS != LangAS::Default)
     ArgType = Context.getAddrSpaceQualType(ArgType, AS);
 
@@ -15709,7 +15714,7 @@ CXXConstructorDecl *Sema::DeclareImplicitMoveConstructor(
   QualType ClassType = Context.getTypeDeclType(ClassDecl);
 
   QualType ArgType = ClassType;
-  LangAS AS = getDefaultCXXMethodAddrSpace();
+  LangAS AS = getDefaultCXXMethodAddrSpace(ClassDecl);
   if (AS != LangAS::Default)
     ArgType = Context.getAddrSpaceQualType(ClassType, AS);
   ArgType = Context.getRValueReferenceType(ArgType);
@@ -16281,7 +16286,7 @@ CheckOperatorNewDeleteTypes(Sema &SemaRef, const FunctionDecl *FnDecl,
   QualType ResultType =
       FnDecl->getType()->castAs<FunctionType>()->getReturnType();
 
-  if (SemaRef.getLangOpts().OpenCLCPlusPlus) {
+  if (SemaRef.getLangOpts().OpenCLCPlusPlus || !SemaRef.Context.getTargetInfo().isByteAddressable()) {
     // The operator is valid on any address space for OpenCL.
     // Drop address space from actual and expected result types.
     if (const auto *PtrTy = ResultType->getAs<PointerType>())
@@ -16316,7 +16321,7 @@ CheckOperatorNewDeleteTypes(Sema &SemaRef, const FunctionDecl *FnDecl,
       << FnDecl->getDeclName();
 
   QualType FirstParamType = FnDecl->getParamDecl(0)->getType();
-  if (SemaRef.getLangOpts().OpenCLCPlusPlus) {
+  if (SemaRef.getLangOpts().OpenCLCPlusPlus || !SemaRef.Context.getTargetInfo().isByteAddressable()) {
     // The operator is valid on any address space for OpenCL.
     // Drop address space from actual and expected first parameter types.
     if (const auto *PtrTy =
@@ -17103,6 +17108,9 @@ Decl *Sema::ActOnExceptionDeclarator(Scope *S, Declarator &D) {
     CurContext->addDecl(ExDecl);
 
   ProcessDeclAttributes(S, ExDecl, D);
+  if (Context.getLangOpts().Cheerp) {
+    deduceCheerpAddressSpace(ExDecl);
+  }
   return ExDecl;
 }
 

@@ -1938,6 +1938,10 @@ Sema::ActOnStringLiteral(ArrayRef<Token> StringToks, Scope *UDLScope) {
   QualType StrTy =
       Context.getStringLiteralArrayType(CharTy, Literal.GetNumStringChars());
 
+  if (getLangOpts().Cheerp) {
+    StrTy = deduceCheerpPointeeAddrSpace(StrTy);
+  }
+
   // Pass &StringTokLocs[0], StringTokLocs.size() to factory!
   StringLiteral *Lit = StringLiteral::Create(Context, Literal.GetString(),
                                              Kind, Literal.Pascal, StrTy,
@@ -7040,16 +7044,17 @@ ExprResult Sema::BuildResolvedCallExpr(Expr *Fn, NamedDecl *NDecl,
             QualType t = e->getType().getCanonicalType();
             if(const PointerType* pt = dyn_cast<PointerType>(t)) {
                 QualType pointedType = pt->getPointeeType().getCanonicalType();
-                return pointedType->isCharType();
+                return pointedType->isCharType() || !pointedType.hasAddressSpace() || pointedType.getAddressSpace() == LangAS::cheerp_wasm;
             } else if(const ArrayType* at = dyn_cast<ArrayType>(t)) {
                 QualType pointedType = at->getElementType().getCanonicalType();
-                return pointedType->isCharType();
+                return pointedType->isCharType() || !pointedType.hasAddressSpace() || pointedType.getAddressSpace() == LangAS::cheerp_wasm;
             }
             return false;
         };
         if(Args.size() != 3 || !IsValidMemcmpSource(Args[0]) || !IsValidMemcmpSource(Args[1]))
             return ExprError(Diag(LParenLoc, diag::err_cheerp_type_unsafe_functions)
                          << FDecl << "cheerp::memcmp or CHEERP_MEMCMP in <cheerp/memory.h>");
+        break;
       }
       default:
         break;
@@ -8409,7 +8414,7 @@ static QualType checkConditionalPointerCompatibility(Sema &S, ExprResult &LHS,
   // which is a superset of address spaces of both the 2nd and the 3rd
   // operands of the conditional operator.
   QualType ResultTy = [&, ResultAddrSpace]() {
-    if (S.getLangOpts().OpenCL) {
+    if (S.getLangOpts().OpenCL || !S.Context.getTargetInfo().isByteAddressable()) {
       Qualifiers CompositeQuals = CompositeTy.getQualifiers();
       CompositeQuals.setAddressSpace(ResultAddrSpace);
       return S.Context
@@ -8475,7 +8480,9 @@ checkConditionalObjectPointersCompatibility(Sema &S, ExprResult &LHS,
     // Add qualifiers if necessary.
     LHS = S.ImpCastExprToType(LHS.get(), destType, CK_NoOp);
     // Promote to void*.
-    RHS = S.ImpCastExprToType(RHS.get(), destType, CK_BitCast);
+    bool ASMatch = lhptee.getAddressSpace() == rhptee.getAddressSpace();
+    auto Conv = ASMatch? CK_BitCast : CK_AddressSpaceConversion;
+    RHS = S.ImpCastExprToType(RHS.get(), destType, Conv);
     return destType;
   }
   if (rhptee->isVoidType() && lhptee->isIncompleteOrObjectType()) {
@@ -8485,7 +8492,9 @@ checkConditionalObjectPointersCompatibility(Sema &S, ExprResult &LHS,
     // Add qualifiers if necessary.
     RHS = S.ImpCastExprToType(RHS.get(), destType, CK_NoOp);
     // Promote to void*.
-    LHS = S.ImpCastExprToType(LHS.get(), destType, CK_BitCast);
+    bool ASMatch = lhptee.getAddressSpace() == rhptee.getAddressSpace();
+    auto Conv = ASMatch? CK_BitCast : CK_AddressSpaceConversion;
+    LHS = S.ImpCastExprToType(LHS.get(), destType, Conv);
     return destType;
   }
 

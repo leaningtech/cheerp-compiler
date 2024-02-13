@@ -1141,6 +1141,8 @@ Decl *TemplateDeclInstantiator::VisitVarDecl(VarDecl *D,
 
   if (SemaRef.getLangOpts().OpenCL)
     SemaRef.deduceOpenCLAddressSpace(Var);
+  if (SemaRef.getLangOpts().Cheerp)
+    SemaRef.deduceCheerpAddressSpace(Var);
 
   // Substitute the nested name specifier, if any.
   if (SubstQualifier(D, Var))
@@ -3947,6 +3949,8 @@ Decl *TemplateDeclInstantiator::VisitVarTemplateSpecializationDecl(
 
   if (SemaRef.getLangOpts().OpenCL)
     SemaRef.deduceOpenCLAddressSpace(Var);
+  if (SemaRef.getLangOpts().Cheerp)
+    SemaRef.deduceCheerpAddressSpace(Var);
 
   // Substitute the nested name specifier, if any.
   if (SubstQualifier(D, Var))
@@ -5188,6 +5192,8 @@ VarTemplateSpecializationDecl *Sema::CompleteVarTemplateSpecializationDecl(
 
   if (getLangOpts().OpenCL)
     deduceOpenCLAddressSpace(VarSpec);
+  if (getLangOpts().Cheerp)
+    deduceCheerpAddressSpace(VarSpec);
 
   return VarSpec;
 }

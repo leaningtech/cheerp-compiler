@@ -4837,7 +4837,7 @@ public:
   void addMethodToGlobalList(ObjCMethodList *List, ObjCMethodDecl *Method);
 
   /// Returns default addr space for method qualifiers.
-  LangAS getDefaultCXXMethodAddrSpace() const;
+  LangAS getDefaultCXXMethodAddrSpace(CXXRecordDecl* D) const;
 
 private:
   /// AddMethodToGlobalPool - Add an instance or factory method to the global
@@ -10331,6 +10331,9 @@ public:
   bool inferObjCARCLifetime(ValueDecl *decl);
 
   void deduceOpenCLAddressSpace(ValueDecl *decl);
+
+  void deduceCheerpAddressSpace(ValueDecl *decl);
+  QualType deduceCheerpPointeeAddrSpace(QualType PointeeType, Decl* D = nullptr);
 
   ExprResult
   HandleExprPropertyRefExpr(const ObjCObjectPointerType *OPT,
