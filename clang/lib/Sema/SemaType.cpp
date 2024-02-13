@@ -2151,6 +2151,42 @@ static QualType deduceOpenCLPointeeAddrSpace(Sema &S, QualType PointeeType) {
   return PointeeType;
 }
 
+QualType Sema::deduceCheerpPointeeAddrSpace(QualType PointeeType) {
+  if (!PointeeType->isUndeducedAutoType() && !PointeeType->isDependentType() &&
+      !PointeeType.hasAddressSpace()) {
+    LangAS AS = LangAS::Default;
+    if (PointeeType->getAsTagDecl()) {
+      AS = Context.getCheerpTypeAddressSpace(PointeeType);
+    } else {
+      DeclContext* C = getCurLexicalContext();
+      bool asmjs = false;
+      bool genericjs = false;
+      while (C) {
+        Decl* D = cast<Decl>(C);
+        if (D->hasAttr<clang::AsmJSAttr>()) {
+          asmjs = true;
+          break;
+        } else if (D->hasAttr<clang::GenericJSAttr>()) {
+          genericjs = true;
+          break;
+        } else {
+          C = D->getDeclContext();
+        };
+      }
+      if (!asmjs && !genericjs)
+      {
+        asmjs = Context.getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly;
+      }
+      AS = asmjs? LangAS::Default : LangAS::cheerp_genericjs;
+    }
+    if (AS != LangAS::Default) {
+      PointeeType = Context.getAddrSpaceQualType(
+          PointeeType, AS);
+    }
+  }
+  return PointeeType;
+}
+
 /// Build a pointer type.
 ///
 /// \param T The type to which we'll be building a pointer.
@@ -2196,6 +2232,9 @@ QualType Sema::BuildPointerType(QualType T,
 
   if (getLangOpts().OpenCL)
     T = deduceOpenCLPointeeAddrSpace(*this, T);
+
+  if (!Context.getTargetInfo().isByteAddressable())
+    T = deduceCheerpPointeeAddrSpace(T);
 
   // Build the pointer type.
   return Context.getPointerType(T);
@@ -2271,6 +2310,9 @@ QualType Sema::BuildReferenceType(QualType T, bool SpelledAsLValue,
 
   if (getLangOpts().OpenCL)
     T = deduceOpenCLPointeeAddrSpace(*this, T);
+
+  if (!Context.getTargetInfo().isByteAddressable())
+    T = deduceCheerpPointeeAddrSpace(T);
 
   // Handle restrict on references.
   if (LValueRef)
@@ -3096,6 +3138,9 @@ QualType Sema::BuildBlockPointerType(QualType T,
 
   if (getLangOpts().OpenCL)
     T = deduceOpenCLPointeeAddrSpace(*this, T);
+
+  if (!Context.getTargetInfo().isByteAddressable())
+    T = deduceCheerpPointeeAddrSpace(T);
 
   return Context.getBlockPointerType(T);
 }
