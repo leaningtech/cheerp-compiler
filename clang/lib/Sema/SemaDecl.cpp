@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "TypeLocBuilder.h"
+#include "clang/Analysis/AnalysisDeclContext.h"
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/ASTLambda.h"
@@ -4063,6 +4064,23 @@ bool Sema::MergeFunctionDecl(FunctionDecl *New, NamedDecl *&OldD, Scope *S,
         = Context.adjustFunctionType(OldType, OldTypeInfo.withNoReturn(true));
       OldQTypeForComparison = QualType(OldTypeForComparison, 0);
       assert(OldQTypeForComparison.isCanonical());
+      if (OldQType.hasAddressSpace()) {
+        OldQTypeForComparison = Context.getAddrSpaceQualType(OldQTypeForComparison, OldQType.getAddressSpace());
+      }
+    }
+    // CHEERP: We inject an AS qualifier only on non-static methods (for `this`),
+    // but out-of-line static methods don't look as such at first glance,
+    // and they end up with the qualifier (while the declaration did not).
+    // Fix this mismatch here.
+    if (getLangOpts().Cheerp && isa<CXXMethodDecl>(Old) && Old->isStatic()) {
+      auto* NewProto = NewQType->castAs<FunctionProtoType>();
+      auto NewExtProtoInfo = NewProto->getExtProtoInfo();
+      NewExtProtoInfo.TypeQuals.removeAddressSpace();
+      NewQType = Context.getFunctionType(NewProto->getReturnType(),
+                                         NewProto->getParamTypes(),
+                                         NewExtProtoInfo);
+      NewQType = Context.getAddrSpaceQualType(NewQType, New->getType().getAddressSpace());
+      New->setType(NewQType);
     }
 
     if (haveIncompatibleLanguageLinkages(Old, New)) {
@@ -6915,6 +6933,38 @@ void Sema::deduceOpenCLAddressSpace(ValueDecl *Decl) {
   }
 }
 
+void Sema::deduceCheerpAddressSpace(ValueDecl *Decl) {
+  if (Decl->getType().hasAddressSpace())
+    return;
+  QualType Type = Decl->getType();
+  if (Type->isVoidType())
+    return;
+  // If the original type from a decayed type is an array type and that array
+  // type has no address space yet, deduce it now.
+  if (auto DT = dyn_cast<DecayedType>(Type)) {
+    auto OrigTy = DT->getOriginalType();
+    if (!OrigTy.hasAddressSpace() && OrigTy->isArrayType()) {
+      // Add the address space to the original array type and then propagate
+      // that to the element type through `getAsArrayType`.
+      OrigTy = deduceCheerpPointeeAddrSpace(OrigTy, Decl);
+      OrigTy = QualType(Context.getAsArrayType(OrigTy), 0);
+      // Re-generate the decayed type.
+      Type = Context.getDecayedType(OrigTy);
+    }
+  }
+  if (isa<VarDecl>(Decl) && cast<VarDecl>(Decl)->hasGlobalStorage() &&
+      AnalysisDeclContext::isInClientNamespace(Decl)) {
+    Type = Context.getAddrSpaceQualType(Type, LangAS::cheerp_client);
+  } else {
+    Type = deduceCheerpPointeeAddrSpace(Type, Decl);
+  }
+  // Apply any qualifiers (including address space) from the array type to
+  // the element type.
+  if (Type->isArrayType())
+    Type = QualType(Context.getAsArrayType(Type), 0);
+  Decl->setType(Type);
+}
+
 static void checkAttributesAfterMerging(Sema &S, NamedDecl &ND) {
   // Ensure that an auto decl is deduced otherwise the checks below might cache
   // the wrong linkage.
@@ -7813,6 +7863,9 @@ NamedDecl *Sema::ActOnVariableDeclarator(
   // Handle attributes prior to checking for duplicates in MergeVarDecl
   ProcessDeclAttributes(S, NewVD, D);
 
+  if (getLangOpts().Cheerp)
+    deduceCheerpAddressSpace(NewVD);
+
   // FIXME: This is probably the wrong location to be doing this and we should
   // probably be doing this for more attributes (especially for function
   // pointer attributes such as format, warn_unused_result, etc.). Ideally
@@ -8515,7 +8568,7 @@ void Sema::CheckVariableDeclarationType(VarDecl *NewVD) {
   // This includes arrays of objects with address space qualifiers, but not
   // automatic variables that point to other address spaces.
   // ISO/IEC TR 18037 S5.1.2
-  if (!getLangOpts().OpenCL && NewVD->hasLocalStorage() &&
+  if (!getLangOpts().OpenCL && !getLangOpts().Cheerp && NewVD->hasLocalStorage() &&
       T.getAddressSpace() != LangAS::Default) {
     Diag(NewVD->getLocation(), diag::err_as_qualified_auto_decl) << 0;
     NewVD->setInvalidDecl();
@@ -10186,6 +10239,10 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
 
   // Handle attributes.
   ProcessDeclAttributes(S, NewFD, D);
+
+  if (getLangOpts().Cheerp) {
+    deduceCheerpAddressSpace(NewFD);
+  }
 
   if (getLangOpts().OpenCL) {
     // OpenCL v1.1 s6.5: Using an address space qualifier in a function return
@@ -12003,6 +12060,9 @@ void Sema::CheckMain(FunctionDecl* FD, const DeclSpec& DS) {
 
   QualType CharPP =
     Context.getPointerType(Context.getPointerType(Context.CharTy));
+  if (getLangOpts().Cheerp) {
+    CharPP = Context.getPointerType(deduceCheerpPointeeAddrSpace(Context.getPointerType(deduceCheerpPointeeAddrSpace(Context.CharTy))));
+  }
   QualType Expected[] = { Context.IntTy, CharPP, CharPP, CharPP };
 
   for (unsigned i = 0; i < nparams; ++i) {
@@ -12651,6 +12711,9 @@ bool Sema::DeduceVariableDeclarationType(VarDecl *VDecl, bool DirectInit,
 
   if (getLangOpts().OpenCL)
     deduceOpenCLAddressSpace(VDecl);
+
+  if (getLangOpts().Cheerp)
+    deduceCheerpAddressSpace(VDecl);
 
   // If this is a redeclaration, check that the type we just deduced matches
   // the previously declared type.
@@ -14168,7 +14231,15 @@ void Sema::AddJsExportPropertyHelper(DeclaratorDecl* Decl, bool Set)
   DeclarationName Name(&PP.getIdentifierTable().get(String));
   DeclContext* DC = Decl->getDeclContext();
   SourceLocation Loc = Decl->getLocation();
-  QualType Type = Context.getFunctionType(ResultTy, Args, {});
+  FunctionProtoType::ExtProtoInfo EPI;
+
+  if (CXXRecordDecl* RD = dyn_cast<CXXRecordDecl>(DC))
+  {
+    LangAS AS = Context.getCheerpTypeAddressSpace(RD);
+    EPI.TypeQuals.addAddressSpace(AS);
+  }
+
+  QualType Type = Context.getFunctionType(ResultTy, Args, EPI);
   TypeSourceInfo* TSI = Context.getTrivialTypeSourceInfo(Type, Loc);
   FunctionDecl* Helper;
   bool Field = false;
@@ -14739,6 +14810,9 @@ Decl *Sema::ActOnParamDeclarator(Scope *S, Declarator &D) {
   if (getLangOpts().OpenCL)
     deduceOpenCLAddressSpace(New);
 
+  if (getLangOpts().Cheerp)
+    deduceCheerpAddressSpace(New);
+
   return New;
 }
 
@@ -14829,8 +14903,9 @@ ParmVarDecl *Sema::CheckParameter(DeclContext *DC, SourceLocation StartLoc,
     T = Context.getLifetimeQualifiedType(T, lifetime);
   }
 
+  QualType AdjTy = Context.getAdjustedParameterType(T);
   ParmVarDecl *New = ParmVarDecl::Create(Context, DC, StartLoc, NameLoc, Name,
-                                         Context.getAdjustedParameterType(T),
+                                         AdjTy,
                                          TSInfo, SC, nullptr);
 
   // Make a note if we created a new pack in the scope of a lambda, so that
@@ -14873,7 +14948,9 @@ ParmVarDecl *Sema::CheckParameter(DeclContext *DC, SourceLocation StartLoc,
       // OpenCL allows function arguments declared to be an array of a type
       // to be qualified with an address space.
       !(getLangOpts().OpenCL &&
-        (T->isArrayType() || T.getAddressSpace() == LangAS::opencl_private))) {
+        (T->isArrayType() || T.getAddressSpace() == LangAS::opencl_private)) &&
+      // CHEERP: allow AS on arguments
+      !getLangOpts().Cheerp) {
     Diag(NameLoc, diag::err_arg_with_address_space);
     New->setInvalidDecl();
   }
@@ -15494,8 +15571,12 @@ Decl *Sema::ActOnFinishFunctionBody(Decl *dcl, Stmt *Body,
 
           // Update the return type to the deduced type.
           const auto *Proto = FD->getType()->castAs<FunctionProtoType>();
-          FD->setType(Context.getFunctionType(RetType, Proto->getParamTypes(),
-                                              Proto->getExtProtoInfo()));
+          QualType FTy = Context.getFunctionType(RetType, Proto->getParamTypes(),
+                                              Proto->getExtProtoInfo());
+          if (FD->getType().hasAddressSpace()) {
+            FTy = Context.getAddrSpaceQualType(FTy, FD->getType().getAddressSpace());
+          }
+          FD->setType(FTy);
         }
       }
 
@@ -17998,9 +18079,12 @@ FieldDecl *Sema::CheckFieldDecl(DeclarationName Name, QualType T,
   // TR 18037 does not allow fields to be declared with address space
   if (T.hasAddressSpace() || T->isDependentAddressSpaceType() ||
       T->getBaseElementTypeUnsafe()->isDependentAddressSpaceType()) {
-    Diag(Loc, diag::err_field_with_address_space);
-    Record->setInvalidDecl();
-    InvalidDecl = true;
+    // CHEERP: We allow fields to have the bytelayout address space
+    if (!LangOpts.Cheerp || T.getAddressSpace() != LangAS::cheerp_wasm) {
+      Diag(Loc, diag::err_field_with_address_space);
+      Record->setInvalidDecl();
+      InvalidDecl = true;
+    }
   }
 
   if (LangOpts.OpenCL) {
@@ -18145,6 +18229,10 @@ FieldDecl *Sema::CheckFieldDecl(DeclarationName Name, QualType T,
     NewFD->setInvalidDecl();
 
   NewFD->setAccess(AS);
+
+  if (getLangOpts().Cheerp && T->isRecordType() && T->getAsRecordDecl()->isByteLayout())
+    deduceCheerpAddressSpace(NewFD);
+
   return NewFD;
 }
 

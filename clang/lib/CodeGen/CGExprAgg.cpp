@@ -439,7 +439,7 @@ AggExprEmitter::VisitCXXStdInitializerListExpr(CXXStdInitializerListExpr *E) {
     llvm::Value *ArrayEnd = Builder.CreateInBoundsGEP(
         ArrayPtr.getElementType(), ArrayPtr.getPointer(), IdxEnd, "arrayend");
     CGF.EmitStoreThroughLValue(RValue::get(ArrayEnd), EndOrLength);
-  } else if (Ctx.hasSameType(Field->getType(), Ctx.getSizeType())) {
+  } else if (Ctx.hasSameUnqualifiedType(Field->getType(), Ctx.getSizeType())) {
     // Length.
     CGF.EmitStoreThroughLValue(RValue::get(Size), EndOrLength);
   } else {

@@ -13433,6 +13433,9 @@ TreeTransform<Derived>::TransformLambdaExpr(LambdaExpr *E) {
                                /*IsInstantiation=*/true);
     return ExprError();
   }
+  if (getSema().getLangOpts().Cheerp) {
+    getSema().deduceCheerpAddressSpace(NewCallOperator);
+  }
 
   // Copy the LSI before ActOnFinishFunctionBody removes it.
   // FIXME: This is dumb. Store the lambda information somewhere that outlives
@@ -14601,6 +14604,8 @@ TreeTransform<Derived>::TransformAtomicExpr(AtomicExpr *E) {
 template<typename Derived>
 QualType TreeTransform<Derived>::RebuildPointerType(QualType PointeeType,
                                                     SourceLocation Star) {
+  if (SemaRef.getLangOpts().Cheerp)
+    PointeeType = SemaRef.deduceCheerpPointeeAddrSpace(PointeeType);
   return SemaRef.BuildPointerType(PointeeType, Star,
                                   getDerived().getBaseEntity());
 }
@@ -14617,6 +14622,8 @@ QualType
 TreeTransform<Derived>::RebuildReferenceType(QualType ReferentType,
                                              bool WrittenAsLValue,
                                              SourceLocation Sigil) {
+  if (SemaRef.getLangOpts().Cheerp)
+    ReferentType = SemaRef.deduceCheerpPointeeAddrSpace(ReferentType);
   return SemaRef.BuildReferenceType(ReferentType, WrittenAsLValue,
                                     Sigil, getDerived().getBaseEntity());
 }
@@ -14626,6 +14633,15 @@ QualType
 TreeTransform<Derived>::RebuildMemberPointerType(QualType PointeeType,
                                                  QualType ClassType,
                                                  SourceLocation Sigil) {
+  if (SemaRef.getLangOpts().Cheerp) {
+    QualType T = PointeeType;
+    if (T->isFunctionProtoType())
+      T = SemaRef.Context.adjustCheerpMemberFunctionAddressSpace(T, ClassType);
+    T = SemaRef.deduceCheerpPointeeAddrSpace(T);
+    if (T != PointeeType)
+      PointeeType = SemaRef.Context.getAdjustedType(PointeeType, T);
+  }
+
   return SemaRef.BuildMemberPointerType(PointeeType, ClassType, Sigil,
                                         getDerived().getBaseEntity());
 }
@@ -14676,6 +14692,7 @@ TreeTransform<Derived>::RebuildArrayType(QualType ElementType,
                                          Expr *SizeExpr,
                                          unsigned IndexTypeQuals,
                                          SourceRange BracketsRange) {
+
   if (SizeExpr || !Size)
     return SemaRef.BuildArrayType(ElementType, SizeMod, SizeExpr,
                                   IndexTypeQuals, BracketsRange,
