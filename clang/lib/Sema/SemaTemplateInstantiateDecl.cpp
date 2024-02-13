@@ -1141,6 +1141,8 @@ Decl *TemplateDeclInstantiator::VisitVarDecl(VarDecl *D,
 
   if (SemaRef.getLangOpts().OpenCL)
     SemaRef.deduceOpenCLAddressSpace(Var);
+  if (SemaRef.getLangOpts().Cheerp)
+    SemaRef.deduceCheerpAddressSpace(Var);
 
   // Substitute the nested name specifier, if any.
   if (SubstQualifier(D, Var))
@@ -2004,11 +2006,14 @@ static QualType adjustFunctionTypeForInstantiation(ASTContext &Context,
     = D->getType()->castAs<FunctionProtoType>();
   const FunctionProtoType *NewFunc
     = TInfo->getType()->castAs<FunctionProtoType>();
-  if (OrigFunc->getExtInfo() == NewFunc->getExtInfo())
+  if (OrigFunc->getExtInfo() == NewFunc->getExtInfo() && !Context.getLangOpts().Cheerp)
     return TInfo->getType();
 
   FunctionProtoType::ExtProtoInfo NewEPI = NewFunc->getExtProtoInfo();
   NewEPI.ExtInfo = OrigFunc->getExtInfo();
+  if (!OrigFunc->getExtProtoInfo().TypeQuals.hasAddressSpace()) {
+     NewEPI.TypeQuals.removeAddressSpace();
+  }
   return Context.getFunctionType(NewFunc->getReturnType(),
                                  NewFunc->getParamTypes(), NewEPI);
 }
@@ -2322,6 +2327,10 @@ Decl *TemplateDeclInstantiator::VisitFunctionDecl(
           PVD->setDefaultArg(ErrorResult.get());
       }
     }
+  }
+
+  if (SemaRef.getLangOpts().Cheerp) {
+    SemaRef.deduceCheerpAddressSpace(Function);
   }
 
   SemaRef.CheckFunctionDeclaration(/*Scope*/ nullptr, Function, Previous,
@@ -2708,6 +2717,10 @@ Decl *TemplateDeclInstantiator::VisitCXXMethodDecl(
           Params[P]->setDefaultArg(ErrorResult.get());
       }
     }
+  }
+
+  if (SemaRef.getLangOpts().Cheerp) {
+    SemaRef.deduceCheerpAddressSpace(Method);
   }
 
   SemaRef.CheckFunctionDeclaration(nullptr, Method, Previous,
@@ -3947,6 +3960,8 @@ Decl *TemplateDeclInstantiator::VisitVarTemplateSpecializationDecl(
 
   if (SemaRef.getLangOpts().OpenCL)
     SemaRef.deduceOpenCLAddressSpace(Var);
+  if (SemaRef.getLangOpts().Cheerp)
+    SemaRef.deduceCheerpAddressSpace(Var);
 
   // Substitute the nested name specifier, if any.
   if (SubstQualifier(D, Var))
@@ -5188,6 +5203,8 @@ VarTemplateSpecializationDecl *Sema::CompleteVarTemplateSpecializationDecl(
 
   if (getLangOpts().OpenCL)
     deduceOpenCLAddressSpace(VarSpec);
+  if (getLangOpts().Cheerp)
+    deduceCheerpAddressSpace(VarSpec);
 
   return VarSpec;
 }
