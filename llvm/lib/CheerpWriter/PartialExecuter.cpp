@@ -463,9 +463,6 @@ public:
 		if (!areOperandsComputed(I))
 			return true;
 
-		if (isa<CastInst>(I) || isa<BinaryOperator>(I))
-			return false;
-
 		switch (I.getOpcode())
 		{
 			case Instruction::Br:
@@ -516,9 +513,21 @@ public:
 				// TODO(carlo): Possibly even Loads of Alloca might be proven valid
 				break;
 			}
+			case Instruction::SRem:
+			case Instruction::URem:
+			case Instruction::SDiv:
+			case Instruction::UDiv:
+			{
+				Value *Src2 = I.getOperand(1);
+				if (isValueComputed(Src2) && getOperandValue(Src2).IntVal.isZero())
+					return true; // Division or remainder by zero
+				return false; // Is a binary operator
+			}
 			default:
 			{
-				//Default case is for Instruction to be skipped
+				if (isa<CastInst>(I) || isa<BinaryOperator>(I))
+					return false;
+				// Default case is for Instruction to be skipped
 				return true;
 			}
 		}
