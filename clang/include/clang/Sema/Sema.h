@@ -10331,6 +10331,8 @@ public:
 
   void deduceOpenCLAddressSpace(ValueDecl *decl);
 
+  QualType deduceCheerpPointeeAddrSpace(QualType PointeeType);
+
   ExprResult
   HandleExprPropertyRefExpr(const ObjCObjectPointerType *OPT,
                             Expr *BaseExpr,
