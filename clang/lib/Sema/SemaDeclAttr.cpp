@@ -9606,7 +9606,7 @@ void Sema::MaybeInjectCheerpModeAttr(Decl* D, const Decl* inheritFrom) {
   if (Context.getTargetInfo().isByteAddressable())
     return;
   // We inject the attributes only on these types of declaration
-  if (!isa<FunctionDecl>(D) && !isa<TagDecl>(D) && !isa<VarDecl>(D))
+  if (!isa<FunctionDecl>(D) && !isa<TagDecl>(D) && !isa<VarDecl>(D) && !isa<TypedefDecl>(D))
     return;
   // if asmjs or genericjs explicitly added, do nothing
   if (D->hasAttr<AsmJSAttr>() || D->hasAttr<GenericJSAttr>())

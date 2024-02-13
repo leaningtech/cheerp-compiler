@@ -8409,7 +8409,7 @@ static QualType checkConditionalPointerCompatibility(Sema &S, ExprResult &LHS,
   // which is a superset of address spaces of both the 2nd and the 3rd
   // operands of the conditional operator.
   QualType ResultTy = [&, ResultAddrSpace]() {
-    if (S.getLangOpts().OpenCL) {
+    if (S.getLangOpts().OpenCL || !S.Context.getTargetInfo().isByteAddressable()) {
       Qualifiers CompositeQuals = CompositeTy.getQualifiers();
       CompositeQuals.setAddressSpace(ResultAddrSpace);
       return S.Context
@@ -8475,7 +8475,9 @@ checkConditionalObjectPointersCompatibility(Sema &S, ExprResult &LHS,
     // Add qualifiers if necessary.
     LHS = S.ImpCastExprToType(LHS.get(), destType, CK_NoOp);
     // Promote to void*.
-    RHS = S.ImpCastExprToType(RHS.get(), destType, CK_BitCast);
+    bool ASMatch = lhptee.getAddressSpace() == rhptee.getAddressSpace();
+    auto Conv = ASMatch? CK_BitCast : CK_AddressSpaceConversion;
+    RHS = S.ImpCastExprToType(RHS.get(), destType, Conv);
     return destType;
   }
   if (rhptee->isVoidType() && lhptee->isIncompleteOrObjectType()) {
@@ -8485,7 +8487,9 @@ checkConditionalObjectPointersCompatibility(Sema &S, ExprResult &LHS,
     // Add qualifiers if necessary.
     RHS = S.ImpCastExprToType(RHS.get(), destType, CK_NoOp);
     // Promote to void*.
-    LHS = S.ImpCastExprToType(LHS.get(), destType, CK_BitCast);
+    bool ASMatch = lhptee.getAddressSpace() == rhptee.getAddressSpace();
+    auto Conv = ASMatch? CK_BitCast : CK_AddressSpaceConversion;
+    LHS = S.ImpCastExprToType(LHS.get(), destType, Conv);
     return destType;
   }
 

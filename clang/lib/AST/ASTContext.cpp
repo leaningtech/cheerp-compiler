@@ -13,6 +13,7 @@
 #include "clang/AST/ASTContext.h"
 #include "CXXABI.h"
 #include "Interp/Context.h"
+#include "clang/Analysis/AnalysisDeclContext.h"
 #include "clang/AST/APValue.h"
 #include "clang/AST/ASTConcept.h"
 #include "clang/AST/ASTMutationListener.h"
@@ -3180,6 +3181,30 @@ QualType ASTContext::getObjCGCQualType(QualType T,
   return getExtQualType(TypeNode, Quals);
 }
 
+QualType ASTContext::addPointeeAddrSpace(QualType T, LangAS AS) const {
+  if (!T->isPointerType() && !T->isReferenceType()) {
+    return T;
+  }
+  QualType Pointee = T->getPointeeType();
+  if (Pointee.hasAddressSpace())
+    Pointee = removeAddrSpaceQualType(Pointee);
+  Pointee = getAddrSpaceQualType(Pointee, AS);
+  switch (T->getTypeClass()) {
+    case Type::LValueReference:
+      T = getLValueReferenceType(Pointee);
+      break;
+    case Type::RValueReference:
+      T = getRValueReferenceType(Pointee);
+      break;
+    case Type::Pointer:
+      T = getPointerType(Pointee);
+      break;
+    default:
+      llvm_unreachable("not a pointer or reference type");
+  }
+  return T;
+}
+
 QualType ASTContext::removePtrSizeAddrSpace(QualType T) const {
   if (const PointerType *Ptr = T->getAs<PointerType>()) {
     QualType Pointee = Ptr->getPointeeType();
@@ -3412,7 +3437,7 @@ QualType ASTContext::getDecayedType(QualType Orig, QualType Decayed) const {
   return QualType(AT, 0);
 }
 
-QualType ASTContext::getDecayedType(QualType T) const {
+QualType ASTContext::getDecayedType(QualType T, LangAS ptrAS) const {
   assert((T->isArrayType() || T->isFunctionType()) && "T does not decay");
 
   QualType Decayed;
@@ -3423,14 +3448,18 @@ QualType ASTContext::getDecayedType(QualType T) const {
   //   qualifiers (if any) are those specified within the [ and ] of
   //   the array type derivation.
   if (T->isArrayType())
-    Decayed = getArrayDecayedType(T);
+    Decayed = getArrayDecayedType(T, ptrAS);
 
   // C99 6.7.5.3p8:
   //   A declaration of a parameter as "function returning type"
   //   shall be adjusted to "pointer to function returning type", as
   //   in 6.3.2.1.
   if (T->isFunctionType())
-    Decayed = getPointerType(T);
+  {
+    if (ptrAS != LangAS::Default)
+      Decayed = getAddrSpaceQualType(T, ptrAS);
+    Decayed = getPointerType(Decayed);
+  }
 
   return getDecayedType(T, Decayed);
 }
@@ -6935,15 +6964,15 @@ const ArrayType *ASTContext::getAsArrayType(QualType T) const {
                                               VAT->getBracketsRange()));
 }
 
-QualType ASTContext::getAdjustedParameterType(QualType T) const {
+QualType ASTContext::getAdjustedParameterType(QualType T, LangAS ptrAS) const {
   if (T->isArrayType() || T->isFunctionType())
     return getDecayedType(T);
   return T;
 }
 
-QualType ASTContext::getSignatureParameterType(QualType T) const {
+QualType ASTContext::getSignatureParameterType(QualType T, LangAS ptrAS) const {
   T = getVariableArrayDecayedType(T);
-  T = getAdjustedParameterType(T);
+  T = getAdjustedParameterType(T, ptrAS);
   return T.getUnqualifiedType();
 }
 
@@ -6966,7 +6995,7 @@ QualType ASTContext::getExceptionObjectType(QualType T) const {
 /// this returns a pointer to a properly qualified element of the array.
 ///
 /// See C99 6.7.5.3p7 and C99 6.3.2.1p3.
-QualType ASTContext::getArrayDecayedType(QualType Ty) const {
+QualType ASTContext::getArrayDecayedType(QualType Ty, LangAS ptrAS) const {
   // Get the element type with 'getAsArrayType' so that we don't lose any
   // typedefs in the element type of the array.  This also handles propagation
   // of type qualifiers from the array type into the element type if present
@@ -6974,7 +7003,10 @@ QualType ASTContext::getArrayDecayedType(QualType Ty) const {
   const ArrayType *PrettyArrayType = getAsArrayType(Ty);
   assert(PrettyArrayType && "Not an array type!");
 
-  QualType PtrTy = getPointerType(PrettyArrayType->getElementType());
+  QualType ElemTy = PrettyArrayType->getElementType();
+  if (ptrAS != LangAS::Default)
+    ElemTy = getAddrSpaceQualType(ElemTy, ptrAS);
+  QualType PtrTy = getPointerType(ElemTy);
 
   // int x[restrict 4] ->  int *restrict
   QualType Result = getQualifiedType(PtrTy,
@@ -7511,6 +7543,29 @@ OpenCLTypeKind ASTContext::getOpenCLTypeKind(const Type *T) const {
 
 LangAS ASTContext::getOpenCLTypeAddrSpace(const Type *T) const {
   return Target->getOpenCLTypeAddrSpace(getOpenCLTypeKind(T));
+}
+
+LangAS ASTContext::getCheerpPointeeAddrSpace(const Type *PointeeType, DeclContext* C, LangAS Fallback) {
+  if (PointeeType->isUndeducedAutoType() || PointeeType->isDependentType()) {
+    return LangAS::Default;
+  }
+  if (auto* TagTy = PointeeType->getAsTagDecl()) {
+    return getCheerpTypeAddressSpace(TagTy);
+  }
+  if (auto* TdTy = PointeeType->getAs<TypedefType>()) {
+    return getCheerpTypeAddressSpace(TdTy->getDecl());
+  }
+  while (C) {
+    Decl* D = cast<Decl>(C);
+    if (D->hasAttr<clang::AsmJSAttr>()) {
+      return LangAS::cheerp_wasm;
+    } else if (D->hasAttr<clang::GenericJSAttr>()) {
+      return LangAS::cheerp_genericjs;
+    } else {
+      C = D->getDeclContext();
+    };
+  }
+  return Fallback;
 }
 
 /// BlockRequiresCopying - Returns true if byref variable "D" of type "Ty"
@@ -8746,7 +8801,13 @@ ObjCInterfaceDecl *ASTContext::getObjCProtocolDecl() const {
 static TypedefDecl *CreateCharPtrNamedVaListDecl(const ASTContext *Context,
                                                  StringRef Name) {
   // typedef char* __builtin[_ms]_va_list;
-  QualType T = Context->getPointerType(Context->CharTy);
+  QualType C = Context->CharTy;
+  if (Context->getTargetInfo().getTriple().getEnvironment() == llvm::Triple::GenericJs) {
+    C = Context->getAddrSpaceQualType(C, LangAS::cheerp_genericjs);
+  } else if (Context->getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly) {
+    C = Context->getAddrSpaceQualType(C, LangAS::cheerp_wasm);
+  }
+  QualType T = Context->getPointerType(C);
   return Context->buildImplicitTypedef(T, Name);
 }
 
@@ -13171,6 +13232,27 @@ LangAS ASTContext::getLangASForBuiltinAddressSpace(unsigned AS) const {
     return getTargetInfo().getCUDABuiltinAddressSpace(AS);
 
   return getLangASFromTargetAS(AS);
+}
+
+LangAS ASTContext::getCheerpTypeAddressSpace(QualType Ty, LangAS fallback) const {
+  if (Ty.hasAddressSpace())
+    return Ty.getAddressSpace();
+  if (Ty->isArrayType() && Ty->getBaseElementTypeUnsafe()->getAsTagDecl())
+    return getCheerpTypeAddressSpace(Ty->getBaseElementTypeUnsafe()->getAsTagDecl());
+  if (Ty->getAsTagDecl())
+    return getCheerpTypeAddressSpace(Ty->getAsTagDecl());
+  return fallback;
+}
+LangAS ASTContext::getCheerpTypeAddressSpace(const Decl* D, LangAS fallback) const {
+  LangAS AS = fallback;
+  if (AnalysisDeclContext::isInClientNamespace(D)) {
+    AS = clang::LangAS::cheerp_client;
+  } else if (D->hasAttr<GenericJSAttr>()) {
+    AS = LangAS::cheerp_genericjs;
+  } else if (D->hasAttr<AsmJSAttr>()) {
+    AS = LangAS::cheerp_wasm;
+  }
+  return AS;
 }
 
 // Explicitly instantiate this in case a Redeclarable<T> is used from a TU that

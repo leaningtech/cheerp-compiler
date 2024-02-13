@@ -2151,6 +2151,16 @@ static QualType deduceOpenCLPointeeAddrSpace(Sema &S, QualType PointeeType) {
   return PointeeType;
 }
 
+QualType Sema::deduceCheerpPointeeAddrSpace(QualType PointeeType) {
+  if (PointeeType.hasAddressSpace())
+    return PointeeType;
+  LangAS FallbackAS = CurCheerpEnv == LangOptions::GenericJS? LangAS::cheerp_genericjs : LangAS::cheerp_wasm;
+  LangAS AS = Context.getCheerpPointeeAddrSpace(PointeeType.getTypePtr(), getCurLexicalContext(), FallbackAS);
+  if (AS == LangAS::Default)
+    return PointeeType;
+  return Context.getAddrSpaceQualType(PointeeType, AS);
+}
+
 /// Build a pointer type.
 ///
 /// \param T The type to which we'll be building a pointer.
@@ -3096,6 +3106,9 @@ QualType Sema::BuildBlockPointerType(QualType T,
 
   if (getLangOpts().OpenCL)
     T = deduceOpenCLPointeeAddrSpace(*this, T);
+
+  if (!Context.getTargetInfo().isByteAddressable())
+    T = deduceCheerpPointeeAddrSpace(T);
 
   return Context.getBlockPointerType(T);
 }
@@ -4594,6 +4607,34 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
   ASTContext &Context = S.Context;
   const LangOptions &LangOpts = S.getLangOpts();
 
+  LangAS PtrAS = LangAS::Default;
+  if (!Context.getTargetInfo().isByteAddressable()) {
+    auto hasAttr = [&D](ParsedAttr::Kind A) -> bool {
+      return D.getAttributes().hasAttribute(A) ||
+      D.getDeclarationAttributes().hasAttribute(A) ||
+      D.getDeclSpec().getAttributes().hasAttribute(A);
+    };
+    if (hasAttr(ParsedAttr::AT_GenericJSAddressSpace) || hasAttr(ParsedAttr::AT_WasmAddressSpace)) {
+      // Do nothing, the address space is naturally added
+    } else if (hasAttr(ParsedAttr::AT_GenericJS)) {
+      PtrAS = LangAS::cheerp_genericjs;
+    } else if (hasAttr(ParsedAttr::AT_AsmJS)) {
+      PtrAS = LangAS::cheerp_wasm;
+    } else {
+      LangAS FallbackAS = S.CurCheerpEnv == LangOptions::GenericJS? LangAS::cheerp_genericjs : LangAS::cheerp_wasm;
+      const Type* Ty = T.getTypePtr();
+      if (Ty->getAs<TypedefType>()) {
+        Ty = Ty->getUnqualifiedDesugaredType();
+      }
+      PtrAS = Context.getCheerpPointeeAddrSpace(Ty, S.getCurLexicalContext(), FallbackAS);
+    }
+    if (T->getAs<TypedefType>() && PtrAS != LangAS::Default && D.getContext() == DeclaratorContext::Prototype) {
+      QualType Desugared = T->getAs<TypedefType>()->desugar();
+      if (Desugared->isArrayType()) {
+        T = Context.getAddrSpaceQualType(T, PtrAS);
+      }
+    }
+  }
   // The name we're declaring, if any.
   DeclarationName Name;
   if (D.getIdentifier())
@@ -5024,6 +5065,9 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
         }
       }
 
+      if (PtrAS != LangAS::Default) {
+        T = Context.getAddrSpaceQualType(T, PtrAS);
+      }
       T = S.BuildPointerType(T, DeclType.Loc, Name);
       if (DeclType.Ptr.TypeQuals)
         T = S.BuildQualifiedType(T, DeclType.Loc, DeclType.Ptr.TypeQuals);
@@ -5035,6 +5079,9 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
         S.Diag(D.getIdentifierLoc(), diag::err_distant_exception_spec);
         D.setInvalidType(true);
         // Build the type anyway.
+      }
+      if (PtrAS != LangAS::Default) {
+        T = Context.getAddrSpaceQualType(T, PtrAS);
       }
       T = S.BuildReferenceType(T, DeclType.Ref.LValueRef, DeclType.Loc, Name);
 
@@ -5116,6 +5163,9 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
         checkNullabilityConsistency(S, SimplePointerKind::Array, DeclType.Loc);
       }
 
+      if (PtrAS != LangAS::Default && D.getContext() == DeclaratorContext::Prototype) {
+        T = Context.getAddrSpaceQualType(T, PtrAS);
+      }
       T = S.BuildArrayType(T, ASM, ArraySize, ATI.TypeQuals,
                            SourceRange(DeclType.Loc, DeclType.EndLoc), Name);
       break;
@@ -5548,6 +5598,15 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
                      DeclaratorContext::LambdaExpr;
         };
 
+        auto GetParentClass = [&]() {
+          CXXRecordDecl* C = nullptr;
+          if (!state.getDeclarator().getCXXScopeSpec().isEmpty())
+            C = state.getDeclarator().getCXXScopeSpec().getScopeRep()->getAsRecordDecl();
+          if (!C)
+            C = dyn_cast<CXXRecordDecl>(S.CurContext);
+          return C;
+        };
+
         if (state.getSema().getLangOpts().OpenCLCPlusPlus && IsClassMember()) {
           LangAS ASIdx = LangAS::Default;
           // Take address space attr if any and mark as invalid to avoid adding
@@ -5564,9 +5623,16 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
           // If a class member function's address space is not set, set it to
           // __generic.
           LangAS AS =
-              (ASIdx == LangAS::Default ? S.getDefaultCXXMethodAddrSpace()
+              (ASIdx == LangAS::Default ? S.getDefaultCXXMethodAddrSpace(nullptr)
                                         : ASIdx);
           EPI.TypeQuals.addAddressSpace(AS);
+        }
+        if (!S.Context.getTargetInfo().isByteAddressable() && IsClassMember() && !IsTypedefName && !D.getDeclSpec().isFriendSpecified() && state.getDeclarator().isFunctionDeclarator()) {
+          if (auto* C = GetParentClass()) {
+            LangAS AS = S.Context.getCheerpTypeAddressSpace(C);
+            if (AS != LangAS::Default)
+              EPI.TypeQuals.addAddressSpace(AS);
+          }
         }
         T = Context.getFunctionType(T, ParamTys, EPI);
       }

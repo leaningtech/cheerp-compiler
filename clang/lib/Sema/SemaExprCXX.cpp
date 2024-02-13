@@ -2126,6 +2126,10 @@ Sema::BuildCXXNew(SourceRange Range, bool UseGlobal,
     }
   }
 
+  if (!Context.getTargetInfo().isByteAddressable()) {
+    AllocType = deduceCheerpPointeeAddrSpace(AllocType);
+  }
+
   if (CheckAllocatedType(AllocType, TypeRange.getBegin(), TypeRange))
     return ExprError();
 
@@ -2519,6 +2523,7 @@ bool Sema::CheckAllocatedType(QualType AllocType, SourceLocation Loc,
     return Diag(Loc, diag::err_variably_modified_new_type)
              << AllocType;
   else if (AllocType.getAddressSpace() != LangAS::Default &&
+           Context.getTargetInfo().isByteAddressable() &&
            !getLangOpts().OpenCLCPlusPlus)
     return Diag(Loc, diag::err_address_space_qualified_new)
       << AllocType.getUnqualifiedType()
