@@ -13674,7 +13674,7 @@ void Sema::setupImplicitSpecialMemberType(CXXMethodDecl *SpecialMem,
   // Build an exception specification pointing back at this constructor.
   FunctionProtoType::ExtProtoInfo EPI = getImplicitMethodEPI(*this, SpecialMem);
 
-  LangAS AS = getDefaultCXXMethodAddrSpace();
+  LangAS AS = getDefaultCXXMethodAddrSpace(SpecialMem->getParent());
   if (AS != LangAS::Default) {
     EPI.TypeQuals.addAddressSpace(AS);
   }
@@ -14625,7 +14625,7 @@ CXXMethodDecl *Sema::DeclareImplicitCopyAssignment(CXXRecordDecl *ClassDecl) {
     return nullptr;
 
   QualType ArgType = Context.getTypeDeclType(ClassDecl);
-  LangAS AS = getDefaultCXXMethodAddrSpace();
+  LangAS AS = getDefaultCXXMethodAddrSpace(ClassDecl);
   if (AS != LangAS::Default)
     ArgType = Context.getAddrSpaceQualType(ArgType, AS);
   QualType RetType = Context.getLValueReferenceType(ArgType);
@@ -14717,7 +14717,7 @@ CXXMethodDecl *Sema::DeclareImplicitJsExportHelper(CXXRecordDecl *ClassDecl, CXX
   if (isNewHelper) {
     // new return a pointer to the object just being constructed
     RetType = Context.getTypeDeclType(ClassDecl);
-    LangAS AS = getDefaultCXXMethodAddrSpace();
+    LangAS AS = getDefaultCXXMethodAddrSpace(ClassDecl);
     if (AS != LangAS::Default)
       RetType = Context.getAddrSpaceQualType(RetType, AS);
     RetType = Context.getPointerType(RetType);
@@ -15189,7 +15189,7 @@ CXXMethodDecl *Sema::DeclareImplicitMoveAssignment(CXXRecordDecl *ClassDecl) {
   // constructor rules.
 
   QualType ArgType = Context.getTypeDeclType(ClassDecl);
-  LangAS AS = getDefaultCXXMethodAddrSpace();
+  LangAS AS = getDefaultCXXMethodAddrSpace(ClassDecl);
   if (AS != LangAS::Default)
     ArgType = Context.getAddrSpaceQualType(ArgType, AS);
   QualType RetType = Context.getLValueReferenceType(ArgType);
@@ -15567,7 +15567,7 @@ CXXConstructorDecl *Sema::DeclareImplicitCopyConstructor(
   if (Const)
     ArgType = ArgType.withConst();
 
-  LangAS AS = getDefaultCXXMethodAddrSpace();
+  LangAS AS = getDefaultCXXMethodAddrSpace(ClassDecl);
   if (AS != LangAS::Default)
     ArgType = Context.getAddrSpaceQualType(ArgType, AS);
 
@@ -15709,7 +15709,7 @@ CXXConstructorDecl *Sema::DeclareImplicitMoveConstructor(
   QualType ClassType = Context.getTypeDeclType(ClassDecl);
 
   QualType ArgType = ClassType;
-  LangAS AS = getDefaultCXXMethodAddrSpace();
+  LangAS AS = getDefaultCXXMethodAddrSpace(ClassDecl);
   if (AS != LangAS::Default)
     ArgType = Context.getAddrSpaceQualType(ClassType, AS);
   ArgType = Context.getRValueReferenceType(ArgType);
