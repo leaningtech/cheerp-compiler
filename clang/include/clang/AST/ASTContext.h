@@ -1363,7 +1363,7 @@ public:
   /// Return the uniqued reference to the decayed version of the given
   /// type.  Can only be called on array and function types which decay to
   /// pointer types.
-  QualType getDecayedType(QualType T) const;
+  QualType getDecayedType(QualType T, LangAS ptrAS = LangAS::Default) const;
   CanQualType getDecayedType(CanQualType T) const {
     return CanQualType::CreateUnsafe(getDecayedType((QualType) T));
   }
@@ -1412,6 +1412,8 @@ public:
     return LangOpts.OpenCLGenericAddressSpace ? LangAS::opencl_generic
                                               : LangAS::opencl_private;
   }
+
+  LangAS getCheerpPointeeAddrSpace(const Type *PointeeType, DeclContext* C);
 
   void setcudaConfigureCallDecl(FunctionDecl *FD) {
     cudaConfigureCallDecl = FD;
@@ -2758,12 +2760,12 @@ public:
   /// This routine adjusts the given parameter type @p T to the actual
   /// parameter type used by semantic analysis (C99 6.7.5.3p[7,8],
   /// C++ [dcl.fct]p3). The adjusted parameter type is returned.
-  QualType getAdjustedParameterType(QualType T) const;
+  QualType getAdjustedParameterType(QualType T, LangAS ptrAS = LangAS::Default) const;
 
   /// Retrieve the parameter type as adjusted for use in the signature
   /// of a function, decaying array and function types and removing top-level
   /// cv-qualifiers.
-  QualType getSignatureParameterType(QualType T) const;
+  QualType getSignatureParameterType(QualType T, LangAS ptrAS = LangAS::Default) const;
 
   QualType getExceptionObjectType(QualType T) const;
 
@@ -2775,7 +2777,7 @@ public:
   /// qualified element of the array.
   ///
   /// See C99 6.7.5.3p7 and C99 6.3.2.1p3.
-  QualType getArrayDecayedType(QualType T) const;
+  QualType getArrayDecayedType(QualType T, LangAS ptrAS = LangAS::Default) const;
 
   /// Return the type that \p PromotableType will promote to: C99
   /// 6.3.1.1p2, assuming that \p PromotableType is a promotable integer type.
