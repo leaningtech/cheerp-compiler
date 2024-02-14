@@ -51,16 +51,6 @@ static void RetListener(const std::vector<std::unique_ptr<char[]>>& allocas)
     }
 }
 
-static GenericValue pre_execute_element_distance(FunctionType *FT, ArrayRef<GenericValue> Args)
-{
-    Type* type = FT->getParamType(0)->getPointerElementType();
-    llvm::Module *module = PreExecute::currentPreExecutePass->currentModule;
-    uint32_t elementSize = module->getDataLayout().getTypeAllocSize(type);
-    GenericValue GV;
-    GV.IntVal = APInt(32, elementSize);
-    return GV;
-}
-
 static char* most_derived_pointer(char* Addr) {
   ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
   const GlobalValue* GV = currentEE->getGlobalValueAtAddress(Addr);
@@ -543,8 +533,6 @@ static void* LazyFunctionCreator(const std::string& funcName)
         return (void*)(void(*)())pre_execute_deallocate;
     if (strncmp(funcName.c_str(), "llvm.cheerp.get.array.len.", strlen("llvm.cheerp.get.array.len."))==0)
         return (void*)(void(*)())pre_execute_get_array_len;
-    if (strncmp(funcName.c_str(), "llvm.cheerp.element.distance.", strlen("llvm.cheerp.element.distance."))==0)
-        return (void*)(void(*)())pre_execute_element_distance;
     if (strncmp(funcName.c_str(), "llvm.cheerp.pointer.base.", strlen("llvm.cheerp.pointer.base."))==0)
         return (void*)(void(*)())pre_execute_pointer_base;
     if (strncmp(funcName.c_str(), "llvm.cheerp.pointer.offset.", strlen("llvm.cheerp.pointer.offset."))==0)
