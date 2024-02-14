@@ -274,8 +274,6 @@ GenericValue Interpreter::callExternalFunction(Function *F,
   TheInterpreter = this;
 
   auto &Fns = getFunctions();
-  assert(ECStack.size() > 1);
-  ExecutionContext &CallerFrame = *(ECStack.end() - 2);
   std::unique_lock<sys::Mutex> Guard(Fns.Lock);
 
   // Do a lookup to see if the function is in our cache... this should just be a
@@ -285,7 +283,8 @@ GenericValue Interpreter::callExternalFunction(Function *F,
   if (ExFunc Fn = (FI == Fns.ExportedFunctions.end()) ? lookupFunction(F, LazyFunctionCreator)
                                                       : FI->second) {
     Guard.unlock();
-    return Fn(F->getFunctionType(), ArgVals, CallerFrame.Caller->getAttributes());
+    AttributeList Attrs  = ECStack.size() > 1 ? (ECStack.end() - 2)->Caller->getAttributes() : AttributeList();
+    return Fn(F->getFunctionType(), ArgVals, Attrs);
   }
 
 #ifdef USE_LIBFFI
