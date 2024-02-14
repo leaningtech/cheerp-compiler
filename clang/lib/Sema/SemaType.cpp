@@ -2152,39 +2152,12 @@ static QualType deduceOpenCLPointeeAddrSpace(Sema &S, QualType PointeeType) {
 }
 
 QualType Sema::deduceCheerpPointeeAddrSpace(QualType PointeeType) {
-  if (!PointeeType->isUndeducedAutoType() && !PointeeType->isDependentType() &&
-      !PointeeType.hasAddressSpace()) {
-    LangAS AS = LangAS::Default;
-    if (PointeeType->getAsTagDecl()) {
-      AS = Context.getCheerpTypeAddressSpace(PointeeType);
-    } else {
-      DeclContext* C = getCurLexicalContext();
-      bool asmjs = false;
-      bool genericjs = false;
-      while (C) {
-        Decl* D = cast<Decl>(C);
-        if (D->hasAttr<clang::AsmJSAttr>()) {
-          asmjs = true;
-          break;
-        } else if (D->hasAttr<clang::GenericJSAttr>()) {
-          genericjs = true;
-          break;
-        } else {
-          C = D->getDeclContext();
-        };
-      }
-      if (!asmjs && !genericjs)
-      {
-        asmjs = Context.getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly;
-      }
-      AS = asmjs? LangAS::Default : LangAS::cheerp_genericjs;
-    }
-    if (AS != LangAS::Default) {
-      PointeeType = Context.getAddrSpaceQualType(
-          PointeeType, AS);
-    }
-  }
-  return PointeeType;
+  if (PointeeType.hasAddressSpace())
+    return PointeeType;
+  LangAS AS = Context.getCheerpPointeeAddrSpace(PointeeType.getTypePtr(), getCurLexicalContext());
+  if (AS == LangAS::Default)
+    return PointeeType;
+  return Context.getAddrSpaceQualType(PointeeType, AS);
 }
 
 /// Build a pointer type.
