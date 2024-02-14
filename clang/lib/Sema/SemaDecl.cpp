@@ -14823,8 +14823,13 @@ ParmVarDecl *Sema::CheckParameter(DeclContext *DC, SourceLocation StartLoc,
     T = Context.getLifetimeQualifiedType(T, lifetime);
   }
 
+  QualType AdjTy = Context.getAdjustedParameterType(T);
+  if (AdjTy->isPointerType() && !AdjTy->getPointeeType().hasAddressSpace()) {
+    QualType PointeeTy = deduceCheerpPointeeAddrSpace(AdjTy->getPointeeType());
+    AdjTy = Context.getPointerType(PointeeTy);
+  }
   ParmVarDecl *New = ParmVarDecl::Create(Context, DC, StartLoc, NameLoc, Name,
-                                         Context.getAdjustedParameterType(T),
+                                         AdjTy,
                                          TSInfo, SC, nullptr);
 
   // Make a note if we created a new pack in the scope of a lambda, so that
@@ -14867,7 +14872,10 @@ ParmVarDecl *Sema::CheckParameter(DeclContext *DC, SourceLocation StartLoc,
       // OpenCL allows function arguments declared to be an array of a type
       // to be qualified with an address space.
       !(getLangOpts().OpenCL &&
-        (T->isArrayType() || T.getAddressSpace() == LangAS::opencl_private))) {
+        (T->isArrayType() || T.getAddressSpace() == LangAS::opencl_private)) &&
+      // CHEERP: allow AS on arrays
+      !(!Context.getTargetInfo().isByteAddressable() &&
+        (T->isArrayType()))) {
     Diag(NameLoc, diag::err_arg_with_address_space);
     New->setInvalidDecl();
   }
