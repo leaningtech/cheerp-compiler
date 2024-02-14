@@ -282,7 +282,6 @@ jobs:
       - LC_ALL: en_US.UTF-8
       - LANG: en_US.UTF-8
       - LANGUAGE: en_US.UTF-8
-      - DISTRO: jammy
     steps:
       - attach_workspace:
           at: ~/project/packages
@@ -318,39 +317,51 @@ jobs:
             tar -czvf ~/project/packages/cheerp-core_$VERSION_NO.orig-cheerp-musl.tar.gz cheerp-musl/
             tar -czvf ~/project/packages/cheerp-core_$VERSION_NO.orig-cheerp-utils.tar.gz cheerp-utils/
             tar -czvf ~/project/packages/cheerp-core_$VERSION_NO.orig.tar.gz clang/ llvm/ cmake/ compiler-rt/ libcxx/ libcxxabi/ \
-              runtimes/ third-party/ debian/ clang-tools-extra/
+              runtimes/ third-party/ clang-tools-extra/
+
+            mv debian ~/
       - run:
           name: Package cheerp toolchain
           no_output_timeout: 30m
           command: |
             rm -rf cheerp-compiler/
 
-            cp ~/project/packages/cheerp-core_$VERSION_NO.orig-cheerp-libs.tar.gz .
-            cp ~/project/packages/cheerp-core_$VERSION_NO.orig-cheerp-musl.tar.gz .
-            cp ~/project/packages/cheerp-core_$VERSION_NO.orig-cheerp-utils.tar.gz .
-            cp ~/project/packages/cheerp-core_$VERSION_NO.orig.tar.gz .
+            FIRST=yes
+            for DISTRO in mantic jammy
+            do
+              cd
+              cp ~/project/packages/cheerp-core_$VERSION_NO.orig-cheerp-libs.tar.gz .
+              cp ~/project/packages/cheerp-core_$VERSION_NO.orig-cheerp-musl.tar.gz .
+              cp ~/project/packages/cheerp-core_$VERSION_NO.orig-cheerp-utils.tar.gz .
+              cp ~/project/packages/cheerp-core_$VERSION_NO.orig.tar.gz .
 
-            mkdir "cheerp-core-$VERSION_NO"
-            cd "cheerp-core-$VERSION_NO"
+              rm -f ~/*.dsc
+              rm -f ~/*.changes
+              rm -f ~/*.xz
 
-            tar -xvf ../cheerp-core_$VERSION_NO.orig-cheerp-libs.tar.gz
-            tar -xvf ../cheerp-core_$VERSION_NO.orig-cheerp-musl.tar.gz
-            tar -xvf ../cheerp-core_$VERSION_NO.orig-cheerp-utils.tar.gz
-            tar -xvf ../cheerp-core_$VERSION_NO.orig.tar.gz
+              rm -rf "cheerp-core-$VERSION_NO"
+              mkdir "cheerp-core-$VERSION_NO"
+              cd "cheerp-core-$VERSION_NO"
+              tar -xvf ../cheerp-core_$VERSION_NO.orig-cheerp-libs.tar.gz
+              tar -xvf ../cheerp-core_$VERSION_NO.orig-cheerp-musl.tar.gz
+              tar -xvf ../cheerp-core_$VERSION_NO.orig-cheerp-utils.tar.gz
+              tar -xvf ../cheerp-core_$VERSION_NO.orig.tar.gz
 
-            dch -D ${DISTRO} -b -v ${VERSION_NO}-1~${DISTRO} "${CHANGELOG_MESSAGE}" -m
-            env -i HOME="$HOME" LC_CTYPE="${LC_ALL:-${LC_CTYPE:-$LANG}}" PATH="$PATH" USER="$USER" debuild -sa -S -kB5208673E6848661 --lintian-opts -v
-            cp ../*.dsc ~/project/packages
-            cp ../*.changes ~/project/packages
-            cp ../*.xz ~/project/packages
-      - run:
-          name: Publish
-          command: |
-            dput "$PPA" cheerp-core_*.changes
-            if [ << pipeline.parameters.release-tag >> != 'master' ]; then
-              cp cheerp-core_${VERSION_NO}.orig.tar.gz cheerp-core-${VERSION_NO}.tar.gz
-              python3 ../cheerp-internal/tools/releasing/github_upload.py << pipeline.parameters.release-tag >> "Cheerp ${VERSION_NO}" cheerp-core-${VERSION_NO}.tar.gz cheerp-core-${VERSION_NO}.tar.gz
-            fi
+              cp -r ~/debian .
+              dch -D ${DISTRO} -b -v ${VERSION_NO}-1~${DISTRO} "${CHANGELOG_MESSAGE}" -m
+              if [ -n "$FIRST" ]; then
+                env -i HOME="$HOME" LC_CTYPE="${LC_ALL:-${LC_CTYPE:-$LANG}}" PATH="$PATH" USER="$USER" debuild --no-lintian -sa -S -kB5208673E6848661 --lintian-opts -v
+              else
+                env -i HOME="$HOME" LC_CTYPE="${LC_ALL:-${LC_CTYPE:-$LANG}}" PATH="$PATH" USER="$USER" debuild --no-lintian -sd -sa -S -kB5208673E6848661 --lintian-opts -v
+              fi
+
+              dput "$PPA" ../cheerp-core_*.changes
+              if [ << pipeline.parameters.release-tag >> != 'master' ]; then
+                cp cheerp-core_${VERSION_NO}.orig.tar.gz cheerp-core-${VERSION_NO}.tar.gz
+                python3 ../cheerp-internal/tools/releasing/github_upload.py << pipeline.parameters.release-tag >> "Cheerp ${VERSION_NO}" cheerp-core-${VERSION_NO}.tar.gz cheerp-core-${VERSION_NO}.tar.gz
+              fi
+              unset FIRST
+            done
   build-cheerp-headers-and-libs:
     executor: cheerp-medium
     steps:
