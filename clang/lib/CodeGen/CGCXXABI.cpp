@@ -268,6 +268,10 @@ void CGCXXABI::ReadArrayCookie(CodeGenFunction &CGF, Address ptr,
     llvm::Function* GetLen = llvm::Intrinsic::getDeclaration(&CGF.CGM.getModule(),
         llvm::Intrinsic::cheerp_get_array_len, {elemType});
     numElements = CGF.Builder.CreateCall(GetLen, {allocPtr});
+    llvm::Attribute ETAttr =
+        llvm::Attribute::get(GetLen->getContext(), llvm::Attribute::ElementType,
+                             ptr.getElementType());
+    llvm::cast<llvm::CallInst>(numElements)->addParamAttr(0, ETAttr);
   } else {
     // Derive a char* in the same address space as the pointer.
     ptr = CGF.Builder.CreateElementBitCast(ptr, CGF.Int8Ty);

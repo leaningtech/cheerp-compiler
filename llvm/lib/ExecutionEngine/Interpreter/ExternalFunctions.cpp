@@ -59,7 +59,7 @@ using namespace llvm;
 
 namespace {
 
-typedef GenericValue (*ExFunc)(FunctionType *, ArrayRef<GenericValue>);
+typedef GenericValue (*ExFunc)(FunctionType *, ArrayRef<GenericValue>, AttributeList);
 typedef void (*RawFunc)();
 
 struct Functions {
@@ -274,6 +274,8 @@ GenericValue Interpreter::callExternalFunction(Function *F,
   TheInterpreter = this;
 
   auto &Fns = getFunctions();
+  assert(ECStack.size() > 1);
+  ExecutionContext &CallerFrame = *(ECStack.end() - 2);
   std::unique_lock<sys::Mutex> Guard(Fns.Lock);
 
   // Do a lookup to see if the function is in our cache... this should just be a
@@ -283,7 +285,7 @@ GenericValue Interpreter::callExternalFunction(Function *F,
   if (ExFunc Fn = (FI == Fns.ExportedFunctions.end()) ? lookupFunction(F, LazyFunctionCreator)
                                                       : FI->second) {
     Guard.unlock();
-    return Fn(F->getFunctionType(), ArgVals);
+    return Fn(F->getFunctionType(), ArgVals, CallerFrame.Caller->getAttributes());
   }
 
 #ifdef USE_LIBFFI
@@ -331,7 +333,7 @@ GenericValue Interpreter::callExternalFunction(Function *F,
 
 // void atexit(Function*)
 static GenericValue lle_X_atexit(FunctionType *FT,
-                                 ArrayRef<GenericValue> Args) {
+                                 ArrayRef<GenericValue> Args, AttributeList /*unused*/) {
   assert(Args.size() == 1);
   TheInterpreter->addAtExitHandler((Function*)GVTOP(Args[0]));
   GenericValue GV;
@@ -340,13 +342,13 @@ static GenericValue lle_X_atexit(FunctionType *FT,
 }
 
 // void exit(int)
-static GenericValue lle_X_exit(FunctionType *FT, ArrayRef<GenericValue> Args) {
+static GenericValue lle_X_exit(FunctionType *FT, ArrayRef<GenericValue> Args, AttributeList /*unused*/) {
   TheInterpreter->exitCalled(Args[0]);
   return GenericValue();
 }
 
 // void abort(void)
-static GenericValue lle_X_abort(FunctionType *FT, ArrayRef<GenericValue> Args) {
+static GenericValue lle_X_abort(FunctionType *FT, ArrayRef<GenericValue> Args, AttributeList /*unused*/) {
   //FIXME: should we report or raise here?
   //report_fatal_error("Interpreted program raised SIGABRT");
   raise (SIGABRT);
@@ -356,7 +358,7 @@ static GenericValue lle_X_abort(FunctionType *FT, ArrayRef<GenericValue> Args) {
 // int sprintf(char *, const char *, ...) - a very rough implementation to make
 // output useful.
 static GenericValue lle_X_sprintf(FunctionType *FT,
-                                  ArrayRef<GenericValue> Args) {
+                                  ArrayRef<GenericValue> Args, AttributeList /*unused*/) {
   char *OutputBuffer = (char *)GVTOP(Args[0]);
   const char *FmtStr = (const char *)GVTOP(Args[1]);
   unsigned ArgNo = 2;
@@ -438,19 +440,19 @@ static GenericValue lle_X_sprintf(FunctionType *FT,
 // int printf(const char *, ...) - a very rough implementation to make output
 // useful.
 static GenericValue lle_X_printf(FunctionType *FT,
-                                 ArrayRef<GenericValue> Args) {
+                                 ArrayRef<GenericValue> Args, AttributeList Attrs) {
   char Buffer[10000];
   std::vector<GenericValue> NewArgs;
   NewArgs.push_back(PTOGV((void*)&Buffer[0]));
   llvm::append_range(NewArgs, Args);
-  GenericValue GV = lle_X_sprintf(FT, NewArgs);
+  GenericValue GV = lle_X_sprintf(FT, NewArgs, Attrs);
   outs() << Buffer;
   return GV;
 }
 
 // int sscanf(const char *format, ...);
 static GenericValue lle_X_sscanf(FunctionType *FT,
-                                 ArrayRef<GenericValue> args) {
+                                 ArrayRef<GenericValue> args, AttributeList /*unused*/) {
   assert(args.size() < 10 && "Only handle up to 10 args to sscanf right now!");
 
   char *Args[10];
@@ -464,7 +466,7 @@ static GenericValue lle_X_sscanf(FunctionType *FT,
 }
 
 // int scanf(const char *format, ...);
-static GenericValue lle_X_scanf(FunctionType *FT, ArrayRef<GenericValue> args) {
+static GenericValue lle_X_scanf(FunctionType *FT, ArrayRef<GenericValue> args, AttributeList /*unused*/) {
   assert(args.size() < 10 && "Only handle up to 10 args to scanf right now!");
 
   char *Args[10];
@@ -480,20 +482,20 @@ static GenericValue lle_X_scanf(FunctionType *FT, ArrayRef<GenericValue> args) {
 // int fprintf(FILE *, const char *, ...) - a very rough implementation to make
 // output useful.
 static GenericValue lle_X_fprintf(FunctionType *FT,
-                                  ArrayRef<GenericValue> Args) {
+                                  ArrayRef<GenericValue> Args, AttributeList Attrs) {
   assert(Args.size() >= 2);
   char Buffer[10000];
   std::vector<GenericValue> NewArgs;
   NewArgs.push_back(PTOGV(Buffer));
   NewArgs.insert(NewArgs.end(), Args.begin()+1, Args.end());
-  GenericValue GV = lle_X_sprintf(FT, NewArgs);
+  GenericValue GV = lle_X_sprintf(FT, NewArgs, Attrs);
 
   fputs(Buffer, (FILE *) GVTOP(Args[0]));
   return GV;
 }
 
 static GenericValue lle_X_memset(FunctionType *FT,
-                                 ArrayRef<GenericValue> Args) {
+                                 ArrayRef<GenericValue> Args, AttributeList /*unused*/) {
   int val = (int)Args[1].IntVal.getSExtValue();
   size_t len = (size_t)Args[2].IntVal.getZExtValue();
   memset((void *)GVTOP(Args[0]), val, len);
@@ -505,7 +507,7 @@ static GenericValue lle_X_memset(FunctionType *FT,
 }
 
 static GenericValue lle_X_memcpy(FunctionType *FT,
-                                 ArrayRef<GenericValue> Args) {
+                                 ArrayRef<GenericValue> Args, AttributeList /*unused*/) {
   memcpy(GVTOP(Args[0]), GVTOP(Args[1]),
          (size_t)(Args[2].IntVal.getLimitedValue()));
 
