@@ -618,6 +618,10 @@ KEYWORD(cbuffer                     , KEYHLSL)
 KEYWORD(tbuffer                     , KEYHLSL)
 KEYWORD(groupshared                 , KEYHLSL)
 
+// Cheerp address space qualifiers
+KEYWORD(__js                        , KEYALL)
+KEYWORD(__wasm                      , KEYALL)
+
 // OpenMP Type Traits
 UNARY_EXPR_OR_TYPE_TRAIT(__builtin_omp_required_simd_align, OpenMPRequiredSimdAlign, KEYALL)
 
