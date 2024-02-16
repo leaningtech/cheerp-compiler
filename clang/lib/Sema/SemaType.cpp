@@ -6819,6 +6819,10 @@ static void HandleAddressSpaceTypeAttribute(QualType &Type,
     if (S.getLangOpts().HLSL)
       ASIdx = Attr.asHLSLLangAS();
 
+    if (!S.Context.getTargetInfo().isByteAddressable()) {
+      ASIdx = Attr.asCheerpLangAS();
+    }
+
     if (ASIdx == LangAS::Default)
       llvm_unreachable("Invalid address space");
 
@@ -8434,6 +8438,7 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
     case ParsedAttr::AT_OpenCLConstantAddressSpace:
     case ParsedAttr::AT_OpenCLGenericAddressSpace:
     case ParsedAttr::AT_HLSLGroupSharedAddressSpace:
+    case ParsedAttr::AT_GenericJSAddressSpace:
     case ParsedAttr::AT_AddressSpace:
       HandleAddressSpaceTypeAttribute(type, attr, state);
       attr.setUsedAsTypeAttr();

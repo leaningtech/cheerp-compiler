@@ -1417,6 +1417,11 @@ ExprResult Parser::ParseLambdaExpressionAfterIntroducer(
           ParseOpenCLQualifiers(DS.getAttributes());
           ConsumeToken();
         }
+        // Parse Cheerp addr space attribute.
+        if (Tok.isOneOf(tok::kw___js, tok::kw___wasm)) {
+          ParseCheerpQualifiers(DS.getAttributes());
+          ConsumeToken();
+        }
 
         SourceLocation FunLocalRangeEnd = DeclEndLoc;
 
@@ -1488,6 +1493,7 @@ ExprResult Parser::ParseLambdaExpressionAfterIntroducer(
                          tok::kw_constexpr, tok::kw_consteval, tok::kw_static,
                          tok::kw___private, tok::kw___global, tok::kw___local,
                          tok::kw___constant, tok::kw___generic,
+                         tok::kw___js, tok::kw___wasm,
                          tok::kw_groupshared, tok::kw_requires,
                          tok::kw_noexcept) ||
              (Tok.is(tok::l_square) && NextToken().is(tok::l_square))) {

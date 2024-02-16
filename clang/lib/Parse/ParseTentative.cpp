@@ -1443,6 +1443,10 @@ Parser::isCXXDeclarationSpecifier(ImplicitTypenameContext AllowImplicitTypename,
     // HLSL address space qualifiers
   case tok::kw_groupshared:
 
+    // Cheerp address space qualifiers
+  case tok::kw___js:
+  case tok::kw___wasm:
+
     // GNU
   case tok::kw_restrict:
   case tok::kw__Complex:

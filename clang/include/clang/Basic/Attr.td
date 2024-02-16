@@ -2160,7 +2160,18 @@ def GenericJS : InheritableAttr {
   let Documentation = [Undocumented];
   let PragmaAttributeSupport = 1;
 }
+
 def : MutualExclusions<[AsmJS, GenericJS]>;
+
+def GenericJSAddressSpace : TypeAttr {
+  let Spellings = [Keyword<"__js">, CXX11<"cheerp", "js_as">];
+  let Documentation = [Undocumented];
+}
+def WasmAddressSpace : TypeAttr {
+  let Spellings = [Keyword<"__wasm">, CXX11<"cheerp", "wasm_as">];
+  let Documentation = [Undocumented];
+}
+
 
 def ByteLayout : InheritableAttr {
   let Spellings = [CXX11<"cheerp", "bytelayout">, GNU<"cheerp_bytelayout">];

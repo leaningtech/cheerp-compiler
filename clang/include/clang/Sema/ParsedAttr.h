@@ -723,6 +723,15 @@ public:
     }
   }
 
+  LangAS asCheerpLangAS() const {
+    switch (getParsedKind()) {
+    case ParsedAttr::AT_GenericJSAddressSpace:
+      return LangAS::cheerp_genericjs;
+    default:
+      return LangAS::Default;
+    }
+  }
+
   AttributeCommonInfo::Kind getKind() const {
     return AttributeCommonInfo::Kind(Info.AttrKind);
   }
