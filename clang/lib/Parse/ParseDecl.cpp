@@ -912,6 +912,13 @@ void Parser::ParseOpenCLQualifiers(ParsedAttributes &Attrs) {
                ParsedAttr::AS_Keyword);
 }
 
+void Parser::ParseCheerpQualifiers(ParsedAttributes &Attrs) {
+  IdentifierInfo *AttrName = Tok.getIdentifierInfo();
+  SourceLocation AttrNameLoc = Tok.getLocation();
+  Attrs.addNew(AttrName, AttrNameLoc, nullptr, AttrNameLoc, nullptr, 0,
+               ParsedAttr::AS_Keyword);
+}
+
 bool Parser::isHLSLQualifier(const Token &Tok) const {
   return Tok.is(tok::kw_groupshared);
 }
@@ -4343,6 +4350,11 @@ void Parser::ParseDeclarationSpecifiers(
     case tok::kw___read_write:
       ParseOpenCLQualifiers(DS.getAttributes());
       break;
+    // Cheerp address space qualifiers
+    case tok::kw___js:
+    case tok::kw___wasm:
+      ParseCheerpQualifiers(DS.getAttributes());
+      break;
 
     case tok::kw_groupshared:
       // NOTE: ParseHLSLQualifiers will consume the qualifier token.
@@ -5842,6 +5854,11 @@ void Parser::ParseTypeQualifierListOpt(
     case tok::kw___write_only:
     case tok::kw___read_write:
       ParseOpenCLQualifiers(DS.getAttributes());
+      break;
+    // Cheerp qualifiers
+    case tok::kw___js:
+    case tok::kw___wasm:
+      ParseCheerpQualifiers(DS.getAttributes());
       break;
 
     case tok::kw_groupshared:
