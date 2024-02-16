@@ -14730,10 +14730,6 @@ ParmVarDecl *Sema::CheckParameter(DeclContext *DC, SourceLocation StartLoc,
   }
 
   QualType AdjTy = Context.getAdjustedParameterType(T);
-  if (AdjTy->isPointerType() && !AdjTy->getPointeeType().hasAddressSpace()) {
-    QualType PointeeTy = deduceCheerpPointeeAddrSpace(AdjTy->getPointeeType());
-    AdjTy = Context.getPointerType(PointeeTy);
-  }
   ParmVarDecl *New = ParmVarDecl::Create(Context, DC, StartLoc, NameLoc, Name,
                                          AdjTy,
                                          TSInfo, SC, nullptr);
