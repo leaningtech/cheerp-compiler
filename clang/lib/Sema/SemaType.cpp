@@ -2206,8 +2206,8 @@ QualType Sema::BuildPointerType(QualType T,
   if (getLangOpts().OpenCL)
     T = deduceOpenCLPointeeAddrSpace(*this, T);
 
-  if (!Context.getTargetInfo().isByteAddressable())
-    T = deduceCheerpPointeeAddrSpace(T);
+  //if (!Context.getTargetInfo().isByteAddressable())
+  //  T = deduceCheerpPointeeAddrSpace(T);
 
   // Build the pointer type.
   return Context.getPointerType(T);
@@ -4612,6 +4612,39 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
   ASTContext &Context = S.Context;
   const LangOptions &LangOpts = S.getLangOpts();
 
+  LangAS PtrAS = LangAS::Default;
+  if (!Context.getTargetInfo().isByteAddressable()) {
+    auto hasAttr = [&D](ParsedAttr::Kind A) -> bool {
+      return D.getAttributes().hasAttribute(A) ||
+      D.getDeclarationAttributes().hasAttribute(A) ||
+      D.getDeclSpec().getAttributes().hasAttribute(A);
+    };
+    if (hasAttr(ParsedAttr::AT_GenericJSAddressSpace) || hasAttr(ParsedAttr::AT_WasmAddressSpace)) {
+      // Do nothing, the address space is naturally added
+    } else if (hasAttr(ParsedAttr::AT_GenericJS)) {
+      PtrAS = LangAS::cheerp_genericjs;
+    } else if (hasAttr(ParsedAttr::AT_AsmJS)) {
+      PtrAS = LangAS::Default;
+    } else {
+      // Hack: the pragma attributes are added later to the Decl, but we need
+      // to know here if the default cheerp attribute was changed
+      auto getDefaultAS = [&]() {
+        for (auto &Group : S.PragmaAttributeStack) {
+          for (auto &Entry : Group.Entries) {
+            ParsedAttr *Attribute = Entry.Attribute;
+            if (Attribute->getKind() == ParsedAttr::AT_GenericJS) {
+              return LangAS::cheerp_genericjs;
+            }
+            if (Attribute->getKind() == ParsedAttr::AT_AsmJS) {
+              return LangAS::Default;
+            }
+          }
+        }
+        return Context.getCheerpPointeeAddrSpace(T.getTypePtr(), S.getCurLexicalContext());
+      };
+      PtrAS = getDefaultAS();
+    }
+  }
   // The name we're declaring, if any.
   DeclarationName Name;
   if (D.getIdentifier())
@@ -5042,6 +5075,9 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
         }
       }
 
+      if (PtrAS != LangAS::Default) {
+        T = Context.getAddrSpaceQualType(T, PtrAS);
+      }
       T = S.BuildPointerType(T, DeclType.Loc, Name);
       if (DeclType.Ptr.TypeQuals)
         T = S.BuildQualifiedType(T, DeclType.Loc, DeclType.Ptr.TypeQuals);
@@ -5134,6 +5170,9 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
         checkNullabilityConsistency(S, SimplePointerKind::Array, DeclType.Loc);
       }
 
+      if (PtrAS != LangAS::Default && D.getContext() == DeclaratorContext::Prototype) {
+        T = Context.getAddrSpaceQualType(T, PtrAS);
+      }
       T = S.BuildArrayType(T, ASM, ArraySize, ATI.TypeQuals,
                            SourceRange(DeclType.Loc, DeclType.EndLoc), Name);
       break;
