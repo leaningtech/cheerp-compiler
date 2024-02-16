@@ -233,6 +233,7 @@ bool ParsedAttr::slidesFromDeclToDeclSpecLegacyBehavior() const {
   case AT_OpenCLLocalAddressSpace:
   case AT_OpenCLConstantAddressSpace:
   case AT_OpenCLGenericAddressSpace:
+  case AT_GenericJSAddressSpace:
   case AT_NeonPolyVectorType:
   case AT_NeonVectorType:
   case AT_ArmMveStrictPolymorphism:
