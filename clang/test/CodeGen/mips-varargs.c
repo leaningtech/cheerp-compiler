@@ -30,7 +30,7 @@ int test_i32(char *fmt, ...) {
 // NEW:   [[PROMOTION_TEMP:%.*]] = alloca i32, align 4
 //
 // ALL:   [[VA:%.+]] = bitcast i8** %va to i8*
-// ALL:   call void @llvm.va_start(i8* [[VA]])
+// ALL:   call void @llvm.va_start.p0i8(i8* [[VA]])
 // ALL:   [[AP_CUR:%.+]] = load i8*, i8** %va, align [[$PTRALIGN]]
 // O32:   [[AP_NEXT:%.+]] = getelementptr inbounds i8, i8* [[AP_CUR]], [[$INTPTR_T:i32]] [[$CHUNKSIZE:4]]
 // NEW:   [[AP_NEXT:%.+]] = getelementptr inbounds i8, i8* [[AP_CUR]], [[$INTPTR_T:i32|i64]] [[$CHUNKSIZE:8]]
@@ -50,7 +50,7 @@ int test_i32(char *fmt, ...) {
 // ALL:   store i32 [[ARG]], i32* [[V]], align 4
 //
 // ALL:   [[VA1:%.+]] = bitcast i8** %va to i8*
-// ALL:   call void @llvm.va_end(i8* [[VA1]])
+// ALL:   call void @llvm.va_end.p0i8(i8* [[VA1]])
 // ALL: }
 
 long long test_i64(char *fmt, ...) {
@@ -67,7 +67,7 @@ long long test_i64(char *fmt, ...) {
 //
 // ALL:   %va = alloca i8*, align [[$PTRALIGN]]
 // ALL:   [[VA:%.+]] = bitcast i8** %va to i8*
-// ALL:   call void @llvm.va_start(i8* [[VA]])
+// ALL:   call void @llvm.va_start.p0i8(i8* [[VA]])
 // ALL:   [[AP_CUR:%.+]] = load i8*, i8** %va, align [[$PTRALIGN]]
 //
 // i64 is 8-byte aligned, while this is within O32's stack alignment there's no
@@ -84,7 +84,7 @@ long long test_i64(char *fmt, ...) {
 // ALL:   [[ARG:%.+]] = load i64, i64* [[AP_CAST]], align 8
 //
 // ALL:   [[VA1:%.+]] = bitcast i8** %va to i8*
-// ALL:   call void @llvm.va_end(i8* [[VA1]])
+// ALL:   call void @llvm.va_end.p0i8(i8* [[VA1]])
 // ALL: }
 
 char *test_ptr(char *fmt, ...) {
@@ -103,7 +103,7 @@ char *test_ptr(char *fmt, ...) {
 // ALL:   [[V:%.*]] = alloca i8*, align [[$PTRALIGN]]
 // N32:   [[AP_CAST:%.+]] = alloca i8*, align 4
 // ALL:   [[VA:%.+]] = bitcast i8** %va to i8*
-// ALL:   call void @llvm.va_start(i8* [[VA]])
+// ALL:   call void @llvm.va_start.p0i8(i8* [[VA]])
 // ALL:   [[AP_CUR:%.+]] = load i8*, i8** %va, align [[$PTRALIGN]]
 // ALL:   [[AP_NEXT:%.+]] = getelementptr inbounds i8, i8* [[AP_CUR]], [[$INTPTR_T]] [[$CHUNKSIZE]]
 // ALL:   store i8* [[AP_NEXT]], i8** %va, align [[$PTRALIGN]]
@@ -122,7 +122,7 @@ char *test_ptr(char *fmt, ...) {
 // ALL:   store i8* [[ARG]], i8** [[V]], align [[$PTRALIGN]]
 //
 // ALL:   [[VA1:%.+]] = bitcast i8** %va to i8*
-// ALL:   call void @llvm.va_end(i8* [[VA1]])
+// ALL:   call void @llvm.va_end.p0i8(i8* [[VA1]])
 // ALL: }
 
 int test_v4i32(char *fmt, ...) {
@@ -142,7 +142,7 @@ int test_v4i32(char *fmt, ...) {
 // ALL:   %va = alloca i8*, align [[$PTRALIGN]]
 // ALL:   [[V:%.+]] = alloca <4 x i32>, align 16
 // ALL:   [[VA1:%.+]] = bitcast i8** %va to i8*
-// ALL:   call void @llvm.va_start(i8* [[VA1]])
+// ALL:   call void @llvm.va_start.p0i8(i8* [[VA1]])
 // ALL:   [[AP_CUR:%.+]] = load i8*, i8** %va, align [[$PTRALIGN]]
 //
 // Vectors are 16-byte aligned, however the O32 ABI has a maximum alignment of
@@ -167,7 +167,7 @@ int test_v4i32(char *fmt, ...) {
 // ALL:   store <4 x i32> [[ARG]], <4 x i32>* [[V]], align 16
 //
 // ALL:   [[VA1:%.+]] = bitcast i8** %va to i8*
-// ALL:   call void @llvm.va_end(i8* [[VA1]])
+// ALL:   call void @llvm.va_end.p0i8(i8* [[VA1]])
 // ALL:   [[VECEXT:%.+]] = extractelement <4 x i32> {{.*}}, i32 0
 // ALL:   ret i32 [[VECEXT]]
 // ALL: }
