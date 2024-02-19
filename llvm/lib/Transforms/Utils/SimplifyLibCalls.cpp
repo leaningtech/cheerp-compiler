@@ -1480,12 +1480,12 @@ static Value *optimizeMemCmpConstantSize(CallInst *CI, Value *LHS, Value *RHS,
     // First, see if we can fold either argument to a constant.
     Value *LHSV = nullptr;
     if (auto *LHSC = dyn_cast<Constant>(LHS)) {
-      LHSC = ConstantExpr::getBitCast(LHSC, IntType->getPointerTo());
+      LHSC = ConstantExpr::getBitCast(LHSC, IntType->getPointerTo(LHSC->getType()->getPointerAddressSpace()));
       LHSV = ConstantFoldLoadFromConstPtr(LHSC, IntType, DL);
     }
     Value *RHSV = nullptr;
     if (auto *RHSC = dyn_cast<Constant>(RHS)) {
-      RHSC = ConstantExpr::getBitCast(RHSC, IntType->getPointerTo());
+      RHSC = ConstantExpr::getBitCast(RHSC, IntType->getPointerTo(RHSC->getType()->getPointerAddressSpace()));
       RHSV = ConstantFoldLoadFromConstPtr(RHSC, IntType, DL);
     }
 
