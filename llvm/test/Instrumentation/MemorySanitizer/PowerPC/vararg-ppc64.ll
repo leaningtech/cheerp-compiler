@@ -6,8 +6,8 @@ target triple = "powerpc64--linux"
 define i32 @foo(i32 %guard, ...) {
   %vl = alloca ptr, align 8
   call void @llvm.lifetime.start.p0(i64 32, ptr %vl)
-  call void @llvm.va_start(ptr %vl)
-  call void @llvm.va_end(ptr %vl)
+  call void @llvm.va_start.p0(ptr %vl)
+  call void @llvm.va_end.p0(ptr %vl)
   call void @llvm.lifetime.end.p0(i64 32, ptr %vl)
   ret i32 0
 }
@@ -22,8 +22,8 @@ define i32 @foo(i32 %guard, ...) {
 ; CHECK: call void @llvm.memcpy.p0.p0.i64(ptr align 8 [[C]], ptr align 8 @__msan_va_arg_tls, i64 [[B]], i1 false)
 
 declare void @llvm.lifetime.start.p0(i64, ptr nocapture) #1
-declare void @llvm.va_start(ptr) #2
-declare void @llvm.va_end(ptr) #2
+declare void @llvm.va_start.p0(ptr) #2
+declare void @llvm.va_end.p0(ptr) #2
 declare void @llvm.lifetime.end.p0(i64, ptr nocapture) #1
 
 define i32 @bar() {

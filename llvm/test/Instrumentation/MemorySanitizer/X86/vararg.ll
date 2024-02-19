@@ -7,8 +7,8 @@ target triple = "i386-unknown-linux-gnu"
 define void @VaStart(ptr %s, ...) {
 entry:
   %vl = alloca ptr, align 4
-  call void @llvm.va_start(ptr %vl)
+  call void @llvm.va_start.p0(ptr %vl)
   ret void
 }
 
-declare void @llvm.va_start(ptr)
+declare void @llvm.va_start.p0(ptr)

@@ -4,15 +4,15 @@
 ; This checks for a previously existing iterator wraparound bug in
 ; FunctionAttrs, and in the process covers corner cases with varargs.
 
-declare void @llvm.va_start(ptr)
-declare void @llvm.va_end(ptr)
+declare void @llvm.va_start.p0(ptr)
+declare void @llvm.va_end.p0(ptr)
 
 define void @va_func(ptr readonly %b, ...) readonly nounwind {
 ; CHECK-LABEL: define void @va_func(ptr nocapture readonly %b, ...)
  entry:
   %valist = alloca i8
-  call void @llvm.va_start(ptr %valist)
-  call void @llvm.va_end(ptr %valist)
+  call void @llvm.va_start.p0(ptr %valist)
+  call void @llvm.va_end.p0(ptr %valist)
   %x = call i32 @caller(ptr %b)
   ret void
 }
@@ -28,8 +28,8 @@ define void @va_func2(ptr readonly %b, ...) {
 ; CHECK-LABEL: define void @va_func2(ptr nocapture readonly %b, ...)
  entry:
   %valist = alloca i8
-  call void @llvm.va_start(ptr %valist)
-  call void @llvm.va_end(ptr %valist)
+  call void @llvm.va_start.p0(ptr %valist)
+  call void @llvm.va_end.p0(ptr %valist)
   %x = call i32 @caller(ptr %b)
   ret void
 }

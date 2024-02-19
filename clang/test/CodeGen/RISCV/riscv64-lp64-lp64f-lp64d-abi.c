@@ -246,13 +246,13 @@ void f_va_caller(void) {
 // CHECK:   [[VA:%.*]] = alloca ptr, align 8
 // CHECK:   [[V:%.*]] = alloca i32, align 4
 // CHECK:   store ptr %fmt, ptr [[FMT_ADDR]], align 8
-// CHECK:   call void @llvm.va_start(ptr [[VA]])
+// CHECK:   call void @llvm.va_start.p0(ptr [[VA]])
 // CHECK:   [[ARGP_CUR:%.*]] = load ptr, ptr [[VA]], align 8
 // CHECK:   [[ARGP_NEXT:%.*]] = getelementptr inbounds i8, ptr [[ARGP_CUR]], i64 8
 // CHECK:   store ptr [[ARGP_NEXT]], ptr [[VA]], align 8
 // CHECK:   [[TMP1:%.*]] = load i32, ptr [[ARGP_CUR]], align 8
 // CHECK:   store i32 [[TMP1]], ptr [[V]], align 4
-// CHECK:   call void @llvm.va_end(ptr [[VA]])
+// CHECK:   call void @llvm.va_end.p0(ptr [[VA]])
 // CHECK:   [[TMP2:%.*]] = load i32, ptr [[V]], align 4
 // CHECK:   ret i32 [[TMP2]]
 // CHECK: }
@@ -275,7 +275,7 @@ int f_va_1(char *fmt, ...) {
 // CHECK-NEXT:    [[VA:%.*]] = alloca ptr, align 8
 // CHECK-NEXT:    [[V:%.*]] = alloca fp128, align 16
 // CHECK-NEXT:    store ptr [[FMT:%.*]], ptr [[FMT_ADDR]], align 8
-// CHECK-NEXT:    call void @llvm.va_start(ptr [[VA]])
+// CHECK-NEXT:    call void @llvm.va_start.p0(ptr [[VA]])
 // CHECK-NEXT:    [[ARGP_CUR:%.*]] = load ptr, ptr [[VA]], align 8
 // CHECK-NEXT:    [[TMP0:%.*]] = ptrtoint ptr [[ARGP_CUR]] to i64
 // CHECK-NEXT:    [[TMP1:%.*]] = add i64 [[TMP0]], 15
@@ -285,7 +285,7 @@ int f_va_1(char *fmt, ...) {
 // CHECK-NEXT:    store ptr [[ARGP_NEXT]], ptr [[VA]], align 8
 // CHECK-NEXT:    [[TMP4:%.*]] = load fp128, ptr [[ARGP_CUR_ALIGNED]], align 16
 // CHECK-NEXT:    store fp128 [[TMP4]], ptr [[V]], align 16
-// CHECK-NEXT:    call void @llvm.va_end(ptr [[VA]])
+// CHECK-NEXT:    call void @llvm.va_end.p0(ptr [[VA]])
 // CHECK-NEXT:    [[TMP5:%.*]] = load fp128, ptr [[V]], align 16
 // CHECK-NEXT:    ret fp128 [[TMP5]]
 long double f_va_2(char *fmt, ...) {
@@ -307,7 +307,7 @@ long double f_va_2(char *fmt, ...) {
 // CHECK-NEXT:    [[W:%.*]] = alloca i32, align 4
 // CHECK-NEXT:    [[X:%.*]] = alloca fp128, align 16
 // CHECK-NEXT:    store ptr [[FMT:%.*]], ptr [[FMT_ADDR]], align 8
-// CHECK-NEXT:    call void @llvm.va_start(ptr [[VA]])
+// CHECK-NEXT:    call void @llvm.va_start.p0(ptr [[VA]])
 // CHECK-NEXT:    [[ARGP_CUR:%.*]] = load ptr, ptr [[VA]], align 8
 // CHECK-NEXT:    [[TMP0:%.*]] = ptrtoint ptr [[ARGP_CUR]] to i64
 // CHECK-NEXT:    [[TMP1:%.*]] = add i64 [[TMP0]], 15
@@ -331,7 +331,7 @@ long double f_va_2(char *fmt, ...) {
 // CHECK-NEXT:    store ptr [[ARGP_NEXT5]], ptr [[VA]], align 8
 // CHECK-NEXT:    [[TMP11:%.*]] = load fp128, ptr [[ARGP_CUR4_ALIGNED]], align 16
 // CHECK-NEXT:    store fp128 [[TMP11]], ptr [[X]], align 16
-// CHECK-NEXT:    call void @llvm.va_end(ptr [[VA]])
+// CHECK-NEXT:    call void @llvm.va_end.p0(ptr [[VA]])
 // CHECK-NEXT:    [[TMP12:%.*]] = load fp128, ptr [[V]], align 16
 // CHECK-NEXT:    [[TMP13:%.*]] = load fp128, ptr [[X]], align 16
 // CHECK-NEXT:    [[ADD:%.*]] = fadd fp128 [[TMP12]], [[TMP13]]
@@ -357,7 +357,7 @@ long double f_va_3(char *fmt, ...) {
 // CHECK-NEXT:    [[LS:%.*]] = alloca [[STRUCT_LARGE:%.*]], align 8
 // CHECK-NEXT:    [[RET:%.*]] = alloca i32, align 4
 // CHECK-NEXT:    store ptr [[FMT:%.*]], ptr [[FMT_ADDR]], align 8
-// CHECK-NEXT:    call void @llvm.va_start(ptr [[VA]])
+// CHECK-NEXT:    call void @llvm.va_start.p0(ptr [[VA]])
 // CHECK-NEXT:    [[ARGP_CUR:%.*]] = load ptr, ptr [[VA]], align 8
 // CHECK-NEXT:    [[ARGP_NEXT:%.*]] = getelementptr inbounds i8, ptr [[ARGP_CUR]], i64 8
 // CHECK-NEXT:    store ptr [[ARGP_NEXT]], ptr [[VA]], align 8
@@ -376,7 +376,7 @@ long double f_va_3(char *fmt, ...) {
 // CHECK-NEXT:    store ptr [[ARGP_NEXT7]], ptr [[VA]], align 8
 // CHECK-NEXT:    [[TMP9:%.*]] = load ptr, ptr [[ARGP_CUR6]], align 8
 // CHECK-NEXT:    call void @llvm.memcpy.p0.p0.i64(ptr align 8 [[LS]], ptr align 8 [[TMP9]], i64 32, i1 false)
-// CHECK-NEXT:    call void @llvm.va_end(ptr [[VA]])
+// CHECK-NEXT:    call void @llvm.va_end.p0(ptr [[VA]])
 // CHECK-NEXT:    [[A:%.*]] = getelementptr inbounds [[STRUCT_TINY]], ptr [[TS]], i32 0, i32 0
 // CHECK-NEXT:    [[TMP12:%.*]] = load i16, ptr [[A]], align 2
 // CHECK-NEXT:    [[CONV:%.*]] = zext i16 [[TMP12]] to i64

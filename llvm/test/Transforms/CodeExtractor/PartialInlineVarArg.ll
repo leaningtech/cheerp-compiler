@@ -14,10 +14,10 @@ bb1:                                              ; preds = %entry
   %vg1 = add nsw i32 %stat1, 1
   store i32 %vg1, i32* @stat, align 4
   %vargs1 = bitcast i8** %vargs to i8*
-  call void @llvm.va_start(i8* %vargs1)
+  call void @llvm.va_start.p0(i8* %vargs1)
   %va1 = va_arg i8** %vargs, i32
   call void @foo(i32 %count, i32 %va1) #2
-  call void @llvm.va_end(i8* %vargs1)
+  call void @llvm.va_end.p0(i8* %vargs1)
   br label %bb2
 
 bb2:                                              ; preds = %bb1, %entry
@@ -26,8 +26,8 @@ bb2:                                              ; preds = %bb1, %entry
 }
 
 declare void @foo(i32, i32)
-declare void @llvm.va_start(i8*)
-declare void @llvm.va_end(i8*)
+declare void @llvm.va_start.p0(i8*)
+declare void @llvm.va_end.p0(i8*)
 
 define i32 @caller1(i32 %arg) {
 bb:
@@ -62,7 +62,7 @@ bb1:                                              ; preds = %entry
   %vg1 = add nsw i32 %stat1, 1
   store i32 %vg1, i32* @stat, align 4
   %vargs1 = bitcast i8** %vargs to i8*
-  call void @llvm.va_start(i8* %vargs1)
+  call void @llvm.va_start.p0(i8* %vargs1)
   %va1 = va_arg i8** %vargs, i32
   call void @foo(i32 %count, i32 %va1)
   br label %bb2
@@ -70,7 +70,7 @@ bb1:                                              ; preds = %entry
 bb2:                                              ; preds = %bb1, %entry
   %res = phi i32 [ 1, %bb1 ], [ 0, %entry ]
   %ptr = phi i8* [ %vargs1, %bb1 ], [ %vargs0, %entry]
-  call void @llvm.va_end(i8* %ptr)
+  call void @llvm.va_end.p0(i8* %ptr)
   ret i32 %res
 }
 

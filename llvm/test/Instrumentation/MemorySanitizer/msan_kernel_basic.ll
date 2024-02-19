@@ -313,8 +313,8 @@ entry:
 ; Test kernel-specific va_list instrumentation
 
 %struct.__va_list_tag = type { i32, i32, ptr, ptr }
-declare void @llvm.va_start(ptr) nounwind
-declare void @llvm.va_end(ptr)
+declare void @llvm.va_start.p0(ptr) nounwind
+declare void @llvm.va_end.p0(ptr)
 @.str = private unnamed_addr constant [4 x i8] c"%d\0A\00", align 1
 declare dso_local i32 @VAListFn(ptr, ptr) local_unnamed_addr
 
@@ -322,9 +322,9 @@ declare dso_local i32 @VAListFn(ptr, ptr) local_unnamed_addr
 define dso_local i32 @VarArgFn(ptr %fmt, ...) local_unnamed_addr sanitize_memory #0 {
 entry:
   %args = alloca [1 x %struct.__va_list_tag], align 16
-  call void @llvm.va_start(ptr nonnull %args)
+  call void @llvm.va_start.p0(ptr nonnull %args)
   %call = call i32 @VAListFn(ptr %fmt, ptr nonnull %args)
-  call void @llvm.va_end(ptr nonnull %args)
+  call void @llvm.va_end.p0(ptr nonnull %args)
   ret i32 %call
 }
 

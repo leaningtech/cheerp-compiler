@@ -8,8 +8,8 @@ target triple = "aarch64-unknown-linux-gnu"
 define i32 @foo(i32 %guard, ...) {
   %vl = alloca %struct.__va_list, align 8
   call void @llvm.lifetime.start.p0(i64 32, ptr %vl)
-  call void @llvm.va_start(ptr %vl)
-  call void @llvm.va_end(ptr %vl)
+  call void @llvm.va_start.p0(ptr %vl)
+  call void @llvm.va_end.p0(ptr %vl)
   call void @llvm.lifetime.end.p0(i64 32, ptr %vl)
   ret i32 0
 }
@@ -46,8 +46,8 @@ define i32 @foo(i32 %guard, ...) {
 ; CHECK: call void @llvm.memcpy.p0.p0.i64(ptr align 16 {{%.*}}, ptr align 16 [[STACK]], i64 {{%.*}}, i1 false)
 
 declare void @llvm.lifetime.start.p0(i64, ptr nocapture) #1
-declare void @llvm.va_start(ptr) #2
-declare void @llvm.va_end(ptr) #2
+declare void @llvm.va_start.p0(ptr) #2
+declare void @llvm.va_end.p0(ptr) #2
 declare void @llvm.lifetime.end.p0(i64, ptr nocapture) #1
 
 define i32 @bar() {

@@ -10,8 +10,8 @@ define i32 @varArgIntrinsic(i32 %X, ...) {
   %ap = alloca i8*
   %ap2 = bitcast i8** %ap to i8*
 
-; CHECK: call void @llvm.va_start(i8* %ap2)
-  call void @llvm.va_start(i8* %ap2)
+; CHECK: call void @llvm.va_start.p0i8(i8* %ap2)
+  call void @llvm.va_start.p0i8(i8* %ap2)
 
 ; CHECK-NEXT: %tmp = va_arg i8** %ap, i32
   %tmp = va_arg i8** %ap, i32
@@ -19,16 +19,16 @@ define i32 @varArgIntrinsic(i32 %X, ...) {
   %aq = alloca i8*
   %aq2 = bitcast i8** %aq to i8*
 
-; CHECK: call void @llvm.va_copy(i8* %aq2, i8* %ap2)
-  call void @llvm.va_copy(i8* %aq2, i8* %ap2)
-; CHECK-NEXT: call void @llvm.va_end(i8* %aq2)
-  call void @llvm.va_end(i8* %aq2)
+; CHECK: call void @llvm.va_copy.p0i8.p0i8(i8* %aq2, i8* %ap2)
+  call void @llvm.va_copy.p0i8.p0i8(i8* %aq2, i8* %ap2)
+; CHECK-NEXT: call void @llvm.va_end.p0i8(i8* %aq2)
+  call void @llvm.va_end.p0i8(i8* %aq2)
 
-; CHECK-NEXT:  call void @llvm.va_end(i8* %ap2)
-  call void @llvm.va_end(i8* %ap2)
+; CHECK-NEXT:  call void @llvm.va_end.p0i8(i8* %ap2)
+  call void @llvm.va_end.p0i8(i8* %ap2)
   ret i32 %tmp
 }
 
-declare void @llvm.va_start(i8*)
-declare void @llvm.va_copy(i8*, i8*)
-declare void @llvm.va_end(i8*)
+declare void @llvm.va_start.p0i8(i8*)
+declare void @llvm.va_copy.p0i8.p0i8(i8*, i8*)
+declare void @llvm.va_end.p0i8(i8*)

@@ -18,7 +18,7 @@ int test_i32(char *fmt, ...) {
 // CHECK:   [[V:%[^,=]+]] = alloca i32, align 4
 // CHECK:   store i8* %fmt, i8** [[FMT_ADDR]], align 4
 // CHECK:   [[VA1:%[^,=]+]] = bitcast i8** [[VA]] to i8*
-// CHECK:   call void @llvm.va_start(i8* [[VA1]])
+// CHECK:   call void @llvm.va_start.p0i8(i8* [[VA1]])
 // CHECK:   [[ARGP_CUR:%[^,=]+]] = load i8*, i8** [[VA]], align 4
 // CHECK:   [[ARGP_NEXT:%[^,=]+]] = getelementptr inbounds i8, i8* [[ARGP_CUR]], i32 4
 // CHECK:   store i8* [[ARGP_NEXT]], i8** [[VA]], align 4
@@ -26,7 +26,7 @@ int test_i32(char *fmt, ...) {
 // CHECK:   [[R4:%[^,=]+]] = load i32, i32* [[R3]], align 4
 // CHECK:   store i32 [[R4]], i32* [[V]], align 4
 // CHECK:   [[VA2:%[^,=]+]] = bitcast i8** [[VA]] to i8*
-// CHECK:   call void @llvm.va_end(i8* [[VA2]])
+// CHECK:   call void @llvm.va_end.p0i8(i8* [[VA2]])
 // CHECK:   [[R5:%[^,=]+]] = load i32, i32* [[V]], align 4
 // CHECK:   ret i32 [[R5]]
 // CHECK: }
@@ -47,7 +47,7 @@ long long test_i64(char *fmt, ...) {
 // CHECK:   [[V:%[^,=]+]] = alloca i64, align 8
 // CHECK:   store i8* %fmt, i8** [[FMT_ADDR]], align 4
 // CHECK:   [[VA1:%[^,=]+]] = bitcast i8** [[VA]] to i8*
-// CHECK:   call void @llvm.va_start(i8* [[VA1]])
+// CHECK:   call void @llvm.va_start.p0i8(i8* [[VA1]])
 // CHECK:   [[ARGP_CUR:%[^,=]+]] = load i8*, i8** [[VA]], align 4
 // CHECK:   [[R0:%[^,=]+]] = ptrtoint i8* [[ARGP_CUR]] to i32
 // CHECK:   [[R1:%[^,=]+]] = add i32 [[R0]], 7
@@ -59,7 +59,7 @@ long long test_i64(char *fmt, ...) {
 // CHECK:   [[R4:%[^,=]+]] = load i64, i64* [[R3]], align 8
 // CHECK:   store i64 [[R4]], i64* [[V]], align 8
 // CHECK:   [[VA2:%[^,=]+]] = bitcast i8** [[VA]] to i8*
-// CHECK:   call void @llvm.va_end(i8* [[VA2]])
+// CHECK:   call void @llvm.va_end.p0i8(i8* [[VA2]])
 // CHECK:   [[R5:%[^,=]+]] = load i64, i64* [[V]], align 8
 // CHECK:   ret i64 [[R5]]
 // CHECK: }
@@ -85,7 +85,7 @@ struct S test_struct(char *fmt, ...) {
 // CHECK-NEXT:   [[VA:%[^,=]+]] = alloca i8*, align 4
 // CHECK-NEXT:   store i8* %fmt, i8** [[FMT_ADDR]], align 4
 // CHECK-NEXT:   [[VA1:%[^,=]+]] = bitcast i8** [[VA]] to i8*
-// CHECK-NEXT:   call void @llvm.va_start(i8* [[VA1]])
+// CHECK-NEXT:   call void @llvm.va_start.p0i8(i8* [[VA1]])
 // CHECK-NEXT:   [[ARGP_CUR:%[^,=]+]] = load i8*, i8** [[VA]], align 4
 // CHECK-NEXT:   [[ARGP_NEXT:%[^,=]+]] = getelementptr inbounds i8, i8* [[ARGP_CUR]], i32 4
 // CHECK-NEXT:   store i8* [[ARGP_NEXT]], i8** [[VA]], align 4
@@ -95,7 +95,7 @@ struct S test_struct(char *fmt, ...) {
 // CHECK-NEXT:   [[R6:%[^,=]+]] = bitcast [[STRUCT_S]]* [[R4]] to i8*
 // CHECK-NEXT:   call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 4 [[R5]], i8* align 4 [[R6]], i32 12, i1 false)
 // CHECK-NEXT:   [[VA2:%[^,=]+]] = bitcast i8** [[VA]] to i8*
-// CHECK-NEXT:   call void @llvm.va_end(i8* [[VA2]])
+// CHECK-NEXT:   call void @llvm.va_end.p0i8(i8* [[VA2]])
 // CHECK-NEXT:   ret void
 // CHECK-NEXT: }
 
@@ -118,7 +118,7 @@ struct S test_empty_struct(char *fmt, ...) {
 // CHECK-NEXT:   [[U:%[^,=]+]] = alloca [[STRUCT_Z:%[^,=]+]], align 1
 // CHECK-NEXT:   store i8* %fmt, i8** [[FMT_ADDR]], align 4
 // CHECK-NEXT:   [[VA1:%[^,=]+]] = bitcast i8** [[VA]] to i8*
-// CHECK-NEXT:   call void @llvm.va_start(i8* [[VA1]])
+// CHECK-NEXT:   call void @llvm.va_start.p0i8(i8* [[VA1]])
 // CHECK-NEXT:   [[ARGP_CUR:%[^,=]+]] = load i8*, i8** [[VA]], align 4
 // CHECK-NEXT:   [[ARGP_NEXT:%[^,=]+]] = getelementptr inbounds i8, i8* [[ARGP_CUR]], i32 0
 // CHECK-NEXT:   store i8* [[ARGP_NEXT]], i8** [[VA]], align 4
@@ -135,6 +135,6 @@ struct S test_empty_struct(char *fmt, ...) {
 // CHECK-NEXT:   [[R6:%[^,=]+]] = bitcast [[STRUCT_S]]* [[R4]] to i8*
 // CHECK-NEXT:   call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 4 [[R5]], i8* align 4 [[R6]], i32 12, i1 false)
 // CHECK-NEXT:   [[VA2:%[^,=]+]] = bitcast i8** [[VA]] to i8*
-// CHECK-NEXT:   call void @llvm.va_end(i8* [[VA2]])
+// CHECK-NEXT:   call void @llvm.va_end.p0i8(i8* [[VA2]])
 // CHECK-NEXT:   ret void
 // CHECK-NEXT: }

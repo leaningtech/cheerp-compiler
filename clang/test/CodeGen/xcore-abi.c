@@ -27,7 +27,7 @@ void testva (int n, ...) {
   va_start(ap,n);
   // CHECK: [[AP:%[a-z0-9]+]] = alloca i8*, align 4
   // CHECK: [[AP1:%[a-z0-9]+]] = bitcast i8** [[AP]] to i8*
-  // CHECK: call void @llvm.va_start(i8* [[AP1]])
+  // CHECK: call void @llvm.va_start.p0(i8* [[AP1]])
 
   char* v1 = va_arg (ap, char*);
   f(v1);

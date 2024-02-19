@@ -58,9 +58,9 @@ define internal i32 @varg_accessed(...) {
 entry:
   %vargs = alloca i8*, align 8
   %vargs.ptr = bitcast i8** %vargs to i8*
-  call void @llvm.va_start(i8* %vargs.ptr)
+  call void @llvm.va_start.p0(i8* %vargs.ptr)
   %va1 = va_arg i8** %vargs, i32
-  call void @llvm.va_end(i8* %vargs.ptr)
+  call void @llvm.va_end.p0(i8* %vargs.ptr)
   ret i32 %va1
 }
 
@@ -68,9 +68,9 @@ define internal i32 @varg_accessed_alwaysinline(...) alwaysinline {
 entry:
   %vargs = alloca i8*, align 8
   %vargs.ptr = bitcast i8** %vargs to i8*
-  call void @llvm.va_start(i8* %vargs.ptr)
+  call void @llvm.va_start.p0(i8* %vargs.ptr)
   %va1 = va_arg i8** %vargs, i32
-  call void @llvm.va_end(i8* %vargs.ptr)
+  call void @llvm.va_end.p0(i8* %vargs.ptr)
   ret i32 %va1
 }
 
@@ -90,22 +90,22 @@ entry:
   %ap.ptr = bitcast i8** %ap to i8*
   %ap2 = alloca i8*, align 4
   %ap2.ptr = bitcast i8** %ap to i8*
-  call void @llvm.va_start(i8* nonnull %ap.ptr)
+  call void @llvm.va_start.p0(i8* nonnull %ap.ptr)
   call fastcc void @callee_with_vaend(i8* nonnull %ap.ptr)
-  call void @llvm.va_start(i8* nonnull %ap2.ptr)
+  call void @llvm.va_start.p0(i8* nonnull %ap2.ptr)
   call fastcc void @callee_with_vaend_alwaysinline(i8* nonnull %ap2.ptr)
   ret void
 }
 
 define internal fastcc void @callee_with_vaend_alwaysinline(i8* %a) alwaysinline {
 entry:
-  tail call void @llvm.va_end(i8* %a)
+  tail call void @llvm.va_end.p0(i8* %a)
   ret void
 }
 
 define internal fastcc void @callee_with_vaend(i8* %a) {
 entry:
-  tail call void @llvm.va_end(i8* %a)
+  tail call void @llvm.va_end.p0(i8* %a)
   ret void
 }
 
@@ -113,8 +113,8 @@ entry:
 ; CHECK-NOT: @callee_with_vaend
 ; CHECK-NOT: @callee_with_vaend_alwaysinline
 
-declare void @llvm.va_start(i8*)
-declare void @llvm.va_end(i8*)
+declare void @llvm.va_start.p0(i8*)
+declare void @llvm.va_end.p0(i8*)
 
 ; CHECK: attributes [[FN_ATTRS]] = { "foo"="bar" }
 attributes #0 = { "foo"="bar" }

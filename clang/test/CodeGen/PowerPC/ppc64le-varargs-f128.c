@@ -31,7 +31,7 @@ void foo_ls(ldbl128_s);
 // OMP-TARGET: call void @foo_ld(ppc_fp128 noundef %[[V3]])
 
 // OMP-HOST-LABEL: define{{.*}} void @omp(
-// OMP-HOST: call void @llvm.va_start(ptr %[[AP:[0-9a-zA-Z_.]+]])
+// OMP-HOST: call void @llvm.va_start.p0(ptr %[[AP:[0-9a-zA-Z_.]+]])
 // OMP-HOST: %[[CUR:[0-9a-zA-Z_.]+]] = load ptr, ptr %[[AP]], align 8
 // OMP-HOST: %[[V0:[0-9a-zA-Z_.]+]] = ptrtoint ptr %[[CUR]] to i64
 // OMP-HOST: %[[V1:[0-9a-zA-Z_.]+]] = add i64 %[[V0]], 15
@@ -51,7 +51,7 @@ void omp(int n, ...) {
 }
 
 // IEEE-LABEL: define{{.*}} void @f128
-// IEEE: call void @llvm.va_start(ptr %[[AP:[0-9a-zA-Z_.]+]])
+// IEEE: call void @llvm.va_start.p0(ptr %[[AP:[0-9a-zA-Z_.]+]])
 // IEEE: %[[CUR:[0-9a-zA-Z_.]+]] = load ptr, ptr %[[AP]]
 // IEEE: %[[V0:[0-9a-zA-Z_.]+]] = ptrtoint ptr %[[CUR]] to i64
 // IEEE: %[[V1:[0-9a-zA-Z_.]+]] = add i64 %[[V0]], 15
@@ -59,7 +59,7 @@ void omp(int n, ...) {
 // IEEE: %[[ALIGN:[0-9a-zA-Z_.]+]] = inttoptr i64 %[[V2]] to ptr
 // IEEE: %[[V4:[0-9a-zA-Z_.]+]] = load fp128, ptr %[[ALIGN]], align 16
 // IEEE: call void @foo_fq(fp128 noundef %[[V4]])
-// IEEE: call void @llvm.va_end(ptr %[[AP]])
+// IEEE: call void @llvm.va_end.p0(ptr %[[AP]])
 void f128(int n, ...) {
   va_list ap;
   va_start(ap, n);
@@ -68,7 +68,7 @@ void f128(int n, ...) {
 }
 
 // IEEE-LABEL: define{{.*}} void @long_double
-// IEEE: call void @llvm.va_start(ptr %[[AP:[0-9a-zA-Z_.]+]])
+// IEEE: call void @llvm.va_start.p0(ptr %[[AP:[0-9a-zA-Z_.]+]])
 // IEEE: %[[CUR:[0-9a-zA-Z_.]+]] = load ptr, ptr %[[AP]]
 // IEEE: %[[V0:[0-9a-zA-Z_.]+]] = ptrtoint ptr %[[CUR]] to i64
 // IEEE: %[[V1:[0-9a-zA-Z_.]+]] = add i64 %[[V0]], 15
@@ -76,14 +76,14 @@ void f128(int n, ...) {
 // IEEE: %[[ALIGN:[0-9a-zA-Z_.]+]] = inttoptr i64 %[[V2]] to ptr
 // IEEE: %[[V4:[0-9a-zA-Z_.]+]] = load fp128, ptr %[[ALIGN]], align 16
 // IEEE: call void @foo_ld(fp128 noundef %[[V4]])
-// IEEE: call void @llvm.va_end(ptr %[[AP]])
+// IEEE: call void @llvm.va_end.p0(ptr %[[AP]])
 
 // IBM-LABEL: define{{.*}} void @long_double
-// IBM: call void @llvm.va_start(ptr  %[[AP:[0-9a-zA-Z_.]+]])
+// IBM: call void @llvm.va_start.p0(ptr  %[[AP:[0-9a-zA-Z_.]+]])
 // IBM: %[[CUR:[0-9a-zA-Z_.]+]] = load ptr, ptr %[[AP]]
 // IBM: %[[V4:[0-9a-zA-Z_.]+]] = load ppc_fp128, ptr %[[CUR]], align 8
 // IBM: call void @foo_ld(ppc_fp128 noundef %[[V4]])
-// IBM: call void @llvm.va_end(ptr %[[AP]])
+// IBM: call void @llvm.va_end.p0(ptr %[[AP]])
 void long_double(int n, ...) {
   va_list ap;
   va_start(ap, n);
@@ -92,7 +92,7 @@ void long_double(int n, ...) {
 }
 
 // IEEE-LABEL: define{{.*}} void @long_double_struct
-// IEEE: call void @llvm.va_start(ptr %[[AP:[0-9a-zA-Z_.]+]])
+// IEEE: call void @llvm.va_start.p0(ptr %[[AP:[0-9a-zA-Z_.]+]])
 // IEEE: %[[CUR:[0-9a-zA-Z_.]+]] = load ptr, ptr %[[AP]]
 // IEEE: %[[P0:[0-9a-zA-Z_.]+]] = ptrtoint ptr %[[CUR]] to i64
 // IEEE: %[[P1:[0-9a-zA-Z_.]+]] = add i64 %[[P0]], 15
@@ -104,7 +104,7 @@ void long_double(int n, ...) {
 // IEEE: %[[COERCE:[0-9a-zA-Z_.]+]] = getelementptr inbounds %struct.ldbl128_s, ptr %[[TMP]], i32 0, i32 0
 // IEEE: %[[V4:[0-9a-zA-Z_.]+]] = load fp128, ptr %[[COERCE]], align 16
 // IEEE: call void @foo_ls(fp128 inreg %[[V4]])
-// IEEE: call void @llvm.va_end(ptr %[[AP]])
+// IEEE: call void @llvm.va_end.p0(ptr %[[AP]])
 void long_double_struct(int n, ...) {
   va_list ap;
   va_start(ap, n);

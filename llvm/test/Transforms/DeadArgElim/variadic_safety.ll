@@ -1,10 +1,10 @@
 ; RUN: opt < %s -passes=deadargelim -S | FileCheck %s
 
-declare void @llvm.va_start(i8*)
+declare void @llvm.va_start.p0(i8*)
 
 define internal i32 @va_func(i32 %a, i32 %b, ...) {
   %valist = alloca i8
-  call void @llvm.va_start(i8* %valist)
+  call void @llvm.va_start.p0(i8* %valist)
 
   ret i32 %b
 }
@@ -24,7 +24,7 @@ define i32 @call_va(i32 %in) {
 
 define internal i32 @va_deadret_func(i32 %a, i32 %b, ...) {
   %valist = alloca i8
-  call void @llvm.va_start(i8* %valist)
+  call void @llvm.va_start.p0(i8* %valist)
 
   ret i32 %a
 }

@@ -160,8 +160,8 @@ define void @variadic_no_va_start(...) {
 ; doesn't handle it.
 define void @variadic_va_start(...) {
     %ap = alloca ptr, align 8
-    call void @llvm.va_start(ptr %ap)
+    call void @llvm.va_start.p0(ptr %ap)
     ret void
 }
 
-declare void @llvm.va_start(ptr) nounwind
+declare void @llvm.va_start.p0(ptr) nounwind

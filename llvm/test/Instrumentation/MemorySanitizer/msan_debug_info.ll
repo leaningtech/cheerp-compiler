@@ -494,7 +494,7 @@ define <4 x i32> @ShuffleVector(<4 x i32> %vec, <4 x i32> %vec1) sanitize_memory
 
 
 %struct.__va_list_tag = type { i32, i32, ptr, ptr }
-declare void @llvm.va_start(ptr) nounwind
+declare void @llvm.va_start.p0(ptr) nounwind
 
 define void @VAStart(i32 %x, ...) sanitize_memory {
 ; CHECK-LABEL: @VAStart(
@@ -540,7 +540,7 @@ define void @VAStart(i32 %x, ...) sanitize_memory {
 ; CHECK-NEXT:    [[TMP29:%.*]] = add i64 [[TMP27]], 17592186044416, !dbg [[DBG11]]
 ; CHECK-NEXT:    [[TMP30:%.*]] = inttoptr i64 [[TMP29]] to ptr, !dbg [[DBG11]]
 ; CHECK-NEXT:    call void @llvm.memset.p0.i32(ptr align 8 [[TMP28]], i8 0, i32 24, i1 false), !dbg [[DBG11]]
-; CHECK-NEXT:    call void @llvm.va_start(ptr [[VA]]), !dbg [[DBG11]]
+; CHECK-NEXT:    call void @llvm.va_start.p0(ptr [[VA]]), !dbg [[DBG11]]
 ; CHECK-NEXT:    [[TMP31:%.*]] = ptrtoint ptr [[VA]] to i64, !dbg [[DBG11]]
 ; CHECK-NEXT:    [[TMP32:%.*]] = add i64 [[TMP31]], 16, !dbg [[DBG11]]
 ; CHECK-NEXT:    [[TMP33:%.*]] = inttoptr i64 [[TMP32]] to ptr, !dbg [[DBG11]]
@@ -571,7 +571,7 @@ entry:
   %x.addr = alloca i32, align 4, !dbg !10
   %va = alloca [1 x %struct.__va_list_tag], align 16, !dbg !11
   store i32 %x, ptr %x.addr, align 4, !dbg !12
-  call void @llvm.va_start(ptr %va), !dbg !15
+  call void @llvm.va_start.p0(ptr %va), !dbg !15
   ret void
 }
 

@@ -755,7 +755,7 @@ define void @VACopy(ptr %p1, ptr %p2) nounwind uwtable sanitize_memory {
 ; It should work with a local stack copy instead.
 
 %struct.__va_list_tag = type { i32, i32, ptr, ptr }
-declare void @llvm.va_start(ptr) nounwind
+declare void @llvm.va_start.p0(ptr) nounwind
 
 ; Function Attrs: nounwind uwtable
 define void @VAStart(i32 %x, ...) sanitize_memory {
@@ -763,7 +763,7 @@ entry:
   %x.addr = alloca i32, align 4
   %va = alloca [1 x %struct.__va_list_tag], align 16
   store i32 %x, ptr %x.addr, align 4
-  call void @llvm.va_start(ptr %va)
+  call void @llvm.va_start.p0(ptr %va)
   ret void
 }
 

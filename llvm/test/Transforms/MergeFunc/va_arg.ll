@@ -15,7 +15,7 @@ target triple = "x86_64-unknown-linux-gnu"
 define dso_local void @_Z9simple_vaPKcz(i8* nocapture readnone, ...) unnamed_addr {
   %2 = alloca [1 x %struct.__va_list_tag], align 16
   %3 = bitcast [1 x %struct.__va_list_tag]* %2 to i8*
-  call void @llvm.va_start(i8* nonnull %3)
+  call void @llvm.va_start.p0(i8* nonnull %3)
   %4 = getelementptr inbounds [1 x %struct.__va_list_tag], [1 x %struct.__va_list_tag]* %2, i64 0, i64 0, i32 0
   %5 = load i32, i32* %4, align 16
   %6 = icmp ult i32 %5, 41
@@ -42,18 +42,18 @@ define dso_local void @_Z9simple_vaPKcz(i8* nocapture readnone, ...) unnamed_add
   %19 = bitcast i8* %18 to i32*
   %20 = load i32, i32* %19, align 4
   call void @_Z6escapei(i32 %20)
-  call void @llvm.va_end(i8* nonnull %3)
+  call void @llvm.va_end.p0(i8* nonnull %3)
   ret void
 }
 
 ; Function Attrs: nounwind
-declare void @llvm.va_start(i8*)
+declare void @llvm.va_start.p0(i8*)
 
 ; Function Attrs: minsize optsize
 declare dso_local void @_Z6escapei(i32) local_unnamed_addr
 
 ; Function Attrs: nounwind
-declare void @llvm.va_end(i8*)
+declare void @llvm.va_end.p0(i8*)
 
 ; CHECK-LABEL: define {{.*}}@_Z10simple_va2PKcz
 ; CHECK: call void @llvm.va_start
@@ -61,7 +61,7 @@ declare void @llvm.va_end(i8*)
 define dso_local void @_Z10simple_va2PKcz(i8* nocapture readnone, ...) unnamed_addr {
   %2 = alloca [1 x %struct.__va_list_tag], align 16
   %3 = bitcast [1 x %struct.__va_list_tag]* %2 to i8*
-  call void @llvm.va_start(i8* nonnull %3)
+  call void @llvm.va_start.p0(i8* nonnull %3)
   %4 = getelementptr inbounds [1 x %struct.__va_list_tag], [1 x %struct.__va_list_tag]* %2, i64 0, i64 0, i32 0
   %5 = load i32, i32* %4, align 16
   %6 = icmp ult i32 %5, 41
@@ -88,6 +88,6 @@ define dso_local void @_Z10simple_va2PKcz(i8* nocapture readnone, ...) unnamed_a
   %19 = bitcast i8* %18 to i32*
   %20 = load i32, i32* %19, align 4
   call void @_Z6escapei(i32 %20)
-  call void @llvm.va_end(i8* nonnull %3)
+  call void @llvm.va_end.p0(i8* nonnull %3)
   ret void
 }

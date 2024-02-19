@@ -9,15 +9,15 @@ entry:
 	%args = alloca i8*		; <i8**> [#uses=2]
 	%"alloca point" = bitcast i32 0 to i32		; <i32> [#uses=0]
 	%args1 = bitcast i8** %args to i8*		; <i8*> [#uses=1]
-	call void @llvm.va_start( i8* %args1 )
+	call void @llvm.va_start.p0( i8* %args1 )
 	%args41 = bitcast i8** %args to i8*		; <i8*> [#uses=1]
-	call void @llvm.va_end( i8* %args41 )
+	call void @llvm.va_end.p0( i8* %args41 )
 	ret i32 undef
 }
 
-declare void @llvm.va_start(i8*) nounwind
+declare void @llvm.va_start.p0(i8*) nounwind
 
-declare void @llvm.va_end(i8*) nounwind
+declare void @llvm.va_end.p0(i8*) nounwind
 
 define i32 @main() {
 entry:

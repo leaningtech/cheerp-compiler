@@ -18,7 +18,7 @@ vector double vector_varargs(int count, ...) {
 
 // CHECK:         %arg_list = alloca i8*
 // CHECK:         %arg_list1 = bitcast i8** %arg_list to i8*
-// CHECK:         call void @llvm.va_start(i8* %arg_list1)
+// CHECK:         call void @llvm.va_start.p0(i8* %arg_list1)
 
 // AIX32:       for.body:
 // AIX32-NEXT:    %argp.cur = load i8*, i8** %arg_list, align 4
@@ -49,4 +49,4 @@ vector double vector_varargs(int count, ...) {
 
 // CHECK:      for.end:
 // CHECK:        %arg_list2 = bitcast i8** %arg_list to i8*
-// CHECK:        call void @llvm.va_end(i8* %arg_list2)
+// CHECK:        call void @llvm.va_end.p0(i8* %arg_list2)
