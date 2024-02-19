@@ -740,9 +740,15 @@ EncompassingIntegerType(ArrayRef<struct WidthAndSignedness> Types) {
 
 Value *CodeGenFunction::EmitVAStartEnd(Value *ArgValue, bool IsStart) {
   llvm::Type *DestType = Int8PtrTy;
-  if (ArgValue->getType() != DestType)
-    ArgValue =
-        Builder.CreateBitCast(ArgValue, DestType, ArgValue->getName().data());
+  if (ArgValue->getType() != DestType) {
+    if (ArgValue->getType()->getPointerAddressSpace() != 0) {
+      ArgValue =
+          Builder.CreateAddrSpaceCast(ArgValue, DestType, ArgValue->getName().data());
+    } else {
+      ArgValue =
+          Builder.CreateBitCast(ArgValue, DestType, ArgValue->getName().data());
+    }
+  }
 
   Intrinsic::ID inst = IsStart ? Intrinsic::vastart : Intrinsic::vaend;
   return Builder.CreateCall(CGM.getIntrinsic(inst), ArgValue);
@@ -2550,8 +2556,16 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
 
     llvm::Type *Type = Int8PtrTy;
 
-    DstPtr = Builder.CreateBitCast(DstPtr, Type);
-    SrcPtr = Builder.CreateBitCast(SrcPtr, Type);
+    if (DstPtr->getType()->getPointerAddressSpace() != 0) {
+      DstPtr = Builder.CreateAddrSpaceCast(DstPtr, Type);
+    } else {
+      DstPtr = Builder.CreateBitCast(DstPtr, Type);
+    }
+    if (SrcPtr->getType()->getPointerAddressSpace() != 0) {
+      SrcPtr = Builder.CreateAddrSpaceCast(SrcPtr, Type);
+    } else {
+      SrcPtr = Builder.CreateBitCast(SrcPtr, Type);
+    }
     Builder.CreateCall(CGM.getIntrinsic(Intrinsic::vacopy), {DstPtr, SrcPtr});
     return RValue::get(nullptr);
   }
