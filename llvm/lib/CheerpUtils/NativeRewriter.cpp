@@ -328,7 +328,7 @@ void CheerpNativeRewriterPass::rewriteConstructorImplementation(Module& M, Funct
 			lowerConstructor = CallInst::Create(newFunc, newArgs);
 			break;
 		}
-		if(!oldLowerConstructor)
+		if(oldLowerConstructor)
 			break;
 	}
 
