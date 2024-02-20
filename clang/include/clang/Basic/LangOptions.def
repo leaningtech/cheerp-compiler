@@ -235,6 +235,7 @@ LANGOPT(OpenCLCPlusPlus   , 1, 0, "C++ for OpenCL")
 LANGOPT(OpenCLCPlusPlusVersion     , 32, 0, "C++ for OpenCL version")
 LANGOPT(OpenCLGenericAddressSpace, 1, 0, "OpenCL generic keyword")
 LANGOPT(OpenCLPipes              , 1, 0, "OpenCL pipes language constructs and built-ins")
+LANGOPT(Cheerp            , 1, 0, "Cheerp")
 LANGOPT(NativeHalfType    , 1, 0, "Native half type support")
 LANGOPT(NativeHalfArgsAndReturns, 1, 0, "Native half args and returns")
 LANGOPT(CUDA              , 1, 0, "CUDA")
@@ -341,6 +342,7 @@ LANGOPT(
     "type's inheritance model would be determined under the Microsoft ABI")
 
 ENUM_LANGOPT(GC, GCMode, 2, NonGC, "Objective-C Garbage Collection mode")
+ENUM_LANGOPT(CheerpDefaultEnv, CheerpDefaultEnvMode, 2, None, "Default Cheerp env for declarations and types")
 ENUM_LANGOPT(ValueVisibilityMode, Visibility, 3, DefaultVisibility,
              "default visibility for functions and variables [-fvisibility]")
 ENUM_LANGOPT(TypeVisibilityMode, Visibility, 3, DefaultVisibility,
