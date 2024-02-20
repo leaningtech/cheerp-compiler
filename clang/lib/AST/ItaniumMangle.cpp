@@ -2694,6 +2694,9 @@ void CXXNameMangler::mangleQualifiers(Qualifiers Quals, const DependentAddressSp
       case LangAS::cheerp_genericjs:
         ASString = "";
         break;
+      case LangAS::cheerp_wasm:
+        ASString = "";
+        break;
       }
     }
     if (!ASString.empty())
