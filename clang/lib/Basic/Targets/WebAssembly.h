@@ -211,6 +211,7 @@ static const unsigned CheerpAddrSpaceMap[] = {
     0,   // hlsl_groupshared
     1,   // cheerp_client
     2,   // cheerp_genericjs
+    3,   // cheerp_wasm
 };
 
 // Cheerp base class
