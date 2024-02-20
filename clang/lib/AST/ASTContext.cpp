@@ -959,6 +959,7 @@ static const LangASMap *getAddressSpaceMap(const TargetInfo &T,
         13, // hlsl_groupshared
         14, // cheerp_client
         15, // cheerp_genericjs
+        16, // cheerp_wasm
     };
     return &FakeAddrSpaceMap;
   } else {
@@ -7532,7 +7533,7 @@ LangAS ASTContext::getCheerpPointeeAddrSpace(const Type *PointeeType, DeclContex
   while (C) {
     Decl* D = cast<Decl>(C);
     if (D->hasAttr<clang::AsmJSAttr>()) {
-      return LangAS::Default;
+      return LangAS::cheerp_wasm;
     } else if (D->hasAttr<clang::GenericJSAttr>()) {
       return LangAS::cheerp_genericjs;
     } else {
@@ -7542,7 +7543,7 @@ LangAS ASTContext::getCheerpPointeeAddrSpace(const Type *PointeeType, DeclContex
   if (Fallback != LangAS::Default)
     return Fallback;
   return getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly
-    ? LangAS::Default : LangAS::cheerp_genericjs;
+    ? LangAS::cheerp_wasm : LangAS::cheerp_genericjs;
 }
 
 /// BlockRequiresCopying - Returns true if byref variable "D" of type "Ty"
@@ -8781,6 +8782,8 @@ static TypedefDecl *CreateCharPtrNamedVaListDecl(const ASTContext *Context,
   QualType C = Context->CharTy;
   if (Context->getTargetInfo().getTriple().getEnvironment() == llvm::Triple::GenericJs) {
     C = Context->getAddrSpaceQualType(C, LangAS::cheerp_genericjs);
+  } else if (Context->getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly) {
+    C = Context->getAddrSpaceQualType(C, LangAS::cheerp_wasm);
   }
   QualType T = Context->getPointerType(C);
   return Context->buildImplicitTypedef(T, Name);
@@ -13224,6 +13227,8 @@ LangAS ASTContext::getCheerpTypeAddressSpace(const Decl* D, LangAS fallback) con
     AS = clang::LangAS::cheerp_client;
   } else if (D->hasAttr<GenericJSAttr>()) {
     AS = LangAS::cheerp_genericjs;
+  } else if (D->hasAttr<AsmJSAttr>()) {
+    AS = LangAS::cheerp_wasm;
   }
   return AS;
 }
