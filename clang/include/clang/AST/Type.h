@@ -519,7 +519,8 @@ public:
             (B == LangAS::cuda_constant || B == LangAS::cuda_device ||
              B == LangAS::cuda_shared)) ||
            // CHEERP: WIP
-           (B == LangAS::Default && A == LangAS::cheerp_genericjs);
+           (B == LangAS::Default && A == LangAS::cheerp_genericjs) ||
+           (B == LangAS::Default && A == LangAS::cheerp_wasm);
   }
 
   /// Returns true if the address space in these qualifiers is equal to or
