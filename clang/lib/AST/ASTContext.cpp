@@ -3181,6 +3181,30 @@ QualType ASTContext::getObjCGCQualType(QualType T,
   return getExtQualType(TypeNode, Quals);
 }
 
+QualType ASTContext::addPointeeAddrSpace(QualType T, LangAS AS) const {
+  if (!T->isPointerType() && !T->isReferenceType()) {
+    return T;
+  }
+  QualType Pointee = T->getPointeeType();
+  if (Pointee.hasAddressSpace())
+    Pointee = removeAddrSpaceQualType(Pointee);
+  Pointee = getAddrSpaceQualType(Pointee, AS);
+  switch (T->getTypeClass()) {
+    case Type::LValueReference:
+      T = getLValueReferenceType(Pointee);
+      break;
+    case Type::RValueReference:
+      T = getRValueReferenceType(Pointee);
+      break;
+    case Type::Pointer:
+      T = getPointerType(Pointee);
+      break;
+    default:
+      llvm_unreachable("not a pointer or reference type");
+  }
+  return T;
+}
+
 QualType ASTContext::removePtrSizeAddrSpace(QualType T) const {
   if (const PointerType *Ptr = T->getAs<PointerType>()) {
     QualType Pointee = Ptr->getPointeeType();
@@ -7525,26 +7549,23 @@ LangAS ASTContext::getCheerpPointeeAddrSpace(const Type *PointeeType, DeclContex
   if (PointeeType->isUndeducedAutoType() || PointeeType->isDependentType()) {
     return LangAS::Default;
   }
-  if (PointeeType->getAsTagDecl()) {
-    return getCheerpTypeAddressSpace(PointeeType->getAsTagDecl());
+  if (auto* TagTy = PointeeType->getAsTagDecl()) {
+    return getCheerpTypeAddressSpace(TagTy);
   }
-  if (PointeeType->isTypedefNameType()) {
-    return getCheerpTypeAddressSpace(PointeeType->getAs<TypedefType>()->getDecl());
+  if (auto* TdTy = PointeeType->getAs<TypedefType>()) {
+    return getCheerpTypeAddressSpace(TdTy->getDecl());
   }
   while (C) {
     Decl* D = cast<Decl>(C);
     if (D->hasAttr<clang::AsmJSAttr>()) {
-      return LangAS::Default;
+      return LangAS::cheerp_wasm;
     } else if (D->hasAttr<clang::GenericJSAttr>()) {
       return LangAS::cheerp_genericjs;
     } else {
       C = D->getDeclContext();
     };
   }
-  if (Fallback != LangAS::Default)
-    return Fallback;
-  return getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly
-    ? LangAS::Default : LangAS::cheerp_genericjs;
+  return Fallback;
 }
 
 /// BlockRequiresCopying - Returns true if byref variable "D" of type "Ty"
@@ -8783,6 +8804,8 @@ static TypedefDecl *CreateCharPtrNamedVaListDecl(const ASTContext *Context,
   QualType C = Context->CharTy;
   if (Context->getTargetInfo().getTriple().getEnvironment() == llvm::Triple::GenericJs) {
     C = Context->getAddrSpaceQualType(C, LangAS::cheerp_genericjs);
+  } else if (Context->getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly) {
+    C = Context->getAddrSpaceQualType(C, LangAS::cheerp_wasm);
   }
   QualType T = Context->getPointerType(C);
   return Context->buildImplicitTypedef(T, Name);
@@ -13226,6 +13249,8 @@ LangAS ASTContext::getCheerpTypeAddressSpace(const Decl* D, LangAS fallback) con
     AS = clang::LangAS::cheerp_client;
   } else if (D->hasAttr<GenericJSAttr>()) {
     AS = LangAS::cheerp_genericjs;
+  } else if (D->hasAttr<AsmJSAttr>()) {
+    AS = LangAS::cheerp_wasm;
   }
   return AS;
 }
