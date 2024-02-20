@@ -4621,6 +4621,10 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
     };
     if (hasAttr(ParsedAttr::AT_GenericJSAddressSpace) || hasAttr(ParsedAttr::AT_WasmAddressSpace)) {
       // Do nothing, the address space is naturally added
+    } else if (hasAttr(ParsedAttr::AT_GenericJS)) {
+      PtrAS = LangAS::cheerp_genericjs;
+    } else if (hasAttr(ParsedAttr::AT_AsmJS)) {
+      PtrAS = LangAS::cheerp_wasm;
     } else {
       // Hack: the pragma attributes are added later to the Decl, but we need
       // to know here if the default cheerp attribute was changed
