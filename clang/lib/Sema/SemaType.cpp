@@ -4621,14 +4621,10 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
     };
     if (hasAttr(ParsedAttr::AT_GenericJSAddressSpace) || hasAttr(ParsedAttr::AT_WasmAddressSpace)) {
       // Do nothing, the address space is naturally added
-    } else if (hasAttr(ParsedAttr::AT_GenericJS)) {
-      PtrAS = LangAS::cheerp_genericjs;
-    } else if (hasAttr(ParsedAttr::AT_AsmJS)) {
-      PtrAS = LangAS::Default;
     } else {
       // Hack: the pragma attributes are added later to the Decl, but we need
       // to know here if the default cheerp attribute was changed
-      auto getDefaultAS = [&]() {
+      auto getPragmaAS = [&]() {
         for (auto &Group : S.PragmaAttributeStack) {
           for (auto &Entry : Group.Entries) {
             ParsedAttr *Attribute = Entry.Attribute;
@@ -4640,9 +4636,15 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
             }
           }
         }
-        return Context.getCheerpPointeeAddrSpace(T.getTypePtr(), S.getCurLexicalContext());
+        return LangAS::Default;
       };
-      PtrAS = getDefaultAS();
+      PtrAS = Context.getCheerpPointeeAddrSpace(T.getTypePtr(), S.getCurLexicalContext(), getPragmaAS());
+    }
+    if (T->isTypedefNameType() && PtrAS != LangAS::Default && D.getContext() == DeclaratorContext::Prototype) {
+      QualType Desugared = T->getAs<TypedefType>()->desugar();
+      if (Desugared->isArrayType()) {
+        T = Context.getAddrSpaceQualType(T, PtrAS);
+      }
     }
   }
   // The name we're declaring, if any.
