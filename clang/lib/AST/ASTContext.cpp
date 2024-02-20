@@ -7519,34 +7519,30 @@ LangAS ASTContext::getOpenCLTypeAddrSpace(const Type *T) const {
   return Target->getOpenCLTypeAddrSpace(getOpenCLTypeKind(T));
 }
 
-LangAS ASTContext::getCheerpPointeeAddrSpace(const Type *PointeeType, DeclContext* C) {
-  LangAS AS = LangAS::Default;
-  if (!PointeeType->isUndeducedAutoType() && !PointeeType->isDependentType()) {
-    if (PointeeType->getAsTagDecl()) {
-      AS = getCheerpTypeAddressSpace(PointeeType->getAsTagDecl());
-    } else {
-      bool asmjs = false;
-      bool genericjs = false;
-      while (C) {
-        Decl* D = cast<Decl>(C);
-        if (D->hasAttr<clang::AsmJSAttr>()) {
-          asmjs = true;
-          break;
-        } else if (D->hasAttr<clang::GenericJSAttr>()) {
-          genericjs = true;
-          break;
-        } else {
-          C = D->getDeclContext();
-        };
-      }
-      if (!asmjs && !genericjs)
-      {
-        asmjs = getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly;
-      }
-      AS = asmjs? LangAS::Default : LangAS::cheerp_genericjs;
-    }
+LangAS ASTContext::getCheerpPointeeAddrSpace(const Type *PointeeType, DeclContext* C, LangAS Fallback) {
+  if (PointeeType->isUndeducedAutoType() || PointeeType->isDependentType()) {
+    return LangAS::Default;
   }
-  return AS;
+  if (PointeeType->getAsTagDecl()) {
+    return getCheerpTypeAddressSpace(PointeeType->getAsTagDecl());
+  }
+  if (PointeeType->isTypedefNameType()) {
+    return getCheerpTypeAddressSpace(PointeeType->getAs<TypedefType>()->getDecl());
+  }
+  while (C) {
+    Decl* D = cast<Decl>(C);
+    if (D->hasAttr<clang::AsmJSAttr>()) {
+      return LangAS::Default;
+    } else if (D->hasAttr<clang::GenericJSAttr>()) {
+      return LangAS::cheerp_genericjs;
+    } else {
+      C = D->getDeclContext();
+    };
+  }
+  if (Fallback != LangAS::Default)
+    return Fallback;
+  return getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly
+    ? LangAS::Default : LangAS::cheerp_genericjs;
 }
 
 /// BlockRequiresCopying - Returns true if byref variable "D" of type "Ty"
@@ -13222,7 +13218,7 @@ LangAS ASTContext::getCheerpTypeAddressSpace(QualType Ty, LangAS fallback) const
     return getCheerpTypeAddressSpace(Ty->getAsTagDecl());
   return fallback;
 }
-LangAS ASTContext::getCheerpTypeAddressSpace(const TagDecl* D, LangAS fallback) const {
+LangAS ASTContext::getCheerpTypeAddressSpace(const Decl* D, LangAS fallback) const {
   LangAS AS = fallback;
   if (AnalysisDeclContext::isInClientNamespace(D)) {
     AS = clang::LangAS::cheerp_client;
