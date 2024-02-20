@@ -1413,7 +1413,7 @@ public:
                                               : LangAS::opencl_private;
   }
 
-  LangAS getCheerpPointeeAddrSpace(const Type *PointeeType, DeclContext* C);
+  LangAS getCheerpPointeeAddrSpace(const Type *PointeeType, DeclContext* C, LangAS Fallback = LangAS::Default);
 
   void setcudaConfigureCallDecl(FunctionDecl *FD) {
     cudaConfigureCallDecl = FD;
@@ -2819,7 +2819,7 @@ public:
   LangAS getLangASForBuiltinAddressSpace(unsigned AS) const;
 
   LangAS getCheerpTypeAddressSpace(QualType T, LangAS fallback = LangAS::Default) const;
-  LangAS getCheerpTypeAddressSpace(const TagDecl* D, LangAS fallback = LangAS::Default) const;
+  LangAS getCheerpTypeAddressSpace(const Decl* D, LangAS fallback = LangAS::Default) const;
 
   /// Get target-dependent integer value for null pointer which is used for
   /// constant folding.
