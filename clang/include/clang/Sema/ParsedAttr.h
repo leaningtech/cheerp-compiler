@@ -727,6 +727,8 @@ public:
     switch (getParsedKind()) {
     case ParsedAttr::AT_GenericJSAddressSpace:
       return LangAS::cheerp_genericjs;
+    case ParsedAttr::AT_WasmAddressSpace:
+      return LangAS::cheerp_wasm;
     default:
       return LangAS::Default;
     }
