@@ -4632,7 +4632,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
               return LangAS::cheerp_genericjs;
             }
             if (Attribute->getKind() == ParsedAttr::AT_AsmJS) {
-              return LangAS::Default;
+              return LangAS::cheerp_wasm;
             }
           }
         }
