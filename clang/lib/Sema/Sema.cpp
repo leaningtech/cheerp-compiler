@@ -253,7 +253,7 @@ Sema::Sema(Preprocessor &pp, ASTContext &ctxt, ASTConsumer &consumer,
 
   CurFPFeatures.setFPEvalMethod(PP.getCurrentFPEvalMethod());
 
-  CurCheerpEnv = getLangOpts().getCheerpDefaultEnv();
+  ActOnPragmaCheerpEnv(getLangOpts().getCheerpDefaultEnv(), SourceLocation());
 }
 
 // Anchor Sema's type info to this TU.
