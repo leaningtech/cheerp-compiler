@@ -2207,9 +2207,6 @@ QualType Sema::BuildPointerType(QualType T,
   if (getLangOpts().OpenCL)
     T = deduceOpenCLPointeeAddrSpace(*this, T);
 
-  //if (!Context.getTargetInfo().isByteAddressable())
-  //  T = deduceCheerpPointeeAddrSpace(T);
-
   // Build the pointer type.
   return Context.getPointerType(T);
 }
@@ -2284,9 +2281,6 @@ QualType Sema::BuildReferenceType(QualType T, bool SpelledAsLValue,
 
   if (getLangOpts().OpenCL)
     T = deduceOpenCLPointeeAddrSpace(*this, T);
-
-  if (!Context.getTargetInfo().isByteAddressable())
-    T = deduceCheerpPointeeAddrSpace(T);
 
   // Handle restrict on references.
   if (LValueRef)
@@ -5085,6 +5079,9 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
         S.Diag(D.getIdentifierLoc(), diag::err_distant_exception_spec);
         D.setInvalidType(true);
         // Build the type anyway.
+      }
+      if (PtrAS != LangAS::Default) {
+        T = Context.getAddrSpaceQualType(T, PtrAS);
       }
       T = S.BuildReferenceType(T, DeclType.Ref.LValueRef, DeclType.Loc, Name);
 
