@@ -143,7 +143,7 @@ enum class CheerpAttributeToAdd
 	None, AsmJSLike, GenericJS
 };
 
-CheerpAttributeToAdd getCheerpAttributeToAdd(const clang::Decl*& decl, clang::ASTContext& Context);
+CheerpAttributeToAdd getCheerpAttributeToAdd(clang::Sema& S, const clang::Decl*& decl);
 void checksOnAsmJSAttributeInjection(clang::Sema& sema, const clang::Decl* decl);
 
 bool canAddressOfClientBeTaken(const clang::VarDecl* VD, const clang::Sema& sema);

@@ -9617,7 +9617,7 @@ void Sema::MaybeInjectCheerpModeAttr(Decl* D, const Decl* inheritFrom) {
     return;
 
   const Decl* referenceDecl = inheritFrom ? inheritFrom : D;
-  const auto attributeToAdd = cheerp::getCheerpAttributeToAdd(referenceDecl, Context);
+  const auto attributeToAdd = cheerp::getCheerpAttributeToAdd(*this, referenceDecl);
 
   if (attributeToAdd == cheerp::CheerpAttributeToAdd::AsmJSLike) {
     cheerp::checksOnAsmJSAttributeInjection(*this, D);
