@@ -784,7 +784,7 @@ void cheerp::CheerpSemaClassData::addMethod(clang::CXXMethodDecl* method)
 	declared_methods.insert(method);
 }
 
-cheerp::CheerpAttributeToAdd cheerp::getCheerpAttributeToAdd(const clang::Decl*& decl, clang::ASTContext& Context)
+cheerp::CheerpAttributeToAdd cheerp::getCheerpAttributeToAdd(clang::Sema& S, const clang::Decl*& decl)
 {
 	// If already present, return the current decl's attribute
 	if (decl->hasAttr<clang::AsmJSAttr>())
@@ -803,10 +803,10 @@ cheerp::CheerpAttributeToAdd cheerp::getCheerpAttributeToAdd(const clang::Decl*&
 			return CheerpAttributeToAdd::GenericJS;
 	}
 
-	// Or set default attr based on Triple Environment component
-	if (Context.getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly)
+	// Or set default attr based on default
+	if (S.CurCheerpEnv == clang::LangOptions::Wasm)
 		return CheerpAttributeToAdd::AsmJSLike;
-	else if (Context.getTargetInfo().getTriple().getEnvironment() == llvm::Triple::GenericJs)
+	else if (S.CurCheerpEnv == clang::LangOptions::GenericJS)
 		return CheerpAttributeToAdd::GenericJS;
 	else
 		return CheerpAttributeToAdd::None;
