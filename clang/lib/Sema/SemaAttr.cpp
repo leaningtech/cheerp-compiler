@@ -1162,6 +1162,10 @@ void Sema::ActOnPragmaOptimize(bool On, SourceLocation PragmaLoc) {
     OptimizeOffPragmaLocation = PragmaLoc;
 }
 
+void Sema::ActOnPragmaCheerpEnv(LangOptions::CheerpDefaultEnvMode Mode, SourceLocation PragmaLoc) {
+  CurCheerpEnv = Mode;
+}
+
 void Sema::ActOnPragmaMSOptimize(SourceLocation Loc, bool IsOn) {
   if (!CurContext->getRedeclContext()->isFileContext()) {
     Diag(Loc, diag::err_pragma_expected_file_scope) << "optimize";
