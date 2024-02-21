@@ -10702,6 +10702,9 @@ public:
   /// Called on well formed \#pragma clang optimize.
   void ActOnPragmaOptimize(bool On, SourceLocation PragmaLoc);
 
+  /// Called on well formed \#pragma cheerp env.
+  void ActOnPragmaCheerpEnv(LangOptions::CheerpDefaultEnvMode Mode, SourceLocation PragmaLoc);
+
   /// #pragma optimize("[optimization-list]", on | off).
   void ActOnPragmaMSOptimize(SourceLocation Loc, bool IsOn);
 

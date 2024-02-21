@@ -233,6 +233,17 @@ private:
   Sema &Actions;
 };
 
+/// PragmaCheerpEnvHandler - "\#pragma cheerp env genericjs/wasm/reset".
+struct PragmaCheerpEnvHandler : public PragmaHandler {
+  PragmaCheerpEnvHandler(Sema &S)
+    : PragmaHandler("env"), Actions(S) {}
+  void HandlePragma(Preprocessor &PP, PragmaIntroducer Introducer,
+                    Token &FirstToken) override;
+
+private:
+  Sema &Actions;
+};
+
 struct PragmaLoopHintHandler : public PragmaHandler {
   PragmaLoopHintHandler() : PragmaHandler("loop") {}
   void HandlePragma(Preprocessor &PP, PragmaIntroducer Introducer,
@@ -472,6 +483,11 @@ void Parser::initializePragmaHandlers() {
     PP.AddPragmaHandler("clang", CUDAForceHostDeviceHandler.get());
   }
 
+  if (getLangOpts().Cheerp) {
+    CheerpEnvHandler = std::make_unique<PragmaCheerpEnvHandler>(Actions);
+    PP.AddPragmaHandler("cheerp", CheerpEnvHandler.get());
+  }
+
   OptimizeHandler = std::make_unique<PragmaOptimizeHandler>(Actions);
   PP.AddPragmaHandler("clang", OptimizeHandler.get());
 
@@ -606,6 +622,10 @@ void Parser::resetPragmaHandlers() {
   PP.RemovePragmaHandler("STDC", STDCUnknownHandler.get());
   STDCUnknownHandler.reset();
 
+  if (getLangOpts().Cheerp) {
+    PP.RemovePragmaHandler("cheerp", CheerpEnvHandler.get());
+    CheerpEnvHandler.reset();
+  }
   PP.RemovePragmaHandler("clang", OptimizeHandler.get());
   OptimizeHandler.reset();
 
@@ -3164,6 +3184,46 @@ void PragmaOptimizeHandler::HandlePragma(Preprocessor &PP,
   }
 
   Actions.ActOnPragmaOptimize(IsOn, FirstToken.getLocation());
+}
+
+// #pragma clang optimize off
+// #pragma clang optimize on
+void PragmaCheerpEnvHandler::HandlePragma(Preprocessor &PP,
+                                         PragmaIntroducer Introducer,
+                                         Token &FirstToken) {
+  Token Tok;
+  PP.Lex(Tok);
+  if (Tok.is(tok::eod)) {
+    PP.Diag(Tok.getLocation(), diag::err_pragma_missing_argument)
+        << "cheerp env" << /*Expected=*/true << "'genericjs', 'wasm', or 'reset'";
+    return;
+  }
+  if (Tok.isNot(tok::identifier)) {
+    PP.Diag(Tok.getLocation(), diag::err_pragma_optimize_invalid_argument)
+      << PP.getSpelling(Tok);
+    return;
+  }
+  const IdentifierInfo *II = Tok.getIdentifierInfo();
+  // The only accepted values are 'genericjs', 'wasm', or 'reset'.
+  LangOptions::CheerpDefaultEnvMode Mode = LangOptions::CheerpDefaultEnvMode::None;
+  if (II->isStr("genericjs")) {
+    Mode = LangOptions::CheerpDefaultEnvMode::GenericJS;
+  } else if (II->isStr("wasm")) {
+    Mode = LangOptions::CheerpDefaultEnvMode::Wasm;
+  } else if (!II->isStr("reset")) {
+    PP.Diag(Tok.getLocation(), diag::err_pragma_optimize_invalid_argument)
+      << PP.getSpelling(Tok);
+    return;
+  }
+  PP.Lex(Tok);
+
+  if (Tok.isNot(tok::eod)) {
+    PP.Diag(Tok.getLocation(), diag::err_pragma_optimize_extra_argument)
+      << PP.getSpelling(Tok);
+    return;
+  }
+
+  Actions.ActOnPragmaCheerpEnv(Mode, FirstToken.getLocation());
 }
 
 namespace {
