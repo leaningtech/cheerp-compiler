@@ -2154,7 +2154,8 @@ static QualType deduceOpenCLPointeeAddrSpace(Sema &S, QualType PointeeType) {
 QualType Sema::deduceCheerpPointeeAddrSpace(QualType PointeeType) {
   if (PointeeType.hasAddressSpace())
     return PointeeType;
-  LangAS AS = Context.getCheerpPointeeAddrSpace(PointeeType.getTypePtr(), getCurLexicalContext());
+  LangAS FallbackAS = CurCheerpEnv == LangOptions::GenericJS? LangAS::cheerp_genericjs : LangAS::cheerp_wasm;
+  LangAS AS = Context.getCheerpPointeeAddrSpace(PointeeType.getTypePtr(), getCurLexicalContext(), FallbackAS);
   if (AS == LangAS::Default)
     return PointeeType;
   return Context.getAddrSpaceQualType(PointeeType, AS);
@@ -4626,23 +4627,12 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
     } else if (hasAttr(ParsedAttr::AT_AsmJS)) {
       PtrAS = LangAS::cheerp_wasm;
     } else {
-      // Hack: the pragma attributes are added later to the Decl, but we need
-      // to know here if the default cheerp attribute was changed
-      auto getPragmaAS = [&]() {
-        for (auto &Group : S.PragmaAttributeStack) {
-          for (auto &Entry : Group.Entries) {
-            ParsedAttr *Attribute = Entry.Attribute;
-            if (Attribute->getKind() == ParsedAttr::AT_GenericJS) {
-              return LangAS::cheerp_genericjs;
-            }
-            if (Attribute->getKind() == ParsedAttr::AT_AsmJS) {
-              return LangAS::cheerp_wasm;
-            }
-          }
-        }
-        return LangAS::Default;
-      };
-      PtrAS = Context.getCheerpPointeeAddrSpace(T.getTypePtr(), S.getCurLexicalContext(), getPragmaAS());
+      LangAS FallbackAS = S.CurCheerpEnv == LangOptions::GenericJS? LangAS::cheerp_genericjs : LangAS::cheerp_wasm;
+      const Type* Ty = T.getTypePtr();
+      if (Ty->isTypedefNameType()) {
+        Ty = Ty->getUnqualifiedDesugaredType();
+      }
+      PtrAS = Context.getCheerpPointeeAddrSpace(Ty, S.getCurLexicalContext(), FallbackAS);
     }
     if (T->isTypedefNameType() && PtrAS != LangAS::Default && D.getContext() == DeclaratorContext::Prototype) {
       QualType Desugared = T->getAs<TypedefType>()->desugar();
