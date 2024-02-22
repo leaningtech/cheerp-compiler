@@ -11997,6 +11997,9 @@ void Sema::CheckMain(FunctionDecl* FD, const DeclSpec& DS) {
 
   QualType CharPP =
     Context.getPointerType(Context.getPointerType(Context.CharTy));
+  if (getLangOpts().Cheerp) {
+    CharPP = Context.getPointerType(deduceCheerpPointeeAddrSpace(Context.getPointerType(deduceCheerpPointeeAddrSpace(Context.CharTy))));
+  }
   QualType Expected[] = { Context.IntTy, CharPP, CharPP, CharPP };
 
   for (unsigned i = 0; i < nparams; ++i) {
