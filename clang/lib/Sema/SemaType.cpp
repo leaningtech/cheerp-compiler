@@ -4623,12 +4623,12 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
     } else {
       LangAS FallbackAS = S.CurCheerpEnv == LangOptions::GenericJS? LangAS::cheerp_genericjs : LangAS::cheerp_wasm;
       const Type* Ty = T.getTypePtr();
-      if (Ty->isTypedefNameType()) {
+      if (Ty->getAs<TypedefType>()) {
         Ty = Ty->getUnqualifiedDesugaredType();
       }
       PtrAS = Context.getCheerpPointeeAddrSpace(Ty, S.getCurLexicalContext(), FallbackAS);
     }
-    if (T->isTypedefNameType() && PtrAS != LangAS::Default && D.getContext() == DeclaratorContext::Prototype) {
+    if (T->getAs<TypedefType>() && PtrAS != LangAS::Default && D.getContext() == DeclaratorContext::Prototype) {
       QualType Desugared = T->getAs<TypedefType>()->desugar();
       if (Desugared->isArrayType()) {
         T = Context.getAddrSpaceQualType(T, PtrAS);
