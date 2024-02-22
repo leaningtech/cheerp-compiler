@@ -7524,11 +7524,11 @@ LangAS ASTContext::getCheerpPointeeAddrSpace(const Type *PointeeType, DeclContex
   if (PointeeType->isUndeducedAutoType() || PointeeType->isDependentType()) {
     return LangAS::Default;
   }
-  if (PointeeType->getAsTagDecl()) {
-    return getCheerpTypeAddressSpace(PointeeType->getAsTagDecl());
+  if (auto* TagTy = PointeeType->getAsTagDecl()) {
+    return getCheerpTypeAddressSpace(TagTy);
   }
-  if (PointeeType->isTypedefNameType()) {
-    return getCheerpTypeAddressSpace(PointeeType->getAs<TypedefType>()->getDecl());
+  if (auto* TdTy = PointeeType->getAs<TypedefType>()) {
+    return getCheerpTypeAddressSpace(TdTy->getDecl());
   }
   while (C) {
     Decl* D = cast<Decl>(C);
