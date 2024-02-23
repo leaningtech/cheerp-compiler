@@ -233,7 +233,7 @@ private:
   Sema &Actions;
 };
 
-/// PragmaCheerpEnvHandler - "\#pragma cheerp env genericjs/wasm/reset".
+/// PragmaCheerpEnvHandler - "\#pragma cheerp env genericjs/wasm/none/reset".
 struct PragmaCheerpEnvHandler : public PragmaHandler {
   PragmaCheerpEnvHandler(Sema &S)
     : PragmaHandler("env"), Actions(S) {}
@@ -3195,7 +3195,7 @@ void PragmaCheerpEnvHandler::HandlePragma(Preprocessor &PP,
   PP.Lex(Tok);
   if (Tok.is(tok::eod)) {
     PP.Diag(Tok.getLocation(), diag::err_pragma_missing_argument)
-        << "cheerp env" << /*Expected=*/true << "'genericjs', 'wasm', or 'reset'";
+        << "cheerp env" << /*Expected=*/true << "'genericjs', 'wasm', 'none', or 'reset'";
     return;
   }
   if (Tok.isNot(tok::identifier)) {
@@ -3204,13 +3204,15 @@ void PragmaCheerpEnvHandler::HandlePragma(Preprocessor &PP,
     return;
   }
   const IdentifierInfo *II = Tok.getIdentifierInfo();
-  // The only accepted values are 'genericjs', 'wasm', or 'reset'.
+  // The only accepted values are 'genericjs', 'wasm', 'none', or 'reset'.
   LangOptions::CheerpDefaultEnvMode Mode = LangOptions::CheerpDefaultEnvMode::None;
   if (II->isStr("genericjs")) {
     Mode = LangOptions::CheerpDefaultEnvMode::GenericJS;
   } else if (II->isStr("wasm")) {
     Mode = LangOptions::CheerpDefaultEnvMode::Wasm;
-  } else if (!II->isStr("reset")) {
+  } else if (II->isStr("reset")) {
+    Mode = Actions.getLangOpts().getCheerpDefaultEnv();
+  } else if (!II->isStr("none")) {
     PP.Diag(Tok.getLocation(), diag::err_pragma_optimize_invalid_argument)
       << PP.getSpelling(Tok);
     return;

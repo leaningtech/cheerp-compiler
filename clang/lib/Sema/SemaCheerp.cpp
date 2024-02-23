@@ -796,9 +796,9 @@ cheerp::CheerpAttributeToAdd cheerp::getCheerpAttributeToAdd(clang::Sema& S, con
 	}
 
 	// Or set default attr based on default
-	if (S.CurCheerpEnv == clang::LangOptions::Wasm)
+	if (S.CurCheerpFallbackAS == clang::LangAS::cheerp_wasm)
 		return CheerpAttributeToAdd::AsmJSLike;
-	else if (S.CurCheerpEnv == clang::LangOptions::GenericJS)
+	else if (S.CurCheerpFallbackAS == clang::LangAS::cheerp_genericjs)
 		return CheerpAttributeToAdd::GenericJS;
 	else
 		return CheerpAttributeToAdd::None;
