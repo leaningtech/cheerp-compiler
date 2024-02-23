@@ -2154,8 +2154,7 @@ static QualType deduceOpenCLPointeeAddrSpace(Sema &S, QualType PointeeType) {
 QualType Sema::deduceCheerpPointeeAddrSpace(QualType PointeeType) {
   if (PointeeType.hasAddressSpace())
     return PointeeType;
-  LangAS FallbackAS = CurCheerpEnv == LangOptions::GenericJS? LangAS::cheerp_genericjs : LangAS::cheerp_wasm;
-  LangAS AS = Context.getCheerpPointeeAddrSpace(PointeeType.getTypePtr(), getCurLexicalContext(), FallbackAS);
+  LangAS AS = Context.getCheerpPointeeAddrSpace(PointeeType.getTypePtr(), getCurLexicalContext(), CurCheerpFallbackAS);
   if (AS == LangAS::Default)
     return PointeeType;
   return Context.getAddrSpaceQualType(PointeeType, AS);
@@ -4621,12 +4620,11 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
     } else if (hasAttr(ParsedAttr::AT_AsmJS)) {
       PtrAS = LangAS::cheerp_wasm;
     } else {
-      LangAS FallbackAS = S.CurCheerpEnv == LangOptions::GenericJS? LangAS::cheerp_genericjs : LangAS::cheerp_wasm;
       const Type* Ty = T.getTypePtr();
       if (Ty->getAs<TypedefType>()) {
         Ty = Ty->getUnqualifiedDesugaredType();
       }
-      PtrAS = Context.getCheerpPointeeAddrSpace(Ty, S.getCurLexicalContext(), FallbackAS);
+      PtrAS = Context.getCheerpPointeeAddrSpace(Ty, S.getCurLexicalContext(), S.CurCheerpFallbackAS);
     }
     if (T->getAs<TypedefType>() && PtrAS != LangAS::Default && D.getContext() == DeclaratorContext::Prototype) {
       QualType Desugared = T->getAs<TypedefType>()->desugar();
