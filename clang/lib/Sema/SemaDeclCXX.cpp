@@ -8802,12 +8802,17 @@ bool Sema::CheckExplicitlyDefaultedComparison(Scope *S, FunctionDecl *FD,
       // Is it `T const &`?
       bool Ok = !IsMethod;
       QualType ExpectedTy;
-      if (RD)
+      if (RD) {
         ExpectedTy = Context.getRecordType(RD);
+        if (Context.getLangOpts().Cheerp) {
+          ExpectedTy = deduceCheerpPointeeAddrSpace(ExpectedTy, RD);
+        }
+      }
       if (auto *Ref = CTy->getAs<ReferenceType>()) {
         CTy = Ref->getPointeeType();
-        if (RD)
+        if (RD) {
           ExpectedTy.addConst();
+        }
         Ok = true;
       }
 
@@ -17103,6 +17108,9 @@ Decl *Sema::ActOnExceptionDeclarator(Scope *S, Declarator &D) {
     CurContext->addDecl(ExDecl);
 
   ProcessDeclAttributes(S, ExDecl, D);
+  if (Context.getLangOpts().Cheerp) {
+    deduceCheerpAddressSpace(ExDecl);
+  }
   return ExDecl;
 }
 

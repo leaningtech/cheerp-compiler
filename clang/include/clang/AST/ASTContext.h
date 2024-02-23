@@ -1275,6 +1275,10 @@ public:
   /// address space and return the type with qualifiers intact.
   QualType removePtrSizeAddrSpace(QualType T) const;
 
+  // Add the address space AS to the pointee type if this is a pointer or
+  // reference type
+  QualType addPointeeAddrSpace(QualType T, LangAS AS) const;
+
   /// Return the uniqued reference to the type for a \c restrict
   /// qualified type.
   ///
@@ -1413,6 +1417,7 @@ public:
                                               : LangAS::opencl_private;
   }
 
+  LangAS getCheerpPointeeAddrSpace(const Type *PointeeType, Decl* D, LangAS Fallback = LangAS::Default);
   LangAS getCheerpPointeeAddrSpace(const Type *PointeeType, DeclContext* C, LangAS Fallback = LangAS::Default);
 
   void setcudaConfigureCallDecl(FunctionDecl *FD) {

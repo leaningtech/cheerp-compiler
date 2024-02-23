@@ -3411,6 +3411,7 @@ Sema::SpecialMemberOverloadResult Sema::LookupSpecialMember(CXXRecordDecl *RD,
     if (VolatileArg)
       ArgType.addVolatile();
 
+  ArgType = deduceCheerpPointeeAddrSpace(ArgType);
     // This isn't /really/ specified by the standard, but it's implied
     // we should be working from a PRValue in the case of move to ensure
     // that we prefer to bind to rvalue references, and an LValue in the
@@ -3437,6 +3438,7 @@ Sema::SpecialMemberOverloadResult Sema::LookupSpecialMember(CXXRecordDecl *RD,
     ThisTy.addConst();
   if (VolatileThis)
     ThisTy.addVolatile();
+  ThisTy = deduceCheerpPointeeAddrSpace(ThisTy);
   Expr::Classification Classification =
       OpaqueValueExpr(LookupLoc, ThisTy, RValueThis ? VK_PRValue : VK_LValue)
           .Classify(Context);
@@ -3445,6 +3447,7 @@ Sema::SpecialMemberOverloadResult Sema::LookupSpecialMember(CXXRecordDecl *RD,
   // resolution. Lookup is only performed directly into the class since there
   // will always be a (possibly implicit) declaration to shadow any others.
   OverloadCandidateSet OCS(LookupLoc, OverloadCandidateSet::CSK_Normal);
+  OCS.setDestAS(ThisTy.getAddressSpace());
   DeclContext::lookup_result R = RD->lookup(Name);
 
   if (R.empty()) {

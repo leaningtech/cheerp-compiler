@@ -239,6 +239,16 @@ checkDeducedTemplateArguments(ASTContext &Context,
   case TemplateArgument::Type: {
     // If two template type arguments have the same type, they're compatible.
     QualType TX = X.getAsType(), TY = Y.getAsType();
+    // CHEERP: allow different pointee address spaces if one of them is Default
+    if (Y.getKind() == TemplateArgument::Type && !Context.hasSameType(TX, TY) &&
+        ((TX->isPointerType() && TY->isPointerType()) || (TX->isReferenceType() && TY->isReferenceType())) &&
+        TX->getPointeeType().getAddressSpace() != TY->getPointeeType().getAddressSpace()) {
+      if (TX->getPointeeType().getAddressSpace() == LangAS::Default) {
+        TX = Context.addPointeeAddrSpace(TX, TY->getPointeeType().getAddressSpace());
+      } else if (TY->getPointeeType().getAddressSpace() == LangAS::Default) {
+        TY = Context.addPointeeAddrSpace(TY, TX->getPointeeType().getAddressSpace());
+      }
+    }
     if (Y.getKind() == TemplateArgument::Type && Context.hasSameType(TX, TY))
       return DeducedTemplateArgument(Context.getCommonSugaredType(TX, TY),
                                      X.wasDeducedFromArrayBound() ||
@@ -1485,6 +1495,13 @@ static Sema::TemplateDeductionResult DeduceTemplateArgumentsByTypeMatch(
         A = S.Context.getQualifiedType(A, Quals);
     }
 
+    // CHEERP: This makes it so that A's address space qualifier is not included
+    // in T. P will behave as-if it had the same address space as A when matching.
+    // It might end up having a different one in the end though.
+    if (S.getLangOpts().Cheerp && !P.hasAddressSpace() && A.hasAddressSpace()) {
+      P = S.Context.getAddrSpaceQualType(P, A.getAddressSpace());
+    }
+
     // The argument type can not be less qualified than the parameter
     // type.
     if (!(TDF & TDF_IgnoreQualifiers) &&
@@ -1497,7 +1514,7 @@ static Sema::TemplateDeductionResult DeduceTemplateArgumentsByTypeMatch(
 
     // Do not match a function type with a cv-qualified type.
     // http://www.open-std.org/jtc1/sc22/wg21/docs/cwg_active.html#1584
-    if (A->isFunctionType() && P.hasQualifiers())
+    if (A->isFunctionType() && P.hasQualifiers() && !S.getLangOpts().Cheerp)
       return Sema::TDK_NonDeducedMismatch;
 
     assert(TTP->getDepth() == Info.getDeducedDepth() &&

@@ -3113,7 +3113,11 @@ void Sema::DeclareGlobalNewDelete() {
 
   GlobalNewDeleteDeclared = true;
 
-  QualType VoidPtr = Context.getPointerType(Context.VoidTy);
+  QualType VoidTy = Context.VoidTy;
+  if (Context.getLangOpts().Cheerp) {
+    VoidTy = Context.getAddrSpaceQualType(VoidTy, CurCheerpFallbackAS);
+  }
+  QualType VoidPtr = Context.getPointerType(VoidTy);
   QualType SizeT = Context.getSizeType();
 
   auto DeclareGlobalAllocationFunctions = [&](OverloadedOperatorKind Kind,
@@ -3728,7 +3732,7 @@ Sema::ActOnCXXDelete(SourceLocation StartLoc, bool UseGlobal,
     QualType PointeeElem = Context.getBaseElementType(Pointee);
 
     if (Pointee.getAddressSpace() != LangAS::Default &&
-        !getLangOpts().OpenCLCPlusPlus)
+        !getLangOpts().OpenCLCPlusPlus && !getLangOpts().Cheerp)
       return Diag(Ex.get()->getBeginLoc(),
                   diag::err_address_space_qualified_delete)
              << Pointee.getUnqualifiedType()
@@ -6962,6 +6966,13 @@ QualType Sema::FindCompositePointerType(SourceLocation Loc,
       } else if (Steps.size() == 1) {
         bool MaybeQ1 = Q1.isAddressSpaceSupersetOf(Q2, T1, T2);
         bool MaybeQ2 = Q2.isAddressSpaceSupersetOf(Q1, T2, T1);
+        // CHEERP: if one of the address spaces is Default, choose the other one
+        if (MaybeQ1 == MaybeQ2 && Context.getLangOpts().Cheerp) {
+          if (Q1.getAddressSpace() == LangAS::Default)
+            MaybeQ1 = false;
+          if (Q2.getAddressSpace() == LangAS::Default)
+            MaybeQ2 = false;
+        }
         if (MaybeQ1 == MaybeQ2) {
           // Exception for ptr size address spaces. Should be able to choose
           // either address space during comparison.

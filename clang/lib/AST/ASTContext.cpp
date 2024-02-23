@@ -3189,20 +3189,25 @@ QualType ASTContext::addPointeeAddrSpace(QualType T, LangAS AS) const {
   if (Pointee.hasAddressSpace())
     Pointee = removeAddrSpaceQualType(Pointee);
   Pointee = getAddrSpaceQualType(Pointee, AS);
-  switch (T->getTypeClass()) {
-    case Type::LValueReference:
-      T = getLValueReferenceType(Pointee);
-      break;
-    case Type::RValueReference:
-      T = getRValueReferenceType(Pointee);
-      break;
-    case Type::Pointer:
-      T = getPointerType(Pointee);
-      break;
-    default:
-      llvm_unreachable("not a pointer or reference type");
+  if (const auto *DT = T->getAs<DecayedType>()) {
+      QualType OrigTy = DT->getOriginalType();
+      if (!OrigTy.hasAddressSpace() && OrigTy->isArrayType()) {
+        // Add the address space to the original array type and then propagate
+        // that to the element type through `getAsArrayType`.
+        OrigTy = getAddrSpaceQualType(OrigTy, AS);
+        OrigTy = QualType(getAsArrayType(OrigTy), 0);
+        // Re-generate the decayed type.
+        T = getDecayedType(OrigTy);
+      }
+      return T;
   }
-  return T;
+  if (T->isPointerType())
+    return getPointerType(Pointee);
+  if (T->isLValueReferenceType())
+    return getLValueReferenceType(Pointee);
+  if (T->isRValueReferenceType())
+    return getLValueReferenceType(Pointee);
+  llvm_unreachable("not a pointer or reference type");
 }
 
 QualType ASTContext::removePtrSizeAddrSpace(QualType T) const {
@@ -3457,8 +3462,8 @@ QualType ASTContext::getDecayedType(QualType T, LangAS ptrAS) const {
   if (T->isFunctionType())
   {
     if (ptrAS != LangAS::Default)
-      Decayed = getAddrSpaceQualType(T, ptrAS);
-    Decayed = getPointerType(Decayed);
+      T = getAddrSpaceQualType(T, ptrAS);
+    Decayed = getPointerType(T);
   }
 
   return getDecayedType(T, Decayed);
@@ -7545,25 +7550,43 @@ LangAS ASTContext::getOpenCLTypeAddrSpace(const Type *T) const {
   return Target->getOpenCLTypeAddrSpace(getOpenCLTypeKind(T));
 }
 
-LangAS ASTContext::getCheerpPointeeAddrSpace(const Type *PointeeType, DeclContext* C, LangAS Fallback) {
+LangAS ASTContext::getCheerpPointeeAddrSpace(const Type *PointeeType, DeclContext* DC, LangAS Fallback) {
+  return getCheerpPointeeAddrSpace(PointeeType, DC? cast<Decl>(DC) : nullptr, Fallback);
+}
+LangAS ASTContext::getCheerpPointeeAddrSpace(const Type *PointeeType, Decl* D, LangAS Fallback) {
   if (PointeeType->isUndeducedAutoType() || PointeeType->isDependentType()) {
-    return LangAS::Default;
+    if (auto* DTS = dyn_cast<DependentSizedArrayType>(PointeeType->getUnqualifiedDesugaredType())) {
+      if (DTS->getElementType()->isDependentType()) {
+        return LangAS::Default;
+      }
+      // If it is a DTS but the element type is concrete, don't bail out
+    } else {
+      return LangAS::Default;
+    }
   }
   if (auto* TagTy = PointeeType->getAsTagDecl()) {
     return getCheerpTypeAddressSpace(TagTy);
   }
-  if (auto* TdTy = PointeeType->getAs<TypedefType>()) {
-    return getCheerpTypeAddressSpace(TdTy->getDecl());
+  if (PointeeType->isPointerType() || PointeeType->isReferenceType()) {
+    LangAS PointeePointeeAS = getCheerpPointeeAddrSpace(PointeeType->getPointeeType().getTypePtr(), D, Fallback);
+    switch (PointeePointeeAS) {
+      case LangAS::cheerp_genericjs:
+      case LangAS::cheerp_client:
+        return LangAS::cheerp_genericjs;
+      default:
+        break;
+    }
   }
-  while (C) {
-    Decl* D = cast<Decl>(C);
-    if (D->hasAttr<clang::AsmJSAttr>()) {
+  if (auto* TdTy = PointeeType->getAs<TypedefType>()) {
+    return getCheerpPointeeAddrSpace(TdTy->desugar().getTypePtr(), D, Fallback);
+  }
+  while (D) {
+    if (D->hasAttr<clang::AsmJSAttr>())
       return LangAS::cheerp_wasm;
-    } else if (D->hasAttr<clang::GenericJSAttr>()) {
+    if (D->hasAttr<clang::GenericJSAttr>())
       return LangAS::cheerp_genericjs;
-    } else {
-      C = D->getDeclContext();
-    };
+    DeclContext* C = D->getDeclContext();
+    D = C? cast<Decl>(C) : nullptr;
   }
   return Fallback;
 }
@@ -13230,6 +13253,19 @@ LangAS ASTContext::getLangASForBuiltinAddressSpace(unsigned AS) const {
 
   if (LangOpts.CUDA)
     return getTargetInfo().getCUDABuiltinAddressSpace(AS);
+
+  if (LangOpts.Cheerp) {
+    switch (AS) {
+      case 0:
+        return LangAS::Default;
+      case 1:
+        return LangAS::cheerp_client;
+      case 2:
+        return LangAS::cheerp_genericjs;
+      case 3:
+        return LangAS::cheerp_wasm;
+    }
+  }
 
   return getLangASFromTargetAS(AS);
 }

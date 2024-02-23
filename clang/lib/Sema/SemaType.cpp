@@ -2151,10 +2151,12 @@ static QualType deduceOpenCLPointeeAddrSpace(Sema &S, QualType PointeeType) {
   return PointeeType;
 }
 
-QualType Sema::deduceCheerpPointeeAddrSpace(QualType PointeeType) {
+QualType Sema::deduceCheerpPointeeAddrSpace(QualType PointeeType, Decl* D) {
   if (PointeeType.hasAddressSpace())
     return PointeeType;
-  LangAS AS = Context.getCheerpPointeeAddrSpace(PointeeType.getTypePtr(), getCurLexicalContext(), CurCheerpFallbackAS);
+  LangAS AS = D
+    ? Context.getCheerpPointeeAddrSpace(PointeeType.getTypePtr(), D, CurCheerpFallbackAS)
+    : Context.getCheerpPointeeAddrSpace(PointeeType.getTypePtr(), getCurLexicalContext(), CurCheerpFallbackAS);
   if (AS == LangAS::Default)
     return PointeeType;
   return Context.getAddrSpaceQualType(PointeeType, AS);
@@ -3105,9 +3107,6 @@ QualType Sema::BuildBlockPointerType(QualType T,
 
   if (getLangOpts().OpenCL)
     T = deduceOpenCLPointeeAddrSpace(*this, T);
-
-  if (!Context.getTargetInfo().isByteAddressable())
-    T = deduceCheerpPointeeAddrSpace(T);
 
   return Context.getBlockPointerType(T);
 }
@@ -4606,33 +4605,35 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
   ASTContext &Context = S.Context;
   const LangOptions &LangOpts = S.getLangOpts();
 
-  LangAS PtrAS = LangAS::Default;
-  if (!Context.getTargetInfo().isByteAddressable()) {
-    auto hasAttr = [&D](ParsedAttr::Kind A) -> bool {
-      return D.getAttributes().hasAttribute(A) ||
-      D.getDeclarationAttributes().hasAttribute(A) ||
-      D.getDeclSpec().getAttributes().hasAttribute(A);
-    };
-    if (hasAttr(ParsedAttr::AT_GenericJSAddressSpace) || hasAttr(ParsedAttr::AT_WasmAddressSpace)) {
-      // Do nothing, the address space is naturally added
-    } else if (hasAttr(ParsedAttr::AT_GenericJS)) {
-      PtrAS = LangAS::cheerp_genericjs;
-    } else if (hasAttr(ParsedAttr::AT_AsmJS)) {
-      PtrAS = LangAS::cheerp_wasm;
-    } else {
-      const Type* Ty = T.getTypePtr();
-      if (Ty->getAs<TypedefType>()) {
-        Ty = Ty->getUnqualifiedDesugaredType();
+  auto getPointeeAddressSpace = [&S, &Context, &D](QualType T) {
+    LangAS PtrAS = LangAS::Default;
+    if (Context.getLangOpts().Cheerp) {
+      auto hasAttr = [&D](ParsedAttr::Kind A) -> bool {
+        return D.getAttributes().hasAttribute(A) ||
+        D.getDeclarationAttributes().hasAttribute(A) ||
+        D.getDeclSpec().getAttributes().hasAttribute(A);
+      };
+      if (hasAttr(ParsedAttr::AT_GenericJSAddressSpace) || hasAttr(ParsedAttr::AT_WasmAddressSpace)) {
+        // Do nothing, the address space is naturally added
+      } else {
+        LangAS DefaultAS = S.CurCheerpFallbackAS;
+        DeclContext* DCtx = S.getCurLexicalContext();
+        if (hasAttr(ParsedAttr::AT_GenericJS)) {
+          DefaultAS = LangAS::cheerp_genericjs;
+          DCtx = nullptr;
+        } else if (hasAttr(ParsedAttr::AT_AsmJS)) {
+          DefaultAS = LangAS::cheerp_wasm;
+          DCtx = nullptr;
+        }
+        const Type* Ty = T.getTypePtr();
+        if (Ty->getAs<TypedefType>()) {
+          Ty = Ty->getUnqualifiedDesugaredType();
+        }
+        PtrAS = Context.getCheerpPointeeAddrSpace(Ty, DCtx, DefaultAS);
       }
-      PtrAS = Context.getCheerpPointeeAddrSpace(Ty, S.getCurLexicalContext(), S.CurCheerpFallbackAS);
     }
-    if (T->getAs<TypedefType>() && PtrAS != LangAS::Default && D.getContext() == DeclaratorContext::Prototype) {
-      QualType Desugared = T->getAs<TypedefType>()->desugar();
-      if (Desugared->isArrayType()) {
-        T = Context.getAddrSpaceQualType(T, PtrAS);
-      }
-    }
-  }
+    return PtrAS;
+  };
   // The name we're declaring, if any.
   DeclarationName Name;
   if (D.getIdentifier())
@@ -5006,6 +5007,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
     state.setCurrentChunkIndex(chunkIndex);
     DeclaratorChunk &DeclType = D.getTypeObject(chunkIndex);
     IsQualifiedFunction &= DeclType.Kind == DeclaratorChunk::Paren;
+    LangAS PtrAS = getPointeeAddressSpace(T);
     switch (DeclType.Kind) {
     case DeclaratorChunk::Paren:
       if (i == 0)
@@ -5063,7 +5065,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
         }
       }
 
-      if (PtrAS != LangAS::Default) {
+      if (PtrAS != LangAS::Default && !T.hasAddressSpace()) {
         T = Context.getAddrSpaceQualType(T, PtrAS);
       }
       T = S.BuildPointerType(T, DeclType.Loc, Name);
@@ -5078,7 +5080,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
         D.setInvalidType(true);
         // Build the type anyway.
       }
-      if (PtrAS != LangAS::Default) {
+      if (PtrAS != LangAS::Default && !T.hasAddressSpace()) {
         T = Context.getAddrSpaceQualType(T, PtrAS);
       }
       T = S.BuildReferenceType(T, DeclType.Ref.LValueRef, DeclType.Loc, Name);
@@ -5161,9 +5163,6 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
         checkNullabilityConsistency(S, SimplePointerKind::Array, DeclType.Loc);
       }
 
-      if (PtrAS != LangAS::Default && D.getContext() == DeclaratorContext::Prototype) {
-        T = Context.getAddrSpaceQualType(T, PtrAS);
-      }
       T = S.BuildArrayType(T, ASM, ArraySize, ATI.TypeQuals,
                            SourceRange(DeclType.Loc, DeclType.EndLoc), Name);
       break;
@@ -5625,7 +5624,13 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
                                         : ASIdx);
           EPI.TypeQuals.addAddressSpace(AS);
         }
-        if (!S.Context.getTargetInfo().isByteAddressable() && IsClassMember() && !IsTypedefName && !D.getDeclSpec().isFriendSpecified() && state.getDeclarator().isFunctionDeclarator()) {
+        if (!S.Context.getTargetInfo().isByteAddressable() &&
+            IsClassMember() &&
+            !IsTypedefName &&
+            D.getDeclSpec().getStorageClassSpec() != DeclSpec::SCS_static &&
+            !D.getDeclSpec().isFriendSpecified() &&
+            state.getDeclarator().isFunctionDeclarator()
+        ) {
           if (auto* C = GetParentClass()) {
             LangAS AS = S.Context.getCheerpTypeAddressSpace(C);
             if (AS != LangAS::Default)
@@ -9353,7 +9358,19 @@ QualType Sema::BuildDecltypeType(Expr *E, bool AsUnevaluated) {
     // used to build SFINAE gadgets.
     Diag(E->getExprLoc(), diag::warn_side_effects_unevaluated_context);
   }
-  return Context.getDecltypeType(E, getDecltypeForExpr(E));
+  QualType Ret = getDecltypeForExpr(E);
+  if (Ret.hasAddressSpace()) {
+    llvm::errs()<<"==========================\n\n";
+    Ret.dump();
+    if (!Ret->isArrayType())
+    {
+      llvm::errs()<<"==========================\n\n";
+      Ret = Context.removeAddrSpaceQualType(Ret);
+      Ret.dump();
+    }
+  }
+  Ret = Context.getDecltypeType(E, Ret);
+  return Ret;
 }
 
 static QualType GetEnumUnderlyingType(Sema &S, QualType BaseType,
@@ -9403,7 +9420,11 @@ QualType Sema::BuiltinRemovePointer(QualType BaseType, SourceLocation Loc) {
   if (!BaseType->isAnyPointerType() || BaseType->isObjCIdType())
     return BaseType;
 
-  return BaseType->getPointeeType();
+  QualType Pointee = BaseType->getPointeeType();
+  if (Context.getLangOpts().Cheerp) {
+    Pointee = Context.removeAddrSpaceQualType(Pointee);
+  }
+  return Pointee;
 }
 
 QualType Sema::BuiltinDecay(QualType BaseType, SourceLocation Loc) {
@@ -9419,6 +9440,9 @@ QualType Sema::BuiltinDecay(QualType BaseType, SourceLocation Loc) {
   // in the same group of qualifiers as 'const' and 'volatile', we're extending
   // '__decay(T)' so that it removes all qualifiers.
   Split.Quals.removeCVRQualifiers();
+  if (Context.getLangOpts().Cheerp) {
+    Split.Quals.removeAddressSpace();
+  }
   return Context.getQualifiedType(Split);
 }
 
@@ -9455,7 +9479,13 @@ QualType Sema::BuiltinRemoveReference(QualType BaseType, UTTKind UKind,
     QualType Unqual = Context.getUnqualifiedArrayType(T, Quals);
     Quals.removeConst();
     Quals.removeVolatile();
+    if (Context.getLangOpts().Cheerp) {
+      Quals.removeAddressSpace();
+    }
     T = Context.getQualifiedType(Unqual, Quals);
+  }
+  if (Context.getLangOpts().Cheerp) {
+    T = Context.removeAddrSpaceQualType(T);
   }
   return T;
 }
