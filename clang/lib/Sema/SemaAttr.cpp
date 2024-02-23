@@ -1163,10 +1163,12 @@ void Sema::ActOnPragmaOptimize(bool On, SourceLocation PragmaLoc) {
 }
 
 void Sema::ActOnPragmaCheerpEnv(LangOptions::CheerpDefaultEnvMode Mode, SourceLocation PragmaLoc) {
-  if (Mode == LangOptions::CheerpDefaultEnvMode::None) {
-    CurCheerpEnv = getLangOpts().getCheerpDefaultEnv();
+  if (Mode == LangOptions::CheerpDefaultEnvMode::GenericJS) {
+    CurCheerpFallbackAS = LangAS::cheerp_genericjs;
+  } else if (Mode == LangOptions::CheerpDefaultEnvMode::Wasm) {
+    CurCheerpFallbackAS = LangAS::cheerp_wasm;
   } else {
-    CurCheerpEnv = Mode;
+    CurCheerpFallbackAS = LangAS::Default;
   }
 }
 
