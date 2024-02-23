@@ -7540,10 +7540,7 @@ LangAS ASTContext::getCheerpPointeeAddrSpace(const Type *PointeeType, DeclContex
       C = D->getDeclContext();
     };
   }
-  if (Fallback != LangAS::Default)
-    return Fallback;
-  return getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly
-    ? LangAS::cheerp_wasm : LangAS::cheerp_genericjs;
+  return Fallback;
 }
 
 /// BlockRequiresCopying - Returns true if byref variable "D" of type "Ty"
