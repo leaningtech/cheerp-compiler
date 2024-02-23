@@ -3481,6 +3481,18 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
   case Builtin::BI__builtin_mempcpy: {
     const Expr *DestE = E->getArg(0);
     const Expr *SrcE = E->getArg(1);
+    if (!getTarget().isByteAddressable())
+    {
+      // There might be an address space cast. If so, skip it
+      const CastExpr *DestCast = dyn_cast<CastExpr>(DestE);
+      const CastExpr *SrcCast = dyn_cast<CastExpr>(SrcE);
+      if (DestCast && DestCast->getCastKind() == CastKind::CK_AddressSpaceConversion) {
+        DestE = DestCast->getSubExpr();
+      }
+      if (SrcCast && SrcCast->getCastKind() == CastKind::CK_AddressSpaceConversion) {
+        SrcE = SrcCast->getSubExpr();
+      }
+    }
     if (!asmjs && !getTarget().isByteAddressable())
     {
       // There must be a cast from a valid type to void*
@@ -3622,6 +3634,14 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
   case Builtin::BImemset:
   case Builtin::BI__builtin_memset: {
     const Expr *DestE = E->getArg(0);
+    if (!getTarget().isByteAddressable())
+    {
+      // There might be an address space cast. If so, skip it
+      const CastExpr *DestCast = dyn_cast<CastExpr>(DestE);
+      if (DestCast && DestCast->getCastKind() == CastKind::CK_AddressSpaceConversion) {
+        DestE = DestCast->getSubExpr();
+      }
+    }
     if (!asmjs && !getTarget().isByteAddressable())
     {
       // There must be a cast from a valid type to void*
