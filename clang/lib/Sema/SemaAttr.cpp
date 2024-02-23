@@ -1163,7 +1163,13 @@ void Sema::ActOnPragmaOptimize(bool On, SourceLocation PragmaLoc) {
 }
 
 void Sema::ActOnPragmaCheerpEnv(LangOptions::CheerpDefaultEnvMode Mode, SourceLocation PragmaLoc) {
-  CurCheerpEnv = Mode;
+  if (Mode == LangOptions::CheerpDefaultEnvMode::GenericJS) {
+    CurCheerpFallbackAS = LangAS::cheerp_genericjs;
+  } else if (Mode == LangOptions::CheerpDefaultEnvMode::Wasm) {
+    CurCheerpFallbackAS = LangAS::cheerp_wasm;
+  } else {
+    CurCheerpFallbackAS = LangAS::Default;
+  }
 }
 
 void Sema::ActOnPragmaMSOptimize(SourceLocation Loc, bool IsOn) {

@@ -404,7 +404,7 @@ public:
 
   OpenCLOptions OpenCLFeatures;
   FPOptions CurFPFeatures;
-  LangOptions::CheerpDefaultEnvMode CurCheerpEnv;
+  LangAS CurCheerpFallbackAS;
 
   const LangOptions &LangOpts;
   Preprocessor &PP;
