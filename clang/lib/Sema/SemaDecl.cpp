@@ -17545,7 +17545,14 @@ static bool hasClientLayout(CXXRecordDecl* RD)
     return true;
   if (RD->bases_begin() == RD->bases_end())
     return false;
-  return hasClientLayout(RD->bases_begin()->getType()->getAsCXXRecordDecl());
+  QualType type = RD->bases_begin()->getType();
+  if (auto* decl = type->getAsCXXRecordDecl())
+    return hasClientLayout(decl);
+  if (auto* templateType = type->getAs<TemplateSpecializationType>())
+    if (auto* templateDecl = templateType->getTemplateName().getAsTemplateDecl())
+      if (auto* decl = dyn_cast<CXXRecordDecl>(templateDecl->getTemplatedDecl()))
+        return hasClientLayout(decl);
+  return false;
 }
 void Sema::ActOnTagFinishDefinition(Scope *S, Decl *TagD,
                                     SourceRange BraceRange) {
