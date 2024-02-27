@@ -100,17 +100,14 @@ public:
 
 		for (uint32_t i=(doCleanup && isNamespaceClient())?1:0; i<scopes.size(); i++)
 		{
-			if (doCleanup)
-				res += cleanupTemplates(scopes[i]);
-			else
-				res += scopes[i];
+			res += scopes[i];
 			res += '.';
 		}
 
 		//remove last dot
 		res.pop_back();
 
-		return res;
+		return doCleanup ? cleanupTemplates(res) : res;
 	}
 	bool isNamespaceClient() const
 	{
@@ -149,33 +146,20 @@ public:
 private:
 	std::string cleanupTemplates(const std::string& name) const
 	{
-		const char close = '>';
-		const char open = '<';
-
+		std::string res;
 		int balance = 0;
-		uint32_t lastBalanced = name.size();
 
-		for (int i=name.size()-1; i>=0; i--)
+		for (char c : name)
 		{
-			bool isSpecial = false;
-			if (name[i] == close)
-			{
-				balance++;
-				isSpecial = true;
-			}
-			else if (name[i] == open)
-			{
-				balance--;
-				isSpecial = true;
-			}
-
-			if (isSpecial && balance == 0)
-			{
-				lastBalanced = i;
-			}
+			if (c == '<')
+				balance += 1;
+			if (balance == 0)
+				res += c;
+			if (c == '>')
+				balance -= 1;
 		}
 
-		return std::string(name, 0, lastBalanced);
+		return res;
 	}
 	std::vector<std::string> scopes;
 	std::string functionName{""};
