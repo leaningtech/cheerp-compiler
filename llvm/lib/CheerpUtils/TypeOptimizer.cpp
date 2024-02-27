@@ -292,7 +292,7 @@ bool TypeOptimizer::canCollapseStruct(llvm::StructType* st, llvm::StructType* ne
 	if (newStruct == nullptr)
 	{
 		assert(st->isLiteral());
-		return false;
+		return true;
 	}
 	// Stop if the element is just a int8, we may be dealing with an empty struct
 	// Empty structs are unsafe as the int8 inside is just a placeholder and will be replaced
