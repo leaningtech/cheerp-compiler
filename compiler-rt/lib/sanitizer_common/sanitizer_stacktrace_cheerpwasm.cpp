@@ -34,7 +34,7 @@ static uptr _name_len = 0;
 constexpr uptr INVALID_PC = 0x7ffffffe;
 
 [[cheerp::genericjs]] static uptr ConvertFrameToPc(client::String* frame) {
-  if (client::TArray<client::String>* match =
+  if (client::TArray<client::String*>* match =
           frame->match("\\bwasm-function\\[\\d+\\]:(0x[0-9a-f]+)")) {
     if (match->get_length() >= 2) {
       uptr pc = 0;
@@ -42,7 +42,7 @@ constexpr uptr INVALID_PC = 0x7ffffffe;
       return pc;
     }
   }
-  if (client::TArray<client::String>* match =
+  if (client::TArray<client::String*>* match =
           frame->match(":(\\d+):\\d+(?:\\)|$)")) {
     if (match->get_length() >= 2) {
       uptr pc = 0;
@@ -63,7 +63,7 @@ constexpr uptr INVALID_PC = 0x7ffffffe;
 [[cheerp::genericjs]] __attribute__((weak)) uptr GetCallstack(uptr* dest,
                                                               uptr dest_len,
                                                               uptr skip) {
-  client::TArray<client::String>* callstack = nullptr;
+  client::TArray<client::String*>* callstack = nullptr;
   __asm__("(new Error()).stack.toString().split('\\n')" : "=r"(callstack));
 
   uptr j = 0;
@@ -116,10 +116,10 @@ constexpr uptr INVALID_PC = 0x7ffffffe;
   client::String* frame = GetFunctionAtPc(pc);
 
   if (frame) {
-    if (client::TArray<client::String>* match =
+    if (client::TArray<client::String*>* match =
             frame->match("^\\s+at (.*) \\(.*\\)$")) {
       return ClientStringToUtf16((*match)[1], dest, len);
-    } else if (client::TArray<client::String>* match =
+    } else if (client::TArray<client::String*>* match =
                    frame->match("^(.+?)@")) {
       return ClientStringToUtf16((*match)[1], dest, len);
     }
