@@ -519,6 +519,8 @@ public:
             (B == LangAS::cuda_constant || B == LangAS::cuda_device ||
              B == LangAS::cuda_shared)) ||
            // CHEERP: WIP
+           (A == LangAS::cheerp_genericjs && B == LangAS::Default) ||
+           (A == LangAS::cheerp_wasm && B == LangAS::Default) ||
            (A == LangAS::Default && B == LangAS::cheerp_genericjs) ||
            (A == LangAS::Default && B == LangAS::cheerp_wasm);
   }
