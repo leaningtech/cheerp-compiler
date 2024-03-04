@@ -11,9 +11,39 @@
 
 #include "llvm/Cheerp/DTSWriter.h"
 #include "llvm/Cheerp/JsExport.h"
+#include "llvm/Demangle/ItaniumDemangle.h"
 
 using namespace llvm;
+using namespace llvm::itanium_demangle;
 using namespace cheerp;
+
+class Allocator final
+{
+  BumpPtrAllocator alloc;
+
+public:
+  void reset()
+  {
+    alloc.Reset();
+  }
+
+  template<class T, class... Args>
+  T* makeNode(Args&&... args)
+  {
+    return new(alloc.Allocate(sizeof(T), alignof(T))) T(std::forward<Args>(args)...);
+  }
+
+  void* allocateNodeArray(size_t size)
+  {
+    return alloc.Allocate(sizeof(Node*) * size, alignof(Node*));
+  }
+};
+
+class Parser final : public AbstractManglingParser<Parser, Allocator>
+{
+public:
+  Parser(StringRef str) : AbstractManglingParser<Parser, Allocator>(str.begin(), str.end()) {}
+};
 
 static const NewLineHandler NewLine;
 
@@ -103,6 +133,134 @@ static const std::set<StringRef> TSReservedNames = {
   "of",
 };
 
+class Visitor final
+{
+  std::string* result;
+  const char* delim;
+
+  static StringRef getBaseName(const Node* node)
+  {
+    StringView name = node->getBaseName();
+    return StringRef(name.begin(), name.size());
+  }
+
+  void handle(NameWithTemplateArgs* node)
+  {
+    StringRef name = getBaseName(node);
+
+    if (name == "_Union")
+      accept(node->TemplateArgs, " | ");
+    else if (name == "_Function")
+      accept(node->TemplateArgs, ", ");
+    else
+    {
+      accept(node->Name);
+      *result += "<";
+      accept(node->TemplateArgs, ", ");
+      *result += ">";
+    }
+  }
+
+  void handle(TemplateArgs* node)
+  {
+    accept(node->getParams());
+  }
+
+  void handle(TemplateArgumentPack* node)
+  {
+    accept(node->getElements());
+  }
+
+  void handle(NestedName* node)
+  {
+    StringRef name = getBaseName(node);
+
+    if (name == "_Any")
+      *result += "any";
+    else if (name == "TArray")
+      *result += "Array";
+    else if (name == "Array")
+      *result += "Array<any>";
+    else if (name == "Object")
+      *result += "object";
+    else if (name == "String")
+      *result += "string";
+    else if (name == "Number")
+      *result += "number";
+    else if (name == "Boolean")
+      *result += "boolean";
+    else if (name == "Symbol")
+      *result += "symbol";
+    else if (name == "BigInt")
+      *result += "bigint";
+    else
+      *result += name;
+  }
+
+  void handle(NameType* node)
+  {
+    StringRef name = getBaseName(node);
+
+    if (name == "void")
+      *result += "void";
+    else if (name == "bool")
+      *result += "boolean";
+    else
+      *result += "number";
+  }
+
+  void handle(itanium_demangle::PointerType* node)
+  {
+    accept(node->getPointee());
+  }
+
+  void handle(itanium_demangle::FunctionType* node)
+  {
+    node->match([this](const Node* ret, NodeArray params, Qualifiers cvQuals, FunctionRefQual refQual, const Node* exceptionSpec) {
+      *result += "(";
+      accept(params, "_: ");
+      *result += ") => ";
+      accept(ret);
+    });
+  }
+
+  void handle(Node* node)
+  {
+    assert(false && "unhandled itanium demangler node in dts generator");
+  }
+
+public:
+  Visitor(std::string* result, const char* delim = "") : result(result), delim(delim) {}
+
+  template<class T>
+  void operator()(const T* node)
+  {
+    handle(const_cast<T*>(node));
+  }
+
+  void accept(const Node* node, const char* delim)
+  {
+    node->visit(Visitor(result, delim));
+  }
+
+  void accept(const Node* node)
+  {
+    accept(node, delim);
+  }
+
+  void accept(NodeArray array, const char* prefix = "")
+  {
+    const char* tmp = "";
+    for (const Node* node : array)
+    {
+      *result += tmp;
+      *result += prefix;
+      tmp = delim;
+      accept(node);
+    }
+  }
+};
+
 std::string CheerpDTSWriter::getTypeName(const Type* type) const
 {
   if (type->isVoidTy())
@@ -111,26 +269,14 @@ std::string CheerpDTSWriter::getTypeName(const Type* type) const
   if (!type->isPointerTy())
     return "number";
 
-  if (!TypeSupport::isClientType(type->getPointerElementType()))
-    return exportedTypes.at(type->getPointerElementType());
-
   StringRef name = type->getPointerElementType()->getStructName();
+  Parser parser(name.drop_front(name.startswith("class.") ? 6 : 7));
+  std::string result;
+  Visitor visitor(&result);
 
-  if (name.startswith("class."))
-    name = name.drop_front(6);
-  else
-    name = name.drop_front(7);
+  visitor.accept(parser.parse());
 
-  demangler_iterator demangler(name);
-  std::string jsName;
-
-  while (demangler != demangler_iterator())
-  {
-    jsName += *demangler++;
-    jsName += ".";
-  }
-
-  return jsName.substr(7, jsName.length() - 8);
+  return result;
 }
 
 void CheerpDTSWriter::declareFunction(const std::string& name, const Function* f, FunctionType type)
@@ -327,7 +473,6 @@ void CheerpDTSWriter::makeDTS()
 
   iterateOverJsExportedMetadata(module, processFunction, processRecord);
 
-  // TODO: use enum from CheerpWriter instead of string
   if (makeModule == MODULE_TYPE::COMMONJS)
   {
     declareInterfaces(exports);
