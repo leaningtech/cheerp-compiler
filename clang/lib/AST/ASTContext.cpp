@@ -3180,6 +3180,30 @@ QualType ASTContext::getObjCGCQualType(QualType T,
   return getExtQualType(TypeNode, Quals);
 }
 
+QualType ASTContext::addPointeeAddrSpace(QualType T, LangAS AS) const {
+  if (!T->isPointerType() && !T->isReferenceType()) {
+    return T;
+  }
+  QualType Pointee = T->getPointeeType();
+  if (Pointee.hasAddressSpace())
+    Pointee = removeAddrSpaceQualType(Pointee);
+  Pointee = getAddrSpaceQualType(Pointee, AS);
+  switch (T->getTypeClass()) {
+    case Type::LValueReference:
+      T = getLValueReferenceType(Pointee);
+      break;
+    case Type::RValueReference:
+      T = getRValueReferenceType(Pointee);
+      break;
+    case Type::Pointer:
+      T = getPointerType(Pointee);
+      break;
+    default:
+      llvm_unreachable("not a pointer or reference type");
+  }
+  return T;
+}
+
 QualType ASTContext::removePtrSizeAddrSpace(QualType T) const {
   if (const PointerType *Ptr = T->getAs<PointerType>()) {
     QualType Pointee = Ptr->getPointeeType();
