@@ -239,6 +239,16 @@ checkDeducedTemplateArguments(ASTContext &Context,
   case TemplateArgument::Type: {
     // If two template type arguments have the same type, they're compatible.
     QualType TX = X.getAsType(), TY = Y.getAsType();
+    // CHEERP: allow different pointee address spaces if one of them is Default
+    if (Y.getKind() == TemplateArgument::Type && !Context.hasSameType(TX, TY) &&
+        ((TX->isPointerType() && TY->isPointerType()) || (TX->isReferenceType() && TY->isReferenceType())) &&
+        TX->getPointeeType().getAddressSpace() != TY->getPointeeType().getAddressSpace()) {
+      if (TX->getPointeeType().getAddressSpace() == LangAS::Default) {
+        TX = Context.addPointeeAddrSpace(TX, TY->getPointeeType().getAddressSpace());
+      } else if (TY->getPointeeType().getAddressSpace() == LangAS::Default) {
+        TY = Context.addPointeeAddrSpace(TY, TX->getPointeeType().getAddressSpace());
+      }
+    }
     if (Y.getKind() == TemplateArgument::Type && Context.hasSameType(TX, TY))
       return DeducedTemplateArgument(Context.getCommonSugaredType(TX, TY),
                                      X.wasDeducedFromArrayBound() ||
