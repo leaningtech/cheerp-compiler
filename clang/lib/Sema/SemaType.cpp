@@ -4628,7 +4628,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
     }
     if (T->getAs<TypedefType>() && PtrAS != LangAS::Default && D.getContext() == DeclaratorContext::Prototype) {
       QualType Desugared = T->getAs<TypedefType>()->desugar();
-      if (Desugared->isArrayType()) {
+      if (Desugared->isArrayType() && !T.hasAddressSpace()) {
         T = Context.getAddrSpaceQualType(T, PtrAS);
       }
     }
@@ -5063,7 +5063,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
         }
       }
 
-      if (PtrAS != LangAS::Default) {
+      if (PtrAS != LangAS::Default && !T.hasAddressSpace()) {
         T = Context.getAddrSpaceQualType(T, PtrAS);
       }
       T = S.BuildPointerType(T, DeclType.Loc, Name);
@@ -5078,7 +5078,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
         D.setInvalidType(true);
         // Build the type anyway.
       }
-      if (PtrAS != LangAS::Default) {
+      if (PtrAS != LangAS::Default && !T.hasAddressSpace()) {
         T = Context.getAddrSpaceQualType(T, PtrAS);
       }
       T = S.BuildReferenceType(T, DeclType.Ref.LValueRef, DeclType.Loc, Name);
@@ -5161,7 +5161,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
         checkNullabilityConsistency(S, SimplePointerKind::Array, DeclType.Loc);
       }
 
-      if (PtrAS != LangAS::Default && D.getContext() == DeclaratorContext::Prototype) {
+      if (PtrAS != LangAS::Default && !T.hasAddressSpace() && D.getContext() == DeclaratorContext::Prototype) {
         T = Context.getAddrSpaceQualType(T, PtrAS);
       }
       T = S.BuildArrayType(T, ASM, ArraySize, ATI.TypeQuals,
