@@ -106,8 +106,6 @@ prepare() {
   #This is temporary and will be overwritten after install
   cmake -B cheerp-utils/build -DCMAKE_INSTALL_PREFIX="$TMP_INSTALL" -DCHEERP_PREFIX="$CHEERP_DIR" cheerp-utils
   make -C cheerp-utils/build install
-  echo "Debug CMAke1"
-  cat $TMP_INSTALL/share/cmake/Modules/CheerpCommon.cmake
 }
 
 build_musl() {
@@ -205,8 +203,6 @@ install_all() {
   # with the directories pointing to the build dirs, and just before installing, we'll change the paths to the actual install dir
   cmake -B cheerp-utils/build -DCMAKE_INSTALL_PREFIX="$TMP_INSTALL" -DCHEERP_PREFIX="$CHEERP_PREFIX" cheerp-utils
   make -C cheerp-utils/build install
-  echo "Debug CMAke2"
-  cat $TMP_INSTALL/share/cmake/Modules/CheerpCommon.cmake
 
   mkdir -p "$CHEERP_DEST"
   copy_install
