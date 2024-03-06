@@ -3106,9 +3106,6 @@ QualType Sema::BuildBlockPointerType(QualType T,
   if (getLangOpts().OpenCL)
     T = deduceOpenCLPointeeAddrSpace(*this, T);
 
-  if (!Context.getTargetInfo().isByteAddressable())
-    T = deduceCheerpPointeeAddrSpace(T);
-
   return Context.getBlockPointerType(T);
 }
 
