@@ -14601,6 +14601,8 @@ TreeTransform<Derived>::TransformAtomicExpr(AtomicExpr *E) {
 template<typename Derived>
 QualType TreeTransform<Derived>::RebuildPointerType(QualType PointeeType,
                                                     SourceLocation Star) {
+  if (SemaRef.getLangOpts().Cheerp)
+    PointeeType = SemaRef.deduceCheerpPointeeAddrSpace(PointeeType);
   return SemaRef.BuildPointerType(PointeeType, Star,
                                   getDerived().getBaseEntity());
 }
@@ -14617,6 +14619,8 @@ QualType
 TreeTransform<Derived>::RebuildReferenceType(QualType ReferentType,
                                              bool WrittenAsLValue,
                                              SourceLocation Sigil) {
+  if (SemaRef.getLangOpts().Cheerp)
+    ReferentType = SemaRef.deduceCheerpPointeeAddrSpace(ReferentType);
   return SemaRef.BuildReferenceType(ReferentType, WrittenAsLValue,
                                     Sigil, getDerived().getBaseEntity());
 }
@@ -14676,6 +14680,7 @@ TreeTransform<Derived>::RebuildArrayType(QualType ElementType,
                                          Expr *SizeExpr,
                                          unsigned IndexTypeQuals,
                                          SourceRange BracketsRange) {
+
   if (SizeExpr || !Size)
     return SemaRef.BuildArrayType(ElementType, SizeMod, SizeExpr,
                                   IndexTypeQuals, BracketsRange,
