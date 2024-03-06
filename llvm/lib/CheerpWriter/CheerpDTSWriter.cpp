@@ -137,6 +137,7 @@ class Visitor final
 {
   std::string* result;
   const char* delim;
+  bool pointer;
 
   static StringRef getBaseName(const Node* node)
   {
@@ -144,19 +145,33 @@ class Visitor final
     return StringRef(name.begin(), name.size());
   }
 
+  static std::string getFullName(const Node* node)
+  {
+    const NestedName* name;
+
+    switch (node->getKind())
+    {
+    case Node::KNestedName:
+      name = static_cast<const NestedName*>(node);
+      return getFullName(name->Qual) + "." + getFullName(name->Name);
+    default:
+      return std::string(getBaseName(node));
+    }
+  }
+
   void handle(NameWithTemplateArgs* node)
   {
-    StringRef name = getBaseName(node);
+    std::string name = getFullName(node);
 
-    if (name == "_Union")
-      accept(node->TemplateArgs, " | ");
-    else if (name == "_Function")
-      accept(node->TemplateArgs, ", ");
+    if (name == "client._Union")
+      accept(node->TemplateArgs, " | ", false);
+    else if (name == "client._Function")
+      accept(node->TemplateArgs, ", ", false);
     else
     {
       accept(node->Name);
       *result += "<";
-      accept(node->TemplateArgs, ", ");
+      accept(node->TemplateArgs, ", ", false);
       *result += ">";
     }
   }
@@ -173,26 +188,28 @@ class Visitor final
 
   void handle(NestedName* node)
   {
-    StringRef name = getBaseName(node);
+    std::string name = getFullName(node);
 
-    if (name == "_Any")
+    if (name == "client._Any")
       *result += "any";
-    else if (name == "TArray")
+    else if (name == "client.TArray")
       *result += "Array";
-    else if (name == "Array")
+    else if (name == "client.Array")
       *result += "Array<any>";
-    else if (name == "Object")
+    else if (name == "client.Object")
       *result += "object";
-    else if (name == "String")
+    else if (name == "client.String")
       *result += "string";
-    else if (name == "Number")
+    else if (name == "client.Number")
       *result += "number";
-    else if (name == "Boolean")
+    else if (name == "client.Boolean")
       *result += "boolean";
-    else if (name == "Symbol")
+    else if (name == "client.Symbol")
       *result += "symbol";
-    else if (name == "BigInt")
+    else if (name == "client.BigInt")
       *result += "bigint";
+    else if (name.substr(0, 7) == "client.")
+      *result += name.substr(7);
     else
       *result += name;
   }
@@ -201,7 +218,9 @@ class Visitor final
   {
     StringRef name = getBaseName(node);
 
-    if (name == "void")
+    if (pointer)
+      *result += name;
+    else if (name == "void")
       *result += "void";
     else if (name == "bool")
       *result += "boolean";
@@ -211,7 +230,14 @@ class Visitor final
 
   void handle(itanium_demangle::PointerType* node)
   {
-    accept(node->getPointee());
+    acceptPointer(node->getPointee());
+  }
+
+  void handle(itanium_demangle::ReferenceType* node)
+  {
+    node->match([this](const Node* pointee, ReferenceKind rk) {
+      acceptPointer(pointee);
+    });
   }
 
   void handle(itanium_demangle::FunctionType* node)
@@ -230,7 +256,7 @@ class Visitor final
   }
 
 public:
-  Visitor(std::string* result, const char* delim = "") : result(result), delim(delim) {}
+  Visitor(std::string* result, const char* delim = "", bool pointer = false) : result(result), delim(delim), pointer(pointer) {}
 
   template<class T>
   void operator()(const T* node)
@@ -238,19 +264,25 @@ public:
     handle(const_cast<T*>(node));
   }
 
-  void accept(const Node* node, const char* delim)
+  void accept(const Node* node, const char* delim, bool pointer)
   {
-    node->visit(Visitor(result, delim));
+    node->visit(Visitor(result, delim, pointer));
+  }
+
+  void acceptPointer(const Node* node)
+  {
+    accept(node, delim, true);
   }
 
   void accept(const Node* node)
   {
-    accept(node, delim);
+    accept(node, delim, pointer);
   }
 
   void accept(NodeArray array, const char* prefix = "")
   {
     const char* tmp = "";
+
     for (const Node* node : array)
     {
       *result += tmp;
@@ -274,7 +306,7 @@ std::string CheerpDTSWriter::getTypeName(const Type* type) const
   std::string result;
   Visitor visitor(&result);
 
-  visitor.accept(parser.parse());
+  visitor.acceptPointer(parser.parse());
 
   return result;
 }
