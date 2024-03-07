@@ -7544,7 +7544,10 @@ LangAS ASTContext::getOpenCLTypeAddrSpace(const Type *T) const {
   return Target->getOpenCLTypeAddrSpace(getOpenCLTypeKind(T));
 }
 
-LangAS ASTContext::getCheerpPointeeAddrSpace(const Type *PointeeType, DeclContext* C, LangAS Fallback) {
+LangAS ASTContext::getCheerpPointeeAddrSpace(const Type *PointeeType, DeclContext* DC, LangAS Fallback) {
+  return getCheerpPointeeAddrSpace(PointeeType, DC? cast<Decl>(DC) : nullptr, Fallback);
+}
+LangAS ASTContext::getCheerpPointeeAddrSpace(const Type *PointeeType, Decl* D, LangAS Fallback) {
   if (PointeeType->isUndeducedAutoType() || PointeeType->isDependentType()) {
     return LangAS::Default;
   }
@@ -7554,15 +7557,13 @@ LangAS ASTContext::getCheerpPointeeAddrSpace(const Type *PointeeType, DeclContex
   if (auto* TdTy = PointeeType->getAs<TypedefType>()) {
     return getCheerpTypeAddressSpace(TdTy->getDecl());
   }
-  while (C) {
-    Decl* D = cast<Decl>(C);
-    if (D->hasAttr<clang::AsmJSAttr>()) {
+  while (D) {
+    if (D->hasAttr<clang::AsmJSAttr>())
       return LangAS::cheerp_wasm;
-    } else if (D->hasAttr<clang::GenericJSAttr>()) {
+    if (D->hasAttr<clang::GenericJSAttr>())
       return LangAS::cheerp_genericjs;
-    } else {
-      C = D->getDeclContext();
-    };
+    DeclContext* C = D->getDeclContext();
+    D = C? cast<Decl>(C) : nullptr;
   }
   return Fallback;
 }
