@@ -4625,12 +4625,6 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
       }
       PtrAS = Context.getCheerpPointeeAddrSpace(Ty, S.getCurLexicalContext(), S.CurCheerpFallbackAS);
     }
-    if (T->getAs<TypedefType>() && PtrAS != LangAS::Default && D.getContext() == DeclaratorContext::Prototype) {
-      QualType Desugared = T->getAs<TypedefType>()->desugar();
-      if (Desugared->isArrayType() && !T.hasAddressSpace()) {
-        T = Context.getAddrSpaceQualType(T, PtrAS);
-      }
-    }
   }
   // The name we're declaring, if any.
   DeclarationName Name;
@@ -5160,9 +5154,6 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
         checkNullabilityConsistency(S, SimplePointerKind::Array, DeclType.Loc);
       }
 
-      if (PtrAS != LangAS::Default && !T.hasAddressSpace() && D.getContext() == DeclaratorContext::Prototype) {
-        T = Context.getAddrSpaceQualType(T, PtrAS);
-      }
       T = S.BuildArrayType(T, ASM, ArraySize, ATI.TypeQuals,
                            SourceRange(DeclType.Loc, DeclType.EndLoc), Name);
       break;

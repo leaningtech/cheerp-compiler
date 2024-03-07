@@ -6915,6 +6915,41 @@ void Sema::deduceOpenCLAddressSpace(ValueDecl *Decl) {
   }
 }
 
+void Sema::deduceCheerpAddressSpace(ValueDecl *Decl) {
+  if (Decl->getType().hasAddressSpace())
+    return;
+  if (Decl->getType()->isDependentType())
+    return;
+  if (VarDecl *Var = dyn_cast<VarDecl>(Decl)) {
+    if (Var->isLocalVarDecl())
+      return;
+    QualType Type = Var->getType();
+    if (Type->isVoidType())
+      return;
+    if (Var->getKind() == Decl::ParmVar && !isa<DecayedType>(Type))
+      return;
+    // If the original type from a decayed type is an array type and that array
+    // type has no address space yet, deduce it now.
+    if (auto DT = dyn_cast<DecayedType>(Type)) {
+      auto OrigTy = DT->getOriginalType();
+      if (!OrigTy.hasAddressSpace() && OrigTy->isArrayType()) {
+        // Add the address space to the original array type and then propagate
+        // that to the element type through `getAsArrayType`.
+        OrigTy = deduceCheerpPointeeAddrSpace(OrigTy, Decl);
+        OrigTy = QualType(Context.getAsArrayType(OrigTy), 0);
+        // Re-generate the decayed type.
+        Type = Context.getDecayedType(OrigTy);
+      }
+    }
+    Type = deduceCheerpPointeeAddrSpace(Type, Decl);
+    // Apply any qualifiers (including address space) from the array type to
+    // the element type.
+    if (Type->isArrayType())
+      Type = QualType(Context.getAsArrayType(Type), 0);
+    Decl->setType(Type);
+  }
+}
+
 static void checkAttributesAfterMerging(Sema &S, NamedDecl &ND) {
   // Ensure that an auto decl is deduced otherwise the checks below might cache
   // the wrong linkage.
@@ -14735,6 +14770,9 @@ Decl *Sema::ActOnParamDeclarator(Scope *S, Declarator &D) {
 
   if (getLangOpts().OpenCL)
     deduceOpenCLAddressSpace(New);
+
+  if (getLangOpts().Cheerp)
+    deduceCheerpAddressSpace(New);
 
   return New;
 }
