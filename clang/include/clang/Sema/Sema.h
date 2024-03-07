@@ -10330,7 +10330,7 @@ public:
 
   void deduceOpenCLAddressSpace(ValueDecl *decl);
 
-  QualType deduceCheerpPointeeAddrSpace(QualType PointeeType);
+  QualType deduceCheerpPointeeAddrSpace(QualType PointeeType, Decl* D = nullptr);
 
   ExprResult
   HandleExprPropertyRefExpr(const ObjCObjectPointerType *OPT,
