@@ -2151,10 +2151,12 @@ static QualType deduceOpenCLPointeeAddrSpace(Sema &S, QualType PointeeType) {
   return PointeeType;
 }
 
-QualType Sema::deduceCheerpPointeeAddrSpace(QualType PointeeType) {
+QualType Sema::deduceCheerpPointeeAddrSpace(QualType PointeeType, Decl* D) {
   if (PointeeType.hasAddressSpace())
     return PointeeType;
-  LangAS AS = Context.getCheerpPointeeAddrSpace(PointeeType.getTypePtr(), getCurLexicalContext(), CurCheerpFallbackAS);
+  LangAS AS = D
+    ? Context.getCheerpPointeeAddrSpace(PointeeType.getTypePtr(), D, CurCheerpFallbackAS)
+    : Context.getCheerpPointeeAddrSpace(PointeeType.getTypePtr(), getCurLexicalContext(), CurCheerpFallbackAS);
   if (AS == LangAS::Default)
     return PointeeType;
   return Context.getAddrSpaceQualType(PointeeType, AS);
