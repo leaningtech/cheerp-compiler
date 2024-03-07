@@ -1417,6 +1417,7 @@ public:
                                               : LangAS::opencl_private;
   }
 
+  LangAS getCheerpPointeeAddrSpace(const Type *PointeeType, Decl* D, LangAS Fallback = LangAS::Default);
   LangAS getCheerpPointeeAddrSpace(const Type *PointeeType, DeclContext* C, LangAS Fallback = LangAS::Default);
 
   void setcudaConfigureCallDecl(FunctionDecl *FD) {
