@@ -10332,6 +10332,7 @@ public:
 
   void deduceOpenCLAddressSpace(ValueDecl *decl);
 
+  void deduceCheerpAddressSpace(ValueDecl *decl);
   QualType deduceCheerpPointeeAddrSpace(QualType PointeeType, Decl* D = nullptr);
 
   ExprResult
