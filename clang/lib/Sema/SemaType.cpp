@@ -4605,27 +4605,30 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
   ASTContext &Context = S.Context;
   const LangOptions &LangOpts = S.getLangOpts();
 
-  LangAS PtrAS = LangAS::Default;
-  if (!Context.getTargetInfo().isByteAddressable()) {
-    auto hasAttr = [&D](ParsedAttr::Kind A) -> bool {
-      return D.getAttributes().hasAttribute(A) ||
-      D.getDeclarationAttributes().hasAttribute(A) ||
-      D.getDeclSpec().getAttributes().hasAttribute(A);
-    };
-    if (hasAttr(ParsedAttr::AT_GenericJSAddressSpace) || hasAttr(ParsedAttr::AT_WasmAddressSpace)) {
-      // Do nothing, the address space is naturally added
-    } else if (hasAttr(ParsedAttr::AT_GenericJS)) {
-      PtrAS = LangAS::cheerp_genericjs;
-    } else if (hasAttr(ParsedAttr::AT_AsmJS)) {
-      PtrAS = LangAS::cheerp_wasm;
-    } else {
-      const Type* Ty = T.getTypePtr();
-      if (Ty->getAs<TypedefType>()) {
-        Ty = Ty->getUnqualifiedDesugaredType();
+  auto getPointeeAddressSpace = [&S, &Context, &D](QualType T) {
+    LangAS PtrAS = LangAS::Default;
+    if (Context.getLangOpts().Cheerp) {
+      auto hasAttr = [&D](ParsedAttr::Kind A) -> bool {
+        return D.getAttributes().hasAttribute(A) ||
+        D.getDeclarationAttributes().hasAttribute(A) ||
+        D.getDeclSpec().getAttributes().hasAttribute(A);
+      };
+      if (hasAttr(ParsedAttr::AT_GenericJSAddressSpace) || hasAttr(ParsedAttr::AT_WasmAddressSpace)) {
+        // Do nothing, the address space is naturally added
+      } else if (hasAttr(ParsedAttr::AT_GenericJS)) {
+        PtrAS = LangAS::cheerp_genericjs;
+      } else if (hasAttr(ParsedAttr::AT_AsmJS)) {
+        PtrAS = LangAS::cheerp_wasm;
+      } else {
+        const Type* Ty = T.getTypePtr();
+        if (Ty->getAs<TypedefType>()) {
+          Ty = Ty->getUnqualifiedDesugaredType();
+        }
+        PtrAS = Context.getCheerpPointeeAddrSpace(Ty, S.getCurLexicalContext(), S.CurCheerpFallbackAS);
       }
-      PtrAS = Context.getCheerpPointeeAddrSpace(Ty, S.getCurLexicalContext(), S.CurCheerpFallbackAS);
     }
-  }
+    return PtrAS;
+  };
   // The name we're declaring, if any.
   DeclarationName Name;
   if (D.getIdentifier())
@@ -4999,6 +5002,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
     state.setCurrentChunkIndex(chunkIndex);
     DeclaratorChunk &DeclType = D.getTypeObject(chunkIndex);
     IsQualifiedFunction &= DeclType.Kind == DeclaratorChunk::Paren;
+    LangAS PtrAS = getPointeeAddressSpace(T);
     switch (DeclType.Kind) {
     case DeclaratorChunk::Paren:
       if (i == 0)
