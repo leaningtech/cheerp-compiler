@@ -13232,6 +13232,19 @@ LangAS ASTContext::getLangASForBuiltinAddressSpace(unsigned AS) const {
   if (LangOpts.CUDA)
     return getTargetInfo().getCUDABuiltinAddressSpace(AS);
 
+  if (LangOpts.Cheerp) {
+    switch (AS) {
+      case 0:
+        return LangAS::Default;
+      case 1:
+        return LangAS::cheerp_client;
+      case 2:
+        return LangAS::cheerp_genericjs;
+      case 3:
+        return LangAS::cheerp_wasm;
+    }
+  }
+
   return getLangASFromTargetAS(AS);
 }
 
