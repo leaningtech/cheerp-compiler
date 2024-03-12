@@ -72,12 +72,13 @@ bool cheerp::isNamespaceClientDisabledDecl(clang::FunctionDecl* FD, clang::Sema&
 {
       const bool isClient = clang::AnalysisDeclContext::isInClientNamespace(FD);
 
-      if (!isClient || FD->hasBody())
-              return false;
+      clang::FunctionDecl* CheckFD = FD->getTemplateInstantiationPattern();
 
-      if (auto* MD = clang::dyn_cast<clang::CXXMethodDecl>(FD))
-        if (MD->hasInlineBody())
-          return false;
+      if (!CheckFD)
+              CheckFD = FD;
+
+      if (!isClient || CheckFD->isDefined())
+              return false;
 
       bool doesWork = TypeChecker::checkSignature<TypeChecker::NamespaceClient, TypeChecker::ReturnValue>(FD, sema);
 
