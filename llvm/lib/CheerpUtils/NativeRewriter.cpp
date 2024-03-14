@@ -193,6 +193,8 @@ bool CheerpNativeRewriterPass::rewriteIfNativeConstructorCall(Module& M, Instruc
 	{
 		auto* castInst = new BitCastInst(newI, PointerType::getUnqual(initialArgs[0]->getType()), "", callInst);
 		new StoreInst(initialArgs[0], castInst, callInst);
+		if (auto* inv = dyn_cast<InvokeInst>(callInst))
+			BranchInst::Create(inv->getNormalDest(), inv->getParent());
 		return true;
 	}
 
@@ -201,6 +203,8 @@ bool CheerpNativeRewriterPass::rewriteIfNativeConstructorCall(Module& M, Instruc
 	if (redundantStringConstructor(callInst, initialArgs))
 	{
 		new StoreInst(initialArgs[0], newI, callInst);
+		if (auto* inv = dyn_cast<InvokeInst>(callInst))
+			BranchInst::Create(inv->getNormalDest(), inv->getParent());
 		return true;
 	}
 	Function* newFunc = getReturningConstructor(M, called);
