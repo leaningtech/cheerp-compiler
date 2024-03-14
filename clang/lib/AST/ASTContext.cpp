@@ -3198,6 +3198,19 @@ QualType ASTContext::addPointeeAddrSpace(QualType T, LangAS AS) const {
     case Type::Pointer:
       T = getPointerType(Pointee);
       break;
+    case Type::Decayed:
+    {
+      QualType OrigTy = T->getAs<DecayedType>()->getOriginalType();
+      if (!OrigTy.hasAddressSpace() && OrigTy->isArrayType()) {
+        // Add the address space to the original array type and then propagate
+        // that to the element type through `getAsArrayType`.
+        OrigTy = getAddrSpaceQualType(OrigTy, AS);
+        OrigTy = QualType(getAsArrayType(OrigTy), 0);
+        // Re-generate the decayed type.
+        T = getDecayedType(OrigTy);
+      }
+      break;
+    }
     default:
       llvm_unreachable("not a pointer or reference type");
   }
