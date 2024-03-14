@@ -1187,10 +1187,6 @@ class Sema;
     LangAS getDestAS() { return DestAS; }
 
     void setDestAS(LangAS AS) {
-      assert((Kind == CSK_InitByConstructor ||
-              Kind == CSK_InitByUserDefinedConversion) &&
-             "can't set the destination address space when not constructing an "
-             "object");
       DestAS = AS;
     }
 
