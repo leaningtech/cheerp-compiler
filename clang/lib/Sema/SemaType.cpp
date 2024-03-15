@@ -9397,7 +9397,11 @@ QualType Sema::BuiltinRemovePointer(QualType BaseType, SourceLocation Loc) {
   if (!BaseType->isAnyPointerType() || BaseType->isObjCIdType())
     return BaseType;
 
-  return BaseType->getPointeeType();
+  QualType Pointee = BaseType->getPointeeType();
+  if (Context.getLangOpts().Cheerp) {
+    Pointee = Context.removeAddrSpaceQualType(Pointee);
+  }
+  return Pointee;
 }
 
 QualType Sema::BuiltinDecay(QualType BaseType, SourceLocation Loc) {
@@ -9413,6 +9417,9 @@ QualType Sema::BuiltinDecay(QualType BaseType, SourceLocation Loc) {
   // in the same group of qualifiers as 'const' and 'volatile', we're extending
   // '__decay(T)' so that it removes all qualifiers.
   Split.Quals.removeCVRQualifiers();
+  if (Context.getLangOpts().Cheerp) {
+    Split.Quals.removeAddressSpace();
+  }
   return Context.getQualifiedType(Split);
 }
 
@@ -9449,7 +9456,13 @@ QualType Sema::BuiltinRemoveReference(QualType BaseType, UTTKind UKind,
     QualType Unqual = Context.getUnqualifiedArrayType(T, Quals);
     Quals.removeConst();
     Quals.removeVolatile();
+    if (Context.getLangOpts().Cheerp) {
+      Quals.removeAddressSpace();
+    }
     T = Context.getQualifiedType(Unqual, Quals);
+  }
+  if (Context.getLangOpts().Cheerp) {
+    T = Context.removeAddrSpaceQualType(T);
   }
   return T;
 }
