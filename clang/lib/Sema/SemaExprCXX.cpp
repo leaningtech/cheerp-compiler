@@ -6960,6 +6960,13 @@ QualType Sema::FindCompositePointerType(SourceLocation Loc,
       } else if (Steps.size() == 1) {
         bool MaybeQ1 = Q1.isAddressSpaceSupersetOf(Q2);
         bool MaybeQ2 = Q2.isAddressSpaceSupersetOf(Q1);
+        // CHEERP: if one of the address spaces is Default, choose the other one
+        if (MaybeQ1 == MaybeQ2 && Context.getLangOpts().Cheerp) {
+          if (Q1.getAddressSpace() == LangAS::Default)
+            MaybeQ1 = false;
+          if (Q2.getAddressSpace() == LangAS::Default)
+            MaybeQ2 = false;
+        }
         if (MaybeQ1 == MaybeQ2) {
           // Exception for ptr size address spaces. Should be able to choose
           // either address space during comparison.
