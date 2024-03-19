@@ -5079,8 +5079,15 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
         // If the argument doesn't match, perform a bitcast to coerce it.  This
         // can happen due to trivial type mismatches.
         if (FirstIRArg < IRFuncTy->getNumParams() &&
-            V->getType() != IRFuncTy->getParamType(FirstIRArg))
-          V = Builder.CreateBitCast(V, IRFuncTy->getParamType(FirstIRArg));
+            V->getType() != IRFuncTy->getParamType(FirstIRArg)) {
+          if(V->getType()->isPointerTy() && V->getType()->getPointerAddressSpace() != IRFuncTy->getParamType(FirstIRArg)->getPointerAddressSpace()) {
+            // CHEERP: Allocas are in the default address space, while pointer arguments
+            // are all in a specific address space. Allow the address space cast
+            V = Builder.CreateAddrSpaceCast(V, IRFuncTy->getParamType(FirstIRArg));
+          } else {
+            V = Builder.CreateBitCast(V, IRFuncTy->getParamType(FirstIRArg));
+          }
+        }
 
         if (ArgHasMaybeUndefAttr)
           V = Builder.CreateFreeze(V);
