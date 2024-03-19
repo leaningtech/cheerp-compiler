@@ -323,7 +323,7 @@ static void do_throw(Exception* ex)
 	current_exception = ex;
 	uncaughtExceptions += 1;
 
-	client::CheerpException* wrapper = new client::CheerpException(ex->tinfo->name());
+	client::CheerpException* wrapper = nullptr;//new client::CheerpException(ex->tinfo->name());
 	ex->set_jsObj(wrapper);
 	__builtin_cheerp_throw(wrapper);
 }
