@@ -103,7 +103,6 @@ private:
 	const NameGenerator& namegen;
 
 	// Codegen custom globals
-	uint32_t usedGlobals;
 	uint32_t stackTopGlobal;
 
 	// The wasm module heap size
@@ -478,7 +477,6 @@ public:
 		linearHelper(linearHelper),
 		landingPadTable(landingPadTable),
 		namegen(namegen),
-		usedGlobals(0),
 		stackTopGlobal(0),
 		heapSize(heapSize),
 		useWasmLoader(useWasmLoader),

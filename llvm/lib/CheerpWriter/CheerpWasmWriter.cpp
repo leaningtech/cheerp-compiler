@@ -4918,7 +4918,6 @@ void CheerpWasmWriter::compileGlobalSection()
 		Section section(0x06, "Global", this);
 
 		// Start the stack from the end of default memory
-		stackTopGlobal = usedGlobals++;
 		uint32_t stackTop = linearHelper.getStackStart();
 
 		// There is the stack and the globalized constants
