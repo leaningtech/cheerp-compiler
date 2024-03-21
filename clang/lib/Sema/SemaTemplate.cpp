@@ -5255,6 +5255,17 @@ bool Sema::CheckTemplateTypeArgument(
     ArgType = Context.getQualifiedType(ArgType, Qs);
   }
 
+  // CHEERP: If a template argument is a pointer/reference type, make sure
+  // that it has a non-default address space
+  if (getLangOpts().Cheerp && (ArgType->isReferenceType() || ArgType->isPointerType())) {
+    QualType Pointee = ArgType->getPointeeType();
+    if (!Pointee.hasAddressSpace()) {
+      LangAS AS = Context.getCheerpPointeeAddrSpace(Pointee.getTypePtr(), Param, CurCheerpFallbackAS);
+      if (AS != LangAS::Default)
+        ArgType = Context.addPointeeAddrSpace(ArgType, AS);
+    }
+  }
+
   SugaredConverted.push_back(TemplateArgument(ArgType));
   CanonicalConverted.push_back(
       TemplateArgument(Context.getCanonicalType(ArgType)));
