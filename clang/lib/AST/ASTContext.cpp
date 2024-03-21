@@ -7568,7 +7568,7 @@ LangAS ASTContext::getCheerpPointeeAddrSpace(const Type *PointeeType, Decl* D, L
     return getCheerpTypeAddressSpace(TagTy);
   }
   if (auto* TdTy = PointeeType->getAs<TypedefType>()) {
-    return getCheerpTypeAddressSpace(TdTy->getDecl());
+    return getCheerpPointeeAddrSpace(TdTy->desugar().getTypePtr(), D, Fallback);
   }
   while (D) {
     if (D->hasAttr<clang::AsmJSAttr>())
