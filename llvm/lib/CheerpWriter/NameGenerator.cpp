@@ -16,6 +16,7 @@
 #include "llvm/Cheerp/PHIHandler.h"
 #include "llvm/Cheerp/JsExport.h"
 #include "llvm/Cheerp/Utility.h"
+#include "llvm/Cheerp/Writer.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InlineAsm.h"
 #include <functional>

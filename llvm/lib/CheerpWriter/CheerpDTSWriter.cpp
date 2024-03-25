@@ -311,9 +311,28 @@ std::string CheerpDTSWriter::getTypeName(const Type* type) const
   return result;
 }
 
-void CheerpDTSWriter::declareFunction(const std::string& name, const Function* f, FunctionType type)
+CheerpDTSWriter::Export& CheerpDTSWriter::Exports::insert(llvm::StringRef name, Export&& ex)
 {
-  stream << name << "(";
+  auto sep = name.find('.');
+
+  if (std::holds_alternative<ClassExport>(ex))
+    hasTypes = true;
+
+  if (sep == std::string::npos)
+    return exports.try_emplace(name, std::move(ex)).first->second;
+
+  Exports& node = std::get<Exports>(exports[name.substr(0, sep)]);
+  return node.insert(name.substr(sep + 1), std::move(ex));
+}
+
+void CheerpDTSWriter::declareFunction(const JsExportFunction& func, FunctionType type)
+{
+  const llvm::Function* f = func.getFunction();
+
+  if (type == FunctionType::CONSTRUCTOR)
+    stream << "constructor(";
+  else
+    stream << func.getBaseName() << "(";
 
   auto begin = f->arg_begin();
   std::size_t index = 0;
@@ -354,156 +373,132 @@ void CheerpDTSWriter::declareFunction(const std::string& name, const Function* f
 
 void CheerpDTSWriter::declareInterfaces(const Exports& exports)
 {
-  for (const auto& pair : exports.map)
+  for (const auto& pair : exports.exports)
   {
-    const std::string& name = pair.first;
-    const Export& ex = pair.second;
+    llvm::StringRef name = pair.getKey();
+    const Export* value = &pair.getValue();
 
-    std::visit([this, name](auto&& data) {
-      using T = std::decay_t<decltype(data)>;
+    if (auto* ex = std::get_if<ClassExport>(value))
+    {
+      stream << "export interface " << name << " {" << NewLine;
 
-      if constexpr (std::is_same_v<T, ClassExport>)
+      for (const auto& func : ex->methods)
+        if (!func.isConstructor() && !func.isStatic())
+          declareFunction(func, FunctionType::MEMBER_FUNC);
+
+      stream << "}" << NewLine;
+    }
+    else if (auto* ex = std::get_if<Exports>(value))
+    {
+      if (ex->hasTypes)
       {
-        stream << "export interface " << name << " {" << NewLine;
-
-        for (const auto& [name, f] : data.instanceMethods)
-          declareFunction(name, f, FunctionType::MEMBER_FUNC);
-
+        stream << "export module " << name << " {" << NewLine;
+        declareInterfaces(*ex);
         stream << "}" << NewLine;
       }
-      else if constexpr (std::is_same_v<T, Exports>)
-      {
-        if (data.hasTypes)
-        {
-          stream << "export module " << name << " {" << NewLine;
-          declareInterfaces(data);
-          stream << "}" << NewLine;
-        }
-      }
-    }, ex);
+    }
   }
 }
 
 void CheerpDTSWriter::declareModule(const Exports& exports)
 {
-  for (const auto& pair : exports.map)
+  for (const auto& pair : exports.exports)
   {
-    const std::string& name = pair.first;
-    const Export& ex = pair.second;
+    llvm::StringRef name = pair.getKey();
+    const Export* value = &pair.getValue();
 
-    std::visit([this, name](auto&& data) {
-      using T = std::decay_t<decltype(data)>;
+    if (auto* ex = std::get_if<JsExportFunction>(value))
+      declareFunction(*ex, FunctionType::STATIC_FUNC);
+    else if (auto* ex = std::get_if<ClassExport>(value))
+    {
+      stream << name << ": {" << NewLine;
 
-      if constexpr (std::is_same_v<T, const Function*>)
-        declareFunction(name, data, FunctionType::STATIC_FUNC);
-      else if constexpr (std::is_same_v<T, ClassExport>)
-      {
-        stream << name << ": {" << NewLine;
+      for (const auto& func : ex->methods)
+        if (func.isConstructor() || func.isStatic())
+          declareFunction(func, FunctionType::STATIC_FUNC);
 
-        if (data.constructor)
-          declareFunction("new", data.constructor, FunctionType::STATIC_FUNC);
-
-        for (const auto& [name, f] : data.staticMethods)
-          declareFunction(name, f, FunctionType::STATIC_FUNC);
-
-        stream << "};" << NewLine;
-      }
-      else if constexpr (std::is_same_v<T, Exports>)
-      {
-        stream << name << ": {" << NewLine;
-        declareModule(data);
-        stream << "};" << NewLine;
-      }
-    }, ex);
+      stream << "};" << NewLine;
+    }
+    else if (auto* ex = std::get_if<Exports>(value))
+    {
+      stream << name << ": {" << NewLine;
+      declareModule(*ex);
+      stream << "};" << NewLine;
+    }
   }
 }
 
 void CheerpDTSWriter::declareGlobal(const Exports& exports)
 {
-  for (const auto& pair : exports.map)
+  for (const auto& pair : exports.exports)
   {
-    const std::string& name = pair.first;
-    const Export& ex = pair.second;
+    llvm::StringRef name = pair.getKey();
+    const Export* value = &pair.getValue();
 
-    std::visit([this, name](auto&& data) {
-      using T = std::decay_t<decltype(data)>;
+    if (auto* ex = std::get_if<JsExportFunction>(value))
+    {
+      stream << "function ";
+      declareFunction(*ex, FunctionType::STATIC_FUNC);
+      stream << "module " << name << " {" << NewLine;
+      stream << "const promise: Promise<void>;" << NewLine;
+      stream << "}" << NewLine;
+    }
+    else if (auto* ex = std::get_if<ClassExport>(value))
+    {
+      stream << "class " << name << " {" << NewLine;
 
-      if constexpr (std::is_same_v<T, const Function*>)
-      {
-        stream << "function ";
-        declareFunction(name, data, FunctionType::STATIC_FUNC);
-        stream << "module " << name << " {" << NewLine;
-        stream << "const promise: Promise<void>;" << NewLine;
-        stream << "}" << NewLine;
-      }
-      else if constexpr (std::is_same_v<T, ClassExport>)
-      {
-        stream << "class " << name << " {" << NewLine;
-
-        if (data.constructor)
-          declareFunction("constructor", data.constructor, FunctionType::CONSTRUCTOR);
-
-        for (const auto& [name, f] : data.instanceMethods)
-          declareFunction(name, f, FunctionType::MEMBER_FUNC);
-
-        for (const auto& [name, f] : data.staticMethods)
+      for (const auto& func : ex->methods)
+        if (func.isStatic())
         {
           stream << "static ";
-          declareFunction(name, f, FunctionType::STATIC_FUNC);
+          declareFunction(func, FunctionType::STATIC_FUNC);
         }
+        else if (func.isConstructor())
+          declareFunction(func, FunctionType::CONSTRUCTOR);
+        else
+          declareFunction(func, FunctionType::MEMBER_FUNC);
 
-        stream << "}" << NewLine;
-        stream << "module " << name << " {" << NewLine;
-        stream << "const promise: Promise<void>;" << NewLine;
-        stream << "}" << NewLine;
-      }
-      else if constexpr (std::is_same_v<T, Exports>)
-      {
-        stream << "module " << name << " {" << NewLine;
-        declareGlobal(data);
-        stream << "}" << NewLine;
-      }
-    }, ex);
+      stream << "}" << NewLine;
+      stream << "module " << name << " {" << NewLine;
+      stream << "const promise: Promise<void>;" << NewLine;
+      stream << "}" << NewLine;
+    }
+    else if (auto* ex = std::get_if<Exports>(value))
+    {
+      stream << "module " << name << " {" << NewLine;
+      declareGlobal(*ex);
+      stream << "}" << NewLine;
+    }
   }
 }
 
 void CheerpDTSWriter::makeDTS()
 {
-  auto processFunction = [this](const Function* f)
+  for (auto record : getJsExportRecords(module))
   {
-    std::string name = TypeSupport::getNamespacedFunctionName(f->getName());
-    addExport(exports, f, std::move(name));
-  };
+    std::string name = record.getJsName();
+    exports.insert(name, ClassExport());
+  }
 
-  auto processRecord = [this](const NamedMDNode& namedNode, const StringRef& name)
+  for (auto function : getJsExportFunctions(module))
   {
-    ClassExport ex;
-    auto pair = TypeSupport::getJSExportedTypeFromMetadata(name, module);
+    auto nameString = function.getJsName();
+    llvm::StringRef name = nameString;
+    auto tail = name.find_last_of('.');
+    ExportRef parent = &exports;
 
-    ex.type = pair.first;
-
-    for (auto it = namedNode.op_begin(); it != namedNode.op_end(); ++it)
+    if (tail != std::string::npos)
     {
-      const Function* f = cast<Function>(cast<ConstantAsMetadata>((*it)->getOperand(0))->getValue());
-      std::string name = TypeSupport::getNamespacedFunctionName(f->getName());
-      auto tail = name.find_last_of('.');
-
-      if (tail != std::string::npos)
-        name = name.substr(tail + 1);
-
-      if (name == "new")
-        ex.constructor = f;
-      else if (isStatic(cast<ConstantInt>(cast<ConstantAsMetadata>((*it)->getOperand(1))->getValue())->getZExtValue()))
-        ex.staticMethods.push_back({ std::move(name), f });
-      else
-        ex.instanceMethods.push_back({ std::move(name), f });
+      Export& ex = exports.insert(name.substr(0, tail), {});
+      parent = std::visit([](auto& ex) -> ExportRef { return &ex; }, ex);
+      name = name.substr(tail + 1);
     }
 
-    addExport(exports, std::move(ex), pair.second);
-    exportedTypes.insert({ pair.first, pair.second });
-  };
-
-  iterateOverJsExportedMetadata(module, processFunction, processRecord);
+    if (auto* ex = std::get_if<ClassExport*>(&parent))
+      (*ex)->methods.push_back(function);
+    else if (auto* ex = std::get_if<Exports*>(&parent))
+      (*ex)->insert(name, function);
+  }
 
   if (makeModule == MODULE_TYPE::COMMONJS)
   {

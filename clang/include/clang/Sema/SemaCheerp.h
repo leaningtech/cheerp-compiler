@@ -136,8 +136,6 @@ private:
 	clang::Sema& sema;
 };
 
-bool shouldBeJsExported(const clang::Decl *D, const bool isMethod);
-
 enum class CheerpAttributeToAdd
 {
 	None, AsmJSLike, GenericJS

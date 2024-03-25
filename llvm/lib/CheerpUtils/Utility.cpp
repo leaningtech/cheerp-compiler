@@ -11,6 +11,7 @@
 
 #include <cxxabi.h>
 #include <sstream>
+#include "llvm/Cheerp/JsExport.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Cheerp/Demangler.h"
 #include "llvm/Cheerp/EdgeContext.h"
@@ -741,56 +742,16 @@ bool TypeSupport::isJSExportedType(StructType* st, const Module& m)
 {
 	if (st->isLiteral())
 		return false;
-	return m.getNamedMetadata(llvm::Twine(st->getName(),"_methods"))!=NULL;
+	if (!jsExportedTypes)
+	{
+		jsExportedTypes->emplace();
+		for (auto record : getJsExportRecords(m))
+			jsExportedTypes->insert(record.getType());
+	}
+	return jsExportedTypes->count(st);
 }
 
-std::string TypeSupport::getNamespacedFunctionName(StringRef name)
-{
-	demangler_iterator demangler( name );
-
-	std::string namespacedName = "";
-
-	while (demangler != demangler_iterator())
-	{
-		namespacedName += *demangler++;
-		namespacedName += ".";
-	}
-
-	namespacedName.pop_back();
-
-	return namespacedName;
-}
-
-std::pair<StructType*, std::string> TypeSupport::getJSExportedTypeFromMetadata(StringRef name, const Module& module)
-{
-	StringRef mangledName = name.drop_back(8);;
-
-	if(name.startswith("class."))
-		mangledName = mangledName.drop_front(6);
-	else
-	{
-		assert(mangledName.startswith("struct."));
-		mangledName = mangledName.drop_front(7);
-	}
-
-
-	demangler_iterator demangler( mangledName );
-
-	std::string jsClassNameS = "";
-
-	while (demangler != demangler_iterator())
-	{
-		jsClassNameS += *demangler++;
-		jsClassNameS += ".";
-	}
-
-	jsClassNameS.pop_back();
-
-	assert( mangledName.end() > name.begin() && std::size_t(mangledName.end() - name.begin()) <= name.size() );
-	StructType * t = StructType::getTypeByName( module.getContext(), StringRef(name.begin(), mangledName.end() - name.begin() ) );
-	assert(t);
-	return std::make_pair(t, jsClassNameS);
-}
+std::optional<std::unordered_set<const llvm::StructType*>> TypeSupport::jsExportedTypes;
 
 bool TypeSupport::isSimpleType(Type* t, bool forceTypedArrays)
 {

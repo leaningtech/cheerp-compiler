@@ -700,7 +700,6 @@ void cheerp::CheerpSemaClassData::checkRecord()
 	std::unordered_map<std::string, const clang::CXXMethodDecl*> staticJsExportedMethodNames;
 
 	staticJsExportedMethodNames.emplace("promise", nullptr);
-	bool isAnyNonStatic = false;
 
 	for (auto method : interface.methods)
 	{
@@ -709,7 +708,6 @@ void cheerp::CheerpSemaClassData::checkRecord()
 
 		if (const CXXConstructorDecl* constructor = clang::dyn_cast<CXXConstructorDecl>(method))
 		{
-			isAnyNonStatic = true;
 			JsExportedConstructors.push_back(constructor);
 			continue;
 		}
@@ -717,10 +715,6 @@ void cheerp::CheerpSemaClassData::checkRecord()
 		{
 			destructor->setImplicit(false);
 			continue;
-		}
-		if (!method->isStatic())
-		{
-			isAnyNonStatic = true;
 		}
 
 		const auto& name = method->getNameInfo().getAsString();
@@ -746,11 +740,6 @@ void cheerp::CheerpSemaClassData::checkRecord()
 			sema.Diag(JsExportedConstructors[i]->getLocation(), diag::note_previous_definition);
 	}
 
-	if (!isAnyNonStatic)
-	{
-		sema.Diag(recordDecl->getLocation(), diag::err_cheerp_jsexport_only_static);
-	}
-
 	for (auto method : interface.methods)
 	{
 		method->addAttr(JsExportAttr::CreateImplicit(sema.Context));
@@ -765,11 +754,6 @@ void cheerp::CheerpSemaClassData::addMethod(clang::CXXMethodDecl* method)
 	if (method->isImplicit())
 		return;
 	declared_methods.insert(method);
-}
-
-bool cheerp::shouldBeJsExported(const clang::Decl *D, const bool isMethod)
-{
-	return D->hasAttr<clang::JsExportAttr>() && (clang::isa<clang::CXXMethodDecl>(D) == isMethod);
 }
 
 cheerp::CheerpAttributeToAdd cheerp::getCheerpAttributeToAdd(const clang::Decl*& decl, clang::ASTContext& Context)

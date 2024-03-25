@@ -12,30 +12,12 @@
 #ifndef _CHEERP_CODEGEN_CHEERP_H
 #define _CHEERP_CODEGEN_CHEERP_H
 
-#include "llvm/ADT/StringRef.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/Metadata.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/Function.h"
-#include "clang/AST/DeclCXX.h"
+#include "CodeGenModule.h"
 
 namespace cheerp{
 
-class JsExportContext
-{
-public:
-	explicit JsExportContext(llvm::Module& module, llvm::LLVMContext& context, llvm::IntegerType* type)
-		: module(module), context(context), intType(type)
-	{
-	}
-	void addFreeFunctionJsExportMetadata(llvm::Function* F);
-	void addRecordJsExportMetadata(const clang::CXXMethodDecl *method, llvm::Function* F, const llvm::StringRef className);
-	void addFunctionImportNameMetadata(llvm::Function* F, const llvm::StringRef name);
-private:
-	llvm::Module& module;
-	llvm::LLVMContext& context;
-	llvm::IntegerType* intType;
-};
+void emitFunctionJsExportMetadata(clang::CodeGen::CodeGenModule& CGM, const clang::FunctionDecl* FD, llvm::Function* F);
+void emitRecordJsExportMetadata(clang::CodeGen::CodeGenModule& CGM, const clang::CXXRecordDecl* CRD);
 
 }  //end namespace cheerp
 #endif //_CHEERP_CODEGEN_CHEERP_H

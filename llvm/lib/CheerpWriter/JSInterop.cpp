@@ -121,33 +121,10 @@ static std::pair<std::string, std::string> buildArgumentsString(const llvm::Func
 
 bool CheerpWriter::hasJSExports()
 {
+	auto* recordsMetadata = module.getNamedMetadata("jsexport_records");
+	auto* functionsMetadata = module.getNamedMetadata("jsexport_functions");
 
-	for( const NamedMDNode& namedNode: module.named_metadata())
-	{
-		StringRef name = namedNode.getName();
-
-		if(name == "jsexported_free_functions")
-			return true;
-
-		if (name.endswith("_methods") && (name.startswith("class.") || name.startswith("struct.")) )
-			return true;
-	}
-	return false;
-}
-
-static std::vector<const llvm::MDNode*> uniqueMDNodes(const llvm::NamedMDNode& namedNode)
-{
-	std::vector<const llvm::MDNode*> vectorMDNode;
-	{
-		//There might be repeated nodes, here we unique them while keeping sorted
-		llvm::DenseSet<const llvm::MDNode*> set;
-		for ( NamedMDNode::const_op_iterator it = namedNode.op_begin(); it != namedNode.op_end(); ++ it )
-		{
-			if (set.insert(*it).second)
-				vectorMDNode.push_back(*it);
-		}
-	}
-	return vectorMDNode;
+	return recordsMetadata || functionsMetadata;
 }
 
 void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
@@ -230,56 +207,11 @@ void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 		compileFunctionBody(f, /*isStatic*/ true, nullptr);
 	};
 
-	auto processRecord = [&](const StructType* t, const llvm::NamedMDNode& namedNode, const llvm::StringRef& jsClassName) -> void
+	auto processRecord = [&](const StructType* t, llvm::ArrayRef<JsExportFunction> methods, const llvm::StringRef& jsClassName) -> void
 	{
-		auto vectorMDNode = uniqueMDNodes(namedNode);
+		const auto* newHelper = std::find_if(methods.begin(), methods.end(), [](const JsExportFunction& func) { return func.isConstructor(); });
 
-		auto getMethodName = [&](const MDNode * node) -> StringRef
-		{
-			assert( isa<Function>(cast<ConstantAsMetadata>(node->getOperand(0))->getValue()) );
-
-			StringRef mangledName = cast<Function>(cast<ConstantAsMetadata>(node->getOperand(0))->getValue())->getName();
-
-			demangler_iterator dmg(mangledName);
-
-			for (unsigned int i=0;i<jsClassName.size(); i++)
-			{
-				if (jsClassName[i] == '.')
-					dmg++;
-			}
-			if (!isRootNeeded)
-				dmg++;
-
-			StringRef functionName = *dmg++;
-
-			assert( dmg == demangler_iterator() );
-			return functionName;
-		};
-		auto isStaticMethod = [&](const MDNode * node) -> bool {
-			assert(node->getNumOperands() >= 2);
-			assert( isa<ConstantInt>(cast<ConstantAsMetadata>(node->getOperand(1))->getValue()) );
-			const uint32_t value = cast<ConstantInt>(cast<ConstantAsMetadata>(node->getOperand(1))->getValue())->getZExtValue();
-			return cheerp::isStatic(value);
-		};
-
-		auto isNewHelper = [&](const MDNode * node ) -> bool
-		{
-			assert(node->getNumOperands() >= 2);
-			assert( isa<ConstantInt>(cast<ConstantAsMetadata>(node->getOperand(1))->getValue()) );
-			assert( isa<Function>(cast<ConstantAsMetadata>(node->getOperand(0))->getValue()) );
-
-			const uint32_t value = cast<ConstantInt>(cast<ConstantAsMetadata>(node->getOperand(1))->getValue())->getZExtValue();
-			if ( cheerp::isConstructor(value) || cheerp::isDestructor(value))
-				return false;
-			StringRef methodName = getMethodName(node);
-			if (methodName.str() == std::string("new"))
-					return true;
-			return false;
-		};
-
-		auto newHelper = std::find_if(vectorMDNode.begin(), vectorMDNode.end(), isNewHelper );
-
-		const bool hasNewHelper = (newHelper != vectorMDNode.end());
+		const bool hasNewHelper = (newHelper != methods.end());
 
 		if (alsoDeclare && !isNamespaced(jsClassName))
 			stream << "function " << jsClassName << '(';
@@ -289,8 +221,7 @@ void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 		//First compile the constructor
 		if (hasNewHelper)
 		{
-			const MDNode* node = *newHelper;
-			const Function * newFunc = cast<Function>(cast<ConstantAsMetadata>(node->getOperand(0))->getValue());
+			const Function * newFunc = newHelper->getFunction();
 			assert( globalDeps.isReachable(newFunc) );
 
 			POINTER_KIND thisKind = PA.getPointerKindForJSExportedType(const_cast<StructType*>(t));
@@ -318,14 +249,14 @@ void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 		stream << NewLine << "};" << NewLine;
 
 		//Then compile other methods and add them to the prototype
-		for ( const MDNode* node : vectorMDNode)
+		for ( const JsExportFunction& method : methods)
 		{
-			if (isNewHelper(node))
+			if (method.isConstructor())
 				continue;
 
-			StringRef methodName = getMethodName(node);
-			const bool isStatic = isStaticMethod(node);
-			const Function * f = cast<Function>(cast<ConstantAsMetadata>(node->getOperand(0))->getValue());
+			llvm::StringRef methodName = method.getBaseName();
+			const bool isStatic = method.isStatic();
+			const Function * f = method.getFunction();
 			assert( globalDeps.isReachable(f) );
 
 			stream << jsClassName;
@@ -339,7 +270,7 @@ void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 	for (const auto& jsex : jsExportedDecls)
 	{
 		if (jsex.isClass())
-			processRecord(jsex.t, *jsex.node, jsex.name);
+			processRecord(jsex.t, jsex.methods, jsex.name);
 		else
 			processFunction(jsex.F, jsex.name);
 	}
@@ -350,22 +281,34 @@ std::deque<CheerpWriter::JSExportedNamedDecl> CheerpWriter::buildJsExportedNamed
 	//Here a vector is used since repetitions are not allowed
 	std::deque<CheerpWriter::JSExportedNamedDecl> jsExported;
 
-	auto processFunction = [&jsExported](const Function * f) -> void
-	{
-		const std::string name = TypeSupport::getNamespacedFunctionName(f->getName());
-		jsExported.emplace_back(f, name);
-	};
+	//Stores the index of records in the jsExported list
+	std::map<std::string, std::size_t> recordMap;
 
-	auto processRecord = [&M, &jsExported](const llvm::NamedMDNode& namedNode, const llvm::StringRef& name) -> void
+	for (auto record : getJsExportRecords(M))
 	{
-		auto structAndName = TypeSupport::getJSExportedTypeFromMetadata(name, M);
-		StringRef jsClassName = structAndName.second;
-		jsExported.emplace_back(structAndName.first, namedNode, jsClassName);
-	};
+		auto name = record.getJsName();
+		recordMap.emplace(name, jsExported.size());
+		jsExported.emplace_back(record.getType(), name);
+	}
 
-	//This functions take cares of iterating over all metadata, executing processFunction on each jsexport-ed function
-	//and processRecord on each jsexport-ed class/struct
-	iterateOverJsExportedMetadata(M, processFunction, processRecord);
+	for (auto function : getJsExportFunctions(M))
+	{
+		auto name = function.getJsName();
+		auto tail = name.rfind('.');
+
+		if (tail != std::string::npos)
+		{
+			auto it = recordMap.find(name.substr(0, tail));
+
+			if (it != recordMap.end())
+			{
+				jsExported[it->second].methods.emplace_back(function);
+				continue;
+			}
+		}
+
+		jsExported.emplace_back(function.getFunction(), name);
+	}
 
 	return jsExported;
 }
