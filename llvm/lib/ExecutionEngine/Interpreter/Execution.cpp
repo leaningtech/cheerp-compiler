@@ -1182,6 +1182,13 @@ void Interpreter::visitIntrinsicInst(IntrinsicInst &I) {
   if (LazyFunctionCreator(I.getCalledFunction()->getName().str()))
     return visitCallBase(I);
 
+  if (ForPreExecute && strncmp(I.getCalledFunction()->getName().str().c_str(), "llvm.cheerp", strlen("llvm.cheerp")) == 0)
+  {
+    errs() << "Tried to execute cheerp intrinsic: " << I.getCalledFunction()->getName() << "\n";
+    printCallTrace();
+    CleanAbort = true;
+    return;
+  }
   // If it is an unknown intrinsic function, use the intrinsic lowering
   // class to transform it into hopefully tasty LLVM code.
   //
