@@ -34,6 +34,7 @@ add_llvm_component_library(LLVMCheerpUtils
   JSStringLiteralLowering.cpp
   MemoryInit.cpp
   CheerpLowerAtomic.cpp
+  JsExport.cpp
   )
 
 add_dependencies(LLVMCheerpUtils intrinsics_gen)

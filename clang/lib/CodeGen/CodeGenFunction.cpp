@@ -1149,26 +1149,6 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
 
   EmitFunctionProlog(*CurFnInfo, CurFn, Args);
 
-  if (!CGM.getTarget().isByteAddressable() && D) {
-    //Cheerp: Emit metadata to know about member methods in the backend
-     if (cheerp::shouldBeJsExported(D, /*isMethod*/true))
-     {
-       // In LLVM metadata only (static) methods or free functions are there
-       // 'delete' will act as equivalent of {delete this;}
-       //    and will be codegenerated as regular member function
-       // 'new' will act as equivalent of {return new Obj(params...);}
-       //    and will be codegenerated as JS operator new / constructor
-       //  And that means that Constructor and Destructor should be skipped
-       if (!isa<CXXConstructorDecl>(D) && !isa<CXXDestructorDecl>(D))
-       {
-	 const CXXMethodDecl *MD = cast<CXXMethodDecl>(D);
-	 const llvm::StringRef className = clang::cast<llvm::StructType>(ConvertType(MD->getParent()))->getName();
-         cheerp::JsExportContext jsExportContext(CGM.getModule(), getLLVMContext(), Int32Ty);
-         jsExportContext.addRecordJsExportMetadata(MD, CurFn, className);
-       }
-     }
-  }
-
   if (isa_and_nonnull<CXXMethodDecl>(D) &&
       cast<CXXMethodDecl>(D)->isInstance()) {
     CGM.getCXXABI().EmitInstanceFunctionProlog(*this);

@@ -16,6 +16,7 @@
 #include "llvm/Cheerp/AllocaMerging.h"
 #include "llvm/Cheerp/BaseWriter.h"
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
+#include "llvm/Cheerp/JsExport.h"
 #include "llvm/Cheerp/LinearMemoryHelper.h"
 #include "llvm/Cheerp/NameGenerator.h"
 #include "llvm/Cheerp/PointerAnalyzer.h"
@@ -547,15 +548,15 @@ private:
 public:
 	struct JSExportedNamedDecl
 	{
-		JSExportedNamedDecl(const llvm::Function* F, llvm::StringRef name) : F(F), t(nullptr), node(nullptr), name(name)
+		JSExportedNamedDecl(const llvm::Function* F, llvm::StringRef name) : F(F), t(nullptr), name(name)
 		{
 		}
-		JSExportedNamedDecl(const llvm::StructType* t, const llvm::NamedMDNode& node, llvm::StringRef name) : F(nullptr), t(t), node(&node), name(name)
+		JSExportedNamedDecl(const llvm::StructType* t, llvm::StringRef name) : F(nullptr), t(t), name(name)
 		{
 		}
 		const llvm::Function* F;
 		const llvm::StructType* t;
-		const llvm::NamedMDNode* node;
+		std::vector<JsExportFunction> methods;
 		std::string name;
 		bool isClass() const
 		{

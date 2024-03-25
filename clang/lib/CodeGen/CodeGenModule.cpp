@@ -2140,12 +2140,6 @@ void CodeGenModule::SetLLVMFunctionAttributesForDefinition(const Decl *D,
       F->addTypeMetadata(0, Id);
     }
   }
-
-  if (cheerp::shouldBeJsExported(D, /*isMethod*/false))
-  {
-    cheerp::JsExportContext jsExportContext(getModule(), getLLVMContext(), Int32Ty);
-    jsExportContext.addFreeFunctionJsExportMetadata(F);
-  }
 }
 
 void CodeGenModule::setLLVMFunctionFEnvAttributes(const FunctionDecl *D,
@@ -5422,6 +5416,9 @@ void CodeGenModule::EmitGlobalFunctionDefinition(GlobalDecl GD,
   if (D->hasAttr<AsmJSAttr>())
     Fn->setSection("asmjs");
 
+  if (D->hasAttr<JsExportAttr>())
+    cheerp::emitFunctionJsExportMetadata(*this, D, Fn);
+
   CodeGenFunction(*this).GenerateCode(GD, Fn, FI);
 
   setNonAliasAttributes(GD, Fn);
@@ -6353,6 +6350,8 @@ void CodeGenModule::EmitTopLevelDecl(Decl *D) {
         EmitTopLevelDecl(I);
     // Add special JsExported delete/new as deferred
     if (CRD->hasAttr<JsExportAttr>()) {
+      if (CRD->isThisDeclarationADefinition())
+        cheerp::emitRecordJsExportMetadata(*this, CRD);
       for (auto *I : CRD->decls()) {
         if (!I->hasAttr<JsExportAttr>())
           continue;

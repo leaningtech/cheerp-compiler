@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <llvm/Analysis/OptimizationRemarkEmitter.h>
+#include "llvm/Cheerp/JsExport.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Cheerp/CommandLine.h"
@@ -642,30 +643,13 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	}
 
 	//Compile the list of JS methods
-	//Look for metadata which ends in _methods. They are the have the list
-	//of exported methods for JS layout classes
-	for (NamedMDNode & namedNode : module.named_metadata() )
+	for (auto record : getJsExportRecords(module))
+		visitStruct(record.getType());
+	for (auto function : getJsExportFunctions(module))
 	{
-		StringRef name = namedNode.getName();
-
-		if(name.endswith("_methods") && (name.startswith("class._Z") || name.startswith("struct._Z")))
-		{
-			StructType * t = TypeSupport::getJSExportedTypeFromMetadata(name, module).first;
-			visitStruct(t);
-		}
-		else if(name!="jsexported_free_functions")
-			continue;
-		for (const MDNode * node : namedNode.operands() )
-		{
-			assert( isa<Function>(cast<ConstantAsMetadata>(node->getOperand(0))->getValue()) );
-			Function* f = cast<Function>(cast<ConstantAsMetadata>(node->getOperand(0))->getValue());
-
-			extendLifetime(f);
-			if (f->getSection() == StringRef("asmjs"))
-			{
-				asmJSExportedFuncions.insert(f);
-			}
-		}
+		extendLifetime(function.getFunction());
+		if (function.getFunction()->getSection() == "asmjs")
+			asmJSExportedFuncions.insert(function.getFunction());
 	}
 	for (NamedMDNode & namedNode : module.named_metadata() )
 	{

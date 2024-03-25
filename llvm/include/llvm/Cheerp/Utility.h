@@ -553,10 +553,6 @@ public:
 		return false;
 	}
 
-	static std::string getNamespacedFunctionName(llvm::StringRef name);
-
-	static std::pair<llvm::StructType*, std::string> getJSExportedTypeFromMetadata(llvm::StringRef name, const llvm::Module & module);
-
 	// Returns true if the type is not considered a literal object or array in JS
 	static bool isSimpleType(llvm::Type* t, bool forceTypedArrays);
 
@@ -580,6 +576,7 @@ public:
 		return cheerp::TypeSupport::getAlignmentAsmJS(dl, t) > 4? 8 : 4;
 	}
 private:
+	static std::optional<std::unordered_set<const llvm::StructType*>> jsExportedTypes;
 	const llvm::Module & module;
 };
 

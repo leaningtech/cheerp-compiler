@@ -12,37 +12,32 @@
 #include "clang/CodeGen/CodeGenCheerp.h"
 #include "llvm/Cheerp/JsExport.h"
 
-void cheerp::JsExportContext::addFreeFunctionJsExportMetadata(llvm::Function* F)
+using namespace llvm;
+using namespace clang;
+
+static void emitMetadata(CodeGen::CodeGenModule& CGM, StringRef name, ArrayRef<Metadata*> MDs)
 {
-       llvm::NamedMDNode* namedNode = module.getOrInsertNamedMetadata("jsexported_free_functions");
-       llvm::SmallVector<llvm::Metadata*,1> values;
-       values.push_back(llvm::ConstantAsMetadata::get(F));
-       llvm::MDNode* node = llvm::MDNode::get(context,values);
-       namedNode->addOperand(node);
+	auto* node = CGM.getModule().getOrInsertNamedMetadata(name);
+	node->addOperand(MDNode::get(CGM.getLLVMContext(), MDs));
 }
 
-void cheerp::JsExportContext::addRecordJsExportMetadata(const clang::CXXMethodDecl *method, llvm::Function* F, const llvm::StringRef className)
+static uint32_t getFunctionFlags(const FunctionDecl* FD)
 {
-       llvm::NamedMDNode* namedNode = module.getOrInsertNamedMetadata(llvm::Twine(className,"_methods").str());
-       llvm::SmallVector<llvm::Metadata*,2> values;
-       values.push_back(llvm::ConstantAsMetadata::get(F));
-
-       const MemberKind kind = clang::isa<clang::CXXConstructorDecl>(method) ? MemberKind::Constructor :
-	       (clang::isa<clang::CXXDestructorDecl>(method) ? MemberKind::Destructor : MemberKind::Method);
-       const uint32_t representation = cheerp::getRepresentation(kind, method->isStatic(), method->isConst());
-       values.push_back(llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(intType, representation)));
-
-       llvm::MDNode* node = llvm::MDNode::get(context,values);
-       namedNode->addOperand(node);
+	auto* CMD = dyn_cast<CXXMethodDecl>(FD);
+	return CMD && CMD->isStatic() ? 1 : 0;
 }
 
-void cheerp::JsExportContext::addFunctionImportNameMetadata(llvm::Function* F, const llvm::StringRef name)
+void cheerp::emitFunctionJsExportMetadata(CodeGen::CodeGenModule& CGM, const FunctionDecl* FD, Function* F)
 {
-       llvm::NamedMDNode* namedNode = module.getOrInsertNamedMetadata("imported_name_match");
+	auto* flags = ConstantInt::get(CGM.Int32Ty, getFunctionFlags(FD));
+	auto* funcMD = ConstantAsMetadata::get(F);
+	auto* flagsMD = ConstantAsMetadata::get(flags);
+	emitMetadata(CGM, "jsexport_functions", { funcMD, flagsMD });
+}
 
-       llvm::SmallVector<llvm::Metadata*,2> values;
-       values.push_back(llvm::ConstantAsMetadata::get(F));
-       values.push_back(llvm::MDString::get(context, name));
-       llvm::MDNode* node = llvm::MDNode::get(context,values);
-       namedNode->addOperand(node);
+void cheerp::emitRecordJsExportMetadata(CodeGen::CodeGenModule& CGM, const CXXRecordDecl* CRD)
+{
+	auto* type = CGM.getTypes().ConvertType(CGM.getContext().getTypeDeclType(CRD));
+	auto* nameMD = MDString::get(CGM.getLLVMContext(), cast<StructType>(type)->getName());
+	emitMetadata(CGM, "jsexport_records", nameMD);
 }
