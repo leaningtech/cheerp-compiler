@@ -78,6 +78,11 @@ namespace cheerp {
 		return cheerp::getBaseName(function->getName());
 	}
 
+	llvm::StringRef JsExportFunction::getPropertyName() const {
+		assert(isGetter() || isSetter());
+		return getBaseName().substr(13);
+	}
+
 	std::string JsExportFunction::getJsName() const {
 		return cheerp::getJsName(function->getName());
 	}
@@ -88,6 +93,14 @@ namespace cheerp {
 
 	bool JsExportFunction::isConstructor() const {
 		return getBaseName() == "new";
+	}
+
+	bool JsExportFunction::isGetter() const {
+		return getBaseName().startswith("__cheerp_get_");
+	}
+
+	bool JsExportFunction::isSetter() const {
+		return getBaseName().startswith("__cheerp_set_");
 	}
 
 	llvm::iterator_range<JsExportRecordIterator> getJsExportRecords(const llvm::Module& module) {

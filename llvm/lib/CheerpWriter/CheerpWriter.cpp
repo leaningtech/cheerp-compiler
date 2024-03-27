@@ -6825,6 +6825,9 @@ void CheerpWriter::compileDeclareExports()
 		//Set all jsExportedDecls equal to DUMMY / {}
 		for (auto jsex: jsExportedDecls)
 		{
+			if (jsex.getter)
+				continue;
+
 			if (!isRootNeeded && !isNamespaced(jsex.name))
 			{
 				areJsExportedExportsDeclared = true;
@@ -6996,7 +6999,8 @@ void CheerpWriter::compileDefineExports()
 		for (auto jsex: jsExportedDecls)
 		{
 			anyJSEx = true;
-			stream << jsex.name << ".promise=" << NewLine;
+			if (!jsex.getter)
+				stream << jsex.name << ".promise=" << NewLine;
 		}
 		if (anyJSEx)
 			stream << "Promise.resolve();" << NewLine;
@@ -7029,12 +7033,17 @@ void CheerpWriter::compileCommonJSExports()
 {
 	assert(!isRootNeeded);
 
-	stream << "return{" << NewLine;
+	llvm::StringRef exportName = namegen.getBuiltinName(NameGenerator::Builtin::EXPORT);
+
+	stream << "var " << exportName << "={" << NewLine;
 
 	std::string old = "";
 
 	for (const auto& jsex : jsExportedDecls)
 	{
+		if (jsex.getter && !isNamespaced(jsex.name))
+			continue;
+
 		std::string curr = "";
 
 		//Build the top level identifier (either the whole name or up to a '.')
@@ -7051,6 +7060,18 @@ void CheerpWriter::compileCommonJSExports()
 	}
 
 	stream << "};" << NewLine;
+
+	for (const auto& jsex : jsExportedDecls)
+	{
+		if (!jsex.getter || isNamespaced(jsex.name))
+			continue;
+
+		stream << "Object.defineProperty(" << exportName << ",'" << jsex.name << "',";
+		compileJsExportProperty(jsex.getter, jsex.setter, true, nullptr);
+		stream << ");" << NewLine;
+	}
+
+	stream << "return " << exportName << ";" << NewLine;
 }
 
 void CheerpWriter::compileEntryPoint()

@@ -127,84 +127,105 @@ bool CheerpWriter::hasJSExports()
 	return recordsMetadata || functionsMetadata;
 }
 
+void CheerpWriter::compileJsExportFunctionBody(const Function* f, bool isStatic, const StructType* implicitThis)
+{
+	auto argumentsStrings = buildArgumentsString(f, isStatic, PA, jsExportedTypes, namegen.getName(f, 0));
+	const llvm::StructType* retType = nullptr;
+	if (f->getReturnType() && f->getReturnType()->isPointerTy())
+		retType = dyn_cast<StructType>(f->getReturnType()->getPointerElementType());
+	auto internalName = namegen.getName(f, 0);
+
+	if(argumentsStrings.first == argumentsStrings.second)
+	{
+		// The arguments used internally and externally are identical, no mapping is required
+		// check if we can use the function directly without a wrapper
+		if(isStatic && !jsExportedTypes.count(retType))
+		{
+			stream << internalName;
+			return;
+		}
+	}
+	stream << "function(" << argumentsStrings.first << "){" << NewLine;
+
+	stream << "return ";
+	bool isRegular = false;
+	if (jsExportedTypes.count(retType))
+	{
+		stream << "Object.create(" << jsExportedTypes.find(retType)->getSecond() << ".prototype,{this:{value:";
+		if (PA.getPointerKindForJSExportedType(const_cast<StructType*>(retType)) == REGULAR)
+		{
+			assert(PA.getPointerKindForReturn(f) == SPLIT_REGULAR);
+			isRegular = true;
+			stream << "{d:";
+		}
+	}
+
+	stream << internalName << "(";
+	if(!isStatic && implicitThis)
+	{
+		POINTER_KIND argKind = PA.getPointerKind(&*f->arg_begin());
+		POINTER_KIND thisKind = PA.getPointerKindForJSExportedType(const_cast<StructType*>(implicitThis));
+		if (thisKind == REGULAR && argKind == SPLIT_REGULAR)
+		{
+			stream << "this.this.d,this.this.o";
+		}
+		else if (thisKind == REGULAR && argKind == COMPLETE_OBJECT)
+		{
+			stream << "this.this.d[this.this.o]";
+		}
+		else
+		{
+			assert(thisKind == argKind && (thisKind == RAW || thisKind == COMPLETE_OBJECT));
+			stream << "this.this";
+		}
+
+		if(argumentsStrings.second.size() > 0)
+			stream << ",";
+	}
+	stream << argumentsStrings.second << ")";
+	if (jsExportedTypes.count(retType))
+	{
+		if (isRegular)
+		{
+			stream << ",o:oSlot}";
+		}
+		stream << "}})";
+	}
+	stream << ";" << NewLine;
+	stream << "}";
+}
+
+void CheerpWriter::compileJsExportProperty(const llvm::Function* getter, const llvm::Function* setter, bool isStatic, const llvm::StructType* implicitThis)
+{
+	stream << "{" << NewLine;
+
+	if (getter)
+	{
+		stream << "get:";
+		compileJsExportFunctionBody(getter, isStatic, implicitThis);
+		stream << "," << NewLine;
+	}
+
+	if (setter)
+	{
+		stream << "set:";
+		compileJsExportFunctionBody(setter, isStatic, implicitThis);
+		stream << "," << NewLine;
+	}
+
+	stream << "}";
+}
+
 void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 {
-	auto compileFunctionBody = [&](const Function * f, bool isStatic, const StructType* implicitThis) -> void
-	{
-		auto argumentsStrings = buildArgumentsString(f, isStatic, PA, jsExportedTypes, namegen.getName(f, 0));
-		const llvm::StructType* retType = nullptr;
-		if (f->getReturnType() && f->getReturnType()->isPointerTy())
-			retType = dyn_cast<StructType>(f->getReturnType()->getPointerElementType());
-		auto internalName = namegen.getName(f, 0);
-
-		if(argumentsStrings.first == argumentsStrings.second)
-		{
-			// The arguments used internally and externally are identical, no mapping is required
-			// check if we can use the function directly without a wrapper
-			if(isStatic && !jsExportedTypes.count(retType))
-			{
-				stream << internalName << ";" << NewLine;
-				return;
-			}
-		}
-		stream << "function(" << argumentsStrings.first << "){" << NewLine;
-
-		stream << "return ";
-		bool isRegular = false;
-		if (jsExportedTypes.count(retType))
-		{
-			stream << "Object.create(" << jsExportedTypes.find(retType)->getSecond() << ".prototype,{this:{value:";
-			if (PA.getPointerKindForJSExportedType(const_cast<StructType*>(retType)) == REGULAR)
-			{
-				assert(PA.getPointerKindForReturn(f) == SPLIT_REGULAR);
-				isRegular = true;
-				stream << "{d:";
-			}
-		}
-
-		stream << internalName << "(";
-		if(!isStatic && implicitThis)
-		{
-			POINTER_KIND argKind = PA.getPointerKind(&*f->arg_begin());
-			POINTER_KIND thisKind = PA.getPointerKindForJSExportedType(const_cast<StructType*>(implicitThis));
-			if (thisKind == REGULAR && argKind == SPLIT_REGULAR)
-			{
-				stream << "this.this.d,this.this.o";
-			}
-			else if (thisKind == REGULAR && argKind == COMPLETE_OBJECT)
-			{
-				stream << "this.this.d[this.this.o]";
-			}
-			else
-			{
-				assert(thisKind == argKind && (thisKind == RAW || thisKind == COMPLETE_OBJECT));
-				stream << "this.this";
-			}
-
-			if(argumentsStrings.second.size() > 0)
-				stream << ",";
-		}
-		stream << argumentsStrings.second << ")";
-		if (jsExportedTypes.count(retType))
-		{
-			if (isRegular)
-			{
-				stream << ",o:oSlot}";
-			}
-			stream << "}})";
-		}
-		stream << ";" << NewLine;
-		stream << "};" << NewLine;
-	};
-
 	auto processFunction = [&](const Function * f, const StringRef& name) -> void
 	{
 		if (alsoDeclare && !isNamespaced(name))
 			stream << "var ";
 
 		stream << name << '=';
-
-		compileFunctionBody(f, /*isStatic*/ true, nullptr);
+		compileJsExportFunctionBody(f, /*isStatic*/ true, nullptr);
+		stream << ";" << NewLine;
 	};
 
 	auto processRecord = [&](const StructType* t, llvm::ArrayRef<JsExportFunction> methods, const llvm::StringRef& jsClassName) -> void
@@ -248,31 +269,75 @@ void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 		}
 		stream << NewLine << "};" << NewLine;
 
+		struct Property
+		{
+			bool isStatic = false;
+			const Function* getter = nullptr;
+			const Function* setter = nullptr;
+		};
+
+		llvm::StringMap<Property> properties;
+
 		//Then compile other methods and add them to the prototype
 		for ( const JsExportFunction& method : methods)
 		{
-			if (method.isConstructor())
-				continue;
+			if (method.isGetter())
+			{
+				properties[method.getPropertyName()].getter = method.getFunction();
+				properties[method.getPropertyName()].isStatic = method.isStatic();
+			}
+			else if (method.isSetter())
+			{
+				properties[method.getPropertyName()].setter = method.getFunction();
+				properties[method.getPropertyName()].isStatic = method.isStatic();
+			}
+			else if (!method.isConstructor())
+			{
+				llvm::StringRef methodName = method.getBaseName();
+				const bool isStatic = method.isStatic();
+				const Function * f = method.getFunction();
+				assert( globalDeps.isReachable(f) );
 
-			llvm::StringRef methodName = method.getBaseName();
-			const bool isStatic = method.isStatic();
-			const Function * f = method.getFunction();
-			assert( globalDeps.isReachable(f) );
-
-			stream << jsClassName;
-			if (!isStatic)
-				stream << ".prototype";
-			stream << '.' << methodName << "=";
-			compileFunctionBody(f, isStatic, t);
+				stream << jsClassName;
+				if (!isStatic)
+					stream << ".prototype";
+				stream << '.' << methodName << "=";
+				compileJsExportFunctionBody(f, isStatic, t);
+				stream << ";" << NewLine;
+			}
 		}
+
+		for (const auto& property : properties)
+		{
+			const Property& value = property.getValue();
+			stream << "Object.defineProperty(" << jsClassName;
+			if (!value.isStatic)
+				stream << ".prototype";
+			stream << ",'" << property.getKey() << "',";
+			compileJsExportProperty(value.getter, value.setter, value.isStatic, t);
+			stream << ");" << NewLine;
+		}
+	};
+
+	auto processProperty = [&](const Function* getter, const Function* setter, const StringRef& name) -> void
+	{
+		auto sep = name.rfind('.');
+		auto head = name.substr(0, sep);
+		auto tail = name.substr(sep + 1);
+
+		stream << "Object.defineProperty(" << head << ",'" << tail << "',";
+		compileJsExportProperty(getter, setter, true, nullptr);
+		stream << ");" << NewLine;
 	};
 
 	for (const auto& jsex : jsExportedDecls)
 	{
 		if (jsex.isClass())
 			processRecord(jsex.t, jsex.methods, jsex.name);
-		else
+		else if (jsex.F)
 			processFunction(jsex.F, jsex.name);
+		else if (isNamespaced(jsex.name))
+			processProperty(jsex.getter, jsex.setter, jsex.name);
 	}
 }
 
@@ -283,6 +348,9 @@ std::deque<CheerpWriter::JSExportedNamedDecl> CheerpWriter::buildJsExportedNamed
 
 	//Stores the index of records in the jsExported list
 	std::map<std::string, std::size_t> recordMap;
+
+	//Stores the index of properties in the jsExported list
+	std::map<std::string, std::size_t> propertyMap;
 
 	for (auto record : getJsExportRecords(M))
 	{
@@ -307,7 +375,31 @@ std::deque<CheerpWriter::JSExportedNamedDecl> CheerpWriter::buildJsExportedNamed
 			}
 		}
 
-		jsExported.emplace_back(function.getFunction(), name);
+		if (function.isGetter() || function.isSetter())
+		{
+			std::string propertyName(function.getPropertyName());
+
+			if (tail != std::string::npos)
+				propertyName = name.substr(0, tail) + "." + propertyName;
+
+			auto it = propertyMap.find(propertyName);
+			CheerpWriter::JSExportedNamedDecl* ex;
+
+			if (it != propertyMap.end())
+				ex = &jsExported[it->second];
+			else
+			{
+				propertyMap.emplace(propertyName, jsExported.size());
+				ex = &jsExported.emplace_back(propertyName);
+			}
+
+			if (function.isGetter())
+				ex->getter = function.getFunction();
+			else
+				ex->setter = function.getFunction();
+		}
+		else
+			jsExported.emplace_back(function.getFunction(), name);
 	}
 
 	return jsExported;

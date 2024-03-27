@@ -371,6 +371,13 @@ void CheerpDTSWriter::declareFunction(const JsExportFunction& func, FunctionType
   stream << ";" << NewLine;
 }
 
+void CheerpDTSWriter::declareProperty(const Property& prop)
+{
+  assert(prop.getter.has_value());
+  llvm::Type* type = prop.getter->getFunction()->getReturnType();
+  stream << prop.getter->getPropertyName() << ": " << getTypeName(type) << ";" << NewLine;
+}
+
 void CheerpDTSWriter::declareInterfaces(const Exports& exports)
 {
   for (const auto& pair : exports.exports)
@@ -385,6 +392,15 @@ void CheerpDTSWriter::declareInterfaces(const Exports& exports)
       for (const auto& func : ex->methods)
         if (!func.isConstructor() && !func.isStatic())
           declareFunction(func, FunctionType::MEMBER_FUNC);
+
+      for (const auto& prop : ex->properties)
+        if (!prop.getValue().getter->isStatic())
+        {
+          if (!prop.getValue().setter)
+            stream << "readonly ";
+
+          declareProperty(prop.getValue());
+        }
 
       stream << "}" << NewLine;
     }
@@ -417,6 +433,15 @@ void CheerpDTSWriter::declareModule(const Exports& exports)
         if (func.isConstructor() || func.isStatic())
           declareFunction(func, FunctionType::STATIC_FUNC);
 
+      for (const auto& prop : ex->properties)
+        if (prop.getValue().getter->isStatic())
+        {
+          if (!prop.getValue().setter)
+            stream << "readonly ";
+
+          declareProperty(prop.getValue());
+        }
+
       stream << "};" << NewLine;
     }
     else if (auto* ex = std::get_if<Exports>(value))
@@ -425,6 +450,14 @@ void CheerpDTSWriter::declareModule(const Exports& exports)
       declareModule(*ex);
       stream << "};" << NewLine;
     }
+  }
+
+  for (const auto& pair : exports.properties)
+  {
+    if (!pair.getValue().setter)
+      stream << "readonly ";
+
+    declareProperty(pair.getValue());
   }
 }
 
@@ -458,6 +491,16 @@ void CheerpDTSWriter::declareGlobal(const Exports& exports)
         else
           declareFunction(func, FunctionType::MEMBER_FUNC);
 
+      for (const auto& prop : ex->properties)
+      {
+        if (prop.getValue().getter->isStatic())
+          stream << "static ";
+        if (!prop.getValue().setter)
+          stream << "readonly ";
+
+        declareProperty(prop.getValue());
+      }
+
       stream << "}" << NewLine;
       stream << "module " << name << " {" << NewLine;
       stream << "const promise: Promise<void>;" << NewLine;
@@ -469,6 +512,16 @@ void CheerpDTSWriter::declareGlobal(const Exports& exports)
       declareGlobal(*ex);
       stream << "}" << NewLine;
     }
+  }
+
+  for (const auto& pair : exports.properties)
+  {
+    if (!pair.getValue().setter)
+      stream << "const ";
+    else
+      stream << "var ";
+
+    declareProperty(pair.getValue());
   }
 }
 
@@ -486,6 +539,7 @@ void CheerpDTSWriter::makeDTS()
     llvm::StringRef name = nameString;
     auto tail = name.find_last_of('.');
     ExportRef parent = &exports;
+    llvm::StringMap<Property>* properties = nullptr;
 
     if (tail != std::string::npos)
     {
@@ -495,6 +549,15 @@ void CheerpDTSWriter::makeDTS()
     }
 
     if (auto* ex = std::get_if<ClassExport*>(&parent))
+      properties = &(*ex)->properties;
+    else if (auto* ex = std::get_if<Exports*>(&parent))
+      properties = &(*ex)->properties;
+
+    if (function.isGetter())
+      (*properties)[function.getPropertyName()].getter = function;
+    else if (function.isSetter())
+      (*properties)[function.getPropertyName()].setter = function;
+    else if (auto* ex = std::get_if<ClassExport*>(&parent))
       (*ex)->methods.push_back(function);
     else if (auto* ex = std::get_if<Exports*>(&parent))
       (*ex)->insert(name, function);

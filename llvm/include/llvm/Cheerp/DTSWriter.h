@@ -24,9 +24,16 @@ class CheerpDTSWriter final
 private:
   struct Exports;
 
+  struct Property
+  {
+    std::optional<JsExportFunction> getter;
+    std::optional<JsExportFunction> setter;
+  };
+
   struct ClassExport
   {
     std::vector<JsExportFunction> methods;
+    llvm::StringMap<Property> properties;
   };
 
   using Export = std::variant<Exports, JsExportFunction, ClassExport>;
@@ -35,6 +42,7 @@ private:
   struct Exports
   {
     llvm::StringMap<Export> exports;
+    llvm::StringMap<Property> properties;
     bool hasTypes = false;
 
     Export& insert(llvm::StringRef name, Export&& ex);
@@ -54,6 +62,7 @@ private:
   std::string getTypeName(const llvm::Type* type) const;
 
   void declareFunction(const JsExportFunction& func, FunctionType type);
+  void declareProperty(const Property& prop);
   void declareInterfaces(const Exports& exports);
   void declareModule(const Exports& exports);
   void declareGlobal(const Exports& exports);
