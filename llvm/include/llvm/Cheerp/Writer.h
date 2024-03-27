@@ -543,6 +543,8 @@ private:
 
 	//JS interoperability support
 	uint32_t countJsParameters(const llvm::Function* F, bool isStatic) const;
+	void compileJsExportFunctionBody(const llvm::Function* f, bool isStatic, const llvm::StructType* implicitThis);
+	void compileJsExportProperty(const llvm::Function* getter, const llvm::Function* setter, bool isStatic, const llvm::StructType* implicitThis);
 	void compileDeclExportedToJs(const bool alsoDeclare);
 
 public:
@@ -554,8 +556,13 @@ public:
 		JSExportedNamedDecl(const llvm::StructType* t, llvm::StringRef name) : F(nullptr), t(t), name(name)
 		{
 		}
+		JSExportedNamedDecl(llvm::StringRef name) : F(nullptr), t(nullptr), name(name)
+		{
+		}
 		const llvm::Function* F;
 		const llvm::StructType* t;
+		const llvm::Function* getter = nullptr;
+		const llvm::Function* setter = nullptr;
 		std::vector<JsExportFunction> methods;
 		std::string name;
 		bool isClass() const

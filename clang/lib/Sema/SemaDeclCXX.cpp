@@ -7239,6 +7239,14 @@ void Sema::CheckCompletedCXXClass(Scope *S, CXXRecordDecl *Record) {
       newHelper->setReferenced();
     }
   }
+  for (auto* field : Record->fields()) {
+    if (field->hasAttr<JsExportAttr>()) {
+      AddJsExportPropertyHelper(field, false);
+
+      if (!field->getType().isConstQualified())
+        AddJsExportPropertyHelper(field, true);
+    }
+  }
   if(Record->hasAttr<ByteLayoutAttr>())
   {
     if (Record->isDynamicClass())

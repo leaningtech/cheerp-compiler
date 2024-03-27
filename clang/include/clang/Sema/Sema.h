@@ -6371,6 +6371,8 @@ public:
   template <bool isNewHelper>
   void DefineImplicitJsExportHelper(CXXRecordDecl *ClassDecl, CXXMethodDecl* Helper, CXXConstructorDecl* Constructor);
 
+  void AddJsExportPropertyHelper(DeclaratorDecl* Decl, bool Set);
+
   /// DefineImplicitDestructor - Checks for feasibility of
   /// defining this destructor as the default destructor.
   void DefineImplicitDestructor(SourceLocation CurrentLocation,

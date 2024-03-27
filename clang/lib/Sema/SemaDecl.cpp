@@ -14,9 +14,11 @@
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/ASTLambda.h"
+#include "clang/AST/ASTMutationListener.h"
 #include "clang/AST/CXXInheritance.h"
 #include "clang/AST/CharUnits.h"
 #include "clang/AST/CommentDiagnostic.h"
+#include "clang/AST/DeclAccessPair.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclObjC.h"
 #include "clang/AST/DeclTemplate.h"
@@ -14128,6 +14130,98 @@ void Sema::CheckCompleteVariableDeclaration(VarDecl *var) {
   // Build the bindings if this is a structured binding declaration.
   if (auto *DD = dyn_cast<DecompositionDecl>(var))
     CheckCompleteDecompositionDeclaration(DD);
+
+  if (var->hasAttr<JsExportAttr>())
+  {
+    AddJsExportPropertyHelper(var, false);
+
+    if (!var->getType().isConstQualified())
+      AddJsExportPropertyHelper(var, true);
+  }
+}
+
+void Sema::AddJsExportPropertyHelper(DeclaratorDecl* Decl, bool Set)
+{
+  std::string String = Decl->getNameAsString();
+  QualType T = Decl->getType();
+  QualType ResultTy;
+  SmallVector<QualType, 1> Args;
+
+  if (Set)
+  {
+    String = "__cheerp_set_" + String;
+    ResultTy = Context.VoidTy;
+    Args.push_back(T);
+  }
+  else
+  {
+    String = "__cheerp_get_" + String;
+    ResultTy = T;
+  }
+
+  DeclarationName Name(&PP.getIdentifierTable().get(String));
+  DeclContext* DC = Decl->getDeclContext();
+  SourceLocation Loc = Decl->getLocation();
+  QualType Type = Context.getFunctionType(ResultTy, Args, {});
+  TypeSourceInfo* TSI = Context.getTrivialTypeSourceInfo(Type, Loc);
+  FunctionDecl* Helper;
+  bool Field = false;
+
+  if (CXXRecordDecl* RD = dyn_cast<CXXRecordDecl>(DC))
+  {
+    if (!RD->hasAttr<JsExportAttr>())
+    {
+      Diag(Loc, diag::err_cheerp_jsexport_on_method_of_not_jsexported_class) << Loc;
+      return;
+    }
+
+    Field = isa<FieldDecl>(Decl);
+    Helper = CXXMethodDecl::Create(Context, RD, Loc, { Name, Loc }, Type, TSI, Field ? SC_None : SC_Static, false, false, ConstexprSpecKind::Unspecified, Loc);
+    Helper->setAccess(Decl->getAccess());
+  }
+  else
+    Helper = FunctionDecl::Create(Context, DC, Loc, Loc, Name, Type, TSI, SC_None);
+
+  SynthesizedFunctionScope Scope(*this, Helper);
+  clang::Scope* S = getScopeForContext(Helper);
+
+  DC->addDecl(Helper);
+  Helper->addAttr(JsExportAttr::CreateImplicit(Context));
+  Scope.addContextNote(Loc);
+
+  Expr* LHS;
+
+  if (Field)
+  {
+    ExprResult This = ActOnCXXThis(Loc);
+
+    LHS = BuildMemberExpr(This.getAs<Expr>(), true, Loc, nullptr, Loc, Decl, DeclAccessPair::make(Decl, Decl->getAccess()), false, { Decl->getDeclName(), Loc }, T, VK_LValue, OK_Ordinary);
+  }
+  else
+    LHS = BuildDeclRefExpr(Decl, T, VK_LValue, Loc);
+
+  if (Set)
+  {
+    ParmVarDecl* Param = ParmVarDecl::Create(Context, Helper, Loc, Loc, nullptr, T, nullptr, SC_None, nullptr);
+
+    DeclRefExpr* RHS = BuildDeclRefExpr(Param, Param->getType(), VK_LValue, Loc);
+    ExprResult Op = BuildBinOp(S, Loc, BO_Assign, LHS, RHS);
+
+    Helper->setParams(Param);
+    Helper->setBody(Op.getAs<Stmt>());
+  }
+  else
+  {
+    StmtResult Return = BuildReturnStmt(Loc, LHS);
+
+    Helper->setBody(Return.getAs<Stmt>());
+  }
+
+  if (ASTMutationListener* L = getASTMutationListener())
+    L->AddedVisibleDecl(DC, Helper);
+
+  Consumer.HandleTopLevelDecl(DeclGroupRef(Helper));
+  cheerpSemaData.checkFunctionToBeJsExported(Helper, isa<CXXMethodDecl>(Helper), false);
 }
 
 /// Check if VD needs to be dllexport/dllimport due to being in a

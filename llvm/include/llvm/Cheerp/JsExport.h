@@ -80,10 +80,13 @@ public:
 	JsExportFunction(const llvm::Module& module, const llvm::MDNode* node);
 
 	llvm::StringRef getBaseName() const;
+	llvm::StringRef getPropertyName() const;
 	llvm::Function* getFunction() const;
 	std::string getJsName() const;
 	bool isStatic() const;
 	bool isConstructor() const;
+	bool isGetter() const;
+	bool isSetter() const;
 };
 
 using JsExportRecordIterator = JsExportIterator<JsExportRecord>;
