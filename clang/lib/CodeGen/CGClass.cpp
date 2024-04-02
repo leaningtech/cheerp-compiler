@@ -438,9 +438,12 @@ Address CodeGenFunction::GetAddressOfBaseClass(
   }
   else
   {
-    // Apply both offsets.
-    Value = ApplyNonVirtualAndVirtualOffset(*this, Value, NonVirtualOffset,
-                                          VirtualOffset, Derived, VBase);
+    // Apply both offsets, except for opaque client (anyref) classes, which do
+    // not need any offset.
+    if (!Derived->isClientNamespace()) {
+      Value = ApplyNonVirtualAndVirtualOffset(*this, Value, NonVirtualOffset,
+                                            VirtualOffset, Derived, VBase);
+    }
 
     // Cast to the destination type.
     Value = Builder.CreateElementBitCast(Value, BaseValueTy);
