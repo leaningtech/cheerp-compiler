@@ -36,7 +36,7 @@ static Function* wrapImport(Module& M, const Function* Orig)
 	CallInst* ForwardCall = Builder.CreateCall(const_cast<Function*>(Orig), params);
 	Type* RetTy = ForwardCall->getType();
 	Value* Ret = RetTy->isVoidTy() ? nullptr : ForwardCall;
-	if (Ret && RetTy->isPointerTy() && !TypeSupport::isAsmJSPointer(RetTy) && !TypeSupport::isClientType(RetTy))
+	if (Ret && RetTy->isPointerTy() && !TypeSupport::isAsmJSPointer(RetTy) && !TypeSupport::isClientType(RetTy->getPointerElementType()))
 	{
 		Function* MakeRegular = Intrinsic::getDeclaration(&M, Intrinsic::cheerp_make_regular, { RetTy, RetTy });
 		Function* PointerOffset = Intrinsic::getDeclaration(&M, Intrinsic::cheerp_pointer_offset, { RetTy });
