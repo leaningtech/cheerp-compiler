@@ -22,6 +22,10 @@ namespace cheerp
 
 PreservedAnalyses JSStringLiteralLoweringPass::run(Function& F, FunctionAnalysisManager& FAM)
 {
+	// Skip this pass for wasm functions, because we still need to call the
+	// String constructor to get an anyref object.
+	if (F.getSection() == "asmjs")
+		return PreservedAnalyses::all();
 	bool Changed = false;
 	for(Instruction& I: instructions(F))
 	{
