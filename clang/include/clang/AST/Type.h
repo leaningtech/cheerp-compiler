@@ -523,6 +523,7 @@ public:
            (A == LangAS::cheerp_client && B == LangAS::cheerp_genericjs) ||
            (A == LangAS::cheerp_genericjs && B == LangAS::Default) ||
            (A == LangAS::cheerp_wasm && B == LangAS::Default) ||
+           (A == LangAS::cheerp_client && B == LangAS::Default) ||
            (A == LangAS::Default && B == LangAS::cheerp_genericjs) ||
            (A == LangAS::Default && B == LangAS::cheerp_wasm) ||
            (A == LangAS::cheerp_genericjs && B == LangAS::cheerp_wasm);
