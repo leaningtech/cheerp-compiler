@@ -12762,6 +12762,9 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
     // There must be an incoming cast, void* are not directly accepted
     const Expr* existingMem = E->getArg(0);
     const CastExpr* argCE=dyn_cast<CastExpr>(existingMem);
+    if (argCE && argCE->getCastKind() == CK_AddressSpaceConversion) {
+      argCE = dyn_cast<CastExpr>(argCE->getSubExpr());
+    }
 
     if ((!argCE || argCE->getSubExpr()->getType()->isVoidPointerType() || !argCE->getSubExpr()->getType()->isPointerType())) {
       if (!asmjs) {
