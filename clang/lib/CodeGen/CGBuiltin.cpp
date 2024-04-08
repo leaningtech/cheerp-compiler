@@ -12764,6 +12764,9 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
   else if (BuiltinID == Builtin::BIrealloc) {
     // There must be an incoming cast, void* are not directly accepted
     const CastExpr* argCE=dyn_cast<CastExpr>(E->getArg(0));
+    if (argCE && argCE->getCastKind() == CK_AddressSpaceConversion) {
+      argCE = dyn_cast<CastExpr>(argCE->getSubExpr());
+    }
 
     if (!argCE || argCE->getSubExpr()->getType()->isVoidPointerType()) {
       if (!asmjs)
