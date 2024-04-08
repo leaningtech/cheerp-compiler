@@ -5487,6 +5487,9 @@ bool Sema::CheckX86BuiltinFunctionCall(const TargetInfo &TI, unsigned BuiltinID,
 bool Sema::CheckCheerpBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
     if (BuiltinID == Builtin::BIrealloc) {
       const CastExpr* argCE=dyn_cast<CastExpr>(TheCall->getArg(0));
+      if (argCE && argCE->getCastKind() == CK_AddressSpaceConversion) {
+        argCE = dyn_cast<CastExpr>(argCE->getSubExpr());
+      }
       if (!argCE || argCE->getSubExpr()->getType()->isVoidPointerType())
       {
         Diag(TheCall->getArg(0)->getBeginLoc(), diag::err_cheerp_memintrinsic_type_unknown);
