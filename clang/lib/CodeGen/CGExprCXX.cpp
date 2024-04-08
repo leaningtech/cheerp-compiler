@@ -1682,6 +1682,12 @@ llvm::Value *CodeGenFunction::EmitCXXNewExpr(const CXXNewExpr *E) {
     if (!getTarget().isByteAddressable() && !asmjs)
     {
       const CastExpr* castExpr = dyn_cast<CastExpr>(arg);
+      if (castExpr && castExpr->getCastKind() == CK_AddressSpaceConversion) {
+        // Peel the address space cast. The `new` expression returns a pointer to
+        // a non-default AS, but the placement new definition returns plain void*.
+        arg = castExpr->getSubExpr();
+        castExpr = dyn_cast<CastExpr>(arg);
+      }
       if (castExpr == NULL ||
           castExpr->getSubExpr()->getType()->getPointeeType().getCanonicalType().getUnqualifiedType()!=allocType.getCanonicalType().getUnqualifiedType())
       {
