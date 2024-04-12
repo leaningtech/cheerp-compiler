@@ -3188,19 +3188,8 @@ QualType ASTContext::addPointeeAddrSpace(QualType T, LangAS AS) const {
   if (Pointee.hasAddressSpace())
     Pointee = removeAddrSpaceQualType(Pointee);
   Pointee = getAddrSpaceQualType(Pointee, AS);
-  switch (T->getTypeClass()) {
-    case Type::LValueReference:
-      T = getLValueReferenceType(Pointee);
-      break;
-    case Type::RValueReference:
-      T = getRValueReferenceType(Pointee);
-      break;
-    case Type::Pointer:
-      T = getPointerType(Pointee);
-      break;
-    case Type::Decayed:
-    {
-      QualType OrigTy = T->getAs<DecayedType>()->getOriginalType();
+  if (const auto *DT = T->getAs<DecayedType>()) {
+      QualType OrigTy = DT->getOriginalType();
       if (!OrigTy.hasAddressSpace() && OrigTy->isArrayType()) {
         // Add the address space to the original array type and then propagate
         // that to the element type through `getAsArrayType`.
@@ -3209,12 +3198,15 @@ QualType ASTContext::addPointeeAddrSpace(QualType T, LangAS AS) const {
         // Re-generate the decayed type.
         T = getDecayedType(OrigTy);
       }
-      break;
-    }
-    default:
-      llvm_unreachable("not a pointer or reference type");
+      return T;
   }
-  return T;
+  if (T->isPointerType())
+    return getPointerType(Pointee);
+  if (T->isLValueReferenceType())
+    return getLValueReferenceType(Pointee);
+  if (T->isRValueReferenceType())
+    return getLValueReferenceType(Pointee);
+  llvm_unreachable("not a pointer or reference type");
 }
 
 QualType ASTContext::removePtrSizeAddrSpace(QualType T) const {
