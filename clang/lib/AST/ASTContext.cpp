@@ -3462,8 +3462,8 @@ QualType ASTContext::getDecayedType(QualType T, LangAS ptrAS) const {
   if (T->isFunctionType())
   {
     if (ptrAS != LangAS::Default)
-      Decayed = getAddrSpaceQualType(T, ptrAS);
-    Decayed = getPointerType(Decayed);
+      T = getAddrSpaceQualType(T, ptrAS);
+    Decayed = getPointerType(T);
   }
 
   return getDecayedType(T, Decayed);
