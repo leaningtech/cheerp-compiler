@@ -3728,7 +3728,7 @@ Sema::ActOnCXXDelete(SourceLocation StartLoc, bool UseGlobal,
     QualType PointeeElem = Context.getBaseElementType(Pointee);
 
     if (Pointee.getAddressSpace() != LangAS::Default &&
-        !getLangOpts().OpenCLCPlusPlus)
+        !getLangOpts().OpenCLCPlusPlus && !getLangOpts().Cheerp)
       return Diag(Ex.get()->getBeginLoc(),
                   diag::err_address_space_qualified_delete)
              << Pointee.getUnqualifiedType()
