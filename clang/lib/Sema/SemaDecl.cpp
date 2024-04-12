@@ -4062,6 +4062,19 @@ bool Sema::MergeFunctionDecl(FunctionDecl *New, NamedDecl *&OldD, Scope *S,
       OldQTypeForComparison = QualType(OldTypeForComparison, 0);
       assert(OldQTypeForComparison.isCanonical());
     }
+    // CHEERP: We inject an AS qualifier only on non-static methods (for `this`),
+    // but out-of-line static methods don't look as such at first glance,
+    // and they end up with the qualifier (while the declaration did not).
+    // Fix this mismatch here.
+    if (getLangOpts().Cheerp && isa<CXXMethodDecl>(Old) && Old->isStatic()) {
+      auto* NewProto = NewQType->castAs<FunctionProtoType>();
+      auto NewExtProtoInfo = NewProto->getExtProtoInfo();
+      NewExtProtoInfo.TypeQuals.removeAddressSpace();
+      NewQType = Context.getFunctionType(NewProto->getReturnType(),
+                                         NewProto->getParamTypes(),
+                                         NewExtProtoInfo);
+      New->setType(NewQType);
+    }
 
     if (haveIncompatibleLanguageLinkages(Old, New)) {
       // As a special case, retain the language linkage from previous
