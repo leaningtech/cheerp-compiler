@@ -4844,6 +4844,10 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
       }
     }
     if (IRFunctionArgs.hasSRetArg()) {
+      auto* Ptr = SRetPtr.getPointer();
+      if (Ptr->getType()->getPointerAddressSpace() != 0) {
+        SRetPtr = Builder.CreateAddrSpaceCast(SRetPtr, ConvertTypeForMem(RetTy)->getPointerTo(), "ascast");
+      }
       IRCallArgs[IRFunctionArgs.getSRetArgNo()] = SRetPtr.getPointer();
     } else if (RetAI.isInAlloca()) {
       Address Addr =
