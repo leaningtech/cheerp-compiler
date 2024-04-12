@@ -15,6 +15,7 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Cheerp/Utility.h"
+#include <stack>
 
 using namespace cheerp;
 using namespace llvm;
@@ -469,6 +470,132 @@ void LinearMemoryHelper::generateGlobalizedGlobalsUsage()
 	}
 }
 
+/**
+ * Returns a new array type with a size of 1
+*/
+static inline Type* getTypeAsArrayType(Type* Ty)
+{
+	return (ArrayType::get(Ty, 1));	
+}
+
+/**
+ * Converts an array to an array with the same type and a size of 1
+ * 
+ * This is done so we can compare any array, regardless of size
+*/
+static inline Type* convertArrayType(const Type* Ty)
+{
+	assert(Ty->isArrayTy());
+	return (getTypeAsArrayType(Ty->getArrayElementType()));
+}
+
+static void topologicalDFS(const Type* Ty, std::vector<const Type*> allTypes, \
+		std::unordered_set<const Type*>&  assignedTypes,std::stack<const Type*>& sortedStack )
+{
+	assignedTypes.insert(Ty);
+
+	if (Ty->isStructTy())
+	{
+		for (size_t i = 0; i < Ty->getStructNumElements(); i++)
+		{
+			Type* elem = Ty->getStructElementType(i);
+			if (elem->isAggregateType())
+			{
+				if (elem->isArrayTy())
+					elem = convertArrayType(elem);
+				if (!assignedTypes.count(elem))
+					topologicalDFS(elem, allTypes, assignedTypes, sortedStack);
+			}
+		}
+	}
+
+	sortedStack.push(Ty);
+}
+
+/**
+ * Sort all the types in an order that if a type has a dependency
+ * then that type will be in front of it
+ * 
+ * This might be unnecessary if we keep every aggregate element as anyref
+*/
+static void topologicalDependencySort(std::vector<const Type*>& allTypes, std::vector<const Type*>& sorted)
+{
+	std::unordered_set<const Type*> assignedTypes;
+	std::stack<const Type*> sortedStack;
+
+	for (auto Ty : allTypes)
+	{
+		if (!assignedTypes.count(Ty))
+			topologicalDFS(Ty, allTypes, assignedTypes, sortedStack);
+	}
+
+	sorted.reserve(sortedStack.size());
+	while (!sortedStack.empty())
+	{
+		sorted.push_back(sortedStack.top());
+		sortedStack.pop();
+	}
+
+	std::reverse(sorted.begin(), sorted.end());
+}
+
+static void	addBasicArrayTypes(std::vector<const llvm::Type *>& unsorted, llvm::Module *module)
+{
+	llvm::LLVMContext& CTX = module->getContext();
+	unsorted.push_back(getTypeAsArrayType(Type::getInt8Ty(CTX)));
+	unsorted.push_back(getTypeAsArrayType(Type::getInt16Ty(CTX)));
+	unsorted.push_back(getTypeAsArrayType(Type::getInt32Ty(CTX)));
+	unsorted.push_back(getTypeAsArrayType(Type::getInt64Ty(CTX)));
+	unsorted.push_back(getTypeAsArrayType(Type::getFloatTy(CTX)));
+	unsorted.push_back(getTypeAsArrayType(Type::getDoubleTy(CTX)));
+}
+
+/**
+ * Returns the index of an aggregate type within the wasm type section
+*/
+uint32_t LinearMemoryHelper::getAggregateTypeIndex(const llvm::Type* Ty) const
+{
+	assert(Ty->isAggregateType());
+
+	if (Ty->isStructTy())
+	{
+		const auto& found = aggregateTypeIndices.find(Ty);
+		assert(found != aggregateTypeIndices.end());
+		return (found->second);
+	}
+	Type* elemTy = Ty->getArrayElementType();
+	const auto& found = aggregateTypeIndices.find(getTypeAsArrayType(elemTy));
+	assert(found != aggregateTypeIndices.end());
+	return (found->second);
+}
+
+void LinearMemoryHelper::addAggregateTypes()
+{
+	uint32_t idx = functionTypeIndices.size();
+	std::vector<const Type*> unsorted;
+
+	addBasicArrayTypes(unsorted, module);
+	for (auto sTy : module->getIdentifiedStructTypes())
+	{
+		// TODO: create a bool like ->hasWasmGC()
+		// and find a way to check for GC arrays
+		if (sTy->hasAsmJS() || (!sTy->hasAsmJS() && sTy->getName().find("test") == std::string::npos))
+			continue;
+
+		Type *structAsType = llvm::cast<Type>(sTy);
+		unsorted.push_back(structAsType);
+		unsorted.push_back(getTypeAsArrayType(structAsType));
+	}
+
+	topologicalDependencySort(unsorted, aggregateTypes);
+
+	for (auto Ty : aggregateTypes)
+	{
+		aggregateTypeIndices[Ty] = idx;
+		idx++;
+	}
+}
+
 void LinearMemoryHelper::addFunctions()
 {
 	// Construct the list of asmjs functions. Make sure that __wasm_nullptr is
@@ -483,8 +610,19 @@ void LinearMemoryHelper::addFunctions()
 	std::vector<const llvm::Function*> unsorted;
 	for (auto& F: module->functions())
 	{
-		if (F.getSection() != StringRef("asmjs"))
-			continue;
+		// if (F.getSection() != StringRef("asmjs"))
+		// 	continue;
+
+
+		// add every asmjs function that contains test in its name
+		if (F.getSection() != StringRef("asmjs")) {
+			if (F.getName().str().find("test") != std::string::npos)
+			{
+				errs() << "Found test function: " << F.getName().str() + "\n";
+			}
+			else
+				continue;
+		}
 
 		// Do not add __wasm_nullptr twice.
 		if (mode == FunctionAddressMode::Wasm && F.getName() == StringRef(wasmNullptrName))

@@ -184,6 +184,8 @@ public:
 	typedef std::unordered_map<const llvm::FunctionType*, size_t,
 		FunctionSignatureHash,FunctionSignatureCmp> FunctionTypeIndicesMap;
 
+	typedef std::unordered_map<const llvm::Type*, size_t> AggregateTypeIndicesMap;
+
 	LinearMemoryHelper(const LinearMemoryHelperInitializer& data) :
 			module(nullptr), globalDeps(nullptr),
 		mode(data.mode), functionTables(3, FunctionSignatureHash(/*isStrict*/false), FunctionSignatureCmp(/*isStrict*/false)),
@@ -198,6 +200,8 @@ public:
 		this->module = &module;
 		globalDeps = GDA;
 		builtinIds.fill(std::numeric_limits<uint32_t>::max());
+		addFunctions();
+		addAggregateTypes();
 		addStack();
 		addGlobals();
 		checkMemorySize();
@@ -237,6 +241,12 @@ public:
 		return asmjsFunctions_;
 	}
 
+	uint32_t getAggregateTypeIndex(const llvm::Type* Ty) const;
+
+	const AggregateTypeIndicesMap& getAggregateTypeIndices() const {
+		return aggregateTypeIndices;
+	}
+
 	const FunctionTypeIndicesMap& getFunctionTypeIndices() const {
 		return functionTypeIndices;
 	}
@@ -261,6 +271,10 @@ public:
 	 */
 	const std::vector<const llvm::FunctionType*> getFunctionTypes() const {
 		return functionTypes;
+	}
+
+	const std::vector<const llvm::Type*> getAggregateTypes() const {
+		return aggregateTypes;
 	}
 
 	/**
@@ -393,6 +407,8 @@ private:
 
 	void setGlobalPtrIfPresent(llvm::StringRef name, uint32_t ptr);
 	void addGlobals();
+	void addFunctions();
+	void addAggregateTypes();
 	void addStack();
 	void addMemoryInfo();
 	void checkMemorySize();
@@ -409,7 +425,9 @@ private:
 	std::unordered_map<const llvm::Function*, uint32_t> functionIds;
 	std::array<uint32_t, BuiltinInstr::numGenericBuiltins()> builtinIds;
 	std::vector<const llvm::FunctionType*> functionTypes;
+	std::vector<const llvm::Type*> aggregateTypes;
 	FunctionTypeIndicesMap functionTypeIndices;
+	AggregateTypeIndicesMap aggregateTypeIndices;
 	uint32_t maxFunctionId;
 
 	std::vector<const llvm::GlobalVariable*> asmjsGlobals;
