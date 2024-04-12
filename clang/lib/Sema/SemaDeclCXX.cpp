@@ -8798,8 +8798,14 @@ bool Sema::CheckExplicitlyDefaultedComparison(Scope *S, FunctionDecl *FD,
         ExpectedTy = Context.getRecordType(RD);
       if (auto *Ref = CTy->getAs<ReferenceType>()) {
         CTy = Ref->getPointeeType();
-        if (RD)
+        if (RD) {
           ExpectedTy.addConst();
+          if (Context.getLangOpts().Cheerp) {
+            LangAS AS = Context.getCheerpTypeAddressSpace(RD);
+            if (AS != LangAS::Default)
+              ExpectedTy = Context.getAddrSpaceQualType(ExpectedTy, AS);
+          }
+        }
         Ok = true;
       }
 
