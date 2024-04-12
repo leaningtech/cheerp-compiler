@@ -525,19 +525,21 @@ ExprResult Sema::DefaultFunctionArrayConversion(Expr *E, bool Diagnose) {
         if (DeclRefExpr* DR = dyn_cast<DeclRefExpr>(E)) {
           NamedDecl* D = DR->getFoundDecl();
           FunctionDecl* Callee = isa<FunctionTemplateDecl>(D) ?
-					cast<FunctionTemplateDecl>(D)->getTemplatedDecl() :
-					cast<FunctionDecl>(D);
-          // Overloaded operators end up here when called, but not when their address is taken,
-          // because they require the `&` in front of them
-          bool oper = Callee->isOverloadedOperator();
-          if (!oper && Caller->hasAttr<GenericJSAttr>() && Callee->hasAttr<AsmJSAttr>()) {
-            Diag(E->getExprLoc(), diag::err_cheerp_wrong_function_addr)
-              << Callee << Callee->getAttr<AsmJSAttr>()
-              << Caller << Caller->getAttr<GenericJSAttr>();
-          } else if (!oper && Caller->hasAttr<AsmJSAttr>() && Callee->hasAttr<GenericJSAttr>()) {
-            Diag(E->getExprLoc(), diag::err_cheerp_wrong_function_addr)
-              << Callee << Callee->getAttr<GenericJSAttr>()
-              << Caller << Caller->getAttr<AsmJSAttr>();
+            cast<FunctionTemplateDecl>(D)->getTemplatedDecl() :
+            isa<FunctionDecl>(D)? cast<FunctionDecl>(D) : nullptr;
+          if (Callee) {
+            // Overloaded operators end up here when called, but not when their address is taken,
+            // because they require the `&` in front of them
+            bool oper = Callee->isOverloadedOperator();
+            if (!oper && Caller->hasAttr<GenericJSAttr>() && Callee->hasAttr<AsmJSAttr>()) {
+              Diag(E->getExprLoc(), diag::err_cheerp_wrong_function_addr)
+                << Callee << Callee->getAttr<AsmJSAttr>()
+                << Caller << Caller->getAttr<GenericJSAttr>();
+            } else if (!oper && Caller->hasAttr<AsmJSAttr>() && Callee->hasAttr<GenericJSAttr>()) {
+              Diag(E->getExprLoc(), diag::err_cheerp_wrong_function_addr)
+                << Callee << Callee->getAttr<GenericJSAttr>()
+                << Caller << Caller->getAttr<AsmJSAttr>();
+            }
           }
         }
       }
