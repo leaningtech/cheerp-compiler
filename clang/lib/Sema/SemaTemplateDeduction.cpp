@@ -1514,7 +1514,7 @@ static Sema::TemplateDeductionResult DeduceTemplateArgumentsByTypeMatch(
 
     // Do not match a function type with a cv-qualified type.
     // http://www.open-std.org/jtc1/sc22/wg21/docs/cwg_active.html#1584
-    if (A->isFunctionType() && P.hasQualifiers())
+    if (A->isFunctionType() && P.hasQualifiers() && !S.getLangOpts().Cheerp)
       return Sema::TDK_NonDeducedMismatch;
 
     assert(TTP->getDepth() == Info.getDeducedDepth() &&
