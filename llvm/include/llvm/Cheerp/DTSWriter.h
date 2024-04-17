@@ -22,50 +22,29 @@ namespace cheerp
 class CheerpDTSWriter final
 {
 private:
-  struct Exports;
-
-  struct Property
-  {
-    std::optional<JsExportFunction> getter;
-    std::optional<JsExportFunction> setter;
-  };
-
-  struct ClassExport
-  {
-    std::vector<JsExportFunction> methods;
-    llvm::StringMap<Property> properties;
-  };
-
-  using Export = std::variant<Exports, JsExportFunction, ClassExport>;
-  using ExportRef = std::variant<Exports*, JsExportFunction*, ClassExport*>;
-
-  struct Exports
-  {
-    llvm::StringMap<Export> exports;
-    llvm::StringMap<Property> properties;
-    bool hasTypes = false;
-
-    Export& insert(llvm::StringRef name, Export&& ex);
-  };
-
   enum struct FunctionType {
     MEMBER_FUNC,
     STATIC_FUNC,
     CONSTRUCTOR,
   };
 
+  enum struct PropertyType {
+    MEMBER,
+    GLOBAL,
+  };
+
   llvm::Module& module;
   ostream_proxy stream;
   MODULE_TYPE makeModule;
-  Exports exports;
+  JsExportModule exports;
 
   std::string getTypeName(const llvm::Type* type) const;
 
   void declareFunction(const JsExportFunction& func, FunctionType type);
-  void declareProperty(const Property& prop);
-  void declareInterfaces(const Exports& exports);
-  void declareModule(const Exports& exports);
-  void declareGlobal(const Exports& exports);
+  void declareProperty(const JsExportProperty& prop, PropertyType type);
+  void declareInterfaces(const JsExportModule& exports);
+  void declareModule(const JsExportModule& exports);
+  void declareGlobal(const JsExportModule& exports);
 
 public:
   CheerpDTSWriter(llvm::Module& module, llvm::raw_ostream& s, SourceMapGenerator* sourceMapGenerator, bool readableOutput, MODULE_TYPE makeModule):

@@ -311,20 +311,6 @@ std::string CheerpDTSWriter::getTypeName(const Type* type) const
   return result;
 }
 
-CheerpDTSWriter::Export& CheerpDTSWriter::Exports::insert(llvm::StringRef name, Export&& ex)
-{
-  auto sep = name.find('.');
-
-  if (std::holds_alternative<ClassExport>(ex))
-    hasTypes = true;
-
-  if (sep == std::string::npos)
-    return exports.try_emplace(name, std::move(ex)).first->second;
-
-  Exports& node = std::get<Exports>(exports[name.substr(0, sep)]);
-  return node.insert(name.substr(sep + 1), std::move(ex));
-}
-
 void CheerpDTSWriter::declareFunction(const JsExportFunction& func, FunctionType type)
 {
   const llvm::Function* f = func.getFunction();
@@ -332,7 +318,7 @@ void CheerpDTSWriter::declareFunction(const JsExportFunction& func, FunctionType
   if (type == FunctionType::CONSTRUCTOR)
     stream << "constructor(";
   else
-    stream << func.getBaseName() << "(";
+    stream << func.getName().base() << "(";
 
   auto begin = f->arg_begin();
   std::size_t index = 0;
@@ -371,42 +357,37 @@ void CheerpDTSWriter::declareFunction(const JsExportFunction& func, FunctionType
   stream << ";" << NewLine;
 }
 
-void CheerpDTSWriter::declareProperty(const Property& prop)
+void CheerpDTSWriter::declareProperty(const JsExportProperty& prop, PropertyType type)
 {
-  assert(prop.getter.has_value());
-  llvm::Type* type = prop.getter->getFunction()->getReturnType();
-  stream << prop.getter->getPropertyName() << ": " << getTypeName(type) << ";" << NewLine;
+  if (type == PropertyType::GLOBAL)
+    stream << (prop.hasSetter() ? "var " : "const ");
+  else if (!prop.hasSetter())
+    stream << "readonly ";
+
+  stream << prop.getName() << ": " << getTypeName(prop.getType()) << ";" << NewLine;
 }
 
-void CheerpDTSWriter::declareInterfaces(const Exports& exports)
+void CheerpDTSWriter::declareInterfaces(const JsExportModule& exports)
 {
-  for (const auto& pair : exports.exports)
+  for (const auto& [name, value] : exports.getExports())
   {
-    llvm::StringRef name = pair.getKey();
-    const Export* value = &pair.getValue();
-
-    if (auto* ex = std::get_if<ClassExport>(value))
+    if (auto* ex = std::get_if<JsExportClass>(&value))
     {
       stream << "export interface " << name << " {" << NewLine;
 
-      for (const auto& func : ex->methods)
+      for (const auto& [_, func] : ex->getMethods())
         if (!func.isConstructor() && !func.isStatic())
           declareFunction(func, FunctionType::MEMBER_FUNC);
 
-      for (const auto& prop : ex->properties)
-        if (!prop.getValue().getter->isStatic())
-        {
-          if (!prop.getValue().setter)
-            stream << "readonly ";
-
-          declareProperty(prop.getValue());
-        }
+      for (const auto& [_, prop] : ex->getProperties())
+        if (!prop.isStatic())
+          declareProperty(prop, PropertyType::MEMBER);
 
       stream << "}" << NewLine;
     }
-    else if (auto* ex = std::get_if<Exports>(value))
+    else if (auto* ex = std::get_if<JsExportModule>(&value))
     {
-      if (ex->hasTypes)
+      if (ex->hasTypes())
       {
         stream << "export module " << name << " {" << NewLine;
         declareInterfaces(*ex);
@@ -416,59 +397,42 @@ void CheerpDTSWriter::declareInterfaces(const Exports& exports)
   }
 }
 
-void CheerpDTSWriter::declareModule(const Exports& exports)
+void CheerpDTSWriter::declareModule(const JsExportModule& exports)
 {
-  for (const auto& pair : exports.exports)
+  for (const auto& [name, value] : exports.getExports())
   {
-    llvm::StringRef name = pair.getKey();
-    const Export* value = &pair.getValue();
-
-    if (auto* ex = std::get_if<JsExportFunction>(value))
+    if (auto* ex = std::get_if<JsExportFunction>(&value))
       declareFunction(*ex, FunctionType::STATIC_FUNC);
-    else if (auto* ex = std::get_if<ClassExport>(value))
+    else if (auto* ex = std::get_if<JsExportProperty>(&value))
+      declareProperty(*ex, PropertyType::MEMBER);
+    else if (auto* ex = std::get_if<JsExportClass>(&value))
     {
       stream << name << ": {" << NewLine;
 
-      for (const auto& func : ex->methods)
+      for (const auto& [_, func] : ex->getMethods())
         if (func.isConstructor() || func.isStatic())
           declareFunction(func, FunctionType::STATIC_FUNC);
 
-      for (const auto& prop : ex->properties)
-        if (prop.getValue().getter->isStatic())
-        {
-          if (!prop.getValue().setter)
-            stream << "readonly ";
-
-          declareProperty(prop.getValue());
-        }
+      for (const auto& [_, prop] : ex->getProperties())
+        if (prop.isStatic())
+          declareProperty(prop, PropertyType::MEMBER);
 
       stream << "};" << NewLine;
     }
-    else if (auto* ex = std::get_if<Exports>(value))
+    else if (auto* ex = std::get_if<JsExportModule>(&value))
     {
       stream << name << ": {" << NewLine;
       declareModule(*ex);
       stream << "};" << NewLine;
     }
   }
-
-  for (const auto& pair : exports.properties)
-  {
-    if (!pair.getValue().setter)
-      stream << "readonly ";
-
-    declareProperty(pair.getValue());
-  }
 }
 
-void CheerpDTSWriter::declareGlobal(const Exports& exports)
+void CheerpDTSWriter::declareGlobal(const JsExportModule& exports)
 {
-  for (const auto& pair : exports.exports)
+  for (const auto& [name, value] : exports.getExports())
   {
-    llvm::StringRef name = pair.getKey();
-    const Export* value = &pair.getValue();
-
-    if (auto* ex = std::get_if<JsExportFunction>(value))
+    if (auto* ex = std::get_if<JsExportFunction>(&value))
     {
       stream << "function ";
       declareFunction(*ex, FunctionType::STATIC_FUNC);
@@ -476,11 +440,13 @@ void CheerpDTSWriter::declareGlobal(const Exports& exports)
       stream << "const promise: Promise<void>;" << NewLine;
       stream << "}" << NewLine;
     }
-    else if (auto* ex = std::get_if<ClassExport>(value))
+    else if (auto* ex = std::get_if<JsExportProperty>(&value))
+      declareProperty(*ex, PropertyType::GLOBAL);
+    else if (auto* ex = std::get_if<JsExportClass>(&value))
     {
       stream << "class " << name << " {" << NewLine;
 
-      for (const auto& func : ex->methods)
+      for (const auto& [_, func] : ex->getMethods())
         if (func.isStatic())
         {
           stream << "static ";
@@ -491,14 +457,12 @@ void CheerpDTSWriter::declareGlobal(const Exports& exports)
         else
           declareFunction(func, FunctionType::MEMBER_FUNC);
 
-      for (const auto& prop : ex->properties)
+      for (const auto& [_, prop] : ex->getProperties())
       {
-        if (prop.getValue().getter->isStatic())
+        if (prop.isStatic())
           stream << "static ";
-        if (!prop.getValue().setter)
-          stream << "readonly ";
 
-        declareProperty(prop.getValue());
+        declareProperty(prop, PropertyType::MEMBER);
       }
 
       stream << "}" << NewLine;
@@ -506,62 +470,18 @@ void CheerpDTSWriter::declareGlobal(const Exports& exports)
       stream << "const promise: Promise<void>;" << NewLine;
       stream << "}" << NewLine;
     }
-    else if (auto* ex = std::get_if<Exports>(value))
+    else if (auto* ex = std::get_if<JsExportModule>(&value))
     {
       stream << "module " << name << " {" << NewLine;
       declareGlobal(*ex);
       stream << "}" << NewLine;
     }
   }
-
-  for (const auto& pair : exports.properties)
-  {
-    if (!pair.getValue().setter)
-      stream << "const ";
-    else
-      stream << "var ";
-
-    declareProperty(pair.getValue());
-  }
 }
 
 void CheerpDTSWriter::makeDTS()
 {
-  for (auto record : getJsExportRecords(module))
-  {
-    std::string name = record.getJsName();
-    exports.insert(name, ClassExport());
-  }
-
-  for (auto function : getJsExportFunctions(module))
-  {
-    auto nameString = function.getJsName();
-    llvm::StringRef name = nameString;
-    auto tail = name.find_last_of('.');
-    ExportRef parent = &exports;
-    llvm::StringMap<Property>* properties = nullptr;
-
-    if (tail != std::string::npos)
-    {
-      Export& ex = exports.insert(name.substr(0, tail), {});
-      parent = std::visit([](auto& ex) -> ExportRef { return &ex; }, ex);
-      name = name.substr(tail + 1);
-    }
-
-    if (auto* ex = std::get_if<ClassExport*>(&parent))
-      properties = &(*ex)->properties;
-    else if (auto* ex = std::get_if<Exports*>(&parent))
-      properties = &(*ex)->properties;
-
-    if (function.isGetter())
-      (*properties)[function.getPropertyName()].getter = function;
-    else if (function.isSetter())
-      (*properties)[function.getPropertyName()].setter = function;
-    else if (auto* ex = std::get_if<ClassExport*>(&parent))
-      (*ex)->methods.push_back(function);
-    else if (auto* ex = std::get_if<Exports*>(&parent))
-      (*ex)->insert(name, function);
-  }
+  exports = getJsExportModule(module);
 
   if (makeModule == MODULE_TYPE::COMMONJS)
   {

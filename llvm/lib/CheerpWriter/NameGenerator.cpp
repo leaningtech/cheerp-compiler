@@ -705,26 +705,15 @@ bool NameGenerator::needsName(const Instruction & I, const PointerAnalyzer& PA) 
 	return !isInlineable(I, PA) && !I.getType()->isVoidTy() && !I.use_empty();
 }
 
-std::vector<std::string> buildJsExportedNamesList(const Module& M)
+std::unordered_set<std::string> buildJsExportedNamesList(const Module& M)
 {
-	std::vector<std::string> names;
+	std::unordered_set<std::string> names;
 
-	const auto & jsexportedDecl = CheerpWriter::buildJsExportedNamedDecl(M);
+	for (const auto& record : getJsExportRecords(M))
+		names.emplace(record.getName().root());
 
-	for (const auto& jsex : jsexportedDecl)
-	{
-		//This basically is the same as finding the '.' or the first-past-the-last
-		unsigned int i = 0;
-		while (true)
-		{
-			if (i==jsex.name.size() || jsex.name[i] == '.')
-			{
-				names.push_back(std::string(&jsex.name[0],i));
-				break;
-			}
-			i++;
-		}
-	}
+	for (const auto& function : getJsExportFunctions(M))
+		names.emplace(function.getName().root());
 
 	return names;
 }

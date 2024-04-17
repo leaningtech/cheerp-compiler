@@ -13,6 +13,7 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/Cheerp/Demangler.h"
+#include "llvm/Cheerp/JsExport.h"
 #include "llvm/Cheerp/NameGenerator.h"
 #include "llvm/Cheerp/PHIHandler.h"
 #include "llvm/Cheerp/Utility.h"
@@ -6674,10 +6675,14 @@ void CheerpWriter::compileAsmJSTopLevel()
 
 void CheerpWriter::compileGenericJS()
 {
-	auto decls = buildJsExportedNamedDecl(module);
+	jsExportedDecls = getJsExportModule(module);
 	if (isRootNeeded)
-		prependRootToNames(decls);
-	normalizeDeclList(std::move(decls));
+		prependRootToNames(jsExportedDecls);
+
+	jsExportedDecls.getExportsFilter<JsExportClass>([&](llvm::StringRef name, const JsExport& value)
+	{
+		jsExportedTypes.try_emplace(std::get<JsExportClass>(value).getType(), name);
+	});
 
 	for (const Function& F: module.functions())
 	{
@@ -6823,23 +6828,20 @@ void CheerpWriter::compileDeclareExports()
 
 	{
 		//Set all jsExportedDecls equal to DUMMY / {}
-		for (auto jsex: jsExportedDecls)
+		jsExportedDecls.getExportsFilter<JsExportClass, JsExportFunction>([&](llvm::StringRef name, const JsExport& value)
 		{
-			if (jsex.getter)
-				continue;
-
-			if (!isRootNeeded && !isNamespaced(jsex.name))
+			if (!isRootNeeded && !isNamespaced(name))
 			{
 				areJsExportedExportsDeclared = true;
 				stream << "var ";
 			}
 
-			stream << jsex.name << "=";
+			stream << name << "=";
 			if (areDummiesDeclared)
 				stream << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) <<";" << NewLine;
 			else
 				stream << "{};" << NewLine;
-		}
+		});
 	}
 
 	if (makeModule == MODULE_TYPE::COMMONJS)
@@ -6886,7 +6888,7 @@ void CheerpWriter::compileNamespaces()
 		}
 		void addName(StringRef name)
 		{
-			std::vector<StringRef> curr = decompose(name);
+			std::vector<std::string> curr = decompose(name);
 
 			//Skip over top level declarations
 			if (curr.size() == 1+lowestIndex)
@@ -6909,16 +6911,16 @@ void CheerpWriter::compileNamespaces()
 				doDecrease();
 		}
 	private:
-		std::vector<StringRef> decompose(StringRef name)
+		std::vector<std::string> decompose(StringRef name)
 		{
-			std::vector<StringRef> layered;
+			std::vector<std::string> layered;
 			unsigned int last = 0;
 			for (unsigned int i = 0;; i++)
 			{
 				if (i==name.size() || name[i] == '.')
 				{
 					assert(i > last);
-					layered.push_back(StringRef(name.begin()+last, i-last));
+					layered.push_back(std::string(name.begin()+last, i-last));
 					last = i+1;
 				}
 				if (i == name.size())
@@ -6957,7 +6959,7 @@ void CheerpWriter::compileNamespaces()
 		}
 		CheerpWriter& writer;
 		ostream_proxy& stream;
-		std::vector<StringRef> last;
+		std::vector<std::string> last;
 		StringRef lastWritten;
 		const bool isRootDeclared;
 		const unsigned int lowestIndex;
@@ -6968,10 +6970,10 @@ void CheerpWriter::compileNamespaces()
 
 	NestedNamespaceDeclarator NND(*this, isRootNeeded);
 
-	for (const auto& jsex : jsExportedDecls)
+	jsExportedDecls.getExportsFilter<JsExportClass, JsExportFunction, JsExportProperty>([&](llvm::StringRef name, const JsExport& value)
 	{
-		NND.addName(jsex.name);
-	}
+		NND.addName(name);
+	});
 }
 
 void CheerpWriter::compileDefineExports()
@@ -6996,12 +6998,11 @@ void CheerpWriter::compileDefineExports()
 	{
 		//CommonJS modules have already the promise on module.exports
 		bool anyJSEx = false;
-		for (auto jsex: jsExportedDecls)
+		jsExportedDecls.getExportsFilter<JsExportClass, JsExportFunction>([&](llvm::StringRef name, const JsExport& value)
 		{
 			anyJSEx = true;
-			if (!jsex.getter)
-				stream << jsex.name << ".promise=" << NewLine;
-		}
+			stream << name << ".promise=" << NewLine;
+		});
 		if (anyJSEx)
 			stream << "Promise.resolve();" << NewLine;
 	}
@@ -7037,38 +7038,24 @@ void CheerpWriter::compileCommonJSExports()
 
 	stream << "var " << exportName << "={" << NewLine;
 
-	std::string old = "";
-
-	for (const auto& jsex : jsExportedDecls)
+	for (const auto& [name, value] : jsExportedDecls.getExports())
 	{
-		if (jsex.getter && !isNamespaced(jsex.name))
+		if (std::holds_alternative<JsExportProperty>(value))
 			continue;
 
-		std::string curr = "";
-
-		//Build the top level identifier (either the whole name or up to a '.')
-		for (auto c : jsex.name)
-		{
-			if (c == '.')
-				break;
-			curr += c;
-		}
-
-		if (curr != old)
-			stream << curr << ':' << curr << ',' << NewLine;
-		old = curr;
+		stream << name << ':' << name << ',' << NewLine;
 	}
 
 	stream << "};" << NewLine;
 
-	for (const auto& jsex : jsExportedDecls)
+	for (const auto& [name, value] : jsExportedDecls.getExports())
 	{
-		if (!jsex.getter || isNamespaced(jsex.name))
-			continue;
-
-		stream << "Object.defineProperty(" << exportName << ",'" << jsex.name << "',";
-		compileJsExportProperty(jsex.getter, jsex.setter, true, nullptr);
-		stream << ");" << NewLine;
+		if (auto* prop = std::get_if<JsExportProperty>(&value))
+		{
+			stream << "Object.defineProperty(" << exportName << ",'" << name << "',";
+			compileJsExportProperty(*prop, true, nullptr);
+			stream << ");" << NewLine;
+		}
 	}
 
 	stream << "return " << exportName << ";" << NewLine;
