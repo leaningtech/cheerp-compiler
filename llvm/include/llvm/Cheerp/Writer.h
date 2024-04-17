@@ -544,35 +544,11 @@ private:
 	//JS interoperability support
 	uint32_t countJsParameters(const llvm::Function* F, bool isStatic) const;
 	void compileJsExportFunctionBody(const llvm::Function* f, bool isStatic, const llvm::StructType* implicitThis);
-	void compileJsExportProperty(const llvm::Function* getter, const llvm::Function* setter, bool isStatic, const llvm::StructType* implicitThis);
+	void compileJsExportProperty(const JsExportProperty& property, bool isStatic, const llvm::StructType* implicitThis);
 	void compileDeclExportedToJs(const bool alsoDeclare);
 
 public:
-	struct JSExportedNamedDecl
-	{
-		JSExportedNamedDecl(const llvm::Function* F, llvm::StringRef name) : F(F), t(nullptr), name(name)
-		{
-		}
-		JSExportedNamedDecl(const llvm::StructType* t, llvm::StringRef name) : F(nullptr), t(t), name(name)
-		{
-		}
-		JSExportedNamedDecl(llvm::StringRef name) : F(nullptr), t(nullptr), name(name)
-		{
-		}
-		const llvm::Function* F;
-		const llvm::StructType* t;
-		const llvm::Function* getter = nullptr;
-		const llvm::Function* setter = nullptr;
-		std::vector<JsExportFunction> methods;
-		std::string name;
-		bool isClass() const
-		{
-			return t;
-		}
-	};
-	static std::deque<JSExportedNamedDecl> buildJsExportedNamedDecl(const llvm::Module& M);
-	static void prependRootToNames(std::deque<CheerpWriter::JSExportedNamedDecl> & exportedDecls);
-	void normalizeDeclList(std::deque<CheerpWriter::JSExportedNamedDecl> exportedDecls);
+	static void prependRootToNames(JsExportModule& exportedDecls);
 
 	static bool isNamespaced(const llvm::StringRef str)
 	{
@@ -582,9 +558,9 @@ public:
 private:
 	// Names of js-exported items
 	
-	using JSExportedTypesMap = llvm::DenseMap<const llvm::Type*, llvm::StringRef>;
+	using JSExportedTypesMap = llvm::DenseMap<const llvm::Type*, std::string>;
 	JSExportedTypesMap jsExportedTypes;
-	std::deque<JSExportedNamedDecl> jsExportedDecls;
+	JsExportModule jsExportedDecls;
 
 	bool hasJSExports();
 	void compileInlineAsm(const llvm::CallInst& ci);

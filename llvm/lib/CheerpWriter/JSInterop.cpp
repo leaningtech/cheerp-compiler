@@ -39,7 +39,7 @@ uint32_t CheerpWriter::countJsParameters(const llvm::Function* F, bool isStatic)
 	return ret;
 }
 
-static std::pair<std::string, std::string> buildArgumentsString(const llvm::Function* F, bool isStatic, const PointerAnalyzer& PA, const DenseMap<const Type*, StringRef>& toBeWrapped, StringRef nameGenerated)
+static std::pair<std::string, std::string> buildArgumentsString(const llvm::Function* F, bool isStatic, const PointerAnalyzer& PA, const DenseMap<const Type*, std::string>& toBeWrapped, StringRef nameGenerated)
 {
 	// While code-generating JSExported functions we need to write something like:
 	// function someName(a0,a1,a2,a3,a4,a5) {
@@ -195,21 +195,21 @@ void CheerpWriter::compileJsExportFunctionBody(const Function* f, bool isStatic,
 	stream << "}";
 }
 
-void CheerpWriter::compileJsExportProperty(const llvm::Function* getter, const llvm::Function* setter, bool isStatic, const llvm::StructType* implicitThis)
+void CheerpWriter::compileJsExportProperty(const JsExportProperty& property, bool isStatic, const llvm::StructType* implicitThis)
 {
 	stream << "{" << NewLine;
 
-	if (getter)
+	if (property.hasGetter())
 	{
 		stream << "get:";
-		compileJsExportFunctionBody(getter, isStatic, implicitThis);
+		compileJsExportFunctionBody(property.getGetter().getFunction(), isStatic, implicitThis);
 		stream << "," << NewLine;
 	}
 
-	if (setter)
+	if (property.hasSetter())
 	{
 		stream << "set:";
-		compileJsExportFunctionBody(setter, isStatic, implicitThis);
+		compileJsExportFunctionBody(property.getSetter().getFunction(), isStatic, implicitThis);
 		stream << "," << NewLine;
 	}
 
@@ -218,21 +218,24 @@ void CheerpWriter::compileJsExportProperty(const llvm::Function* getter, const l
 
 void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 {
-	auto processFunction = [&](const Function * f, const StringRef& name) -> void
+	auto processFunction = [&](llvm::StringRef name, const JsExportFunction& func) -> void
 	{
 		if (alsoDeclare && !isNamespaced(name))
 			stream << "var ";
 
 		stream << name << '=';
-		compileJsExportFunctionBody(f, /*isStatic*/ true, nullptr);
+		compileJsExportFunctionBody(func.getFunction(), /*isStatic*/ true, nullptr);
 		stream << ";" << NewLine;
 	};
 
-	auto processRecord = [&](const StructType* t, llvm::ArrayRef<JsExportFunction> methods, const llvm::StringRef& jsClassName) -> void
+	auto processRecord = [&](llvm::StringRef jsClassName, const JsExportClass& record) -> void
 	{
-		const auto* newHelper = std::find_if(methods.begin(), methods.end(), [](const JsExportFunction& func) { return func.isConstructor(); });
+		const llvm::Function* newFunc = nullptr;
+		const llvm::StructType* t = record.getType();
 
-		const bool hasNewHelper = (newHelper != methods.end());
+		for (const auto& [_, method] : record.getMethods())
+			if (method.isConstructor())
+				newFunc = method.getFunction();
 
 		if (alsoDeclare && !isNamespaced(jsClassName))
 			stream << "function " << jsClassName << '(';
@@ -240,9 +243,8 @@ void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 			stream << jsClassName << "=function (";
 
 		//First compile the constructor
-		if (hasNewHelper)
+		if (newFunc)
 		{
-			const Function * newFunc = newHelper->getFunction();
 			assert( globalDeps.isReachable(newFunc) );
 
 			POINTER_KIND thisKind = PA.getPointerKindForJSExportedType(const_cast<StructType*>(t));
@@ -269,31 +271,12 @@ void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 		}
 		stream << NewLine << "};" << NewLine;
 
-		struct Property
-		{
-			bool isStatic = false;
-			const Function* getter = nullptr;
-			const Function* setter = nullptr;
-		};
-
-		llvm::StringMap<Property> properties;
-
 		//Then compile other methods and add them to the prototype
-		for ( const JsExportFunction& method : methods)
+		for (const auto& [_, method] : record.getMethods())
 		{
-			if (method.isGetter())
+			if (!method.isConstructor())
 			{
-				properties[method.getPropertyName()].getter = method.getFunction();
-				properties[method.getPropertyName()].isStatic = method.isStatic();
-			}
-			else if (method.isSetter())
-			{
-				properties[method.getPropertyName()].setter = method.getFunction();
-				properties[method.getPropertyName()].isStatic = method.isStatic();
-			}
-			else if (!method.isConstructor())
-			{
-				llvm::StringRef methodName = method.getBaseName();
+				llvm::StringRef methodName = method.getName().base();
 				const bool isStatic = method.isStatic();
 				const Function * f = method.getFunction();
 				assert( globalDeps.isReachable(f) );
@@ -307,130 +290,46 @@ void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 			}
 		}
 
-		for (const auto& property : properties)
+		for (const auto& [_, property] : record.getProperties())
 		{
-			const Property& value = property.getValue();
 			stream << "Object.defineProperty(" << jsClassName;
-			if (!value.isStatic)
+			if (!property.isStatic())
 				stream << ".prototype";
-			stream << ",'" << property.getKey() << "',";
-			compileJsExportProperty(value.getter, value.setter, value.isStatic, t);
+			stream << ",'" << property.getName() << "',";
+			compileJsExportProperty(property, property.isStatic(), t);
 			stream << ");" << NewLine;
 		}
 	};
 
-	auto processProperty = [&](const Function* getter, const Function* setter, const StringRef& name) -> void
+	auto processProperty = [&](llvm::StringRef name, const JsExportProperty& prop) -> void
 	{
 		auto sep = name.rfind('.');
-		auto head = name.substr(0, sep);
-		auto tail = name.substr(sep + 1);
 
-		stream << "Object.defineProperty(" << head << ",'" << tail << "',";
-		compileJsExportProperty(getter, setter, true, nullptr);
-		stream << ");" << NewLine;
+		if (sep != llvm::StringRef::npos)
+		{
+			stream << "Object.defineProperty(" << name.substr(0, sep) << ",'" << name.substr(sep + 1) << "',";
+			compileJsExportProperty(prop, true, nullptr);
+			stream << ");" << NewLine;
+		}
 	};
 
-	for (const auto& jsex : jsExportedDecls)
+	jsExportedDecls.getExportsFlat([&](llvm::StringRef name, const JsExport& jsex)
 	{
-		if (jsex.isClass())
-			processRecord(jsex.t, jsex.methods, jsex.name);
-		else if (jsex.F)
-			processFunction(jsex.F, jsex.name);
-		else if (isNamespaced(jsex.name))
-			processProperty(jsex.getter, jsex.setter, jsex.name);
-	}
+		if (auto* func = std::get_if<JsExportFunction>(&jsex))
+			processFunction(name, *func);
+		else if (auto* record = std::get_if<JsExportClass>(&jsex))
+			processRecord(name, *record);
+		else if (auto* prop = std::get_if<JsExportProperty>(&jsex))
+			processProperty(name, *prop);
+	});
 }
 
-std::deque<CheerpWriter::JSExportedNamedDecl> CheerpWriter::buildJsExportedNamedDecl(const llvm::Module& M)
+void CheerpWriter::prependRootToNames(JsExportModule& exportedDecls)
 {
-	//Here a vector is used since repetitions are not allowed
-	std::deque<CheerpWriter::JSExportedNamedDecl> jsExported;
-
-	//Stores the index of records in the jsExported list
-	std::map<std::string, std::size_t> recordMap;
-
-	//Stores the index of properties in the jsExported list
-	std::map<std::string, std::size_t> propertyMap;
-
-	for (auto record : getJsExportRecords(M))
-	{
-		auto name = record.getJsName();
-		recordMap.emplace(name, jsExported.size());
-		jsExported.emplace_back(record.getType(), name);
-	}
-
-	for (auto function : getJsExportFunctions(M))
-	{
-		auto name = function.getJsName();
-		auto tail = name.rfind('.');
-
-		if (tail != std::string::npos)
-		{
-			auto it = recordMap.find(name.substr(0, tail));
-
-			if (it != recordMap.end())
-			{
-				jsExported[it->second].methods.emplace_back(function);
-				continue;
-			}
-		}
-
-		if (function.isGetter() || function.isSetter())
-		{
-			std::string propertyName(function.getPropertyName());
-
-			if (tail != std::string::npos)
-				propertyName = name.substr(0, tail) + "." + propertyName;
-
-			auto it = propertyMap.find(propertyName);
-			CheerpWriter::JSExportedNamedDecl* ex;
-
-			if (it != propertyMap.end())
-				ex = &jsExported[it->second];
-			else
-			{
-				propertyMap.emplace(propertyName, jsExported.size());
-				ex = &jsExported.emplace_back(propertyName);
-			}
-
-			if (function.isGetter())
-				ex->getter = function.getFunction();
-			else
-				ex->setter = function.getFunction();
-		}
-		else
-			jsExported.emplace_back(function.getFunction(), name);
-	}
-
-	return jsExported;
-}
-
-void CheerpWriter::prependRootToNames(std::deque<CheerpWriter::JSExportedNamedDecl> & exportedDecls)
-{
-	//We will then consider "__root" as a namespace
-	for (auto& jsex : exportedDecls)
-	{
-		jsex.name = "__root." + jsex.name;
-	}
-}
-
-void CheerpWriter::normalizeDeclList(std::deque<CheerpWriter::JSExportedNamedDecl> exportedDecls)
-{
-	auto comparator = [](const JSExportedNamedDecl& a, const JSExportedNamedDecl& b) -> bool {return a.name < b.name;};
-	auto equality = [](const JSExportedNamedDecl& a, const JSExportedNamedDecl& b) -> bool {return a.name == b.name;};
-
-	std::sort(exportedDecls.begin(), exportedDecls.end(), comparator);
-	auto it = adjacent_find(exportedDecls.begin(), exportedDecls.end(), equality);
-	if (it != exportedDecls.end())
-	{
-		llvm::report_fatal_error( Twine("Name clash on [[cheerp::jsexport]]-ed items on the name: ", it->name));
-	}
-	for(auto& d: exportedDecls)
-	{
-		if (d.isClass())
-			jsExportedTypes.try_emplace(d.t, d.name);
-	}
-	jsExportedDecls = std::move(exportedDecls);
+	JsExportModule tmp;
+	llvm::StringRef root = "__root";
+	tmp.insert(root, std::move(exportedDecls));
+	exportedDecls = std::move(tmp);
 }
 
 void CheerpWriter::compileInlineAsm(const CallInst& ci)

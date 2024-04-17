@@ -208,7 +208,7 @@ private:
 };
 
 std::vector<std::string> buildReservedNamesList(const llvm::Module& M, const std::vector<std::string>& fromOption);
-std::vector<std::string> buildJsExportedNamesList(const llvm::Module& M);
+std::unordered_set<std::string> buildJsExportedNamesList(const llvm::Module& M);
 std::unordered_set<std::string> buildAsmClobberNamesList(const llvm::Module& M);
 
 }
