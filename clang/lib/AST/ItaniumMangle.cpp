@@ -1717,6 +1717,7 @@ void CXXNameMangler::mangleNestedName(GlobalDecl GD,
     // We do not consider restrict a distinguishing attribute for overloading
     // purposes so we must not mangle it.
     MethodQuals.removeRestrict();
+    MethodQuals.removeAddressSpace();
     mangleQualifiers(MethodQuals);
     mangleRefQualifier(Method->getRefQualifier());
   }
@@ -2689,13 +2690,13 @@ void CXXNameMangler::mangleQualifiers(Qualifiers Quals, const DependentAddressSp
         ASString = "ptr64";
         break;
       case LangAS::cheerp_client:
-        ASString = "";
+        ASString = "client";
         break;
       case LangAS::cheerp_genericjs:
-        ASString = "";
+        ASString = "js";
         break;
       case LangAS::cheerp_wasm:
-        ASString = "";
+        ASString = "wasm";
         break;
       }
     }
@@ -3253,7 +3254,9 @@ void CXXNameMangler::mangleType(const FunctionProtoType *T) {
 
   // Mangle CV-qualifiers, if present.  These are 'this' qualifiers,
   // e.g. "const" in "int (A::*)() const".
-  mangleQualifiers(T->getMethodQuals());
+  Qualifiers Quals = T->getMethodQuals();
+  Quals.removeAddressSpace();
+  mangleQualifiers(Quals);
 
   // Mangle instantiation-dependent exception-specification, if present,
   // per cxx-abi-dev proposal on 2016-10-11.
