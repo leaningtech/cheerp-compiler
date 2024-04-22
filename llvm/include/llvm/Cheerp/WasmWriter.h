@@ -385,6 +385,11 @@ private:
 	void compileMethodParams(WasmBuffer& code, const llvm::FunctionType* F);
 	void compileMethodResult(WasmBuffer& code, const llvm::Type* F);
 
+	void compileStructType(Section& section, const llvm::Type* Ty);
+	void compileArrayType(Section& section, const llvm::Type* Ty);
+	void compilePackedType(Section& section, const llvm::Type* Ty);
+	void compileStorageType(Section& section, const llvm::Type* Ty);
+
 	void compileBranchTable(WasmBuffer& code, const llvm::SwitchInst* si,
 		const std::vector<std::pair<int, int>>& cases);
 	void compileCondition(WasmBuffer& code, const llvm::Value* cond, bool booleanInvert);
@@ -400,6 +405,11 @@ private:
 	void compileLoad(WasmBuffer& code, const llvm::LoadInst& I, bool signExtend);
 	void compileStore(WasmBuffer& code, const llvm::StoreInst& I);
 	void compileGetLocal(WasmBuffer& code, const llvm::Instruction* v, uint32_t elemIdx);
+	void compileLoadGC(WasmBuffer& code, const llvm::Value* ptrOp, bool signExtend);
+	void compileStoreGC(WasmBuffer& code, const llvm::Value* ptrOp);
+	void allocateGC(WasmBuffer& code, const llvm::Type* Ty);
+	bool isInstructionGC(const llvm::Value* ptrOp) const;
+	bool isInstructionGC(const llvm::Instruction* I, const llvm::Value* ptrOp) const;
 	// Returns true if all the uses have signed semantics
 	// NOTE: Careful, this is not in sync with needsUnsignedTruncation!
 	//       All the users listed here must _not_ call needsUnsignedTruncation!
@@ -506,6 +516,9 @@ public:
 	static void encodeInst(WasmS32Opcode opcode, int32_t immediate, WasmBuffer& code);
 	static void encodeInst(WasmS64Opcode opcode, int64_t immediate, WasmBuffer& code);
 	static void encodeInst(WasmU32Opcode opcode, uint32_t immediate, WasmBuffer& code);
+	static void encodeInst(WasmGCOpcode opcode, WasmBuffer& code);
+	static void encodeInst(WasmGCOpcode opcode, uint32_t immediate, WasmBuffer& code);
+	static void encodeInst(WasmGCOpcode opcode, uint32_t i1, uint32_t i2, WasmBuffer& code);
 	static void encodeInst(WasmFCU32Opcode opcode, uint32_t immediate, WasmBuffer& code);
 	static void encodeInst(WasmFCU32U32Opcode opcode, uint32_t i1, uint32_t i2, WasmBuffer& code);
 	static void encodeInst(WasmSIMDOpcode opcode, WasmBuffer& code);
