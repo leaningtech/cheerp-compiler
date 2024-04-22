@@ -77,12 +77,14 @@ public:
 
 class JsExportRecord {
 	llvm::StructType* type;
+	llvm::StructType* base = nullptr;
 
 public:
 	JsExportRecord(const llvm::Module& module, const llvm::MDNode* node);
 
 	JsExportName getName() const;
 	llvm::StructType* getType() const;
+	llvm::StructType* getBase() const;
 };
 
 class JsExportFunction {
@@ -122,13 +124,15 @@ using JsExportMap = std::map<llvm::StringRef, T>;
 
 class JsExportClass {
 	llvm::StructType* type;
+	llvm::StructType* base;
 	JsExportMap<JsExportFunction> methods;
 	JsExportMap<JsExportProperty> properties;
 
 public:
-	JsExportClass(llvm::StructType* type);
+	JsExportClass(llvm::StructType* type, llvm::StructType* base);
 
 	llvm::StructType* getType() const;
+	llvm::StructType* getBase() const;
 	const JsExportMap<JsExportFunction>& getMethods() const;
 	const JsExportMap<JsExportProperty>& getProperties() const;
 	JsExportFunction& insert(llvm::StringRef name, JsExportFunction&& method);

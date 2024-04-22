@@ -322,6 +322,18 @@ void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 		else if (auto* prop = std::get_if<JsExportProperty>(&jsex))
 			processProperty(name, *prop);
 	});
+
+	//Set prototype of derived classes to base classes last, just in case the
+	//classes are generated out of order.
+	jsExportedDecls.getExportsFilter<JsExportClass>([&](llvm::StringRef name, const JsExport& jsex)
+	{
+		if (auto* base = std::get<JsExportClass>(jsex).getBase())
+		{
+			assert(jsExportedTypes.count(base));
+			const std::string& baseName = jsExportedTypes.find(base)->second;
+			stream << "Object.setPrototypeOf(" << name << ".prototype," << baseName << ".prototype);" << NewLine;
+		}
+	});
 }
 
 void CheerpWriter::prependRootToNames(JsExportModule& exportedDecls)

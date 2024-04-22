@@ -11,6 +11,13 @@ namespace cheerp {
 		return llvm::make_range(begin, end);
 	}
 
+	static llvm::StructType* getOrCreateType(const llvm::Module& module, llvm::StringRef name) {
+		if (auto* type = llvm::StructType::getTypeByName(module.getContext(), name))
+			return type;
+
+		return llvm::StructType::create(module.getContext(), name);
+	}
+
 	JsExportName::JsExportName(llvm::StringRef name) : name(name) {
 	}
 
@@ -50,10 +57,15 @@ namespace cheerp {
 
 	JsExportRecord::JsExportRecord(const llvm::Module& module, const llvm::MDNode* node) {
 		llvm::StringRef name = llvm::cast<llvm::MDString>(node->getOperand(0))->getString();
-		type = llvm::StructType::getTypeByName(module.getContext(), name);
+		type = getOrCreateType(module, name);
 
-		if (!type)
-			type = llvm::StructType::create(module.getContext(), name);
+		llvm::MDTuple* bases = llvm::cast<llvm::MDTuple>(node->getOperand(1));
+		assert(bases->getNumOperands() <= 1);
+
+		if (bases->getNumOperands()) {
+			llvm::StringRef name = llvm::cast<llvm::MDString>(bases->getOperand(0))->getString();
+			base = getOrCreateType(module, name);
+		}
 	}
 
 	JsExportName JsExportRecord::getName() const {
@@ -68,6 +80,10 @@ namespace cheerp {
 
 	llvm::StructType* JsExportRecord::getType() const {
 		return type;
+	}
+
+	llvm::StructType* JsExportRecord::getBase() const {
+		return base;
 	}
 
 	JsExportFunction::JsExportFunction(const llvm::Module& module, const llvm::MDNode* node) {
@@ -145,11 +161,15 @@ namespace cheerp {
 			setter = std::move(func);
 	}
 
-	JsExportClass::JsExportClass(llvm::StructType* type) : type(type) {
+	JsExportClass::JsExportClass(llvm::StructType* type, llvm::StructType* base) : type(type), base(base) {
 	}
 
 	llvm::StructType* JsExportClass::getType() const {
 		return type;
+	}
+
+	llvm::StructType* JsExportClass::getBase() const {
+		return base;
 	}
 
 	const JsExportMap<JsExportFunction>& JsExportClass::getMethods() const {
@@ -202,7 +222,7 @@ namespace cheerp {
 
 		for (auto record : getJsExportRecords(module)) {
 			auto name = record.getName().split();
-			exports.insert(name, JsExportClass(record.getType()));
+			exports.insert(name, JsExportClass(record.getType(), record.getBase()));
 		}
 
 		for (auto function : getJsExportFunctions(module)) {

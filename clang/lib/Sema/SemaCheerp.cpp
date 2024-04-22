@@ -63,9 +63,13 @@ void cheerp::checkCouldBeJsExported(const clang::CXXRecordDecl* Record, clang::S
 		sema.Diag(Record->getLocation(), diag::err_cheerp_attribute_on_virtual_class) << Record->getAttr<JsExportAttr>();
 
 	if (Record->getNumBases())
-		sema.Diag(Record->getLocation(), diag::err_cheerp_jsexport_inheritance);
-	else
-		assert(Record->getNumVBases() == 0);
+	{
+		auto* base = Record->bases_begin();
+		auto* baseClass = base->getType()->getAsCXXRecordDecl();
+
+		if (Record->getNumBases() > 1 || base->isVirtual() || base->getAccessSpecifier() != AS_public || !baseClass->hasAttr<JsExportAttr>())
+			sema.Diag(Record->getLocation(), diag::err_cheerp_jsexport_inheritance);
+	}
 }
 
 bool cheerp::isNamespaceClientDisabledDecl(clang::FunctionDecl* FD, clang::Sema& sema)

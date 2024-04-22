@@ -38,6 +38,7 @@ private:
   MODULE_TYPE makeModule;
   JsExportModule exports;
 
+  std::string getStructName(const llvm::Type* type) const;
   std::string getTypeName(const llvm::Type* type) const;
 
   void declareFunction(const JsExportFunction& func, FunctionType type);

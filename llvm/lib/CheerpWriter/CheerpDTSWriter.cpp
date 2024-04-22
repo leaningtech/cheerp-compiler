@@ -293,6 +293,18 @@ public:
   }
 };
 
+std::string CheerpDTSWriter::getStructName(const Type* type) const
+{
+  StringRef name = type->getStructName();
+  Parser parser(name.drop_front(name.startswith("class.") ? 6 : 7));
+  std::string result;
+  Visitor visitor(&result);
+
+  visitor.acceptPointer(parser.parse());
+
+  return result;
+}
+
 std::string CheerpDTSWriter::getTypeName(const Type* type) const
 {
   if (type->isVoidTy())
@@ -301,14 +313,7 @@ std::string CheerpDTSWriter::getTypeName(const Type* type) const
   if (!type->isPointerTy())
     return "number";
 
-  StringRef name = type->getPointerElementType()->getStructName();
-  Parser parser(name.drop_front(name.startswith("class.") ? 6 : 7));
-  std::string result;
-  Visitor visitor(&result);
-
-  visitor.acceptPointer(parser.parse());
-
-  return result;
+  return getStructName(type->getPointerElementType());
 }
 
 void CheerpDTSWriter::declareFunction(const JsExportFunction& func, FunctionType type)
@@ -373,7 +378,12 @@ void CheerpDTSWriter::declareInterfaces(const JsExportModule& exports)
   {
     if (auto* ex = std::get_if<JsExportClass>(&value))
     {
-      stream << "export interface " << name << " {" << NewLine;
+      stream << "export interface " << name;
+
+      if (auto* base = ex->getBase())
+        stream << " extends " << getStructName(base);
+
+      stream << " {" << NewLine;
 
       for (const auto& [_, func] : ex->getMethods())
         if (!func.isConstructor() && !func.isStatic())
@@ -444,7 +454,12 @@ void CheerpDTSWriter::declareGlobal(const JsExportModule& exports)
       declareProperty(*ex, PropertyType::GLOBAL);
     else if (auto* ex = std::get_if<JsExportClass>(&value))
     {
-      stream << "class " << name << " {" << NewLine;
+      stream << "class " << name;
+
+      if (auto* base = ex->getBase())
+        stream << " extends " << getStructName(base);
+
+      stream << " {" << NewLine;
 
       for (const auto& [_, func] : ex->getMethods())
         if (func.isStatic())
