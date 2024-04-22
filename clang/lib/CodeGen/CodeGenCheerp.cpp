@@ -37,7 +37,21 @@ void cheerp::emitFunctionJsExportMetadata(CodeGen::CodeGenModule& CGM, const Fun
 
 void cheerp::emitRecordJsExportMetadata(CodeGen::CodeGenModule& CGM, const CXXRecordDecl* CRD)
 {
+	std::vector<Metadata*> bases;
+
+	for (const auto& base : CRD->bases())
+	{
+		const auto* baseCRD = base.getType()->getAsCXXRecordDecl();
+
+		if (baseCRD->hasAttr<JsExportAttr>())
+		{
+			auto* type = CGM.getTypes().ConvertType(CGM.getContext().getTypeDeclType(baseCRD));
+			bases.push_back(MDString::get(CGM.getLLVMContext(), cast<StructType>(type)->getName()));
+		}
+	}
+
 	auto* type = CGM.getTypes().ConvertType(CGM.getContext().getTypeDeclType(CRD));
 	auto* nameMD = MDString::get(CGM.getLLVMContext(), cast<StructType>(type)->getName());
-	emitMetadata(CGM, "jsexport_records", nameMD);
+	auto* baseMD = MDTuple::get(CGM.getLLVMContext(), bases);
+	emitMetadata(CGM, "jsexport_records", { nameMD, baseMD });
 }
