@@ -59,9 +59,6 @@ void cheerp::checkCouldBeJsExported(const clang::CXXRecordDecl* Record, clang::S
 	if (isInsideClass(Record))
 		sema.Diag(Record->getLocation(), diag::err_cheerp_jsexport_on_namespace);
 
-	if (Record->isDynamicClass())
-		sema.Diag(Record->getLocation(), diag::err_cheerp_attribute_on_virtual_class) << Record->getAttr<JsExportAttr>();
-
 	if (Record->getNumBases())
 	{
 		auto* base = Record->bases_begin();

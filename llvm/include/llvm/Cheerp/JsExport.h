@@ -78,6 +78,7 @@ public:
 class JsExportRecord {
 	llvm::StructType* type;
 	llvm::StructType* base = nullptr;
+	uint32_t flags;
 
 public:
 	JsExportRecord(const llvm::Module& module, const llvm::MDNode* node);
@@ -85,6 +86,7 @@ public:
 	JsExportName getName() const;
 	llvm::StructType* getType() const;
 	llvm::StructType* getBase() const;
+	bool isAbstract() const;
 };
 
 class JsExportFunction {
@@ -122,17 +124,13 @@ public:
 template<class T>
 using JsExportMap = std::map<llvm::StringRef, T>;
 
-class JsExportClass {
-	llvm::StructType* type;
-	llvm::StructType* base;
+class JsExportClass : public JsExportRecord {
 	JsExportMap<JsExportFunction> methods;
 	JsExportMap<JsExportProperty> properties;
 
 public:
-	JsExportClass(llvm::StructType* type, llvm::StructType* base);
+	JsExportClass(const JsExportRecord& record);
 
-	llvm::StructType* getType() const;
-	llvm::StructType* getBase() const;
 	const JsExportMap<JsExportFunction>& getMethods() const;
 	const JsExportMap<JsExportProperty>& getProperties() const;
 	JsExportFunction& insert(llvm::StringRef name, JsExportFunction&& method);
