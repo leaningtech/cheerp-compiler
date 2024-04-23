@@ -115,9 +115,9 @@ inline bool isValidVoidPtrSource(const llvm::Value* val)
 
 inline llvm::Type* getElementType(llvm::Type* t, llvm::Type* candidate)
 {
-	if(llvm::isa<llvm::PointerType>(t))
+	if(auto* pt = llvm::dyn_cast<llvm::PointerType>(t))
 	{
-		assert(candidate && candidate->getPointerTo() == t);
+		assert(candidate && candidate->getPointerTo(pt->getAddressSpace()) == pt);
 		return candidate;
 	}
 	else if (t->isVectorTy())
