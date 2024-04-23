@@ -419,8 +419,8 @@ bool CheerpNativeRewriterPass::rewriteNativeObjectsConstructors(Module& M, Funct
 		{
 			if(isa<AllocaInst>(I))
 			{
-				AllocaInst& i=cast<AllocaInst>(I);
-				Type* t=i.getAllocatedType();
+				AllocaInst* i=cast<AllocaInst>(&I);
+				Type* t=i->getAllocatedType();
 
 				std::string builtinTypeName;
 				if(!t->isStructTy() || !cast<StructType>(t)->hasName() ||
@@ -428,7 +428,29 @@ bool CheerpNativeRewriterPass::rewriteNativeObjectsConstructors(Module& M, Funct
 				{
 					continue;
 				}
-				rewriteNativeAllocationUsers(M,toRemove,&i,t,builtinTypeName);
+				// TODO remove this once clang is able to directly emit allocas in
+				// multiple address spaces
+				if (i->getAddressSpace() == 0)
+				{
+					auto* oldI = i;
+					i = new AllocaInst(i->getAllocatedType(), 1, "asalloca", i);
+					toRemove.push_back(oldI);
+					for (auto* u: oldI->users()) {
+						if (auto* c = dyn_cast<CallInst>(u)) {
+							auto* f = c->getCalledFunction();
+							assert(f);
+							assert(f->getIntrinsicID() == Intrinsic::lifetime_start ||
+								f->getIntrinsicID() == Intrinsic::lifetime_end);
+							toRemove.push_back(c);
+							continue;
+						}
+						auto* a = cast<AddrSpaceCastInst>(u);
+						toRemove.push_back(a);
+						a->replaceAllUsesWith(i);
+					}
+
+				}
+				rewriteNativeAllocationUsers(M,toRemove,i,t,builtinTypeName);
 				Changed = true;
 			}
 			else if(isa<CallBase>(I))
