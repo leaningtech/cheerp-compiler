@@ -243,7 +243,12 @@ void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 			stream << jsClassName << "=function (";
 
 		//First compile the constructor
-		if (newFunc)
+		if (record.isAbstract())
+		{
+			stream << "){" << NewLine;
+			stream << "throw new Error(\"Class/Struct " << jsClassName << " is abstract\");";
+		}
+		else if (newFunc)
 		{
 			assert( globalDeps.isReachable(newFunc) );
 

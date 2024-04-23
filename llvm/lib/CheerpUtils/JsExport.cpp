@@ -66,6 +66,8 @@ namespace cheerp {
 			llvm::StringRef name = llvm::cast<llvm::MDString>(bases->getOperand(0))->getString();
 			base = getOrCreateType(module, name);
 		}
+
+		flags = llvm::cast<llvm::ConstantInt>(llvm::cast<llvm::ConstantAsMetadata>(node->getOperand(2))->getValue())->getZExtValue();
 	}
 
 	JsExportName JsExportRecord::getName() const {
@@ -84,6 +86,10 @@ namespace cheerp {
 
 	llvm::StructType* JsExportRecord::getBase() const {
 		return base;
+	}
+
+	bool JsExportRecord::isAbstract() const {
+		return flags & 1;
 	}
 
 	JsExportFunction::JsExportFunction(const llvm::Module& module, const llvm::MDNode* node) {
@@ -161,15 +167,7 @@ namespace cheerp {
 			setter = std::move(func);
 	}
 
-	JsExportClass::JsExportClass(llvm::StructType* type, llvm::StructType* base) : type(type), base(base) {
-	}
-
-	llvm::StructType* JsExportClass::getType() const {
-		return type;
-	}
-
-	llvm::StructType* JsExportClass::getBase() const {
-		return base;
+	JsExportClass::JsExportClass(const JsExportRecord& record) : JsExportRecord(record) {
 	}
 
 	const JsExportMap<JsExportFunction>& JsExportClass::getMethods() const {
@@ -222,7 +220,7 @@ namespace cheerp {
 
 		for (auto record : getJsExportRecords(module)) {
 			auto name = record.getName().split();
-			exports.insert(name, JsExportClass(record.getType(), record.getBase()));
+			exports.insert(name, JsExportClass(record));
 		}
 
 		for (auto function : getJsExportFunctions(module)) {

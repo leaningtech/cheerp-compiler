@@ -27,6 +27,11 @@ static uint32_t getFunctionFlags(const FunctionDecl* FD)
 	return CMD && CMD->isStatic() ? 1 : 0;
 }
 
+static uint32_t getRecordFlags(const CXXRecordDecl* CRD)
+{
+	return CRD->isAbstract() ? 1 : 0;
+}
+
 void cheerp::emitFunctionJsExportMetadata(CodeGen::CodeGenModule& CGM, const FunctionDecl* FD, Function* F)
 {
 	auto* flags = ConstantInt::get(CGM.Int32Ty, getFunctionFlags(FD));
@@ -51,7 +56,9 @@ void cheerp::emitRecordJsExportMetadata(CodeGen::CodeGenModule& CGM, const CXXRe
 	}
 
 	auto* type = CGM.getTypes().ConvertType(CGM.getContext().getTypeDeclType(CRD));
+	auto* flags = ConstantInt::get(CGM.Int32Ty, getRecordFlags(CRD));
 	auto* nameMD = MDString::get(CGM.getLLVMContext(), cast<StructType>(type)->getName());
 	auto* baseMD = MDTuple::get(CGM.getLLVMContext(), bases);
-	emitMetadata(CGM, "jsexport_records", { nameMD, baseMD });
+	auto* flagsMD = ConstantAsMetadata::get(flags);
+	emitMetadata(CGM, "jsexport_records", { nameMD, baseMD, flagsMD });
 }
