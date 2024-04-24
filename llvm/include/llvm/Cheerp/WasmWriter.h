@@ -102,8 +102,12 @@ private:
 
 	const NameGenerator& namegen;
 
-	// Codegen custom globals
-	uint32_t stackTopGlobal;
+	// Enum for reserved global IDs
+	enum ReservedGlobalIDs {
+		STACK_TOP_GLOBAL = 0,
+		THREAD_POINTER_GLOBAL,
+		FIRST_USER_GLOBAL,
+	};
 
 	// The wasm module heap size
 	uint32_t heapSize;
@@ -477,7 +481,6 @@ public:
 		linearHelper(linearHelper),
 		landingPadTable(landingPadTable),
 		namegen(namegen),
-		stackTopGlobal(0),
 		heapSize(heapSize),
 		useWasmLoader(useWasmLoader),
 		prettyCode(prettyCode),
