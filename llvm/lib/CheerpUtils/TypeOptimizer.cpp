@@ -730,12 +730,12 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 		if(newType->isArrayTy())
 		{
 			// It's never a good idea to use pointers to array, we may end up creating wrapper arrays for arrays
-			return CacheAndReturn(PointerType::get(newType->getArrayElementType(), 0), TypeMappingInfo::POINTER_FROM_ARRAY);
+			return CacheAndReturn(PointerType::get(newType->getArrayElementType(), pt->getAddressSpace()), TypeMappingInfo::POINTER_FROM_ARRAY);
 		}
 		else if(newType == elementType)
 			return CacheAndReturn(pt, TypeMappingInfo::IDENTICAL);
 		else
-			return CacheAndReturn(PointerType::get(newType, 0), TypeMappingInfo::IDENTICAL);
+			return CacheAndReturn(PointerType::get(newType, pt->getPointerAddressSpace()), TypeMappingInfo::IDENTICAL);
 	}
 	if(ArrayType* at=dyn_cast<ArrayType>(t))
 	{
@@ -2043,7 +2043,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 						{
 							// In this case we need to rewrite the allocated type and use that directly
 							// Moreover, we need to generate a GEP that will be used instead of this alloca
-							Type* newPtrType = PointerType::get(newAllocatedType, 0);
+							Type* newPtrType = PointerType::get(newAllocatedType, AI->getAddressSpace());
 							I.mutateType(newPtrType);
 							Type* Int32 = IntegerType::get(I.getType()->getContext(), 32);
 							Value* Zero = ConstantInt::get(Int32, 0);
@@ -2166,7 +2166,7 @@ Constant* TypeOptimizer::rewriteGlobal(GlobalVariable* GV)
 	if(newInfo.elementMappingKind == TypeMappingInfo::POINTER_FROM_ARRAY)
 	{
 		Type* newAllocatedType = rewriteType(GV->getValueType());
-		Type* newPtrType = PointerType::get(newAllocatedType, 0);
+		Type* newPtrType = PointerType::get(newAllocatedType, GV->getAddressSpace());
 		GV->mutateType(newPtrType);
 		Type* Int32 = IntegerType::get(GV->getType()->getContext(), 32);
 		Value* Zero = ConstantInt::get(Int32, 0);
