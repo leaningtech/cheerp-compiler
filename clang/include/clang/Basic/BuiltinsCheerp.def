@@ -36,6 +36,10 @@ BUILTIN(__builtin_cheerp_downcast_current, "", "B")
 BUILTIN(__builtin_cheerp_coro_alloc, "v*z", "n")
 BUILTIN(__builtin_cheerp_environ, "vC*", "B")
 BUILTIN(__builtin_cheerp_argv, "vC*", "B")
+BUILTIN(__builtin_cheerp_get_threading_object, "", "B")
+BUILTIN(__builtin_cheerp_get_threading_blob, "", "B")
+BUILTIN(__builtin_cheerp_set_thread_pointer, "vUi", "")
+BUILTIN(__builtin_cheerp_get_thread_pointer, "Ui", "")
 
 // SIMD builtins
 TARGET_BUILTIN(__builtin_wasm_swizzle_i8x16, "V16ScV16ScV16Sc", "nc", "simd128")
