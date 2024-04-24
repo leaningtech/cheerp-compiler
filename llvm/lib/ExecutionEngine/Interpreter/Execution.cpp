@@ -1779,8 +1779,7 @@ GenericValue Interpreter::executeBitCastInst(Value *SrcVal, Type *DstTy,
 
 GenericValue Interpreter::executeAddrSpaceCastInst(Value *SrcVal, Type *DstTy,
                                              ExecutionContext &SF) {
-  GenericValue Dest, Src = getOperandValue(SrcVal, SF);
-  return Dest;
+  return getOperandValue(SrcVal, SF);
 }
 
 void Interpreter::visitTruncInst(TruncInst &I) {
