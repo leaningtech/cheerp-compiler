@@ -12516,12 +12516,30 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
     Function *F = CGM.getIntrinsic(Intrinsic::cheerp_argv, Tys);
     return Builder.CreateCall(F, Ops);
   }
+  else if (BuiltinID == Cheerp::BI__builtin_cheerp_get_threading_object) {
+    llvm::Type *Tys[] = { ConvertType(E->getType()) };
+    Function *F = CGM.getIntrinsic(Intrinsic::cheerp_get_threading_object, Tys);
+    return Builder.CreateCall(F, Ops);
+  }
+  else if (BuiltinID == Cheerp::BI__builtin_cheerp_get_threading_blob) {
+    llvm::Type *Tys[] = { ConvertType(E->getType()) };
+    Function *F = CGM.getIntrinsic(Intrinsic::cheerp_get_threading_blob, Tys);
+    return Builder.CreateCall(F, Ops);
+  }
   else if (BuiltinID == Cheerp::BI__builtin_cheerp_stack_save) {
     Function *F = CGM.getIntrinsic(Intrinsic::stacksave);
     return Builder.CreateCall(F, Ops);
   }
   else if (BuiltinID == Cheerp::BI__builtin_cheerp_stack_restore) {
     Function *F = CGM.getIntrinsic(Intrinsic::stackrestore);
+    return Builder.CreateCall(F, Ops);
+  }
+  else if (BuiltinID == Cheerp::BI__builtin_cheerp_get_thread_pointer) {
+    Function *F = CGM.getIntrinsic(Intrinsic::cheerp_get_thread_pointer);
+    return Builder.CreateCall(F, Ops);
+  }
+  else if (BuiltinID == Cheerp::BI__builtin_cheerp_set_thread_pointer) {
+    Function *F = CGM.getIntrinsic(Intrinsic::cheerp_set_thread_pointer);
     return Builder.CreateCall(F, Ops);
   }
   else if (BuiltinID == Cheerp::BI__builtin_cheerp_coro_alloc) {
