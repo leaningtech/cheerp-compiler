@@ -96,6 +96,15 @@ def int_cheerp_memory_init : Intrinsic<[llvm_i32_ty],
 def int_cheerp_data_drop : Intrinsic<[llvm_i32_ty],
                             [llvm_i32_ty]>;
 
+def int_cheerp_get_threading_object : Intrinsic<[llvm_anyptr_ty]>;
+
+def int_cheerp_get_threading_blob : Intrinsic<[llvm_anyptr_ty]>;
+
+def int_cheerp_get_thread_pointer : Intrinsic<[llvm_i32_ty]>;
+
+def int_cheerp_set_thread_pointer : Intrinsic<[],
+                                      [llvm_i32_ty]>;
+
 def int_cheerp_environ : Intrinsic<[llvm_anyptr_ty]>;
 
 def int_cheerp_argv : Intrinsic<[llvm_anyptr_ty]>;
