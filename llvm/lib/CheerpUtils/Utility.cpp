@@ -1264,6 +1264,12 @@ bool replaceCallOfBitCastWithBitCastOfCall(CallBase& callInst, bool mayFail, boo
 			assert(performPtrIntConversions);
 			return new PtrToIntInst(src, newType, "", insertPoint);
 		} else if(oldType->isPointerTy() && newType->isPointerTy()) {
+			if (oldType->getPointerAddressSpace() != newType->getPointerAddressSpace()) {
+				oldType = PointerType::getWithSamePointeeType(cast<PointerType>(oldType), newType->getPointerAddressSpace());
+				src = new AddrSpaceCastInst(src, oldType, "", insertPoint);
+				if (oldType == newType)
+					return src;
+			}
 			return new BitCastInst(src, newType, "", insertPoint);
 		} else if(oldType->isIntegerTy() && newType->isIntegerTy()) {
 			if(oldType->getIntegerBitWidth() < newType->getIntegerBitWidth())
