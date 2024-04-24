@@ -2382,7 +2382,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 					}
 					case Intrinsic::stacksave:
 					{
-						encodeInst(WasmU32Opcode::GET_GLOBAL, stackTopGlobal, code);
+						encodeInst(WasmU32Opcode::GET_GLOBAL, STACK_TOP_GLOBAL, code);
 						if(useTailCall)
 						{
 							encodeInst(WasmOpcode::RETURN, code);
@@ -2393,7 +2393,25 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 					case Intrinsic::stackrestore:
 					{
 						compileOperand(code, ci.getOperand(0));
-						encodeInst(WasmU32Opcode::SET_GLOBAL, stackTopGlobal, code);
+						encodeInst(WasmU32Opcode::SET_GLOBAL, STACK_TOP_GLOBAL, code);
+						if(useTailCall)
+							encodeInst(WasmOpcode::RETURN, code);
+						return true;
+					}
+					case Intrinsic::cheerp_get_thread_pointer:
+					{
+						encodeInst(WasmU32Opcode::GET_GLOBAL, THREAD_POINTER_GLOBAL, code);
+						if(useTailCall)
+						{
+							encodeInst(WasmOpcode::RETURN, code);
+							return true;
+						}
+						return false;
+					}
+					case Intrinsic::cheerp_set_thread_pointer:
+					{
+						compileOperand(code, ci.getOperand(0));
+						encodeInst(WasmU32Opcode::SET_GLOBAL, THREAD_POINTER_GLOBAL, code);
 						if(useTailCall)
 							encodeInst(WasmOpcode::RETURN, code);
 						return true;
@@ -4885,7 +4903,7 @@ void CheerpWasmWriter::compileGlobalSection()
 	std::sort(orderedConstants.begin(), orderedConstants.end());
 
 	// Assign global ids
-	uint32_t globalId = 1;
+	uint32_t globalId = FIRST_USER_GLOBAL;
 	for(uint32_t i=0;i<orderedConstants.size();i++)
 	{
 		GlobalConstant& GC = orderedConstants[i];
@@ -4920,11 +4938,10 @@ void CheerpWasmWriter::compileGlobalSection()
 		Section section(0x06, "Global", this);
 
 		// Start the stack from the end of default memory
-		stackTopGlobal = usedGlobals++;
 		int32_t stackTop = linearHelper.getStackStart();
 
-		// There is the stack and the globalized constants
-		encodeULEB128(1 + globalizedConstantsTmp.size() + globalizedGlobalsIDs.size(), section);
+		// There are the reserved globals and the globalized constants
+		encodeULEB128(FIRST_USER_GLOBAL + globalizedConstantsTmp.size() + globalizedGlobalsIDs.size(), section);
 		// The global has type i32 (0x7f) and is mutable (0x01).
 		encodeULEB128(0x7f, section);
 		encodeULEB128(0x01, section);
@@ -4933,6 +4950,14 @@ void CheerpWasmWriter::compileGlobalSection()
 		encodeSLEB128(stackTop, section);
 		// Encode the end of the instruction sequence.
 		encodeULEB128(0x0b, section);
+
+		// Next is the thread pointer, also a mutable i32.
+		encodeULEB128(0x7f, section);
+		encodeULEB128(0x01, section);
+		encodeLiteralType(Type::getInt32Ty(Ctx), section);
+		encodeSLEB128(0, section);
+		encodeULEB128(0x0b, section);
+
 		// Render globals in reverse order
 		for(auto it = orderedConstants.begin(); it != orderedConstants.end(); ++it)
 		{
