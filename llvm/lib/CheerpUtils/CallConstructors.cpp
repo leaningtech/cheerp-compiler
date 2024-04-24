@@ -77,8 +77,9 @@ PreservedAnalyses CallConstructorsPass::run(llvm::Module &M, llvm::ModuleAnalysi
 			Function* GetArgs = M.getFunction("__syscall_main_args");
 			if (GetArgs && GetArgs->getSection() == Main->getSection())
 			{
-				Value* ArgcA = Builder.CreateAlloca(ArgcTy);
-				Value* ArgvA = Builder.CreateAlloca(ArgvTy);
+				unsigned AS = GetArgs->getFunctionType()->getParamType(0)->getPointerAddressSpace();
+				Value* ArgcA = Builder.CreateAlloca(ArgcTy, AS);
+				Value* ArgvA = Builder.CreateAlloca(ArgvTy, AS);
 				ArrayRef<Value*> ArgsA = { ArgcA, ArgvA };
 				Builder.CreateCall(GetArgs->getFunctionType(), GetArgs, { ArgcA, ArgvA});
 				Argc = Builder.CreateLoad(ArgcTy, ArgcA);
