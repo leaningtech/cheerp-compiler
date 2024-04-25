@@ -4967,7 +4967,7 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
 
         assert((FirstIRArg >= IRFuncTy->getNumParams() ||
                 IRFuncTy->getParamType(FirstIRArg)->getPointerAddressSpace() ==
-                    TD->getAllocaAddrSpace()) &&
+                    TD->getAllocaAddrSpace() || getLangOpts().Cheerp) &&
                "indirect argument must be in alloca address space");
 
         bool NeedCopy = false;
