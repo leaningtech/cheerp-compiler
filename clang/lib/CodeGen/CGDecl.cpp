@@ -1350,8 +1350,8 @@ llvm::Value *CodeGenFunction::EmitLifetimeStart(llvm::TypeSize Size,
   if (!ShouldEmitLifetimeMarkers)
     return nullptr;
 
-  assert(Addr->getType()->getPointerAddressSpace() ==
-             CGM.getDataLayout().getAllocaAddrSpace() &&
+  assert((getLangOpts().Cheerp || Addr->getType()->getPointerAddressSpace() ==
+             CGM.getDataLayout().getAllocaAddrSpace()) &&
          "Pointer should be in alloca address space");
   llvm::Value *SizeV = llvm::ConstantInt::get(
       Int64Ty, Size.isScalable() ? -1 : Size.getFixedValue());
@@ -1364,8 +1364,8 @@ llvm::Value *CodeGenFunction::EmitLifetimeStart(llvm::TypeSize Size,
 }
 
 void CodeGenFunction::EmitLifetimeEnd(llvm::Value *Size, llvm::Value *Addr) {
-  assert(Addr->getType()->getPointerAddressSpace() ==
-             CGM.getDataLayout().getAllocaAddrSpace() &&
+  assert((getLangOpts().Cheerp || Addr->getType()->getPointerAddressSpace() ==
+             CGM.getDataLayout().getAllocaAddrSpace()) &&
          "Pointer should be in alloca address space");
   if (getTarget().isByteAddressable())
     Addr = Builder.CreateBitCast(Addr, AllocaInt8PtrTy);
@@ -1555,7 +1555,10 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
         allocaAlignment = alignment;
       }
 
-      uint32_t AS = getTarget().isByteAddressable()? 0 : getContext().getTargetAddressSpace(Ty.getAddressSpace());
+      uint32_t AS = getLangOpts().Cheerp
+        ? getContext().getTargetAddressSpace(Ty.getAddressSpace())
+        : CGM.getDataLayout().getAllocaAddrSpace();
+
       // Create the alloca.  Note that we set the name separately from
       // building the instruction so that it's there even in no-asserts
       // builds.
