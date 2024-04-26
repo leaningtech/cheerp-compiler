@@ -6932,12 +6932,8 @@ void Sema::deduceCheerpAddressSpace(ValueDecl *Decl) {
   if (Decl->getType()->isDependentType())
     return;
   if (VarDecl *Var = dyn_cast<VarDecl>(Decl)) {
-    if (Var->isLocalVarDecl())
-      return;
     QualType Type = Var->getType();
     if (Type->isVoidType())
-      return;
-    if (Var->getKind() == Decl::ParmVar && !isa<DecayedType>(Type))
       return;
     // If the original type from a decayed type is an array type and that array
     // type has no address space yet, deduce it now.
@@ -8561,7 +8557,7 @@ void Sema::CheckVariableDeclarationType(VarDecl *NewVD) {
   // This includes arrays of objects with address space qualifiers, but not
   // automatic variables that point to other address spaces.
   // ISO/IEC TR 18037 S5.1.2
-  if (!getLangOpts().OpenCL && NewVD->hasLocalStorage() &&
+  if (!getLangOpts().OpenCL && !getLangOpts().Cheerp && NewVD->hasLocalStorage() &&
       T.getAddressSpace() != LangAS::Default) {
     Diag(NewVD->getLocation(), diag::err_as_qualified_auto_decl) << 0;
     NewVD->setInvalidDecl();
@@ -14829,9 +14825,8 @@ ParmVarDecl *Sema::CheckParameter(DeclContext *DC, SourceLocation StartLoc,
       // to be qualified with an address space.
       !(getLangOpts().OpenCL &&
         (T->isArrayType() || T.getAddressSpace() == LangAS::opencl_private)) &&
-      // CHEERP: allow AS on arrays
-      !(!Context.getTargetInfo().isByteAddressable() &&
-        (T->isArrayType()))) {
+      // CHEERP: allow AS on arguments
+      !getLangOpts().Cheerp) {
     Diag(NameLoc, diag::err_arg_with_address_space);
     New->setInvalidDecl();
   }
