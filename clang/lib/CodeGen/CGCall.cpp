@@ -5019,9 +5019,16 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
           I->copyInto(*this, AI);
         } else {
           // Skip the extra memcpy call.
+          unsigned AS = CGM.getDataLayout().getAllocaAddrSpace(); 
+          if (getLangOpts().Cheerp) {
+            if (FirstIRArg < IRFuncTy->getNumParams()) {
+              AS = IRFuncTy->getParamType(FirstIRArg)->getPointerAddressSpace();
+            } else {
+              AS = V->getType()->getPointerAddressSpace();
+            }
+          }
           auto *T = llvm::PointerType::getWithSamePointeeType(
-              cast<llvm::PointerType>(V->getType()),
-              CGM.getDataLayout().getAllocaAddrSpace());
+              cast<llvm::PointerType>(V->getType()), AS);
 
           llvm::Value *Val = getTargetHooks().performAddrSpaceCast(
               *this, V, LangAS::Default, CGM.getASTAllocaAddressSpace(), T,
