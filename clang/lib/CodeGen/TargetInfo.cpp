@@ -10222,7 +10222,9 @@ private:
   };
   ABIArgInfo classifyArgumentType(QualType Ty) const {
     if (isAggregateTypeForABI(Ty)) {
-      LangAS AS = getContext().getCheerpTypeAddressSpace(Ty);
+      LangAS DefaultAS = CGT.getTarget().getTriple().getEnvironment() == llvm::Triple::GenericJs?
+          LangAS::cheerp_genericjs : LangAS::cheerp_wasm;
+      LangAS AS = getContext().getCheerpTypeAddressSpace(Ty, DefaultAS);
       return ABIArgInfo::getIndirectAliased(
           getContext().getTypeAlignInChars(Ty),
           getContext().getTargetAddressSpace(AS),
