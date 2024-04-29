@@ -41,6 +41,22 @@ static bool isInsideClass(const clang::Decl* decl)
 	return (context && context->isRecord());
 }
 
+static bool isInsideAnonymousNamespace(const clang::Decl* decl)
+{
+	auto context = decl->getDeclContext();
+
+	while (context)
+	{
+		if (auto ns = clang::dyn_cast<clang::NamespaceDecl>(context))
+			if (ns->isAnonymousNamespace())
+				return true;
+
+		context = context->getParent();
+	}
+
+	return false;
+}
+
 static void checkName(const clang::Decl* decl, const llvm::StringRef& name, clang::Sema& sema)
 {
 	if (cheerp::isForbiddenJSIdentifier(name))
@@ -55,6 +71,9 @@ void cheerp::checkCouldBeJsExported(const clang::CXXRecordDecl* Record, clang::S
 	const bool isClient = clang::AnalysisDeclContext::isInClientNamespace(Record);
 	if (isClient)
 		sema.Diag(Record->getLocation(), diag::err_cheerp_incompatible_jsexport_client) << "Record" << Record;
+
+	if (isInsideAnonymousNamespace(Record))
+		sema.Diag(Record->getLocation(), diag::warn_cheerp_anonymous_jsexport);
 
 	if (isInsideClass(Record))
 		sema.Diag(Record->getLocation(), diag::err_cheerp_jsexport_on_namespace);
@@ -546,6 +565,9 @@ void cheerp::CheerpSemaData::checkFunctionToBeJsExported(const clang::FunctionDe
 
 	if (isClient)
 		sema.Diag(FD->getLocation(), diag::err_cheerp_incompatible_jsexport_client) << "Function" << FD;
+
+	if (isInsideAnonymousNamespace(FD))
+		sema.Diag(FD->getLocation(), diag::warn_cheerp_anonymous_jsexport);
 
 	if (isTemplate(FD))
 		sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_function_template);
