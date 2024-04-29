@@ -11751,6 +11751,9 @@ def warn_cheerp_ptr_to_int : Warning<
 def warn_cheerp_client_layout_ctor : Warning<
   "Cheerp: This will be constructed in JavaScript with 'new %0'">,
   InGroup<Cheerp>;
+def warn_cheerp_anonymous_jsexport : Warning<
+  "Cheerp: [[cheerp::jsexport]] declaration in anonymous namespace has no effect">,
+  InGroup<Cheerp>;
 def note_cheerp_client_layout_ctor : Note<
   "Cheerp: To construct it with 'new %0', make this a delegating constructor">;
 def note_cheerp_client_layout_ctor2 : Note<
