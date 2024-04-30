@@ -83,6 +83,7 @@ class JsExportRecord {
 public:
 	JsExportRecord(const llvm::Module& module, const llvm::MDNode* node);
 
+	llvm::StringRef getStructName() const;
 	JsExportName getName() const;
 	llvm::StructType* getType() const;
 	llvm::StructType* getBase() const;

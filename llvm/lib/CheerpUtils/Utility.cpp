@@ -744,14 +744,14 @@ bool TypeSupport::isJSExportedType(StructType* st, const Module& m)
 		return false;
 	if (!jsExportedTypes)
 	{
-		jsExportedTypes->emplace();
+		jsExportedTypes.emplace();
 		for (auto record : getJsExportRecords(m))
-			jsExportedTypes->insert(record.getType());
+			jsExportedTypes->insert(record.getStructName());
 	}
-	return jsExportedTypes->count(st);
+	return jsExportedTypes->contains(st->getStructName());
 }
 
-std::optional<std::unordered_set<const llvm::StructType*>> TypeSupport::jsExportedTypes;
+std::optional<llvm::StringSet<>> TypeSupport::jsExportedTypes;
 
 bool TypeSupport::isSimpleType(Type* t, bool forceTypedArrays)
 {
