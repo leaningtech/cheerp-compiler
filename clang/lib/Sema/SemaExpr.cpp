@@ -7390,6 +7390,12 @@ Sema::BuildCompoundLiteralExpr(SourceLocation LParenLoc, TypeSourceInfo *TInfo,
         ILE->setInit(i, ConstantExpr::Create(Context, Init));
       }
 
+  // CHEERP: Since in C compound literals are l-values, we need to give them
+  // an appropriate address space. This avoid issues with expressions like:
+  // long* p = cond()? (long[]){1,2} : 0
+  if (getLangOpts().Cheerp && !getLangOpts().CPlusPlus) {
+    literalType = deduceCheerpPointeeAddrSpace(literalType);
+  }
   auto *E = new (Context) CompoundLiteralExpr(LParenLoc, TInfo, literalType,
                                               VK, LiteralExpr, isFileScope);
   if (isFileScope) {
@@ -7398,7 +7404,8 @@ Sema::BuildCompoundLiteralExpr(SourceLocation LParenLoc, TypeSourceInfo *TInfo,
         !literalType->isDependentType()) // C99 6.5.2.5p3
       if (CheckForConstantInitializer(LiteralExpr, literalType))
         return ExprError();
-  } else if (literalType.getAddressSpace() != LangAS::opencl_private &&
+  } else if (!getLangOpts().Cheerp &&
+             literalType.getAddressSpace() != LangAS::opencl_private &&
              literalType.getAddressSpace() != LangAS::Default) {
     // Embedded-C extensions to C99 6.5.2.5:
     //   "If the compound literal occurs inside the body of a function, the
