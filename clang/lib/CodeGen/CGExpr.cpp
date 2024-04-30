@@ -114,9 +114,8 @@ llvm::AllocaInst *CodeGenFunction::CreateTempAlloca(llvm::Type *Ty,
                                                     llvm::Value *ArraySize,
                                                     uint32_t AS) {
   if (ArraySize)
-    return Builder.CreateAlloca(Ty, ArraySize, Name);
-  return new llvm::AllocaInst(Ty, AS == 0? CGM.getDataLayout().getAllocaAddrSpace() : AS,
-                              ArraySize, Name, AllocaInsertPt);
+    return Builder.CreateAlloca(Ty, AS, ArraySize, Name);
+  return new llvm::AllocaInst(Ty, AS, ArraySize, Name, AllocaInsertPt);
 }
 
 /// CreateDefaultAlignTempAlloca - This creates an alloca with the
