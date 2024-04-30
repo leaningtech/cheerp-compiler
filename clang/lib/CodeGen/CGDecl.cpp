@@ -1606,11 +1606,12 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
     uint64_t size = CGM.getDataLayout().getTypeAllocSize(llvmTy);
     llvm::Constant* typeSize = llvm::ConstantInt::get(elementCount->getType(), size);
 
-    llvm::Type* Tys[] = { llvmTy->getPointerTo(), llvmTy->getPointerTo() };
+    uint32_t AS = getContext().getTargetAddressSpace(Ty.getAddressSpace());
+    llvm::Type* Tys[] = { llvmTy->getPointerTo(AS), llvmTy->getPointerTo(AS) };
     llvm::Function *F = CGM.getIntrinsic(llvm::Intrinsic::cheerp_allocate, Tys);
     // Compute the size in bytes
     llvm::Value* sizeInBytes = Builder.CreateMul(elementCount, typeSize);
-    llvm::Value* Args[2] = { llvm::Constant::getNullValue(llvmTy->getPointerTo()), sizeInBytes };
+    llvm::Value* Args[2] = { llvm::Constant::getNullValue(llvmTy->getPointerTo(AS)), sizeInBytes };
     // Allocate memory for the array.
     llvm::Value* Ret = Builder.CreateCall(F, Args);
     cast<llvm::CallInst>(Ret)->addParamAttr(0, llvm::Attribute::get(Ret->getContext(), llvm::Attribute::ElementType, llvmTy));
@@ -1637,9 +1638,10 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
     auto VlaSize = getVLASize(Ty);
     llvm::Type *llvmTy = ConvertTypeForMem(VlaSize.Type);
 
+    uint32_t AS = getLangOpts().Cheerp? getContext().getTargetAddressSpace(Ty.getAddressSpace()) : CGM.getDataLayout().getAllocaAddrSpace();
     // Allocate memory for the array.
     address = CreateTempAlloca(llvmTy, alignment, "vla", VlaSize.NumElts,
-                               &AllocaAddr);
+                               &AllocaAddr, AS);
 
     // If we have debug info enabled, properly describe the VLA dimensions for
     // this type by registering the vla size expression for each of the
