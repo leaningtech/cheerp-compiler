@@ -16,6 +16,7 @@
 #include <set>
 #include <string>
 #include <unordered_set>
+#include "llvm/ADT/StringSet.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/SmallVector.h"
@@ -576,7 +577,7 @@ public:
 		return cheerp::TypeSupport::getAlignmentAsmJS(dl, t) > 4? 8 : 4;
 	}
 private:
-	static std::optional<std::unordered_set<const llvm::StructType*>> jsExportedTypes;
+	static std::optional<llvm::StringSet<>> jsExportedTypes;
 	const llvm::Module & module;
 };
 

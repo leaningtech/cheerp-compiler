@@ -70,6 +70,10 @@ namespace cheerp {
 		flags = llvm::cast<llvm::ConstantInt>(llvm::cast<llvm::ConstantAsMetadata>(node->getOperand(2))->getValue())->getZExtValue();
 	}
 
+	llvm::StringRef JsExportRecord::getStructName() const {
+		return type->getStructName();
+	}
+
 	JsExportName JsExportRecord::getName() const {
 		llvm::StringRef name = type->getStructName();
 
