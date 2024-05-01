@@ -1282,22 +1282,44 @@ void ItaniumCXXABI::emitVirtualObjectDelete(CodeGenFunction &CGF,
     // Derive the complete-object pointer, which is what we need
     // to pass to the deallocation function.
 
-    // Grab the vtable pointer as an intptr_t*.
     auto *ClassDecl =
         cast<CXXRecordDecl>(ElementType->castAs<RecordType>()->getDecl());
-    llvm::Value *VTable =
-        CGF.GetVTablePtr(Ptr, CGF.IntPtrTy->getPointerTo(), ClassDecl);
+    llvm::Value *CompletePtr;
 
-    // Track back to entry -2 and pull out the offset there.
-    llvm::Value *OffsetPtr = CGF.Builder.CreateConstInBoundsGEP1_64(
-        CGF.IntPtrTy, VTable, -2, "complete-offset.ptr");
-    llvm::Value *Offset = CGF.Builder.CreateAlignedLoad(CGF.IntPtrTy, OffsetPtr,                                                        CGF.getPointerAlign());
+    if (!CGM.getTarget().isByteAddressable()) {
+      bool asmjs = ClassDecl->hasAttr<AsmJSAttr>();
+      llvm::Value *Offset;
 
-    // Apply the offset.
-    llvm::Value *CompletePtr =
-      CGF.Builder.CreateBitCast(Ptr.getPointer(), CGF.Int8PtrTy);
-    CompletePtr =
-        CGF.Builder.CreateInBoundsGEP(CGF.Int8Ty, CompletePtr, Offset);
+      if (asmjs) {
+        llvm::Type *VTableType =
+            CGM.getTypes().GetSecondaryVTableType(ClassDecl);
+        Address VTable = Address(
+            CGF.GetVTablePtr(Ptr, VTableType->getPointerTo(), ClassDecl),
+            VTableType, Ptr.getAlignment());
+        Address Tmp = CGF.Builder.CreateStructGEP(VTable, 0);
+        Offset = CGF.Builder.CreateLoad(Tmp, "complete-offset.ptr");
+      } else {
+        Offset = llvm::ConstantInt::get(CGM.Int32Ty, 0);
+      }
+
+      CompletePtr = CGF.GenerateVirtualcast(Ptr, CGF.Int8PtrTy, Offset);
+    } else {
+      // Grab the vtable pointer as an intptr_t*.
+      llvm::Value *VTable =
+          CGF.GetVTablePtr(Ptr, CGF.IntPtrTy->getPointerTo(), ClassDecl);
+
+      // Track back to entry -2 and pull out the offset there.
+      llvm::Value *OffsetPtr = CGF.Builder.CreateConstInBoundsGEP1_64(
+          CGF.IntPtrTy, VTable, -2, "complete-offset.ptr");
+      llvm::Value *Offset = CGF.Builder.CreateAlignedLoad(CGF.IntPtrTy, OffsetPtr,
+          CGF.getPointerAlign());
+
+      // Apply the offset.
+      CompletePtr =
+          CGF.Builder.CreateBitCast(Ptr.getPointer(), CGF.Int8PtrTy);
+      CompletePtr =
+          CGF.Builder.CreateInBoundsGEP(CGF.Int8Ty, CompletePtr, Offset);
+    }
 
     // If we're supposed to call the global delete, make sure we do so
     // even if the destructor throws.
