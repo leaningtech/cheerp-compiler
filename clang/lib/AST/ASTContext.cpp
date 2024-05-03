@@ -7554,7 +7554,14 @@ LangAS ASTContext::getCheerpPointeeAddrSpace(const Type *PointeeType, DeclContex
 }
 LangAS ASTContext::getCheerpPointeeAddrSpace(const Type *PointeeType, Decl* D, LangAS Fallback) {
   if (PointeeType->isUndeducedAutoType() || PointeeType->isDependentType()) {
-    return LangAS::Default;
+    if (auto* DTS = dyn_cast<DependentSizedArrayType>(PointeeType->getUnqualifiedDesugaredType())) {
+      if (DTS->getElementType()->isDependentType()) {
+        return LangAS::Default;
+      }
+      // If it is a DTS but the element type is concrete, don't bail out
+    } else {
+      return LangAS::Default;
+    }
   }
   if (auto* TagTy = PointeeType->getAsTagDecl()) {
     return getCheerpTypeAddressSpace(TagTy);
