@@ -7566,6 +7566,16 @@ LangAS ASTContext::getCheerpPointeeAddrSpace(const Type *PointeeType, Decl* D, L
   if (auto* TagTy = PointeeType->getAsTagDecl()) {
     return getCheerpTypeAddressSpace(TagTy);
   }
+  if (PointeeType->isPointerType() || PointeeType->isReferenceType()) {
+    LangAS PointeePointeeAS = getCheerpPointeeAddrSpace(PointeeType->getPointeeType().getTypePtr(), D, Fallback);
+    switch (PointeePointeeAS) {
+      case LangAS::cheerp_genericjs:
+      case LangAS::cheerp_client:
+        return LangAS::cheerp_genericjs;
+      default:
+        break;
+    }
+  }
   if (auto* TdTy = PointeeType->getAs<TypedefType>()) {
     return getCheerpPointeeAddrSpace(TdTy->desugar().getTypePtr(), D, Fallback);
   }
