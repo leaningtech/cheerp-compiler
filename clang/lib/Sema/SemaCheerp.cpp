@@ -831,9 +831,12 @@ bool cheerp::canAddressOfClientBeTaken(const clang::VarDecl* VD, const clang::Se
 			case TypeKind::UnsignedInt32Bit:
 			case TypeKind::SignedInt32Bit:
 			case TypeKind::FloatingPoint:
-			case TypeKind::Pointer:
 			{
 				return false;
+			}
+			case TypeKind::Pointer:
+			{
+				return Ty->getPointeeType().getAddressSpace() != LangAS::cheerp_client;
 			}
 			case TypeKind::Reference:
 			{
