@@ -9677,7 +9677,11 @@ void Sema::ProcessDeclAttributes(Scope *S, Decl *D, const Declarator &PD) {
   AddPragmaAttributes(S, D);
 
   // CHEERP: Inject asmjs/genericjs attribute if required
-  MaybeInjectCheerpModeAttr(D);
+  Decl* inheritFrom = D;
+  if (isa<ParmVarDecl>(D)) {
+    inheritFrom = dyn_cast<Decl>(getCurLexicalContext());
+  }
+  MaybeInjectCheerpModeAttr(D, inheritFrom);
 }
 
 /// Is the given declaration allowed to use a forbidden type?
