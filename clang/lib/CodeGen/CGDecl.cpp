@@ -383,6 +383,7 @@ CodeGenFunction::AddInitializerToStaticVarDecl(const VarDecl &D,
     GV->setVisibility(OldGV->getVisibility());
     GV->setDSOLocal(OldGV->isDSOLocal());
     GV->setComdat(OldGV->getComdat());
+    GV->setSection(OldGV->getSection());
 
     // Steal the name of the old global
     GV->takeName(OldGV);
