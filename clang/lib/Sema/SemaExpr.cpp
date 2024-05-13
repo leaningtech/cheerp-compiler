@@ -1938,6 +1938,10 @@ Sema::ActOnStringLiteral(ArrayRef<Token> StringToks, Scope *UDLScope) {
   QualType StrTy =
       Context.getStringLiteralArrayType(CharTy, Literal.GetNumStringChars());
 
+  if (getLangOpts().Cheerp) {
+    StrTy = deduceCheerpPointeeAddrSpace(StrTy);
+  }
+
   // Pass &StringTokLocs[0], StringTokLocs.size() to factory!
   StringLiteral *Lit = StringLiteral::Create(Context, Literal.GetString(),
                                              Kind, Literal.Pascal, StrTy,
