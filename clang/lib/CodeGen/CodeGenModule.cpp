@@ -4709,6 +4709,11 @@ LangAS CodeGenModule::GetGlobalConstantAddressSpace() const {
     // UniformConstant storage class is not viable as pointers to it may not be
     // casted to Generic pointers which are used to model HIP's "flat" pointers.
     return LangAS::cuda_device;
+  if (LangOpts.Cheerp) {
+    if (getTarget().getTriple().getEnvironment() == llvm::Triple::GenericJs)
+      return LangAS::cheerp_genericjs;
+    return LangAS::cheerp_wasm;
+  }
   if (auto AS = getTarget().getConstantAddressSpace())
     return *AS;
   return LangAS::Default;
@@ -4726,7 +4731,7 @@ static llvm::Constant *
 castStringLiteralToDefaultAddressSpace(CodeGenModule &CGM,
                                        llvm::GlobalVariable *GV) {
   llvm::Constant *Cast = GV;
-  if (!CGM.getLangOpts().OpenCL) {
+  if (!CGM.getLangOpts().OpenCL && !CGM.getLangOpts().Cheerp) {
     auto AS = CGM.GetGlobalConstantAddressSpace();
     if (AS != LangAS::Default)
       Cast = CGM.getTargetCodeGenInfo().performAddrSpaceCast(
