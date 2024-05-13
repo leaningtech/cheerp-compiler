@@ -216,7 +216,6 @@ inline constexpr destroying_delete_t destroying_delete{};
 
 #if !defined(_LIBCPP_ABI_VCRUNTIME)
 
-#pragma cheerp env none
 [[cheerp::default_new]]
 _LIBCPP_NODISCARD_AFTER_CXX17 _LIBCPP_OVERRIDABLE_FUNC_VIS void* operator new(std::size_t __sz) _THROW_BAD_ALLOC;
 [[cheerp::default_new]]
@@ -271,12 +270,13 @@ _LIBCPP_OVERRIDABLE_FUNC_VIS _LIBCPP_AVAILABILITY_SIZED_NEW_DELETE void  operato
 #endif
 #endif
 
-_LIBCPP_NODISCARD_AFTER_CXX17 inline _LIBCPP_INLINE_VISIBILITY void* operator new  (std::size_t, void* __p) _NOEXCEPT {return __p;}
-_LIBCPP_NODISCARD_AFTER_CXX17 inline _LIBCPP_INLINE_VISIBILITY void* operator new[](std::size_t, void* __p) _NOEXCEPT {return __p;}
+_LIBCPP_NODISCARD_AFTER_CXX17 inline _LIBCPP_INLINE_VISIBILITY __wasm void* operator new  (std::size_t, __wasm void* __p) _NOEXCEPT {return __p;}
+_LIBCPP_NODISCARD_AFTER_CXX17 inline _LIBCPP_INLINE_VISIBILITY __wasm void* operator new[](std::size_t, __wasm void* __p) _NOEXCEPT {return __p;}
+_LIBCPP_NODISCARD_AFTER_CXX17 inline _LIBCPP_INLINE_VISIBILITY __js void* operator new  (std::size_t, __js void* __p) _NOEXCEPT {return __p;}
+_LIBCPP_NODISCARD_AFTER_CXX17 inline _LIBCPP_INLINE_VISIBILITY __js void* operator new[](std::size_t, __js void* __p) _NOEXCEPT {return __p;}
 inline _LIBCPP_INLINE_VISIBILITY void  operator delete  (void*, void*) _NOEXCEPT {}
 inline _LIBCPP_INLINE_VISIBILITY void  operator delete[](void*, void*) _NOEXCEPT {}
 
-#pragma cheerp env reset
 
 #endif // !_LIBCPP_ABI_VCRUNTIME
 
