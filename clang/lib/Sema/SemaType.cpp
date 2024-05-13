@@ -4615,16 +4615,21 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
       };
       if (hasAttr(ParsedAttr::AT_GenericJSAddressSpace) || hasAttr(ParsedAttr::AT_WasmAddressSpace)) {
         // Do nothing, the address space is naturally added
-      } else if (hasAttr(ParsedAttr::AT_GenericJS)) {
-        PtrAS = LangAS::cheerp_genericjs;
-      } else if (hasAttr(ParsedAttr::AT_AsmJS)) {
-        PtrAS = LangAS::cheerp_wasm;
       } else {
+        LangAS DefaultAS = S.CurCheerpFallbackAS;
+        DeclContext* DCtx = S.getCurLexicalContext();
+        if (hasAttr(ParsedAttr::AT_GenericJS)) {
+          DefaultAS = LangAS::cheerp_genericjs;
+          DCtx = nullptr;
+        } else if (hasAttr(ParsedAttr::AT_AsmJS)) {
+          DefaultAS = LangAS::cheerp_wasm;
+          DCtx = nullptr;
+        }
         const Type* Ty = T.getTypePtr();
         if (Ty->getAs<TypedefType>()) {
           Ty = Ty->getUnqualifiedDesugaredType();
         }
-        PtrAS = Context.getCheerpPointeeAddrSpace(Ty, S.getCurLexicalContext(), S.CurCheerpFallbackAS);
+        PtrAS = Context.getCheerpPointeeAddrSpace(Ty, DCtx, DefaultAS);
       }
     }
     return PtrAS;
