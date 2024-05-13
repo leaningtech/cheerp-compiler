@@ -1375,6 +1375,11 @@ static RValue EmitNewDeleteCall(CodeGenFunction &CGF,
   } else if (!IsDelete && (Args.size() > 2 || (Args.size() == 2 && !Args[1].getType()->isReferenceType()))) {
     fancy_new = true;
   }
+  if (cheerp && !allocType.hasAddressSpace()) {
+    LangAS AS = CGF.getContext().getCheerpTypeAddressSpace(allocType);
+    assert(AS != LangAS::Default);
+    allocType = CGF.getContext().getAddrSpaceQualType(allocType, AS);
+  }
   //CHEERP TODO: warning/error when `cheerp && !asmjs && user_defined_new`
   if(!IsDelete && cheerp && !(asmjs && (user_defined_new || fancy_new || unsafe_new)))
   {
@@ -1385,7 +1390,8 @@ static RValue EmitNewDeleteCall(CodeGenFunction &CGF,
       origFunc = CalleePtr;
     }
     llvm::Type* elementType = CGF.ConvertTypeForMem(retType->getPointeeType());
-    CallOrInvoke = cheerp::createCheerpAllocate(CGF.Builder, origFunc, elementType, Args[0].getKnownRValue().getScalarVal(), 0, use_array);
+    unsigned AS = CGF.getContext().getTargetAddressSpace(allocType.getAddressSpace());
+    CallOrInvoke = cheerp::createCheerpAllocate(CGF.Builder, origFunc, elementType, Args[0].getKnownRValue().getScalarVal(), AS, use_array);
     RV = RValue::get(CallOrInvoke);
   }
   else if(IsDelete && cheerp && !(asmjs && (user_defined_new || fancy_new)))
