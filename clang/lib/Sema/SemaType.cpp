@@ -9358,7 +9358,19 @@ QualType Sema::BuildDecltypeType(Expr *E, bool AsUnevaluated) {
     // used to build SFINAE gadgets.
     Diag(E->getExprLoc(), diag::warn_side_effects_unevaluated_context);
   }
-  return Context.getDecltypeType(E, getDecltypeForExpr(E));
+  QualType Ret = getDecltypeForExpr(E);
+  if (Ret.hasAddressSpace()) {
+    llvm::errs()<<"==========================\n\n";
+    Ret.dump();
+    if (!Ret->isArrayType())
+    {
+      llvm::errs()<<"==========================\n\n";
+      Ret = Context.removeAddrSpaceQualType(Ret);
+      Ret.dump();
+    }
+  }
+  Ret = Context.getDecltypeType(E, Ret);
+  return Ret;
 }
 
 static QualType GetEnumUnderlyingType(Sema &S, QualType BaseType,
