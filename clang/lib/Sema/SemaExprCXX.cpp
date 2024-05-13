@@ -3113,7 +3113,11 @@ void Sema::DeclareGlobalNewDelete() {
 
   GlobalNewDeleteDeclared = true;
 
-  QualType VoidPtr = Context.getPointerType(Context.VoidTy);
+  QualType VoidTy = Context.VoidTy;
+  if (Context.getLangOpts().Cheerp) {
+    VoidTy = Context.getAddrSpaceQualType(VoidTy, CurCheerpFallbackAS);
+  }
+  QualType VoidPtr = Context.getPointerType(VoidTy);
   QualType SizeT = Context.getSizeType();
 
   auto DeclareGlobalAllocationFunctions = [&](OverloadedOperatorKind Kind,
