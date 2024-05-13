@@ -858,7 +858,7 @@ Value *LibCallSimplifier::optimizeStringNCpy(CallInst *CI, bool RetEnd,
     // Create a bigger, nul-padded array with the same length, SrcLen,
     // as the original string.
     SrcStr.resize(N, '\0');
-    Src = B.CreateGlobalString(SrcStr, "str");
+    Src = B.CreateGlobalString(SrcStr, "str", Src->getType()->getPointerAddressSpace());
   }
 
   Type *PT = Callee->getFunctionType()->getParamType(0);
@@ -2803,9 +2803,11 @@ static bool isReportingError(Function *Callee, CallInst *CI, int StreamArg) {
 }
 
 Value *LibCallSimplifier::optimizePrintFString(CallInst *CI, IRBuilderBase &B) {
+  Value* StrArg = CI->getArgOperand(0);
+  unsigned AS = StrArg->getType()->getPointerAddressSpace();
   // Check for a fixed format string.
   StringRef FormatStr;
-  if (!getConstantStringInfo(CI->getArgOperand(0), FormatStr))
+  if (!getConstantStringInfo(StrArg, FormatStr))
     return nullptr;
 
   // Empty format string -> noop.
@@ -2847,7 +2849,7 @@ Value *LibCallSimplifier::optimizePrintFString(CallInst *CI, IRBuilderBase &B) {
     // printf("%s", str"\n") --> puts(str)
     if (OperandStr.back() == '\n') {
       OperandStr = OperandStr.drop_back();
-      Value *GV = B.CreateGlobalString(OperandStr, "str");
+      Value *GV = B.CreateGlobalString(OperandStr, "str", AS);
       return copyFlags(*CI, emitPutS(GV, B, TLI));
     }
     return nullptr;
@@ -2859,7 +2861,7 @@ Value *LibCallSimplifier::optimizePrintFString(CallInst *CI, IRBuilderBase &B) {
     // Create a string literal with no \n on it.  We expect the constant merge
     // pass to be run after this pass, to merge duplicate strings.
     FormatStr = FormatStr.drop_back();
-    Value *GV = B.CreateGlobalStringPtr(FormatStr, "str");
+    Value *GV = B.CreateGlobalStringPtr(FormatStr, "str", AS);
     return copyFlags(*CI, emitPutS(GV, B, TLI));
   }
 

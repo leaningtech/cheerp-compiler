@@ -14,6 +14,9 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/None.h"
+#include "llvm/ADT/Triple.h"
+#include "llvm/Cheerp/AddressSpaces.h"
+#include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DebugInfoMetadata.h"
@@ -52,9 +55,9 @@ GlobalVariable *IRBuilderBase::CreateGlobalString(StringRef Str,
       StrConstant, Name, nullptr, GlobalVariable::NotThreadLocal, AddressSpace);
   GV->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
   GV->setAlignment(Align(1));
-  // for cheerp asmjs mode
-  if (BB && BB->getParent()->getSection() == StringRef("asmjs"))
-	  GV->setSection("asmjs");
+  bool isCheerpWasm = llvm::Triple(M->getTargetTriple()).isCheerpWasm();
+  if (AddressSpace == unsigned(cheerp::CheerpAS::Wasm) && isCheerpWasm)
+    GV->setSection("asmjs");
   return GV;
 }
 
