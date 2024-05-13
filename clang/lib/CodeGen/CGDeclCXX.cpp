@@ -119,7 +119,7 @@ static void EmitDeclDestroy(CodeGenFunction &CGF, const VarDecl &D,
     CXXDestructorDecl *Dtor = Record->getDestructor();
 
     Func = CGM.getAddrAndTypeOfCXXStructor(GlobalDecl(Dtor, Dtor_Complete));
-    if (CGF.getContext().getLangOpts().OpenCL) {
+    if (CGF.getContext().getLangOpts().OpenCL || CGF.getContext().getLangOpts().Cheerp) {
       auto DestAS =
           CGM.getTargetCodeGenInfo().getAddrSpaceOfCxaAtexitPtrParam();
       auto DestTy = CGF.getTypes().ConvertType(Type)->getPointerTo(
