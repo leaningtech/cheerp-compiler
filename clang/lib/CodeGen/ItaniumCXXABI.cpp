@@ -2698,8 +2698,10 @@ void ItaniumCXXABI::EmitGuardedInit(CodeGenFunction &CGF,
                              CGM.getDataLayout().getABITypeAlignment(guardTy));
     }
   }
-  llvm::PointerType *guardPtrTy = guardTy->getPointerTo(
-      CGF.CGM.getDataLayout().getDefaultGlobalsAddressSpace());
+  unsigned guardAS = CGM.getLangOpts().Cheerp?
+    var->getAddressSpace() :
+    CGF.CGM.getDataLayout().getDefaultGlobalsAddressSpace();
+  llvm::PointerType *guardPtrTy = guardTy->getPointerTo(guardAS);
 
   // Create the guard variable if we don't already have it (as we
   // might if we're double-emitting this function body).
@@ -2718,7 +2720,10 @@ void ItaniumCXXABI::EmitGuardedInit(CodeGenFunction &CGF,
     guard = new llvm::GlobalVariable(CGM.getModule(), guardTy,
                                      false, var->getLinkage(),
                                      llvm::ConstantInt::get(guardTy, 0),
-                                     guardName.str());
+                                     guardName.str(),
+                                     nullptr,
+                                     llvm::GlobalValue::ThreadLocalMode::NotThreadLocal,
+                                     guardAS);
     guard->setDSOLocal(var->isDSOLocal());
     guard->setVisibility(var->getVisibility());
     guard->setDLLStorageClass(var->getDLLStorageClass());
