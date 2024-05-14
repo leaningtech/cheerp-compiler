@@ -394,7 +394,7 @@ void LinearMemoryHelper::addGlobals()
 	// of padding bytes.
 	for (const auto& G: module->globals())
 	{
-		if (G.getSection() != StringRef("asmjs")) continue;
+		if (G.getType()->getPointerAddressSpace() != 3) continue;
 		asmjsGlobals.push_back(&G);
 	}
 
