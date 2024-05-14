@@ -1569,6 +1569,24 @@ const PointerConstantOffsetWrapper& PointerAnalyzer::getFinalPointerConstantOffs
 	return o;
 }
 
+static POINTER_KIND getPointerKindForType(const Type* t) {
+	assert(t->isPointerTy());
+	switch(t->getPointerAddressSpace()) {
+		default: {
+			t->dump();
+			report_fatal_error("default as");
+		}
+		case 1: {
+			return COMPLETE_OBJECT;
+		}
+		case 2: {
+			return REGULAR;
+		}
+		case 3: {
+			return RAW;
+		}
+	}
+}
 POINTER_KIND PointerAnalyzer::getPointerKindAssert(const Value* p) const
 {
 	auto r = getPointerKind(p);
@@ -1577,6 +1595,11 @@ POINTER_KIND PointerAnalyzer::getPointerKindAssert(const Value* p) const
 }
 POINTER_KIND PointerAnalyzer::getPointerKind(const Value* p) const
 {
+	if (auto* SI = dyn_cast<StoreInst>(p)) {
+		return getPointerKindForType(SI->getPointerOperandType());
+	}
+	assert(p->getType()->getPointerAddressSpace()!=0);
+	return getPointerKindForType(p->getType());
 	const PointerKindWrapper& k = getFinalPointerKindWrapper(p);
 
 	if (k!=INDIRECT)
@@ -1588,6 +1611,7 @@ POINTER_KIND PointerAnalyzer::getPointerKind(const Value* p) const
 
 POINTER_KIND PointerAnalyzer::getPointerKindForReturn(const Function* F) const
 {
+	return getPointerKindForType(F->getReturnType());
 	if(TypeSupport::hasByteLayout(F->getReturnType()->getPointerElementType()))
 		return BYTE_LAYOUT;
 
@@ -1615,6 +1639,7 @@ POINTER_KIND PointerAnalyzer::getPointerKindForReturn(const Function* F) const
 
 POINTER_KIND PointerAnalyzer::getPointerKindForStoredType(Type* pointerType) const
 {
+	return getPointerKindForType(pointerType);
 	IndirectPointerKindConstraint c(STORED_TYPE_CONSTRAINT, pointerType->getPointerElementType());
 	auto it=PACache.pointerKindData.constraintsMap.find(c);
 	if(it==PACache.pointerKindData.constraintsMap.end())
@@ -1636,6 +1661,10 @@ POINTER_KIND PointerAnalyzer::getPointerKindForStoredType(Type* pointerType) con
 
 POINTER_KIND PointerAnalyzer::getPointerKindForArgumentTypeAndIndex( const TypeAndIndex& argTypeAndIndex ) const
 {
+	POINTER_KIND ret = getPointerKindForType(argTypeAndIndex.type);
+	if (ret == REGULAR)
+		return SPLIT_REGULAR;
+	return ret;
 	if(TypeSupport::hasByteLayout(argTypeAndIndex.type))
 		return BYTE_LAYOUT;
 
@@ -1652,6 +1681,7 @@ POINTER_KIND PointerAnalyzer::getPointerKindForArgumentTypeAndIndex( const TypeA
 
 POINTER_KIND PointerAnalyzer::getPointerKindForJSExportedType (Type* jsexportedType) const
 {
+	return getPointerKindForType(jsexportedType);
 	IndirectPointerKindConstraint c(JSEXPORT_TYPE_CONSTRAINT, jsexportedType);
 	const PointerKindWrapper& k=PointerResolverForKindVisitor(PACache).resolveConstraint(c);
 	assert(k.isKnown());
@@ -1665,6 +1695,10 @@ POINTER_KIND PointerAnalyzer::getPointerKindForJSExportedType (Type* jsexportedT
 
 POINTER_KIND PointerAnalyzer::getPointerKindForArgument( const llvm::Argument* A ) const
 {
+	POINTER_KIND ret = getPointerKindForType(A->getType());
+	if (ret == REGULAR)
+		return SPLIT_REGULAR;
+	return ret;
 	if(TypeSupport::hasByteLayout(A->getType()->getPointerElementType()))
 		return BYTE_LAYOUT;
 
@@ -1681,6 +1715,7 @@ POINTER_KIND PointerAnalyzer::getPointerKindForArgument( const llvm::Argument* A
 
 POINTER_KIND PointerAnalyzer::getPointerKindForMemberPointer(const TypeAndIndex& baseAndIndex) const
 {
+	return getPointerKindForType(baseAndIndex.type);
 	if(TypeSupport::hasByteLayout(cast<StructType>(baseAndIndex.type)->getElementType(baseAndIndex.index)->getPointerElementType()))
 		return BYTE_LAYOUT;
 	if(TypeSupport::isRawPointer(cast<StructType>(baseAndIndex.type)->getElementType(baseAndIndex.index), false))
@@ -1718,6 +1753,7 @@ POINTER_KIND PointerAnalyzer::getPointerKindForMemberImpl(const TypeAndIndex& ba
 
 POINTER_KIND PointerAnalyzer::getPointerKindForMember(const TypeAndIndex& baseAndIndex) const
 {
+	return getPointerKindForType(baseAndIndex.type);
 	return getPointerKindForMemberImpl(baseAndIndex, PACache);
 }
 
@@ -1747,6 +1783,7 @@ TypeAndIndex PointerAnalyzer::getBaseStructAndIndexFromGEP(const Value* p)
 
 REGULAR_POINTER_PREFERENCE PointerAnalyzer::getRegularPreference(const IndirectPointerKindConstraint& c, PointerAnalyzerCache& cache)
 {
+	return PREF_REGULAR;
 	switch(c.kind)
 	{
 		case BASE_AND_INDEX_CONSTRAINT:
@@ -1772,6 +1809,7 @@ REGULAR_POINTER_PREFERENCE PointerAnalyzer::getRegularPreference(const IndirectP
 
 const ConstantInt* PointerAnalyzer::getConstantOffsetForPointer(const Value * v) const
 {
+	return nullptr;
 	auto it=PACache.pointerOffsetData.valueMap.find(v);
 	if(it==PACache.pointerOffsetData.valueMap.end())
 		return NULL;
@@ -1799,6 +1837,7 @@ const ConstantInt* PointerAnalyzer::getConstantOffsetForPointer(const Value * v)
 
 const llvm::ConstantInt* PointerAnalyzer::getConstantOffsetForMember( const TypeAndIndex& baseAndIndex ) const
 {
+	return nullptr;
 	auto it=PACache.pointerOffsetData.constraintsMap.find(IndirectPointerKindConstraint(BASE_AND_INDEX_CONSTRAINT, baseAndIndex));
 	if(it==PACache.pointerOffsetData.constraintsMap.end())
 		return NULL;
