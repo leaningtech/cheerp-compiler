@@ -47,6 +47,7 @@ static const unsigned X86AddrSpaceMap[] = {
     0,   // hlsl_groupshared
     0,   // cheerp_client
     0,   // cheerp_genericjs
+    0,   // cheerp_bytelayout
     0,   // cheerp_wasm
 };
 
