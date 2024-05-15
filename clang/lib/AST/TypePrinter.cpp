@@ -2238,6 +2238,8 @@ std::string Qualifiers::getAddrSpaceAsString(LangAS AS) {
     return "client_as";
   case LangAS::cheerp_genericjs:
     return "js_as";
+  case LangAS::cheerp_bytelayout:
+    return "bl_as";
   case LangAS::cheerp_wasm:
     return "wasm_as";
   default:
