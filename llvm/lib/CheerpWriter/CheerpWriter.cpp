@@ -6798,7 +6798,7 @@ void CheerpWriter::compileGenericJS()
 		// Skip global ctors array
 		if (GV.getName() == "llvm.global_ctors")
 			continue;
-		if (GV.getSection() != StringRef("asmjs"))
+		if (!TypeSupport::isAsmJSPointer(GV.getType()))
 			compileGlobal(GV);
 	}
 
