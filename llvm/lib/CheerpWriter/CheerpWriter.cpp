@@ -6011,6 +6011,7 @@ void CheerpWriter::compileGlobalAsmJS(const GlobalVariable& G)
 
 void CheerpWriter::compileGlobalsInitAsmJS()
 {
+	markHeapNameAsUsed(HEAP8);
 	if (asmJSMem)
 	{
 		ostream_proxy os(*asmJSMem, nullptr, false);
