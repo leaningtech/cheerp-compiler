@@ -375,7 +375,8 @@ enum class CheerpAS {
 	Default = 0,
 	Client = 1,
 	GenericJS = 2,
-	Wasm = 3,
+	ByteLayout = 3,
+	Wasm = 4,
 };
 
 inline CheerpAS getCheerpAS(const llvm::PointerType* t) {
