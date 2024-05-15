@@ -290,7 +290,8 @@ public:
   virtual llvm::Value *performAddrSpaceCast(CodeGen::CodeGenFunction &CGF,
                                             llvm::Value *V, LangAS SrcAddr,
                                             LangAS DestAddr, llvm::Type *DestTy,
-                                            bool IsNonNull = false) const;
+                                            bool IsNonNull = false,
+                                            llvm::Type* ElemTy = nullptr) const;
 
   /// Perform address space cast of a constant expression of pointer type.
   /// \param V is the LLVM constant to be casted to another address space.
