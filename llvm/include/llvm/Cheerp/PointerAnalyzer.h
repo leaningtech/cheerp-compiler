@@ -263,16 +263,14 @@ class PointerAnalyzer
 {
 public:
 	PointerAnalyzer() :
-		status(MODIFIABLE), PACache(status)
+		status(MODIFIABLE)
 	{
 	}
 	PointerAnalyzer(const PointerAnalyzer& other) : PointerAnalyzer()
 	{
-		PACache = other.PACache;
 		status = other.status;
 	}
 
-	void prefetchFunc( const llvm::Function & ) const;
 	bool runOnModule( llvm::Module & );
 
 	POINTER_KIND getPointerKindAssert(const llvm::Value* v) const;
@@ -284,8 +282,6 @@ public:
 	POINTER_KIND getPointerKindForArgumentTypeAndIndex( const TypeAndIndex& argTypeAndIndex ) const;
 	POINTER_KIND getPointerKindForArgument( const llvm::Argument* A ) const;
 	POINTER_KIND getPointerKindForJSExportedType (llvm::Type* pointerType) const;
-	const PointerKindWrapper& getFinalPointerKindWrapper(const llvm::Value* v ) const;
-	static TypeAndIndex getBaseStructAndIndexFromGEP( const llvm::Value* v );
 	const llvm::ConstantInt* getConstantOffsetForPointer( const llvm::Value* ) const;
 	const llvm::ConstantInt* getConstantOffsetForMember( const TypeAndIndex& baseAndIndex ) const;
 
@@ -301,88 +297,8 @@ public:
 	// Compute all the offsets for REGULAR pointer which may be assumed constant
 	void computeConstantOffsets(const llvm::Module& M );
 
-#ifndef NDEBUG
-	// Dump a pointer value info
-	void dumpPointer(const llvm::Value * v, bool dumpOwnerFuncion = true) const;
-#endif //NDEBUG
-	struct AddressTakenMap: public llvm::DenseMap<const llvm::Function*, bool>
-	{
-		bool checkAddressTaken(const llvm::Function* F)
-		{
-			auto it=find(F);
-			if(it==end())
-			{
-				bool ret=F->hasAddressTaken();
-				insert(std::make_pair(F, ret));
-				return ret;
-			}
-			else
-				return it->second;
-		}
-	};
-	template<class T>
-	struct PointerData
-	{
-		typedef llvm::DenseMap<const llvm::Value*, T> ValueKindMap;
-		typedef std::map<TypeAndIndex, T> TypeAndIndexMap;
-		typedef cheerp::DeterministicUnorderedMap<IndirectPointerKindConstraint, T, RestrictionsLifted::NoErasure, IndirectPointerKindConstraint::Hash> ConstraintsMap;
-		ConstraintsMap constraintsMap;
-		// Helper function to make constraints unique, they are stored as the key field into constraintsMap
-		// and may or may not hold any actual pointer data as the corresponding valiue
-		const IndirectPointerKindConstraint* getConstraintPtr(const IndirectPointerKindConstraint& c)
-		{
-			return &constraintsMap.insert(std::make_pair(c, T())).first->first;
-		}
-
-		ValueKindMap valueMap;
-		// This map stores constraints about pointer to members
-		TypeAndIndexMap baseStructAndIndexMapForMembers;
-		ValueKindMap argsMap;
-	};
-
-	typedef PointerData<PointerKindWrapper> PointerKindData;
-	typedef PointerData<PointerConstantOffsetWrapper> PointerOffsetData;
 	enum PAstatus{MODIFIABLE, CACHING_STARTED, FULLY_RESOLVED} status;
-
-	class PointerAnalyzerCache
-	{
-	public:
-		PointerAnalyzerCache(PAstatus& status)
-			: status(status)
-		{
-		}
-		bool mayCache() const
-		{
-			return status != MODIFIABLE;
-		}
-		PointerAnalyzerCache& operator=(const PointerAnalyzerCache& other)
-		{
-			pointerKindData = other.pointerKindData;
-			pointerOffsetData = other.pointerOffsetData;
-			addressTakenCache = other.addressTakenCache;
-
-			return *this;
-		}
-		PointerKindData pointerKindData;
-		PointerOffsetData pointerOffsetData;
-		AddressTakenMap addressTakenCache;
-	private:
-		PAstatus& status;
-	};
-	mutable PointerAnalyzerCache PACache;
-
-	static REGULAR_POINTER_PREFERENCE getRegularPreference(const IndirectPointerKindConstraint& c, PointerAnalyzerCache& cache);
-	static POINTER_KIND getPointerKindForMemberImpl(const TypeAndIndex& baseAndIndex, PointerAnalyzerCache& cache);
-private:
-	const PointerConstantOffsetWrapper& getFinalPointerConstantOffsetWrapper(const llvm::Value*) const;
 };
-
-#ifndef NDEBUG
-
-void dumpAllPointers(const llvm::Function &, const PointerAnalyzer & );
-void writePointerDumpHeader();
-
-#endif //NDEBUG
 
 class PointerAnalysis;
 
