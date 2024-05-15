@@ -13263,6 +13263,8 @@ LangAS ASTContext::getLangASForBuiltinAddressSpace(unsigned AS) const {
       case 2:
         return LangAS::cheerp_genericjs;
       case 3:
+        return LangAS::cheerp_bytelayout;
+      case 4:
         return LangAS::cheerp_wasm;
     }
   }
@@ -13283,6 +13285,8 @@ LangAS ASTContext::getCheerpTypeAddressSpace(const Decl* D, LangAS fallback) con
   LangAS AS = fallback;
   if (AnalysisDeclContext::isInClientNamespace(D)) {
     AS = clang::LangAS::cheerp_client;
+  } else if (D->hasAttr<ByteLayoutAttr>() || (isa<RecordDecl>(D) && cast<RecordDecl>(D)->isByteLayout())) {
+    AS = LangAS::cheerp_bytelayout;
   } else if (D->hasAttr<GenericJSAttr>()) {
     AS = LangAS::cheerp_genericjs;
   } else if (D->hasAttr<AsmJSAttr>()) {

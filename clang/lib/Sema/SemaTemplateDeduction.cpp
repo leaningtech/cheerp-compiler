@@ -243,10 +243,16 @@ checkDeducedTemplateArguments(ASTContext &Context,
     if (Y.getKind() == TemplateArgument::Type && !Context.hasSameType(TX, TY) &&
         ((TX->isPointerType() && TY->isPointerType()) || (TX->isReferenceType() && TY->isReferenceType())) &&
         TX->getPointeeType().getAddressSpace() != TY->getPointeeType().getAddressSpace()) {
-      if (TX->getPointeeType().getAddressSpace() == LangAS::Default) {
-        TX = Context.addPointeeAddrSpace(TX, TY->getPointeeType().getAddressSpace());
-      } else if (TY->getPointeeType().getAddressSpace() == LangAS::Default) {
-        TY = Context.addPointeeAddrSpace(TY, TX->getPointeeType().getAddressSpace());
+      LangAS TXAS = TX->getPointeeType().getAddressSpace();
+      LangAS TYAS = TY->getPointeeType().getAddressSpace();
+      if (TXAS == LangAS::Default) {
+        TX = Context.addPointeeAddrSpace(TX, TYAS);
+      } else if (TYAS == LangAS::Default) {
+        TY = Context.addPointeeAddrSpace(TY, TXAS);
+      } else if (TXAS == LangAS::cheerp_bytelayout && TYAS == LangAS::cheerp_genericjs) {
+          TX = Context.addPointeeAddrSpace(TX, TYAS);
+      } else if (TYAS == LangAS::cheerp_bytelayout && TXAS == LangAS::cheerp_genericjs) {
+          TY = Context.addPointeeAddrSpace(TY, TXAS);
       }
     }
     if (Y.getKind() == TemplateArgument::Type && Context.hasSameType(TX, TY))
