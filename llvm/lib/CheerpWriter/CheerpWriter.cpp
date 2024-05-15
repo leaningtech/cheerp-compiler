@@ -1979,9 +1979,8 @@ void CheerpWriter::compilePointerBaseTyped(const Value* p, Type* elementType, bo
 	if(kind == RAW)
 	{
 		assert(isa<PointerType>(p->getType()));
-		Type* ty = llvm::cast<PointerType>(p->getType())->getPointerElementType();
 		if (globalDeps.needAsmJSMemory()||globalDeps.needAsmJSCode())
-			compileHeapForType(ty);
+			compileHeapForType(elementType);
 		else
 			stream << "nullArray";
 		return;
@@ -3376,7 +3375,7 @@ void CheerpWriter::compileGEPBase(const llvm::User* gep_inst, bool forEscapingPo
 			return;
 		}
 		compileCompleteObject(gep_inst->getOperand(0), indices.front());
-		Type* basePointedType = basePointerType->getPointerElementType();
+		Type* basePointedType = cast<GEPOperator>(gep_inst)->getSourceElementType();
 		if (useDownCastArray)
 		{
 			compileAccessToElement(basePointedType, makeArrayRef(std::next(indices.begin()),indices.end()), /*compileLastWrapperArray*/true);
@@ -3525,7 +3524,7 @@ void CheerpWriter::compileGEPOffset(const llvm::User* gep_inst, PARENT_PRIORITY 
 	{
 		if (useDownCastArray)
 		{
-			Type* basePointedType = basePointerType->getPointerElementType();
+			Type* basePointedType = cast<GEPOperator>(gep_inst)->getSourceElementType();
 			compileCompleteObject(gep_inst->getOperand(0), indices.front());
 			compileAccessToElement(basePointedType, makeArrayRef(std::next(indices.begin()), indices.end()), /*compileLastWrapperArray*/true);
 			stream << ".o";
