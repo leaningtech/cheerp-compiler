@@ -1828,8 +1828,11 @@ Sema::BuildFieldReferenceExpr(Expr *BaseExpr, bool IsArrow,
     Qualifiers MemberQuals =
         Context.getCanonicalType(MemberType).getQualifiers();
 
-    assert(!MemberQuals.hasAddressSpace());
+    assert(getLangOpts().Cheerp || !MemberQuals.hasAddressSpace());
 
+    if (MemberQuals.hasAddressSpace()) {
+        BaseQuals.removeAddressSpace();
+    }
     Qualifiers Combined = BaseQuals + MemberQuals;
     if (Combined != MemberQuals)
       MemberType = Context.getQualifiedType(MemberType, Combined);
