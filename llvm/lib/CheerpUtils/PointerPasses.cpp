@@ -679,15 +679,12 @@ bool FreeAndDeleteRemoval::runOnModule(Module& M)
 						continue;
 					Type* ty = call->getOperand(0)->getType();
 					assert(isa<PointerType>(ty));
-					Type* elemTy = cast<PointerType>(ty)->getPointerElementType();
-					if (!isWasmTarget || (!cheerp::TypeSupport::isAsmJSPointed(elemTy) && elemTy->isAggregateType()))
+					// TODO add the elementtype attribute to cheerp_deallocate calls and use the type
+					// to delete the call for genericjs structs
+					if (!isWasmTarget)
 					{
 						deleteInstructionAndUnusedOperands(call);
 						Changed = true;
-					}
-					else if (cheerp::TypeSupport::isAsmJSPointed(elemTy))
-					{
-						U.set(M.getFunction("free"));
 					}
 					else
 					{
