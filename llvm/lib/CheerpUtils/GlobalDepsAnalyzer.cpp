@@ -1238,7 +1238,7 @@ void GlobalDepsAnalyzer::visitGlobal( const GlobalValue * C, VisitedSet & visite
 		}
 		else if (const GlobalVariable * GV = dyn_cast<GlobalVariable>(C) )
 		{
-			if (C->getSection() == StringRef("asmjs"))
+			if (TypeSupport::isAsmJSPointer(C->getType()))
 			{
 				hasAsmJSMemory = true;
 			}
