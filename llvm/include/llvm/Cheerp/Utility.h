@@ -386,6 +386,22 @@ inline MODULE_TYPE getModuleType(llvm::StringRef makeModule)
   return MODULE_TYPE::NONE;
 }
 
+enum class CheerpAS {
+	Default = 0,
+	Client = 1,
+	GenericJS = 2,
+	Wasm = 3,
+};
+
+inline CheerpAS getCheerpAS(const llvm::PointerType* t) {
+	unsigned AS = t->getAddressSpace();
+	assert(AS <= unsigned(CheerpAS::Wasm));
+	return static_cast<CheerpAS>(AS);
+}
+inline CheerpAS getCheerpAS(const llvm::Value* v) {
+	return getCheerpAS(llvm::cast<llvm::PointerType>(v->getType()));
+}
+
 class TypeSupport
 {
 public:
@@ -433,7 +449,7 @@ public:
 
 	static bool isClientPtrType(llvm::PointerType* ptr)
 	{
-		return isClientType(ptr->getPointerElementType());
+		return getCheerpAS(ptr) == CheerpAS::Client;
 	}
 
 	static bool isWasiFuncName(llvm::StringRef ident)
@@ -507,7 +523,7 @@ public:
 	{
 		assert(t);
 		if (const llvm::PointerType* pt = llvm::dyn_cast<llvm::PointerType>(t))
-			return isAsmJSPointed(pt->getPointerElementType());
+			return getCheerpAS(pt) == CheerpAS::Wasm;
 		return false;
 	}
 	// Is this type a pointer to a genericjs struct type?
@@ -515,11 +531,7 @@ public:
 	{
 		if (const llvm::PointerType* pt = llvm::dyn_cast<llvm::PointerType>(t))
 		{
-			t = pt->getPointerElementType();
-			while ( t->isArrayTy() )
-				t = t->getArrayElementType();
-			if ( const llvm::StructType * st = llvm::dyn_cast<llvm::StructType>(t) )
-				return !st->isOpaque() && !st->hasAsmJS();
+			return getCheerpAS(pt) == CheerpAS::GenericJS;
 		}
 		return false;
 	}
@@ -528,23 +540,7 @@ public:
 	{
 		if (isAsmJSPointer(t))
 			return true;
-		if (!asmjs)
-			return false;
-		if (!t->isPointerTy())
-			return false;
-		llvm::Type* et = t->getPointerElementType();
-		if (isTypedArrayType(et, true) || et->isIntegerTy(1))
-			return true;
-		if (et->isPointerTy() || et->isArrayTy())
-			return true;
-		if (et->isFunctionTy())
-			return true;
-		if (et->isVectorTy())
-			return true;
-		if (llvm::isa<llvm::StructType>(et) && llvm::cast<llvm::StructType>(et)->isOpaque())
-			return asmjs;
-		if (!WasmAnyref)
-			llvm::report_fatal_error("Found an externref, but externref support is not enabled");
+		assert(!llvm::isa<llvm::PointerType>(t) || getCheerpAS(llvm::cast<llvm::PointerType>(t)) != CheerpAS::Default);
 		return false;
 	}
 
@@ -572,13 +568,6 @@ public:
 	static bool getBasesInfo(const llvm::Module& module, const llvm::StructType* t, uint32_t& firstBase, uint32_t& baseCount);
 
 	static bool isJSExportedType(llvm::StructType* st, const llvm::Module& m);
-	static bool isJSExportedPtrType(llvm::Type* t, const llvm::Module& m)
-	{
-		if (t->isPointerTy())
-			if (llvm::StructType* st = llvm::dyn_cast<llvm::StructType>(t->getPointerElementType()))
-				return isJSExportedType(st, m);
-		return false;
-	}
 
 	// Returns true if the type is not considered a literal object or array in JS
 	static bool isSimpleType(llvm::Type* t, bool forceTypedArrays);
