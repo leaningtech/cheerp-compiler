@@ -54,7 +54,11 @@ public:
 _LIBCPP_BEGIN_NAMESPACE_STD
 
 typedef int count_t;
-struct [[cheerp::bytelayout]] _Rep_base {
+struct
+#if defined(__CHEERP__) && !defined(__ASMJS__)
+[[cheerp::bytelayout]]
+#endif
+_Rep_base {
     std::size_t len;
     std::size_t cap;
     count_t     count;

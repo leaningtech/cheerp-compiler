@@ -62,6 +62,7 @@ enum class LangAS : unsigned {
   // Cheerp specific address spaces.
   cheerp_client,
   cheerp_genericjs,
+  cheerp_bytelayout,
   cheerp_wasm,
 
   // This denotes the count of language-specific address spaces and also
