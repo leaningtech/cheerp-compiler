@@ -2235,7 +2235,8 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
     // space, an address space conversion may end up as a bitcast.
     return CGF.CGM.getTargetCodeGenInfo().performAddrSpaceCast(
         CGF, Visit(E), E->getType()->getPointeeType().getAddressSpace(),
-        DestTy->getPointeeType().getAddressSpace(), ConvertType(DestTy));
+        DestTy->getPointeeType().getAddressSpace(), ConvertType(DestTy),
+        false, ConvertType(DestTy->getPointeeType()));
   }
   case CK_AtomicToNonAtomic:
   case CK_NonAtomicToAtomic:
