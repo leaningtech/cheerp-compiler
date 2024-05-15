@@ -261,6 +261,7 @@ inline bool isBitCast(const llvm::Value* v)
 		{
 			case llvm::Intrinsic::cheerp_cast_user:
 			case llvm::Intrinsic::cheerp_upcast_collapsed:
+			case llvm::Intrinsic::cheerp_typed_ptrcast:
 				return true;
 			default:
 				break;

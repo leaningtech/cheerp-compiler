@@ -2695,6 +2695,9 @@ void CXXNameMangler::mangleQualifiers(Qualifiers Quals, const DependentAddressSp
       case LangAS::cheerp_genericjs:
         ASString = "js";
         break;
+      case LangAS::cheerp_bytelayout:
+        ASString = "bl";
+        break;
       case LangAS::cheerp_wasm:
         ASString = "wasm";
         break;

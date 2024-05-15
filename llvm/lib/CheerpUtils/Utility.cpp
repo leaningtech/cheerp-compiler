@@ -330,6 +330,7 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 		switch(II->getIntrinsicID())
 		{
 			case Intrinsic::cheerp_cast_user:
+			case Intrinsic::cheerp_typed_ptrcast:
 			case Intrinsic::cheerp_upcast_collapsed:
 			case Intrinsic::cheerp_make_regular:
 				return true;
