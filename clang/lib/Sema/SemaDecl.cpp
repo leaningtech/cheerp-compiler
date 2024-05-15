@@ -6931,30 +6931,28 @@ void Sema::deduceCheerpAddressSpace(ValueDecl *Decl) {
     return;
   if (Decl->getType()->isDependentType())
     return;
-  if (VarDecl *Var = dyn_cast<VarDecl>(Decl)) {
-    QualType Type = Var->getType();
-    if (Type->isVoidType())
-      return;
-    // If the original type from a decayed type is an array type and that array
-    // type has no address space yet, deduce it now.
-    if (auto DT = dyn_cast<DecayedType>(Type)) {
-      auto OrigTy = DT->getOriginalType();
-      if (!OrigTy.hasAddressSpace() && OrigTy->isArrayType()) {
-        // Add the address space to the original array type and then propagate
-        // that to the element type through `getAsArrayType`.
-        OrigTy = deduceCheerpPointeeAddrSpace(OrigTy, Decl);
-        OrigTy = QualType(Context.getAsArrayType(OrigTy), 0);
-        // Re-generate the decayed type.
-        Type = Context.getDecayedType(OrigTy);
-      }
+  QualType Type = Decl->getType();
+  if (Type->isVoidType())
+    return;
+  // If the original type from a decayed type is an array type and that array
+  // type has no address space yet, deduce it now.
+  if (auto DT = dyn_cast<DecayedType>(Type)) {
+    auto OrigTy = DT->getOriginalType();
+    if (!OrigTy.hasAddressSpace() && OrigTy->isArrayType()) {
+      // Add the address space to the original array type and then propagate
+      // that to the element type through `getAsArrayType`.
+      OrigTy = deduceCheerpPointeeAddrSpace(OrigTy, Decl);
+      OrigTy = QualType(Context.getAsArrayType(OrigTy), 0);
+      // Re-generate the decayed type.
+      Type = Context.getDecayedType(OrigTy);
     }
-    Type = deduceCheerpPointeeAddrSpace(Type, Decl);
-    // Apply any qualifiers (including address space) from the array type to
-    // the element type.
-    if (Type->isArrayType())
-      Type = QualType(Context.getAsArrayType(Type), 0);
-    Decl->setType(Type);
   }
+  Type = deduceCheerpPointeeAddrSpace(Type, Decl);
+  // Apply any qualifiers (including address space) from the array type to
+  // the element type.
+  if (Type->isArrayType())
+    Type = QualType(Context.getAsArrayType(Type), 0);
+  Decl->setType(Type);
 }
 
 static void checkAttributesAfterMerging(Sema &S, NamedDecl &ND) {
@@ -17954,9 +17952,12 @@ FieldDecl *Sema::CheckFieldDecl(DeclarationName Name, QualType T,
   // TR 18037 does not allow fields to be declared with address space
   if (T.hasAddressSpace() || T->isDependentAddressSpaceType() ||
       T->getBaseElementTypeUnsafe()->isDependentAddressSpaceType()) {
-    Diag(Loc, diag::err_field_with_address_space);
-    Record->setInvalidDecl();
-    InvalidDecl = true;
+    // CHEERP: We allow fields to have the bytelayout address space
+    if (!LangOpts.Cheerp || T.getAddressSpace() != LangAS::cheerp_wasm) {
+      Diag(Loc, diag::err_field_with_address_space);
+      Record->setInvalidDecl();
+      InvalidDecl = true;
+    }
   }
 
   if (LangOpts.OpenCL) {
@@ -18101,6 +18102,10 @@ FieldDecl *Sema::CheckFieldDecl(DeclarationName Name, QualType T,
     NewFD->setInvalidDecl();
 
   NewFD->setAccess(AS);
+
+  if (getLangOpts().Cheerp && T->isRecordType() && T->getAsRecordDecl()->isByteLayout())
+    deduceCheerpAddressSpace(NewFD);
+
   return NewFD;
 }
 

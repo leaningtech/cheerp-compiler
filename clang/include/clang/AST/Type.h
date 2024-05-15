@@ -526,7 +526,10 @@ public:
            (A == LangAS::cheerp_client && B == LangAS::Default) ||
            (A == LangAS::Default && B == LangAS::cheerp_genericjs) ||
            (A == LangAS::Default && B == LangAS::cheerp_wasm) ||
-           (A == LangAS::cheerp_genericjs && B == LangAS::cheerp_wasm);
+           (A == LangAS::cheerp_genericjs && B == LangAS::cheerp_wasm) ||
+           (A == LangAS::cheerp_genericjs && B == LangAS::cheerp_bytelayout) ||
+           (A == LangAS::Default && B == LangAS::cheerp_bytelayout) ||
+           (A == LangAS::cheerp_bytelayout && B == LangAS::Default);
   }
 
   /// Returns true if the address space in these qualifiers is equal to or
