@@ -633,6 +633,7 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 		case Intrinsic::cheerp_downcast:
 		case Intrinsic::cheerp_upcast_collapsed:
 		case Intrinsic::cheerp_cast_user:
+		case Intrinsic::cheerp_typed_ptrcast:
 			break;
 		case Intrinsic::cheerp_allocate:
 		case Intrinsic::cheerp_allocate_array:
@@ -881,6 +882,8 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 			return visitValue( ret, p, /*first*/ false );
 		case Intrinsic::cheerp_virtualcast:
 			return ret |= COMPLETE_OBJECT;
+		case Intrinsic::cheerp_typed_ptrcast:
+			return ret |= PointerKindWrapper(SPLIT_REGULAR, p);
 		case Intrinsic::cheerp_downcast:
 		{
 			// Behaves like a cast if the offset is constant 0

@@ -929,6 +929,14 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(const
 		compileBitCast(&callV, PA.getPointerKindAssert(&callV), HIGHEST);
 		return COMPILE_OK;
 	}
+	else if(intrinsicId==Intrinsic::cheerp_typed_ptrcast)
+	{
+		if(callV.use_empty())
+			return COMPILE_EMPTY;
+
+		compileBitCast(&callV, PA.getPointerKindAssert(&callV), HIGHEST);
+		return COMPILE_OK;
+	}
 	else if(intrinsicId==Intrinsic::cheerp_pointer_base)
 	{
 		compilePointerBase(*it, true);
@@ -2057,6 +2065,7 @@ void CheerpWriter::compilePointerBaseTyped(const Value* p, Type* elementType, bo
 		switch(II->getIntrinsicID())
 		{
 			case Intrinsic::cheerp_upcast_collapsed:
+			case Intrinsic::cheerp_typed_ptrcast:
 			case Intrinsic::cheerp_cast_user:
 				return compilePointerBaseTyped(II->getOperand(0), II->getParamElementType(0));
 			case Intrinsic::cheerp_make_regular:
@@ -2262,6 +2271,7 @@ void CheerpWriter::compilePointerOffset(const Value* p, PARENT_PRIORITY parentPr
 		switch(II->getIntrinsicID())
 		{
 			case Intrinsic::cheerp_upcast_collapsed:
+			case Intrinsic::cheerp_typed_ptrcast:
 			case Intrinsic::cheerp_cast_user:
 				compilePointerOffset(II->getOperand(0), parentPrio);
 				return;
@@ -4623,7 +4633,7 @@ void CheerpWriter::compileLoadElem(const LoadInst& li, Type* Ty, StructType* STy
 		assert(!STy);
 		//Optimize loads of single values from unions
 		compilePointerBase(ptrOp);
-		assert(ptrOp->getType()== Ty->getPointerTo());
+		assert(ptrOp->getType()== Ty->getPointerTo(ptrOp->getType()->getPointerAddressSpace()));
 		if(Ty->isIntegerTy(8))
 			stream << ".getUint8(";
 		else if(Ty->isIntegerTy(16))
