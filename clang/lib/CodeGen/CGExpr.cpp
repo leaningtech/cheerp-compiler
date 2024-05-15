@@ -4538,6 +4538,14 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
   addr = Builder.CreateElementBitCast(
       addr, CGM.getTypes().ConvertTypeForMem(FieldType), field->getName());
 
+  // CHEERP: We allow fields to have an address space to support bytelayout
+  // When accessing such fields we cast the pointer to the field's address space
+  unsigned FieldAS = CGM.getContext().getTargetAddressSpace(FieldType.getAddressSpace());
+  if (FieldAS != addr.getAddressSpace() && FieldAS != 0) {
+    llvm::Type* Ty = CGM.getTypes().ConvertTypeForMem(FieldType);
+    addr = Builder.CreateAddrSpaceCast(addr, Ty->getPointerTo(FieldAS), Twine(addr.getName(), ".fieldcast"));
+  }
+
   if (field->hasAttr<AnnotateAttr>())
     addr = EmitFieldAnnotations(field, addr);
 
