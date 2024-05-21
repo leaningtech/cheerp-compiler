@@ -124,6 +124,11 @@ POINTER_KIND PointerAnalyzer::getPointerKindForMemberPointer(const TypeAndIndex&
 
 POINTER_KIND PointerAnalyzer::getPointerKindForMember(const TypeAndIndex& baseAndIndex) const
 {
+	Type* memberTy = cast<StructType>(baseAndIndex.type)->getElementType(baseAndIndex.index);
+	if (StructType* STy = dyn_cast<StructType>(memberTy)) {
+		if (STy->hasByteLayout())
+			return BYTE_LAYOUT;
+	}
 	return REGULAR;
 }
 
