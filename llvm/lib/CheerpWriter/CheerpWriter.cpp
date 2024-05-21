@@ -3393,9 +3393,9 @@ void CheerpWriter::compileGEPBase(const llvm::User* gep_inst, bool forEscapingPo
 		uint32_t lastOffsetConstant = idx->getZExtValue();
 		useDownCastArray = !types.useWrapperArrayForMember(PA, containerStructType, lastOffsetConstant);
 	}
-	bool byteLayout = PA.getPointerKindAssert(gep_inst) == BYTE_LAYOUT;
 	const Value* baseOperand = gep_inst->getOperand(0);
 	Type* elementTypeBaseOperand = cast<GEPOperator>(gep_inst)->getSourceElementType();
+	bool byteLayout = PA.getPointerKindAssert(gep_inst) == BYTE_LAYOUT || TypeSupport::hasByteLayout(targetType);
 	if (byteLayout)
 	{
 		bool byteLayoutFromHere = PA.getPointerKindAssert(baseOperand) != BYTE_LAYOUT;
