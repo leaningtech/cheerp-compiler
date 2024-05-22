@@ -14757,6 +14757,9 @@ CXXMethodDecl *Sema::DeclareImplicitJsExportHelper(CXXRecordDecl *ClassDecl, CXX
   setupImplicitSpecialMemberType(Helper, RetType, ArgTypes);
 
   FunctionProtoType::ExtProtoInfo EPI;
+  LangAS AS = Context.getCheerpTypeAddressSpace(ClassDecl);
+  if (AS != LangAS::Default)
+    EPI.TypeQuals.addAddressSpace(AS);
   Helper->setParams(ParamDecls);
   Helper->setType(Context.getFunctionType(RetType, ArgTypes,
 					 EPI));
