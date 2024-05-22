@@ -3182,16 +3182,14 @@ QualType ASTContext::getObjCGCQualType(QualType T,
 }
 
 QualType ASTContext::addPointeeAddrSpace(QualType T, LangAS AS) const {
-  if (!T->isPointerType() && !T->isReferenceType()) {
+  if (!T->isPointerType() && !T->isReferenceType() && !T->isMemberPointerType()) {
     return T;
   }
-  QualType Pointee = T->getPointeeType();
-  if (Pointee.hasAddressSpace())
-    Pointee = removeAddrSpaceQualType(Pointee);
-  Pointee = getAddrSpaceQualType(Pointee, AS);
   if (const auto *DT = T->getAs<DecayedType>()) {
       QualType OrigTy = DT->getOriginalType();
-      if (!OrigTy.hasAddressSpace() && OrigTy->isArrayType()) {
+      if (OrigTy->isArrayType()) {
+        if (OrigTy.hasAddressSpace())
+          OrigTy = removeAddrSpaceQualType(OrigTy);
         // Add the address space to the original array type and then propagate
         // that to the element type through `getAsArrayType`.
         OrigTy = getAddrSpaceQualType(OrigTy, AS);
@@ -3201,12 +3199,18 @@ QualType ASTContext::addPointeeAddrSpace(QualType T, LangAS AS) const {
       }
       return T;
   }
+  QualType Pointee = T->getPointeeType();
+  if (Pointee.hasAddressSpace())
+    Pointee = removeAddrSpaceQualType(Pointee);
+  Pointee = getAddrSpaceQualType(Pointee, AS);
   if (T->isPointerType())
     return getPointerType(Pointee);
   if (T->isLValueReferenceType())
     return getLValueReferenceType(Pointee);
   if (T->isRValueReferenceType())
     return getLValueReferenceType(Pointee);
+  if (auto *MPT = T->getAs<MemberPointerType>())
+    return getMemberPointerType(Pointee, MPT->getClass());
   llvm_unreachable("not a pointer or reference type");
 }
 
@@ -3244,7 +3248,12 @@ void ASTContext::adjustDeducedFunctionResultType(FunctionDecl *FD,
   while (true) {
     const auto *FPT = FD->getType()->castAs<FunctionProtoType>();
     FunctionProtoType::ExtProtoInfo EPI = FPT->getExtProtoInfo();
-    FD->setType(getFunctionType(ResultType, FPT->getParamTypes(), EPI));
+    LangAS AS = FD->getType().getAddressSpace();
+    QualType FTy = getFunctionType(ResultType, FPT->getParamTypes(), EPI);
+    if (AS != LangAS::Default) {
+      FTy = getAddrSpaceQualType(FTy, AS);
+    }
+    FD->setType(FTy);
     if (FunctionDecl *Next = FD->getPreviousDecl())
       FD = Next;
     else
@@ -3281,9 +3290,13 @@ QualType ASTContext::getFunctionTypeWithExceptionSpec(
   // Anything else must be a function type. Rebuild it with the new exception
   // specification.
   const auto *Proto = Orig->castAs<FunctionProtoType>();
-  return getFunctionType(
+  auto Ret = getFunctionType(
       Proto->getReturnType(), Proto->getParamTypes(),
       Proto->getExtProtoInfo().withExceptionSpec(ESI));
+  if (Orig.hasAddressSpace()) {
+    Ret = getAddrSpaceQualType(Ret, Orig.getAddressSpace());
+  }
+  return Ret;
 }
 
 bool ASTContext::hasSameFunctionTypeIgnoringExceptionSpec(QualType T,
@@ -7560,6 +7573,8 @@ LangAS ASTContext::getCheerpPointeeAddrSpace(const Type *PointeeType, Decl* D, L
         return LangAS::Default;
       }
       // If it is a DTS but the element type is concrete, don't bail out
+    } else if (PointeeType->isFunctionType()) {
+      // If it is a templated function, don't bail out
     } else {
       return LangAS::Default;
     }
@@ -7567,7 +7582,7 @@ LangAS ASTContext::getCheerpPointeeAddrSpace(const Type *PointeeType, Decl* D, L
   if (auto* TagTy = PointeeType->getAsTagDecl()) {
     return getCheerpTypeAddressSpace(TagTy);
   }
-  if (PointeeType->isPointerType() || PointeeType->isReferenceType()) {
+  if (PointeeType->isPointerType() || PointeeType->isReferenceType() || PointeeType->isMemberPointerType()) {
     LangAS PointeePointeeAS = getCheerpPointeeAddrSpace(PointeeType->getPointeeType().getTypePtr(), D, Fallback);
     switch (PointeePointeeAS) {
       case LangAS::cheerp_genericjs:
@@ -7580,15 +7595,28 @@ LangAS ASTContext::getCheerpPointeeAddrSpace(const Type *PointeeType, Decl* D, L
   if (auto* TdTy = PointeeType->getAs<TypedefType>()) {
     return getCheerpPointeeAddrSpace(TdTy->desugar().getTypePtr(), D, Fallback);
   }
+  LangAS Ret = Fallback;
   while (D) {
-    if (D->hasAttr<clang::AsmJSAttr>())
-      return LangAS::cheerp_wasm;
-    if (D->hasAttr<clang::GenericJSAttr>())
-      return LangAS::cheerp_genericjs;
+    if (D->hasAttr<clang::ByteLayoutAttr>()) {
+      Ret = LangAS::cheerp_bytelayout;
+      break;
+    }
+    if (D->hasAttr<clang::AsmJSAttr>()) {
+      Ret = LangAS::cheerp_wasm;
+      break;
+    }
+    if (D->hasAttr<clang::GenericJSAttr>()) {
+      Ret = LangAS::cheerp_genericjs;
+      break;
+    }
     DeclContext* C = D->getDeclContext();
     D = C? cast<Decl>(C) : nullptr;
   }
-  return Fallback;
+  // TODO assign a AS to functions directly, so this flawed heuristic is not needed
+  if (PointeeType->isFunctionType()) {
+    return Ret == LangAS::cheerp_genericjs? LangAS::cheerp_client : Fallback;
+  }
+  return Ret;
 }
 
 /// BlockRequiresCopying - Returns true if byref variable "D" of type "Ty"
@@ -13283,16 +13311,33 @@ LangAS ASTContext::getCheerpTypeAddressSpace(QualType Ty, LangAS fallback) const
 }
 LangAS ASTContext::getCheerpTypeAddressSpace(const Decl* D, LangAS fallback) const {
   LangAS AS = fallback;
-  if (AnalysisDeclContext::isInClientNamespace(D)) {
-    AS = clang::LangAS::cheerp_client;
-  } else if (D->hasAttr<ByteLayoutAttr>() || (isa<RecordDecl>(D) && cast<RecordDecl>(D)->isByteLayout())) {
+  if (D->hasAttr<ByteLayoutAttr>() || (isa<RecordDecl>(D) && cast<RecordDecl>(D)->isByteLayout())) {
     AS = LangAS::cheerp_bytelayout;
+  } else if (AnalysisDeclContext::isInClientNamespace(D)) {
+    AS = clang::LangAS::cheerp_client;
   } else if (D->hasAttr<GenericJSAttr>()) {
     AS = LangAS::cheerp_genericjs;
   } else if (D->hasAttr<AsmJSAttr>()) {
     AS = LangAS::cheerp_wasm;
   }
   return AS;
+}
+
+QualType ASTContext::adjustCheerpFunctionAddressSpace(QualType T, LangAS AS) const {
+  const FunctionProtoType* FnTy = T->castAs<FunctionProtoType>();
+  FunctionProtoType::ExtProtoInfo EPI = FnTy->getExtProtoInfo();
+
+  if (AS == EPI.TypeQuals.getAddressSpace()) {
+    return T;
+  }
+
+  EPI.TypeQuals.setAddressSpace(AS);
+  QualType NewType = getFunctionType(FnTy->getReturnType(), FnTy->getParamTypes(), EPI);
+  return getAdjustedType(T, NewType);
+}
+
+QualType ASTContext::adjustCheerpMemberFunctionAddressSpace(QualType T, QualType ClassType) const {
+  return adjustCheerpFunctionAddressSpace(T, getCheerpTypeAddressSpace(ClassType));
 }
 
 // Explicitly instantiate this in case a Redeclarable<T> is used from a TU that

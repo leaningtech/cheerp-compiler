@@ -1793,7 +1793,15 @@ static Sema::TemplateDeductionResult DeduceTemplateArgumentsByTypeMatch(
       if (!FPA)
         return Sema::TDK_NonDeducedMismatch;
 
-      if (FPP->getMethodQuals() != FPA->getMethodQuals() ||
+      Qualifiers FPPQuals = FPP->getMethodQuals(),
+                 FPAQuals = FPA->getMethodQuals();
+
+      // CHEERP: Allow any method address space on the argument if the
+      // parameter has default method address space.
+      if (S.getLangOpts().Cheerp && !FPPQuals.hasAddressSpace() && FPAQuals.hasAddressSpace())
+        FPPQuals.setAddressSpace(FPAQuals.getAddressSpace());
+
+      if (FPPQuals != FPAQuals ||
           FPP->getRefQualifier() != FPA->getRefQualifier() ||
           FPP->isVariadic() != FPA->isVariadic())
         return Sema::TDK_NonDeducedMismatch;
@@ -4309,6 +4317,13 @@ Sema::TemplateDeductionResult Sema::DeduceTemplateArguments(
     TemplateArgumentListInfo *ExplicitTemplateArgs, QualType ArgFunctionType,
     FunctionDecl *&Specialization, TemplateDeductionInfo &Info,
     bool IsAddressOfFunction) {
+
+  // Cheerp: Clang does not like when function types are qualified here
+  // Since the purpose is just matching the specialization with the base
+  // template, just strip it here
+  if (!ArgFunctionType.isNull())
+    ArgFunctionType = Context.removeAddrSpaceQualType(ArgFunctionType);
+
   if (FunctionTemplate->isInvalidDecl())
     return TDK_Invalid;
 
@@ -4401,6 +4416,10 @@ Sema::TemplateDeductionResult Sema::DeduceTemplateArguments(
   // noreturn can't be dependent, so we don't actually need this for them
   // right now.)
   QualType SpecializationType = Specialization->getType();
+  // Cheerp: Clang does not like when function types are qualified here
+  // Since the purpose is just matching the specialization with the base
+  // template, just strip it here
+  SpecializationType = Context.removeAddrSpaceQualType(SpecializationType);
   if (!IsAddressOfFunction)
     ArgFunctionType = adjustCCAndNoReturn(ArgFunctionType, SpecializationType,
                                           /*AdjustExceptionSpec*/true);

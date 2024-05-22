@@ -13433,6 +13433,9 @@ TreeTransform<Derived>::TransformLambdaExpr(LambdaExpr *E) {
                                /*IsInstantiation=*/true);
     return ExprError();
   }
+  if (getSema().getLangOpts().Cheerp) {
+    getSema().deduceCheerpAddressSpace(NewCallOperator);
+  }
 
   // Copy the LSI before ActOnFinishFunctionBody removes it.
   // FIXME: This is dumb. Store the lambda information somewhere that outlives
@@ -14630,6 +14633,15 @@ QualType
 TreeTransform<Derived>::RebuildMemberPointerType(QualType PointeeType,
                                                  QualType ClassType,
                                                  SourceLocation Sigil) {
+  if (SemaRef.getLangOpts().Cheerp) {
+    QualType T = PointeeType;
+    if (T->isFunctionProtoType())
+      T = SemaRef.Context.adjustCheerpMemberFunctionAddressSpace(T, ClassType);
+    T = SemaRef.deduceCheerpPointeeAddrSpace(T);
+    if (T != PointeeType)
+      PointeeType = SemaRef.Context.getAdjustedType(PointeeType, T);
+  }
+
   return SemaRef.BuildMemberPointerType(PointeeType, ClassType, Sigil,
                                         getDerived().getBaseEntity());
 }

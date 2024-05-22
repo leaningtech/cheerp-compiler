@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "TypeLocBuilder.h"
+#include "clang/Analysis/AnalysisDeclContext.h"
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/ASTLambda.h"
@@ -4063,6 +4064,9 @@ bool Sema::MergeFunctionDecl(FunctionDecl *New, NamedDecl *&OldD, Scope *S,
         = Context.adjustFunctionType(OldType, OldTypeInfo.withNoReturn(true));
       OldQTypeForComparison = QualType(OldTypeForComparison, 0);
       assert(OldQTypeForComparison.isCanonical());
+      if (OldQType.hasAddressSpace()) {
+        OldQTypeForComparison = Context.getAddrSpaceQualType(OldQTypeForComparison, OldQType.getAddressSpace());
+      }
     }
     // CHEERP: We inject an AS qualifier only on non-static methods (for `this`),
     // but out-of-line static methods don't look as such at first glance,
@@ -4075,6 +4079,7 @@ bool Sema::MergeFunctionDecl(FunctionDecl *New, NamedDecl *&OldD, Scope *S,
       NewQType = Context.getFunctionType(NewProto->getReturnType(),
                                          NewProto->getParamTypes(),
                                          NewExtProtoInfo);
+      NewQType = Context.getAddrSpaceQualType(NewQType, New->getType().getAddressSpace());
       New->setType(NewQType);
     }
 
@@ -6931,8 +6936,6 @@ void Sema::deduceOpenCLAddressSpace(ValueDecl *Decl) {
 void Sema::deduceCheerpAddressSpace(ValueDecl *Decl) {
   if (Decl->getType().hasAddressSpace())
     return;
-  if (Decl->getType()->isDependentType())
-    return;
   QualType Type = Decl->getType();
   if (Type->isVoidType())
     return;
@@ -6949,7 +6952,12 @@ void Sema::deduceCheerpAddressSpace(ValueDecl *Decl) {
       Type = Context.getDecayedType(OrigTy);
     }
   }
-  Type = deduceCheerpPointeeAddrSpace(Type, Decl);
+  if (isa<VarDecl>(Decl) && cast<VarDecl>(Decl)->hasGlobalStorage() &&
+      AnalysisDeclContext::isInClientNamespace(Decl)) {
+    Type = Context.getAddrSpaceQualType(Type, LangAS::cheerp_client);
+  } else {
+    Type = deduceCheerpPointeeAddrSpace(Type, Decl);
+  }
   // Apply any qualifiers (including address space) from the array type to
   // the element type.
   if (Type->isArrayType())
@@ -10232,6 +10240,10 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
   // Handle attributes.
   ProcessDeclAttributes(S, NewFD, D);
 
+  if (getLangOpts().Cheerp) {
+    deduceCheerpAddressSpace(NewFD);
+  }
+
   if (getLangOpts().OpenCL) {
     // OpenCL v1.1 s6.5: Using an address space qualifier in a function return
     // type declaration will generate a compilation error.
@@ -12694,6 +12706,9 @@ bool Sema::DeduceVariableDeclarationType(VarDecl *VDecl, bool DirectInit,
   if (getLangOpts().OpenCL)
     deduceOpenCLAddressSpace(VDecl);
 
+  if (getLangOpts().Cheerp)
+    deduceCheerpAddressSpace(VDecl);
+
   // If this is a redeclaration, check that the type we just deduced matches
   // the previously declared type.
   if (VarDecl *Old = VDecl->getPreviousDecl()) {
@@ -14210,7 +14225,15 @@ void Sema::AddJsExportPropertyHelper(DeclaratorDecl* Decl, bool Set)
   DeclarationName Name(&PP.getIdentifierTable().get(String));
   DeclContext* DC = Decl->getDeclContext();
   SourceLocation Loc = Decl->getLocation();
-  QualType Type = Context.getFunctionType(ResultTy, Args, {});
+  FunctionProtoType::ExtProtoInfo EPI;
+
+  if (CXXRecordDecl* RD = dyn_cast<CXXRecordDecl>(DC))
+  {
+    LangAS AS = Context.getCheerpTypeAddressSpace(RD);
+    EPI.TypeQuals.addAddressSpace(AS);
+  }
+
+  QualType Type = Context.getFunctionType(ResultTy, Args, EPI);
   TypeSourceInfo* TSI = Context.getTrivialTypeSourceInfo(Type, Loc);
   FunctionDecl* Helper;
   bool Field = false;
@@ -15542,8 +15565,12 @@ Decl *Sema::ActOnFinishFunctionBody(Decl *dcl, Stmt *Body,
 
           // Update the return type to the deduced type.
           const auto *Proto = FD->getType()->castAs<FunctionProtoType>();
-          FD->setType(Context.getFunctionType(RetType, Proto->getParamTypes(),
-                                              Proto->getExtProtoInfo()));
+          QualType FTy = Context.getFunctionType(RetType, Proto->getParamTypes(),
+                                              Proto->getExtProtoInfo());
+          if (FD->getType().hasAddressSpace()) {
+            FTy = Context.getAddrSpaceQualType(FTy, FD->getType().getAddressSpace());
+          }
+          FD->setType(FTy);
         }
       }
 
