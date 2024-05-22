@@ -5624,18 +5624,16 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
                                         : ASIdx);
           EPI.TypeQuals.addAddressSpace(AS);
         }
-        if (!S.Context.getTargetInfo().isByteAddressable() &&
+        if (state.getSema().getLangOpts().Cheerp &&
             IsClassMember() &&
             !IsTypedefName &&
             D.getDeclSpec().getStorageClassSpec() != DeclSpec::SCS_static &&
             !D.getDeclSpec().isFriendSpecified() &&
             state.getDeclarator().isFunctionDeclarator()
         ) {
-          if (auto* C = GetParentClass()) {
-            LangAS AS = S.Context.getCheerpTypeAddressSpace(C);
-            if (AS != LangAS::Default)
-              EPI.TypeQuals.addAddressSpace(AS);
-          }
+          LangAS AS = S.getDefaultCXXMethodAddrSpace(GetParentClass());
+          if (AS != LangAS::Default)
+            EPI.TypeQuals.addAddressSpace(AS);
         }
         T = Context.getFunctionType(T, ParamTys, EPI);
       }
@@ -5689,6 +5687,15 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
           << DeclType.Mem.Scope().getRange();
         D.setInvalidType(true);
       }
+
+      // CHEERP: Set the "this" address space of a member function pointer type
+      // to be the same address space as the class of the member pointer type
+      // (the class in which the member function is defined).
+      if (LangOpts.Cheerp && T->isFunctionProtoType())
+        T = Context.adjustCheerpMemberFunctionAddressSpace(T, ClsType);
+
+      if (PtrAS != LangAS::Default && !T.hasAddressSpace())
+        T = Context.getAddrSpaceQualType(T, PtrAS);
 
       if (!ClsType.isNull())
         T = S.BuildMemberPointerType(T, ClsType, DeclType.Loc,
@@ -9361,15 +9368,11 @@ QualType Sema::BuildDecltypeType(Expr *E, bool AsUnevaluated) {
     Diag(E->getExprLoc(), diag::warn_side_effects_unevaluated_context);
   }
   QualType Ret = getDecltypeForExpr(E);
-  if (Ret.hasAddressSpace()) {
-    llvm::errs()<<"==========================\n\n";
-    Ret.dump();
-    if (!Ret->isArrayType())
-    {
-      llvm::errs()<<"==========================\n\n";
-      Ret = Context.removeAddrSpaceQualType(Ret);
-      Ret.dump();
-    }
+  if (getLangOpts().Cheerp && Ret.hasAddressSpace()) {
+    Qualifiers Quals;
+    QualType Unqual = Context.getUnqualifiedArrayType(Ret, Quals);
+    Quals.removeAddressSpace();
+    Ret = Context.getQualifiedType(Unqual, Quals);
   }
   Ret = Context.getDecltypeType(E, Ret);
   return Ret;
@@ -9409,6 +9412,9 @@ QualType Sema::BuiltinEnumUnderlyingType(QualType BaseType,
 }
 
 QualType Sema::BuiltinAddPointer(QualType BaseType, SourceLocation Loc) {
+  if (Context.getLangOpts().Cheerp) {
+    BaseType = deduceCheerpPointeeAddrSpace(BaseType);
+  }
   QualType Pointer = BaseType.isReferenceable() || BaseType->isVoidType()
                          ? BuildPointerType(BaseType.getNonReferenceType(), Loc,
                                             DeclarationName())
@@ -9451,6 +9457,10 @@ QualType Sema::BuiltinDecay(QualType BaseType, SourceLocation Loc) {
 QualType Sema::BuiltinAddReference(QualType BaseType, UTTKind UKind,
                                    SourceLocation Loc) {
   assert(LangOpts.CPlusPlus);
+
+  if (Context.getLangOpts().Cheerp) {
+    BaseType = deduceCheerpPointeeAddrSpace(BaseType);
+  }
   QualType Reference =
       BaseType.isReferenceable()
           ? BuildReferenceType(BaseType,

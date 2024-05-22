@@ -2326,6 +2326,10 @@ Decl *TemplateDeclInstantiator::VisitFunctionDecl(
     }
   }
 
+  if (SemaRef.getLangOpts().Cheerp) {
+    SemaRef.deduceCheerpAddressSpace(Function);
+  }
+
   SemaRef.CheckFunctionDeclaration(/*Scope*/ nullptr, Function, Previous,
                                    IsExplicitSpecialization,
                                    Function->isThisDeclarationADefinition());
@@ -2710,6 +2714,10 @@ Decl *TemplateDeclInstantiator::VisitCXXMethodDecl(
           Params[P]->setDefaultArg(ErrorResult.get());
       }
     }
+  }
+
+  if (SemaRef.getLangOpts().Cheerp) {
+    SemaRef.deduceCheerpAddressSpace(Method);
   }
 
   SemaRef.CheckFunctionDeclaration(nullptr, Method, Previous,

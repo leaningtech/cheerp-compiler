@@ -1486,8 +1486,18 @@ NamedDecl *Sema::getCurFunctionOrMethodDecl() {
 }
 
 LangAS Sema::getDefaultCXXMethodAddrSpace(CXXRecordDecl* D) const {
-  if (D != nullptr && !Context.getTargetInfo().isByteAddressable()) {
-    return Context.getCheerpTypeAddressSpace(D);
+  if (getLangOpts().Cheerp) {
+    if (D)
+      return Context.getCheerpTypeAddressSpace(D);
+    if (DeclContext* ctx = getCurLexicalContext()) {
+      if (Decl* ParentDecl = dyn_cast<Decl>(ctx)) {
+        if (ParentDecl->hasAttr<GenericJSAttr>()) {
+          return LangAS::cheerp_genericjs;
+        } else if (ParentDecl->hasAttr<AsmJSAttr>()) {
+          return LangAS::cheerp_wasm;
+        }
+      }
+    }
   }
   if (getLangOpts().OpenCL)
     return getASTContext().getDefaultOpenCLPointeeAddrSpace();
