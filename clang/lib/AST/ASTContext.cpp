@@ -3185,13 +3185,11 @@ QualType ASTContext::addPointeeAddrSpace(QualType T, LangAS AS) const {
   if (!T->isPointerType() && !T->isReferenceType()) {
     return T;
   }
-  QualType Pointee = T->getPointeeType();
-  if (Pointee.hasAddressSpace())
-    Pointee = removeAddrSpaceQualType(Pointee);
-  Pointee = getAddrSpaceQualType(Pointee, AS);
   if (const auto *DT = T->getAs<DecayedType>()) {
       QualType OrigTy = DT->getOriginalType();
-      if (!OrigTy.hasAddressSpace() && OrigTy->isArrayType()) {
+      if (OrigTy->isArrayType()) {
+        if (OrigTy.hasAddressSpace())
+          OrigTy = removeAddrSpaceQualType(OrigTy);
         // Add the address space to the original array type and then propagate
         // that to the element type through `getAsArrayType`.
         OrigTy = getAddrSpaceQualType(OrigTy, AS);
@@ -3201,6 +3199,10 @@ QualType ASTContext::addPointeeAddrSpace(QualType T, LangAS AS) const {
       }
       return T;
   }
+  QualType Pointee = T->getPointeeType();
+  if (Pointee.hasAddressSpace())
+    Pointee = removeAddrSpaceQualType(Pointee);
+  Pointee = getAddrSpaceQualType(Pointee, AS);
   if (T->isPointerType())
     return getPointerType(Pointee);
   if (T->isLValueReferenceType())
