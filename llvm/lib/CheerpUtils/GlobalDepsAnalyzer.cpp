@@ -1202,7 +1202,7 @@ void GlobalDepsAnalyzer::visitGlobal( const GlobalValue * C, VisitedSet & visite
 		}
 		else if (const Function * F = dyn_cast<Function>(C) )
 		{
-			if (isFreeFunctionName(C->getName()))
+			if (C->getName() == "free")
 			{
 				// Don't visit free right now. We do it only if
 				// actyally needed at the end
