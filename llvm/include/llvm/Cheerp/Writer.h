@@ -12,6 +12,7 @@
 #ifndef _CHEERP_WRITER_H
 #define _CHEERP_WRITER_H
 
+#include "llvm/ADT/Triple.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Cheerp/AllocaMerging.h"
 #include "llvm/Cheerp/BaseWriter.h"
@@ -182,6 +183,7 @@ private:
 	llvm::ModuleAnalysisManager& MAM;
 	llvm::FunctionAnalysisManager& FAM;
 	llvm::DataLayout targetData;
+	bool isWasmTarget;
 	const llvm::Function* currentFun;
 	// function-local map of type_info* to typeid, for exception handling
 	llvm::DenseMap<llvm::Value*, int> typeIdMap;
@@ -617,6 +619,7 @@ public:
 		MAM(MAM),
 		FAM(MAM.getResult<llvm::FunctionAnalysisManagerModuleProxy>(m).getManager()),
 		targetData(&m),
+		isWasmTarget(llvm::Triple(m.getTargetTriple()).isCheerpWasm()),
 		currentFun(NULL),
 		PA(PA),
 		registerize(registerize),

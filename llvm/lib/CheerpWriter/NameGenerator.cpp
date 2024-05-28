@@ -19,6 +19,7 @@
 #include "llvm/Cheerp/Writer.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InlineAsm.h"
+#include "llvm/ADT/Triple.h"
 #include <functional>
 #include <set>
 
@@ -354,8 +355,9 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 
 	NameHelper nameHelper(GlobalPrefix, reservedNames);
 
+	bool isWasmTarget = Triple(M.getTargetTriple()).isCheerpWasm();
 	// Generate HEAP names first to keep them short
-	if(gda.needAsmJSMemory() || gda.needAsmJSCode())
+	if(isWasmTarget)
 	{
 		if (exportedMemory)
 		{

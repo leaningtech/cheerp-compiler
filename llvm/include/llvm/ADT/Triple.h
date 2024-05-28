@@ -786,7 +786,7 @@ public:
 
   /// Tests wheter the target is cheerp-wasm
   bool isCheerpWasm() const {
-    return getArch() == Triple::cheerp && getObjectFormat() == Triple::Wasm;
+    return getArch() == Triple::cheerp && getEnvironment() == Triple::WebAssembly;
   }
 
   /// Tests whether the target supports the EHABI exception

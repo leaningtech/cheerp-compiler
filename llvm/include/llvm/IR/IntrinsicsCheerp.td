@@ -61,6 +61,9 @@ def int_cheerp_pointer_offset : Intrinsic<[llvm_i32_ty],
 def int_cheerp_is_linear_heap : Intrinsic<[llvm_i1_ty],
                                 [llvm_anyptr_ty],
                                 [IntrNoMem]>;
+def int_cheerp_pointer_elem_size : Intrinsic<[llvm_i32_ty],
+                                [llvm_anyptr_ty],
+                                [IntrNoMem]>;
 
 // Closure creation for callbacks
 def int_cheerp_create_closure : Intrinsic<[llvm_anyptr_ty],

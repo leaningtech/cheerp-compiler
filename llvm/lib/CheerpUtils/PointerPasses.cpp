@@ -14,6 +14,7 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/ADT/Triple.h"
 #include "llvm/Cheerp/DeterministicUnorderedSet.h"
 #include "llvm/Cheerp/InvokeWrapping.h"
 #include "llvm/Cheerp/PointerPasses.h"
@@ -58,9 +59,9 @@ class FreeAndDeleteRemoval
 {
 private:
 	void deleteInstructionAndUnusedOperands(llvm::Instruction* I);
-	bool isAllGenericJS;
+	bool isWasmTarget;
 public:
-	explicit FreeAndDeleteRemoval() : isAllGenericJS(false) { }
+	explicit FreeAndDeleteRemoval(): isWasmTarget(false) { }
 	bool runOnModule(llvm::Module &M); 
 };
 
@@ -578,6 +579,7 @@ static Function* getOrCreateGenericJSFree(Module& M, bool isAllGenericJS)
 		Type* VoidPtr = IntegerType::get(M.getContext(), 8)->getPointerTo();
 		Type* Tys[] = { VoidPtr };
 		Function *GetBase = Intrinsic::getDeclaration(&M, Intrinsic::cheerp_is_linear_heap, Tys);
+		Function *ElemSize = Intrinsic::getDeclaration(&M, Intrinsic::cheerp_pointer_elem_size, Tys);
 
 		BasicBlock* ExitBlock = BasicBlock::Create(M.getContext(), "exitblk", New);
 		BasicBlock* ForwardBlock = BasicBlock::Create(M.getContext(), "fwdblk", New);
@@ -592,7 +594,9 @@ static Function* getOrCreateGenericJSFree(Module& M, bool isAllGenericJS)
 		Builder.SetInsertPoint(ForwardBlock);
 		Function *PtrOffset = Intrinsic::getDeclaration(&M, Intrinsic::cheerp_pointer_offset, Tys);
 		CallInst* Offset = Builder.CreateCall(PtrOffset, Params);
-		Value* OffsetP = Builder.CreateIntToPtr(Offset, VoidPtr);
+		CallInst* Size = Builder.CreateCall(ElemSize, Params);
+		Value* OffsetShifted = Builder.CreateMul(Offset, Size);
+		Value* OffsetP = Builder.CreateIntToPtr(OffsetShifted, VoidPtr);
 		Value* Params2[] = { OffsetP };
 		Builder.CreateCall(Orig, Params2);
 	}
@@ -604,20 +608,7 @@ bool FreeAndDeleteRemoval::runOnModule(Module& M)
 {
 	bool Changed = false;
 
-	isAllGenericJS = true;
-	bool hasFree = M.getFunction("free") != nullptr;
-	if(hasFree)
-	{
-		for (const Function& f: M)
-		{
-			if (f.getSection() == StringRef("asmjs") && !cheerp::isFreeFunctionName(f.getName()))
-			{
-				isAllGenericJS = false;
-				break;
-			}
-		}
-	}
-
+	isWasmTarget = Triple(M.getTargetTriple()).isCheerpWasm();
 	std::vector<Use*> usesToBeReplaced;
 	for (Function& f: M)
 	{
@@ -631,7 +622,7 @@ bool FreeAndDeleteRemoval::runOnModule(Module& M)
 				User* Usr = U.getUser();
 				if (CallBase* call = dyn_cast<CallBase>(Usr))
 				{
-					if (isAllGenericJS)
+					if (!isWasmTarget)
 					{
 						deleteInstructionAndUnusedOperands(call);
 						Changed = true;
@@ -646,7 +637,7 @@ bool FreeAndDeleteRemoval::runOnModule(Module& M)
 					{
 						continue;
 					}
-					U.set(getOrCreateGenericJSFree(M, isAllGenericJS));
+					U.set(getOrCreateGenericJSFree(M, !isWasmTarget));
 					Changed = true;
 				}
 				else if (GlobalValue* gv = dyn_cast<GlobalValue>(Usr))
@@ -655,7 +646,7 @@ bool FreeAndDeleteRemoval::runOnModule(Module& M)
 					{
 						continue;
 					}
-					U.set(getOrCreateGenericJSFree(M, isAllGenericJS));
+					U.set(getOrCreateGenericJSFree(M, !isWasmTarget));
 					Changed = true;
 				}
 				else if (Constant* c = dyn_cast<Constant>(Usr))
@@ -668,7 +659,7 @@ bool FreeAndDeleteRemoval::runOnModule(Module& M)
 				}
 				else
 				{
-					U.set(getOrCreateGenericJSFree(M, isAllGenericJS));
+					U.set(getOrCreateGenericJSFree(M, !isWasmTarget));
 					Changed = true;
 				}
 
@@ -689,10 +680,18 @@ bool FreeAndDeleteRemoval::runOnModule(Module& M)
 					Type* ty = call->getOperand(0)->getType();
 					assert(isa<PointerType>(ty));
 					Type* elemTy = cast<PointerType>(ty)->getPointerElementType();
-					if (isAllGenericJS || (!cheerp::TypeSupport::isAsmJSPointed(elemTy) && elemTy->isAggregateType()))
+					if (!isWasmTarget || (!cheerp::TypeSupport::isAsmJSPointed(elemTy) && elemTy->isAggregateType()))
 					{
 						deleteInstructionAndUnusedOperands(call);
 						Changed = true;
+					}
+					else if (cheerp::TypeSupport::isAsmJSPointed(elemTy))
+					{
+						U.set(M.getFunction("free"));
+					}
+					else
+					{
+						U.set(getOrCreateGenericJSFree(M, false));
 					}
 				}
 			}
@@ -721,7 +720,7 @@ bool FreeAndDeleteRemoval::runOnModule(Module& M)
 
 	if (!usesToBeReplaced.empty())
 	{
-		cheerp::replaceSomeUsesWith(usesToBeReplaced, getOrCreateGenericJSFree(M, isAllGenericJS));
+		cheerp::replaceSomeUsesWith(usesToBeReplaced, getOrCreateGenericJSFree(M, !isWasmTarget));
 	}
 
 	return Changed;

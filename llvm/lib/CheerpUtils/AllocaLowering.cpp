@@ -172,7 +172,7 @@ bool AllocaLowering::runOnFunction(Function& F, DominatorTree& DT, cheerp::Globa
 	nbytes = (nbytes + 7) & -8;
 
 	Function *getStack, *setStack;
-	if (asmjs || !GDA.needAsmJSCode())
+	if (asmjs)
 	{
 		getStack = Intrinsic::getDeclaration(M, Intrinsic::stacksave);
 		setStack = Intrinsic::getDeclaration(M, Intrinsic::stackrestore);

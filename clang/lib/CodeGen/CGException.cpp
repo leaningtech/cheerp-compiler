@@ -877,6 +877,14 @@ llvm::BasicBlock *CodeGenFunction::EmitLandingPad() {
   LPadInst = Builder.CreateLandingPad(LPadTy, 0);
 
   llvm::Value *LPadExn = Builder.CreateExtractValue(LPadInst, 0);
+  if(!CGM.getTarget().isByteAddressable()) {
+    if (CGM.getTarget().getTriple().isCheerpWasm()) {
+      LPadExn = Builder.CreateIntToPtr(LPadExn, Int8PtrTy);
+    } else {
+      llvm::Function *MakeReg = CGM.getIntrinsic(llvm::Intrinsic::cheerp_make_regular, {Int8PtrTy, Int8PtrTy});
+      LPadExn = Builder.CreateCall(MakeReg, {llvm::ConstantPointerNull::get(Int8PtrTy), LPadExn});
+    }
+  }
   Builder.CreateStore(LPadExn, getExceptionSlot());
   llvm::Value *LPadSel = Builder.CreateExtractValue(LPadInst, 1);
   Builder.CreateStore(LPadSel, getEHSelectorSlot());
@@ -1575,6 +1583,14 @@ llvm::BasicBlock *CodeGenFunction::getTerminateLandingPad() {
   llvm::Value *Exn = nullptr;
   if (getLangOpts().CPlusPlus) {
     Exn = Builder.CreateExtractValue(LPadInst, 0);
+    if(!CGM.getTarget().isByteAddressable()) {
+      if (CGM.getTarget().getTriple().isCheerpWasm()) {
+        Exn = Builder.CreateIntToPtr(Exn, Int8PtrTy);
+      } else {
+        llvm::Function *MakeReg = CGM.getIntrinsic(llvm::Intrinsic::cheerp_make_regular, {Int8PtrTy, Int8PtrTy});
+        Exn = Builder.CreateCall(MakeReg, {llvm::ConstantPointerNull::get(Int8PtrTy), Exn});
+      }
+    }
   }
   llvm::CallInst *terminateCall =
       CGM.getCXXABI().emitTerminateForUnexpectedException(*this, Exn);
@@ -1675,6 +1691,14 @@ llvm::BasicBlock *CodeGenFunction::getEHResumeBlock(bool isCleanup) {
 
   llvm::Type *LPadType = GetLandingPadTy();
   llvm::Value *LPadVal = llvm::UndefValue::get(LPadType);
+  if (!CGM.getTarget().isByteAddressable()) {
+    if (CGM.getTarget().getTriple().isCheerpWasm()) {
+      Exn = Builder.CreatePtrToInt(Exn, Int32Ty);
+    } else {
+      llvm::Function *PtrOffset = CGM.getIntrinsic(llvm::Intrinsic::cheerp_pointer_offset, {Int8PtrTy});
+      Exn = Builder.CreateCall(PtrOffset, Exn);
+    }
+  }
   LPadVal = Builder.CreateInsertValue(LPadVal, Exn, 0, "lpad.val");
   LPadVal = Builder.CreateInsertValue(LPadVal, Sel, 1, "lpad.val");
   Builder.CreateResume(LPadVal);
