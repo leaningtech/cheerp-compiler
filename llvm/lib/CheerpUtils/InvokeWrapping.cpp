@@ -9,6 +9,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/ADT/Triple.h"
 #include "llvm/Cheerp/InvokeWrapping.h"
 #include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/Instructions.h"
@@ -362,11 +363,18 @@ static Function* wrapInvoke(Module& M, InvokeInst& IV, DenseSet<Instruction*>& T
 
 static Function* wrapResume(Module& M, ResumeInst* RS)
 {
+	PointerType* Int8PtrTy = Type::getInt8Ty(M.getContext())->getPointerTo(0);
 	Function* CxaResume = M.getFunction("__cxa_resume");
 	assert(CxaResume);
 	IRBuilder<> Builder(RS);
 	Value* LP = RS->getOperand(0);
 	Value* Val = Builder.CreateExtractValue(LP, {0});
+    if (Triple(M.getTargetTriple()).isCheerpWasm()) {
+      Val = Builder.CreateIntToPtr(Val, Int8PtrTy);
+    } else {
+		llvm::Function *MakeReg = Intrinsic::getDeclaration(&M, Intrinsic::cheerp_make_regular, {Int8PtrTy, Int8PtrTy});
+		Val = Builder.CreateCall(MakeReg, {ConstantPointerNull::get(Int8PtrTy), Val});
+	}
 	Value* Call = Builder.CreateCall(CxaResume->getFunctionType(), CxaResume, Val);
 	RS->replaceAllUsesWith(Call);
 	Builder.CreateUnreachable();

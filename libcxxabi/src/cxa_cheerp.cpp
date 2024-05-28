@@ -53,18 +53,18 @@ terminate() noexcept
 namespace [[cheerp::genericjs]] __cxxabiv1 {
 
 struct
+#ifdef __ASMJS__
 [[cheerp::wasm]]
+#endif
  __cheerp_landingpad
 {
-	void* val;
+	uintptr_t val;
 	int sel;
 
 	[[cheerp::genericjs]]
-	static void set_val(__cheerp_landingpad* lp, void* v) noexcept
+	void set_val(void* v) noexcept
 	{
-		int intval = __builtin_cheerp_pointer_offset(v);
-		__cheerp_landingpad** hack = reinterpret_cast<__cheerp_landingpad**>(lp);
-		*hack = reinterpret_cast<__cheerp_landingpad*>(intval);
+		val = __builtin_cheerp_pointer_offset(v);
 	}
 };
 
@@ -537,7 +537,7 @@ __gxx_personality_v0
 			}
 		}
 	}
-	__cheerp_landingpad lp{nullptr, 0};
+	__cheerp_landingpad lp{0, 0};
 	if(!native)
 	{
 		curNonNativeException = obj;
@@ -545,7 +545,7 @@ __gxx_personality_v0
 	}
 
 	Exception* ex = current_exception;
-	__cheerp_landingpad::set_val(&lp, ex);
+	lp.set_val(ex);
 
 	for(int i = start; i < start+n; i++)
 	{

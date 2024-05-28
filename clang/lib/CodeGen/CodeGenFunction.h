@@ -2016,9 +2016,10 @@ public:
     auto* Ret = llvm::StructType::getTypeByName(CGM.getLLVMContext(), "struct._ZN10__cxxabiv119__cheerp_landingpadE");
     if (Ret)
       return Ret;
-    llvm::Type* Tys[] { CGM.Int8PtrTy, CGM.Int32Ty};
+    llvm::Type* Tys[] { CGM.Int32Ty, CGM.Int32Ty};
 
-    return llvm::StructType::create(Tys, "struct._ZN10__cxxabiv119__cheerp_landingpadE", false, nullptr, false, true /*asmjs*/);
+    bool asmjs = getTarget().getTriple().isCheerpWasm();
+    return llvm::StructType::create(Tys, "struct._ZN10__cxxabiv119__cheerp_landingpadE", false, nullptr, false, asmjs);
   }
 
   /// Returns the contents of the function's exception object and selector

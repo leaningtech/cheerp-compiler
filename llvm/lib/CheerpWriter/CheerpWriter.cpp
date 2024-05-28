@@ -712,7 +712,7 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileFree(const Value* obj)
 {
 	// Only arrays of primitives can be backed by the linear heap
-	bool needsLinearCheck = TypeSupport::isTypedArrayType(obj->getType()->getPointerElementType(), /*forceTypedArray*/ true) && globalDeps.usesAsmJSMalloc();
+	bool needsLinearCheck = TypeSupport::isTypedArrayType(obj->getType()->getPointerElementType(), /*forceTypedArray*/ true) && isWasmTarget;
 	if(const ConstantInt* CI = PA.getConstantOffsetForPointer(obj))
 	{
 		// 0 is clearly not a good address in the linear address space
@@ -942,6 +942,13 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(const
 		stream << '(';
 		compilePointerBase(*it);
 		stream<<".buffer===__heap)";
+		return COMPILE_OK;
+	}
+	else if(intrinsicId==Intrinsic::cheerp_pointer_elem_size)
+	{
+		stream << '(';
+		compilePointerBase(*it);
+		stream<<".BYTES_PER_ELEMENT)";
 		return COMPILE_OK;
 	}
 	else if(intrinsicId==Intrinsic::cheerp_pointer_kind)
@@ -1974,7 +1981,7 @@ void CheerpWriter::compilePointerBaseTyped(const Value* p, Type* elementType, bo
 	{
 		assert(isa<PointerType>(p->getType()));
 		Type* ty = llvm::cast<PointerType>(p->getType())->getPointerElementType();
-		if (globalDeps.needAsmJSMemory()||globalDeps.needAsmJSCode())
+		if (isWasmTarget)
 			compileHeapForType(ty);
 		else
 			stream << "nullArray";
@@ -1999,7 +2006,7 @@ void CheerpWriter::compilePointerBaseTyped(const Value* p, Type* elementType, bo
 		Type* ty = llvm::cast<PointerType>(p->getType())->getPointerElementType();
 		if (isa<ConstantPointerNull>(p))
 			stream << "nullArray";
-		else if ((globalDeps.needAsmJSMemory() || globalDeps.needAsmJSCode()) && !ty->isStructTy())
+		else if (isWasmTarget && !ty->isStructTy())
 		{
 			compileHeapForType(ty);
 		}
@@ -3090,7 +3097,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileTerminatorInstru
 			{
 				if(auto* STy = dyn_cast<StructType>(retVal->getType()))
 				{
-					assert(STy->getName() == "struct._ZN10__cxxabiv119__cheerp_landingpadE");
+					assert(STy->getNumElements() == 2 && STy->getElementType(0) == STy->getElementType(1) && STy->getElementType(0)->isIntegerTy(32));
 					stream << "oSlot=";
 					compileAggregateElem(retVal, 1, 1, LOWEST);
 					stream << ";" << NewLine;
@@ -6489,12 +6496,12 @@ void CheerpWriter::compileHelpers()
 	if(!wasmFile.empty() || asmJSMem)
 		compileFetchBuffer();
 
-	if ((globalDeps.needAsmJSMemory() || globalDeps.needAsmJSCode() ) && checkBounds)
+	if (isWasmTarget && checkBounds)
 	{
 		compileCheckBoundsAsmJSHelper();
 	}
 
-	if (globalDeps.needAsmJSMemory() && !globalDeps.needAsmJSCode())
+	if (isWasmTarget)
 	{
 		stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::STACKPTR) << '=' <<
 			linearHelper.getStackStart() << "|0;" << NewLine;
@@ -6657,7 +6664,7 @@ void CheerpWriter::compileAsmJSTopLevel()
 			stream << ";" << NewLine;
 	}
 	stream << namegen.getBuiltinName(NameGenerator::Builtin::ASSIGN_HEAPS) << "(__heap);" << NewLine;
-	if (globalDeps.needAsmJSCode())
+	if (isWasmTarget)
 	{
 		stream << "var stdlib = {"<<NewLine;
 		stream << "Math:Math,"<<NewLine;
@@ -6753,14 +6760,11 @@ void CheerpWriter::compileDummies()
 void CheerpWriter::compileWasmLoader()
 {
 	stream << "var ";
-	if (globalDeps.needAsmJSMemory())
+	for (int i = HEAP8; i<=LAST_WASM; i++)
 	{
-		for (int i = HEAP8; i<=LAST_WASM; i++)
-		{
-			if (!isHeapNameUsed(i))
-				continue;
-			stream << getHeapName(i) << "=null,";
-		}
+		if (!isHeapNameUsed(i))
+			continue;
+		stream << getHeapName(i) << "=null,";
 	}
 	stream << "__asm=null,";
 	stream << "__heap=null;";
@@ -6810,10 +6814,7 @@ void CheerpWriter::compileWasmLoader()
 	stream << ").then(" << shortestName << "=>{" << NewLine;
 	stream << "__asm=" << shortestName << ".instance.exports;" << NewLine;
 	stream << "__heap=" << namegen.getBuiltinName(NameGenerator::MEMORY) << ".buffer;" << NewLine;
-	if (globalDeps.needAsmJSMemory())
-	{
-		stream << namegen.getBuiltinName(NameGenerator::Builtin::ASSIGN_HEAPS) << "(__heap);" << NewLine;
-	}
+	stream << namegen.getBuiltinName(NameGenerator::Builtin::ASSIGN_HEAPS) << "(__heap);" << NewLine;
 }
 
 void CheerpWriter::compileDeclareExports()
@@ -7095,9 +7096,6 @@ void CheerpWriter::compileFileEnd(const OptionsSet& options)
 void CheerpWriter::makeJS()
 {
 	const bool needWasmLoader = !wasmFile.empty();
-	const bool needAssignHeaps = globalDeps.needsBuiltin(BuiltinInstr::BUILTIN::GROW_MEM)
-		|| globalDeps.needAsmJSMemory()
-		|| globalDeps.needAsmJSCode();
 
 	auto initializeOptions = [&]() -> OptionsSet
 	{
@@ -7124,23 +7122,20 @@ void CheerpWriter::makeJS()
 		compileWasmLoader();
 	else
 	{
-		if (globalDeps.needAsmJSCode())
+		if (isWasmTarget)
 		{
 			compileAsmJSClosure();
-		}
-		if (globalDeps.needAsmJSCode() || globalDeps.needAsmJSMemory())
-		{
 			compileAsmJSTopLevel();
 		}
 
-		if (globalDeps.needAsmJSMemory() && asmJSMem)
+		if (isWasmTarget && asmJSMem)
 			compileAsmJSLoader();
 		else if (makeModule == MODULE_TYPE::COMMONJS || makeModule == MODULE_TYPE::ES6)
 			compileCommonJSModule();
 		else
 			areExtraParenthesisOpen = false;
 
-		if (globalDeps.needAsmJSCode())
+		if (isWasmTarget)
 		{
 			stream << "var __asm=asmJS(stdlib, ";
 			compileAsmJSffiObject();
@@ -7159,7 +7154,7 @@ void CheerpWriter::makeJS()
 	if (makeModule == MODULE_TYPE::ES6)
 		stream << "}" << NewLine;
 
-	if (needAssignHeaps)
+	if (isWasmTarget)
 		compileAssignHeaps(needWasmLoader);
 
 	compileFileEnd(options);

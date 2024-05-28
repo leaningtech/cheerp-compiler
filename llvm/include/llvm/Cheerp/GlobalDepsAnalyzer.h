@@ -120,22 +120,9 @@ public:
 	bool needCreatePointerArray() const { return hasPointerArrays; }
 
 	/**
-	 * Determine if we need to compile the asm.js module
-	 */
-	bool needAsmJSCode() const { return hasAsmJSCode; }
-	/**
-	 * Determine if we need to compile the asm.js module
-	 */
-	bool needAsmJSMemory() const { return hasAsmJSMemory; }
-	/**
 	 * Determine if we need to compile the definition of CheerpException
 	 */
 	bool needCheerpException() const { return hasCheerpException; }
-	
-	/**
-	 * Determine if linear memory malloc is ever used
-	 */
-	bool usesAsmJSMalloc() const { return hasAsmJSMalloc; }
 
 	bool usesAtomics() const { return hasAtomics; }
 
@@ -241,8 +228,10 @@ private:
 
 	static void replaceFunctionAliasWithAliasee(llvm::Module &module, llvm::StringRef name);
 
-	//Extend lifetime of function, visiting them and declaring external
-	void extendLifetime(llvm::Function* F);
+	//Extend lifetime of global, visiting them and declaring external
+	void extendLifetime(llvm::GlobalValue* G);
+	// Same but F might be null
+	void extendLifetimeIfPresent(llvm::GlobalValue* G);
 
 	//Determine whether an instruction is atomic.
 	bool isAtomicInstruction(const llvm::Instruction& I);
@@ -274,16 +263,11 @@ private:
 	bool hasCreateClosureUsers;
 	bool hasVAArgs;
 	bool hasPointerArrays;
-	bool hasAsmJSCode;
 	bool hasAtomics;
-	bool hasAsmJSMemory;
-	bool hasAsmJSMalloc;
 	bool hasCheerpException;
-	bool mayNeedAsmJSFree;
 
 	bool llcPass;
 	bool hasUndefinedSymbolErrors;
-	bool preserveFree;
 public:
 	bool forceTypedArrays;
 	bool needsBuiltin(BuiltinInstr::BUILTIN b)

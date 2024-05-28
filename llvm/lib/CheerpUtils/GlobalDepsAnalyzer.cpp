@@ -44,9 +44,8 @@ const char* wasmNullptrName = "__wasm_nullptr";
 GlobalDepsAnalyzer::GlobalDepsAnalyzer(MATH_MODE mathMode_, bool llcPass)
 	: hasBuiltin{{false}}, mathMode(mathMode_), DL(NULL),
 	  entryPoint(NULL), hasCreateClosureUsers(false), hasVAArgs(false),
-	  hasPointerArrays(false), hasAsmJSCode(false), hasAsmJSMemory(false), hasAsmJSMalloc(false),
-	  hasCheerpException(false), mayNeedAsmJSFree(false), llcPass(llcPass),
-	  hasUndefinedSymbolErrors(false), forceTypedArrays(false), preserveFree(PreserveFree)
+	  hasPointerArrays(false), hasCheerpException(false), llcPass(llcPass),
+	  hasUndefinedSymbolErrors(false), forceTypedArrays(false)
 {
 }
 static void createNullptrFunction(llvm::Module& module)
@@ -118,15 +117,22 @@ void GlobalDepsAnalyzer::simplifyCalls(llvm::Module & module) const
 	}
 }
 
-void GlobalDepsAnalyzer::extendLifetime(Function* F)
+void GlobalDepsAnalyzer::extendLifetime(GlobalValue* G)
 {
-	assert(F);
+	assert(G);
 
-	externals.push_back(F);
+	externals.push_back(G);
 	VisitedSet visited;
 	SubExprVec vec;
-	visitGlobal( F, visited, vec );
+	visitGlobal( G, visited, vec );
 	assert( visited.empty() );
+}
+
+void GlobalDepsAnalyzer::extendLifetimeIfPresent(GlobalValue* G)
+{
+	if (!G)
+		return;
+	extendLifetime(G);
 }
 
 void GlobalDepsAnalyzer::replaceFunctionAliasWithAliasee(llvm::Module &module, StringRef name)
@@ -692,63 +698,16 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	// Flush out all functions
 	processEnqueuedFunctions();
 
-	if(mayNeedAsmJSFree)
-	{
-		Function* ffree = module.getFunction("free");
-		if (ffree)
-		{
-			if(!hasAsmJSMalloc && !preserveFree)
-			{
-				// The symbol is still used around, so keep it but make it empty
-				ffree->deleteBody();
-				asmJSExportedFuncions.erase(ffree);
-				Function* jsfree = module.getFunction("__genericjs__free");
-				// For jsfree, keep an empty body (could still be called if we don't run lto)
-				if (jsfree)
-				{
-					jsfree->deleteBody();
-					BasicBlock* Entry = BasicBlock::Create(module.getContext(),"entry", jsfree);
-					IRBuilder<> Builder(Entry);
-					Builder.CreateRetVoid();
-				}
-			}
-			else
-			{
-				hasAsmJSCode = true;
-				asmJSExportedFuncions.insert(ffree);
-				externals.push_back(ffree);
-				// Visit free and friends
-				enqueueFunction(ffree);
-				processEnqueuedFunctions();
-				reachableGlobals.insert(ffree);
-			}
-		}
-	}
-	// If we are in opt, there is a chance that a following
-	// pass will convert malloc into a calloc, so keep that if we keep malloc
-	if(!llcPass && hasAsmJSMalloc)
-	{
-		Function* fcalloc = module.getFunction("calloc");
-		if (fcalloc)
-		{
-			asmJSExportedFuncions.insert(fcalloc);
-			externals.push_back(fcalloc);
-			// Visit calloc and friends
-			enqueueFunction(fcalloc);
-			processEnqueuedFunctions();
-			reachableGlobals.insert(fcalloc);
-		}
-	}
-
+	bool isWasmTarget = Triple(module.getTargetTriple()).isCheerpWasm();
 	// Create a dummy function that prevents nullptr conflicts.
-	if(hasAsmJSCode)
+	if(isWasmTarget)
 		createNullptrFunction(module);
 
 	// Set the sret slot in the asmjs section if there is asmjs code
 	GlobalVariable* Sret = module.getGlobalVariable("cheerpSretSlot");
 	if (Sret)
 	{
-		if (hasAsmJSCode)
+		if (isWasmTarget)
 			Sret->setSection(StringRef("asmjs"));
 		if (llcPass && !Sret->hasInitializer())
 			Sret->setInitializer(ConstantInt::get(Type::getInt32Ty(module.getContext()), 0));
@@ -764,6 +723,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 		BitCastSlot->setSection("asmjs");
 		BitCastSlot->setInitializer(ConstantAggregateZero::get(BitCastSlot->getValueType()));
 		BitCastSlot->setAlignment(Align(8));
+		extendLifetime(BitCastSlot);
 		SubExprVec vec;
 		visitGlobal(BitCastSlot, visited, vec );
 		// Ensure external linkage to prevent GlobalOpts to remove it
@@ -816,11 +776,11 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 			hasBuiltin[BuiltinInstr::SIN_F] = false;
 		}
 	}
-	bool WasmOnly = Triple(module.getTargetTriple()).getOS() == Triple::WASI;
+	bool isWasi = Triple(module.getTargetTriple()).getOS() == Triple::WASI;
 	// Detect all used non-math builtins
 	for(const Function& F: module)
 	{
-		if(F.getIntrinsicID() == Intrinsic::cheerp_grow_memory && !WasmOnly)
+		if(F.getIntrinsicID() == Intrinsic::cheerp_grow_memory && !isWasi)
 		{
 			hasBuiltin[BuiltinInstr::GROW_MEM] = true;
 		}
@@ -1168,12 +1128,6 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 		replaceSomeUsesWith(indirectUses, placeholderFunc);
 	}
 
-	// If the linear output is wasm, pretend that there is always some code.
-	// This simplify the writer for the logic that doesn't output a module if we only have
-	// asmjs data but not code
-	if (LinearOutput ==  Wasm)
-		hasAsmJSCode = true;
-
 	return true;
 }
 
@@ -1202,30 +1156,10 @@ void GlobalDepsAnalyzer::visitGlobal( const GlobalValue * C, VisitedSet & visite
 		}
 		else if (const Function * F = dyn_cast<Function>(C) )
 		{
-			if (C->getName() == "free")
-			{
-				// Don't visit free right now. We do it only if
-				// actyally needed at the end
-				mayNeedAsmJSFree = true;
-			}
-			else
-			{
-				if (C->getName() == StringRef("malloc"))
-					hasAsmJSMalloc = true;
-
-				if (C->getSection() == StringRef("asmjs"))
-				{
-					hasAsmJSCode = true;
-				}
-				enqueueFunction(F);
-			}
+			enqueueFunction(F);
 		}
 		else if (const GlobalVariable * GV = dyn_cast<GlobalVariable>(C) )
 		{
-			if (C->getSection() == StringRef("asmjs"))
-			{
-				hasAsmJSMemory = true;
-			}
 			if (GV->hasInitializer() )
 			{
 				// Add the "GlobalVariable - initializer" use to the subexpr,
@@ -1337,8 +1271,6 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 				Type* allocaType = AI->getAllocatedType();
 				if(!isAsmJS)
 					visitType(allocaType, forceTypedArrays);
-				if (isAsmJS || (isa<StructType>(allocaType) && cast<StructType>(allocaType)->hasAsmJS()))
-					hasAsmJSMemory = true;
 			}
 			else if ( const CallBase* CB = dyn_cast<CallBase>(&I) )
 			{
@@ -1361,13 +1293,7 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 			}
 			else if (isa<ResumeInst>(&I))
 			{
-				Function* cxa_resume = module->getFunction("__cxa_resume");
-				if (cxa_resume)
-				{
-					SubExprVec vec;
-					visitGlobal(cxa_resume, visited, vec );
-					externals.push_back(cxa_resume);
-				}
+				extendLifetimeIfPresent(module->getFunction("__cxa_resume"));
 			}
 			else if (!isAsmJS && I.getOpcode() == Instruction::VAArg)
 				hasVAArgs = true;
@@ -1384,9 +1310,6 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 					const llvm::User* bc = cast<llvm::User>(ci.getCalledOperand());
 					calledFunc = dyn_cast<Function>(bc->getOperand(0));
 				}
-				// To call asmjs functions with variable arguments, we need the linear memory
-				if (ci.getFunctionType()->isVarArg() && (isAsmJS || (calledFunc && calledFunc->getSection() == "asmjs")))
-					hasAsmJSMemory = true;
 				// TODO: Handle import/export of indirect calls if possible
 				if (!calledFunc)
 					continue;
@@ -1400,6 +1323,17 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 					// normal function called from asm.js
 					else if (!calleeIsAsmJS && isAsmJS)
 						asmJSImportedFuncions.insert(calledFunc);
+
+					if (!llcPass && calledFunc->getName() == "malloc")
+					{
+						// If we are in opt, there is a chance that a following
+						// pass will convert malloc into a calloc, so keep that if we keep malloc
+						Function* fcalloc = module->getFunction("calloc");
+						if (fcalloc)
+						{
+							extendLifetime(fcalloc);
+						}
+					}
 				}
 				// if this is an allocation intrinsic and we are in asmjs,
 				// visit the corresponding libc function. The same applies if the allocated type is asmjs.
@@ -1411,12 +1345,16 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 						Function* fmalloc = module->getFunction("malloc");
 						if (fmalloc)
 						{
-							SubExprVec vec;
-							visitGlobal(fmalloc, visited, vec );
 							if(!isAsmJS)
 								asmJSExportedFuncions.insert(fmalloc);
-							externals.push_back(fmalloc);
-							hasAsmJSMalloc = true;
+							extendLifetime(fmalloc);
+						}
+						// If we are in opt, there is a chance that a following
+						// pass will convert malloc into a calloc, so keep that if we keep malloc
+						Function* fcalloc = module->getFunction("calloc");
+						if (fcalloc && !llcPass)
+						{
+							extendLifetime(fcalloc);
 						}
 					}
 				}
@@ -1427,12 +1365,9 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 						Function* frealloc = module->getFunction("realloc");
 						if (frealloc)
 						{
-							SubExprVec vec;
-							visitGlobal(frealloc, visited, vec );
 							if(!isAsmJS)
 								asmJSExportedFuncions.insert(frealloc);
-							externals.push_back(frealloc);
-							hasAsmJSMalloc = true;
+							extendLifetime(frealloc);
 						}
 					}
 				}
@@ -1441,10 +1376,12 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 					Type* ty = ci.getOperand(0)->getType();
 					bool basicType = !ty->isAggregateType();
 					bool asmjsPtr = TypeSupport::isAsmJSPointer(ty);
-					if (isAsmJS || basicType || asmjsPtr)
+					Function* ffree = module->getFunction("free");
+					if (ffree)
 					{
-						// Delay adding free, it will be done only if asm.js malloc is actually there
-						mayNeedAsmJSFree = true;
+						if(!isAsmJS && (basicType || asmjsPtr))
+							asmJSExportedFuncions.insert(ffree);
+						extendLifetime(ffree);
 					}
 				}
 				else if (calledFunc->getIntrinsicID() == Intrinsic::memset)

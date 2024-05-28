@@ -104,11 +104,11 @@ bool CheerpWritePass::runOnModule(Module& M)
   PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
 
   ModulePassManager MPM;
-   
+  bool isWasmTarget = Triple(M.getTargetTriple()).isCheerpWasm();
   cheerp::GlobalDepsAnalyzer::MATH_MODE mathMode;
   if (NoNativeJavaScriptMath)
     mathMode = cheerp::GlobalDepsAnalyzer::NO_BUILTINS;
-  else if(Triple(M.getTargetTriple()).getEnvironment() == llvm::Triple::WebAssembly && LinearOutput != AsmJs)
+  else if(isWasmTarget && LinearOutput != AsmJs)
 
    mathMode = cheerp::GlobalDepsAnalyzer::WASM_BUILTINS;
   else
@@ -149,7 +149,8 @@ bool CheerpWritePass::runOnModule(Module& M)
 
   MPM.addPass(cheerp::FreeAndDeleteRemovalPass());
   MPM.addPass(cheerp::GlobalDepsAnalyzerPass(mathMode, /*resolveAliases*/true));
-  MPM.addPass(cheerp::AllocaLoweringPass());
+  if (isWasmTarget)
+    MPM.addPass(cheerp::AllocaLoweringPass());
   MPM.addPass(cheerp::InvokeWrappingPass());
   MPM.addPass(cheerp::FFIWrappingPass());
   MPM.addPass(createModuleToFunctionPassAdaptor(cheerp::FixIrreducibleControlFlowPass()));
