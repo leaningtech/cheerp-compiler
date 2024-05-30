@@ -1447,6 +1447,7 @@ Function* TypeOptimizer::rewriteFunctionSignature(Function* F)
 	// Create the new function body and insert it into the module.
 	Function *NF = Function::Create(newFuncType, F->getLinkage(), F->getName());
 	NF->copyAttributesFrom(F);
+	NF->copyMetadata(F, 0);
 
 	// Patch the pointer to LLVM function in debug info descriptor.
 	NF->setSubprogram(F->getSubprogram());
