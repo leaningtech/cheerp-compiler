@@ -2,6 +2,8 @@ set(LLVM_LINK_COMPONENTS
   CheerpUtils
   Core
   IRReader
+  TransformUtils
+  CodeGen
   )
 
 add_llvm_unittest(CheerpTests
