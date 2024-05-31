@@ -209,9 +209,13 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 		}
 	}
 
+	bool anyWasmFuncAddrTaken = false;
 	// Replace calls like 'printf("Hello!")' with 'puts("Hello!")'.
 	for (Function& F : module.getFunctionList()) {
 		bool asmjs = F.getSection() == StringRef("asmjs");
+		if (asmjs) {
+			anyWasmFuncAddrTaken |= F.hasAddressTaken();
+		}
 		for (BasicBlock& bb : F)
 		{
 			bool advance = false;	//Do not advance at the start
@@ -700,7 +704,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 
 	bool isWasmTarget = Triple(module.getTargetTriple()).isCheerpWasm();
 	// Create a dummy function that prevents nullptr conflicts.
-	if(isWasmTarget)
+	if(isWasmTarget && anyWasmFuncAddrTaken)
 		createNullptrFunction(module);
 
 	// Set the sret slot in the asmjs section if there is asmjs code
