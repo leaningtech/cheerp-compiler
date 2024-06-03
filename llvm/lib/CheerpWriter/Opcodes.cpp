@@ -28,7 +28,23 @@ void CheerpWriter::compileIntegerComparison(const llvm::Value* lhs, const llvm::
 		}
 		else
 		{
+			// There is a hack to make `ptr - 1 < ptr` work in genericjs.
+			//
+			// If we do a signed pointer comparison, `0x8000000 < 0x7fffffff` will
+			// equal true because the first operand wraps to a negative value. If we
+			// do an unsigned pointer comparison, `ptr - 1 < ptr` will equal false
+			// if `ptr == 0`. The latter case is technically undefined behaviour,
+			// but it's probably common enough that we want to support it.
+			//
+			// The trick is to perform a signed comparison, but with an offset so one
+			// of the operands is 0. So `a < b` turns into `a - b < 0`.
+			//
+			// This is not a perfect solution. Comparisons between pointers that are
+			// more than 2GB apart will no longer work. But comparisons between
+			// pointers to different objects are undefined anyways, so the only
+			// restriction is that a single allocation may not exceed 2GB.
 			POINTER_KIND kind = PA.getPointerKind(lhs);
+			PARENT_PRIORITY prio = needsUnsignedPointers() ? ADD_SUB : COMPARISON;
 			//Comparison on different bases is anyway undefined, so ignore them
 			if(parentPrio > COMPARISON) stream << '(';
 			if (kind == RAW)
@@ -37,19 +53,27 @@ void CheerpWriter::compileIntegerComparison(const llvm::Value* lhs, const llvm::
 				assert(kind == PA.getPointerKind(rhs));
 				stream << "(";
 				compileRawPointer(lhs);
-				stream << "|0)";
+				stream << pointerCoercionSuffix() << ")";
 			}
 			else
-				compilePointerOffset( lhs, COMPARISON );
-			compilePredicate(p);
+				compilePointerOffset( lhs, prio );
+			if (needsUnsignedPointers())
+				stream << "-";
+			else
+				compilePredicate(p);
 			if (kind == RAW)
 			{
 				stream << "(";
 				compileRawPointer(rhs);
-				stream << "|0)";
+				stream << pointerCoercionSuffix() << ")";
 			}
 			else
-				compilePointerOffset( rhs, COMPARISON );
+				compilePointerOffset( rhs, prio );
+			if (needsUnsignedPointers())
+			{
+				compilePredicate(p);
+				stream << "0";
+			}
 			if(parentPrio > COMPARISON) stream << ')';
 		}
 	}

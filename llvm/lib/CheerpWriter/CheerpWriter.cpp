@@ -868,10 +868,10 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(const
 		{
 			stream << getHeapName(HEAP32) << '[';
 			compileRawPointer(*it, PARENT_PRIORITY::SHIFT);
-			stream << ">>2]=";
+			stream << pointerShiftOperator() << "2]=";
 			stream << getHeapName(HEAP32) << '[';
 			compileRawPointer(*(it+1), PARENT_PRIORITY::SHIFT);
-			stream << ">>2]|0";
+			stream << pointerShiftOperator() << "2]|0";
 			return COMPILE_OK;
 		}
 		else
@@ -1615,12 +1615,12 @@ void CheerpWriter::compileEqualPointersComparison(const llvm::Value* lhs, const 
 	if(compareRaw)
 	{
 		stream << "(";
-		compileRawPointer(lhs, PARENT_PRIORITY::BIT_OR);
-		stream << "|0)";
+		compileRawPointer(lhs, pointerCoercionPrio());
+		stream << pointerCoercionSuffix() << ")";
 		stream << compareString;
 		stream << "(";
-		compileRawPointer(rhs, PARENT_PRIORITY::BIT_OR);
-		stream << "|0)";
+		compileRawPointer(rhs, pointerCoercionPrio());
+		stream << pointerCoercionSuffix() << ")";
 	}
 	// NOTE: For any pointer-to-immutable, converting to CO is actually a dereference. (base[offset] in both cases)
 	//       PA enforces that comparisons between pointers-to-immutable (which include pointers-to-pointers)
@@ -1787,8 +1787,10 @@ void CheerpWriter::compileCompleteObject(const Value* p, const Value* offset)
 			{
 				stream << "+";
 				compileOperand(offset, ADD_SUB);
-				stream << "|0";
+				stream << pointerCoercionSuffix();
 			}
+			else if (needsUnsignedPointers())
+				stream << pointerCoercionSuffix();
 		}
 
 		stream << ']';
@@ -1818,7 +1820,7 @@ void CheerpWriter::compileRawPointer(const Value* p, PARENT_PRIORITY parentPrio,
 	bool needsCoercion = needsIntCoercion(parentPrio);
 	PARENT_PRIORITY basePrio = ADD_SUB;
 	if(needsCoercion)
-		basePrio = BIT_OR;
+		basePrio = pointerCoercionPrio();
 	if(parentPrio > basePrio)
 		stream << "(";
 	AsmJSGepWriter gepWriter(*this, use_imul);
@@ -1829,7 +1831,7 @@ void CheerpWriter::compileRawPointer(const Value* p, PARENT_PRIORITY parentPrio,
 	else
 		compileOperand(p, gepPrio);
 	if(needsCoercion)
-		stream << "|0";
+		stream << pointerCoercionSuffix();
 	if(parentPrio > basePrio)
 		stream << ")";
 }
@@ -1930,7 +1932,7 @@ void CheerpWriter::compileHeapAccess(const Value* p, Type* t, uint32_t offset)
 	{
 		stream << '(';
 		compileCheckBoundsAsmJS(targetData.getTypeAllocSize(et)-1);
-		prio = PARENT_PRIORITY::BIT_OR;
+		prio = pointerCoercionPrio();
 	}
 	bool needsShift = true;
 	if(!symbolicGlobalsAsmJS && isa<GlobalVariable>(p))
@@ -1958,15 +1960,15 @@ void CheerpWriter::compileHeapAccess(const Value* p, Type* t, uint32_t offset)
 		{
 			stream << '+';
 			stream << offset;
-			stream << "|0)";
+			stream << pointerCoercionSuffix() << ")";
 		}
 	}
 	if(checkBounds)
 	{
-		stream << "|0)|0)";
+		stream << pointerCoercionSuffix() << ")" << pointerCoercionSuffix() << ")";
 	}
 	if(needsShift)
-		stream << ">>" << shift;
+		stream << pointerShiftOperator() << shift;
 	stream << ']';
 }
 void CheerpWriter::compilePointerBase(const Value* p, bool forEscapingPointer)
@@ -2168,7 +2170,7 @@ void CheerpWriter::compilePointerOffset(const Value* p, PARENT_PRIORITY parentPr
 		if (parentPrio > SHIFT)
 			stream << '(';
 		compileRawPointer(p, SHIFT);
-		stream << ">>" << getHeapShiftForType(ty);
+		stream << pointerShiftOperator() << getHeapShiftForType(ty);
 		if (parentPrio > SHIFT)
 			stream << ')';
 		return;
@@ -2888,7 +2890,7 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 						if (incomingKind == RAW)
 						{
 							writer.compileRawPointer(incoming, SHIFT);
-							writer.stream << ">>" << writer.getHeapShiftForType(cast<PointerType>(phiType)->getPointerElementType());
+							writer.stream << writer.pointerShiftOperator() << writer.getHeapShiftForType(cast<PointerType>(phiType)->getPointerElementType());
 						}
 						else
 						{
@@ -3491,7 +3493,7 @@ void CheerpWriter::compileGEPOffset(const llvm::User* gep_inst, PARENT_PRIORITY 
 			compileByteLayoutOffset( gep_inst, BYTE_LAYOUT_OFFSET_FULL );
 			uint32_t size = targetData.getTypeAllocSize(targetType);
 			if(size != 1)
-				stream << ">>" << Log2_32(size);
+				stream << pointerShiftOperator() << Log2_32(size);
 		}
 	}
 	else if (indices.size() == 1)
@@ -3502,7 +3504,7 @@ void CheerpWriter::compileGEPOffset(const llvm::User* gep_inst, PARENT_PRIORITY 
 		// Just another pointer from this one
 		if (!isOffsetConstantZero)
 		{
-			if(parentPrio > BIT_OR) stream << '(';
+			if(parentPrio > pointerCoercionPrio()) stream << '(';
 			prio = ADD_SUB;
 		}
 		compilePointerOffset(gep_inst->getOperand(0), prio);
@@ -3511,8 +3513,8 @@ void CheerpWriter::compileGEPOffset(const llvm::User* gep_inst, PARENT_PRIORITY 
 		{
 			stream << '+';
 			compileOperand(indices.front(), prio);
-			stream << "|0";
-			if(parentPrio > BIT_OR) stream << ')';
+			stream << pointerCoercionSuffix();
+			if(parentPrio > pointerCoercionPrio()) stream << ')';
 		}
 	}
 	else
@@ -4335,9 +4337,9 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				stream << '[';
 				compileHeapAccess(vi.getPointerOperand());
 				if (vi.getType()->isIntegerTy() || vi.getType()->isPointerTy() || vi.getType()->isFloatTy())
-					stream << ">>2]|0";
+					stream << pointerShiftOperator() << "2]|0";
 				else
-					stream << ">>3]";
+					stream << pointerShiftOperator() << "3]";
 				stream << ';' << NewLine;
 
 				compileHeapAccess(vi.getPointerOperand());
@@ -4504,7 +4506,7 @@ void CheerpWriter::compileLoadElem(const LoadInst& li, Type* Ty, StructType* STy
 			llvm::report_fatal_error("Unsupported bitwidth for atomic load");
 		compileRawPointer(ptrOp, shiftPrio);
 		if (shift != 0)
-			stream << ">>" << shift;
+			stream << pointerShiftOperator() << shift;
 		stream << ")";
 
 		if (li.getType()->isIntegerTy() && parentPrio != BIT_OR)
@@ -4515,7 +4517,7 @@ void CheerpWriter::compileLoadElem(const LoadInst& li, Type* Ty, StructType* STy
 	}
 	else if(regKind==Registerize::INTEGER && needsIntCoercion(parentPrio))
 	{
-		if (parentPrio > BIT_OR)
+		if (parentPrio > (Ty->isPointerTy() ? pointerCoercionPrio() : BIT_OR))
 			stream << '(';
 	}
 	else if(regKind==Registerize::DOUBLE)
@@ -4558,7 +4560,7 @@ void CheerpWriter::compileLoadElem(const LoadInst& li, Type* Ty, StructType* STy
 					compileHeapAccess(ptrOp, Ty, offset);
 					int shift =  getHeapShiftForType(PTy->getPointerElementType());
 					if (shift != 0)
-						stream << ">>" << shift;
+						stream << pointerShiftOperator() << shift;
 				}
 				else
 				{
@@ -4624,8 +4626,8 @@ void CheerpWriter::compileLoadElem(const LoadInst& li, Type* Ty, StructType* STy
 	}
 	if(regKind==Registerize::INTEGER && needsIntCoercion(parentPrio))
 	{
-		stream << "|0";
-		if (parentPrio > BIT_OR)
+		stream << (Ty->isPointerTy() ? pointerCoercionSuffix() : "|0");
+		if (parentPrio > (Ty->isPointerTy() ? pointerCoercionPrio() : BIT_OR))
 			stream << ')';
 	}
 	else if(regKind==Registerize::FLOAT && needsFloatCoercion(parentPrio))
@@ -4711,7 +4713,7 @@ void CheerpWriter::compileStoreElem(const StoreInst& si, Type* Ty, StructType* S
 			llvm::report_fatal_error("Unsupported bitwidth for atomic store");
 		compileRawPointer(ptrOp, shiftPrio);
 		if (shift != 0)
-			stream << ">>" << shift;
+			stream << pointerShiftOperator() << shift;
 		stream << ",";
 		compileOperand(valOp, BIT_OR);
 		stream << "|0)";
@@ -4866,7 +4868,7 @@ void CheerpWriter::compileAtomicRMW(const AtomicRMWInst& ai, PARENT_PRIORITY par
 		llvm::report_fatal_error("Unsupported bitwidth for atomicrmw");
 	compileRawPointer(ptrOp, shiftPrio);
 	if (shift != 0)
-		stream << ">>" << shift;
+		stream << pointerShiftOperator() << shift;
 	stream << ",";
 	compileOperand(valOp, BIT_OR);
 	stream << "|0)";
@@ -4901,7 +4903,7 @@ void CheerpWriter::compileAtomicCmpXchg(const AtomicCmpXchgInst& ai, PARENT_PRIO
 		llvm::report_fatal_error("Unsupported bitwidth for atomicmpxchg");
 	compileRawPointer(ptrOp, shiftPrio);
 	if (shift != 0)
-		stream << ">>" << shift;
+		stream << pointerShiftOperator() << shift;
 	stream << ",";
 	compileOperand(cmpOp, BIT_OR);
 	stream << "|0,";
@@ -5076,9 +5078,9 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileCallInstruction(
 					if (asmjsCallee)
 					{
 						if (addrShift != 0)
-							stream << ">>" << addrShift;
+							stream << pointerShiftOperator() << addrShift;
 						else
-							stream << "|0";
+							stream << pointerCoercionSuffix();
 					}
 					else
 					{
@@ -6165,7 +6167,7 @@ void CheerpWriter::compileCheckBoundsAsmJS(int alignMask)
 {
 	// NOTE: the caller must add the address argument and the closing ')'
 	stream<<"checkBoundsAsmJS(";
-	stream<<alignMask<<"|0,"<<heapSize*1024*1024<<"|0,";
+	stream<<alignMask<<pointerCoercionSuffix()<<","<<heapSize*1024*1024<<pointerCoercionSuffix()<<",";
 }
 
 void CheerpWriter::compileFunctionTablesAsmJS()
@@ -7239,7 +7241,7 @@ void CheerpWriter::AsmJSGepWriter::addConst(int64_t v)
 	assert(v);
 	// Just make sure that the constant part of the offset is not too big
 	assert(v>=std::numeric_limits<int32_t>::min());
-	assert(v<=std::numeric_limits<int32_t>::max());
+	assert(v<=std::numeric_limits<uint32_t>::max());
 
 	offset = true;
 	writer.stream << v << '+';

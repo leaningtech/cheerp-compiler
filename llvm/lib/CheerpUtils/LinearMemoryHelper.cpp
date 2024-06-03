@@ -648,6 +648,8 @@ void LinearMemoryHelper::addStack()
 
 void LinearMemoryHelper::checkMemorySize()
 {
+	if (mode == FunctionAddressMode::AsmJS && memorySize > 2147483648U)
+		report_fatal_error("Cheerp: -cheerp-linear-heap-size greater than 2048 is not supported with -cheerp-linear-output=asmjs");
 	if (heapStart < memorySize)
 		return;
 	// Not enough memory, error
