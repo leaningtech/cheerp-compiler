@@ -4919,7 +4919,7 @@ void CheerpWasmWriter::compileGlobalSection()
 
 		// Start the stack from the end of default memory
 		stackTopGlobal = usedGlobals++;
-		uint32_t stackTop = linearHelper.getStackStart();
+		int32_t stackTop = linearHelper.getStackStart();
 
 		// There is the stack and the globalized constants
 		encodeULEB128(1 + globalizedConstantsTmp.size() + globalizedGlobalsIDs.size(), section);
@@ -5498,7 +5498,7 @@ void CheerpWasmWriter::WasmGepWriter::addConst(int64_t v)
 	// Just make sure that the constant part of the offset is not too big
 	// TODO: maybe use i64.const here instead of crashing
 	assert(v>=std::numeric_limits<int32_t>::min());
-	assert(v<=std::numeric_limits<int32_t>::max());
+	assert(v<=std::numeric_limits<uint32_t>::max());
 
 	constPart += v;
 }

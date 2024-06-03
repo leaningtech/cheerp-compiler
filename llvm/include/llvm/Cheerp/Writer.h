@@ -427,6 +427,13 @@ private:
 		return useMathFround && coercionPrio != FROUND;
 	}
 	/**
+	 * Decide if we need to use unsigned integers to represent pointers.
+	 */
+	bool needsUnsignedPointers()
+	{
+		return heapSize > 2048;
+	}
+	/**
 	 * Return the next priority higher than `prio`.
 	 * For binary operators in general the rhs must increment the priority
 	 * if there are more operators with the same priority (e.g. FMul,FDiv,FRem)
@@ -435,6 +442,28 @@ private:
 	{
 		int new_prio = prio;
 		return static_cast<PARENT_PRIORITY>(++new_prio);
+	}
+	/**
+	 * Return the priority of a pointer coercion.
+	 */
+	PARENT_PRIORITY pointerCoercionPrio()
+	{
+		return needsUnsignedPointers() ? SHIFT : BIT_OR;
+	}
+	/**
+	 * Return the operator and right side of the expression used for pointer
+	 * coercions.
+	 */
+	llvm::StringRef pointerCoercionSuffix()
+	{
+		return needsUnsignedPointers() ? ">>>0" : "|0";
+	}
+	/**
+	 * Return the operator used for pointer right shifts.
+	 */
+	llvm::StringRef pointerShiftOperator()
+	{
+		return needsUnsignedPointers() ? ">>>" : ">>";
 	}
 
 	/**
