@@ -7,7 +7,6 @@
 
 #include <sstream>
 
-#include "CheerpTargetMachine.h"
 #include "llvm/MC/MCWasmStreamer.h"
 #include "llvm/Cheerp/BaseWriter.h"
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
@@ -460,9 +459,9 @@ public:
                                          inlineableCache(PA),
                                          stream(s)
   {
-    mcStreamer = llvm::createWasmStreamer(/*MCContext*/ nullptr,/*MCAsmBackend*/ nullptr,
-                                          /*MCObjectWriter*/ nullptr, /*MCCodeEmitter*/ nullptr,
-                                          /*Relaxall*/ false);
+//    mcStreamer = llvm::createWasmStreamer(/*MCContext*/ nullptr,/*MCAsmBackend*/ nullptr,
+//                                          /*MCObjectWriter*/ nullptr, /*MCCodeEmitter*/ nullptr,
+//                                          /*Relaxall*/ false);
 
     llvm::errs() << std::string(__PRETTY_FUNCTION__) + "\n";
   }

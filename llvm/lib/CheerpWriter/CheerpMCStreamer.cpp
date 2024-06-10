@@ -715,14 +715,14 @@ void CheerpWasmWriter::compileTypeSection()
     return;
   errs()<<std::string(__PRETTY_FUNCTION__)+"\n";
 
-  MCStreamer->changeSection(nullptr, nullptr);///TODO: mcsection & mcexpr
-
-  MCStreamer->emitULEB128Value(nullptr);///TODO: size into Value
-
-  for (const auto& fTy : linearHelper.getFunctionTypes()){
-    MCStreamer->emitULEB128Value(nullptr);///TODO: 0x60 into value
-    MCStreamer->emitCOFFSymbolType(NULL);///TODO: or maybe use existing funcitons
-  }
+//  MCStreamer->changeSection(nullptr, nullptr);///TODO: mcsection & mcexpr
+//
+//  MCStreamer->emitULEB128Value(nullptr);///TODO: size into Value
+//
+//  for (const auto& fTy : linearHelper.getFunctionTypes()){
+//    MCStreamer->emitULEB128Value(nullptr);///TODO: 0x60 into value
+//    MCStreamer->emitCOFFSymbolType(NULL);///TODO: or maybe use existing funcitons
+//  }
   ///TODO
 }
 

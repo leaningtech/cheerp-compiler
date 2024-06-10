@@ -19,6 +19,17 @@ add_llvm_target(CheerpBackendCodeGen
 	WebAssemblySelectionDAGInfo.h
 	WebAssembly.h
 
+	WebAssemblyGenAsmWriter.inc
+	WebAssemblyGenDAGISel.inc
+	WebAssemblyGenDisassemblerTables.inc
+	WebAssemblyGenFastISel.inc
+	WebAssemblyGenInstrInfo.inc
+	WebAssemblyGenMCCodeEmitter.inc
+	WebAssemblyGenRegisterInfo.inc
+	WebAssemblyGenSubtargetInfo.inc
+	WebAssemblyISD.def
+	WebAssemblyGenAsmMatcher.inc
+
 	LINK_COMPONENTS
 	CheerpWriter
 	CheerpUtils
