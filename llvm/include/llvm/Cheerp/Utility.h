@@ -397,6 +397,15 @@ public:
 		return ident.startswith("cheerpCreate_ZN6client");
 	}
 
+	static bool isCheerpGetTypeHelperName(llvm::StringRef ident)
+	{
+		// _ZN6cheerp13GetTypeHelperIN6client6StringEE7getTypeEv
+		// _ZN6cheerp13GetTypeHelperIN6client3MapIPNS1_4_AnyES4_EEE7getTypeEv
+		// _ZN6cheerp13GetTypeHelperI3FooE7getTypeEv
+		// ^^^^^^^^^^^^^^^^^^^^^^^^^^
+		return ident.startswith("_ZN6cheerp13GetTypeHelperI");
+	}
+
 	static bool isClientType(llvm::Type* t)
 	{
 		if ( llvm::StructType * st = llvm::dyn_cast<llvm::StructType>(t) )

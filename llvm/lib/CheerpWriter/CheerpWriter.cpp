@@ -1519,6 +1519,32 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(const
 		compileMethodArgs(it, itE, callV, /*forceBoolean*/ true);
 		return COMPILE_OK;
 	}
+	else if(TypeSupport::isCheerpGetTypeHelperName(ident))
+	{
+		// Replace calls to `cheerp::GetTypeHelper<T>::getType()` with the
+		// JavaScript type name of `T`.
+		//
+		// cheerp.GetTypeHelper<client.String>.getType
+		// cheerp.GetTypeHelper<client.Map<client._Any*, client._Any*>>.getType
+		// cheerp.GetTypeHelper<Foo>.getType
+		//                      ^ 21
+
+		cheerp::Demangler demangler(ident.data());
+		std::string mangledJS = demangler.getJSMangling(false);
+		llvm::StringRef name = mangledJS;
+		name = name.substr(21);
+		name = name.substr(0, name.find_first_of("<>"));
+
+		if (name.startswith("client."))
+			name = name.substr(7);
+
+		if (name == "TArray")
+			stream << "Array";
+		else
+			stream << name;
+
+		return COMPILE_OK;
+	}
 	return COMPILE_UNSUPPORTED;
 }
 
