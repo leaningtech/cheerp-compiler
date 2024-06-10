@@ -132,7 +132,10 @@ Address CodeGenFunction::CreateDefaultAlignTempAlloca(llvm::Type *Ty,
 
 Address CodeGenFunction::CreateIRTemp(QualType Ty, const Twine &Name) {
   CharUnits Align = getContext().getTypeAlignInChars(Ty);
-  return CreateTempAlloca(ConvertType(Ty), Align, Name);
+  LangAS DefaultAS = CurFn->getSection() == "asmjs"? LangAS::cheerp_wasm : LangAS::cheerp_genericjs;
+  LangAS AS = getContext().getCheerpTypeAddressSpace(Ty, DefaultAS);
+  unsigned TAS = getContext().getTargetAddressSpace(AS);
+  return CreateTempAlloca(ConvertType(Ty), Align, Name, nullptr, nullptr, TAS);
 }
 
 Address CodeGenFunction::CreateMemTemp(QualType Ty, const Twine &Name,
