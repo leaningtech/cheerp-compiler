@@ -5624,18 +5624,16 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
                                         : ASIdx);
           EPI.TypeQuals.addAddressSpace(AS);
         }
-        if (!S.Context.getTargetInfo().isByteAddressable() &&
+        if (state.getSema().getLangOpts().Cheerp &&
             IsClassMember() &&
             !IsTypedefName &&
             D.getDeclSpec().getStorageClassSpec() != DeclSpec::SCS_static &&
             !D.getDeclSpec().isFriendSpecified() &&
             state.getDeclarator().isFunctionDeclarator()
         ) {
-          if (auto* C = GetParentClass()) {
-            LangAS AS = S.Context.getCheerpTypeAddressSpace(C);
-            if (AS != LangAS::Default)
-              EPI.TypeQuals.addAddressSpace(AS);
-          }
+          LangAS AS = S.getDefaultCXXMethodAddrSpace(GetParentClass());
+          if (AS != LangAS::Default)
+            EPI.TypeQuals.addAddressSpace(AS);
         }
         T = Context.getFunctionType(T, ParamTys, EPI);
       }
