@@ -1,4 +1,4 @@
-ToolSet: 1.0 (local)Ninja: 1.12.0@/snap/clion/277/bin/ninja/linux/x64/ninja
+ToolSet: 1.0 (local)Ninja: 1.12.0@/snap/clion/282/bin/ninja/linux/x64/ninja
 Options: 
 
-Options:-DCMAKE_MAKE_PROGRAM=/snap/clion/277/bin/ninja/linux/x64/ninja
+Options:-DCMAKE_MAKE_PROGRAM=/snap/clion/282/bin/ninja/linux/x64/ninja

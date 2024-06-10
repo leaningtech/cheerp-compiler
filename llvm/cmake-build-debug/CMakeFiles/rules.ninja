@@ -33,7 +33,7 @@ rule CXX_COMPILER__LLVMDemangle_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMDemangle_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -62,7 +62,7 @@ rule CXX_COMPILER__LLVMSupport_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMSupport_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -101,7 +101,7 @@ rule CXX_COMPILER__LLVMTableGen_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMTableGen_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -139,7 +139,7 @@ rule CXX_COMPILER__LLVMTableGenGlobalISel_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMTableGenGlobalISel_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -158,7 +158,7 @@ rule CXX_COMPILER__LLVMCore_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMCore_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -177,7 +177,7 @@ rule CXX_COMPILER__LLVMFuzzerCLI_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMFuzzerCLI_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -196,7 +196,7 @@ rule CXX_COMPILER__LLVMFuzzMutate_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMFuzzMutate_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -215,7 +215,7 @@ rule CXX_COMPILER__LLVMFileCheck_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMFileCheck_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -234,7 +234,7 @@ rule CXX_COMPILER__LLVMInterfaceStub_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMInterfaceStub_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -253,7 +253,7 @@ rule CXX_COMPILER__LLVMIRPrinter_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMIRPrinter_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -272,7 +272,7 @@ rule CXX_COMPILER__LLVMIRReader_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMIRReader_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -291,7 +291,7 @@ rule CXX_COMPILER__LLVMCheerpUtils_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMCheerpUtils_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -310,7 +310,7 @@ rule CXX_COMPILER__LLVMCheerpWriter_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMCheerpWriter_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -329,7 +329,7 @@ rule CXX_COMPILER__LLVMCodeGen_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMCodeGen_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -348,7 +348,7 @@ rule CXX_COMPILER__LLVMSelectionDAG_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMSelectionDAG_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -367,7 +367,7 @@ rule CXX_COMPILER__LLVMAsmPrinter_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMAsmPrinter_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -386,7 +386,7 @@ rule CXX_COMPILER__LLVMMIRParser_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMMIRParser_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -405,7 +405,7 @@ rule CXX_COMPILER__LLVMGlobalISel_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMGlobalISel_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -424,7 +424,7 @@ rule CXX_COMPILER__LLVMBinaryFormat_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMBinaryFormat_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -443,7 +443,7 @@ rule CXX_COMPILER__LLVMBitReader_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMBitReader_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -462,7 +462,7 @@ rule CXX_COMPILER__LLVMBitWriter_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMBitWriter_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -481,7 +481,7 @@ rule CXX_COMPILER__LLVMBitstreamReader_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMBitstreamReader_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -500,7 +500,7 @@ rule CXX_COMPILER__LLVMDWARFLinker_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMDWARFLinker_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -519,7 +519,7 @@ rule CXX_COMPILER__LLVMExtensions_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMExtensions_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -538,7 +538,7 @@ rule CXX_COMPILER__LLVMFrontendHLSL_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMFrontendHLSL_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -557,7 +557,7 @@ rule CXX_COMPILER__LLVMFrontendOpenACC_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMFrontendOpenACC_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -576,7 +576,7 @@ rule CXX_COMPILER__LLVMFrontendOpenMP_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMFrontendOpenMP_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -595,7 +595,7 @@ rule CXX_COMPILER__LLVMTransformUtils_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMTransformUtils_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -614,7 +614,7 @@ rule CXX_COMPILER__LLVMInstrumentation_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMInstrumentation_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -633,7 +633,7 @@ rule CXX_COMPILER__LLVMAggressiveInstCombine_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMAggressiveInstCombine_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -652,7 +652,7 @@ rule CXX_COMPILER__LLVMInstCombine_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMInstCombine_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -671,7 +671,7 @@ rule CXX_COMPILER__LLVMScalarOpts_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMScalarOpts_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -690,7 +690,7 @@ rule CXX_COMPILER__LLVMipo_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMipo_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -709,7 +709,7 @@ rule CXX_COMPILER__LLVMVectorize_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMVectorize_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -747,7 +747,7 @@ rule CXX_COMPILER__LLVMObjCARCOpts_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMObjCARCOpts_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -766,7 +766,7 @@ rule CXX_COMPILER__LLVMCoroutines_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMCoroutines_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -785,7 +785,7 @@ rule CXX_COMPILER__LLVMCFGuard_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMCFGuard_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -804,7 +804,7 @@ rule CXX_COMPILER__LLVMLinker_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMLinker_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -823,7 +823,7 @@ rule CXX_COMPILER__LLVMAnalysis_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMAnalysis_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -842,7 +842,7 @@ rule CXX_COMPILER__LLVMLTO_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMLTO_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -861,7 +861,7 @@ rule CXX_COMPILER__LLVMMC_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMMC_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -880,7 +880,7 @@ rule CXX_COMPILER__LLVMMCParser_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMMCParser_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -899,7 +899,7 @@ rule CXX_COMPILER__LLVMMCDisassembler_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMMCDisassembler_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -918,7 +918,7 @@ rule CXX_COMPILER__LLVMMCA_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMMCA_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -937,7 +937,7 @@ rule CXX_COMPILER__LLVMObjCopy_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMObjCopy_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -956,7 +956,7 @@ rule CXX_COMPILER__LLVMObject_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMObject_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -975,7 +975,7 @@ rule CXX_COMPILER__LLVMObjectYAML_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMObjectYAML_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -994,7 +994,7 @@ rule CXX_COMPILER__LLVMOption_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMOption_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -1013,7 +1013,7 @@ rule CXX_COMPILER__LLVMRemarks_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMRemarks_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -1032,7 +1032,7 @@ rule CXX_COMPILER__LLVMDebuginfod_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMDebuginfod_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -1051,7 +1051,7 @@ rule CXX_COMPILER__LLVMDebugInfoDWARF_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMDebugInfoDWARF_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -1070,7 +1070,7 @@ rule CXX_COMPILER__LLVMDebugInfoGSYM_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMDebugInfoGSYM_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -1089,7 +1089,7 @@ rule CXX_COMPILER__LLVMDebugInfoLogicalView_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMDebugInfoLogicalView_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -1108,7 +1108,7 @@ rule CXX_COMPILER__LLVMDebugInfoMSF_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMDebugInfoMSF_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -1127,7 +1127,7 @@ rule CXX_COMPILER__LLVMDebugInfoCodeView_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMDebugInfoCodeView_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -1146,7 +1146,7 @@ rule CXX_COMPILER__LLVMDebugInfoPDB_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMDebugInfoPDB_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -1165,7 +1165,7 @@ rule CXX_COMPILER__LLVMSymbolize_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMSymbolize_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -1184,7 +1184,7 @@ rule CXX_COMPILER__LLVMDWP_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMDWP_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -1203,7 +1203,7 @@ rule CXX_COMPILER__LLVMExecutionEngine_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMExecutionEngine_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -1222,7 +1222,7 @@ rule CXX_COMPILER__LLVMInterpreter_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMInterpreter_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -1241,7 +1241,7 @@ rule CXX_COMPILER__LLVMJITLink_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMJITLink_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -1260,7 +1260,7 @@ rule CXX_COMPILER__LLVMMCJIT_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMMCJIT_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -1279,7 +1279,7 @@ rule CXX_COMPILER__LLVMOrcJIT_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMOrcJIT_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -1298,7 +1298,7 @@ rule CXX_COMPILER__LLVMOrcShared_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMOrcShared_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -1317,7 +1317,7 @@ rule CXX_COMPILER__LLVMOrcTargetProcess_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMOrcTargetProcess_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -1336,7 +1336,7 @@ rule CXX_COMPILER__LLVMRuntimeDyld_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMRuntimeDyld_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -1355,7 +1355,7 @@ rule CXX_COMPILER__LLVMTarget_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMTarget_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -1374,7 +1374,7 @@ rule CXX_COMPILER__LLVMAArch64CodeGen_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMAArch64CodeGen_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -1393,7 +1393,7 @@ rule CXX_COMPILER__LLVMAArch64AsmParser_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMAArch64AsmParser_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -1412,7 +1412,7 @@ rule CXX_COMPILER__LLVMAArch64Disassembler_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMAArch64Disassembler_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -1431,7 +1431,7 @@ rule CXX_COMPILER__LLVMAArch64Desc_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMAArch64Desc_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -1450,7 +1450,7 @@ rule CXX_COMPILER__LLVMAArch64Info_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMAArch64Info_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -1469,7 +1469,7 @@ rule CXX_COMPILER__LLVMAArch64Utils_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMAArch64Utils_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -1488,7 +1488,7 @@ rule CXX_COMPILER__LLVMAMDGPUCodeGen_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMAMDGPUCodeGen_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -1507,7 +1507,7 @@ rule CXX_COMPILER__LLVMAMDGPUAsmParser_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMAMDGPUAsmParser_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -1526,7 +1526,7 @@ rule CXX_COMPILER__LLVMAMDGPUDisassembler_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMAMDGPUDisassembler_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -1545,7 +1545,7 @@ rule CXX_COMPILER__LLVMAMDGPUTargetMCA_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMAMDGPUTargetMCA_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -1564,7 +1564,7 @@ rule CXX_COMPILER__LLVMAMDGPUDesc_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMAMDGPUDesc_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -1583,7 +1583,7 @@ rule CXX_COMPILER__LLVMAMDGPUInfo_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMAMDGPUInfo_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -1602,7 +1602,7 @@ rule CXX_COMPILER__LLVMAMDGPUUtils_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMAMDGPUUtils_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -1621,7 +1621,7 @@ rule CXX_COMPILER__LLVMARMCodeGen_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMARMCodeGen_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -1640,7 +1640,7 @@ rule CXX_COMPILER__LLVMARMAsmParser_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMARMAsmParser_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -1659,7 +1659,7 @@ rule CXX_COMPILER__LLVMARMDisassembler_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMARMDisassembler_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -1678,7 +1678,7 @@ rule CXX_COMPILER__LLVMARMDesc_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMARMDesc_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -1697,7 +1697,7 @@ rule CXX_COMPILER__LLVMARMInfo_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMARMInfo_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -1716,7 +1716,7 @@ rule CXX_COMPILER__LLVMARMUtils_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMARMUtils_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -1735,7 +1735,7 @@ rule CXX_COMPILER__LLVMAVRCodeGen_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMAVRCodeGen_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -1754,7 +1754,7 @@ rule CXX_COMPILER__LLVMAVRAsmParser_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMAVRAsmParser_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -1773,7 +1773,7 @@ rule CXX_COMPILER__LLVMAVRDisassembler_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMAVRDisassembler_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -1792,7 +1792,7 @@ rule CXX_COMPILER__LLVMAVRDesc_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMAVRDesc_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -1811,7 +1811,7 @@ rule CXX_COMPILER__LLVMAVRInfo_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMAVRInfo_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -1830,7 +1830,7 @@ rule CXX_COMPILER__LLVMBPFCodeGen_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMBPFCodeGen_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -1849,7 +1849,7 @@ rule CXX_COMPILER__LLVMBPFAsmParser_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMBPFAsmParser_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -1868,7 +1868,7 @@ rule CXX_COMPILER__LLVMBPFDisassembler_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMBPFDisassembler_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -1887,7 +1887,7 @@ rule CXX_COMPILER__LLVMBPFDesc_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMBPFDesc_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -1906,7 +1906,7 @@ rule CXX_COMPILER__LLVMBPFInfo_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMBPFInfo_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -1925,7 +1925,7 @@ rule CXX_COMPILER__LLVMCheerpBackendCodeGen_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMCheerpBackendCodeGen_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -1944,7 +1944,7 @@ rule CXX_COMPILER__LLVMCheerpBackendDesc_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMCheerpBackendDesc_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -1963,7 +1963,7 @@ rule CXX_COMPILER__LLVMCheerpBackendInfo_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMCheerpBackendInfo_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -1982,7 +1982,7 @@ rule CXX_COMPILER__LLVMHexagonCodeGen_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMHexagonCodeGen_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2001,7 +2001,7 @@ rule CXX_COMPILER__LLVMHexagonAsmParser_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMHexagonAsmParser_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2020,7 +2020,7 @@ rule CXX_COMPILER__LLVMHexagonDisassembler_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMHexagonDisassembler_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2039,7 +2039,7 @@ rule CXX_COMPILER__LLVMHexagonDesc_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMHexagonDesc_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2058,7 +2058,7 @@ rule CXX_COMPILER__LLVMHexagonInfo_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMHexagonInfo_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2077,7 +2077,7 @@ rule CXX_COMPILER__LLVMLanaiCodeGen_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMLanaiCodeGen_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2096,7 +2096,7 @@ rule CXX_COMPILER__LLVMLanaiAsmParser_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMLanaiAsmParser_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2115,7 +2115,7 @@ rule CXX_COMPILER__LLVMLanaiDisassembler_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMLanaiDisassembler_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2134,7 +2134,7 @@ rule CXX_COMPILER__LLVMLanaiDesc_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMLanaiDesc_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2153,7 +2153,7 @@ rule CXX_COMPILER__LLVMLanaiInfo_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMLanaiInfo_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2172,7 +2172,7 @@ rule CXX_COMPILER__LLVMMipsCodeGen_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMMipsCodeGen_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2191,7 +2191,7 @@ rule CXX_COMPILER__LLVMMipsAsmParser_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMMipsAsmParser_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2210,7 +2210,7 @@ rule CXX_COMPILER__LLVMMipsDisassembler_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMMipsDisassembler_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2229,7 +2229,7 @@ rule CXX_COMPILER__LLVMMipsDesc_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMMipsDesc_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2248,7 +2248,7 @@ rule CXX_COMPILER__LLVMMipsInfo_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMMipsInfo_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2267,7 +2267,7 @@ rule CXX_COMPILER__LLVMMSP430CodeGen_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMMSP430CodeGen_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2286,7 +2286,7 @@ rule CXX_COMPILER__LLVMMSP430Desc_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMMSP430Desc_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2305,7 +2305,7 @@ rule CXX_COMPILER__LLVMMSP430Info_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMMSP430Info_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2324,7 +2324,7 @@ rule CXX_COMPILER__LLVMMSP430AsmParser_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMMSP430AsmParser_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2343,7 +2343,7 @@ rule CXX_COMPILER__LLVMMSP430Disassembler_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMMSP430Disassembler_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2362,7 +2362,7 @@ rule CXX_COMPILER__LLVMNVPTXCodeGen_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMNVPTXCodeGen_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2381,7 +2381,7 @@ rule CXX_COMPILER__LLVMNVPTXDesc_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMNVPTXDesc_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2400,7 +2400,7 @@ rule CXX_COMPILER__LLVMNVPTXInfo_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMNVPTXInfo_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2419,7 +2419,7 @@ rule CXX_COMPILER__LLVMPowerPCCodeGen_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMPowerPCCodeGen_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2438,7 +2438,7 @@ rule CXX_COMPILER__LLVMPowerPCAsmParser_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMPowerPCAsmParser_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2457,7 +2457,7 @@ rule CXX_COMPILER__LLVMPowerPCDisassembler_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMPowerPCDisassembler_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2476,7 +2476,7 @@ rule CXX_COMPILER__LLVMPowerPCDesc_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMPowerPCDesc_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2495,7 +2495,7 @@ rule CXX_COMPILER__LLVMPowerPCInfo_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMPowerPCInfo_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2514,7 +2514,7 @@ rule CXX_COMPILER__LLVMRISCVCodeGen_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMRISCVCodeGen_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2533,7 +2533,7 @@ rule CXX_COMPILER__LLVMRISCVAsmParser_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMRISCVAsmParser_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2552,7 +2552,7 @@ rule CXX_COMPILER__LLVMRISCVDisassembler_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMRISCVDisassembler_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2571,7 +2571,7 @@ rule CXX_COMPILER__LLVMRISCVDesc_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMRISCVDesc_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2590,7 +2590,7 @@ rule CXX_COMPILER__LLVMRISCVTargetMCA_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMRISCVTargetMCA_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2609,7 +2609,7 @@ rule CXX_COMPILER__LLVMRISCVInfo_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMRISCVInfo_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2628,7 +2628,7 @@ rule CXX_COMPILER__LLVMSparcCodeGen_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMSparcCodeGen_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2647,7 +2647,7 @@ rule CXX_COMPILER__LLVMSparcAsmParser_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMSparcAsmParser_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2666,7 +2666,7 @@ rule CXX_COMPILER__LLVMSparcDisassembler_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMSparcDisassembler_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2685,7 +2685,7 @@ rule CXX_COMPILER__LLVMSparcDesc_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMSparcDesc_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2704,7 +2704,7 @@ rule CXX_COMPILER__LLVMSparcInfo_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMSparcInfo_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2723,7 +2723,7 @@ rule CXX_COMPILER__LLVMSystemZCodeGen_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMSystemZCodeGen_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2742,7 +2742,7 @@ rule CXX_COMPILER__LLVMSystemZAsmParser_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMSystemZAsmParser_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2761,7 +2761,7 @@ rule CXX_COMPILER__LLVMSystemZDisassembler_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMSystemZDisassembler_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2780,7 +2780,7 @@ rule CXX_COMPILER__LLVMSystemZDesc_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMSystemZDesc_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2799,7 +2799,7 @@ rule CXX_COMPILER__LLVMSystemZInfo_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMSystemZInfo_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2818,7 +2818,7 @@ rule CXX_COMPILER__LLVMVECodeGen_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMVECodeGen_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2837,7 +2837,7 @@ rule CXX_COMPILER__LLVMVEAsmParser_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMVEAsmParser_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2856,7 +2856,7 @@ rule CXX_COMPILER__LLVMVEDisassembler_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMVEDisassembler_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2875,7 +2875,7 @@ rule CXX_COMPILER__LLVMVEInfo_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMVEInfo_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2894,7 +2894,7 @@ rule CXX_COMPILER__LLVMVEDesc_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMVEDesc_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2913,7 +2913,7 @@ rule CXX_COMPILER__LLVMWebAssemblyCodeGen_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMWebAssemblyCodeGen_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2932,7 +2932,7 @@ rule CXX_COMPILER__LLVMWebAssemblyAsmParser_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMWebAssemblyAsmParser_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2951,7 +2951,7 @@ rule CXX_COMPILER__LLVMWebAssemblyDisassembler_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMWebAssemblyDisassembler_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2970,7 +2970,7 @@ rule CXX_COMPILER__LLVMWebAssemblyDesc_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMWebAssemblyDesc_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -2989,7 +2989,7 @@ rule CXX_COMPILER__LLVMWebAssemblyInfo_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMWebAssemblyInfo_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -3008,7 +3008,7 @@ rule CXX_COMPILER__LLVMWebAssemblyUtils_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMWebAssemblyUtils_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -3027,7 +3027,7 @@ rule CXX_COMPILER__LLVMX86CodeGen_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMX86CodeGen_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -3046,7 +3046,7 @@ rule CXX_COMPILER__LLVMX86AsmParser_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMX86AsmParser_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -3065,7 +3065,7 @@ rule CXX_COMPILER__LLVMX86Disassembler_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMX86Disassembler_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -3084,7 +3084,7 @@ rule CXX_COMPILER__LLVMX86TargetMCA_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMX86TargetMCA_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -3103,7 +3103,7 @@ rule CXX_COMPILER__LLVMX86Desc_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMX86Desc_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -3122,7 +3122,7 @@ rule CXX_COMPILER__LLVMX86Info_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMX86Info_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -3141,7 +3141,7 @@ rule CXX_COMPILER__LLVMXCoreCodeGen_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMXCoreCodeGen_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -3160,7 +3160,7 @@ rule CXX_COMPILER__LLVMXCoreDisassembler_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMXCoreDisassembler_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -3179,7 +3179,7 @@ rule CXX_COMPILER__LLVMXCoreDesc_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMXCoreDesc_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -3198,7 +3198,7 @@ rule CXX_COMPILER__LLVMXCoreInfo_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMXCoreInfo_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -3217,7 +3217,7 @@ rule CXX_COMPILER__LLVMAsmParser_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMAsmParser_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -3236,7 +3236,7 @@ rule CXX_COMPILER__LLVMLineEditor_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMLineEditor_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -3255,7 +3255,7 @@ rule CXX_COMPILER__LLVMProfileData_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMProfileData_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -3274,7 +3274,7 @@ rule CXX_COMPILER__LLVMCoverage_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMCoverage_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -3293,7 +3293,7 @@ rule CXX_COMPILER__LLVMPasses_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMPasses_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -3312,7 +3312,7 @@ rule CXX_COMPILER__LLVMTextAPI_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMTextAPI_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -3331,7 +3331,7 @@ rule CXX_COMPILER__LLVMDlltoolDriver_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMDlltoolDriver_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -3350,7 +3350,7 @@ rule CXX_COMPILER__LLVMLibDriver_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMLibDriver_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -3369,7 +3369,7 @@ rule CXX_COMPILER__LLVMXRay_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMXRay_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -3388,7 +3388,7 @@ rule CXX_COMPILER__LLVMTestingSupport_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMTestingSupport_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -3407,7 +3407,7 @@ rule CXX_COMPILER__LLVMWindowsDriver_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMWindowsDriver_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -3426,7 +3426,7 @@ rule CXX_COMPILER__LLVMWindowsManifest_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMWindowsManifest_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -3578,7 +3578,7 @@ rule CXX_COMPILER__llvm_gtest_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__llvm_gtest_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -3597,7 +3597,7 @@ rule CXX_COMPILER__llvm_gtest_main_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__llvm_gtest_main_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -3625,7 +3625,7 @@ rule CXX_SHARED_LIBRARY_LINKER__LTO_Debug
 # Rule for creating library symlink.
 
 rule CMAKE_SYMLINK_LIBRARY
-  command = /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E cmake_symlink_library $in $SONAME $out && $POST_BUILD
+  command = /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E cmake_symlink_library $in $SONAME $out && $POST_BUILD
   description = Creating library symlink $out
 
 
@@ -3938,7 +3938,7 @@ rule CXX_COMPILER__LLVMCFIVerify_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMCFIVerify_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -4128,7 +4128,7 @@ rule CXX_COMPILER__LLVMDiff_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMDiff_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -4261,7 +4261,7 @@ rule CXX_COMPILER__LLVMExegesis_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMExegesis_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -4280,7 +4280,7 @@ rule CXX_COMPILER__LLVMExegesisX86_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMExegesisX86_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -4299,7 +4299,7 @@ rule CXX_COMPILER__LLVMExegesisAArch64_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMExegesisAArch64_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -4318,7 +4318,7 @@ rule CXX_COMPILER__LLVMExegesisPowerPC_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMExegesisPowerPC_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -4337,7 +4337,7 @@ rule CXX_COMPILER__LLVMExegesisMips_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__LLVMExegesisMips_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -5401,7 +5401,7 @@ rule CXX_COMPILER__ExampleIRTransforms_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__ExampleIRTransforms_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -6921,7 +6921,7 @@ rule CXX_COMPILER__DynamicLibraryLib_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__DynamicLibraryLib_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -7377,7 +7377,7 @@ rule CXX_COMPILER__benchmark_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__benchmark_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -7396,7 +7396,7 @@ rule CXX_COMPILER__benchmark_main_unscanned_Debug
 # Rule for linking CXX static library.
 
 rule CXX_STATIC_LIBRARY_LINKER__benchmark_main_Debug
-  command = $PRE_LINK && /snap/clion/277/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
+  command = $PRE_LINK && /snap/clion/282/bin/cmake/linux/x64/bin/cmake -E rm -f $TARGET_FILE && /usr/bin/ar Dqc $TARGET_FILE $LINK_FLAGS $in && /usr/bin/ranlib -D $TARGET_FILE && $POST_BUILD
   description = Linking CXX static library $TARGET_FILE
   restat = $RESTAT
 
@@ -7424,7 +7424,7 @@ rule CXX_EXECUTABLE_LINKER__DummyYAML_Debug
 # Rule for re-running cmake.
 
 rule RERUN_CMAKE
-  command = /snap/clion/277/bin/cmake/linux/x64/bin/cmake --regenerate-during-build -S/home/c/Downloads/cheerp/cheerp-compiler/llvm -B/home/c/Downloads/cheerp/cheerp-compiler/llvm/cmake-build-debug
+  command = /snap/clion/282/bin/cmake/linux/x64/bin/cmake --regenerate-during-build -S/home/c/Downloads/cheerp/cheerp-compiler/llvm -B/home/c/Downloads/cheerp/cheerp-compiler/llvm/cmake-build-debug
   description = Re-running CMake...
   generator = 1
 
@@ -7433,7 +7433,7 @@ rule RERUN_CMAKE
 # Rule for cleaning all built files.
 
 rule CLEAN
-  command = /snap/clion/277/bin/ninja/linux/x64/ninja $FILE_ARG -t clean $TARGETS
+  command = /snap/clion/282/bin/ninja/linux/x64/ninja $FILE_ARG -t clean $TARGETS
   description = Cleaning all built files...
 
 
@@ -7441,6 +7441,6 @@ rule CLEAN
 # Rule for printing all primary targets available.
 
 rule HELP
-  command = /snap/clion/277/bin/ninja/linux/x64/ninja -t targets
+  command = /snap/clion/282/bin/ninja/linux/x64/ninja -t targets
   description = All primary targets available:
 
