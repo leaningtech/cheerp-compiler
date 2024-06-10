@@ -471,7 +471,8 @@ void LinearMemoryHelper::generateGlobalizedGlobalsUsage()
 
 void LinearMemoryHelper::addFunctions()
 {
-	// Construct the list of asmjs functions. Make sure that __wasm_nullptr is
+  llvm::errs()<<std::string(__PRETTY_FUNCTION__) + "\n";
+  // Construct the list of asmjs functions. Make sure that __wasm_nullptr is
 	// the first list entry, if defined.
 	if (mode == FunctionAddressMode::Wasm)
 	{

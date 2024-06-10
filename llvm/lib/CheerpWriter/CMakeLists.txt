@@ -11,6 +11,7 @@ add_llvm_component_library(LLVMCheerpWriter
   PreExecute.cpp
   CFGStackifier.cpp
   PartialExecuter.cpp
+  CheerpMCStreamer.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_SRC_DIR}/ExecutionEngine/

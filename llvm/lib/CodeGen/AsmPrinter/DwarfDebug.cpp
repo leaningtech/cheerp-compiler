@@ -51,6 +51,7 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MD5.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/Signals.h"
 #include "llvm/Target/TargetLoweringObjectFile.h"
 #include "llvm/Target/TargetMachine.h"
 #include <algorithm>
@@ -1291,6 +1292,7 @@ void DwarfDebug::finalizeModuleInfo() {
     bool HasSplitUnit = SkCU && !TheCU.getUnitDie().children().empty();
 
     if (HasSplitUnit) {
+      errs()<<"has split unit\n";
       dwarf::Attribute attrDWOName = getDwarfVersion() >= 5
                                          ? dwarf::DW_AT_dwo_name
                                          : dwarf::DW_AT_GNU_dwo_name;
@@ -1435,8 +1437,9 @@ void DwarfDebug::endModule() {
   emitDebugInfo();
 
   // Emit info into a debug aranges section.
-  if (GenerateARangeSection)
-    emitDebugARanges();
+  if (GenerateARangeSection){
+    errs()<<std::string(__PRETTY_FUNCTION__)+"GenerateARangeSection is true";
+    emitDebugARanges();}
 
   // Emit info into a debug ranges section.
   emitDebugRanges();
@@ -2426,7 +2429,6 @@ void DwarfDebug::emitDebugPubSections() {
     DwarfCompileUnit *TheU = NU.second;
     if (!TheU->hasDwarfPubSections())
       continue;
-
     bool GnuStyle = TheU->getCUNode()->getNameTableKind() ==
                     DICompileUnit::DebugNameTableKind::GNU;
 
@@ -3367,6 +3369,7 @@ uint64_t DwarfDebug::makeTypeSignature(StringRef Identifier) {
 void DwarfDebug::addDwarfTypeUnitType(DwarfCompileUnit &CU,
                                       StringRef Identifier, DIE &RefDie,
                                       const DICompositeType *CTy) {
+  sys::PrintStackTrace(errs());
   // Fast path if we're building some type units and one has already used the
   // address pool we know we're going to throw away all this work anyway, so
   // don't bother building dependent types.
