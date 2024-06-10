@@ -1,0 +1,305 @@
+{
+	"archive" : {},
+	"artifacts" : 
+	[
+		{
+			"path" : "lib/libLLVMCheerpBackendInfo.a"
+		}
+	],
+	"backtrace" : 3,
+	"backtraceGraph" : 
+	{
+		"commands" : 
+		[
+			"add_library",
+			"llvm_add_library",
+			"add_llvm_library",
+			"install",
+			"add_dependencies",
+			"set_property",
+			"llvm_update_compile_flags",
+			"add_definitions",
+			"include",
+			"add_compile_definitions",
+			"include_directories",
+			"add_llvm_target"
+		],
+		"files" : 
+		[
+			"cmake/modules/AddLLVM.cmake",
+			"lib/Target/CheerpBackend/TargetInfo/CMakeLists.txt",
+			"cmake/modules/HandleLLVMOptions.cmake",
+			"CMakeLists.txt",
+			"cmake/config-ix.cmake",
+			"lib/Target/CheerpBackend/CMakeLists.txt"
+		],
+		"nodes" : 
+		[
+			{
+				"file" : 1
+			},
+			{
+				"command" : 2,
+				"file" : 1,
+				"line" : 3,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 848,
+				"parent" : 1
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 588,
+				"parent" : 2
+			},
+			{
+				"command" : 3,
+				"file" : 0,
+				"line" : 875,
+				"parent" : 1
+			},
+			{
+				"command" : 4,
+				"file" : 0,
+				"line" : 719,
+				"parent" : 2
+			},
+			{
+				"command" : 6,
+				"file" : 0,
+				"line" : 612,
+				"parent" : 2
+			},
+			{
+				"command" : 5,
+				"file" : 0,
+				"line" : 81,
+				"parent" : 6
+			},
+			{
+				"file" : 3
+			},
+			{
+				"command" : 8,
+				"file" : 3,
+				"line" : 880,
+				"parent" : 8
+			},
+			{
+				"file" : 2,
+				"parent" : 9
+			},
+			{
+				"command" : 7,
+				"file" : 2,
+				"line" : 64,
+				"parent" : 10
+			},
+			{
+				"command" : 8,
+				"file" : 3,
+				"line" : 836,
+				"parent" : 8
+			},
+			{
+				"file" : 4,
+				"parent" : 12
+			},
+			{
+				"command" : 9,
+				"file" : 4,
+				"line" : 351,
+				"parent" : 13
+			},
+			{
+				"command" : 7,
+				"file" : 2,
+				"line" : 953,
+				"parent" : 10
+			},
+			{
+				"command" : 7,
+				"file" : 2,
+				"line" : 954,
+				"parent" : 10
+			},
+			{
+				"command" : 7,
+				"file" : 2,
+				"line" : 955,
+				"parent" : 10
+			},
+			{
+				"file" : 5
+			},
+			{
+				"command" : 11,
+				"file" : 5,
+				"line" : 3,
+				"parent" : 18
+			},
+			{
+				"command" : 10,
+				"file" : 0,
+				"line" : 1431,
+				"parent" : 19
+			},
+			{
+				"command" : 10,
+				"file" : 3,
+				"line" : 1140,
+				"parent" : 8
+			},
+			{
+				"command" : 10,
+				"file" : 1,
+				"line" : 1,
+				"parent" : 0
+			}
+		]
+	},
+	"compileGroups" : 
+	[
+		{
+			"compileCommandFragments" : 
+			[
+				{
+					"fragment" : " -fPIC -fno-semantic-interposition -fvisibility-inlines-hidden -Werror=date-time -Wall -Wextra -Wno-unused-parameter -Wwrite-strings -Wcast-qual -Wno-missing-field-initializers -pedantic -Wno-long-long -Wimplicit-fallthrough -Wno-maybe-uninitialized -Wno-class-memaccess -Wno-redundant-move -Wno-pessimizing-move -Wno-noexcept-type -Wdelete-non-virtual-dtor -Wsuggest-override -Wno-comment -Wno-misleading-indentation -Wctad-maybe-unsupported -fdiagnostics-color -g -std=c++17 -fvisibility=hidden -fdiagnostics-color=always"
+				},
+				{
+					"fragment" : " -fno-exceptions -fno-rtti"
+				}
+			],
+			"defines" : 
+			[
+				{
+					"backtrace" : 7,
+					"define" : "GTEST_HAS_RTTI=0"
+				},
+				{
+					"backtrace" : 11,
+					"define" : "_DEBUG"
+				},
+				{
+					"backtrace" : 14,
+					"define" : "_GNU_SOURCE"
+				},
+				{
+					"backtrace" : 15,
+					"define" : "__STDC_CONSTANT_MACROS"
+				},
+				{
+					"backtrace" : 16,
+					"define" : "__STDC_FORMAT_MACROS"
+				},
+				{
+					"backtrace" : 17,
+					"define" : "__STDC_LIMIT_MACROS"
+				}
+			],
+			"includes" : 
+			[
+				{
+					"path" : "/home/c/Downloads/cheerp/cheerp-compiler/llvm/cmake-build-debug/lib/Target/CheerpBackend/TargetInfo"
+				},
+				{
+					"path" : "/home/c/Downloads/cheerp/cheerp-compiler/llvm/lib/Target/CheerpBackend/TargetInfo"
+				},
+				{
+					"backtrace" : 20,
+					"path" : "/home/c/Downloads/cheerp/cheerp-compiler/llvm/lib/Target/CheerpBackend"
+				},
+				{
+					"backtrace" : 20,
+					"path" : "/home/c/Downloads/cheerp/cheerp-compiler/llvm/cmake-build-debug/lib/Target/CheerpBackend"
+				},
+				{
+					"backtrace" : 21,
+					"path" : "/home/c/Downloads/cheerp/cheerp-compiler/llvm/cmake-build-debug/include"
+				},
+				{
+					"backtrace" : 21,
+					"path" : "/home/c/Downloads/cheerp/cheerp-compiler/llvm/include"
+				},
+				{
+					"backtrace" : 22,
+					"path" : "/home/c/Downloads/cheerp/cheerp-compiler/llvm/cmake-build-debug/lib/Target/CheerpBackend/TargetInfo/.."
+				},
+				{
+					"backtrace" : 22,
+					"path" : "/home/c/Downloads/cheerp/cheerp-compiler/llvm/lib/Target/CheerpBackend/TargetInfo/.."
+				}
+			],
+			"language" : "CXX",
+			"languageStandard" : 
+			{
+				"backtraces" : 
+				[
+					3
+				],
+				"standard" : "17"
+			},
+			"sourceIndexes" : 
+			[
+				0
+			]
+		}
+	],
+	"dependencies" : 
+	[
+		{
+			"backtrace" : 5,
+			"id" : "intrinsics_gen::@6eda0283a7d1115d7bbd"
+		}
+	],
+	"folder" : 
+	{
+		"name" : "Libraries"
+	},
+	"id" : "LLVMCheerpBackendInfo::@3c3074f2d43a552c1970",
+	"install" : 
+	{
+		"destinations" : 
+		[
+			{
+				"backtrace" : 4,
+				"path" : "lib"
+			}
+		],
+		"prefix" : 
+		{
+			"path" : "/usr/local"
+		}
+	},
+	"name" : "LLVMCheerpBackendInfo",
+	"nameOnDisk" : "libLLVMCheerpBackendInfo.a",
+	"paths" : 
+	{
+		"build" : "lib/Target/CheerpBackend/TargetInfo",
+		"source" : "lib/Target/CheerpBackend/TargetInfo"
+	},
+	"sourceGroups" : 
+	[
+		{
+			"name" : "Source Files",
+			"sourceIndexes" : 
+			[
+				0
+			]
+		}
+	],
+	"sources" : 
+	[
+		{
+			"backtrace" : 3,
+			"compileGroupIndex" : 0,
+			"path" : "lib/Target/CheerpBackend/TargetInfo/CheerpBackendTargetInfo.cpp",
+			"sourceGroupIndex" : 0
+		}
+	],
+	"type" : "STATIC_LIBRARY"
+}

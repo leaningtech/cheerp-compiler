@@ -1,0 +1,99 @@
+{
+	"backtrace" : 3,
+	"backtraceGraph" : 
+	{
+		"commands" : 
+		[
+			"add_custom_target",
+			"add_llvm_install_targets",
+			"add_llvm_library",
+			"add_dependencies"
+		],
+		"files" : 
+		[
+			"cmake/modules/AddLLVM.cmake",
+			"lib/Target/CheerpBackend/TargetInfo/CMakeLists.txt"
+		],
+		"nodes" : 
+		[
+			{
+				"file" : 1
+			},
+			{
+				"command" : 2,
+				"file" : 1,
+				"line" : 3,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 882,
+				"parent" : 1
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 772,
+				"parent" : 2
+			},
+			{
+				"command" : 3,
+				"file" : 0,
+				"line" : 783,
+				"parent" : 2
+			}
+		]
+	},
+	"dependencies" : 
+	[
+		{
+			"backtrace" : 4,
+			"id" : "LLVMCheerpBackendInfo::@3c3074f2d43a552c1970"
+		}
+	],
+	"folder" : 
+	{
+		"name" : "Component Install Targets (Stripped)"
+	},
+	"id" : "install-LLVMCheerpBackendInfo-stripped::@3c3074f2d43a552c1970",
+	"name" : "install-LLVMCheerpBackendInfo-stripped",
+	"paths" : 
+	{
+		"build" : "lib/Target/CheerpBackend/TargetInfo",
+		"source" : "lib/Target/CheerpBackend/TargetInfo"
+	},
+	"sourceGroups" : 
+	[
+		{
+			"name" : "",
+			"sourceIndexes" : 
+			[
+				0
+			]
+		},
+		{
+			"name" : "CMake Rules",
+			"sourceIndexes" : 
+			[
+				1
+			]
+		}
+	],
+	"sources" : 
+	[
+		{
+			"backtrace" : 3,
+			"isGenerated" : true,
+			"path" : "cmake-build-debug/lib/Target/CheerpBackend/TargetInfo/CMakeFiles/install-LLVMCheerpBackendInfo-stripped",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 0,
+			"isGenerated" : true,
+			"path" : "cmake-build-debug/lib/Target/CheerpBackend/TargetInfo/CMakeFiles/install-LLVMCheerpBackendInfo-stripped.rule",
+			"sourceGroupIndex" : 1
+		}
+	],
+	"type" : "UTILITY"
+}

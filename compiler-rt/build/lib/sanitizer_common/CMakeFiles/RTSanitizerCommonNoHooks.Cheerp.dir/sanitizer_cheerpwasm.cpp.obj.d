@@ -1,0 +1,46 @@
+lib/sanitizer_common/CMakeFiles/RTSanitizerCommonNoHooks.Cheerp.dir/sanitizer_cheerpwasm.cpp.obj: \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/sanitizer_common/sanitizer_cheerpwasm.cpp \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/sanitizer_common/sanitizer_cheerpwasm.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/sanitizer_common/sanitizer_platform.h \
+  /opt/cheerp/bin/../include/features.h \
+  /opt/cheerp/lib/clang/16/include/stdint.h \
+  /opt/cheerp/bin/../include/stdint.h \
+  /opt/cheerp/bin/../include/bits/alltypes.h \
+  /opt/cheerp/bin/../include/bits/stdint.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/sanitizer_common/sanitizer_internal_defs.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/sanitizer_common/sanitizer_platform_limits_cheerpwasm.h \
+  /opt/cheerp/bin/../include/stdio.h /opt/cheerp/bin/../include/errno.h \
+  /opt/cheerp/bin/../include/bits/errno.h \
+  /opt/cheerp/bin/../include/stdlib.h \
+  /opt/cheerp/bin/../include/alloca.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/sanitizer_common/sanitizer_allocator_internal.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/sanitizer_common/sanitizer_allocator.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/sanitizer_common/sanitizer_common.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/sanitizer_common/sanitizer_flags.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/sanitizer_common/sanitizer_flags.inc \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/sanitizer_common/sanitizer_libc.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/sanitizer_common/sanitizer_list.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/sanitizer_common/sanitizer_mutex.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/sanitizer_common/sanitizer_atomic.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/sanitizer_common/sanitizer_atomic_clang.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/sanitizer_common/sanitizer_atomic_clang_other.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/sanitizer_common/sanitizer_thread_safety.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/sanitizer_common/sanitizer_flat_map.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/sanitizer_common/sanitizer_local_address_space_view.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/sanitizer_common/sanitizer_lfstack.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/sanitizer_common/sanitizer_procmaps.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/sanitizer_common/sanitizer_type_traits.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/sanitizer_common/../sanitizer_common/sanitizer_internal_defs.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/sanitizer_common/sanitizer_allocator_size_class_map.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/sanitizer_common/sanitizer_allocator_stats.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/sanitizer_common/sanitizer_allocator_primary64.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/sanitizer_common/sanitizer_allocator_primary32.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/sanitizer_common/sanitizer_allocator_local_cache.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/sanitizer_common/sanitizer_allocator_secondary.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/sanitizer_common/sanitizer_allocator_combined.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/sanitizer_common/sanitizer_cheerpwasm_mmap.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/sanitizer_common/sanitizer_file.h \
+  /opt/cheerp/bin/../include/client/cheerp/types.h \
+  /opt/cheerp/bin/../include/client/cheerp/new/types.h \
+  /opt/cheerp/bin/../include/client/cheerp/new/jsobject.h \
+  /opt/cheerp/bin/../include/client/cheerp/new/jshelper.h

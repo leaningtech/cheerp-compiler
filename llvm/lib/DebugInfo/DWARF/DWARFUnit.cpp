@@ -194,6 +194,7 @@ DWARFUnit::DWARFUnit(DWARFContext &DC, const DWARFSection &Section,
       RangeSection(RS), LineSection(LS), StringSection(SS),
       StringOffsetSection(SOS), AddrOffsetSection(AOS), IsLittleEndian(LE),
       IsDWO(IsDWO), UnitVector(UnitVector) {
+  errs()<<std::string(__PRETTY_FUNCTION__)+'\n';
   clear();
 }
 

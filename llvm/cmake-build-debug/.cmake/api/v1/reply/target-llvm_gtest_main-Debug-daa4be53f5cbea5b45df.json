@@ -1,0 +1,261 @@
+{
+	"archive" : {},
+	"artifacts" : 
+	[
+		{
+			"path" : "lib/libllvm_gtest_main.a"
+		}
+	],
+	"backtrace" : 3,
+	"backtraceGraph" : 
+	{
+		"commands" : 
+		[
+			"add_library",
+			"llvm_add_library",
+			"add_llvm_library",
+			"target_link_libraries",
+			"add_definitions",
+			"include",
+			"add_compile_definitions",
+			"include_directories"
+		],
+		"files" : 
+		[
+			"cmake/modules/AddLLVM.cmake",
+			"/home/c/Downloads/cheerp/cheerp-compiler/third-party/unittest/UnitTestMain/CMakeLists.txt",
+			"/home/c/Downloads/cheerp/cheerp-compiler/third-party/unittest/CMakeLists.txt",
+			"cmake/modules/HandleLLVMOptions.cmake",
+			"CMakeLists.txt",
+			"cmake/config-ix.cmake"
+		],
+		"nodes" : 
+		[
+			{
+				"file" : 1
+			},
+			{
+				"command" : 2,
+				"file" : 1,
+				"line" : 1,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 848,
+				"parent" : 1
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 588,
+				"parent" : 2
+			},
+			{
+				"command" : 3,
+				"file" : 0,
+				"line" : 712,
+				"parent" : 2
+			},
+			{
+				"file" : 2
+			},
+			{
+				"command" : 4,
+				"file" : 2,
+				"line" : 35,
+				"parent" : 5
+			},
+			{
+				"file" : 4
+			},
+			{
+				"command" : 5,
+				"file" : 4,
+				"line" : 880,
+				"parent" : 7
+			},
+			{
+				"file" : 3,
+				"parent" : 8
+			},
+			{
+				"command" : 4,
+				"file" : 3,
+				"line" : 64,
+				"parent" : 9
+			},
+			{
+				"command" : 5,
+				"file" : 4,
+				"line" : 836,
+				"parent" : 7
+			},
+			{
+				"file" : 5,
+				"parent" : 11
+			},
+			{
+				"command" : 6,
+				"file" : 5,
+				"line" : 351,
+				"parent" : 12
+			},
+			{
+				"command" : 4,
+				"file" : 3,
+				"line" : 953,
+				"parent" : 9
+			},
+			{
+				"command" : 4,
+				"file" : 3,
+				"line" : 954,
+				"parent" : 9
+			},
+			{
+				"command" : 4,
+				"file" : 3,
+				"line" : 955,
+				"parent" : 9
+			},
+			{
+				"command" : 7,
+				"file" : 4,
+				"line" : 1140,
+				"parent" : 7
+			}
+		]
+	},
+	"compileGroups" : 
+	[
+		{
+			"compileCommandFragments" : 
+			[
+				{
+					"fragment" : " -fPIC -fno-semantic-interposition -fvisibility-inlines-hidden -Werror=date-time -Wall -Wextra -Wno-unused-parameter -Wwrite-strings -Wcast-qual -Wno-missing-field-initializers -pedantic -Wno-long-long -Wimplicit-fallthrough -Wno-maybe-uninitialized -Wno-class-memaccess -Wno-redundant-move -Wno-pessimizing-move -Wno-noexcept-type -Wdelete-non-virtual-dtor -Wsuggest-override -Wno-comment -Wno-misleading-indentation -Wctad-maybe-unsupported -fdiagnostics-color -g -std=c++17 -fdiagnostics-color=always   -Wno-variadic-macros -Wno-suggest-override"
+				},
+				{
+					"fragment" : " -fno-exceptions"
+				},
+				{
+					"backtrace" : 4,
+					"fragment" : "-Wno-suggest-override"
+				}
+			],
+			"defines" : 
+			[
+				{
+					"backtrace" : 6,
+					"define" : "GTEST_HAS_RTTI=0"
+				},
+				{
+					"backtrace" : 10,
+					"define" : "_DEBUG"
+				},
+				{
+					"backtrace" : 13,
+					"define" : "_GNU_SOURCE"
+				},
+				{
+					"backtrace" : 14,
+					"define" : "__STDC_CONSTANT_MACROS"
+				},
+				{
+					"backtrace" : 15,
+					"define" : "__STDC_FORMAT_MACROS"
+				},
+				{
+					"backtrace" : 16,
+					"define" : "__STDC_LIMIT_MACROS"
+				}
+			],
+			"includes" : 
+			[
+				{
+					"path" : "/home/c/Downloads/cheerp/cheerp-compiler/llvm/cmake-build-debug/third-party/unittest/UnitTestMain"
+				},
+				{
+					"path" : "/home/c/Downloads/cheerp/cheerp-compiler/third-party/unittest/UnitTestMain"
+				},
+				{
+					"backtrace" : 17,
+					"path" : "/home/c/Downloads/cheerp/cheerp-compiler/llvm/cmake-build-debug/include"
+				},
+				{
+					"backtrace" : 17,
+					"path" : "/home/c/Downloads/cheerp/cheerp-compiler/llvm/include"
+				},
+				{
+					"backtrace" : 4,
+					"path" : "/home/c/Downloads/cheerp/cheerp-compiler/third-party/unittest/googletest/include"
+				},
+				{
+					"backtrace" : 4,
+					"path" : "/home/c/Downloads/cheerp/cheerp-compiler/third-party/unittest/googlemock/include"
+				}
+			],
+			"language" : "CXX",
+			"languageStandard" : 
+			{
+				"backtraces" : 
+				[
+					3
+				],
+				"standard" : "17"
+			},
+			"sourceIndexes" : 
+			[
+				0
+			]
+		}
+	],
+	"dependencies" : 
+	[
+		{
+			"backtrace" : 4,
+			"id" : "LLVMDemangle::@3c7ef39cff93a35ba752"
+		},
+		{
+			"backtrace" : 4,
+			"id" : "LLVMSupport::@928d1708d80fe1f55e59"
+		},
+		{
+			"backtrace" : 4,
+			"id" : "llvm_gtest::@0f58997ba806a3fe2530"
+		}
+	],
+	"folder" : 
+	{
+		"name" : "Libraries"
+	},
+	"id" : "llvm_gtest_main::@6aed8c35274cf854cb51",
+	"name" : "llvm_gtest_main",
+	"nameOnDisk" : "libllvm_gtest_main.a",
+	"paths" : 
+	{
+		"build" : "third-party/unittest/UnitTestMain",
+		"source" : "/home/c/Downloads/cheerp/cheerp-compiler/third-party/unittest/UnitTestMain"
+	},
+	"sourceGroups" : 
+	[
+		{
+			"name" : "Source Files",
+			"sourceIndexes" : 
+			[
+				0
+			]
+		}
+	],
+	"sources" : 
+	[
+		{
+			"backtrace" : 3,
+			"compileGroupIndex" : 0,
+			"path" : "/home/c/Downloads/cheerp/cheerp-compiler/third-party/unittest/UnitTestMain/TestMain.cpp",
+			"sourceGroupIndex" : 0
+		}
+	],
+	"type" : "STATIC_LIBRARY"
+}

@@ -22,6 +22,7 @@
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCSymbol.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/Signals.h"
 #include "llvm/Target/TargetLoweringObjectFile.h"
 #include <cstdint>
 using namespace llvm;
@@ -51,10 +52,12 @@ void AsmPrinter::emitULEB128(uint64_t Value, const char *Desc,
 /// Emit something like ".uleb128 Hi-Lo".
 void AsmPrinter::emitLabelDifferenceAsULEB128(const MCSymbol *Hi,
                                               const MCSymbol *Lo) const {
+  //errs()<<std::string(__PRETTY_FUNCTION__)+'\n';
   OutStreamer->emitAbsoluteSymbolDiffAsULEB128(Hi, Lo);
 }
 
 static const char *DecodeDWARFEncoding(unsigned Encoding) {
+  //errs()<<std::string(__PRETTY_FUNCTION__)+'\n';
   switch (Encoding) {
   case dwarf::DW_EH_PE_absptr:
     return "absptr";
@@ -110,6 +113,7 @@ static const char *DecodeDWARFEncoding(unsigned Encoding) {
 /// describing the encoding.  Desc is an optional string saying what the
 /// encoding is specifying (e.g. "LSDA").
 void AsmPrinter::emitEncodingByte(unsigned Val, const char *Desc) const {
+  //errs()<<std::string(__PRETTY_FUNCTION__)+'\n';
   if (isVerbose()) {
     if (Desc)
       OutStreamer->AddComment(Twine(Desc) + " Encoding = " +
@@ -123,6 +127,7 @@ void AsmPrinter::emitEncodingByte(unsigned Val, const char *Desc) const {
 
 /// GetSizeOfEncodedValue - Return the size of the encoding in bytes.
 unsigned AsmPrinter::GetSizeOfEncodedValue(unsigned Encoding) const {
+  //errs()<<std::string(__PRETTY_FUNCTION__)+'\n';
   if (Encoding == dwarf::DW_EH_PE_omit)
     return 0;
 
@@ -141,6 +146,7 @@ unsigned AsmPrinter::GetSizeOfEncodedValue(unsigned Encoding) const {
 }
 
 void AsmPrinter::emitTTypeReference(const GlobalValue *GV, unsigned Encoding) {
+  //errs()<<std::string(__PRETTY_FUNCTION__)+'\n';
   if (GV) {
     const TargetLoweringObjectFile &TLOF = getObjFileLowering();
 
@@ -153,6 +159,8 @@ void AsmPrinter::emitTTypeReference(const GlobalValue *GV, unsigned Encoding) {
 
 void AsmPrinter::emitDwarfSymbolReference(const MCSymbol *Label,
                                           bool ForceOffset) const {
+  //sys::PrintStackTrace(errs());
+  //errs()<<std::string(__PRETTY_FUNCTION__)+'\n';
   if (!ForceOffset) {
     // On COFF targets, we have to emit the special .secrel32 directive.
     if (MAI->needsDwarfSectionOffsetDirective()) {
@@ -175,6 +183,7 @@ void AsmPrinter::emitDwarfSymbolReference(const MCSymbol *Label,
 }
 
 void AsmPrinter::emitDwarfStringOffset(DwarfStringPoolEntry S) const {
+  //errs()<<std::string(__PRETTY_FUNCTION__)+'\n';
   if (MAI->doesDwarfUseRelocationsAcrossSections()) {
     assert(S.Symbol && "No symbol available");
     emitDwarfSymbolReference(S.Symbol);
@@ -186,26 +195,32 @@ void AsmPrinter::emitDwarfStringOffset(DwarfStringPoolEntry S) const {
 }
 
 void AsmPrinter::emitDwarfOffset(const MCSymbol *Label, uint64_t Offset) const {
+  //errs()<<std::string(__PRETTY_FUNCTION__)+'\n';
   emitLabelPlusOffset(Label, Offset, getDwarfOffsetByteSize());
 }
 
 void AsmPrinter::emitDwarfLengthOrOffset(uint64_t Value) const {
+  //errs()<<std::string(__PRETTY_FUNCTION__)+'\n';
   assert(isDwarf64() || Value <= UINT32_MAX);
   OutStreamer->emitIntValue(Value, getDwarfOffsetByteSize());
 }
 
 void AsmPrinter::emitDwarfUnitLength(uint64_t Length,
                                      const Twine &Comment) const {
+  //errs()<<std::string(__PRETTY_FUNCTION__)+'\n';
   OutStreamer->emitDwarfUnitLength(Length, Comment);
 }
 
 MCSymbol *AsmPrinter::emitDwarfUnitLength(const Twine &Prefix,
                                           const Twine &Comment) const {
+  //sys::PrintStackTrace(errs());
+  //errs()<<std::string(__PRETTY_FUNCTION__)+'\n';
   return OutStreamer->emitDwarfUnitLength(Prefix, Comment);
 }
 
 void AsmPrinter::emitCallSiteOffset(const MCSymbol *Hi, const MCSymbol *Lo,
                                     unsigned Encoding) const {
+  //errs()<<std::string(__PRETTY_FUNCTION__)+'\n';
   // The least significant 3 bits specify the width of the encoding
   if ((Encoding & 0x7) == dwarf::DW_EH_PE_uleb128)
     emitLabelDifferenceAsULEB128(Hi, Lo);
@@ -214,6 +229,7 @@ void AsmPrinter::emitCallSiteOffset(const MCSymbol *Hi, const MCSymbol *Lo,
 }
 
 void AsmPrinter::emitCallSiteValue(uint64_t Value, unsigned Encoding) const {
+  //errs()<<std::string(__PRETTY_FUNCTION__)+'\n';
   // The least significant 3 bits specify the width of the encoding
   if ((Encoding & 0x7) == dwarf::DW_EH_PE_uleb128)
     emitULEB128(Value);
@@ -226,6 +242,7 @@ void AsmPrinter::emitCallSiteValue(uint64_t Value, unsigned Encoding) const {
 //===----------------------------------------------------------------------===//
 
 void AsmPrinter::emitCFIInstruction(const MCCFIInstruction &Inst) const {
+  //errs()<<std::string(__PRETTY_FUNCTION__)+'\n';
   switch (Inst.getOperation()) {
   default:
     llvm_unreachable("Unexpected instruction");
@@ -283,6 +300,7 @@ void AsmPrinter::emitCFIInstruction(const MCCFIInstruction &Inst) const {
 }
 
 void AsmPrinter::emitDwarfDIE(const DIE &Die) const {
+  //sys::PrintStackTrace(errs());
   // Emit the code (index) for the abbreviation.
   if (isVerbose())
     OutStreamer->AddComment("Abbrev [" + Twine(Die.getAbbrevNumber()) + "] 0x" +
@@ -318,6 +336,8 @@ void AsmPrinter::emitDwarfDIE(const DIE &Die) const {
 }
 
 void AsmPrinter::emitDwarfAbbrev(const DIEAbbrev &Abbrev) const {
+  //sys::PrintStackTrace(errs());
+  //errs()<<std::string(__PRETTY_FUNCTION__)+'\n';
   // Emit the abbreviations code (base 1 index.)
   emitULEB128(Abbrev.getNumber(), "Abbreviation Code");
 

@@ -1,0 +1,428 @@
+{
+	"artifacts" : 
+	[
+		{
+			"path" : "bin/llvm-jitlink-executor"
+		}
+	],
+	"backtrace" : 3,
+	"backtraceGraph" : 
+	{
+		"commands" : 
+		[
+			"add_executable",
+			"add_llvm_executable",
+			"add_llvm_utility",
+			"target_link_libraries",
+			"explicit_llvm_config",
+			"llvm_config",
+			"llvm_add_library",
+			"add_llvm_library",
+			"add_llvm_component_library",
+			"LLVMBuildResolveComponentsLink",
+			"add_dependencies",
+			"set_property",
+			"llvm_update_compile_flags",
+			"add_definitions",
+			"include",
+			"add_compile_definitions",
+			"include_directories"
+		],
+		"files" : 
+		[
+			"cmake/modules/AddLLVM.cmake",
+			"tools/llvm-jitlink/llvm-jitlink-executor/CMakeLists.txt",
+			"cmake/modules/LLVM-Config.cmake",
+			"lib/Support/CMakeLists.txt",
+			"cmake/modules/LLVM-Build.cmake",
+			"lib/CMakeLists.txt",
+			"lib/ExecutionEngine/Orc/TargetProcess/CMakeLists.txt",
+			"cmake/modules/HandleLLVMOptions.cmake",
+			"CMakeLists.txt",
+			"cmake/config-ix.cmake"
+		],
+		"nodes" : 
+		[
+			{
+				"file" : 1
+			},
+			{
+				"command" : 2,
+				"file" : 1,
+				"line" : 7,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 1390,
+				"parent" : 1
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 965,
+				"parent" : 2
+			},
+			{
+				"command" : 5,
+				"file" : 0,
+				"line" : 1012,
+				"parent" : 2
+			},
+			{
+				"command" : 4,
+				"file" : 2,
+				"line" : 95,
+				"parent" : 4
+			},
+			{
+				"command" : 3,
+				"file" : 2,
+				"line" : 107,
+				"parent" : 5
+			},
+			{
+				"file" : 3
+			},
+			{
+				"command" : 8,
+				"file" : 3,
+				"line" : 119,
+				"parent" : 7
+			},
+			{
+				"command" : 7,
+				"file" : 0,
+				"line" : 823,
+				"parent" : 8
+			},
+			{
+				"command" : 6,
+				"file" : 0,
+				"line" : 848,
+				"parent" : 9
+			},
+			{
+				"command" : 3,
+				"file" : 0,
+				"line" : 712,
+				"parent" : 10
+			},
+			{
+				"file" : 5
+			},
+			{
+				"command" : 9,
+				"file" : 5,
+				"line" : 67,
+				"parent" : 12
+			},
+			{
+				"command" : 3,
+				"file" : 4,
+				"line" : 101,
+				"parent" : 13
+			},
+			{
+				"file" : 6
+			},
+			{
+				"command" : 8,
+				"file" : 6,
+				"line" : 5,
+				"parent" : 15
+			},
+			{
+				"command" : 7,
+				"file" : 0,
+				"line" : 823,
+				"parent" : 16
+			},
+			{
+				"command" : 6,
+				"file" : 0,
+				"line" : 848,
+				"parent" : 17
+			},
+			{
+				"command" : 3,
+				"file" : 0,
+				"line" : 712,
+				"parent" : 18
+			},
+			{
+				"command" : 10,
+				"file" : 0,
+				"line" : 1014,
+				"parent" : 2
+			},
+			{
+				"command" : 12,
+				"file" : 0,
+				"line" : 987,
+				"parent" : 2
+			},
+			{
+				"command" : 11,
+				"file" : 0,
+				"line" : 81,
+				"parent" : 21
+			},
+			{
+				"file" : 8
+			},
+			{
+				"command" : 14,
+				"file" : 8,
+				"line" : 880,
+				"parent" : 23
+			},
+			{
+				"file" : 7,
+				"parent" : 24
+			},
+			{
+				"command" : 13,
+				"file" : 7,
+				"line" : 64,
+				"parent" : 25
+			},
+			{
+				"command" : 14,
+				"file" : 8,
+				"line" : 836,
+				"parent" : 23
+			},
+			{
+				"file" : 9,
+				"parent" : 27
+			},
+			{
+				"command" : 15,
+				"file" : 9,
+				"line" : 351,
+				"parent" : 28
+			},
+			{
+				"command" : 13,
+				"file" : 7,
+				"line" : 953,
+				"parent" : 25
+			},
+			{
+				"command" : 13,
+				"file" : 7,
+				"line" : 954,
+				"parent" : 25
+			},
+			{
+				"command" : 13,
+				"file" : 7,
+				"line" : 955,
+				"parent" : 25
+			},
+			{
+				"command" : 16,
+				"file" : 8,
+				"line" : 1140,
+				"parent" : 23
+			}
+		]
+	},
+	"compileGroups" : 
+	[
+		{
+			"compileCommandFragments" : 
+			[
+				{
+					"fragment" : " -fPIC -fno-semantic-interposition -fvisibility-inlines-hidden -Werror=date-time -Wall -Wextra -Wno-unused-parameter -Wwrite-strings -Wcast-qual -Wno-missing-field-initializers -pedantic -Wno-long-long -Wimplicit-fallthrough -Wno-maybe-uninitialized -Wno-class-memaccess -Wno-redundant-move -Wno-pessimizing-move -Wno-noexcept-type -Wdelete-non-virtual-dtor -Wsuggest-override -Wno-comment -Wno-misleading-indentation -Wctad-maybe-unsupported -fdiagnostics-color -g -std=c++17 -fdiagnostics-color=always"
+				},
+				{
+					"fragment" : " -fno-exceptions -fno-rtti"
+				}
+			],
+			"defines" : 
+			[
+				{
+					"backtrace" : 22,
+					"define" : "GTEST_HAS_RTTI=0"
+				},
+				{
+					"backtrace" : 26,
+					"define" : "_DEBUG"
+				},
+				{
+					"backtrace" : 29,
+					"define" : "_GNU_SOURCE"
+				},
+				{
+					"backtrace" : 30,
+					"define" : "__STDC_CONSTANT_MACROS"
+				},
+				{
+					"backtrace" : 31,
+					"define" : "__STDC_FORMAT_MACROS"
+				},
+				{
+					"backtrace" : 32,
+					"define" : "__STDC_LIMIT_MACROS"
+				}
+			],
+			"includes" : 
+			[
+				{
+					"path" : "/home/c/Downloads/cheerp/cheerp-compiler/llvm/cmake-build-debug/tools/llvm-jitlink/llvm-jitlink-executor"
+				},
+				{
+					"path" : "/home/c/Downloads/cheerp/cheerp-compiler/llvm/tools/llvm-jitlink/llvm-jitlink-executor"
+				},
+				{
+					"backtrace" : 33,
+					"path" : "/home/c/Downloads/cheerp/cheerp-compiler/llvm/cmake-build-debug/include"
+				},
+				{
+					"backtrace" : 33,
+					"path" : "/home/c/Downloads/cheerp/cheerp-compiler/llvm/include"
+				}
+			],
+			"language" : "CXX",
+			"languageStandard" : 
+			{
+				"backtraces" : 
+				[
+					3
+				],
+				"standard" : "17"
+			},
+			"sourceIndexes" : 
+			[
+				0
+			]
+		}
+	],
+	"dependencies" : 
+	[
+		{
+			"backtrace" : 6,
+			"id" : "LLVMDemangle::@3c7ef39cff93a35ba752"
+		},
+		{
+			"backtrace" : 6,
+			"id" : "LLVMSupport::@928d1708d80fe1f55e59"
+		},
+		{
+			"backtrace" : 20,
+			"id" : "intrinsics_gen::@6eda0283a7d1115d7bbd"
+		},
+		{
+			"backtrace" : 6,
+			"id" : "LLVMOrcShared::@a4284b42c4803095ac90"
+		},
+		{
+			"backtrace" : 6,
+			"id" : "LLVMOrcTargetProcess::@f1066634b4c398f194c5"
+		}
+	],
+	"folder" : 
+	{
+		"name" : "Utils"
+	},
+	"id" : "llvm-jitlink-executor::@7e4dbb8f86372c9a9197",
+	"link" : 
+	{
+		"commandFragments" : 
+		[
+			{
+				"fragment" : "-fPIC -fno-semantic-interposition -fvisibility-inlines-hidden -Werror=date-time -Wall -Wextra -Wno-unused-parameter -Wwrite-strings -Wcast-qual -Wno-missing-field-initializers -pedantic -Wno-long-long -Wimplicit-fallthrough -Wno-maybe-uninitialized -Wno-class-memaccess -Wno-redundant-move -Wno-pessimizing-move -Wno-noexcept-type -Wdelete-non-virtual-dtor -Wsuggest-override -Wno-comment -Wno-misleading-indentation -Wctad-maybe-unsupported -fdiagnostics-color -g",
+				"role" : "flags"
+			},
+			{
+				"fragment" : "-Wl,--export-dynamic  -Wl,-rpath-link,/home/c/Downloads/cheerp/cheerp-compiler/llvm/cmake-build-debug/./lib",
+				"role" : "flags"
+			},
+			{
+				"fragment" : "-Wl,-rpath,\"\\$$ORIGIN/../lib\"",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 6,
+				"fragment" : "lib/libLLVMOrcShared.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 6,
+				"fragment" : "lib/libLLVMOrcTargetProcess.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 6,
+				"fragment" : "lib/libLLVMSupport.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 6,
+				"fragment" : "lib/libLLVMOrcShared.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 6,
+				"fragment" : "lib/libLLVMSupport.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 11,
+				"fragment" : "-ldl",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 11,
+				"fragment" : "-lm",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 11,
+				"fragment" : "/usr/lib/x86_64-linux-gnu/libtinfo.so",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 14,
+				"fragment" : "lib/libLLVMDemangle.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 19,
+				"fragment" : "-lrt",
+				"role" : "libraries"
+			}
+		],
+		"language" : "CXX"
+	},
+	"name" : "llvm-jitlink-executor",
+	"nameOnDisk" : "llvm-jitlink-executor",
+	"paths" : 
+	{
+		"build" : "tools/llvm-jitlink/llvm-jitlink-executor",
+		"source" : "tools/llvm-jitlink/llvm-jitlink-executor"
+	},
+	"sourceGroups" : 
+	[
+		{
+			"name" : "Source Files",
+			"sourceIndexes" : 
+			[
+				0
+			]
+		}
+	],
+	"sources" : 
+	[
+		{
+			"backtrace" : 3,
+			"compileGroupIndex" : 0,
+			"path" : "tools/llvm-jitlink/llvm-jitlink-executor/llvm-jitlink-executor.cpp",
+			"sourceGroupIndex" : 0
+		}
+	],
+	"type" : "EXECUTABLE"
+}

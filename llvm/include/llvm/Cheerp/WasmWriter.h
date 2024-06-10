@@ -490,6 +490,7 @@ public:
 		inlineableCache(PA),
 		stream(s)
 	{
+          llvm::errs() << std::string(__PRETTY_FUNCTION__) + "\n";
 	}
 	void makeWasm();
 	void compileBB(WasmBuffer& code, const llvm::BasicBlock& BB, const llvm::PHINode* phiHandledAsResult = nullptr);

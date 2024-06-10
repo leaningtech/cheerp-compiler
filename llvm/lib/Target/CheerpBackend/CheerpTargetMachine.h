@@ -19,6 +19,7 @@
 #include "llvm/MC/SectionKind.h"
 #include "llvm/Target/TargetLoweringObjectFile.h"
 #include "llvm/Target/TargetMachine.h"
+#include "WebAssemblySubtarget.h"
 
 namespace llvm {
 

@@ -4505,7 +4505,8 @@ void CheerpWasmWriter::compileTypeSection()
 	if (linearHelper.getFunctionTypes().empty())
 		return;
 
-	Section section(0x01, "Type", this);
+        errs()<<std::string(__PRETTY_FUNCTION__) + "\n";
+        Section section(0x01, "Type", this);
 
 	// Encode number of entries in the type section.
 	encodeULEB128(linearHelper.getFunctionTypes().size(), section);
@@ -4536,7 +4537,8 @@ void CheerpWasmWriter::compileImport(WasmBuffer& code, StringRef funcName, Funct
 		moduleName = "i";
 	}
 
-	// Encode the module name.
+        errs()<<std::string(__PRETTY_FUNCTION__) + "\n";
+        // Encode the module name.
 	encodeULEB128(moduleName.size(), code);
 	code.write(moduleName.data(), moduleName.size());
 
@@ -4563,7 +4565,8 @@ void CheerpWasmWriter::compileImportMemory(WasmBuffer& code)
 	if (noGrowMemory)
 		minMemory = maxMemory;
 
-	// Encode the module name.
+        errs()<<std::string(__PRETTY_FUNCTION__) + "\n";
+        // Encode the module name.
 	std::string moduleName = "i";
 	encodeULEB128(moduleName.size(), code);
 	code.write(moduleName.data(), moduleName.size());
@@ -4591,6 +4594,7 @@ void CheerpWasmWriter::compileImportMemory(WasmBuffer& code)
 
 void CheerpWasmWriter::compileImportSection()
 {
+
 	// Count imported builtins
 	uint32_t importedBuiltins = 0;
 	for(uint32_t i=0;i<BuiltinInstr::numGenericBuiltins();i++)
@@ -4599,7 +4603,8 @@ void CheerpWasmWriter::compileImportSection()
 			importedBuiltins++;
 	}
 
-	uint32_t importedTotal = importedBuiltins + globalDeps.asmJSImports().size();
+        errs()<<std::string(__PRETTY_FUNCTION__) + "\n";
+        uint32_t importedTotal = importedBuiltins + globalDeps.asmJSImports().size();
 
 	numberOfImportedFunctions = importedTotal;
 
@@ -4660,7 +4665,7 @@ void CheerpWasmWriter::compileFunctionSection()
 {
 	if (linearHelper.getFunctionTypes().empty())
 		return;
-
+        errs()<<std::string(__PRETTY_FUNCTION__) + "\n";
 	Section section(0x03, "Function", this);
 
 	uint32_t count = linearHelper.functions().size();
@@ -4690,8 +4695,8 @@ void CheerpWasmWriter::compileTableSection()
 {
 	if (linearHelper.getFunctionTables().empty())
 		return;
-
-	uint32_t count = 0;
+        errs()<<std::string(__PRETTY_FUNCTION__) + "\n";
+        uint32_t count = 0;
 	for (const auto& table : linearHelper.getFunctionTables())
 		count += table.second.functions.size();
 	count = std::min(count, COMPILE_METHOD_LIMIT); // TODO
@@ -4774,7 +4779,8 @@ void CheerpWasmWriter::compileMemorySection()
 	uint32_t maxMemory = heapSize << 4;
 	uint32_t minMemory = (linearHelper.getHeapStart() + 65535) >> 16;
 
-	// TODO use WasmPage variable instead of hardcoded '1>>16'.
+        errs()<<std::string(__PRETTY_FUNCTION__) + "\n";
+        // TODO use WasmPage variable instead of hardcoded '1>>16'.
 	assert(WasmPage == 64 * 1024);
 
 	if (noGrowMemory)
@@ -4805,7 +4811,8 @@ void CheerpWasmWriter::compileGlobalSection()
 	std::unordered_map<const llvm::Constant*, uint32_t> orderOfInsertion;
 	const LinearMemoryHelper::GlobalUsageMap& globalizedGlobalsUsage(linearHelper.getGlobalizedGlobalUsage());
 
-	for (auto G : linearHelper.globals())
+        errs()<<std::string(__PRETTY_FUNCTION__) + "\n";
+        for (auto G : linearHelper.globals())
 	{
 		if (globalizedGlobalsUsage.count(G))
 			orderOfInsertion[G] = orderOfInsertion.size();
@@ -4967,7 +4974,8 @@ void CheerpWasmWriter::compileExportSection()
 	Section section(0x07, "Export", this);
 	std::vector<const llvm::Function*> exports;
 
-	// Add the list of asmjs-exported functions.
+        errs()<<std::string(__PRETTY_FUNCTION__) + "\n";
+        // Add the list of asmjs-exported functions.
 	exports.insert(exports.end(), globalDeps.asmJSExports().begin(),
 			globalDeps.asmJSExports().end());
 
@@ -5017,7 +5025,8 @@ void CheerpWasmWriter::compileElementSection()
 	if (linearHelper.getFunctionTables().empty())
 		return;
 
-	Section section(0x09, "Element", this);
+        errs()<<std::string(__PRETTY_FUNCTION__) + "\n";
+        Section section(0x09, "Element", this);
 
 	// There is only one element segment.
 	encodeULEB128(1, section);
@@ -5051,14 +5060,16 @@ void CheerpWasmWriter::compileElementSection()
 
 void CheerpWasmWriter::compileDataCountSection()
 {
-	Section dataCountSection(0x0c, "Data Count", this);
+        errs()<<std::string(__PRETTY_FUNCTION__) + "\n";
+        Section dataCountSection(0x0c, "Data Count", this);
 	encodeULEB128(linearHelper.getAmountChunks(), dataCountSection);
 	dataCountSection.encode();
 }
 
 void CheerpWasmWriter::compileCodeSection()
 {
-	Section codeSection(0x0a, "Code", this);
+        errs()<<std::string(__PRETTY_FUNCTION__) + "\n";
+        Section codeSection(0x0a, "Code", this);
 	Section branchHintsSection(0x0, "metadata.code.branch_hint", this);
 
 	uint32_t count = linearHelper.functions().size();
@@ -5136,7 +5147,8 @@ void CheerpWasmWriter::encodeDataSectionChunk(WasmBuffer& data, uint32_t address
 
 void CheerpWasmWriter::compileDataSection()
 {
-	Section section(0x0b, "Data", this);
+        errs()<<std::string(__PRETTY_FUNCTION__) + "\n";
+        Section section(0x0b, "Data", this);
 
 	uint32_t amountChunks = linearHelper.getAmountChunks();
 	encodeULEB128(amountChunks, section);
@@ -5156,7 +5168,8 @@ void CheerpWasmWriter::compileNameSection()
 	assert(prettyCode);
 	Section section(0x00, "name", this);
 
-	// Assign names to functions
+        errs()<<std::string(__PRETTY_FUNCTION__) + "\n";
+        // Assign names to functions
 	{
 		Chunk<128> data;
 		uint32_t count = linearHelper.functions().size();
@@ -5180,7 +5193,8 @@ void CheerpWasmWriter::compileNameSection()
 
 void CheerpWasmWriter::compileModule()
 {
-	// Magic number for wasm.
+//        errs()<<std::string(__PRETTY_FUNCTION__) + "\n";
+        // Magic number for wasm.
 	encodeULEB128(0x00, stream);
 	encodeULEB128(0x61, stream);
 	encodeULEB128(0x73, stream);
@@ -5221,7 +5235,7 @@ void CheerpWasmWriter::compileModule()
 
 void CheerpWasmWriter::makeWasm()
 {
-	compileModule();
+//	compileModule();
 }
 
 void CheerpWasmWriter::WasmGepWriter::addValue(const llvm::Value* v, uint32_t size)

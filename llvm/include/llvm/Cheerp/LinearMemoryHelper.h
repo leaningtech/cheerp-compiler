@@ -192,7 +192,8 @@ public:
 		stackSize(data.stackSize*1024*1024), stackOffset((data.stackOffset+7) & ~7), growMem(data.growMem),
 		hasAsmjsMem(data.hasAsmjsMem)
 	{
-	}
+          llvm::errs()<<std::string(__PRETTY_FUNCTION__) + "\n";
+        }
 	bool runOnModule(llvm::Module& module, GlobalDepsAnalyzer* GDA)
 	{
 		this->module = &module;
@@ -233,7 +234,8 @@ public:
 	 * WebAssembly.
 	 */
 	const std::vector<const llvm::Function*> & functions() const {
-		return asmjsFunctions_;
+          llvm::errs()<<std::string(__PRETTY_FUNCTION__) + "\n";
+          return asmjsFunctions_;
 	}
 
 	const FunctionTypeIndicesMap& getFunctionTypeIndices() const {

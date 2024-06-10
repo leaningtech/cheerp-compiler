@@ -1,0 +1,127 @@
+{
+	"backtrace" : 5,
+	"backtraceGraph" : 
+	{
+		"commands" : 
+		[
+			"add_custom_target",
+			"add_llvm_install_targets",
+			"llvm_install_symlink",
+			"llvm_add_tool_symlink",
+			"add_llvm_tool_symlink",
+			"add_dependencies"
+		],
+		"files" : 
+		[
+			"cmake/modules/AddLLVM.cmake",
+			"tools/llvm-symbolizer/CMakeLists.txt"
+		],
+		"nodes" : 
+		[
+			{
+				"file" : 1
+			},
+			{
+				"command" : 4,
+				"file" : 1,
+				"line" : 29,
+				"parent" : 0
+			},
+			{
+				"command" : 3,
+				"file" : 0,
+				"line" : 2194,
+				"parent" : 1
+			},
+			{
+				"command" : 2,
+				"file" : 0,
+				"line" : 2188,
+				"parent" : 2
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 2096,
+				"parent" : 3
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 764,
+				"parent" : 4
+			},
+			{
+				"command" : 5,
+				"file" : 0,
+				"line" : 782,
+				"parent" : 4
+			},
+			{
+				"command" : 5,
+				"file" : 0,
+				"line" : 787,
+				"parent" : 4
+			}
+		]
+	},
+	"dependencies" : 
+	[
+		{
+			"backtrace" : 6,
+			"id" : "llvm-symbolizer::@9bd0ecc701ed4e461dcf"
+		},
+		{
+			"backtrace" : 7,
+			"id" : "install-llvm-symbolizer::@9bd0ecc701ed4e461dcf"
+		},
+		{
+			"backtrace" : 6,
+			"id" : "llvm-addr2line::@9bd0ecc701ed4e461dcf"
+		}
+	],
+	"folder" : 
+	{
+		"name" : "Component Install Targets"
+	},
+	"id" : "install-llvm-addr2line::@9bd0ecc701ed4e461dcf",
+	"name" : "install-llvm-addr2line",
+	"paths" : 
+	{
+		"build" : "tools/llvm-symbolizer",
+		"source" : "tools/llvm-symbolizer"
+	},
+	"sourceGroups" : 
+	[
+		{
+			"name" : "",
+			"sourceIndexes" : 
+			[
+				0
+			]
+		},
+		{
+			"name" : "CMake Rules",
+			"sourceIndexes" : 
+			[
+				1
+			]
+		}
+	],
+	"sources" : 
+	[
+		{
+			"backtrace" : 5,
+			"isGenerated" : true,
+			"path" : "cmake-build-debug/tools/llvm-symbolizer/CMakeFiles/install-llvm-addr2line",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 0,
+			"isGenerated" : true,
+			"path" : "cmake-build-debug/tools/llvm-symbolizer/CMakeFiles/install-llvm-addr2line.rule",
+			"sourceGroupIndex" : 1
+		}
+	],
+	"type" : "UTILITY"
+}

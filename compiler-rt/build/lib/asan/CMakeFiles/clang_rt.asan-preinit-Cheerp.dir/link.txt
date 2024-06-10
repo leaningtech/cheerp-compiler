@@ -1,0 +1,1 @@
+/opt/cheerp/bin/llvm-link CMakeFiles/RTAsan_preinit.Cheerp.dir/asan_preinit.cpp.obj -o ../cheerp/libclang_rt.asan-preinit-Cheerp.bc

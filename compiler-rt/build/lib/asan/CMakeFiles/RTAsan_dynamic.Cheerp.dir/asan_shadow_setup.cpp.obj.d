@@ -1,0 +1,34 @@
+lib/asan/CMakeFiles/RTAsan_dynamic.Cheerp.dir/asan_shadow_setup.cpp.obj: \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/asan/asan_shadow_setup.cpp \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/asan/../sanitizer_common/sanitizer_platform.h \
+  /opt/cheerp/bin/../include/features.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/asan/asan_internal.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/asan/asan_flags.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/asan/../sanitizer_common/sanitizer_internal_defs.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/asan/../sanitizer_common/sanitizer_flag_parser.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/asan/../sanitizer_common/sanitizer_libc.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/asan/../sanitizer_common/sanitizer_common.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/asan/../sanitizer_common/sanitizer_flags.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/asan/../sanitizer_common/sanitizer_flags.inc \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/asan/../sanitizer_common/sanitizer_list.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/asan/../sanitizer_common/sanitizer_mutex.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/asan/../sanitizer_common/sanitizer_atomic.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/asan/../sanitizer_common/sanitizer_atomic_clang.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/asan/../sanitizer_common/sanitizer_atomic_clang_other.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/asan/../sanitizer_common/sanitizer_thread_safety.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/asan/asan_flags.inc \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/asan/asan_interface_internal.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/asan/asan_init_version.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/asan/../sanitizer_common/sanitizer_stacktrace.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/asan/asan_mapping.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/asan/asan_poisoning.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/asan/asan_interceptors.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/asan/asan_interceptors_memintrinsics.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/asan/../interception/interception.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/asan/../interception/interception_linux.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/asan/../sanitizer_common/sanitizer_platform_interceptors.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/asan/../sanitizer_common/sanitizer_glibc_version.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/asan/../sanitizer_common/sanitizer_platform_limits_cheerpwasm.h \
+  /opt/cheerp/bin/../include/stdio.h \
+  /opt/cheerp/bin/../include/bits/alltypes.h \
+  /opt/cheerp/lib/clang/16/include/stdarg.h

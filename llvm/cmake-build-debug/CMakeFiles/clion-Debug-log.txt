@@ -1,0 +1,66 @@
+/snap/clion/277/bin/cmake/linux/x64/bin/cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_MAKE_PROGRAM=/snap/clion/277/bin/ninja/linux/x64/ninja -G Ninja -S /home/c/Downloads/cheerp/cheerp-compiler/llvm -B /home/c/Downloads/cheerp/cheerp-compiler/llvm/cmake-build-debug
+CMake Deprecation Warning at /home/c/Downloads/cheerp/cheerp-compiler/cmake/Modules/CMakePolicy.cmake:6 (cmake_policy):
+  The OLD behavior for policy CMP0114 will be removed from a future version
+  of CMake.
+
+  The cmake-policies(7) manual explains that the OLD behaviors of all
+  policies are deprecated and that a policy should be set to OLD only under
+  specific short-term circumstances.  Projects should be ported to the NEW
+  behavior and not rely on setting a policy to OLD.
+Call Stack (most recent call first):
+  CMakeLists.txt:6 (include)
+
+
+CMake Deprecation Warning at /home/c/Downloads/cheerp/cheerp-compiler/cmake/Modules/CMakePolicy.cmake:11 (cmake_policy):
+  The OLD behavior for policy CMP0116 will be removed from a future version
+  of CMake.
+
+  The cmake-policies(7) manual explains that the OLD behaviors of all
+  policies are deprecated and that a policy should be set to OLD only under
+  specific short-term circumstances.  Projects should be ported to the NEW
+  behavior and not rely on setting a policy to OLD.
+Call Stack (most recent call first):
+  CMakeLists.txt:6 (include)
+
+
+-- Could NOT find ZLIB (missing: ZLIB_LIBRARY ZLIB_INCLUDE_DIR) 
+-- Could NOT find LibEdit (missing: LibEdit_INCLUDE_DIRS LibEdit_LIBRARIES) 
+-- Native target architecture is X86
+-- Threads enabled.
+-- Doxygen disabled.
+-- Ninja version: 1.12.0
+-- Could NOT find OCaml (missing: OCAMLFIND OCAML_VERSION OCAML_STDLIB_PATH) 
+-- Could NOT find OCaml (missing: OCAMLFIND OCAML_VERSION OCAML_STDLIB_PATH) 
+-- OCaml bindings disabled.
+-- LLVM host triple: x86_64-unknown-linux-gnu
+-- LLVM default target triple: x86_64-unknown-linux-gnu
+-- Building with -fPIC
+-- Targeting AArch64
+-- Targeting AMDGPU
+-- Targeting ARM
+-- Targeting AVR
+-- Targeting BPF
+-- Targeting CheerpBackend
+-- Targeting Hexagon
+-- Targeting Lanai
+-- Targeting Mips
+-- Targeting MSP430
+-- Targeting NVPTX
+-- Targeting PowerPC
+-- Targeting RISCV
+-- Targeting Sparc
+-- Targeting SystemZ
+-- Targeting VE
+-- Targeting WebAssembly
+-- Targeting X86
+-- Targeting XCore
+-- Registering Bye as a pass plugin (static build: OFF)
+-- Failed to find LLVM FileCheck
+-- git version: v0.0.0-dirty normalized to 0.0.0
+-- Version: 1.6.0
+-- Performing Test HAVE_GNU_POSIX_REGEX -- failed to compile
+-- Performing Test HAVE_POSIX_REGEX -- success
+-- Performing Test HAVE_STEADY_CLOCK -- success
+-- Configuring done (2.3s)
+-- Generating done (1.1s)
+-- Build files have been written to: /home/c/Downloads/cheerp/cheerp-compiler/llvm/cmake-build-debug

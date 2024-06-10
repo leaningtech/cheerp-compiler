@@ -1,0 +1,53 @@
+{
+	"backtraceGraph" : 
+	{
+		"commands" : 
+		[
+			"install",
+			"add_llvm_library"
+		],
+		"files" : 
+		[
+			"cmake/modules/AddLLVM.cmake",
+			"lib/Target/CheerpBackend/MC/CMakeLists.txt"
+		],
+		"nodes" : 
+		[
+			{
+				"file" : 1
+			},
+			{
+				"command" : 1,
+				"file" : 1,
+				"line" : 1,
+				"parent" : 0
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 875,
+				"parent" : 1
+			}
+		]
+	},
+	"installers" : 
+	[
+		{
+			"backtrace" : 2,
+			"component" : "LLVMCheerpBackendDesc",
+			"destination" : "lib",
+			"paths" : 
+			[
+				"lib/libLLVMCheerpBackendDesc.a"
+			],
+			"targetId" : "LLVMCheerpBackendDesc::@6f6aa3d7f5e0abe8326e",
+			"targetIndex" : 133,
+			"type" : "target"
+		}
+	],
+	"paths" : 
+	{
+		"build" : "lib/Target/CheerpBackend/MC",
+		"source" : "lib/Target/CheerpBackend/MC"
+	}
+}

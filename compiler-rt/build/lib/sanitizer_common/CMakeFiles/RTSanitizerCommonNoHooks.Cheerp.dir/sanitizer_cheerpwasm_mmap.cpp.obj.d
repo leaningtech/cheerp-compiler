@@ -1,0 +1,28 @@
+lib/sanitizer_common/CMakeFiles/RTSanitizerCommonNoHooks.Cheerp.dir/sanitizer_cheerpwasm_mmap.cpp.obj: \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/sanitizer_common/sanitizer_cheerpwasm_mmap.cpp \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/sanitizer_common/sanitizer_cheerpwasm_mmap.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/sanitizer_common/sanitizer_platform.h \
+  /opt/cheerp/bin/../include/features.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/sanitizer_common/sanitizer_internal_defs.h \
+  /opt/cheerp/bin/../include/assert.h \
+  /opt/cheerp/lib/clang/16/include/cheerpintrin.h \
+  /opt/cheerp/lib/clang/16/include/stddef.h \
+  /opt/cheerp/lib/clang/16/include/__stddef_max_align_t.h \
+  /opt/cheerp/bin/../include/errno.h \
+  /opt/cheerp/bin/../include/bits/errno.h \
+  /opt/cheerp/lib/clang/16/include/stdint.h \
+  /opt/cheerp/bin/../include/stdint.h \
+  /opt/cheerp/bin/../include/bits/alltypes.h \
+  /opt/cheerp/bin/../include/bits/stdint.h \
+  /opt/cheerp/bin/../include/sys/mman.h \
+  /opt/cheerp/bin/../include/bits/mman.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/sanitizer_common/sanitizer_common.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/sanitizer_common/sanitizer_flags.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/sanitizer_common/sanitizer_flags.inc \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/sanitizer_common/sanitizer_libc.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/sanitizer_common/sanitizer_list.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/sanitizer_common/sanitizer_mutex.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/sanitizer_common/sanitizer_atomic.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/sanitizer_common/sanitizer_atomic_clang.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/sanitizer_common/sanitizer_atomic_clang_other.h \
+  /home/c/Downloads/cheerp/cheerp-compiler/compiler-rt/lib/sanitizer_common/sanitizer_thread_safety.h
