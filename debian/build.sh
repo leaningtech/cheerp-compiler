@@ -175,6 +175,12 @@ build_libraries() {
     -DCMAKE_TOOLCHAIN_FILE="$CHEERP_DIR/share/cmake/Modules/CheerpWasmToolchain.cmake" cheerp-libs/system
   cmake --build "$SYS_ASMJS_DIR"
   cmake --install "$SYS_ASMJS_DIR"
+
+  # MEMPROF
+  cmake -B cheerp-libs/memprof/build -DCMAKE_INSTALL_PREFIX="$TMP_INSTALL" \
+    -DCMAKE_TOOLCHAIN_FILE="$CHEERP_DIR/share/cmake/Modules/CheerpWasmToolchain.cmake" cheerp-libs/memprof
+  cmake --build cheerp-libs/memprof/build
+  cmake --install cheerp-libs/memprof/build
 }
 
 build_compiler_rt() {
