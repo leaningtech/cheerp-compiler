@@ -943,7 +943,8 @@ void Sema::ActOnStartOfLambdaDefinition(LambdaIntroducer &Intro,
         /*IsVariadic=*/false, /*IsCXXMethod=*/true));
     EPI.HasTrailingReturn = true;
     EPI.TypeQuals.addConst();
-    // CHEERP: TODO figure out the right AS here
+    // CHEERP: Inherit address space from enclosing function
+    // TODO: allow to override this via attributes
     LangAS AS = getDefaultCXXMethodAddrSpace(nullptr);
     if (AS != LangAS::Default)
       EPI.TypeQuals.addAddressSpace(AS);
