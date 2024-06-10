@@ -13285,10 +13285,10 @@ LangAS ASTContext::getCheerpTypeAddressSpace(QualType Ty, LangAS fallback) const
 }
 LangAS ASTContext::getCheerpTypeAddressSpace(const Decl* D, LangAS fallback) const {
   LangAS AS = fallback;
-  if (AnalysisDeclContext::isInClientNamespace(D)) {
-    AS = clang::LangAS::cheerp_client;
-  } else if (D->hasAttr<ByteLayoutAttr>() || (isa<RecordDecl>(D) && cast<RecordDecl>(D)->isByteLayout())) {
+  if (D->hasAttr<ByteLayoutAttr>() || (isa<RecordDecl>(D) && cast<RecordDecl>(D)->isByteLayout())) {
     AS = LangAS::cheerp_bytelayout;
+  } else if (AnalysisDeclContext::isInClientNamespace(D)) {
+    AS = clang::LangAS::cheerp_client;
   } else if (D->hasAttr<GenericJSAttr>()) {
     AS = LangAS::cheerp_genericjs;
   } else if (D->hasAttr<AsmJSAttr>()) {
