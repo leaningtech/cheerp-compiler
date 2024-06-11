@@ -3,6 +3,7 @@ add_llvm_component_group(CheerpBackend)
 add_llvm_target(CheerpBackendCodeGen
 	CheerpBackend.cpp
 	CheerpTargetTransformInfo.cpp
+	CheerpWritePass.cpp
 
 	LINK_COMPONENTS
 	CheerpWriter
