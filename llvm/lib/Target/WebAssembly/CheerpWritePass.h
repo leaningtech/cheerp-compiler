@@ -10,6 +10,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Pass.h"
+#include "WebAssemblyTargetMachine.h"
 using namespace llvm;
 
 class CheerpWritePass : public ModulePass {

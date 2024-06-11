@@ -26,11 +26,19 @@ Target &llvm::getTheWebAssemblyTarget64() {
   return TheWebAssemblyTarget64;
 }
 
+Target &llvm::getTheCheerpBackendTarget() {
+  static Target TheCheerpBackendTarget;
+  return TheCheerpBackendTarget;
+}
+
 extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeWebAssemblyTargetInfo() {
   RegisterTarget<Triple::wasm32> X(getTheWebAssemblyTarget32(), "wasm32",
                                    "WebAssembly 32-bit", "WebAssembly");
   RegisterTarget<Triple::wasm64> Y(getTheWebAssemblyTarget64(), "wasm64",
                                    "WebAssembly 64-bit", "WebAssembly");
+  RegisterTarget<Triple::cheerp, /*HasJIT=*/false>
+      Z(getTheCheerpBackendTarget(), "cheerp",
+        "Cheerp client side backend", "Cheerp");
 }
 
 // Defines llvm::WebAssembly::getWasm64Opcode llvm::WebAssembly::getStackOpcode

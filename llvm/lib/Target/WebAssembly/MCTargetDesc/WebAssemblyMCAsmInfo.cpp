@@ -24,6 +24,11 @@ WebAssemblyMCAsmInfo::~WebAssemblyMCAsmInfo() = default; // anchor.
 
 WebAssemblyMCAsmInfo::WebAssemblyMCAsmInfo(const Triple &T,
                                            const MCTargetOptions &Options) {
+  if(T.isCheerp()) {
+    SupportsDebugInformation = false;
+    return;
+  }
+
   CodePointerSize = CalleeSaveStackSlotSize = T.isArch64Bit() ? 8 : 4;
 
   // TODO: What should MaxInstLength be?
