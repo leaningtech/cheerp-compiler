@@ -57,6 +57,13 @@ public:
                                 PerFunctionMIParsingState &PFS,
                                 SMDiagnostic &Error,
                                 SMRange &SourceRange) const override;
+
+  virtual bool addPassesToEmitFile(PassManagerBase &PM,
+                                   raw_pwrite_stream &Out,
+                                   raw_pwrite_stream *DwoOut,
+                                   CodeGenFileType FileType,
+                                   bool DisableVerify,
+                                   MachineModuleInfoWrapperPass *MMIWP = nullptr) override;
 };
 
 } // end namespace llvm

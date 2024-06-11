@@ -21,6 +21,7 @@
 
 #include "WebAssemblyTargetMachine.h"
 #include "llvm/CodeGen/BasicTTIImpl.h"
+#include "llvm/Cheerp/Utility.h"
 #include <algorithm>
 
 namespace llvm {
@@ -36,10 +37,14 @@ class WebAssemblyTTIImpl final : public BasicTTIImplBase<WebAssemblyTTIImpl> {
   const WebAssemblySubtarget *getST() const { return ST; }
   const WebAssemblyTargetLowering *getTLI() const { return TLI; }
 
+  bool CheerpNoSIMD;
+
 public:
   WebAssemblyTTIImpl(const WebAssemblyTargetMachine *TM, const Function &F)
       : BaseT(TM, F.getParent()->getDataLayout()), ST(TM->getSubtargetImpl(F)),
-        TLI(ST->getTargetLowering()) {}
+        TLI(ST->getTargetLowering()),
+        CheerpNoSIMD(TM->getTargetTriple().isCheerp() && !cheerp::hasSIMDAttribute(&F)) {
+  }
 
   /// \name Scalar TTI Implementations
   /// @{

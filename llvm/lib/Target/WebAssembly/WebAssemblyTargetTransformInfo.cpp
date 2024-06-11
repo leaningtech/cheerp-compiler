@@ -15,6 +15,7 @@
 #include "WebAssemblyTargetTransformInfo.h"
 #include "llvm/CodeGen/CostTable.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Cheerp/CommandLine.h"
 using namespace llvm;
 
 #define DEBUG_TYPE "wasmtti"
@@ -31,7 +32,13 @@ unsigned WebAssemblyTTIImpl::getNumberOfRegisters(unsigned ClassID) const {
   // For SIMD, use at least 16 registers, as a rough guess.
   bool Vector = (ClassID == 1);
   if (Vector)
+  {
+    if (CheerpNoSIMD)
+      return 0;
+    if (LinearOutput == LinearOutputTy::AsmJs)
+      return 0;
     Result = std::max(Result, 16u);
+  }
 
   return Result;
 }

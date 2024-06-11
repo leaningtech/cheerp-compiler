@@ -95,6 +95,25 @@ static MCTargetStreamer *createNullTargetStreamer(MCStreamer &S) {
   return new WebAssemblyTargetNullStreamer(S);
 }
 
+// CheerpBachend target initialization part
+static MCAsmInfo *createCheerpMCAsmInfo(const MCRegisterInfo &T, const Triple& TheTriple, const llvm::MCTargetOptions &Opt){
+  return new WebAssemblyMCAsmInfo(TheTriple, Opt);
+}
+
+static MCRegisterInfo *createCheerpMCRegInfo(const Triple& TheTriple) {
+  return new MCRegisterInfo();
+}
+
+static MCInstrInfo *createCheerpMCInstrInfo() {
+  return new MCInstrInfo();
+}
+
+static MCSubtargetInfo *createCheerpMCSubtargetInfo(const Triple& TheTriple, StringRef a, StringRef b) {
+  // We do not pass b on to the MCSubtargetInfo, but an empty string, to make the compiler stop giving a message
+  // about +simd128 not being a recognized processor.
+  return new MCSubtargetInfo(TheTriple, a, "", "", {}, {}, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
+}
+
 // Force static initialization.
 extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeWebAssemblyTargetMC() {
   for (Target *T :
@@ -128,4 +147,11 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeWebAssemblyTargetMC() {
     // Register the null target streamer.
     TargetRegistry::RegisterNullTargetStreamer(*T, createNullTargetStreamer);
   }
+
+  RegisterMCAsmInfoFn A(getTheCheerpBackendTarget(), createCheerpMCAsmInfo);
+  RegisterMCInstrInfoFn I(getTheCheerpBackendTarget(), createCheerpMCInstrInfo);
+  RegisterMCRegInfoFn R(getTheCheerpBackendTarget(), createCheerpMCRegInfo);
+  RegisterMCSubtargetInfoFn S(getTheCheerpBackendTarget(), createCheerpMCSubtargetInfo);
+
 }
+
