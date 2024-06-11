@@ -15,6 +15,7 @@ tablegen(LLVM WebAssemblyGenSubtargetInfo.inc -gen-subtarget)
 add_public_tablegen_target(WebAssemblyCommonTableGen)
 
 add_llvm_target(WebAssemblyCodeGen
+  CheerpWritePass.cpp
   WebAssemblyAddMissingPrototypes.cpp
   WebAssemblyArgumentMove.cpp
   WebAssemblyAsmPrinter.cpp
@@ -67,10 +68,15 @@ add_llvm_target(WebAssemblyCodeGen
   BinaryFormat
   CodeGen
   Core
+  CheerpWriter
+  CheerpUtils
+  ExecutionEngine
+  Interpreter
   MC
   Scalar
   SelectionDAG
   Support
+  Passes
   Target
   TransformUtils
   WebAssemblyDesc

@@ -11,23 +11,28 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "WebAssemblyTargetMachine.h"
+#include "CheerpWritePass.h"
 #include "MCTargetDesc/WebAssemblyMCTargetDesc.h"
 #include "TargetInfo/WebAssemblyTargetInfo.h"
 #include "Utils/WebAssemblyUtilities.h"
 #include "WebAssembly.h"
 #include "WebAssemblyMachineFunctionInfo.h"
+#include "WebAssemblyTargetMachine.h"
 #include "WebAssemblyTargetObjectFile.h"
 #include "WebAssemblyTargetTransformInfo.h"
 #include "llvm/CodeGen/MIRParser/MIParser.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
+#include "llvm/CodeGen/MachineModuleInfo.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/RegAllocRegistry.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/TargetRegistry.h"
+#include "llvm/Passes/PassBuilder.h"
+#include "llvm/Passes/StandardInstrumentations.h"
 #include "llvm/Target/TargetOptions.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/LowerAtomicPass.h"
@@ -52,6 +57,8 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeWebAssemblyTarget() {
       getTheWebAssemblyTarget32());
   RegisterTargetMachine<WebAssemblyTargetMachine> Y(
       getTheWebAssemblyTarget64());
+  RegisterTargetMachine<WebAssemblyTargetMachine> Z(
+      getTheCheerpBackendTarget());
 
   // Register backend passes
   auto &PR = *PassRegistry::getPassRegistry();
@@ -104,6 +111,25 @@ static Reloc::Model getEffectiveRelocModel(Optional<Reloc::Model> RM,
   return *RM;
 }
 
+static TargetPassConfig *
+addPassesToGenerateCode(LLVMTargetMachine &TM, PassManagerBase &PM,
+                        bool DisableVerify,
+                        MachineModuleInfoWrapperPass &MMIWP) {
+  // Targets may override createPassConfig to provide a target-specific
+  // subclass.
+  TargetPassConfig *PassConfig = TM.createPassConfig(PM);
+  // Set PassConfig options provided by TargetMachine.
+  PassConfig->setDisableVerify(DisableVerify);
+  PM.add(PassConfig);
+  PM.add(&MMIWP);
+
+  if (PassConfig->addISelPasses())
+    return nullptr;
+  PassConfig->addMachinePasses();
+  PassConfig->setInitialized();
+  return PassConfig;
+}
+
 /// Create an WebAssembly architecture model.
 ///
 WebAssemblyTargetMachine::WebAssemblyTargetMachine(
@@ -111,18 +137,23 @@ WebAssemblyTargetMachine::WebAssemblyTargetMachine(
     const TargetOptions &Options, Optional<Reloc::Model> RM,
     Optional<CodeModel::Model> CM, CodeGenOpt::Level OL, bool JIT)
     : LLVMTargetMachine(
-          T,
-          TT.isArch64Bit()
-              ? (TT.isOSEmscripten() ? "e-m:e-p:64:64-p10:8:8-p20:8:8-i64:64-"
-                                       "f128:64-n32:64-S128-ni:1:10:20"
-                                     : "e-m:e-p:64:64-p10:8:8-p20:8:8-i64:64-"
-                                       "n32:64-S128-ni:1:10:20")
-              : (TT.isOSEmscripten() ? "e-m:e-p:32:32-p10:8:8-p20:8:8-i64:64-"
-                                       "f128:64-n32:64-S128-ni:1:10:20"
-                                     : "e-m:e-p:32:32-p10:8:8-p20:8:8-i64:64-"
-                                       "n32:64-S128-ni:1:10:20"),
-          TT, CPU, FS, Options, getEffectiveRelocModel(RM, TT),
-          getEffectiveCodeModel(CM, CodeModel::Large), OL),
+        T,
+        TT.isCheerp()
+            ?"b-e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i24:8:8-i32:32:32-"
+              "i64:64:64-f32:32:32-f64:64:64-"
+              "a:0:32-f16:16:16-f32:32:32-f64:64:64-n8:16:32-S64"
+            :(TT.isArch64Bit()
+                ? (TT.isOSEmscripten() ? "e-m:e-p:64:64-p10:8:8-p20:8:8-i64:64-"
+                                         "f128:64-n32:64-S128-ni:1:10:20"
+                                       : "e-m:e-p:64:64-p10:8:8-p20:8:8-i64:64-"
+                                         "n32:64-S128-ni:1:10:20")
+                : (TT.isOSEmscripten() ? "e-m:e-p:32:32-p10:8:8-p20:8:8-i64:64-"
+                                         "f128:64-n32:64-S128-ni:1:10:20"
+                                       : "e-m:e-p:32:32-p10:8:8-p20:8:8-i64:64-"
+                                         "n32:64-S128-ni:1:10:20")),
+        TT, CPU, FS, Options, getEffectiveRelocModel(RM, TT),
+          TT.isCheerp()? (CM ? *CM : CodeModel::Medium)
+              :getEffectiveCodeModel(CM, CodeModel::Large), OL),
       TLOF(new WebAssemblyTargetObjectFile()) {
   // WebAssembly type-checks instructions, but a noreturn function with a return
   // type that doesn't match the context will cause a check failure. So we lower
@@ -608,5 +639,16 @@ bool WebAssemblyTargetMachine::parseMachineFunctionInfo(
   const auto &YamlMFI = static_cast<const yaml::WebAssemblyFunctionInfo &>(MFI);
   MachineFunction &MF = PFS.MF;
   MF.getInfo<WebAssemblyFunctionInfo>()->initializeBaseYamlFields(MF, YamlMFI);
+  return false;
+}
+
+bool WebAssemblyTargetMachine::addPassesToEmitFile(
+    PassManagerBase &PM, raw_pwrite_stream &Out, raw_pwrite_stream *DwoOut,
+    CodeGenFileType FileType, bool DisableVerify,
+    MachineModuleInfoWrapperPass *MMIWP) {
+  if(!this->TargetTriple.isCheerp())
+    return LLVMTargetMachine::addPassesToEmitFile(PM, Out, DwoOut, FileType, DisableVerify, MMIWP);
+  
+  PM.add(new CheerpWritePass(Out, (TargetMachine*)this));
   return false;
 }
