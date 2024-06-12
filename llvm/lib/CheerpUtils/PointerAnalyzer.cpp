@@ -74,8 +74,11 @@ POINTER_KIND PointerAnalyzer::getPointerKind(const Value* p) const
 	}
 	assert(p->getType()->getPointerAddressSpace()!=0);
 	POINTER_KIND ret =  getPointerKindForType(p->getType());
-	if (ret == REGULAR && isa<CallBase>(p))
-		ret = SPLIT_REGULAR;
+	if (ret == REGULAR && isa<CallBase>(p)) {
+		const CallBase* CB = cast<CallBase>(p);
+		if (!(CB->getCalledFunction() && CB->getCalledFunction()->getIntrinsicID()))
+			ret = SPLIT_REGULAR;
+	}
 	return ret;
 }
 
