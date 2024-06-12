@@ -4517,7 +4517,7 @@ CodeGenModule::GetOrCreateLLVMGlobal(StringRef MangledName, llvm::Type *Ty,
   LangAS ExpectedAS =
       D ? D->getType().getAddressSpace()
         : (LangOpts.OpenCL ? LangAS::opencl_global : LangAS::Default);
-  assert(getContext().getTargetAddressSpace(ExpectedAS) == TargetAS);
+  assert(getContext().getTargetAddressSpace(ExpectedAS) == TargetAS || LangOpts.Cheerp);
   if (DAddrSpace != ExpectedAS) {
     return getTargetCodeGenInfo().performAddrSpaceCast(
         *this, GV, DAddrSpace, ExpectedAS, Ty->getPointerTo(TargetAS));
@@ -5488,7 +5488,7 @@ void CodeGenModule::EmitAliasDefinition(GlobalDecl GD) {
                                       /*ForVTable=*/false);
     LT = getFunctionLinkage(GD);
   } else {
-    Aliasee = GetOrCreateLLVMGlobal(AA->getAliasee(), DeclTy, LangAS::Default,
+    Aliasee = GetOrCreateLLVMGlobal(AA->getAliasee(), DeclTy, D->getType().getAddressSpace(),
                                     /*D=*/nullptr);
     if (const auto *VD = dyn_cast<VarDecl>(GD.getDecl()))
       LT = getLLVMLinkageVarDefinition(VD, D->getType().isConstQualified());
