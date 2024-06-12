@@ -93,6 +93,8 @@ public:
 class JsExportFunction {
 	llvm::Function* function;
 	uint32_t flags;
+	llvm::StringRef returnTypeString;
+	std::vector<llvm::StringRef> paramTypeStrings;
 
 public:
 	JsExportFunction(const llvm::Module& module, const llvm::MDNode* node);
@@ -100,6 +102,8 @@ public:
 	JsExportName getName() const;
 	llvm::StringRef getPropertyName() const;
 	llvm::Function* getFunction() const;
+	llvm::StringRef getReturnTypeString() const;
+	const std::vector<llvm::StringRef>& getParamTypeStrings() const;
 	bool isStatic() const;
 	bool isConstructor() const;
 	bool isGetter() const;
@@ -114,6 +118,7 @@ class JsExportProperty {
 public:
 	llvm::StringRef getName() const;
 	llvm::Type* getType() const;
+	llvm::StringRef getTypeString() const;
 	bool hasGetter() const;
 	bool hasSetter() const;
 	const JsExportFunction& getGetter() const;
