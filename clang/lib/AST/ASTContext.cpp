@@ -7582,17 +7582,28 @@ LangAS ASTContext::getCheerpPointeeAddrSpace(const Type *PointeeType, Decl* D, L
   if (auto* TdTy = PointeeType->getAs<TypedefType>()) {
     return getCheerpPointeeAddrSpace(TdTy->desugar().getTypePtr(), D, Fallback);
   }
+  LangAS Ret = Fallback;
   while (D) {
-    if (D->hasAttr<clang::ByteLayoutAttr>())
-      return LangAS::cheerp_bytelayout;
-    if (D->hasAttr<clang::AsmJSAttr>())
-      return LangAS::cheerp_wasm;
-    if (D->hasAttr<clang::GenericJSAttr>())
-      return LangAS::cheerp_genericjs;
+    if (D->hasAttr<clang::ByteLayoutAttr>()) {
+      Ret = LangAS::cheerp_bytelayout;
+      break;
+    }
+    if (D->hasAttr<clang::AsmJSAttr>()) {
+      Ret = LangAS::cheerp_wasm;
+      break;
+    }
+    if (D->hasAttr<clang::GenericJSAttr>()) {
+      Ret = LangAS::cheerp_genericjs;
+      break;
+    }
     DeclContext* C = D->getDeclContext();
     D = C? cast<Decl>(C) : nullptr;
   }
-  return Fallback;
+  // TODO assign a AS to functions directly, so this flawed heuristic is not needed
+  if (PointeeType->isFunctionType()) {
+    return Ret == LangAS::cheerp_genericjs? LangAS::cheerp_client : Fallback;
+  }
+  return Ret;
 }
 
 /// BlockRequiresCopying - Returns true if byref variable "D" of type "Ty"
