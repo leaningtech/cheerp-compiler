@@ -293,62 +293,62 @@ public:
   }
 };
 
-std::string CheerpDTSWriter::getStructName(const Type* type) const
+std::string CheerpDTSWriter::getTypeName(StringRef name, bool pointer) const
 {
-  StringRef name = type->getStructName();
-  Parser parser(name.drop_front(name.startswith("class.") ? 6 : 7));
-  std::string result;
-  Visitor visitor(&result);
+  if (name.startswith("class."))
+    name = name.drop_front(6);
+  else if (name.startswith("struct."))
+    name = name.drop_front(7);
 
-  visitor.acceptPointer(parser.parse());
+  Parser parser(name);
+  std::string result;
+  Visitor visitor(&result, "", pointer);
+
+  visitor.accept(parser.parse());
 
   return result;
 }
 
-std::string CheerpDTSWriter::getTypeName(const Type* type) const
+std::string CheerpDTSWriter::getStructName(const llvm::StructType* type) const
 {
-  if (type->isVoidTy())
-    return "void";
-
-  if (!type->isPointerTy())
-    return "number";
-
-  return getStructName(type->getPointerElementType());
+  return getTypeName(type->getStructName(), true);
 }
 
 void CheerpDTSWriter::declareFunction(const JsExportFunction& func, FunctionType type)
 {
   const llvm::Function* f = func.getFunction();
+  const std::vector<StringRef>& args = func.getParamTypeStrings();
 
   if (type == FunctionType::CONSTRUCTOR)
     stream << "constructor(";
   else
     stream << func.getName().base() << "(";
 
-  auto begin = f->arg_begin();
-  std::size_t index = 0;
+  std::size_t begin = 0;
 
   if (type == FunctionType::MEMBER_FUNC)
     ++begin;
 
-  for (auto arg = begin; arg != f->arg_end(); ++arg)
+  for (std::size_t i = 0; i < args.size(); i++)
   {
-    if (arg != begin)
+    if (i != 0)
       stream << ", ";
 
+    const auto* arg = f->getArg(begin + i);
+
     if (arg->getName().empty())
-      stream << "_" << index++;
+      stream << "_" << i;
     else if (TSReservedNames.find(arg->getName()) != TSReservedNames.end())
       stream << "_" << arg->getName();
     else
       stream << arg->getName();
 
-    stream << ": " << getTypeName(arg->getType());
+    stream << ": " << getTypeName(args[i]);
   }
 
   if (f->isVarArg())
   {
-    if (begin != f->arg_end())
+    if (!args.empty())
       stream << ", ";
 
     stream << "...args";
@@ -357,7 +357,7 @@ void CheerpDTSWriter::declareFunction(const JsExportFunction& func, FunctionType
   stream << ")";
 
   if (type != FunctionType::CONSTRUCTOR)
-    stream << ": " << getTypeName(f->getReturnType());
+    stream << ": " << getTypeName(func.getReturnTypeString());
 
   stream << ";" << NewLine;
 }
@@ -369,7 +369,7 @@ void CheerpDTSWriter::declareProperty(const JsExportProperty& prop, PropertyType
   else if (!prop.hasSetter())
     stream << "readonly ";
 
-  stream << prop.getName() << ": " << getTypeName(prop.getType()) << ";" << NewLine;
+  stream << prop.getName() << ": " << getTypeName(prop.getTypeString()) << ";" << NewLine;
 }
 
 void CheerpDTSWriter::declareInterfaces(const JsExportModule& exports)

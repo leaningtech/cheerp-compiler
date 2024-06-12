@@ -99,6 +99,10 @@ namespace cheerp {
 	JsExportFunction::JsExportFunction(const llvm::Module& module, const llvm::MDNode* node) {
 		function = llvm::cast<llvm::Function>(llvm::cast<llvm::ConstantAsMetadata>(node->getOperand(0))->getValue());
 		flags = llvm::cast<llvm::ConstantInt>(llvm::cast<llvm::ConstantAsMetadata>(node->getOperand(1))->getValue())->getZExtValue();
+		returnTypeString = llvm::cast<llvm::MDString>(node->getOperand(2))->getString();
+
+		for (const auto& param : llvm::cast<llvm::MDTuple>(node->getOperand(3))->operands())
+			paramTypeStrings.push_back(llvm::cast<llvm::MDString>(param.get())->getString());
 	}
 
 	llvm::Function* JsExportFunction::getFunction() const {
@@ -112,6 +116,14 @@ namespace cheerp {
 	llvm::StringRef JsExportFunction::getPropertyName() const {
 		assert(isProperty());
 		return getName().base().substr(13);
+	}
+
+	llvm::StringRef JsExportFunction::getReturnTypeString() const {
+		return returnTypeString;
+	}
+
+	const std::vector<llvm::StringRef>& JsExportFunction::getParamTypeStrings() const {
+		return paramTypeStrings;
 	}
 
 	bool JsExportFunction::isStatic() const {
@@ -140,6 +152,10 @@ namespace cheerp {
 
 	llvm::Type* JsExportProperty::getType() const {
 		return getter->getFunction()->getReturnType();
+	}
+
+	llvm::StringRef JsExportProperty::getTypeString() const {
+		return getter->getReturnTypeString();
 	}
 
 	bool JsExportProperty::hasGetter() const {
