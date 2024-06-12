@@ -161,7 +161,7 @@ void CheerpWriter::compileJsExportFunctionBody(const Function* f, bool isStatic,
 	stream << internalName << "(";
 	if(!isStatic && implicitThis)
 	{
-		POINTER_KIND argKind = PA.getPointerKind(&*f->arg_begin());
+		POINTER_KIND argKind = PA.getPointerKindForArgument(&*f->arg_begin());
 		POINTER_KIND thisKind = PA.getPointerKindForJSExportedType(const_cast<StructType*>(implicitThis));
 		if (thisKind == REGULAR && argKind == SPLIT_REGULAR)
 		{
