@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "TypeLocBuilder.h"
+#include "clang/Analysis/AnalysisDeclContext.h"
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/ASTLambda.h"
@@ -6949,7 +6950,12 @@ void Sema::deduceCheerpAddressSpace(ValueDecl *Decl) {
       Type = Context.getDecayedType(OrigTy);
     }
   }
-  Type = deduceCheerpPointeeAddrSpace(Type, Decl);
+  if (isa<VarDecl>(Decl) && cast<VarDecl>(Decl)->hasGlobalStorage() &&
+      AnalysisDeclContext::isInClientNamespace(Decl)) {
+    Type = Context.getAddrSpaceQualType(Type, LangAS::cheerp_client);
+  } else {
+    Type = deduceCheerpPointeeAddrSpace(Type, Decl);
+  }
   // Apply any qualifiers (including address space) from the array type to
   // the element type.
   if (Type->isArrayType())
