@@ -7583,6 +7583,8 @@ LangAS ASTContext::getCheerpPointeeAddrSpace(const Type *PointeeType, Decl* D, L
     return getCheerpPointeeAddrSpace(TdTy->desugar().getTypePtr(), D, Fallback);
   }
   while (D) {
+    if (D->hasAttr<clang::ByteLayoutAttr>())
+      return LangAS::cheerp_bytelayout;
     if (D->hasAttr<clang::AsmJSAttr>())
       return LangAS::cheerp_wasm;
     if (D->hasAttr<clang::GenericJSAttr>())
