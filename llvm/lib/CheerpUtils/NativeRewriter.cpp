@@ -180,7 +180,7 @@ bool CheerpNativeRewriterPass::rewriteIfNativeConstructorCall(Module& M, Instruc
 	//entirely.
 	if (isClientTransparent(called))
 	{
-		auto* castInst = new BitCastInst(newI, PointerType::getUnqual(initialArgs[0]->getType()), "", callInst);
+		auto* castInst = new BitCastInst(newI, PointerType::get(initialArgs[0]->getType(), 2), "", callInst);
 		new StoreInst(initialArgs[0], castInst, callInst);
 		if (auto* inv = dyn_cast<InvokeInst>(callInst))
 			BranchInst::Create(inv->getNormalDest(), inv->getParent());
@@ -211,7 +211,7 @@ void CheerpNativeRewriterPass::rewriteNativeAllocationUsers(Module& M, SmallVect
 						const std::string& builtinTypeName)
 {
 	//Instead of allocating the type, allocate a pointer to the type
-	AllocaInst* newI=new AllocaInst(PointerType::get(t, 1),0,"cheerpPtrAlloca",
+	AllocaInst* newI=new AllocaInst(PointerType::get(t, 1), 2,"cheerpPtrAlloca",
 		&i->getParent()->getParent()->front().front());
 	bool foundConstructor = false;
 
