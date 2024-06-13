@@ -1668,7 +1668,9 @@ CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
     llvm::Type *Ty = ConvertType(Ret);
     if (Ty->isIntegerTy(64))
       Ty = ConvertTypeForMem(Ret);
-    unsigned AddressSpace = Context.getTargetAddressSpace(Ret);
+    unsigned AddressSpace = Context.getLangOpts().Cheerp?
+      FI.getReturnInfo().getIndirectAddrSpace() :
+      Context.getTargetAddressSpace(Ret);
     ArgTypes[IRFunctionArgs.getSRetArgNo()] =
         llvm::PointerType::get(Ty, AddressSpace);
   }
@@ -1704,9 +1706,10 @@ CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
     case ABIArgInfo::Indirect: {
       assert(NumIRArgs == 1);
       // indirect arguments are always on the stack, which is alloca addr space.
+      unsigned AS = ArgInfo.getIndirectAddrSpace();
+      AS = AS? AS : CGM.getDataLayout().getAllocaAddrSpace();
       llvm::Type *LTy = ConvertTypeForMem(it->type);
-      ArgTypes[FirstIRArg] = LTy->getPointerTo(
-          CGM.getDataLayout().getAllocaAddrSpace());
+      ArgTypes[FirstIRArg] = LTy->getPointerTo(AS);
       break;
     }
     case ABIArgInfo::IndirectAliased: {
@@ -4845,8 +4848,9 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
     }
     if (IRFunctionArgs.hasSRetArg()) {
       auto* Ptr = SRetPtr.getPointer();
-      if (Ptr->getType()->getPointerAddressSpace() != 0) {
-        SRetPtr = Builder.CreateAddrSpaceCast(SRetPtr, ConvertTypeForMem(RetTy)->getPointerTo(), "ascast");
+      unsigned AS = RetAI.getIndirectAddrSpace();
+      if (Ptr->getType()->getPointerAddressSpace() != AS) {
+        SRetPtr = Builder.CreateAddrSpaceCast(SRetPtr, ConvertTypeForMem(RetTy)->getPointerTo(AS), "ascast");
       }
       IRCallArgs[IRFunctionArgs.getSRetArgNo()] = SRetPtr.getPointer();
     } else if (RetAI.isInAlloca()) {
