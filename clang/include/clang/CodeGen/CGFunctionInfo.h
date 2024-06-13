@@ -204,6 +204,7 @@ public:
     AI.setIndirectRealign(Realign);
     AI.setSRetAfterThis(false);
     AI.setPaddingType(Padding);
+    AI.setIndirectAddrSpace(0);
     return AI;
   }
 
@@ -405,12 +406,12 @@ public:
   }
 
   unsigned getIndirectAddrSpace() const {
-    assert(isIndirectAliased() && "Invalid kind!");
+    assert((isIndirect() || isIndirectAliased()) && "Invalid kind!");
     return IndirectAttr.AddrSpace;
   }
 
   void setIndirectAddrSpace(unsigned AddrSpace) {
-    assert(isIndirectAliased() && "Invalid kind!");
+    assert((isIndirect() || isIndirectAliased()) && "Invalid kind!");
     IndirectAttr.AddrSpace = AddrSpace;
   }
 
