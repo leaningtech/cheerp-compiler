@@ -890,7 +890,7 @@ struct I64LoweringVisitor: public InstVisitor<I64LoweringVisitor, HighInt>
 		};
 
 		Value* Low = Builder.CreateCall(Func, Args);
-		GlobalVariable* Sret = cast<GlobalVariable>(M.getOrInsertGlobal("cheerpSretSlot", Int32Ty));
+		GlobalVariable* Sret = cheerp::getOrCreateSretSlot(M);
 		Value* High = Builder.CreateLoad(Int32Ty, Sret);
 
 		ToDelete.push_back(&I);
