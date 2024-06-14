@@ -2035,7 +2035,8 @@ private:
             if (CurClass->isUnionType()) {
               // Apply a bitcast, on unions it is safe
               C = llvm::ConstantExpr::getGetElementPtr(CElementType, C, Indexes);
-              C = llvm::ConstantExpr::getBitCast(C, CGM.getTypes().ConvertTypeForMem(CurType)->getPointerTo());
+              unsigned AS = C->getType()->getPointerAddressSpace();
+              C = llvm::ConstantExpr::getBitCast(C, CGM.getTypes().ConvertTypeForMem(CurType)->getPointerTo(AS));
               CElementType = CGM.getTypes().ConvertTypeForMem(CurType);
 
               Indexes.clear();
@@ -2049,7 +2050,8 @@ private:
             if(fieldIndex == -1) {
               // Collapsed struct
               CElementType = CGM.getTypes().ConvertTypeForMem(CurType);
-              C = llvm::ConstantExpr::getBitCast(C, CElementType->getPointerTo());
+              unsigned AS = C->getType()->getPointerAddressSpace();
+              C = llvm::ConstantExpr::getBitCast(C, CElementType->getPointerTo(AS));
               continue;
             }
             Indexes.push_back(llvm::ConstantInt::get(CGM.Int32Ty, fieldIndex));
