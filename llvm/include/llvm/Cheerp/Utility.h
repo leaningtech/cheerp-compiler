@@ -17,6 +17,7 @@
 #include <string>
 #include <unordered_set>
 #include "llvm/ADT/StringSet.h"
+#include "llvm/ADT/Triple.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/SmallVector.h"
@@ -971,7 +972,10 @@ unsigned getVectorBitwidth(const llvm::FixedVectorType* vecType);
 bool hasSIMDAttribute(const llvm::Function* F);
 void removeSIMDAttribute(llvm::Function* F);
 
-}
+
+llvm::GlobalVariable* getOrCreateSretSlot(llvm::Module& m);
+
+} // namespace cheerp
 
 namespace std
 {
