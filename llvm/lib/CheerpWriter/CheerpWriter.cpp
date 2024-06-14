@@ -3069,7 +3069,7 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 			// If it's indirect we use a kind good for any argument of a given type at a given position
 			if (!F)
 			{
-				TypeAndIndex typeAndIndex(tp->getPointerElementType(), opCount, TypeAndIndex::ARGUMENT);
+				TypeAndIndex typeAndIndex(tp, opCount, TypeAndIndex::ARGUMENT);
 				argKind = PA.getPointerKindForArgumentTypeAndIndex(typeAndIndex);
 			}
 			else if (arg_it != F->arg_end())
