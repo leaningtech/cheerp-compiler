@@ -36,6 +36,7 @@ static bool ExpandCall(const DataLayout& DL, CallBase* Call)
 			Modify = true;
 			Value *ArgPtr = Call->getArgOperand(ArgIdx);
 			Type *ArgType = Call->getParamByValType(ArgIdx);
+			unsigned ArgAS = ArgPtr->getType()->getPointerAddressSpace();
 			ConstantInt *ArgSize = ConstantInt::get(
 				Call->getContext(), APInt(64, DL.getTypeStoreSize(ArgType)));
 			unsigned AllocAlignment = DL.getABITypeAlignment(ArgType);
@@ -47,7 +48,7 @@ static bool ExpandCall(const DataLayout& DL, CallBase* Call)
 					AllocAlignment = a.value();
 			}
 			// Make a copy of the byval argument.
-			Instruction *CopyBuf = new AllocaInst(ArgType, 0, 0, Align(AllocAlignment),
+			Instruction *CopyBuf = new AllocaInst(ArgType, ArgAS, 0, Align(AllocAlignment),
 				ArgPtr->getName() + ".byval_copy");
 			NumNewAllocas++;
 			Function *Func = Call->getParent()->getParent();
