@@ -1635,7 +1635,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 					Value* Low = V.first;
 					Value* High = V.second;
 
-					GlobalVariable* Sret = cast<GlobalVariable>(module->getOrInsertGlobal("cheerpSretSlot", Int32Ty));
+					GlobalVariable* Sret = cheerp::getOrCreateSretSlot(*module);
 					Builder.CreateStore(High, Sret);
 					Builder.CreateRet(Low);
 					// Since we are writing to global memory,
@@ -1937,7 +1937,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 						NewCall->copyMetadata(*CI);
 						if (isI64ToRewrite(CI->getType()) && !keepI64)
 						{
-							GlobalVariable* Sret = cast<GlobalVariable>(module->getOrInsertGlobal("cheerpSretSlot", Int32Ty));
+							GlobalVariable* Sret = cheerp::getOrCreateSretSlot(*module);
 							IRBuilder<> Builder(CI);
 							if(auto* Inv = dyn_cast<InvokeInst>(NewCall))
 							{
