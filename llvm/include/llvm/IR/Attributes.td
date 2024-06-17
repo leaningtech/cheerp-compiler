@@ -309,6 +309,9 @@ def PresplitCoroutine : EnumAttr<"presplitcoroutine", [FnAttr]>;
 /// Static C++ method
 def Static : EnumAttr<"static", [FnAttr]>;
 
+/// Pointee type of a pointer to [[cheerp::jsexport]]-ed type.
+def JsExportType : TypeAttr<"jsexport_type", [ParamAttr, RetAttr]>;
+
 /// Target-independent string attributes.
 def LessPreciseFPMAD : StrBoolAttr<"less-precise-fpmad">;
 def NoInfsFPMath : StrBoolAttr<"no-infs-fp-math">;

@@ -2064,6 +2064,8 @@ static Attribute::AttrKind getAttrFromCode(uint64_t Code) {
     return Attribute::PresplitCoroutine;
   case bitc::ATTR_KIND_STATIC:
     return Attribute::Static;
+  case bitc::ATTR_KIND_JSEXPORT_TYPE:
+    return Attribute::JsExportType;
   }
 }
 
