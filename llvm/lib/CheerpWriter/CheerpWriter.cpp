@@ -67,15 +67,17 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinNamespace(
 	bool isClientStatic = callV.getCalledFunction()->hasFnAttribute(Attribute::Static);
 	bool asmjs = callV.getCaller()->getSection() == StringRef("asmjs");
 
-	auto compileAsPointerOrAsOperand = [&](const Value* v) -> void
+	auto compileAsPointerOrAsOperand = [&](unsigned index) -> void
 	{
+		const Value* v = callV.getOperand(index);
+
 		if (v->getType()->isPointerTy())
 		{
-			if (jsExportedTypes.count(v->getType()->getPointerElementType()))
+			if (Type* ty = callV.getCalledFunction()->getParamAttribute(index, Attribute::JsExportType).getValueAsType())
 			{
-				const auto& name = jsExportedTypes.find(v->getType()->getPointerElementType())->getSecond();
+				const auto& name = jsExportedTypes.find(ty)->getSecond();
 				stream << "Object.create(" << name << ".prototype,{this:{value:";
-				POINTER_KIND kind = PA.getPointerKindForJSExportedType(v->getType()->getPointerElementType());
+				POINTER_KIND kind = PA.getPointerKindForJSExportedType(ty);
 				compilePointerAs(v, kind, LOWEST);
 				stream << "}})";
 			}
@@ -111,7 +113,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinNamespace(
 				compilePointerAs(callV.getOperand(0), COMPLETE_OBJECT, HIGHEST);
 			}
 			stream << '[';
-			compileAsPointerOrAsOperand(callV.getOperand(callV.arg_size() - 1));
+			compileAsPointerOrAsOperand(callV.arg_size() - 1);
 			stream << "]";
 		}
 		else
@@ -151,9 +153,9 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinNamespace(
 				compilePointerAs(callV.getOperand(0), COMPLETE_OBJECT, HIGHEST);
 			}
 			stream << '[';
-			compileAsPointerOrAsOperand(callV.getOperand(callV.arg_size() - 2));
+			compileAsPointerOrAsOperand(callV.arg_size() - 2);
 			stream << "]=";
-			compileAsPointerOrAsOperand(callV.getOperand(callV.arg_size() - 1));
+			compileAsPointerOrAsOperand(callV.arg_size() - 1);
 		}
 		else
 		{
@@ -172,7 +174,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinNamespace(
 
 			stream << funcName.drop_front(4) <<  '=';
 
-			compileAsPointerOrAsOperand(callV.getOperand(callV.arg_size() - 1));
+			compileAsPointerOrAsOperand(callV.arg_size() - 1);
 		}
 	}
 	else if(funcName == StringRef("operator[]"))
@@ -181,7 +183,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinNamespace(
 		assert(callV.arg_size()==2);
 		compilePointerAs(callV.getOperand(0), COMPLETE_OBJECT, HIGHEST);
 		stream << '[';
-		compileAsPointerOrAsOperand(callV.getOperand(1));
+		compileAsPointerOrAsOperand(1);
 		stream << ']';
 	}
 	else if(funcName == StringRef("operator()"))
@@ -220,7 +222,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinNamespace(
 	Type* retTy = callV.getType();
 	if (!retTy->isPointerTy())
 		return COMPILE_OK;
-	Type* ty = retTy->getPointerElementType();
+	Type* ty = callV.getCalledFunction()->getAttributes().getRetAttrs().getAttribute(Attribute::JsExportType).getValueAsType();
 	if(!jsExportedTypes.count(ty))
 		return COMPILE_OK;
 	POINTER_KIND retKind = PA.getPointerKindAssert(&callV);
@@ -3015,11 +3017,12 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 			stream << "+";
 			compileOperand(*cur,LOWEST);
 		}
-		else if(isClientF && tp->isPointerTy() && jsExportedTypes.count(tp->getPointerElementType()))
+		else if(isClientF && F->hasParamAttribute(callV.getArgOperandNo(cur), Attribute::JsExportType))
 		{
-			const auto& name = jsExportedTypes.find(tp->getPointerElementType())->getSecond();
+			Type* etp = F->getParamAttribute(callV.getArgOperandNo(cur), Attribute::JsExportType).getValueAsType();
+			const auto& name = jsExportedTypes.find(etp)->getSecond();
 			stream << "Object.create(" << name << ".prototype,{this:{value:";
-			POINTER_KIND kind = PA.getPointerKindForJSExportedType(tp->getPointerElementType());
+			POINTER_KIND kind = PA.getPointerKindForJSExportedType(etp);
 			compilePointerAs(*cur, kind);
 			stream << "}})";
 		}

@@ -39,7 +39,7 @@ uint32_t CheerpWriter::countJsParameters(const llvm::Function* F, bool isStatic)
 	return ret;
 }
 
-static std::pair<std::string, std::string> buildArgumentsString(const llvm::Function* F, bool isStatic, const PointerAnalyzer& PA, const DenseMap<const Type*, std::string>& toBeWrapped, StringRef nameGenerated)
+static std::pair<std::string, std::string> buildArgumentsString(const llvm::Function* F, bool isStatic, const PointerAnalyzer& PA, StringRef nameGenerated)
 {
 	// While code-generating JSExported functions we need to write something like:
 	// function someName(a0,a1,a2,a3,a4,a5) {
@@ -51,7 +51,6 @@ static std::pair<std::string, std::string> buildArgumentsString(const llvm::Func
 	// {
 	// 	return equivalentInnerFunctionName(PAIR_SECOND_MEMBER);
 	// }
-
 
 	std::ostringstream args_outer;		// args_outer will contain the comma-separated list of arguments to the outer function
 	std::ostringstream args_inner;		// args_inner will contain the comma-separated list of arguments to the inner function
@@ -74,8 +73,7 @@ static std::pair<std::string, std::string> buildArgumentsString(const llvm::Func
 			continue;
 
 		args_inner << aX << ",";
-		Type* ty = it->getType();
-		if (!ty->isPointerTy() || !toBeWrapped.count(ty->getPointerElementType()))
+		if (!it->hasAttribute(Attribute::JsExportType))
 		{
 			args_outer << aX << ",";
 			it++;
@@ -84,9 +82,15 @@ static std::pair<std::string, std::string> buildArgumentsString(const llvm::Func
 
 		POINTER_KIND innerKind = PA.getPointerKind(&(*it));
 		POINTER_KIND outerKind = innerKind;
-		Type* tp = it->getType()->getPointerElementType();
-		if (toBeWrapped.count(tp))
+		if (Type* tp = it->getAttribute(Attribute::JsExportType).getValueAsType())
+		{
+			if (tp != it->getType()->getPointerElementType())
+			{
+				tp->dump();
+				it->getType()->getPointerElementType()->dump();
+			}
 			outerKind = PA.getPointerKindForJSExportedType(const_cast<Type*>(tp));
+		}
 
 		if (outerKind == REGULAR && innerKind == SPLIT_REGULAR)
 		{
@@ -129,10 +133,8 @@ bool CheerpWriter::hasJSExports()
 
 void CheerpWriter::compileJsExportFunctionBody(const Function* f, bool isStatic, const StructType* implicitThis)
 {
-	auto argumentsStrings = buildArgumentsString(f, isStatic, PA, jsExportedTypes, namegen.getName(f, 0));
-	const llvm::StructType* retType = nullptr;
-	if (f->getReturnType() && f->getReturnType()->isPointerTy())
-		retType = dyn_cast<StructType>(f->getReturnType()->getPointerElementType());
+	auto argumentsStrings = buildArgumentsString(f, isStatic, PA, namegen.getName(f, 0));
+	llvm::Type* retType = f->getAttributes().getRetAttrs().getAttribute(Attribute::JsExportType).getValueAsType();
 	auto internalName = namegen.getName(f, 0);
 
 	if(argumentsStrings.first == argumentsStrings.second)
@@ -152,7 +154,7 @@ void CheerpWriter::compileJsExportFunctionBody(const Function* f, bool isStatic,
 	if (jsExportedTypes.count(retType))
 	{
 		stream << "Object.create(" << jsExportedTypes.find(retType)->getSecond() << ".prototype,{this:{value:";
-		if (PA.getPointerKindForJSExportedType(const_cast<StructType*>(retType)) == REGULAR)
+		if (PA.getPointerKindForJSExportedType(retType) == REGULAR)
 		{
 			assert(PA.getPointerKindForReturn(f) == SPLIT_REGULAR);
 			isRegular = true;
@@ -253,7 +255,7 @@ void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 			assert( globalDeps.isReachable(newFunc) );
 
 			POINTER_KIND thisKind = PA.getPointerKindForJSExportedType(const_cast<StructType*>(t));
-			const auto argumentsStrings = buildArgumentsString(newFunc, /*isStatic*/true, PA, jsExportedTypes, namegen.getName(newFunc, 0));
+			const auto argumentsStrings = buildArgumentsString(newFunc, /*isStatic*/true, PA, namegen.getName(newFunc, 0));
 
 			stream << argumentsStrings.first << "){" << NewLine;
 
