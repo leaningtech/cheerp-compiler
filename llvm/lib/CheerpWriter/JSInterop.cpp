@@ -84,11 +84,6 @@ static std::pair<std::string, std::string> buildArgumentsString(const llvm::Func
 		POINTER_KIND outerKind = innerKind;
 		if (Type* tp = it->getAttribute(Attribute::JsExportType).getValueAsType())
 		{
-			if (tp != it->getType()->getPointerElementType())
-			{
-				tp->dump();
-				it->getType()->getPointerElementType()->dump();
-			}
 			outerKind = PA.getPointerKindForJSExportedType(const_cast<Type*>(tp));
 		}
 
