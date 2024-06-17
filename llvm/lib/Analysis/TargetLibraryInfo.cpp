@@ -205,6 +205,13 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_round);
     TLI.setUnavailable(LibFunc_roundf);
     TLI.setUnavailable(LibFunc_roundl);
+    if (T.getEnvironment() == Triple::GenericJs) {
+      // These only exist for linear memory
+      TLI.setUnavailable(LibFunc_memcmp);
+      TLI.setUnavailable(LibFunc_memset);
+      TLI.setUnavailable(LibFunc_memcpy);
+      TLI.setUnavailable(LibFunc_memmove);
+    }
   }
 
   // There is really no runtime library on AMDGPU, apart from
