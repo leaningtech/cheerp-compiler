@@ -19,5 +19,7 @@ namespace cheerp{
 void emitFunctionJsExportMetadata(clang::CodeGen::CodeGenModule& CGM, const clang::FunctionDecl* FD, llvm::Function* F);
 void emitRecordJsExportMetadata(clang::CodeGen::CodeGenModule& CGM, const clang::CXXRecordDecl* CRD);
 
+void setFunctionJsExportAttributes(clang::CodeGen::CodeGenModule& CGM, const clang::FunctionDecl* FD, llvm::Function* F);
+
 }  //end namespace cheerp
 #endif //_CHEERP_CODEGEN_CHEERP_H

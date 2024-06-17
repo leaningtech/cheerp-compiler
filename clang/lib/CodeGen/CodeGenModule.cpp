@@ -1720,6 +1720,9 @@ void CodeGenModule::SetLLVMFunctionAttributes(GlobalDecl GD,
 
     if (decl->hasAttr<StaticAttr>() && !attributeCheerpStaticAllowed)
       getDiags().Report(decl->getLocation(), diag::err_cheerp_invalid_static);
+
+    if (const auto* FD = dyn_cast<FunctionDecl>(decl))
+      cheerp::setFunctionJsExportAttributes(*this, FD, F);
   }
 }
 

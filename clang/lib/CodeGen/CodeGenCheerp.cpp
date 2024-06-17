@@ -43,6 +43,12 @@ static MDString* getTypeString(CodeGen::CodeGenModule& CGM, QualType T)
 	return MDString::get(CGM.getLLVMContext(), name);
 }
 
+static Attribute getTypeAttr(CodeGen::CodeGenModule& CGM, const CXXRecordDecl* CRD)
+{
+	auto* type = CGM.getTypes().ConvertType(CGM.getContext().getTypeDeclType(CRD));
+	return Attribute::get(CGM.getLLVMContext(), Attribute::JsExportType, type);
+}
+
 void cheerp::emitFunctionJsExportMetadata(CodeGen::CodeGenModule& CGM, const FunctionDecl* FD, Function* F)
 {
 	std::vector<Metadata*> params;
@@ -79,4 +85,35 @@ void cheerp::emitRecordJsExportMetadata(CodeGen::CodeGenModule& CGM, const CXXRe
 	auto* baseMD = MDTuple::get(CGM.getLLVMContext(), bases);
 	auto* flagsMD = ConstantAsMetadata::get(flags);
 	emitMetadata(CGM, "jsexport_records", { nameMD, baseMD, flagsMD });
+}
+
+void cheerp::setFunctionJsExportAttributes(clang::CodeGen::CodeGenModule& CGM, const clang::FunctionDecl* FD, llvm::Function* F)
+{
+	std::size_t begin = 0;
+
+	if (const auto* CMD = dyn_cast<CXXMethodDecl>(FD))
+	{
+		if (!CMD->isStatic())
+		{
+			const auto* CRD = CMD->getParent();
+
+			if (CRD->hasAttr<JsExportAttr>())
+				F->addParamAttr(0, getTypeAttr(CGM, CRD));
+
+			begin += 1;
+		}
+	}
+
+	for (std::size_t i = 0; i < FD->param_size(); i++)
+	{
+		const auto* CRD = FD->getParamDecl(i)->getType()->getPointeeCXXRecordDecl();
+
+		if (CRD && CRD->hasAttr<JsExportAttr>())
+			F->addParamAttr(begin + i, getTypeAttr(CGM, CRD));
+	}
+
+	const auto* CRD = FD->getReturnType()->getPointeeCXXRecordDecl();
+
+	if (CRD && CRD->hasAttr<JsExportAttr>())
+		F->addRetAttr(getTypeAttr(CGM, CRD));
 }
