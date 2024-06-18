@@ -2416,6 +2416,22 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 							encodeInst(WasmOpcode::RETURN, code);
 						return true;
 					}
+					case Intrinsic::cheerp_atomic_wait:
+					{
+						compileOperand(code, ci.getOperand(0));
+						compileOperand(code, ci.getOperand(1));
+						compileOperand(code, ci.getOperand(2));
+						encodeInst(WasmOpcode::I64_EXTEND_I32_U, code);
+						encodeInst(WasmThreadsU32U32Opcode::MEMORY_ATOMIC_WAIT32, 0x2, 0, code);
+						return false;
+					}
+					case Intrinsic::cheerp_atomic_notify:
+					{
+						compileOperand(code, ci.getOperand(0));
+						compileOperand(code, ci.getOperand(1));
+						encodeInst(WasmThreadsU32U32Opcode:: MEMORY_ATOMIC_NOTIFY, 0x2, 0, code);
+						return false;
+					}
 					case Intrinsic::get_dynamic_area_offset:
 					{
 						// The stack pointer is the same as the address of the most recent alloca, so 0 offset

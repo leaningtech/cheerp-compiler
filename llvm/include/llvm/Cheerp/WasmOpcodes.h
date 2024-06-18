@@ -379,6 +379,9 @@ enum class WasmThreadsU32Opcode {
 };
 
 enum class WasmThreadsU32U32Opcode {
+	MEMORY_ATOMIC_NOTIFY = 0x0,
+	MEMORY_ATOMIC_WAIT32 = 0x1,
+	MEMORY_ATOMIC_WAIT64 = 0x2,
 	I32_ATOMIC_LOAD = 0x10,
 	I64_ATOMIC_LOAD = 0x11,
 	I32_ATOMIC_LOAD8_U = 0x12,
