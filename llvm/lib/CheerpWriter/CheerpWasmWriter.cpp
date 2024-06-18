@@ -4339,6 +4339,8 @@ std::map<const llvm::BasicBlock*, const llvm::PHINode*> CheerpWasmWriter::select
 		std::pair<int, const llvm::PHINode*> best{0, nullptr};
 		for (const PHINode& phi : BB->phis())
 		{
+			if (phi.use_empty())
+				continue;
 			std::pair<int, const llvm::PHINode*> curr{gainOfHandlingPhiOnTheEdge(&phi), &phi};
 			if (curr > best)
 				best = curr;
