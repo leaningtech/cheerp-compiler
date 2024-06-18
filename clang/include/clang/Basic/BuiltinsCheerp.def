@@ -40,6 +40,8 @@ BUILTIN(__builtin_cheerp_get_threading_object, "", "B")
 BUILTIN(__builtin_cheerp_get_threading_blob, "", "B")
 BUILTIN(__builtin_cheerp_set_thread_pointer, "vUi", "")
 BUILTIN(__builtin_cheerp_get_thread_pointer, "Ui", "")
+BUILTIN(__builtin_cheerp_atomic_wait, "iv*ii", "")
+BUILTIN(__builtin_cheerp_atomic_notify, "iv*i", "")
 
 // SIMD builtins
 TARGET_BUILTIN(__builtin_wasm_swizzle_i8x16, "V16ScV16ScV16Sc", "nc", "simd128")
