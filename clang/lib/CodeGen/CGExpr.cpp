@@ -158,7 +158,7 @@ Address CodeGenFunction::CreateMemTemp(QualType Ty, CharUnits Align,
                                                 ArrayTy->getNumElements());
 
     Result = Address(
-        Builder.CreateBitCast(Result.getPointer(), VectorTy->getPointerTo()),
+        Builder.CreateBitCast(Result.getPointer(), VectorTy->getPointerTo(ASN)),
         VectorTy, Result.getAlignment());
   }
   return Result;
@@ -528,7 +528,7 @@ EmitMaterializeTemporaryExpr(const MaterializeTemporaryExpr *M) {
     llvm::Type *TemporaryType = ConvertTypeForMem(E->getType());
     Object = Address(llvm::ConstantExpr::getBitCast(
                          cast<llvm::Constant>(Object.getPointer()),
-                         TemporaryType->getPointerTo()),
+                         TemporaryType->getPointerTo(Object.getAddressSpace())),
                      TemporaryType,
                      Object.getAlignment());
     // If the temporary is a global and has a constant initializer or is a

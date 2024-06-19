@@ -22,6 +22,7 @@
 #include "clang/AST/StmtVisitor.h"
 #include "clang/Basic/DiagnosticSema.h"
 #include "clang/Basic/TargetBuiltins.h"
+#include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IntrinsicsWebAssembly.h"
@@ -271,9 +272,12 @@ static llvm::FunctionCallee getPersonalityFn(CodeGenModule &CGM,
 static llvm::Constant *getOpaquePersonalityFn(CodeGenModule &CGM,
                                         const EHPersonality &Personality) {
   llvm::FunctionCallee Fn = getPersonalityFn(CGM, Personality);
+  unsigned AS = CGM.getDataLayout().getProgramAddressSpace();
+  if (CGM.getLangOpts().Cheerp) {
+    AS = unsigned(CGM.getTriple().isCheerpWasm()? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::Client);
+  }
   llvm::PointerType* Int8PtrTy = llvm::PointerType::get(
-      llvm::Type::getInt8Ty(CGM.getLLVMContext()),
-      CGM.getDataLayout().getProgramAddressSpace());
+      llvm::Type::getInt8Ty(CGM.getLLVMContext()), AS);
 
   return llvm::ConstantExpr::getBitCast(cast<llvm::Constant>(Fn.getCallee()),
                                         Int8PtrTy);
@@ -411,9 +415,10 @@ void CodeGenFunction::EmitAnyExprToExn(const Expr *e, Address addr) {
   llvm::Type *ty = ConvertTypeForMem(e->getType());
   Address typedAddr = Builder.CreateElementBitCast(addr, ty);
 
-  if(!CGM.getTarget().isByteAddressable() && ty->isStructTy()) {
+  if(CGM.getLangOpts().Cheerp && ty->isStructTy()) {
 	  // CHEERP: We insert a dummy downcast to signal that this type needs the downcast array
-    llvm::Type* Tys[] = { ty->getPointerTo(), ty->getPointerTo() };
+    unsigned AS = unsigned(cast<llvm::StructType>(ty)->hasAsmJS()? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+    llvm::Type* Tys[] = { ty->getPointerTo(AS), ty->getPointerTo(AS) };
     llvm::Function* intrinsic = llvm::Intrinsic::getDeclaration(&CGM.getModule(), llvm::Intrinsic::cheerp_downcast, Tys);
     llvm::CallBase* CB = Builder.CreateCall(intrinsic, {typedAddr.getPointer(), llvm::ConstantInt::get(CGM.Int32Ty, 0)});
     CB->addParamAttr(0, llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, ty));
