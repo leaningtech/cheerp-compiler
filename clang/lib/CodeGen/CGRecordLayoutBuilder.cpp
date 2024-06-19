@@ -20,6 +20,7 @@
 #include "clang/AST/Expr.h"
 #include "clang/AST/RecordLayout.h"
 #include "clang/Basic/CodeGenOptions.h"
+#include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Type.h"
@@ -660,9 +661,14 @@ void CGRecordLowering::computeVolatileBitfields() {
 
 void CGRecordLowering::accumulateVPtrs() {
   if (Layout.hasOwnVFPtr()) {
-    llvm::Type* VFPtrTy = Types.getTarget().isByteAddressable() ?
-                          llvm::FunctionType::get(getIntNType(32), /*isVarArg=*/true)->getPointerTo()->getPointerTo() :
-                          Types.GetVTableBaseType(RD->hasAttr<AsmJSAttr>())->getPointerTo();
+    llvm::Type* VFPtrTy = nullptr;
+    if (Types.getContext().getLangOpts().Cheerp) {
+      bool asmjs = RD->hasAttr<AsmJSAttr>();
+      unsigned AS = unsigned(asmjs? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+      VFPtrTy = Types.GetVTableBaseType(asmjs)->getPointerTo(AS);
+    } else {
+      VFPtrTy = llvm::FunctionType::get(getIntNType(32), /*isVarArg=*/true)->getPointerTo()->getPointerTo();
+    }
     Members.push_back(MemberInfo(CharUnits::Zero(), MemberInfo::VFPtr, VFPtrTy));
   }
   if (Layout.hasOwnVBPtr())

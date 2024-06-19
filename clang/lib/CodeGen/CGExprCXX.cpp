@@ -2306,8 +2306,12 @@ static llvm::Value *EmitTypeidFromVTable(CodeGenFunction &CGF, const Expr *E,
 }
 
 llvm::Value *CodeGenFunction::EmitCXXTypeidExpr(const CXXTypeidExpr *E) {
+  unsigned AS = 0;
+  if (getLangOpts().Cheerp) {
+    AS = unsigned(getTarget().getTriple().isCheerpWasm()? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+  }
   llvm::Type *StdTypeInfoPtrTy =
-    ConvertType(E->getType())->getPointerTo();
+    ConvertType(E->getType())->getPointerTo(AS);
 
   if (E->isTypeOperand()) {
     llvm::Constant *TypeInfo =

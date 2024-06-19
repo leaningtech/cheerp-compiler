@@ -25,6 +25,7 @@
 #include "clang/Basic/Builtins.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/Sequence.h"
+#include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Function.h"
@@ -841,8 +842,10 @@ bool ConstStructBuilder::Build(const APValue &Val, const RecordDecl *RD,
       llvm::Constant *VTableAddressPoint =
           CGM.getCXXABI().getVTableAddressPointForConstExpr(
               BaseSubobject(CD, Offset), VTableClass);
-      if (!CGM.getTarget().isByteAddressable()) {
-        llvm::Type* VTableType = CGM.getTypes().GetVTableBaseType(RD->hasAttr<AsmJSAttr>())->getPointerTo();
+      if (CGM.getLangOpts().Cheerp) {
+        bool asmjs = RD->hasAttr<AsmJSAttr>();
+        unsigned AS = unsigned(asmjs? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+        llvm::Type* VTableType = CGM.getTypes().GetVTableBaseType(asmjs)->getPointerTo(AS);
         VTableAddressPoint = llvm::ConstantExpr::getBitCast(VTableAddressPoint, VTableType);
       }
       if (!AppendBytes(Offset, VTableAddressPoint))
@@ -2205,8 +2208,12 @@ ConstantLValueEmitter::tryEmitBase(const APValue::LValueBase &base) {
 
   // Handle typeid(T).
   if (TypeInfoLValue TI = base.dyn_cast<TypeInfoLValue>()) {
+    unsigned AS = 0;
+    if (CGM.getLangOpts().Cheerp) {
+      AS = unsigned(CGM.getTriple().isCheerpWasm()? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+    }
     llvm::Type *StdTypeInfoPtrTy =
-        CGM.getTypes().ConvertType(base.getTypeInfoType())->getPointerTo();
+        CGM.getTypes().ConvertType(base.getTypeInfoType())->getPointerTo(AS);
     llvm::Constant *TypeInfo =
         CGM.GetAddrOfRTTIDescriptor(QualType(TI.getType(), 0));
     if (TypeInfo->getType() != StdTypeInfoPtrTy)
