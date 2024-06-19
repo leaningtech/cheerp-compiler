@@ -43,7 +43,12 @@ PreservedAnalyses CallConstructorsPass::run(llvm::Module &M, llvm::ModuleAnalysi
 		Function* memoryInit = cast<Function>(M.getOrInsertFunction("__memory_init", Ty).getCallee());
 		memoryInit->setSection("asmjs");
 		Builder.CreateCall(Ty, memoryInit);
-
+	}
+	if (!LowerAtomics)
+	{
+		// If -pthread is passed, add a call to initialise the tls to _start.
+		Function* cheerpInitTls = cast<Function>(M.getOrInsertFunction("__cheerp_init_tls", Ty).getCallee());
+		Builder.CreateCall(Ty, cheerpInitTls);
 	}
 
 	Function* GetEnviron = M.getFunction("__syscall_main_environ");
