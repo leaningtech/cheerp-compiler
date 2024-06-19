@@ -55,6 +55,7 @@
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Cheerp/Utility.h"
 #include "llvm/Frontend/OpenMP/OMPIRBuilder.h"
 #include "llvm/IR/CallingConv.h"
 #include "llvm/IR/DataLayout.h"
@@ -4077,8 +4078,14 @@ llvm::Constant *CodeGenModule::GetOrCreateLLVMFunction(
     IsIncompleteFunction = true;
   }
 
+  unsigned AS = 0;
+  if (getLangOpts().Cheerp) {
+    if (D) D->dump();
+    bool asmjs = D? D->hasAttr<AsmJSAttr>() : getTriple().isCheerpWasm();
+    AS = unsigned(asmjs? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::Client);
+  }
   llvm::Function *F =
-      llvm::Function::Create(FTy, llvm::Function::ExternalLinkage,
+      llvm::Function::Create(FTy, llvm::Function::ExternalLinkage, AS,
                              Entry ? StringRef() : MangledName, &getModule());
 
   // If we already created a function with the same mangled name (but different
@@ -4102,7 +4109,7 @@ llvm::Constant *CodeGenModule::GetOrCreateLLVMFunction(
     }
 
     llvm::Constant *BC = llvm::ConstantExpr::getBitCast(
-        F, Entry->getValueType()->getPointerTo());
+        F, Entry->getValueType()->getPointerTo(Entry->getAddressSpace()));
     addGlobalValReplacement(Entry, BC);
   }
 
@@ -4569,9 +4576,15 @@ llvm::GlobalVariable *CodeGenModule::CreateOrReplaceCXXRuntimeVariable(
     OldGV = GV;
   }
 
+  unsigned AS = 0;
+  // In Cheerp, the runtime globals sit in the default AS
+  if (getLangOpts().Cheerp) {
+    AS = unsigned(getTriple().isCheerpWasm()? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+  }
   // Create a new variable.
   GV = new llvm::GlobalVariable(getModule(), Ty, /*isConstant=*/true,
-                                Linkage, nullptr, Name);
+                                Linkage, nullptr, Name,
+                                nullptr, llvm::GlobalVariable::NotThreadLocal, AS);
 
   if (OldGV) {
     // Replace occurrences of the old variable if needed.
@@ -4691,6 +4704,13 @@ LangAS CodeGenModule::GetGlobalVarAddressSpace(const VarDecl *D) {
     LangAS AS;
     if (OpenMPRuntime->hasAllocateAttributeForGlobalVar(D, AS))
       return AS;
+  }
+  if (LangOpts.Cheerp) {
+    if (!D) {
+      return getTriple().isCheerpWasm()? LangAS::cheerp_wasm : LangAS::cheerp_genericjs;
+    }
+    assert(D->getType().getAddressSpace() != LangAS::Default);
+    return D->getType().getAddressSpace();
   }
   return getTargetCodeGenInfo().getGlobalVarAddressSpace(*this, D);
 }
