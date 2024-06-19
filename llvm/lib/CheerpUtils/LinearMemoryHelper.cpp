@@ -384,7 +384,8 @@ bool LinearMemoryHelper::hasNonZeroInitialiser(const GlobalVariable* G) const
 
 void LinearMemoryHelper::addGlobals()
 {
-	generateGlobalizedGlobalsUsage();
+	if (LowerAtomics)
+		generateGlobalizedGlobalsUsage();
 
 	const auto& targetData = module->getDataLayout();
 	// The global variable list has a special order:
@@ -400,6 +401,11 @@ void LinearMemoryHelper::addGlobals()
 
 	std::sort(asmjsGlobals.begin(), asmjsGlobals.end(),
 		[targetData,this] (const GlobalVariable* a, const GlobalVariable* b) {
+			// Encode thread-local globals at the end.
+			uint32_t isThreadLocalA = a->isThreadLocal();
+			uint32_t isThreadLocalB = b->isThreadLocal();
+			if (isThreadLocalA != isThreadLocalB)
+				return isThreadLocalA < isThreadLocalB;
 			// Encode zero-initialized globals after all the others
 			uint32_t nonZeroInitializedA = hasNonZeroInitialiser(a);
 			uint32_t nonZeroInitializedB = hasNonZeroInitialiser(b);
@@ -417,6 +423,9 @@ void LinearMemoryHelper::addGlobals()
 	);
 
 	// Compute the global variable addresses.
+	// Also, for thread locals, calculate offsets to the image start, and the total size of the image.
+	threadLocalImageSize = 0;
+	threadLocalStart = 0;
 	for (const auto G: asmjsGlobals) {
 		//Globalized globals do not need an address
 		if (globalizedGlobalsUsage.count(G))
@@ -430,6 +439,13 @@ void LinearMemoryHelper::addGlobals()
 		heapStart = (heapStart + alignment - 1) & ~(alignment - 1);
 		globalAddresses.emplace(G, heapStart);
 		inverseGlobalAddresses.emplace(heapStart, G);
+		if (G->isThreadLocal())
+		{
+			asmjsThreadLocals.push_back(G);
+			if (threadLocalStart == 0)
+				threadLocalStart = heapStart;
+			threadLocalImageSize += size;
+		}
 		heapStart += size;
 	}
 }
@@ -681,6 +697,10 @@ void LinearMemoryHelper::addMemoryInfo()
 	// Align heapEnd to a wasm page size
 	heapEnd = (heapEnd + 65535) & ~65535;
 	setGlobalPtrIfPresent("_heapEnd", heapEnd);
+
+	// Set the values for the thread local storage.
+	setGlobalPtrIfPresent("__tlsImage", threadLocalStart);
+	setGlobalPtrIfPresent("__tlsImageSize", threadLocalImageSize);
 }
 
 void LinearMemoryHelper::VectorWriter::addByte(uint8_t b)
@@ -781,6 +801,12 @@ const llvm::GlobalVariable* LinearMemoryHelper::getGlobalVariableFromAddress(Val
 		return it->second;
 
 	return nullptr;
+}
+
+int32_t LinearMemoryHelper::getThreadLocalOffset(const GlobalVariable* G) const
+{
+	assert(globalAddresses.count(G) && G->isThreadLocal());
+	return globalAddresses.find(G)->second - threadLocalStart - threadLocalImageSize;
 }
 
 uint32_t LinearMemoryHelper::getFunctionAddress(const llvm::Function* F) const
