@@ -1021,6 +1021,25 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(const
 			stream  << "typeof " << ArgvName << " == 'undefined' ? null : " << ArgvName;
 		return COMPILE_OK;
 	}
+	else if(intrinsicId==Intrinsic::cheerp_get_threading_object)
+	{
+		stream << namegen.getBuiltinName(NameGenerator::Builtin::THREADINGOBJECT);
+		return COMPILE_OK;
+	}
+	else if(intrinsicId==Intrinsic::cheerp_get_threading_blob)
+	{
+		StringRef threadingObject = namegen.getBuiltinName(NameGenerator::Builtin::THREADINGOBJECT);
+		stream << "new Blob([" << '"';
+		stream << "onmessage=(e)=>{";
+		stream << threadingObject << "=e.data;";
+		stream << threadingObject << ".inWorker=true;";
+		if (makeModule == MODULE_TYPE::ES6)
+			stream << "import(" << threadingObject << ".script).then(m=>{m.default();});";
+		else
+			stream << "importScripts(" << threadingObject << ".script);";
+		stream << "}" << '"' << "])";
+		return COMPILE_OK;
+	}
 	else if(intrinsicId==Intrinsic::abs)
 	{
 		//Implementing ( X >= 0 ) ? X : -X
