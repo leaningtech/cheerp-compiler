@@ -53,7 +53,12 @@ CGCallee CGCXXABI::EmitLoadOfMemberFunctionPointer(
       cast<CXXRecordDecl>(MPT->getClass()->castAs<RecordType>()->getDecl());
   llvm::FunctionType *FTy = CGM.getTypes().GetFunctionType(
       CGM.getTypes().arrangeCXXMethodType(RD, FPT, /*FD=*/nullptr));
-  llvm::Constant *FnPtr = llvm::Constant::getNullValue(FTy->getPointerTo());
+  bool asmjs = RD->hasAttr<AsmJSAttr>();
+  unsigned AS = 0;
+  if (CGF.getLangOpts().Cheerp) {
+    AS = unsigned(asmjs? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::Client);
+  }
+  llvm::Constant *FnPtr = llvm::Constant::getNullValue(FTy->getPointerTo(AS));
   return CGCallee::forDirect(FnPtr, FPT);
 }
 
