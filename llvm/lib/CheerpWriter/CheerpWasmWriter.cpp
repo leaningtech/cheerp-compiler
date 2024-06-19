@@ -2951,6 +2951,16 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						}
 						[[clang::fallthrough]];
 					}
+					case Intrinsic::threadlocal_address:
+					{
+						// We encode this as an offset from the thread pointer.
+						const GlobalVariable *GV = dyn_cast<GlobalVariable>(I.getOperand(0));
+						int32_t offset = linearHelper.getThreadLocalOffset(GV);
+						encodeInst(WasmU32Opcode::GET_GLOBAL, THREAD_POINTER_GLOBAL, code);
+						encodeInst(WasmS32Opcode::I32_CONST, offset, code);
+						encodeInst(WasmOpcode::I32_ADD, code);
+						return false;
+					}
 					default:
 					{
 						unsigned intrinsic = calledFunc->getIntrinsicID();
