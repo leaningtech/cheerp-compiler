@@ -224,10 +224,10 @@ Constant *Module::getOrInsertGlobal(
 }
 
 // Overload to construct a global variable using its constructor's defaults.
-Constant *Module::getOrInsertGlobal(StringRef Name, Type *Ty) {
+Constant *Module::getOrInsertGlobal(StringRef Name, Type *Ty, unsigned AS) {
   return getOrInsertGlobal(Name, Ty, [&] {
     return new GlobalVariable(*this, Ty, false, GlobalVariable::ExternalLinkage,
-                              nullptr, Name);
+                              nullptr, Name, nullptr, GlobalVariable::NotThreadLocal, AS);
   });
 }
 
