@@ -19,6 +19,7 @@
 #include "clang/Basic/CodeGenOptions.h"
 #include "clang/CodeGen/CGFunctionInfo.h"
 #include "clang/CodeGen/ConstantInitBuilder.h"
+#include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Support/Format.h"
 #include "llvm/Transforms/Utils/Cloning.h"
@@ -802,8 +803,14 @@ void CodeGenVTables::addVTableComponent(ConstantAggregateBuilderBase &builder,
       useRelativeLayout() ? AddRelativeLayoutOffset : AddPointerLayoutOffset;
 
   bool asmjs = LayoutClass->hasAttr<AsmJSAttr>();
-
-  llvm::PointerType* elemType = CGM.getTarget().isByteAddressable() ? CGM.Int8PtrTy : llvm::FunctionType::get( CGM.Int32Ty, true )->getPointerTo();
+  llvm::PointerType* elemType = CGM.Int8PtrTy;
+  llvm::PointerType* rttiType = CGM.Int8PtrTy;
+  if (CGM.getLangOpts().Cheerp) {
+    unsigned FuncAS = unsigned(asmjs? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::Client);
+    unsigned DataAS = unsigned(asmjs? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+    elemType = llvm::FunctionType::get(CGM.Int32Ty, true)->getPointerTo(FuncAS);
+    rttiType = CGM.getTypes().GetClassTypeInfoType()->getPointerTo(DataAS);
+  }
 
   switch (component.getKind()) {
   case VTableComponent::CK_VCallOffset:
@@ -839,7 +846,7 @@ void CodeGenVTables::addVTableComponent(ConstantAggregateBuilderBase &builder,
                                   vtableHasLocalLinkage,
                                   /*isCompleteDtor=*/false);
     else
-      return builder.add(llvm::ConstantExpr::getBitCast(rtti, CGM.getTarget().isByteAddressable() ? CGM.Int8PtrTy : CGM.getTypes().GetClassTypeInfoType()->getPointerTo()));
+      return builder.add(llvm::ConstantExpr::getBitCast(rtti, rttiType));
 
   case VTableComponent::CK_FunctionPointer:
   case VTableComponent::CK_CompleteDtorPointer:
@@ -1509,7 +1516,13 @@ llvm::Type* CodeGenTypes::GetVTableSubObjectType(CodeGenModule& CGM,
                                           bool asmjs)
 {
   llvm::Type* OffsetTy = CGM.getTypes().ConvertType(CGM.getContext().getPointerDiffType());
-  llvm::Type* FuncPtrTy = llvm::FunctionType::get( CGM.Int32Ty, true )->getPointerTo();
+  unsigned FuncAS = 0;
+  unsigned DataAS = 0;
+  if (CGM.getLangOpts().Cheerp) {
+    FuncAS = unsigned(asmjs? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::Client);
+    DataAS = unsigned(asmjs? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+  }
+  llvm::Type* FuncPtrTy = llvm::FunctionType::get( CGM.Int32Ty, true )->getPointerTo(FuncAS);
   llvm::SmallVector<llvm::Type*, 16> VTableTypes;
 
   for (auto C = begin; C!= end; C++) {
@@ -1520,7 +1533,7 @@ llvm::Type* CodeGenTypes::GetVTableSubObjectType(CodeGenModule& CGM,
       VTableTypes.push_back(OffsetTy);
       break;
     case VTableComponent::CK_RTTI:
-      VTableTypes.push_back(CGM.getTypes().GetClassTypeInfoType()->getPointerTo());
+      VTableTypes.push_back(CGM.getTypes().GetClassTypeInfoType()->getPointerTo(DataAS));
       break;
     case VTableComponent::CK_FunctionPointer:
     case VTableComponent::CK_CompleteDtorPointer:
@@ -1560,9 +1573,15 @@ llvm::Type* CodeGenTypes::GetSecondaryVTableType(const CXXRecordDecl* RD) {
 
 llvm::Type* CodeGenTypes::GetBasicVTableType(uint32_t virtualMethodsCount, bool asmjs)
 {
+  unsigned FuncAS = 0;
+  unsigned DataAS = 0;
+  if (CGM.getLangOpts().Cheerp) {
+    FuncAS = unsigned(asmjs? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::Client);
+    DataAS = unsigned(asmjs? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+  }
   llvm::SmallVector<llvm::Type*, 16> VTableTypes;
   llvm::Type* OffsetTy = CGM.getTypes().ConvertType(CGM.getContext().getPointerDiffType());
-  llvm::Type* FuncPtrTy = llvm::FunctionType::get( CGM.Int32Ty, true )->getPointerTo();
+  llvm::Type* FuncPtrTy = llvm::FunctionType::get( CGM.Int32Ty, true )->getPointerTo(FuncAS);
 
   if (asmjs)
   {
@@ -1571,7 +1590,7 @@ llvm::Type* CodeGenTypes::GetBasicVTableType(uint32_t virtualMethodsCount, bool 
   }
 
   // RTTI
-  VTableTypes.push_back(GetClassTypeInfoType()->getPointerTo());
+  VTableTypes.push_back(GetClassTypeInfoType()->getPointerTo(DataAS));
 
   // Virtual functions
   for(uint32_t j=0;j<virtualMethodsCount;j++)
