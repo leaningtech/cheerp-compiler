@@ -7045,7 +7045,7 @@ void CheerpWriter::compileDefineExports()
 	compileDeclExportedToJs(/*alsoDeclare*/ !areJsExportedExportsDeclared);
 	areJsExportedExportsDeclared = true;
 
-	if (makeModule != MODULE_TYPE::COMMONJS && makeModule != MODULE_TYPE::ES6 && makeModule != MODULE_TYPE::COMMONJS)
+	if (makeModule != MODULE_TYPE::COMMONJS && makeModule != MODULE_TYPE::ES6)
 	{
 		//CommonJS modules have already the promise on module.exports
 		bool anyJSEx = false;
