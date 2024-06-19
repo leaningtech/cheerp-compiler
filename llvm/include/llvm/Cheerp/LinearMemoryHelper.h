@@ -211,6 +211,7 @@ public:
 
 	uint32_t getGlobalVariableAddress(const llvm::GlobalVariable* G) const;
 	const llvm::GlobalVariable* getGlobalVariableFromAddress(llvm::Value* C) const;
+	int32_t getThreadLocalOffset(const llvm::GlobalVariable* G) const;
 	uint32_t getFunctionAddress(const llvm::Function* F) const;
 	bool functionHasAddress(const llvm::Function* F) const;
 	uint32_t getFunctionAddressMask(const llvm::FunctionType* Fty) const;
@@ -419,6 +420,8 @@ private:
 	std::vector<uint8_t> rawGlobalData;
 	std::vector<GlobalDataChunk> globalDataChunks;
 
+	std::vector<const llvm::GlobalVariable*> asmjsThreadLocals;
+
 	FunctionAddressesMap functionAddresses;
 	GlobalAddressesMap globalAddresses;
 	InverseGlobalAddressesMap inverseGlobalAddresses;
@@ -434,6 +437,10 @@ private:
 	// Offset from 0x0 to the stack top. Primarily used with Asan to reserve
 	// the lower addresses for null pointer checks
 	uint32_t stackOffset;
+	// The address at which the thread local section starts
+	int32_t threadLocalStart;
+	// The size of the thread local section
+	int32_t threadLocalImageSize;
 	// Whether memory can grow at runtime or not
 	bool growMem;
 	// Whether there is an extra asmjs memory file.
