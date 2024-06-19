@@ -6503,6 +6503,11 @@ void CheerpWriter::compileHelpers()
 
 	compileNullPtrs();
 
+	if (!LowerAtomics)
+	{
+		compileThreadingObject();
+	}
+
 	// Utility function for loading files
 	if(!wasmFile.empty() || asmJSMem)
 		compileFetchBuffer();
@@ -6780,18 +6785,35 @@ void CheerpWriter::compileWasmLoader()
 	stream << "__heap=null;";
 	compileDummies();
 
-	compileWasmMemory();
+	if (LowerAtomics)
+		compileWasmMemory();
 
 	compileDeclareExports();
 
+	StringRef dummyName = namegen.getBuiltinName(NameGenerator::Builtin::DUMMY);
+	StringRef threadObject = namegen.getBuiltinName(NameGenerator::Builtin::THREADINGOBJECT);
 	const std::string shortestName = namegen.getShortestLocalName();
 	compileFetchBufferCall(wasmFile, shortestName);
-	stream << ".then(" << shortestName << "=>" << NewLine;
+	if (LowerAtomics)
+		stream << ".then(" << shortestName << "=>" << NewLine;
+	else
+	{
+		stream << ";" << NewLine;
+		stream << "}else{" << NewLine;
+		stream << dummyName << ".promise=Promise.resolve(";
+		stream << threadObject << ".module);" << NewLine;
+		stream << "}" << NewLine;
+
+		stream << dummyName << ".promise=" << dummyName << ".promise.then(" << shortestName << "=>" << NewLine;
+	}
 	stream << "WebAssembly.instantiate(" << shortestName << "," << NewLine;
 	stream << "{i:{" << NewLine;
 	// Import the memory.
 	StringRef memoryName = namegen.getBuiltinName(NameGenerator::Builtin::MEMORY);
-	stream << memoryName << ':' << memoryName << ',' << NewLine;
+	if (LowerAtomics)
+		stream << memoryName << ':' << memoryName << ',' << NewLine;
+	else
+		stream << memoryName << ':' << threadObject << '.' << memoryName << ',' << NewLine;
 	compileImports();
 	if(globalDeps.needsBuiltin(BuiltinInstr::BUILTIN::ACOS_F))
 		stream << namegen.getBuiltinName(NameGenerator::ACOS) << ":Math.acos," << NewLine;
@@ -6821,12 +6843,32 @@ void CheerpWriter::compileWasmLoader()
 		stream << ',' << NewLine;
 	}
 	stream << "}})" << NewLine;
-	stream << ").then(" << shortestName << "=>{" << NewLine;
-	stream << "__asm=" << shortestName << ".instance.exports;" << NewLine;
-	stream << "__heap=" << namegen.getBuiltinName(NameGenerator::MEMORY) << ".buffer;" << NewLine;
+	if (LowerAtomics)
+	{
+		stream << ").then(" << shortestName << "=>{" << NewLine;
+		stream << "__asm=" << shortestName << ".instance.exports;" << NewLine;
+		stream << "__heap=" << memoryName << ".buffer;" << NewLine;
+	}
+	else
+	{
+		stream << ");"<< NewLine;
+		stream << "__heap=" << threadObject << "." << memoryName << ".buffer;" << NewLine;
+	}
 	if (globalDeps.needAsmJSMemory())
 	{
 		stream << namegen.getBuiltinName(NameGenerator::Builtin::ASSIGN_HEAPS) << "(__heap);" << NewLine;
+	}
+	if (!LowerAtomics)
+	{
+		stream << "if(!" << threadObject << ".inWorker)" << NewLine;
+		stream << "{" << NewLine;
+		if (makeModule == MODULE_TYPE::COMMONJS)
+			stream << "module.exports=" << NewLine;
+		else if (makeModule == MODULE_TYPE::ES6)
+			stream << "return ";
+		stream << dummyName << ".promise.then(" << shortestName << "=>{" << NewLine;
+		stream << threadObject << ".module=" << shortestName << ".module;" << NewLine;
+		stream << "__asm=" << shortestName << ".instance.exports;" << NewLine;
 	}
 }
 
@@ -6858,7 +6900,13 @@ void CheerpWriter::compileDeclareExports()
 		}
 	}
 
-	if (makeModule == MODULE_TYPE::COMMONJS)
+	if (!LowerAtomics && makeModule != MODULE_TYPE::ES6)
+	{
+		stream << "if(!" << namegen.getBuiltinName(NameGenerator::Builtin::THREADINGOBJECT) << ".inWorker){" << NewLine;
+		compileWasmMemory();
+	}
+
+	if (LowerAtomics && makeModule == MODULE_TYPE::COMMONJS)
 	{
 		stream << "module.exports=" << NewLine;
 	}
@@ -6866,9 +6914,17 @@ void CheerpWriter::compileDeclareExports()
 	{
 		const std::string shortestName = namegen.getShortestLocalName();
 		stream << "export default function(" << shortestName << "){" << NewLine;
+		if (!LowerAtomics)
+		{
+			stream << "if(!" << namegen.getBuiltinName(NameGenerator::Builtin::THREADINGOBJECT) << ".inWorker){" << NewLine;
+			compileWasmMemory();
+		}
 		stream << EnvironName << "=(typeof " << shortestName << " == 'undefined' ? null : " << shortestName << ".env) || null;" << NewLine;
 		stream << ArgvName << "=(typeof " << shortestName << " == 'undefined' ? null : " << shortestName << ".argv) || null;" << NewLine;
-		stream << "return ";
+		if (!LowerAtomics)
+			stream << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) << ".promise=";
+		else
+			stream << "return ";
 	}
 	else
 	{
@@ -6884,7 +6940,10 @@ void CheerpWriter::compileWasmMemory()
 	uint32_t minMemory = (linearHelper.getHeapStart() + 65535) >> 16;
 	if (noGrowMemory)
 		minMemory = maxMemory;
-	stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::MEMORY);
+	if (LowerAtomics)
+		stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::MEMORY);
+	else
+		stream << namegen.getBuiltinName(NameGenerator::Builtin::THREADINGOBJECT) << "." << namegen.getBuiltinName(NameGenerator::Builtin::MEMORY);
 	stream << "=new WebAssembly.Memory({initial:" << minMemory << ",maximum:" << maxMemory;
 	if (WasmSharedMemory)
 		stream << ",shared:true";
@@ -7083,6 +7142,42 @@ void CheerpWriter::compileEntryPoint()
 	}
 }
 
+void CheerpWriter::compileThreadingObject()
+{
+		StringRef threadObject = namegen.getBuiltinName(NameGenerator::Builtin::THREADINGOBJECT);
+		stream << "if(typeof ";
+		if (makeModule == MODULE_TYPE::ES6 || makeModule == MODULE_TYPE::COMMONJS)
+			stream << "globalThis.";
+		stream << threadObject << "==='undefined'){" << NewLine;
+		stream << "var script=(typeof window === 'undefined')?__filename:";
+		if (makeModule == MODULE_TYPE::ES6)
+			stream << "import.meta.url;";
+		else
+			stream << "document.currentScript.src;";
+		stream << NewLine;
+		stream << "var " << threadObject << "={inWorker:false,module:null,script:script,memory:null,func:null,args:null,tls:null,tid:null,stack:null};" << NewLine;
+		if (makeModule == MODULE_TYPE::ES6 || makeModule == MODULE_TYPE::COMMONJS)
+		{
+			stream << "}else{" << NewLine;
+			stream << "var " << threadObject << "=globalThis." << threadObject << ";" << NewLine;
+		}
+		stream << "}" << NewLine;
+}
+
+void CheerpWriter::compileWorkerMainScript()
+{
+	StringRef shortestName = namegen.getShortestLocalName();
+	StringRef threadObject = namegen.getBuiltinName(NameGenerator::Builtin::THREADINGOBJECT);
+	stream << "}else{" << NewLine;
+	stream << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) << ".promise.then(" << shortestName << "=>{" << NewLine;
+	stream << "__asm=" << shortestName << ".exports;" << NewLine;
+	compileDefineExports();
+	stream << "__asm._workerEntry(" << threadObject << ".tls, " << threadObject << ".func, ";
+	stream << threadObject << ".args, " << threadObject << ".tid, " << threadObject << ".stack, ";
+	stream << threadObject << ".ctid);" << NewLine;
+	stream << "});" << NewLine;
+}
+
 void CheerpWriter::compileFileBegin(const OptionsSet& options)
 {
 	if (options[Options::NEED_SOURCE_MAPS])
@@ -7166,6 +7261,12 @@ void CheerpWriter::makeJS()
 
 	if (areExtraParenthesisOpen)
 		compileLoaderOrModuleEnd();
+
+	if (!LowerAtomics)
+	{
+		compileWorkerMainScript();
+		stream << "}" << NewLine;
+	}
 
 	if (makeModule == MODULE_TYPE::ES6)
 		stream << "}" << NewLine;
