@@ -791,6 +791,8 @@ private:
 	void compileDummies();
 	void compileNamespaces();
 	void compileRootIfNeeded();
+	void compileThreadingObject();
+	void compileWorkerMainScript();
 };
 
 }
