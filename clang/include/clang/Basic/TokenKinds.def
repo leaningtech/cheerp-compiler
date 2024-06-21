@@ -608,7 +608,8 @@ UNARY_EXPR_OR_TYPE_TRAIT(vec_step, VecStep, KEYOPENCLC | KEYOPENCLCXX | KEYALTIV
 #include "clang/Basic/OpenCLImageTypes.def"
 KEYWORD(pipe                        , KEYOPENCLC | KEYOPENCLCXX)
 // C++ for OpenCL s2.3.1: addrspace_cast operator
-KEYWORD(addrspace_cast              , KEYOPENCLCXX)
+// Also Cheerp
+KEYWORD(addrspace_cast              , KEYALL)
 
 // CUDA/HIP function attributes
 KEYWORD(__noinline__                , KEYCUDA)
