@@ -4884,8 +4884,11 @@ static llvm::FunctionCallee getBeginCatchFn(CodeGenModule &CGM, bool asmjs) {
   llvm::Type* RetTy = CGM.Int8PtrTy;
   llvm::Type* ArgTy = CGM.Int8PtrTy;
   const char* name = "__cxa_begin_catch";
+  unsigned AS = 0;
   if (CGM.getLangOpts().Cheerp) {
     ArgTy = CGM.Int32Ty;
+    AS = unsigned(asmjs? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+    RetTy = CGM.Int8Ty->getPointerTo(AS);
     if (asmjs)
       name = "__cxa_begin_catch_wasm";
   }
@@ -4893,7 +4896,7 @@ static llvm::FunctionCallee getBeginCatchFn(CodeGenModule &CGM, bool asmjs) {
   llvm::FunctionType *FTy = llvm::FunctionType::get(
       RetTy, ArgTy, /*isVarArg=*/false);
 
-  return CGM.CreateRuntimeFunction(FTy, name);
+  return CGM.CreateRuntimeFunction(FTy, name, llvm::AttributeList(), false, false , AS);
 }
 
 static llvm::FunctionCallee getEndCatchFn(CodeGenModule &CGM) {
@@ -4955,7 +4958,7 @@ namespace {
 static llvm::Value *CallBeginCatch(CodeGenFunction &CGF,
                                    llvm::Value *Exn,
                                    bool EndMightThrow) {
-  bool asmjs = CGF.CurFn->getSection() == "asmjs";
+  bool asmjs = CGF.CurFn->getAddressSpace() == unsigned(cheerp::CheerpAS::Wasm);
   llvm::CallInst *call =
     CGF.EmitNounwindRuntimeCall(getBeginCatchFn(CGF.CGM, asmjs), Exn);
 
@@ -5249,7 +5252,9 @@ llvm::CallInst *
 ItaniumCXXABI::emitTerminateForUnexpectedException(CodeGenFunction &CGF,
                                                    llvm::Value *Exn) {
   // In C++, we want to call __cxa_begin_catch() before terminating.
-  if (Exn) {
+  // Cheerp: The WebAssemblyCXXABI skips this (see below), and since it raises
+  // the question of the address space of the exception, for now we skip it too
+  if (Exn && !CGF.getLangOpts().Cheerp) {
     assert(CGF.CGM.getLangOpts().CPlusPlus);
     return CGF.EmitNounwindRuntimeCall(getClangCallTerminateFn(CGF.CGM), Exn);
   }
