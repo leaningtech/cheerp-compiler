@@ -264,23 +264,27 @@ const EHPersonality &EHPersonality::get(CodeGenFunction &CGF) {
 
 static llvm::FunctionCallee getPersonalityFn(CodeGenModule &CGM,
                                              const EHPersonality &Personality) {
+  unsigned AS = CGM.getDataLayout().getProgramAddressSpace();
+  if (CGM.getLangOpts().Cheerp) {
+    AS = unsigned(cheerp::CheerpAS::Client);
+  }
   return CGM.CreateRuntimeFunction(llvm::FunctionType::get(CGM.Int32Ty, true),
                                    Personality.PersonalityFn,
-                                   llvm::AttributeList(), /*Local=*/true);
+                                   llvm::AttributeList(), /*Local=*/true, false, AS);
 }
 
 static llvm::Constant *getOpaquePersonalityFn(CodeGenModule &CGM,
                                         const EHPersonality &Personality) {
   llvm::FunctionCallee Fn = getPersonalityFn(CGM, Personality);
-  unsigned AS = CGM.getDataLayout().getProgramAddressSpace();
+  unsigned AS = 0;
   if (CGM.getLangOpts().Cheerp) {
     AS = unsigned(CGM.getTriple().isCheerpWasm()? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::Client);
   }
   llvm::PointerType* Int8PtrTy = llvm::PointerType::get(
       llvm::Type::getInt8Ty(CGM.getLLVMContext()), AS);
 
-  return llvm::ConstantExpr::getBitCast(cast<llvm::Constant>(Fn.getCallee()),
-                                        Int8PtrTy);
+  return llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(
+      cast<llvm::Constant>(Fn.getCallee()), Int8PtrTy);
 }
 
 /// Check whether a landingpad instruction only uses C++ features.
