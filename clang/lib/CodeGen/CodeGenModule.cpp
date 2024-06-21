@@ -1633,9 +1633,9 @@ void CodeGenModule::EmitCtorList(CtorList &Fns, const char *GlobalName) {
   for (const auto &I : Fns) {
     auto ctor = ctors.beginStruct(CtorStructTy);
     ctor.addInt(Int32Ty, I.Priority);
-    ctor.add(llvm::ConstantExpr::getBitCast(I.Initializer, CtorPFTy));
+    ctor.add(llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(I.Initializer, CtorPFTy));
     if (I.AssociatedData)
-      ctor.add(llvm::ConstantExpr::getBitCast(I.AssociatedData, VoidPtrTy));
+      ctor.add(llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(I.AssociatedData, VoidPtrTy));
     else
       ctor.addNullPointer(VoidPtrTy);
     ctor.finishAndAddTo(ctors);
@@ -3990,7 +3990,7 @@ llvm::Constant *CodeGenModule::GetOrCreateMultiVersionResolver(GlobalDecl GD) {
 llvm::Constant *CodeGenModule::GetOrCreateLLVMFunction(
     StringRef MangledName, llvm::Type *Ty, GlobalDecl GD, bool ForVTable,
     bool DontDefer, bool IsThunk, llvm::AttributeList ExtraAttrs,
-    ForDefinition_t IsForDefinition) {
+    ForDefinition_t IsForDefinition, unsigned AS) {
   const Decl *D = GD.getDecl();
 
   // Any attempts to use a MultiVersion function should result in retrieving
@@ -4078,9 +4078,7 @@ llvm::Constant *CodeGenModule::GetOrCreateLLVMFunction(
     IsIncompleteFunction = true;
   }
 
-  unsigned AS = 0;
-  if (getLangOpts().Cheerp) {
-    if (D) D->dump();
+  if (getLangOpts().Cheerp && AS == 0) {
     bool asmjs = D? D->hasAttr<AsmJSAttr>() : getTriple().isCheerpWasm();
     AS = unsigned(asmjs? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::Client);
   }
@@ -4270,7 +4268,7 @@ GetRuntimeFunctionDecl(ASTContext &C, StringRef Name) {
 llvm::FunctionCallee
 CodeGenModule::CreateRuntimeFunction(llvm::FunctionType *FTy, StringRef Name,
                                      llvm::AttributeList ExtraAttrs, bool Local,
-                                     bool AssumeConvergent) {
+                                     bool AssumeConvergent, unsigned AS) {
   if (AssumeConvergent) {
     ExtraAttrs =
         ExtraAttrs.addFnAttribute(VMContext, llvm::Attribute::Convergent);
@@ -4279,7 +4277,7 @@ CodeGenModule::CreateRuntimeFunction(llvm::FunctionType *FTy, StringRef Name,
   llvm::Constant *C =
       GetOrCreateLLVMFunction(Name, FTy, GlobalDecl(), /*ForVTable=*/false,
                               /*DontDefer=*/false, /*IsThunk=*/false,
-                              ExtraAttrs);
+                              ExtraAttrs, NotForDefinition, AS);
 
   if (auto *F = dyn_cast<llvm::Function>(C)) {
     if (F->empty()) {

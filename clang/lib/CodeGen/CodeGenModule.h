@@ -36,6 +36,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/ValueHandle.h"
 #include "llvm/Transforms/Utils/SanitizerStats.h"
+#include <limits>
 
 namespace llvm {
 class Module;
@@ -1154,7 +1155,7 @@ public:
   llvm::FunctionCallee
   CreateRuntimeFunction(llvm::FunctionType *Ty, StringRef Name,
                         llvm::AttributeList ExtraAttrs = llvm::AttributeList(),
-                        bool Local = false, bool AssumeConvergent = false);
+                        bool Local = false, bool AssumeConvergent = false, unsigned AS = std::numeric_limits<unsigned>::max());
 
   /// Create a new runtime global variable with the specified type and name.
   llvm::Constant *CreateRuntimeVariable(llvm::Type *Ty,
@@ -1548,7 +1549,7 @@ private:
       StringRef MangledName, llvm::Type *Ty, GlobalDecl D, bool ForVTable,
       bool DontDefer = false, bool IsThunk = false,
       llvm::AttributeList ExtraAttrs = llvm::AttributeList(),
-      ForDefinition_t IsForDefinition = NotForDefinition);
+      ForDefinition_t IsForDefinition = NotForDefinition, unsigned AS = 0);
 
   // References to multiversion functions are resolved through an implicitly
   // defined resolver function. This function is responsible for creating
