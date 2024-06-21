@@ -4880,12 +4880,21 @@ void ItaniumCXXABI::emitCXXStructor(GlobalDecl GD) {
   }
 }
 
-static llvm::FunctionCallee getBeginCatchFn(CodeGenModule &CGM) {
+static llvm::FunctionCallee getBeginCatchFn(CodeGenModule &CGM, bool asmjs) {
+  llvm::Type* Int8PtrTy = CGM.Int8PtrTy;
+  const char* name = "__cxa_begin_catch";
+  unsigned AS = 0;
+  if (CGM.getLangOpts().Cheerp) {
+    AS = unsigned(asmjs? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+    Int8PtrTy = CGM.Int8Ty->getPointerTo(AS);
+    if (asmjs)
+      name = "__cxa_begin_catch_wasm";
+  }
   // void *__cxa_begin_catch(void*);
   llvm::FunctionType *FTy = llvm::FunctionType::get(
-      CGM.Int8PtrTy, CGM.Int8PtrTy, /*isVarArg=*/false);
+      Int8PtrTy, Int8PtrTy, /*isVarArg=*/false);
 
-  return CGM.CreateRuntimeFunction(FTy, "__cxa_begin_catch");
+  return CGM.CreateRuntimeFunction(FTy, name, llvm::AttributeList(), false, false , AS);
 }
 
 static llvm::FunctionCallee getEndCatchFn(CodeGenModule &CGM) {
@@ -4939,8 +4948,9 @@ namespace {
 static llvm::Value *CallBeginCatch(CodeGenFunction &CGF,
                                    llvm::Value *Exn,
                                    bool EndMightThrow) {
+  bool asmjs = CGF.CurFn->getAddressSpace() == unsigned(cheerp::CheerpAS::Wasm);
   llvm::CallInst *call =
-    CGF.EmitNounwindRuntimeCall(getBeginCatchFn(CGF.CGM), Exn);
+    CGF.EmitNounwindRuntimeCall(getBeginCatchFn(CGF.CGM, asmjs), Exn);
 
   CGF.EHStack.pushCleanup<CallEndCatch>(NormalAndEHCleanup, EndMightThrow);
 
@@ -5173,8 +5183,14 @@ void ItaniumCXXABI::emitBeginCatch(CodeGenFunction &CGF,
 /// This code is used only in C++.
 static llvm::FunctionCallee getClangCallTerminateFn(CodeGenModule &CGM) {
   ASTContext &C = CGM.getContext();
+  CanQualType CharTy = C.CharTy;
+  bool asmjs = CGM.getTriple().isCheerpWasm();
+  if (CGM.getLangOpts().Cheerp) {
+    LangAS AS = asmjs? LangAS::cheerp_wasm : LangAS::cheerp_genericjs;
+    CharTy = C.getCanonicalType(C.getAddrSpaceQualType(CharTy, AS));
+  }
   const CGFunctionInfo &FI = CGM.getTypes().arrangeBuiltinFunctionDeclaration(
-      C.VoidTy, {C.getPointerType(C.CharTy)});
+      C.VoidTy, {C.getPointerType(CharTy)});
   llvm::FunctionType *fnTy = CGM.getTypes().GetFunctionType(FI);
   llvm::FunctionCallee fnRef = CGM.CreateRuntimeFunction(
       fnTy, "__clang_call_terminate", llvm::AttributeList(), /*Local=*/true);
@@ -5206,7 +5222,7 @@ static llvm::FunctionCallee getClangCallTerminateFn(CodeGenModule &CGM) {
     llvm::Value *exn = &*fn->arg_begin();
 
     // Call __cxa_begin_catch(exn).
-    llvm::CallInst *catchCall = builder.CreateCall(getBeginCatchFn(CGM), exn);
+    llvm::CallInst *catchCall = builder.CreateCall(getBeginCatchFn(CGM, asmjs), exn);
     catchCall->setDoesNotThrow();
     catchCall->setCallingConv(CGM.getRuntimeCC());
 
@@ -5226,7 +5242,9 @@ llvm::CallInst *
 ItaniumCXXABI::emitTerminateForUnexpectedException(CodeGenFunction &CGF,
                                                    llvm::Value *Exn) {
   // In C++, we want to call __cxa_begin_catch() before terminating.
-  if (Exn) {
+  // Cheerp: The WebAssemblyCXXABI skips this (see below), and since it raises
+  // the question of the address space of the exception, for now we skip it too
+  if (Exn && !CGF.getLangOpts().Cheerp) {
     assert(CGF.CGM.getLangOpts().CPlusPlus);
     return CGF.EmitNounwindRuntimeCall(getClangCallTerminateFn(CGF.CGM), Exn);
   }
