@@ -369,6 +369,15 @@ __cxa_begin_catch(void* unwind_arg) noexcept
 	return ex->adjustedPtr;
 }
 
+#ifdef __ASMJS__
+__attribute((noinline))
+__wasm void*
+__cxa_begin_catch_wasm(__wasm void* unwind_arg) noexcept
+{
+	return addrspace_cast<__wasm void*>(__cxa_begin_catch(unwind_arg));
+}
+#endif
+
 __attribute((noinline))
 void*
 __cxa_get_exception_ptr(void* unwind_arg) noexcept
