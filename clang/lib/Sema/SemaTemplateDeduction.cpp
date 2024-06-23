@@ -4405,6 +4405,11 @@ Sema::TemplateDeductionResult Sema::DeduceTemplateArguments(
     ArgFunctionType = adjustCCAndNoReturn(ArgFunctionType, SpecializationType,
                                           /*AdjustExceptionSpec*/true);
 
+  // Cheerp: Clang does not like when function types are qualified here
+  // Since the purpose is just matching the specialization with the base
+  // template, just strip it here
+  SpecializationType = Context.removeAddrSpaceQualType(SpecializationType);
+  ArgFunctionType = Context.removeAddrSpaceQualType(ArgFunctionType);
   // If the requested function type does not match the actual type of the
   // specialization with respect to arguments of compatible pointer to function
   // types, template argument deduction fails.

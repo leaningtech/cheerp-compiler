@@ -7562,6 +7562,8 @@ LangAS ASTContext::getCheerpPointeeAddrSpace(const Type *PointeeType, Decl* D, L
         return LangAS::Default;
       }
       // If it is a DTS but the element type is concrete, don't bail out
+    } else if (PointeeType->isFunctionType()) {
+      // If it is a templated function, don't bail out
     } else {
       return LangAS::Default;
     }
