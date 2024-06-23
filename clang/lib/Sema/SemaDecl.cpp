@@ -6932,8 +6932,6 @@ void Sema::deduceOpenCLAddressSpace(ValueDecl *Decl) {
 void Sema::deduceCheerpAddressSpace(ValueDecl *Decl) {
   if (Decl->getType().hasAddressSpace())
     return;
-  if (Decl->getType()->isDependentType())
-    return;
   QualType Type = Decl->getType();
   if (Type->isVoidType())
     return;
@@ -10238,8 +10236,9 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
   // Handle attributes.
   ProcessDeclAttributes(S, NewFD, D);
 
-  if (getLangOpts().Cheerp)
+  if (getLangOpts().Cheerp) {
     deduceCheerpAddressSpace(NewFD);
+  }
 
   if (getLangOpts().OpenCL) {
     // OpenCL v1.1 s6.5: Using an address space qualifier in a function return
