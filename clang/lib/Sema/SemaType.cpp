@@ -9357,15 +9357,11 @@ QualType Sema::BuildDecltypeType(Expr *E, bool AsUnevaluated) {
     Diag(E->getExprLoc(), diag::warn_side_effects_unevaluated_context);
   }
   QualType Ret = getDecltypeForExpr(E);
-  if (Ret.hasAddressSpace()) {
-    llvm::errs()<<"==========================\n\n";
-    Ret.dump();
-    if (!Ret->isArrayType())
-    {
-      llvm::errs()<<"==========================\n\n";
-      Ret = Context.removeAddrSpaceQualType(Ret);
-      Ret.dump();
-    }
+  if (getLangOpts().Cheerp && Ret.hasAddressSpace()) {
+    Qualifiers Quals;
+    QualType Unqual = Context.getUnqualifiedArrayType(Ret, Quals);
+    Quals.removeAddressSpace();
+    Ret = Context.getQualifiedType(Unqual, Quals);
   }
   Ret = Context.getDecltypeType(E, Ret);
   return Ret;
