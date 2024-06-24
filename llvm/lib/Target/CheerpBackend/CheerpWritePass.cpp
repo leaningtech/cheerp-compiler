@@ -249,9 +249,9 @@ bool CheerpWritePass::runOnModule(Module& M)
 
   MPM.addPass(cheerp::FreeAndDeleteRemovalPass());
   MPM.addPass(cheerp::GlobalDepsAnalyzerPass(mathMode, /*resolveAliases*/true));
+  MPM.addPass(cheerp::InvokeWrappingPass());
   if (isWasmTarget)
     MPM.addPass(cheerp::AllocaLoweringPass());
-  MPM.addPass(cheerp::InvokeWrappingPass());
   MPM.addPass(cheerp::FFIWrappingPass());
   MPM.addPass(createModuleToFunctionPassAdaptor(cheerp::FixIrreducibleControlFlowPass()));
   MPM.addPass(createModuleToFunctionPassAdaptor(cheerp::PointerArithmeticToArrayIndexingPass()));

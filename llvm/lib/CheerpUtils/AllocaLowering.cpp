@@ -308,6 +308,7 @@ PreservedAnalyses cheerp::AllocaLoweringInnerPass::run(Function& F, FunctionAnal
 	PA.preserve<RegisterizeAnalysis>();
 	PA.preserve<GlobalDepsAnalysis>();
 	PA.preserve<DominatorTreeAnalysis>();
+	PA.preserve<InvokeWrappingAnalysis>();
 	return PA;
 }
 
