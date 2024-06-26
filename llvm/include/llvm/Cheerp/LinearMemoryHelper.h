@@ -19,6 +19,7 @@
 #include "llvm/Cheerp/PointerAnalyzer.h"
 #include <map>
 #include <unordered_map>
+#include <stack>
 
 namespace cheerp
 {
@@ -184,15 +185,19 @@ public:
 	typedef std::unordered_map<const llvm::FunctionType*, size_t,
 		FunctionSignatureHash,FunctionSignatureCmp> FunctionTypeIndicesMap;
 
-	typedef std::unordered_map<const llvm::Type*, size_t> AggregateTypeIndicesMap;
+	typedef std::unordered_map<const llvm::Type*, int32_t> GCTypesIndicesMap;
 
-	LinearMemoryHelper(const LinearMemoryHelperInitializer& data) :
+	typedef std::unordered_map<const llvm::Type*, uint32_t> DowncastFuncIdMap;
+
+	typedef std::map<const llvm::Function*, const llvm::FunctionType*> ExpandedFunctionTypesMap;
+
+	LinearMemoryHelper(const LinearMemoryHelperInitializer& data, PointerAnalyzer& _PA) :
 			module(nullptr), globalDeps(nullptr),
 		mode(data.mode), functionTables(3, FunctionSignatureHash(/*isStrict*/false), FunctionSignatureCmp(/*isStrict*/false)),
 		functionTypeIndices(3, FunctionSignatureHash(/*isStrict*/false), FunctionSignatureCmp(/*isStrict*/false)),
-		maxFunctionId(0), memorySize(data.memorySize*1024*1024),
+		GCTypeCount(0), maxTypeIdx(0), maxFunctionId(0), memorySize(data.memorySize*1024*1024),
 		stackSize(data.stackSize*1024*1024), stackOffset((data.stackOffset+7) & ~7), growMem(data.growMem),
-		hasAsmjsMem(data.hasAsmjsMem)
+		hasAsmjsMem(data.hasAsmjsMem), PA(_PA)
 	{
 	}
 	bool runOnModule(llvm::Module& module, GlobalDepsAnalyzer* GDA)
@@ -200,8 +205,8 @@ public:
 		this->module = &module;
 		globalDeps = GDA;
 		builtinIds.fill(std::numeric_limits<uint32_t>::max());
+		addGCTypes();
 		addFunctions();
-		addAggregateTypes();
 		addStack();
 		addGlobals();
 		checkMemorySize();
@@ -218,6 +223,8 @@ public:
 	uint32_t getFunctionAddress(const llvm::Function* F) const;
 	bool functionHasAddress(const llvm::Function* F) const;
 	uint32_t getFunctionAddressMask(const llvm::FunctionType* Fty) const;
+	llvm::Type* getSplitRegularType(void) const;
+	llvm::Type* getRegularType(void) const;
 	FunctionTableInfoMap& getFunctionTables()
 	{
 		return functionTables;
@@ -241,10 +248,28 @@ public:
 		return asmjsFunctions_;
 	}
 
-	uint32_t getAggregateTypeIndex(const llvm::Type* Ty) const;
+	bool hasDowncastArray(const llvm::Type* Ty) const {
+		return (downcastArrayClasses.count(Ty) > 0);
+	}
 
-	const AggregateTypeIndicesMap& getAggregateTypeIndices() const {
-		return aggregateTypeIndices;
+	bool isSuperType(const llvm::StructType* sTy) const {
+		return (superTypes.count(sTy) > 0);
+	}
+
+	int32_t getGCTypeIndex(const llvm::Type* Ty, POINTER_KIND kind) const;
+
+	const GCTypesIndicesMap& getGCTypeIndices() const {
+		return GCTypeIndices;
+	}
+
+	// the init functions for downcasts will be encoded with direct type ID's
+	// rather than anyref, this is why we need a separate map
+	const std::unordered_map<const llvm::FunctionType*, int32_t>& getDowncastFuncTypeIndices() const {
+		return downcastFuncTypeIndices;
+	}
+
+	const DowncastFuncIdMap& getDowncastFuncIds() const {
+		return downcastFuncIds;
 	}
 
 	const FunctionTypeIndicesMap& getFunctionTypeIndices() const {
@@ -273,8 +298,19 @@ public:
 		return functionTypes;
 	}
 
-	const std::vector<const llvm::Type*> getAggregateTypes() const {
-		return aggregateTypes;
+	const llvm::FunctionType* getExpandedFunctionType(const llvm::Function* F) const;
+
+
+	const std::vector<const llvm::Type*> getGCTypes() const {
+		return GCTypes;
+	}
+
+	int32_t getRegularObjectIdx() const {
+		return regularObjectIdx;
+	}
+
+	int32_t getSplitRegularObjectIdx() const {
+		return splitRegularObjectIdx;
 	}
 
 	/**
@@ -370,7 +406,7 @@ private:
 			return TypeKind::Float;
 		if (type->isPointerTy() && TypeSupport::isRawPointer(type, true))
 			return (isStrict ? TypeKind::RawPointer : TypeKind::Integer);
-		if (type->isPointerTy())
+		if (type->isPointerTy() || type->isAggregateType())
 			return TypeKind::RefPointer;
 		if (type->isVoidTy())
 			return TypeKind::Void;
@@ -407,12 +443,19 @@ private:
 
 	void setGlobalPtrIfPresent(llvm::StringRef name, uint32_t ptr);
 	void addGlobals();
-	void addAggregateTypes();
+	void addGCTypes();
 	void addStack();
 	void addMemoryInfo();
 	void checkMemorySize();
 
+	void dependencyDFS(const llvm::Type* Ty, std::unordered_set<const llvm::Type*>& assignedTypes, std::vector<const llvm::Type*>& sorted);
+	void dependencySort(std::vector<const llvm::Type*>& allTypes, std::vector<const llvm::Type*>& sorted);
+
+	void cacheDowncastArrayClassesRecursive(llvm::StructType* sTy, const TypeSupport& types);
+	void cacheDowncastArrayClasses();
+
 	llvm::Module* module;
+	PointerAnalyzer& PA;
 	GlobalDepsAnalyzer* globalDeps;
 
 	LinearMemoryHelperInitializer::FunctionAddressMode mode;
@@ -423,11 +466,24 @@ private:
 
 	std::unordered_map<const llvm::Function*, uint32_t> functionIds;
 	std::array<uint32_t, BuiltinInstr::numGenericBuiltins()> builtinIds;
+	const llvm::Type* createExpandedType(const llvm::Type* Ty); 
+	// A map that uses a (Struct)Type as a key and returns a vector of types that have it as a DirectBase
+	// TODO: change into a set? currently only used to check if something is a directBase
+	std::unordered_set<const llvm::StructType*> superTypes;
+	const llvm::FunctionType* createExpandedFunctionType(const llvm::Function* F);
+	ExpandedFunctionTypesMap expandedFunctionTypes;
+	DowncastFuncIdMap downcastFuncIds;
+	std::unordered_map<const llvm::FunctionType*, int32_t> downcastFuncTypeIndices;
 	std::vector<const llvm::FunctionType*> functionTypes;
-	std::vector<const llvm::Type*> aggregateTypes;
+	std::vector<const llvm::Type*> GCTypes;
+	std::unordered_set<const llvm::Type*> downcastArrayClasses;
 	FunctionTypeIndicesMap functionTypeIndices;
-	AggregateTypeIndicesMap aggregateTypeIndices;
+	GCTypesIndicesMap GCTypeIndices;
+	uint32_t GCTypeCount;
+	uint32_t maxTypeIdx;
 	uint32_t maxFunctionId;
+	int32_t regularObjectIdx;
+	int32_t splitRegularObjectIdx;
 
 	std::vector<const llvm::GlobalVariable*> asmjsGlobals;
 	std::vector<const llvm::GlobalVariable*> asmjsAddressableGlobals;
@@ -463,11 +519,11 @@ private:
 class LinearMemoryHelperWrapper {
 	static LinearMemoryHelper* innerPtr;
 public:
-	static LinearMemoryHelper& getInner(llvm::ModuleAnalysisManager& MAM, LinearMemoryHelperInitializer& data)
+	static LinearMemoryHelper& getInner(llvm::ModuleAnalysisManager& MAM, LinearMemoryHelperInitializer& data, PointerAnalyzer& PA)
 	{
 		if (innerPtr)
 			delete innerPtr;
-		innerPtr = new LinearMemoryHelper(data);
+		innerPtr = new LinearMemoryHelper(data, PA);
 		innerPtr->MAM = &MAM;
 		return *innerPtr;
 	}
@@ -507,7 +563,8 @@ class LinearMemoryHelperPass : public llvm::PassInfoMixin<LinearMemoryHelperPass
 public:
 	llvm::PreservedAnalyses run(llvm::Module &M, llvm::ModuleAnalysisManager& MAM)
 	{
-		LinearMemoryHelper& LMH = MAM.getResult<LinearMemoryAnalysis>(M).getInner(MAM, data);
+		PointerAnalyzer& PA = MAM.getResult<PointerAnalysis>(M);
+		LinearMemoryHelper& LMH = MAM.getResult<LinearMemoryAnalysis>(M).getInner(MAM, data, PA);
 		GlobalDepsAnalyzer& GDA = MAM.getResult<GlobalDepsAnalysis>(M);
 		LMH.runOnModule(M, &GDA);
 
