@@ -74,40 +74,51 @@ static inline void encodeRegisterKind(Registerize::REGISTER_KIND regKind, WasmBu
 	}
 }
 
-// Does not fully work, use PA to check if a pointer is REG, SPL_REG or CMPLT
-static bool isGCType(const Type* Ty)
+// TODO: change to use address spaces and move to a utils file
+bool CheerpWasmWriter::isTypeGC(const Type* Ty) const
 {
-	// const Type* base;
-
-	// if (Ty->isPointerTy())
-	// 	base = Ty->getPointerElementType();
-	// else
-	// 	base = Ty;
-
-	// errs() << "checking GC type: ";
-	// Ty->dump();
-
 	if (Ty->isPointerTy()) {
-		// errs() << "Is pointer type, calling again\n";
-		return isGCType(Ty->getPointerElementType());
+		return isTypeGC(Ty->getPointerElementType());
 	}
 	if (const ArrayType* aTy = dyn_cast<ArrayType>(Ty))
 	{
-		// errs() << "Is array type, calling again\n";
-		return isGCType(aTy->getArrayElementType());
+		// return (true);
+		return isTypeGC(aTy->getArrayElementType());
 	}
 
 	if (const StructType* sTy = dyn_cast<StructType>(Ty))
 	{
-		// errs() << (!sTy->hasAsmJS() ? "Is GC type\n" : "Is not a GC type\n");
-		return !sTy->hasAsmJS();									 // create sTy->hasWasmGC()
+		return !sTy->hasAsmJS(); // create sTy->hasWasmGC() or use address space?
+	}
+	return false;
+}
+
+// TODO: change to use address spaces and move to a utils file
+bool TMPisTypeGC(const Type* Ty)
+{
+	if (Ty->isPointerTy()) {
+		return TMPisTypeGC(Ty->getPointerElementType());
+	}
+	if (const ArrayType* aTy = dyn_cast<ArrayType>(Ty))
+	{
+		// currently returning true for all arrays since we can't check if an int array
+		// should be GC at the moment
+		return (true);
+		// return TMPisTypeGC(aTy->getArrayElementType());
+	}
+
+	if (const StructType* sTy = dyn_cast<StructType>(Ty))
+	{
+		return !sTy->hasAsmJS();
 	}
 	return false;
 }
 
 static uint32_t getValType(const Type* t)
 {
-	if (t->isIntegerTy(64))
+	if (TMPisTypeGC(t))
+		return 0x6e;
+	else if (t->isIntegerTy(64))
 		return 0x7e;
 	else if (t->isIntegerTy() || TypeSupport::isRawPointer(t, true))
 		return 0x7f;
@@ -116,8 +127,7 @@ static uint32_t getValType(const Type* t)
 	else if (t->isDoubleTy())
 		return 0x7c;
 	else if (t->isPointerTy())
-		return 0x6e;
-		// return 0x6f;  TMP for GC testing
+		return 0x6f;
 	else if (t->isVectorTy())
 		return 0x7b;
 	else
@@ -583,19 +593,19 @@ void CheerpWasmWriter::encodeInst(WasmGCOpcode opcode, WasmBuffer& code)
 	code << static_cast<char>(opcode);
 }
 
-void CheerpWasmWriter::encodeInst(WasmGCOpcode opcode, uint32_t immediate, WasmBuffer& code)
+void CheerpWasmWriter::encodeInst(WasmGCOpcode opcode, int32_t immediate, WasmBuffer& code)
 {
 	code << static_cast<char>(WasmOpcode::GC);
 	code << static_cast<char>(opcode);
-	encodeULEB128(immediate, code);
+	encodeSLEB128(immediate, code);
 }
 
-void CheerpWasmWriter::encodeInst(WasmGCOpcode opcode, uint32_t i1, uint32_t i2, WasmBuffer& code)
+void CheerpWasmWriter::encodeInst(WasmGCOpcode opcode, int32_t i1, int32_t i2, WasmBuffer& code)
 {
 	code << static_cast<char>(WasmOpcode::GC);
 	code << static_cast<char>(opcode);
-	encodeULEB128(i1, code);
-	encodeULEB128(i2, code);
+	encodeSLEB128(i1, code);
+	encodeSLEB128(i2, code);
 }
 
 void CheerpWasmWriter::encodeInst(WasmFCU32Opcode opcode, uint32_t immediate, WasmBuffer& code)
@@ -1077,29 +1087,8 @@ void CheerpWasmWriter::encodeLoad(llvm::Type* ty, uint32_t offset,
 		WasmBuffer& code, bool signExtend, bool atomic)
 {
 	assert(!(atomic && signExtend));
-	if (isGCType(ty))
-	{
-		if (ty->isStructTy())
-		{
-			const Type* elemType = ty->getStructElementType(offset);
-			if (elemType->isIntegerTy() && cast<IntegerType>(elemType)->getBitWidth() < 32 && signExtend)
-				encodeInst(WasmGCOpcode::STRUCT_GET_S, offset, code);
-			else if (elemType->isIntegerTy() && cast<IntegerType>(elemType)->getBitWidth() < 32)
-				encodeInst(WasmGCOpcode::STRUCT_GET_U, offset, code);
-			else
-				encodeInst(WasmGCOpcode::STRUCT_GET, offset, code);
-		}
-		else if (ty->isArrayTy())
-		{
-			const Type* elemType = ty->getArrayElementType();
-			if (elemType->isIntegerTy() && cast<IntegerType>(elemType)->getBitWidth() < 32 && signExtend)
-				encodeInst(WasmGCOpcode::ARRAY_GET_S, offset, code);
-			else if (elemType->isIntegerTy() && cast<IntegerType>(elemType)->getBitWidth() < 32)
-				encodeInst(WasmGCOpcode::ARRAY_GET_U, offset, code);
-			else
-				encodeInst(WasmGCOpcode::ARRAY_GET, offset, code);
-		}
-	} else if(ty->isIntegerTy())
+	assert(!isTypeGC(ty)); // TODO: check for GC loads for VA list
+	if (ty->isIntegerTy())
 	{
 		uint32_t bitWidth = targetData.getTypeStoreSizeInBits(ty);
 
@@ -1303,7 +1292,11 @@ void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const B
 						writer.encodeInst(WasmU32Opcode::SET_LOCAL, local, code);
 					}
 					else
+					{
 						writer.encodeInst(WasmU32Opcode::TEE_LOCAL, local, code);
+						// TODO: add compileRefCast, how do we get the right type?
+						assert(false);
+					}
 				}
 				toProcessOrdered.pop_back();
 			}
@@ -1345,6 +1338,12 @@ const char* CheerpWasmWriter::getTypeString(const Type* t)
 
 void CheerpWasmWriter::compileGEP(WasmBuffer& code, const llvm::User* gep_inst, bool standalone)
 {
+	if (isTypeGC(cast<GetElementPtrInst>(gep_inst)->getPointerOperandType()))
+	{
+		compileGEPGC(code, gep_inst, PA.getPointerKind(gep_inst), true);
+		return ;
+	}
+
 	const auto I = dyn_cast<Instruction>(gep_inst);
 	if (I && !isInlineable(*I)) {
 		if (!standalone) {
@@ -1571,6 +1570,90 @@ void CheerpWasmWriter::compileFloatToText(WasmBuffer& code, const APFloat& f, ui
 	}
 }
 
+bool CheerpWasmWriter::doesConstantDependOnUndefined(const Constant* C) const
+{
+	if(isa<ConstantExpr>(C) && C->getOperand(0)->getType()->isPointerTy())
+		return doesConstantDependOnUndefined(cast<Constant>(C->getOperand(0)));
+	else if(isa<GlobalVariable>(C) && cast<GlobalVariable>(C)->getSection() == "asmjs" && !compiledGVars.count(cast<GlobalVariable>(C)))
+		return true;
+	return false;
+}
+
+void CheerpWasmWriter::compileConstantAggregate(WasmBuffer& code, const ConstantAggregate* ca)
+{
+	const Type* Ty = ca->getType();
+	assert(isTypeGC(Ty));
+	if (auto aTy = dyn_cast<ConstantArray>(ca))
+	{
+		assert(false);
+	}
+	else if (auto cs = dyn_cast<ConstantStruct>(ca))
+	{
+		StructType* sTy = cs->getType();
+		assert(sTy->getNumElements() == cs->getNumOperands());
+		const int32_t typeIdx = linearHelper.getGCTypeIndex(Ty, COMPLETE_OBJECT);
+		for (uint32_t i = 0; i < cs->getNumOperands(); i++)
+		{
+			const Constant* currOp = cs->getOperand(i);
+			bool dependOnUndefined = !currentFun && doesConstantDependOnUndefined(currOp);
+			bool useWrapperArray = types.useWrapperArrayForMember(PA, sTy, i);
+			Type* elemTy = sTy->getStructElementType(i);
+
+			if (elemTy->isPointerTy())
+			{
+				TypeAndIndex baseAndIndex(sTy, i, TypeAndIndex::STRUCT_MEMBER);
+				POINTER_KIND kind = PA.getPointerKindForMemberPointer(baseAndIndex);
+
+				if((kind == REGULAR || kind == SPLIT_REGULAR) && PA.getConstantOffsetForMember(baseAndIndex))
+				{
+					if(dependOnUndefined)
+						encodeInst(WasmU32Opcode::REF_NULL, 0x6E, code);
+					else
+						compilePointerBaseTyped(code, currOp, elemTy);
+				}
+				else if(kind == SPLIT_REGULAR)
+				{
+					if(dependOnUndefined)
+						encodeInst(WasmU32Opcode::REF_NULL, 0x6E, code);
+					else
+						compilePointerBaseTyped(code, currOp, elemTy);
+	
+					if(dependOnUndefined)
+						encodeInst(WasmS32Opcode::I32_CONST, 0, code);
+					else
+						compilePointerOffset(code, currOp);
+				}
+				else
+				{
+					if(dependOnUndefined)
+						encodeInst(WasmU32Opcode::REF_NULL, 0x6E, code);
+					else
+						compilePointerAs(code, currOp, kind);
+				}
+			}
+			else if (dependOnUndefined)
+				encodeInst(WasmU32Opcode::REF_NULL, 0x6E, code);
+			else
+				compileOperand(code, currOp);
+
+			if (useWrapperArray)
+			{
+				int32_t wrapperTypeIdx = linearHelper.getGCTypeIndex(elemTy, SPLIT_REGULAR);
+				encodeInst(WasmS32Opcode::I32_CONST, 1, code);
+				encodeInst(WasmGCOpcode::ARRAY_NEW, wrapperTypeIdx, code);
+			}
+		}
+		encodeInst(WasmGCOpcode::STRUCT_NEW, typeIdx, code);
+	}
+	else
+	{
+#ifndef NDEBUG
+		ca->dump();
+#endif
+		llvm::report_fatal_error("Cannot handle this constant aggregate type");
+	}
+}
+
 void CheerpWasmWriter::compileConstant(WasmBuffer& code, const Constant* c, bool forGlobalInit)
 {
 	if (hasPutTeeLocalOnStack(code, c))
@@ -1605,17 +1688,38 @@ void CheerpWasmWriter::compileConstant(WasmBuffer& code, const Constant* c, bool
 		encodeVectorConstantZero(code);
 	}
 	else if (const ConstantDataVector* cdv = dyn_cast<ConstantDataVector>(c))
+	{
 		encodeConstantDataVector(code, cdv);
+	}
 	else if (const ConstantVector* cv = dyn_cast<ConstantVector>(c))
+	{
 		encodeConstantVector(code, cv);
+	}
 	else if(const GlobalVariable* GV = dyn_cast<GlobalVariable>(c))
 	{
-		uint32_t address = linearHelper.getGlobalVariableAddress(GV);
-		encodeInst(WasmS32Opcode::I32_CONST, address, code);
+		if (isTypeGC(GV->getType()))
+		{
+			auto it = globalizedGlobalsIDs.find(GV);
+			assert(it != globalizedGlobalsIDs.end());
+			encodeInst(WasmU32Opcode::GET_GLOBAL, it->second, code);
+			const Type* Ty = GV->getType();
+			POINTER_KIND kind = COMPLETE_OBJECT;
+			if (Ty->isPointerTy())
+				kind = PA.getPointerKind(GV);
+			compileRefCast(code, Ty, kind);
+		}
+		else
+		{
+			uint32_t address = linearHelper.getGlobalVariableAddress(GV);
+			encodeInst(WasmS32Opcode::I32_CONST, address, code);
+		}
 	}
 	else if(isa<ConstantPointerNull>(c))
 	{
-		encodeInst(WasmS32Opcode::I32_CONST, 0, code);
+		if (isTypeGC(c->getType()))
+			encodeInst(WasmU32Opcode::REF_NULL, 0x6E, code);
+		else
+			encodeInst(WasmS32Opcode::I32_CONST, 0, code);
 	}
 	else if(isa<Function>(c))
 	{
@@ -1640,6 +1744,10 @@ void CheerpWasmWriter::compileConstant(WasmBuffer& code, const Constant* c, bool
 	else if (isa<UndefValue>(c))
 	{
 		compileTypedZero(code, c->getType());
+	} 
+	else if (const ConstantAggregate* ca = dyn_cast<ConstantAggregate>(c))
+	{
+		compileConstantAggregate(code, ca);
 	}
 	else
 	{
@@ -1658,16 +1766,21 @@ void CheerpWasmWriter::compileGetLocal(WasmBuffer& code, const llvm::Instruction
 		//Successfully find a candidate to transform in tee local
 		return;
 	}
+	const Type* localType = I->getType();
 	uint32_t idx = registerize.getRegisterId(I, elemIdx, edgeContext);
 	uint32_t localId = localMap.at(idx);
 	getLocalDone.insert(I);
 	encodeInst(WasmU32Opcode::GET_LOCAL, localId, code);
 
 	// Cast from anyref to a GC reference type
-	if (isGCType(I->getType()))
+	// If the elemIdx is not 0 we are accessing the offset int
+	// used for a SPLIT_REGULAR and we do not need to perform a cast
+	if (elemIdx == 0)
 	{
-		size_t idx = linearHelper.getAggregateTypeIndex(I->getType()->getPointerElementType());
-		encodeInst(WasmGCOpcode::REF_CAST_NULL, idx, code);
+		POINTER_KIND kind = COMPLETE_OBJECT;
+		if (localType->isPointerTy())
+			kind = PA.getPointerKind(I);
+		compileRefCast(code, localType, kind);
 	}
 }
 
@@ -1701,9 +1814,24 @@ void CheerpWasmWriter::compileOperand(WasmBuffer& code, const llvm::Value* v)
 	{
 		auto it = globalizedConstants.find(c);
 		if(it != globalizedConstants.end())
+		{
 			encodeInst(WasmU32Opcode::GET_GLOBAL, it->second.first, code);
+			const Type* Ty = v->getType();
+			// TODO: Asserting, not sure if GC globals can be constants and if we even need a cast here
+			// we most likely do so for now i'm leaving this here
+			assert(!isTypeGC(Ty));
+			if (isTypeGC(Ty))
+			{
+				POINTER_KIND kind = COMPLETE_OBJECT;
+				if (Ty->isPointerTy())
+					kind = PA.getPointerKind(v);
+				compileRefCast(code, Ty, kind);
+			}
+		}
 		else
+		{
 			compileConstant(code, c, /*forGlobalInit*/false);
+		}
 	}
 	else if(const Instruction* it=dyn_cast<Instruction>(v))
 	{
@@ -1715,18 +1843,28 @@ void CheerpWasmWriter::compileOperand(WasmBuffer& code, const llvm::Value* v)
 	}
 	else if(const Argument* arg=dyn_cast<Argument>(v))
 	{
-		if (hasPutTeeLocalOnStack(code, arg))
+		if (hasPutTeeLocalOnStack(code, arg)) {
 			return;
-		uint32_t local = arg->getArgNo();
-		encodeInst(WasmU32Opcode::GET_LOCAL, local, code);
-		// If the get_local is called on a WasmGC type we need to cast it from anyref to the right reftype
-		if (isGCType(arg->getType()))
-		{	
-			// errs() << "Casting...\n";
-			assert((PA.getPointerKindForArgument(arg) == POINTER_KIND::COMPLETE_OBJECT));
-			encodeInst(WasmGCOpcode::REF_CAST_NULL, code);
-			encodeSLEB128(linearHelper.getAggregateTypeIndex(arg->getType()->getPointerElementType()), code);
 		}
+		
+		uint32_t local = arg->getArgNo();
+		uint32_t splitRegsInArgs = 0;
+		// Add an offset for the amount of split regular indices that came before this argument
+		// TODO: make a helper function for this that caches offsets
+		for (size_t i = 0; i < local; i++)
+		{
+			Argument* prevArg = arg->getParent()->getArg(i);
+			if (prevArg->getType()->isPointerTy() && PA.getPointerKindForArgument(prevArg) == SPLIT_REGULAR)
+				splitRegsInArgs++;
+		}
+		encodeInst(WasmU32Opcode::GET_LOCAL, local + splitRegsInArgs, code);
+
+		// If the get_local is called on a WasmGC type we need to cast it from anyref to the right reftype
+		POINTER_KIND kind = COMPLETE_OBJECT;
+		if (arg->getType()->isPointerTy())
+			kind = PA.getPointerKindForArgument(arg);
+		compileRefCast(code, arg->getType(), kind);
+
 	}
 	else
 	{
@@ -2022,6 +2160,96 @@ void CheerpWasmWriter::compileFCmp(const Value* lhs, const Value* rhs, CmpInst::
 	}
 }
 
+void CheerpWasmWriter::compileDowncastGC(WasmBuffer& code, const CallBase* callV)
+{
+	assert( callV->arg_size() == 2 );
+	assert( callV->getCalledFunction() && callV->getCalledFunction()->getIntrinsicID() == Intrinsic::cheerp_downcast);
+
+	POINTER_KIND result_kind = PA.getPointerKindAssert(callV);
+	const Value * src = callV->getOperand(0);
+	const Value * offset = callV->getOperand(1);
+
+
+	Type* t = callV->getParamElementType(0);
+	// TODO: what is a client type and do we need to support it from the wasm side?
+	if(TypeSupport::isClientType(t) || (isa<ConstantInt>(offset) && cast<ConstantInt>(offset)->isNullValue()))
+	{
+		// TODO: test if it works
+		assert(false);
+		if (result_kind == SPLIT_REGULAR)
+		{
+			uint32_t reg = registerize.getRegisterId(callV, 1, edgeContext);
+			uint32_t local = localMap.at(reg);
+			compilePointerOffset(code, src);
+			encodeInst(WasmU32Opcode::SET_LOCAL, local, code);
+			compilePointerBaseTyped(code, src, t);
+		}
+		else
+			compilePointerAs(code, src, result_kind);
+	}
+	else
+	{
+		Type* returnTy = callV->getType();
+		int32_t returnTyIdx = linearHelper.getGCTypeIndex(returnTy, COMPLETE_OBJECT);
+		//Do a runtime downcast
+		if(result_kind == SPLIT_REGULAR)
+		{
+			// TODO: test if it works
+			assert(false);
+			uint32_t reg = registerize.getRegisterId(callV, 1, edgeContext);
+			uint32_t local = localMap.at(reg);
+			// store the .o-num
+			compileCompleteObject(code, src);
+			encodeInst(WasmGCOpcode::STRUCT_GET, returnTyIdx, 0, code);
+			compileOperand(code, offset);
+			encodeInst(WasmOpcode::I32_SUB, code);
+			encodeInst(WasmU32Opcode::SET_LOCAL, local, code);
+			// push the .a onto the stack so it can get stored
+			compileCompleteObject(code, src);
+			encodeInst(WasmGCOpcode::STRUCT_GET, returnTyIdx, 1, code);
+		}
+		else if(result_kind == REGULAR)
+		{
+			// create the .d using the .a
+			compileCompleteObject(code, src);
+			encodeInst(WasmGCOpcode::STRUCT_GET, returnTyIdx, 1, code);
+			// create the .o using the .o-num
+			compileCompleteObject(code, src);
+			encodeInst(WasmGCOpcode::STRUCT_GET, returnTyIdx, 0, code);
+			compileOperand(code, offset);
+			encodeInst(WasmOpcode::I32_SUB, code);
+
+			// create the new regular object
+			encodeInst(WasmGCOpcode::STRUCT_NEW, linearHelper.getRegularObjectIdx(), code);
+			// // TODO:
+			assert(false);
+		}
+		else if(result_kind == RAW)
+		{
+			// TODO:
+			assert(false);
+		}
+		else
+		{
+			const int32_t typeIdx = linearHelper.getGCTypeIndex(src->getType(), COMPLETE_OBJECT);
+			// push the downcast array on the stack
+			compileCompleteObject(code, src);
+			encodeInst(WasmGCOpcode::STRUCT_GET, typeIdx, 1, code);
+
+			// encode the .o-num
+			compileCompleteObject(code, src);
+			encodeInst(WasmGCOpcode::STRUCT_GET, typeIdx, 0, code);
+			compileOperand(code, offset);
+			encodeInst(WasmOpcode::I32_SUB, code);
+
+			// access the downcast array
+			encodeInst(WasmGCOpcode::ARRAY_GET, linearHelper.getSplitRegularObjectIdx(), code);
+			// TODO: this cast is not always needed (if we store it in a local right after)
+			compileRefCast(code, callV->getType(), COMPLETE_OBJECT);
+		}
+	}
+}
+
 void CheerpWasmWriter::compileDowncast(WasmBuffer& code, const CallBase* callV)
 {
 	assert(callV->arg_size() == 2);
@@ -2033,6 +2261,12 @@ void CheerpWasmWriter::compileDowncast(WasmBuffer& code, const CallBase* callV)
 
 	Type* t = callV->getParamElementType(0);
 
+	if (isTypeGC(t))
+	{
+		compileDowncastGC(code, callV);
+		return ;
+	}
+
 	compileOperand(code, src);
 
 	if(!TypeSupport::isClientType(t) &&
@@ -2040,6 +2274,15 @@ void CheerpWasmWriter::compileDowncast(WasmBuffer& code, const CallBase* callV)
 	{
 		compileOperand(code, offset);
 		encodeInst(WasmOpcode::I32_ADD, code);
+	}
+}
+
+void CheerpWasmWriter::compileRefCast(WasmBuffer& code, const Type* Ty, POINTER_KIND kind)
+{
+	if (isTypeGC(Ty))
+	{
+		encodeInst(WasmGCOpcode::REF_CAST_NULL, code);
+		encodeSLEB128(linearHelper.getGCTypeIndex(Ty, kind), code);
 	}
 }
 
@@ -2089,89 +2332,86 @@ uint32_t CheerpWasmWriter::compileLoadStorePointer(WasmBuffer& code, const Value
 	return offset;
 }
 
-
-// bool CheerpWasmWriter::isInstructionGC(const Value* ptrOp) const
-// {
-// 	if (isa<GEPOperator>(ptrOp))
-// 		return (isGCType(cast<Instruction>(ptrOp)->getOperand(0)->getType()));
-// 	return false;
-// }
-
-bool CheerpWasmWriter::isInstructionGC(const Value* ptrOp) const
+void CheerpWasmWriter::compileLoadGC(WasmBuffer& code, const Type* Ty, const Value* ptrOp, StructType* sTy, uint32_t structElemIdx, bool isOffset, POINTER_KIND kind)
 {
-	POINTER_KIND kind = PA.getPointerKind(ptrOp);
-
-	if (kind == REGULAR || kind == SPLIT_REGULAR)
-		return true;
-	if (kind == COMPLETE_OBJECT)
-		return isGCType(ptrOp->getType());
-	if (isGEP(ptrOp))
+	assert(kind != BYTE_LAYOUT);
+	assert(kind != RAW);
+	if (kind == CONSTANT)
 	{
-		const Value* gepVal = cast<Instruction>(ptrOp)->getOperand(0);
-		POINTER_KIND gepKind = PA.getPointerKind(gepVal);
-		if (gepKind == REGULAR || gepKind == SPLIT_REGULAR)
-			return true;
-		return (isGCType(gepVal->getType()));
+		// An invalid access to null/undefined which has not been removed by optizations.
+		// Generate code that will trap at runtime.
+		encodeInst(WasmOpcode::UNREACHABLE, code);
+		return ;
 	}
-	return false;
-}
 
-bool CheerpWasmWriter::isInstructionGC(const Instruction* I, const Value* ptrOp) const
-{
-	POINTER_KIND ptrKind = PA.getPointerKind(ptrOp);
-
-	return (ptrKind != RAW);
-}
-
-void CheerpWasmWriter::compileLoadGC(WasmBuffer& code, const llvm::Value* ptrOp, bool signExtend)
-{
-	assert((PA.getPointerKind(cast<Instruction>(ptrOp)->getOperand(0)) == POINTER_KIND::COMPLETE_OBJECT));
-	assert(dyn_cast<GetElementPtrInst>(ptrOp));
-
-	const Type* Ty = cast<Instruction>(ptrOp)->getOperand(0)->getType()->getPointerElementType();
-	size_t typeIdx = linearHelper.getAggregateTypeIndex(Ty);
-	uint32_t bitWidth = 32;
-	Type* elemType;
-	if (auto sTy = dyn_cast<StructType>(Ty)) // complete_object
+	compileCompleteObject(code, ptrOp); // accessElem = true
+	if(sTy)
 	{
-		size_t elemIdx = cast<ConstantInt>(cast<Instruction>(ptrOp)->getOperand(2))->getSExtValue();
-		elemType = sTy->getStructElementType(elemIdx);
-		if (elemType->isIntegerTy())
-			bitWidth = elemType->getIntegerBitWidth();
-
-		// errs() << "elemIdx: " << elemIdx << "\n";
-		if (bitWidth < 32 && signExtend)
-			encodeInst(WasmGCOpcode::STRUCT_GET_S, typeIdx, elemIdx, code);
-		else if (bitWidth < 32 && !signExtend)
-			encodeInst(WasmGCOpcode::STRUCT_GET_U, typeIdx, elemIdx, code);
-		else
-			encodeInst(WasmGCOpcode::STRUCT_GET, typeIdx, elemIdx, code);
+		assert(false); // TODO: should use ie.structElemIdx or use the last operand from the GEP, like in the store?
+		compileAccessToElement(code, sTy, {ConstantInt::get(IntegerType::get(Ty->getContext(), 32), structElemIdx)}, false, true); // TODO: accessElem = true?
 	}
-	// else if (auto aTy = dyn_cast<ArrayType>(Ty))
+
+	if(isOffset)
+		assert(false); // TODO: CheerpWriter adds 'o' into stream
+
+
+	//TODO: we most likely want to split the loading like we do with stores,
+	// this will make it possible to load the offset as well
+
+	// POINTER_KIND ptrKind = PA.getPointerKind(ptrOp);
+	// POINTER_KIND elemPtrKind = COMPLETE_OBJECT;
+	// Type* elemType = NULL;
+	// assert(ptrKind != POINTER_KIND::RAW);
+
+	// if (ptrKind == SPLIT_REGULAR)
 	// {
-	// 	// make sure index is on stack
-	// 	elemType = aTy->getArrayElementType();
-	// 	if (elemType->isIntegerTy())
-	// 		bitWidth = elemType->getIntegerBitWidth();
-
-	// 	if (bitWidth < 32 && signExtend)
-	// 		encodeInst(WasmGCOpcode::ARRAY_GET_S, typeIdx, code);
-	// 	else if (bitWidth < 32 && !signExtend)
-	// 		encodeInst(WasmGCOpcode::ARRAY_GET_U, typeIdx, code);
-	// 	else
-	// 		encodeInst(WasmGCOpcode::ARRAY_GET, typeIdx, code);
+	// 	const size_t typeIdx = linearHelper.getGCTypeIndex(Ty, ptrKind);
+	// 	elemType = Ty->getPointerElementType();
+	// 	encodeInst(WasmGCOpcode::ARRAY_GET, typeIdx, code);
 	// }
-	else
-	{
-		llvm::report_fatal_error("unsupported GC load type");
-	}
+	// else if (ptrKind == COMPLETE_OBJECT)
+	// {
+	// 	const GetElementPtrInst* gepInst = cast<GetElementPtrInst>(ptrOp);
+	// 	const Type* objTy = gepInst->getPointerOperandType();
+	// 	if (auto sTy = dyn_cast<StructType>(objTy->getPointerElementType()))
+	// 	{
+	// 		uint32_t expandedElemIdx = getExpandedStructElemIdx(sTy, structElemIdx);
+	// 		const size_t typeIdx = linearHelper.getGCTypeIndex(objTy, ptrKind);
+	// 		elemType = sTy->getStructElementType(structElemIdx);
+			
+	// 		if (elemType->isPointerTy())
+	// 		{
+	// 			TypeAndIndex b = {sTy, structElemIdx, TypeAndIndex::STRUCT_MEMBER};
+	// 			elemPtrKind = PA.getPointerKindForMember(b);
+	// 		}
 
-	// if the elementType is a GC type cast it from anyref to the right reference
-	if (isGCType(elemType))
-	{
-		encodeInst(WasmGCOpcode::REF_CAST_NULL, code);
-		encodeSLEB128(linearHelper.getAggregateTypeIndex(elemType), code);
-	}
+	// 		if (isOffset) // load the offset instead
+	// 			expandedElemIdx += 1;
+
+	// 		encodeInst(WasmGCOpcode::STRUCT_GET, typeIdx, expandedElemIdx, code);
+	// 	}
+	// 	else
+	// 	{
+	// 		const size_t typeIdx = linearHelper.getGCTypeIndex(Ty, ptrKind);
+
+	// 		elemType = const_cast<Type*>(Ty);
+	// 		elemPtrKind = COMPLETE_OBJECT;
+	// 		encodeInst(WasmGCOpcode::ARRAY_GET, typeIdx, code);
+	// 	}
+	// }
+	// else if (ptrKind == POINTER_KIND::REGULAR)
+	// {
+	// 	errs() << "Regular pointers are not yet implemented for loads\n";
+	// 	assert(false);
+	// }
+	// else
+	// {
+	// 	llvm::report_fatal_error("unsupported GC load type");
+	// }
+
+	// // If the elementType is a GC type cast it from anyref to the right reference
+	// if (!isOffset && elemType)
+	// 	compileRefCast(code, elemType, elemPtrKind);
 }
 
 void CheerpWasmWriter::compileLoad(WasmBuffer& code, const LoadInst& li, bool signExtend)
@@ -2179,50 +2419,151 @@ void CheerpWasmWriter::compileLoad(WasmBuffer& code, const LoadInst& li, bool si
 	const Value* ptrOp=li.getPointerOperand();
 	auto* Ty = li.getType();
 	auto* STy = dyn_cast<StructType>(Ty);
+
+	bool LoadIsGC = PA.getPointerKind(ptrOp) != RAW || isTypeGC(ptrOp->getType()); // TODO: use address space
 	for(const auto& ie: getInstElems(&li, PA))
 	{
-		// 1) The pointer
-		uint32_t offset = compileLoadStorePointer(code, ptrOp);
-		if(STy)
+		// TODO: should this be in a loop?
+		if (LoadIsGC)
 		{
-			Ty = STy->getElementType(ie.structIdx);
-			const StructLayout* SL = targetData.getStructLayout(STy);
-			int64_t elementOffset =  SL->getElementOffset(ie.structIdx);
-			offset += elementOffset;
-		}
-		// 2) Load
-		if (PA.getPointerKind(ptrOp) != RAW)
-		{
-			compileLoadGC(code, ptrOp, signExtend);
-			// maybe use encode load instead, currently the offset does not work properly with GC
-			// types so look into that first
+			POINTER_KIND kind = PA.getPointerKind(ptrOp);
+			bool isOffset = ie.ptrIdx == 1;
+			compileLoadGC(code, li.getType(), ptrOp, STy, ie.structIdx, isOffset, kind);
 		}
 		else
+		{
+			// 1) The pointer
+			uint32_t offset = compileLoadStorePointer(code, ptrOp);
+			if(STy)
+			{
+				Ty = STy->getElementType(ie.structIdx);
+				const StructLayout* SL = targetData.getStructLayout(STy);
+				int64_t elementOffset =  SL->getElementOffset(ie.structIdx);
+				offset += elementOffset;
+			}
+			// 2) Load
 			encodeLoad(Ty, offset, code, signExtend, li.isAtomic());
+		}
 	}
 }
 
-void CheerpWasmWriter::compileStoreGC(WasmBuffer& code, const Value* ptrOp)
+Type* CheerpWasmWriter::getStoreContainerType(const Value* ptrOp)
 {
-	assert((PA.getPointerKind(cast<Instruction>(ptrOp)->getOperand(0)) == POINTER_KIND::COMPLETE_OBJECT));
-	assert(dyn_cast<GetElementPtrInst>(ptrOp));	
+	const GetElementPtrInst* gep_inst = cast<GetElementPtrInst>(ptrOp);
+	Type* containerType = gep_inst->getSourceElementType();
 
-	const Type* Ty = cast<Instruction>(ptrOp)->getOperand(0)->getType()->getPointerElementType();
-	size_t typeIdx = linearHelper.getAggregateTypeIndex(Ty);
-	if (auto sTy = dyn_cast<StructType>(Ty))
+
+	// Skip the operand for the value and the access into it
+	// Also skip the last access so we know what type is being stored into
+	for (uint32_t i = 2; i < gep_inst->getNumOperands() - 1; i++)
 	{
-		assert(!sTy->hasAsmJS());
-		size_t elemIdx = cast<ConstantInt>(cast<Instruction>(ptrOp)->getOperand(2))->getSExtValue();
-		encodeInst(WasmGCOpcode::STRUCT_SET, typeIdx, elemIdx, code);
+		// TODO: can this only be a struct type or are arrays also possible?
+		assert(dyn_cast<StructType>(containerType));
+		const uint64_t elemIdx = cast<ConstantInt>(gep_inst->getOperand(i))->getLimitedValue();
+		containerType = cast<StructType>(containerType)->getStructElementType(elemIdx);
 	}
-	// else if (auto aTy = dyn_cast<ArrayType>(Ty))
-	// {
-	// 	// make sure index is on stack
-	// 	encodeInst(WasmGCOpcode::ARRAY_SET, typeIdx, code);
-	// }
+	return (containerType);
+}
+
+void CheerpWasmWriter::compileStoreGC(WasmBuffer& code, const StoreInst& si, const Type* Ty, StructType* sTy, uint32_t structElemIdx, bool isOffset, POINTER_KIND ptrKind, POINTER_KIND storeKind)
+{
+	assert(ptrKind != CONSTANT);
+	assert(ptrKind != BYTE_LAYOUT);
+	assert(storeKind != BYTE_LAYOUT);
+	auto* ptrOp = si.getPointerOperand();
+	auto* valOp = si.getValueOperand();  
+
+
+	// The pointer
+	if (ptrKind == SPLIT_REGULAR && storeKind != SPLIT_REGULAR) // TODO: maybe always do if ptrKind is SPLIT_REGULAR?
+		compileCompleteObject(code, ptrOp, NULL, false, false);
+	else
+		compileCompleteObject(code, ptrOp, NULL, false, true);
+
+	if(sTy)
+	{
+		//TODO: find a testcase
+		assert(false);
+		compileAccessToElement(code, sTy, {ConstantInt::get(IntegerType::get(Ty->getContext(), 32), structElemIdx)}, false, false);
+	}
+	if(isOffset)
+		assert (false); // TODO: WasmWriter adds 'o' into stream here?
+	
+
+
+
+
+
+	// The value
+	if(sTy)
+	{
+		compileAggregateElem(code, valOp, structElemIdx);
+	}
 	else
 	{
-		llvm::report_fatal_error("unsupported GC store type");
+		if(Ty->isPointerTy())
+		{
+			assert(storeKind != CONSTANT);
+			assert(storeKind != BYTE_LAYOUT);
+			bool hasConstantOffset = PA.getConstantOffsetForPointer(ptrOp);
+			if(storeKind==SPLIT_REGULAR || (storeKind == REGULAR && hasConstantOffset))
+			{
+				if(isOffset)
+				{
+					assert(storeKind == SPLIT_REGULAR);
+					compilePointerOffset(code, valOp);
+				}
+				else
+				{
+					compilePointerBase(code, valOp, structElemIdx);
+				}
+			}
+			else
+			{
+				compilePointerAs(code, valOp, storeKind);
+			}
+		}
+		else
+		{
+			compileOperand(code, valOp);
+		}
+	}
+
+	// The store
+	if (ptrKind == POINTER_KIND::SPLIT_REGULAR)
+	{
+		const uint32_t typeIdx = linearHelper.getGCTypeIndex(Ty, ptrKind);
+		encodeInst(WasmGCOpcode::ARRAY_SET, typeIdx, code);
+	}
+	else if (ptrKind == POINTER_KIND::COMPLETE_OBJECT) // TODO: can COMPLETE_OBJECTS also be arrays?
+	{
+		const GetElementPtrInst* gep_inst = cast<GetElementPtrInst>(ptrOp);
+		// Type* baseTy = gep_inst->getSourceElementType();
+		Type* baseTy = getStoreContainerType(ptrOp);
+		const bool hasDowncastArray = linearHelper.hasDowncastArray(baseTy);
+		const int32_t typeIdx = linearHelper.getGCTypeIndex(baseTy, ptrKind);
+		// Note: We cannot use the ie.structElemIdx from the calling function,
+		// it will break REGULAR pointer kinds
+		const Value* elemIdxOperand = *(std::prev(gep_inst->op_end()));
+		int32_t elemIdx = cast<ConstantInt>(elemIdxOperand)->getLimitedValue();
+
+		// If a wrapper array was used we store into the array instead
+		StructType* sTy = cast<StructType>(baseTy);
+		if (types.useWrapperArrayForMember(PA, sTy, elemIdx))
+		{
+			const Type* memTy = sTy->getElementType(elemIdx);
+			const int32_t arrayTypeIdx = linearHelper.getGCTypeIndex(memTy, SPLIT_REGULAR);
+			encodeInst(WasmGCOpcode::ARRAY_SET, arrayTypeIdx, code);
+		}
+		else
+		{
+			elemIdx = getExpandedStructElemIdx(sTy, elemIdx);
+			encodeInst(WasmGCOpcode::STRUCT_SET, typeIdx, elemIdx, code);
+		}
+	}
+	else if (ptrKind == POINTER_KIND::REGULAR)
+	{
+		assert(false);
 	}
 }
 
@@ -2230,121 +2571,143 @@ void CheerpWasmWriter::compileStore(WasmBuffer& code, const StoreInst& si)
 {
 	const Value* ptrOp=si.getPointerOperand();
 	const Value* valOp=si.getValueOperand();
+	POINTER_KIND ptrKind = PA.getPointerKind(ptrOp);
 	auto* Ty = valOp->getType();
 	auto* STy = dyn_cast<StructType>(Ty);
+	bool StoreIsGC = ptrKind != RAW; // TODO: check address space
 	for(const auto& ie: getInstElems(&si, PA))
 	{
-		// 1) The pointer
-		uint32_t offset = compileLoadStorePointer(code, ptrOp);
-		if(STy)
+		if (StoreIsGC) // TODO: should this be in the loop?
 		{
-			Ty = STy->getElementType(ie.structIdx);
-			const StructLayout* SL = targetData.getStructLayout(STy);
-			int64_t elementOffset =  SL->getElementOffset(ie.structIdx);
-			offset += elementOffset;
-		}
-		// Special case writing 0 to floats/double
-		if(Ty->isFloatingPointTy() && isa<Constant>(valOp) && cast<Constant>(valOp)->isNullValue())
-		{
-			if(Ty->isFloatTy())
+			POINTER_KIND elemPtrKind = COMPLETE_OBJECT;
+			if(STy)
 			{
-				encodeInst(WasmS32Opcode::I32_CONST, 0, code);
-				encodeInst(WasmU32U32Opcode::I32_STORE, 0x2, offset, code);
+				Ty = STy->getElementType(ie.structIdx);
+				if(Ty->isPointerTy())
+				{
+					TypeAndIndex b(STy, ie.structIdx, TypeAndIndex::STRUCT_MEMBER);
+					elemPtrKind = PA.getPointerKindForMemberPointer(b); // TODO: check if should be getPointerKindForMember
+				}
 			}
-			else
+			else if(Ty->isPointerTy())
 			{
-				assert(Ty->isDoubleTy());
-				encodeInst(WasmS64Opcode::I64_CONST, 0, code);
-				encodeInst(WasmU32U32Opcode::I64_STORE, 0x3, offset, code);
+				elemPtrKind = PA.getPointerKind(&si);
 			}
-			return;
-		}
-		// 2) The value
-		if(STy)
-		{
-			compileAggregateElem(code, valOp, ie.structIdx);
+			bool isOffset = ie.ptrIdx == 1;
+			compileStoreGC(code, si, Ty, STy, ie.structIdx, isOffset, ptrKind, elemPtrKind);
 		}
 		else
 		{
-			compileOperand(code, valOp);
-		}
-		// 3) Store
-		// When storing values with size less than 32-bit we need to truncate them
-		bool atomic = si.isAtomic();
-		if (PA.getPointerKind(ptrOp) != RAW)
-			compileStoreGC(code, ptrOp);
-		else if(Ty->isIntegerTy())
-		{
-			uint32_t bitWidth = targetData.getTypeStoreSizeInBits(Ty);
+			// 1) The pointer
+			uint32_t offset = compileLoadStorePointer(code, ptrOp);
+			if(STy)
+			{
+				Ty = STy->getElementType(ie.structIdx);
+				const StructLayout* SL = targetData.getStructLayout(STy);
+				int64_t elementOffset =  SL->getElementOffset(ie.structIdx);
+				offset += elementOffset;
+			}
+			// Special case writing 0 to floats/double
+			if(Ty->isFloatingPointTy() && isa<Constant>(valOp) && cast<Constant>(valOp)->isNullValue())
+			{
+				if(Ty->isFloatTy())
+				{
+					encodeInst(WasmS32Opcode::I32_CONST, 0, code);
+					encodeInst(WasmU32U32Opcode::I32_STORE, 0x2, offset, code);
+				}
+				else
+				{
+					assert(Ty->isDoubleTy());
+					encodeInst(WasmS64Opcode::I64_CONST, 0, code);
+					encodeInst(WasmU32U32Opcode::I64_STORE, 0x3, offset, code);
+				}
+				return;
+			}
+			// 2) The value
+			if(STy)
+			{
+				compileAggregateElem(code, valOp, ie.structIdx);
+			}
+			else
+			{
+				compileOperand(code, valOp);
+			}
+			// 3) Store
+			// When storing values with size less than 32-bit we need to truncate them
+			bool atomic = si.isAtomic();
+			if(Ty->isIntegerTy())
+			{
+				uint32_t bitWidth = targetData.getTypeStoreSizeInBits(Ty);
 
-			switch (bitWidth)
-			{
-				case 8:
-					if (atomic)
-						encodeInst(WasmThreadsU32U32Opcode::I32_ATOMIC_STORE8, 0x0, offset, code);
-					else
-						encodeInst(WasmU32U32Opcode::I32_STORE8, 0x0, offset, code);
-					break;
-				case 16:
-					if (atomic)
-						encodeInst(WasmThreadsU32U32Opcode::I32_ATOMIC_STORE16, 0x1, offset, code);
-					else
-						encodeInst(WasmU32U32Opcode::I32_STORE16, 0x1, offset, code);
-					break;
-				case 32:
-					if (atomic)
-						encodeInst(WasmThreadsU32U32Opcode::I32_ATOMIC_STORE, 0x2, offset, code);
-					else
-						encodeInst(WasmU32U32Opcode::I32_STORE, 0x2, offset, code);
-					break;
-				case 64:
-					if (atomic)
-						encodeInst(WasmThreadsU32U32Opcode::I64_ATOMIC_STORE, 0x3, offset, code);
-					else
-						encodeInst(WasmU32U32Opcode::I64_STORE, 0x2, offset, code);
-					break;
-				default:
-					llvm::errs() << "bit width: " << bitWidth << '\n';
-					llvm_unreachable("unknown integer bit width");
+				switch (bitWidth)
+				{
+					case 8:
+						if (atomic)
+							encodeInst(WasmThreadsU32U32Opcode::I32_ATOMIC_STORE8, 0x0, offset, code);
+						else
+							encodeInst(WasmU32U32Opcode::I32_STORE8, 0x0, offset, code);
+						break;
+					case 16:
+						if (atomic)
+							encodeInst(WasmThreadsU32U32Opcode::I32_ATOMIC_STORE16, 0x1, offset, code);
+						else
+							encodeInst(WasmU32U32Opcode::I32_STORE16, 0x1, offset, code);
+						break;
+					case 32:
+						if (atomic)
+							encodeInst(WasmThreadsU32U32Opcode::I32_ATOMIC_STORE, 0x2, offset, code);
+						else
+							encodeInst(WasmU32U32Opcode::I32_STORE, 0x2, offset, code);
+						break;
+					case 64:
+						if (atomic)
+							encodeInst(WasmThreadsU32U32Opcode::I64_ATOMIC_STORE, 0x3, offset, code);
+						else
+							encodeInst(WasmU32U32Opcode::I64_STORE, 0x2, offset, code);
+						break;
+					default:
+						llvm::errs() << "bit width: " << bitWidth << '\n';
+						llvm_unreachable("unknown integer bit width");
+				}
 			}
-		}
-		else if (Ty->isVectorTy())
-		{
-			assert(!atomic && "atomic stores only supported on integers");
-			const FixedVectorType* vecType = cast<FixedVectorType>(Ty);
-			const unsigned vecWidth = getVectorBitwidth(vecType);
-			if (vecWidth == 128)
-				encodeInst(WasmSIMDU32U32Opcode::V128_STORE, 0x2, offset, code);
-			else if (vecWidth == 64)
+			else if (Ty->isVectorTy())
 			{
-				encodeStoringShuffle(code, vecType);
-				encodeInst(WasmSIMDU32U32U32Opcode::V128_STORE64_LANE, 0x3, offset, 0, code);
-			}
-			else if (vecWidth == 32)
-			{
-				encodeStoringShuffle(code, vecType);
-				encodeInst(WasmSIMDU32U32U32Opcode::V128_STORE32_LANE, 0x2, offset, 0, code);
-			}
-			else if (vecWidth == 16)
-			{
-				encodeStoringShuffle(code, vecType);
-				encodeInst(WasmSIMDU32U32U32Opcode::V128_STORE16_LANE, 0x1, offset, 0, code);
+				assert(!atomic && "atomic stores only supported on integers");
+				const FixedVectorType* vecType = cast<FixedVectorType>(Ty);
+				const unsigned vecWidth = getVectorBitwidth(vecType);
+				if (vecWidth == 128)
+					encodeInst(WasmSIMDU32U32Opcode::V128_STORE, 0x2, offset, code);
+				else if (vecWidth == 64)
+				{
+					encodeStoringShuffle(code, vecType);
+					encodeInst(WasmSIMDU32U32U32Opcode::V128_STORE64_LANE, 0x3, offset, 0, code);
+				}
+				else if (vecWidth == 32)
+				{
+					encodeStoringShuffle(code, vecType);
+					encodeInst(WasmSIMDU32U32U32Opcode::V128_STORE32_LANE, 0x2, offset, 0, code);
+				}
+				else if (vecWidth == 16)
+				{
+					encodeStoringShuffle(code, vecType);
+					encodeInst(WasmSIMDU32U32U32Opcode::V128_STORE16_LANE, 0x1, offset, 0, code);
+				}
+				else
+				{
+					llvm::errs() << "bit width: " << vecWidth << "\n";
+					llvm_unreachable("unknown vector bit width");
+				}
 			}
 			else
 			{
-				llvm::errs() << "bit width: " << vecWidth << "\n";
-				llvm_unreachable("unknown vector bit width");
+				assert(!atomic && "atomic stores only supported on integers");
+				if (Ty->isFloatTy())
+					encodeInst(WasmU32U32Opcode::F32_STORE, 0x2, offset, code);
+				else if (Ty->isDoubleTy())
+					encodeInst(WasmU32U32Opcode::F64_STORE, 0x3, offset, code);
+				else
+					encodeInst(WasmU32U32Opcode::I32_STORE, 0x2, offset, code);
 			}
-		}
-		else
-		{
-			assert(!atomic && "atomic stores only supported on integers");
-			if (Ty->isFloatTy())
-				encodeInst(WasmU32U32Opcode::F32_STORE, 0x2, offset, code);
-			else if (Ty->isDoubleTy())
-				encodeInst(WasmU32U32Opcode::F64_STORE, 0x3, offset, code);
-			else
-				encodeInst(WasmU32U32Opcode::I32_STORE, 0x2, offset, code);
 		}
 	}
 }
@@ -2431,14 +2794,145 @@ void CheerpWasmWriter::flushSetLocalDependencies(WasmBuffer& code, const Instruc
 	flushGeneric(code, I, localsDependencies);
 }
 
-void CheerpWasmWriter::allocateGC(WasmBuffer& code, const Type* Ty)
+void CheerpWasmWriter::callDowncastArrayInit(WasmBuffer&code, const Type* Ty)
 {
-	if (const StructType* sTy = dyn_cast<StructType>(Ty))
-		encodeInst(WasmGCOpcode::STRUCT_NEW_DEFAULT, code);
-	else if (const ArrayType* aTy = dyn_cast<ArrayType>(Ty))
-		encodeInst(WasmGCOpcode::ARRAY_NEW_DEFAULT, code);
+	assert(Ty->isStructTy());
+	assert(linearHelper.getDowncastFuncIds().find(Ty) != linearHelper.getDowncastFuncIds().end());
+	uint32_t initId = linearHelper.getDowncastFuncIds().at(Ty);
+	encodeInst(WasmU32Opcode::CALL, initId, code);
+}
 
-	encodeULEB128(linearHelper.getAggregateTypeIndex(Ty), code);
+void CheerpWasmWriter::allocateSimpleType(WasmBuffer& code, const Type* Ty)
+{
+	if (Ty->isIntegerTy(64))
+		encodeInst(WasmS64Opcode::I64_CONST, 0, code);
+	else if (Ty->isIntegerTy())
+		encodeInst(WasmS32Opcode::I32_CONST, 0, code);
+	else if (Ty->isFloatTy())
+	{
+		encodeInst(WasmOpcode::F32_CONST, code);
+		encodeF32(0, code);
+	}
+	else if (Ty->isDoubleTy())
+	{
+		encodeInst(WasmOpcode::F64_CONST, code);
+		encodeF64(0, code);
+	}
+}
+
+void CheerpWasmWriter::allocateComplexType(WasmBuffer& code, const Type* Ty)
+{
+	assert(Ty->isAggregateType() || Ty->isVectorTy());
+	if (auto aTy = dyn_cast<ArrayType>(Ty))
+	{
+		uint32_t typeIdx = linearHelper.getGCTypeIndex(Ty, COMPLETE_OBJECT);
+		allocateTypeGC(code, aTy->getArrayElementType());
+		encodeInst(WasmS32Opcode::I32_CONST, aTy->getArrayNumElements(), code); // TODO: use something like compileArraySize from CheerpWriter?
+		encodeInst(WasmGCOpcode::ARRAY_NEW, typeIdx, code);
+	}
+	else if (const StructType* sTy = dyn_cast<StructType>(Ty))
+	{
+		if (linearHelper.hasDowncastArray(sTy))
+		{
+			// encode the .o
+			encodeInst(WasmS32Opcode::I32_CONST, 0, code);
+			// encode the .a
+			encodeInst(WasmS32Opcode::REF_NULL, linearHelper.getSplitRegularObjectIdx(), code);
+		}
+		for (uint32_t i = 0; i < sTy->getNumElements(); i++)
+		{
+			const Type* elemTy = sTy->getStructElementType(i);
+			bool useWrapperArray = types.useWrapperArrayForMember(PA, const_cast<StructType*>(sTy), i);
+			if (elemTy->isPointerTy())
+			{
+				// Initialize pointers to NULL references
+				TypeAndIndex baseAndIndex(sTy, i, TypeAndIndex::STRUCT_MEMBER);
+				POINTER_KIND kind = PA.getPointerKindForMemberPointer(baseAndIndex);
+
+				uint32_t elemTypeIdx = linearHelper.getGCTypeIndex(elemTy, kind);
+				encodeInst(WasmS32Opcode::REF_NULL, elemTypeIdx, code);
+			}
+			else
+				allocateTypeGC(code, elemTy);
+
+			if (useWrapperArray)
+			{
+				uint32_t typeIdx = linearHelper.getGCTypeIndex(elemTy, SPLIT_REGULAR);
+				encodeInst(WasmS32Opcode::I32_CONST, 1, code);
+				encodeInst(WasmGCOpcode::ARRAY_NEW, typeIdx, code);
+			}
+		}
+		uint32_t typeIdx = linearHelper.getGCTypeIndex(Ty, COMPLETE_OBJECT);
+		encodeInst(WasmGCOpcode::STRUCT_NEW, typeIdx, code);
+	}
+	else if (Ty->isVectorTy())
+	{
+		assert(false && "Still have to handle vecs for GC objects");
+		// TODO: add vecs
+	}
+	else
+		assert(false && "unexpected type");
+}
+
+void CheerpWasmWriter::allocateTypeGC(WasmBuffer& code, const Type* allocaType)
+{
+	const Type* Ty = allocaType->isPointerTy() ? allocaType->getPointerElementType() : allocaType;
+
+	if (Ty->isAggregateType())
+		allocateComplexType(code, Ty);
+	else
+		allocateSimpleType(code, Ty);
+}
+
+void CheerpWasmWriter::allocateGC(WasmBuffer& code, const Type* allocaType, POINTER_KIND kind, const bool needsRegular, const uint32_t arraySize)
+{
+	assert(allocaType->isPointerTy() || allocaType->isAggregateType());
+	if (kind == COMPLETE_OBJECT)
+	{
+		allocateTypeGC(code, allocaType);
+		if (linearHelper.hasDowncastArray(allocaType))
+			callDowncastArrayInit(code, allocaType);
+	}
+	else if (kind == SPLIT_REGULAR || kind == REGULAR)
+	{
+		allocateTypeGC(code, allocaType);
+		if (linearHelper.hasDowncastArray(allocaType))
+			callDowncastArrayInit(code, allocaType);
+		encodeInst(WasmS32Opcode::I32_CONST, arraySize, code);
+		encodeInst(WasmGCOpcode::ARRAY_NEW, linearHelper.getGCTypeIndex(allocaType, SPLIT_REGULAR), code);
+		
+		if (kind == REGULAR && needsRegular)
+		{
+			// compile the .o and add both to a regular object
+			encodeInst(WasmS32Opcode::I32_CONST, 0, code);
+			encodeInst(WasmGCOpcode::STRUCT_NEW, linearHelper.getGCTypeIndex(allocaType, REGULAR), code);
+		}
+	}
+	else
+		report_fatal_error("Unexpected pointer kind allocateGC", false);
+}
+
+uint32_t CheerpWasmWriter::compileArraySizeGC(const DynamicAllocInfo & info)
+{
+	Type * t = info.getCastedPointedType();
+	uint32_t typeSize = targetData.getTypeAllocSize(t);
+
+	uint32_t numElem = 1;
+	if(const Value* numberOfElements = info.getNumberOfElementsArg())
+	{
+		if(isa<ConstantInt>(numberOfElements))
+			numElem = getIntFromValue(numberOfElements);
+		else
+			assert(false);
+	}
+	if(!info.sizeIsRuntime())
+	{
+		uint32_t allocatedSize = getIntFromValue(info.getByteSizeArg());
+		numElem *= (allocatedSize + typeSize - 1);
+		return numElem / typeSize;
+	}
+	assert(false);
+	return -1;
 }
 
 bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruction& I)
@@ -2448,9 +2942,11 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 		case Instruction::Alloca:
 		{
 			Type* allocaType = cast<AllocaInst>(I).getAllocatedType();
-			if (isGCType(allocaType))
+			if (isTypeGC(allocaType))
 			{
-				allocateGC(code, allocaType);
+				POINTER_KIND kind = PA.getPointerKind(&I);
+				bool needsRegular = kind==REGULAR && PA.getConstantOffsetForPointer(&I); // TODO: needsDowncastArray
+				allocateGC(code, cast<AllocaInst>(I).getAllocatedType(), kind, needsRegular);
 				return false;
 			}
 			else
@@ -2536,6 +3032,22 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 				assert(false && "Bitcasting from vector to integer not supported yet");
 			Value* operand = I.getOperand(0);
 			compileOperand(code, operand);
+			if (isTypeGC(cast<BitCastInst>(I).getDestTy()) || isTypeGC(cast<BitCastInst>(I).getSrcTy()))
+			{
+				// TODO: assert that it is a up/down cast?
+				assert(isTypeGC(cast<BitCastInst>(I).getDestTy()) && isTypeGC(cast<BitCastInst>(I).getSrcTy()) && "Bitcasting from a GC type to a non-GC type is not supported");
+				
+				// TODO: check if we can use this:
+				// if a REF_CAST has been done right before, we can change that ref_cast's type index
+				// we have to make sure that the type index that was in there before is of the same byte length as the new
+				// const uint32_t currOffset = code.tell();
+				// llvm::SmallString<8> buf;
+				// llvm::raw_svector_ostream wbuf(buf);
+				// uint32_t size = encodeSLEB128(linearHelper.getGCTypeIndex(cast<BitCastInst>(I).getDestTy(), COMPLETE_OBJECT), wbuf);
+				// code.pwrite(buf.begin(), wbuf.tell(), currOffset - size);
+
+				compileRefCast(code, cast<BitCastInst>(I).getDestTy(), COMPLETE_OBJECT);
+			}
 			if(I.getType()->isIntegerTy())
 			{
 				uint32_t bitWidth = I.getType()->getIntegerBitWidth();
@@ -2572,6 +3084,9 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			// Load the current argument
 			compileOperand(code, vi.getPointerOperand());
 			encodeInst(WasmU32U32Opcode::I32_LOAD, 0x2, 0x0, code);
+
+			// TODO: add GC load
+
 			encodeLoad(vi.getType(), 0, code, /*signExtend*/false, /*atomic*/false);
 
 			// Move varargs pointer to next argument
@@ -2589,7 +3104,13 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			const Function * calledFunc = ci.getCalledFunction();
 			const Value * calledValue = ci.getCalledOperand();
 			const FunctionType* fTy = ci.getFunctionType();
-			if (ci.isInlineAsm()) return true;
+			// const FunctionType* fTy = linearHelper.getExpandedFunctionType(calledFunc);
+			if (ci.isInlineAsm())
+			{
+				// TODO: remove is TMP for GC testing
+				encodeInst(WasmU32Opcode::GET_LOCAL, 0, code);
+				return true;
+			}
 
 			// NOTE: If 'useTailCall' the code _must_ use return_call or insert a return
 			//       Returns are not otherwise added in such cases
@@ -2654,6 +3175,8 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 					case Intrinsic::cheerp_downcast:
 					case Intrinsic::cheerp_virtualcast:
 					{
+						//TODO:
+						assert (intrinsicId != Intrinsic::cheerp_virtualcast);
 						compileDowncast(code, &ci);
 						if(useTailCall)
 						{
@@ -2664,6 +3187,8 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 					}
 					case Intrinsic::cheerp_downcast_current:
 					{
+						//TODO:
+						assert(false);
 						compileOperand(code, ci.getOperand(0));
 						if(useTailCall)
 						{
@@ -2850,10 +3375,13 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 					case Intrinsic::cheerp_allocate_array:
 					{
 						// check for WasmGC allocation
-						Type* baseType = I.getOperand(0)->getType()->getPointerElementType();
-						if (isGCType(baseType))
+						Type* baseType = I.getOperand(0)->getType();
+						if (isTypeGC(baseType))
 						{
-							allocateGC(code, baseType);
+							DynamicAllocInfo da(&cast<CallBase>(ci), &targetData, false);
+							POINTER_KIND kind = PA.getPointerKind(&I);
+							bool needsRegular = kind==REGULAR && PA.getConstantOffsetForPointer(&I);
+							allocateGC(code, baseType, kind, needsRegular, compileArraySizeGC(da));
 							return false;
 						}
 						skipFirstParam = true;
@@ -2871,6 +3399,8 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 					}
 					case Intrinsic::cheerp_deallocate:
 					{
+						if (isTypeGC(I.getOperand(0)->getType()))
+							return false;
 						calledFunc = module.getFunction("free");
 						if (!calledFunc)
 							llvm::report_fatal_error("missing free definition");
@@ -3239,12 +3769,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			//This corrections is needed basically for ctlz / cttz since they have an extra parameters to be ignored
 			const unsigned int endParam = fTy->getNumParams() - TypedBuiltinInstr::numExtraParameters(calledFunc);
 			const unsigned int startParam = skipFirstParam ? 1 : 0;
-			for (auto op = ci.op_begin() + startParam;
-					op != ci.op_begin() + endParam; ++op)
-			{
-				compileOperand(code, op->get());
-			}
-
+			compileMethodArgs(code, ci.op_begin() + startParam, ci.op_begin() + endParam, ci);
 			if (calledFunc)
 			{
 				if (ci.getOperand(0)->getType()->isVectorTy())
@@ -3406,6 +3931,14 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 				{
 					// We can encode this as a get_global
 					encodeInst(WasmU32Opcode::GET_GLOBAL, it->second, code);
+					const Type* loadTy = li.getType();
+					if (isTypeGC(loadTy))
+					{
+						POINTER_KIND kind = COMPLETE_OBJECT;
+						if (loadTy->isPointerTy())
+							kind = PA.getPointerKind(&li);
+						compileRefCast(code, loadTy, kind);
+					}
 					break;
 				}
 			}
@@ -3458,9 +3991,29 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 				// NOTE: If the retValue is inlineable we must render it here
 				//       If 'isReturnPartOfTailCall' return true then retVal must be a CallInst
 				//       so blindly casting it to Instruction is safe
+				
+				// TODO: Can the return of a special pointer kind be inlineable? 
 				if(isReturnPartOfTailCall(ri) && !isInlineable(*cast<Instruction>(retVal)))
 					break;
-				compileOperand(code, I.getOperand(0));
+
+				if (isTypeGC(retVal->getType()))
+				{
+					// TODO: Can the return value be a non-pointer?
+					assert(retVal->getType()->isPointerTy());
+					POINTER_KIND kind = PA.getPointerKindForReturn(ri.getParent()->getParent());
+					if (kind == SPLIT_REGULAR)
+					{
+						compilePointerOffset(code, retVal);
+						encodeInst(WasmU32Opcode::SET_GLOBAL, oSlotGlobal, code);
+					}
+					assert(kind != REGULAR);
+					if (kind == SPLIT_REGULAR)
+						compilePointerBase(code, retVal);
+					else
+						compilePointerAs(code, retVal, kind);
+				}
+				else
+					compileOperand(code, I.getOperand(0));
 			}
 			break;
 		}
@@ -3992,17 +4545,31 @@ void CheerpWasmWriter::compileInstructionAndSet(WasmBuffer& code, const llvm::In
 
 	if(!ret && !I.getType()->isVoidTy())
 	{
+		bool splitRegReturn = I.getType()->isPointerTy() && PA.getPointerKind(&I) == SPLIT_REGULAR;
 		SmallVector<InstElem, 2> elems(getInstElems(&I, PA));
 		for(auto it = elems.rbegin(); it != elems.rend(); ++it)
 		{
 			if(I.use_empty()) {
 				encodeInst(WasmOpcode::DROP, code);
 			} else {
+				// The idea behind catching the oSlot is as follows:
+				// We check if the instruction returns a split regular,
+				// if it does we check all the registers it tries to set_local into
+				// the register with an Integer type should be the oSLot so we don't add
+				// it to the tee_local candidates
+				Registerize::REGISTER_KIND regKind = registerize.getRegKindFromInstElem(*it, false, &PA);
 				uint32_t reg = registerize.getRegisterId(&I, it->totalIdx, edgeContext);
 				uint32_t local = localMap.at(reg);
 				// TODO: figure out how to deal with tee locals and aggregates
-				if(!I.getType()->isStructTy())
+				if(!I.getType()->isStructTy() && (!splitRegReturn || (splitRegReturn && regKind != Registerize::REGISTER_KIND::INTEGER)))
 					teeLocals.addCandidate(&I, /*isInstructionAssigment*/true, local, code.tell());
+
+				// Setting the oSlot into the right local
+				// Using a TEE_LOCAL here breaks things
+				// TODO: check if this works properly
+				if (splitRegReturn && regKind == Registerize::REGISTER_KIND::INTEGER)
+					encodeInst(WasmU32Opcode::GET_GLOBAL, oSlotGlobal, code);
+
 				encodeInst(WasmU32Opcode::SET_LOCAL, local, code);
 			}
 		}
@@ -4198,6 +4765,737 @@ void CheerpWasmWriter::renderDeferred(WasmBuffer& code, const vector<const llvm:
 		compileInstructionAndSet(code, *I);
 }
 
+void CheerpWasmWriter::compileAccessToElement(WasmBuffer& code, Type* tp, ArrayRef< const Value* > indices, bool compileLastWrapperArray, bool accessLastElem)
+{
+	for(uint32_t i=0;i<indices.size();i++)
+	{
+		assert(!TypeSupport::hasByteLayout(tp));
+		if(StructType* st = dyn_cast<StructType>(tp))
+		{
+			assert(isa<ConstantInt>(indices[i]));
+			const APInt& index = cast<Constant>(indices[i])->getUniqueInteger();
+
+			uint32_t structIndex = linearHelper.getGCTypeIndex(tp, COMPLETE_OBJECT);
+			const Type* elemTy = st->getStructElementType(index.getLimitedValue());
+			POINTER_KIND elemPtrKind = COMPLETE_OBJECT;
+			uint64_t elemIdx = index.getLimitedValue();
+
+			elemIdx = getExpandedStructElemIdx(st, elemIdx);
+			if (!accessLastElem && i == indices.size()-1)
+			{
+				// If we should leave the last reference on the stack but
+				// it is a wrapper array, load the array and encode the offset (0)
+				if (types.useWrapperArrayForMember(PA, st, index.getLimitedValue()))
+				{
+					encodeInst(WasmGCOpcode::STRUCT_GET, structIndex, elemIdx, code);
+					compileRefCast(code, elemTy, SPLIT_REGULAR);
+					encodeInst(WasmS32Opcode::I32_CONST, 0, code);
+				}
+				return ;
+			}
+
+			encodeInst(WasmGCOpcode::STRUCT_GET, structIndex, elemIdx, code);
+			if (elemTy->isPointerTy())
+			{
+				TypeAndIndex b = {st, (uint32_t)index.getLimitedValue(), TypeAndIndex::STRUCT_MEMBER};
+				elemPtrKind = PA.getPointerKindForMemberPointer(b);
+			}
+
+			if((i!=indices.size()-1 || compileLastWrapperArray) && types.useWrapperArrayForMember(PA, st, index.getLimitedValue()))
+			{
+				compileRefCast(code, elemTy, SPLIT_REGULAR);
+				int32_t typeIdx = linearHelper.getGCTypeIndex(elemTy, SPLIT_REGULAR);
+
+				encodeInst(WasmS32Opcode::I32_CONST, 0, code);
+				encodeInst(WasmGCOpcode::ARRAY_GET, typeIdx, code);
+			}
+			// TODO: is this the correct compileRefCast if we've used a wrapper array?
+			compileRefCast(code, elemTy, elemPtrKind);
+
+
+
+
+
+			tp = st->getElementType(index.getZExtValue());
+		}
+		else if(const ArrayType* at = dyn_cast<ArrayType>(tp))
+		{
+			compileOperand(code, indices[i]);
+
+			// We still compile the operand so the offset is on the stack and we can decide to to a load or store later
+			if (!accessLastElem && i == indices.size()-1)
+			{
+				return ;
+			}
+
+			uint32_t arrayIndex = linearHelper.getGCTypeIndex(tp, COMPLETE_OBJECT);
+			encodeInst(WasmGCOpcode::ARRAY_GET, arrayIndex, code);
+			compileRefCast(code, at->getArrayElementType(), COMPLETE_OBJECT);
+			tp = at->getElementType();
+		}
+		else
+		{
+			llvm::errs() << "Unexpected type during GEP access " << *tp<< "\n";
+			llvm::report_fatal_error("Unsupported code found, please report a bug", false);
+		}
+	}
+}
+
+void CheerpWasmWriter::compileGEPGC(WasmBuffer& code, const User* gep_inst, POINTER_KIND kind, bool accessElem)
+{
+	assert(kind != RAW);
+	assert(kind != BYTE_LAYOUT);
+	SmallVector< const Value*, 8 > indices(std::next(gep_inst->op_begin()), gep_inst->op_end());
+	Type* baseType = cast<GetElementPtrInst>(gep_inst)->getSourceElementType();
+
+	StructType* containerStructType = dyn_cast<StructType>(GetElementPtrInst::getIndexedType(baseType,
+			makeArrayRef(const_cast<Value* const*>(indices.begin()),
+				     const_cast<Value* const*>(indices.end() - 1))));
+	if (containerStructType && indices.size() > 1)
+	{
+		assert(isa<ConstantInt>(indices.back()));
+	}
+
+	// For GEP's we want to access and load/get all elements except for the first GEP.
+	// This ensures that the reference will still be on the stack and we can choose to do a load or store
+	// on the last element rather than access it right away
+	bool accessElemCompleteObject = accessElem;
+	if (isGEP(gep_inst->getOperand(0)))
+		accessElemCompleteObject = true;
+	else
+	{
+	}
+
+	// TODO: we need this hack because PointerAnalyzer cannot correctly assign
+	// the RAW kind to null pointers
+	if (isa<ConstantPointerNull>(gep_inst->getOperand(0)))
+	{
+		// TODO: is this correct?
+		const int32_t idx = linearHelper.getGCTypeIndex(gep_inst->getOperand(0)->getType(), kind);
+		encodeInst(WasmS32Opcode::REF_NULL, idx, code);
+		assert(false);
+	}
+	else if (kind == COMPLETE_OBJECT)
+	{
+		const llvm::Instruction* I = dyn_cast<Instruction>(gep_inst->getOperand(0));
+		if (I && !isInlineable(*I) && (isGEP(I) || isBitCast(I)) && PA.getPointerKindAssert(I) == COMPLETE_OBJECT)
+		{
+			assert(!isBitCast(I)); // TODO: bitcasts?
+			compileGetLocal(code, I, 0);
+		} else {
+			compileCompleteObject(code, gep_inst->getOperand(0), indices.front(), accessElemCompleteObject);
+		}
+		compileAccessToElement(code, baseType, makeArrayRef(std::next(indices.begin()), indices.end()), /*compileLastWrapperArray*/true, accessElem);
+	}
+	else
+	{
+		if (PA.getConstantOffsetForPointer(gep_inst))
+		{
+			compileCompleteObject(code, gep_inst->getOperand(0), indices.front(), accessElemCompleteObject);
+
+			compileAccessToElement(code, baseType, makeArrayRef(std::next(indices.begin()), std::prev(indices.end())), /*compileLastWrapperArray*/false, accessElem);
+			return;
+		}
+
+		compilePointerBaseTyped(code, gep_inst, cast<GEPOperator>(gep_inst)->getResultElementType()); // compile .d
+		compilePointerOffset(code, gep_inst); // compile .o
+		
+		const int32_t regularObjectIdx = linearHelper.getRegularObjectIdx();
+		encodeInst(WasmGCOpcode::STRUCT_NEW, regularObjectIdx, code); // create the regular object {.d, .o}
+	}
+}
+
+void CheerpWasmWriter::compileOffsetForGEP(WasmBuffer& code, Type* pointedOperandType, ArrayRef< const Value* > indices)
+{
+	// FIXME This will not compile cause getIndexedType is not const-correct
+	/*
+	 * Type * tp = GetElementPtrInst::getIndexedType( pointedOperandType->getPointerTo(), indices.slice(0, indices.size() - 1 ) );
+	 */
+
+	Type* tp = GetElementPtrInst::getIndexedType(pointedOperandType,
+	                makeArrayRef(const_cast<Value* const*>(indices.begin()),
+	                             const_cast<Value* const*>(indices.end() - 1)));
+
+	if(tp->isStructTy())
+	{
+		// Literal index
+		assert(isa<ConstantInt>(indices.back()));
+		const ConstantInt* idx = cast<ConstantInt>(indices.back());
+		(void)idx;
+		assert(types.useWrapperArrayForMember(PA, cast<StructType>(tp), idx->getZExtValue()));
+
+		encodeInst(WasmS32Opcode::I32_CONST, 0, code);
+	}
+	else
+	{
+		compileOperand(code, indices.back());
+	}
+}
+
+void CheerpWasmWriter::compileGEPOffset(WasmBuffer& code, const User* gep_inst)
+{
+	SmallVector< const Value*, 8 > indices(std::next(gep_inst->op_begin()), gep_inst->op_end());
+	Type* basePointerType = gep_inst->getOperand(0)->getType();
+
+	StructType* containerStructType = dyn_cast<StructType>(getGEPContainerType(gep_inst));
+	bool useDownCastArray = false;
+	if(containerStructType && indices.size() > 1)
+	{
+		assert(isa<ConstantInt>(indices.back()));
+		const ConstantInt* idx = cast<ConstantInt>(indices.back());
+		uint32_t lastOffsetConstant = idx->getZExtValue();
+		useDownCastArray = !types.useWrapperArrayForMember(PA, containerStructType, lastOffsetConstant);
+	}
+
+	assert(PA.getPointerKindAssert(gep_inst) != BYTE_LAYOUT);
+	if (indices.size() == 1)
+	{
+		bool isOffsetConstantZero = isa<Constant>(indices.front()) && cast<Constant>(indices.front())->isNullValue();
+
+		// Just another pointer from this one
+		compilePointerOffset(code, gep_inst->getOperand(0));
+
+		if(!isOffsetConstantZero)
+		{
+			compileOperand(code, indices.front());
+			encodeInst(WasmOpcode::I32_ADD, code);
+		}
+	}
+	else
+	{
+		if (useDownCastArray)
+		{
+			Type* basePointedType = basePointerType->getPointerElementType();
+			compileCompleteObject(code, gep_inst->getOperand(0), indices.front(), false);
+			compileAccessToElement(code, basePointedType, makeArrayRef(std::next(indices.begin()), indices.end()), /*compileLastWrapperArray*/true, true); // TODO: accessElem = true?
+			assert(false && "Should this be a get on a regularObject?");
+			encodeInst(WasmGCOpcode::STRUCT_GET, linearHelper.getRegularObjectIdx(), 1, code); // access .o
+		}
+		else
+			compileOffsetForGEP(code, cast<GEPOperator>(gep_inst)->getSourceElementType(), indices);
+	}
+}
+
+void CheerpWasmWriter::compileGEPBase(WasmBuffer& code, const llvm::User* gep_inst)
+{
+	SmallVector< const Value*, 8 > indices(std::next(gep_inst->op_begin()), gep_inst->op_end());
+	Type* basePointerType = gep_inst->getOperand(0)->getType();
+
+	StructType* containerStructType = dyn_cast<StructType>(getGEPContainerType(gep_inst));
+	bool useDownCastArray = false;
+	if(containerStructType && indices.size() > 1)
+	{
+		assert(isa<ConstantInt>(indices.back()));
+		const ConstantInt* idx = cast<ConstantInt>(indices.back());
+		uint32_t lastOffsetConstant = idx->getZExtValue();
+		useDownCastArray = !types.useWrapperArrayForMember(PA, containerStructType, lastOffsetConstant);
+	}
+
+	assert(PA.getPointerKindAssert(gep_inst) != BYTE_LAYOUT);
+	Type* elementTypeBaseOperand = cast<GEPOperator>(gep_inst)->getSourceElementType();
+	if (indices.size() == 1)
+	{
+		// Just another pointer from this one
+		compilePointerBaseTyped(code, gep_inst->getOperand(0), elementTypeBaseOperand);
+	}
+	else
+	{
+		// HACK: Accessing members of NULL is invalid, but it is used to compute an offset from the start of a structure
+		// TODO: We need to detect and block this on the clang side. In the mean time, just compile an invalid null access
+		if( isa<ConstantPointerNull>(gep_inst->getOperand(0)) )
+		{
+			encodeInst(WasmOpcode::UNREACHABLE, code);
+			return;
+		}
+
+		compileCompleteObject(code, gep_inst->getOperand(0), indices.front(), false);
+		Type* basePointedType = basePointerType->getPointerElementType();
+		if (useDownCastArray)
+		{
+			compileAccessToElement(code, basePointedType, makeArrayRef(std::next(indices.begin()),indices.end()), /*compileLastWrapperArray*/true, true); // TODO: accessElem = true?
+			// TODO: should this be handled here or inside the load/store?
+			// stream << ".a";
+			assert(false);
+		}
+		else if(containerStructType)
+		{
+			compileAccessToElement(code, basePointedType, makeArrayRef(std::next(indices.begin()),indices.end()), /*compileLastWrapperArray*/false, true); // TODO: accessElem = true?
+		}
+		else
+		{
+			compileAccessToElement(code, basePointedType, makeArrayRef(std::next(indices.begin()),std::prev(indices.end())), /*compileLastWrapperArray*/true, true); // TODO: accessElem = true?
+		}
+	}
+}
+
+void CheerpWasmWriter::compilePointerAs(WasmBuffer& code, const llvm::Value* p, POINTER_KIND kind)
+{
+	assert(p->getType()->isPointerTy());
+	assert(kind != SPLIT_REGULAR);
+	assert(kind != CONSTANT);
+	assert(kind != BYTE_LAYOUT);
+	POINTER_KIND valueKind = PA.getPointerKind(p);
+	assert(valueKind != BYTE_LAYOUT);
+
+	switch(kind)
+	{
+		case RAW:
+		{
+			assert(valueKind == kind);
+			compileOperand(code, p);
+			break;
+		}
+		case COMPLETE_OBJECT:
+		{
+			compileCompleteObject(code, p, NULL, true);
+			break;
+		}
+		case REGULAR:
+		{
+			if (valueKind == CONSTANT)
+			{
+				const int32_t idx = linearHelper.getGCTypeIndex(p->getType(), kind);
+				encodeInst(WasmS32Opcode::REF_NULL, idx, code);
+			}
+			else if (PA.getConstantOffsetForPointer(p) || valueKind == SPLIT_REGULAR)
+			{
+				compilePointerBase(code, p); // compile .d
+				compilePointerOffset(code, p); // compile .o
+
+				const int32_t regularIndex = linearHelper.getRegularObjectIdx();
+				encodeInst(WasmGCOpcode::STRUCT_NEW, regularIndex, code); // create the regular object
+			}
+			else
+			{
+				compileOperand(code, p);
+			}
+			break;
+		}
+		default:
+		{
+			llvm::report_fatal_error("Unexpected pointer kind. This is a bug");
+		}
+	}
+}
+
+void CheerpWasmWriter::compileCompleteObject(WasmBuffer& code, const Value* p, const Value* offset, bool accessElem, bool accessArray)
+{
+	// Special handle for undefined pointers
+	if(isa<UndefValue>(p))
+	{
+		compileOperand(code, p);
+		return;
+	}
+	if(isa<ConstantPointerNull>(p))
+	{
+		// NULL reference of 'any' type
+		encodeInst(WasmU32Opcode::REF_NULL, 0x6E, code);
+		if (offset)
+			encodeInst(WasmOpcode::UNREACHABLE, code);
+		return;
+	}
+
+	const llvm::Instruction* I = dyn_cast<Instruction>(p);
+	if (I && !isInlineable(*I) && isGEP(I) && PA.getPointerKindAssert(I) == COMPLETE_OBJECT)
+	{
+		assert(!isBitCast(I));
+		compileGetLocal(code, I, 0);
+		return;
+	}
+
+	bool isOffsetConstantZero = offset == nullptr || (isa<Constant>(offset) && cast<Constant>(offset)->isZeroValue());
+
+	// Direct access path:
+	/**
+	 * If p comes from a gep, we can just compile that GEP as COMPLETE_OBJECT
+	 * That is, instead of a0.a1["a2"] we got a0.a1.a2
+	 */
+	if(isOffsetConstantZero)
+	{
+		if(isGEP(p))
+		{
+			compileGEPGC(code, cast<User>(p), COMPLETE_OBJECT, accessElem);
+			return;
+		}
+	}
+
+	POINTER_KIND kind = PA.getPointerKindAssert(p);
+
+	if(kind == REGULAR || kind == SPLIT_REGULAR)
+	{
+		compilePointerBase(code, p);
+
+		const ConstantInt* c1 = dyn_cast_or_null<ConstantInt>(PA.getConstantOffsetForPointer(p));
+		const ConstantInt* c2 = dyn_cast_or_null<ConstantInt>(offset);
+		if(c1 && c2)
+			encodeInst(WasmS32Opcode::I32_CONST, c1->getSExtValue() + c2->getSExtValue(), code);
+		else if(c1 && c1->isZeroValue() && offset)
+			compileOperand(code, offset);
+		else
+		{
+			compilePointerOffset(code, p);
+
+			if(!isOffsetConstantZero)
+			{
+				compileOperand(code, offset);
+				encodeInst(WasmOpcode::I32_ADD, code);
+			}
+		}
+
+
+
+		if (accessArray)
+		{
+			uint32_t typeIdx = linearHelper.getGCTypeIndex(p->getType(), SPLIT_REGULAR);
+			encodeInst(WasmGCOpcode::ARRAY_GET, typeIdx, code);
+			compileRefCast(code, p->getType(), COMPLETE_OBJECT); // TODO: Is it possible for the array to contain other pointer kinds?
+		}
+
+	}
+	else
+	{
+		compileOperand(code, p);
+
+		if(!isOffsetConstantZero)
+		{
+			llvm::errs() << "Can not access a " << int(kind) << " pointer with non zero offset:" << *offset << "\n";
+			llvm::report_fatal_error("Unsupported code found, please report a bug", false);
+		}
+	}
+}
+
+void CheerpWasmWriter::compilePointerOffset(WasmBuffer& code, const Value* ptr)
+{
+	POINTER_KIND kind = PA.getPointerKind(ptr);
+	assert(kind != BYTE_LAYOUT);
+	assert(kind != RAW);
+	if ( kind == COMPLETE_OBJECT && !isGEP(ptr) )
+	{
+		// This may still happen when doing ptrtoint of a function
+		encodeInst(WasmS32Opcode::I32_CONST, 0, code);
+	}
+	// null must be handled first
+	else if(kind == CONSTANT || isa<UndefValue>(ptr))
+	{
+		if (const IntToPtrInst* ITP = dyn_cast<IntToPtrInst>(ptr))
+		{
+			ConstantInt* CI = cast<ConstantInt>(ITP->getOperand(0));
+			encodeInst(WasmS32Opcode::I32_CONST, CI->getSExtValue(), code);
+		}
+		else
+		{
+			encodeInst(WasmS32Opcode::I32_CONST, 0, code);
+		}
+	}
+	else if(isGEP(ptr) && (!isa<Instruction>(ptr) || isInlineable(*cast<Instruction>(ptr))))
+	{
+		compileGEPOffset(code, cast<User>(ptr));
+	}
+	else if(isBitCast(ptr) && (!isa<Instruction>(ptr) || isInlineable(*cast<Instruction>(ptr))))
+	{
+		// Since we can't have a pointerkind of byte_layout here
+		// we can compile the pointer offset instead of a bitCastOffset
+		compilePointerOffset(code, cast<User>(ptr)->getOperand(0));
+	}
+	else if (const ConstantInt* CI = PA.getConstantOffsetForPointer(ptr))
+	{
+		// Check if the offset has been constantized for this pointer
+		compileConstant(code, CI, true);
+	}
+	else if((isa<SelectInst>(ptr) && isInlineable(*cast<Instruction>(ptr))) || \
+			(isa<ConstantExpr>(ptr) && cast<ConstantExpr>(ptr)->getOpcode() == Instruction::Select))
+	{
+		const User* u = cast<User>(ptr);
+		compileOperand(code, u->getOperand(0));
+		compilePointerOffset(code, u->getOperand(1));
+		compilePointerOffset(code, u->getOperand(2));
+		encodeInst(WasmOpcode::SELECT, code);
+	}
+	else if((!isa<Instruction>(ptr) || !isInlineable(*cast<Instruction>(ptr))) && kind == SPLIT_REGULAR)
+	{
+		if(const Argument* arg=dyn_cast<Argument>(ptr))
+		{
+			if (hasPutTeeLocalOnStack(code, arg))
+			{
+				//TODO: can we use hasPutTeeLocalOnStack here?
+				assert(false);
+				return;
+			}
+
+			// TODO: cache this inside a helper function
+			uint32_t local = arg->getArgNo();
+			uint32_t splitRegsInArgs = 0;
+			for (size_t i = 0; i < local; i++)
+			{
+				Argument* prevArg = arg->getParent()->getArg(i);
+				if (prevArg->getType()->isPointerTy() && PA.getPointerKindForArgument(prevArg) == SPLIT_REGULAR)
+					splitRegsInArgs++;
+			}
+			encodeInst(WasmU32Opcode::GET_LOCAL, local + splitRegsInArgs + 1, code);
+		}
+		else
+		{
+			compileGetLocal(code, cast<Instruction>(ptr), 1);
+		}
+	}
+	else if(const IntrinsicInst* II=dyn_cast<IntrinsicInst>(ptr))
+	{
+		// Handle intrinsics
+		switch(II->getIntrinsicID())
+		{
+			case Intrinsic::cheerp_upcast_collapsed:
+			case Intrinsic::cheerp_cast_user:
+				compilePointerOffset(code, II->getOperand(0));
+				return;
+			case Intrinsic::cheerp_make_regular:
+				compileOperand(code, II->getOperand(1));
+				break;
+			default:
+				compileOperand(code, ptr);
+				// .o access
+				const int32_t regTypeIndex = linearHelper.getRegularObjectIdx();
+				encodeInst(WasmGCOpcode::STRUCT_GET, regTypeIndex, 1, code);
+		}
+	} else {
+		compileOperand(code, ptr);
+		// .o access
+		const int32_t regTypeIndex = linearHelper.getRegularObjectIdx();
+		encodeInst(WasmGCOpcode::STRUCT_GET, regTypeIndex, 1, code);
+	}
+}
+
+void CheerpWasmWriter::compilePointerBase(WasmBuffer& code, const Value* p, const uint32_t elemIdx)
+{
+	compilePointerBaseTyped(code, p, p->getType()->getPointerElementType(), elemIdx);
+}
+
+void CheerpWasmWriter::compilePointerBaseTyped(WasmBuffer& code, const Value* ptr, const Type* elemTy, const uint32_t elemIdx)
+{
+	assert(ptr->getType()->isPointerTy());
+	POINTER_KIND kind = PA.getPointerKind(ptr);
+	assert(kind != RAW);
+	assert(kind != BYTE_LAYOUT);
+
+
+	if(isGEP(ptr))
+	{
+		const User* gepInst = cast<User>(ptr);
+		assert(gepInst->getNumOperands() > 1);
+		compileGEPBase(code, gepInst);
+		return ;
+	}
+
+	if(kind == CONSTANT)
+	{
+		Type* ty = llvm::cast<PointerType>(ptr->getType())->getPointerElementType();
+		// encodes a null ref
+		uint32_t TyIdx = linearHelper.getGCTypeIndex(ty, kind);
+		encodeInst(WasmS32Opcode::REF_NULL, TyIdx, code);
+		return;
+	}
+
+	if(kind == COMPLETE_OBJECT)
+	{
+		llvm::errs() << "compilePointerBase with COMPLETE_OBJECT pointer:" << *ptr << '\n' << "In function: " << *currentFun << '\n';
+		llvm::report_fatal_error("Unsupported code found, please report a bug", false);
+	}
+
+	// Handle intrinsics
+	if(const IntrinsicInst* II = dyn_cast<IntrinsicInst>(ptr))
+	{
+		switch(II->getIntrinsicID())
+		{
+			case Intrinsic::cheerp_upcast_collapsed:
+			case Intrinsic::cheerp_cast_user:
+				return compilePointerBase(code, II->getOperand(0));
+			case Intrinsic::cheerp_make_regular:
+				return compileCompleteObject(code, II->getOperand(0), NULL, false);
+			default:
+				break;
+		}
+	}
+
+	if(isa<UndefValue>(ptr))
+	{
+		assert(false);
+		return;
+	}
+
+
+	if((isa<SelectInst> (ptr) && isInlineable(*cast<Instruction>(ptr))) || \
+		(isa<ConstantExpr>(ptr) && cast<ConstantExpr>(ptr)->getOpcode() == Instruction::Select))
+	{
+		const User* u = cast<User>(ptr);
+		compileOperand(code, u->getOperand(0));
+		compilePointerBase(code, u->getOperand(1), 1);
+		compilePointerBase(code, u->getOperand(2), 2);
+		encodeInst(WasmOpcode::SELECT, code);
+		assert(false);
+		return;
+	}
+
+	if(const Argument* arg=dyn_cast<Argument>(ptr))
+	{
+		if (hasPutTeeLocalOnStack(code, arg))
+		{
+			return;
+		}
+
+		uint32_t local = arg->getArgNo();
+		uint32_t splitRegsInArgs = 0;
+		for (size_t i = 0; i < local; i++)
+		{
+			Argument* prevArg = arg->getParent()->getArg(i);
+			if (prevArg->getType()->isPointerTy() && PA.getPointerKindForArgument(prevArg) == SPLIT_REGULAR)
+				splitRegsInArgs++;
+		}
+		encodeInst(WasmU32Opcode::GET_LOCAL, local + splitRegsInArgs, code);
+
+		// If the get_local is called on a WasmGC type we need to cast it from anyref to the right reftype
+		POINTER_KIND kind = COMPLETE_OBJECT;
+		if (arg->getType()->isPointerTy())
+			kind = PA.getPointerKindForArgument(arg);
+		compileRefCast(code, arg->getType(), kind);
+		return ;
+	}
+	else if((!isa<Instruction>(ptr) || !isInlineable(*cast<Instruction>(ptr))) && kind == SPLIT_REGULAR)
+	{
+		// TODO: check condition and compare with WasmWriter
+
+		assert(isa<Instruction>(ptr));
+		compileGetLocal(code, cast<Instruction>(ptr), elemIdx);
+		return;
+	}
+
+	// If value has not been generated from a GEP, just compile it and ask for .d
+	compileOperand(code, ptr);
+	if(!PA.getConstantOffsetForPointer(ptr))
+	{
+		const Type* sTy = ptr->getType();
+		uint32_t idx = linearHelper.getGCTypeIndex(sTy, REGULAR);
+		encodeInst(WasmGCOpcode::STRUCT_GET, idx, 0, code); // get the .d
+		compileRefCast(code, sTy, SPLIT_REGULAR);
+	}
+}
+
+void CheerpWasmWriter::compileMethodArgs(WasmBuffer& code, User::const_op_iterator it, User::const_op_iterator itE, const CallBase& callV)
+{
+	const Function* F = callV.getCalledFunction();
+
+	Function::const_arg_iterator arg_it;
+
+	// Check if we have a direct call
+	if(F && it != itE)
+	{
+		// Set arg_it to the argument relative to it.
+		arg_it = F->arg_begin();
+		unsigned argNo = callV.getArgOperandNo(it);
+
+		// Check if it is a variadic argument
+		if(argNo < F->arg_size())
+		{
+			std::advance(arg_it, callV.getArgOperandNo(it));
+		}
+		else
+		{
+			arg_it = F->arg_end();
+		}
+	}
+	
+	uint32_t opCount = 0;
+	for (User::const_op_iterator cur = it; cur != itE; ++cur, ++opCount)
+	{
+		Type* Ty = (*cur)->getType();
+
+
+		if(Ty->isPointerTy() && !TypeSupport::isRawPointer(Ty, false))
+		{
+			POINTER_KIND argKind = UNKNOWN;
+			// Calling convention:
+			// If this is a direct call and the argument is not a variadic one,
+			// we pass the kind decided by getPointerKind(arg_it).
+			// If it's variadic we use the base kind derived from the type
+			// If it's indirect we use a kind good for any argument of a given type at a given position
+			if (!F)
+			{
+				TypeAndIndex typeAndIndex(Ty->getPointerElementType(), opCount, TypeAndIndex::ARGUMENT);
+				argKind = PA.getPointerKindForArgumentTypeAndIndex(typeAndIndex);
+			}
+			else if (arg_it != F->arg_end())
+				argKind = PA.getPointerKindForArgument(&*arg_it);
+			else
+			{
+				if(isa<ConstantPointerNull>(*cur) && (cur+1)==itE && cur!=it)
+				{
+					// Special case for NULL which are the last variadic parameter, copy the previous type
+					Type* prevType = (*(cur-1))->getType();
+					if(prevType->isPointerTy())
+						Ty = prevType;
+				}
+				if(StructType* st = dyn_cast<StructType>(Ty->getPointerElementType()))
+				{
+					while(st->getDirectBase())
+						st = st->getDirectBase();
+					Ty = st->getPointerTo();
+				}
+				compilePointerAs(code, *cur, PA.getPointerKindForStoredType(Ty));
+			}
+
+			POINTER_KIND curKind = PA.getPointerKind(cur->get());
+			assert(argKind != REGULAR);
+			assert(argKind != BYTE_LAYOUT);
+			assert(curKind != BYTE_LAYOUT);
+			// TODO: is this still nececcary since we won't support BYTE_LAYOUT?
+			// The second condition is for when the function is only declared
+			// And the passed pointer is BYTE_LAYOUT. We decide to compile it as
+			// SPLIT_REGULAR, since the code will crash here anyway
+			if(argKind == SPLIT_REGULAR)
+			{
+				if(F && PA.getConstantOffsetForPointer(&*arg_it))
+				{
+					compilePointerBase(code, *cur, opCount);
+				}
+				else
+				{
+					compilePointerBase(code, *cur, opCount);
+					compilePointerOffset(code, *cur);
+				}
+			}
+			else if(argKind != UNKNOWN)
+			{
+				compilePointerAs(code, *cur, argKind);
+			}
+		}
+		else
+		{
+			compileOperand(code, *cur);
+		}
+	}
+}
+
+// TODO: is this still needed once we switch from hacking JS functions into wasm
+// to having attributes for GC?
+POINTER_KIND CheerpWasmWriter::getLocalPointerKind(const Value* v)
+{
+	POINTER_KIND kind = COMPLETE_OBJECT;
+	if (v->getType()->isPointerTy())
+	{
+		kind = PA.getPointerKind(v);
+		if (auto ci = dyn_cast<CallInst>(v))
+		{
+			const Function* calledFunc = ci->getCalledFunction();
+			unsigned intrId = calledFunc->getIntrinsicID();
+
+			if (intrId == Intrinsic::cheerp_allocate || intrId == Intrinsic::cheerp_allocate_array)
+			{
+				if (kind == REGULAR)
+					return (SPLIT_REGULAR);
+			}
+		}
+	}
+	return (kind);
+}
+
 void CheerpWasmWriter::compileMethodLocals(WasmBuffer& code, const vector<int>& locals)
 {
 	uint32_t groups = (uint32_t) locals.at(Registerize::INTEGER) > 0;
@@ -4256,6 +5554,15 @@ void CheerpWasmWriter::compileMethodParams(WasmBuffer& code, const FunctionType*
 		encodeValType(fTy->getParamType(i), code);
 }
 
+static bool isReturnTypeGC(const Type* Ty)
+{
+	if (auto sTy = dyn_cast<StructType>(Ty))
+		return (!sTy->hasAsmJS());
+	if (auto aTy = dyn_cast<ArrayType>(Ty))
+		return (true); // TODO: use address spaces
+	return (false);
+}
+
 void CheerpWasmWriter::compileMethodResult(WasmBuffer& code, const Type* ty)
 {
 	if (ty->isVoidTy())
@@ -4265,7 +5572,14 @@ void CheerpWasmWriter::compileMethodResult(WasmBuffer& code, const Type* ty)
 	else
 	{
 		encodeULEB128(1, code);
-		encodeValType(ty, code);
+		if (isReturnTypeGC(ty))
+		{
+			// Nullable reference
+			encodeULEB128(0x63, code);
+			encodeSLEB128(linearHelper.getGCTypeIndex(ty, COMPLETE_OBJECT), code);
+		}
+		else
+			encodeValType(ty, code);
 	}
 }
 
@@ -4289,6 +5603,35 @@ void CheerpWasmWriter::compileCondition(WasmBuffer& code, const llvm::Value* con
 			p = CmpInst::getInversePredicate(p);
 		Value* op0 = ci->getOperand(0);
 		Value* op1 = ci->getOperand(1);
+
+
+		if (isTypeGC(op0->getType()) || isTypeGC(op1->getType())) // TODO: can just check one fo the two?
+		{
+			// TODO: using the passed booleanInvert seems to not work in some cases,
+			// in WasmWriter it gets caught by a TK_IfNot token rather than the TK_BrIfNot
+			booleanInvert = p==CmpInst::ICMP_NE;
+			// Optimization for NULL reference comparison
+			if (isa<ConstantPointerNull>(op0) || isa<ConstantPointerNull>(op1))
+			{
+				if (isa<ConstantPointerNull>(op0))
+					std::swap(op0, op1);
+				compileOperand(code, op0);
+				encodeInst(WasmOpcode::REF_IS_NULL, code);
+				if (booleanInvert)
+					encodeInst(WasmOpcode::I32_EQZ, code);
+				teeLocals.removeConsumed();
+				return;
+			}
+
+			compileOperand(code, op0);
+			compileOperand(code, op1);
+			encodeInst(WasmOpcode::REF_EQ, code);
+			if (booleanInvert)
+				encodeInst(WasmOpcode::I32_EQZ, code);
+			teeLocals.removeConsumed();
+			return;
+		}
+
 		if(ci->isCommutative() && isa<Constant>(op0))
 		{
 			// Move the constant on op1 to simplify the logic below
@@ -4479,6 +5822,8 @@ const BasicBlock* CheerpWasmWriter::compileTokens(WasmBuffer& code,
 				compileCondition(code, bi->getCondition(), IfNot);
 				const int Depth = getDepth(T.getMatch());
 				teeLocals.clearTopmostCandidates(code, Depth+1);
+				// TODO: IfNot does not work correctly for some GC comparisons
+				// this might be fixed if we stop hacking things over from the JS side
 				encodeBranchHint(bi, IfNot, code);
 				encodeInst(WasmU32Opcode::BR_IF, Depth, code);
 				break;
@@ -4593,6 +5938,118 @@ std::map<const llvm::BasicBlock*, const llvm::PHINode*> CheerpWasmWriter::select
 	return phiNodesHandledAsResult;
 }
 
+// TODO: maybe cache this since we loop through it inside the linearMemoryHelper already
+uint32_t CheerpWasmWriter::getDowncastArraySize(StructType* sTy, uint32_t size) const
+{
+	if (sTy->hasDirectBase())
+	{
+		size = getDowncastArraySize(sTy->getDirectBase(), size);
+		if(!TypeSupport::hasBasesInfoMetadata(sTy, module))
+			return size;
+	}
+	else
+		size++;
+	
+	uint32_t firstBase;
+	uint32_t baseCount;
+	if(!types.getBasesInfo(sTy, firstBase, baseCount))
+		return size;
+
+	for (uint32_t i = firstBase; i< (firstBase + baseCount); i++)
+	{
+		if (!sTy->getElementType(i)->isStructTy())
+			continue ;
+		size = getDowncastArraySize(cast<StructType>(sTy->getElementType(i)), size);
+	}
+	return size;
+}
+
+uint32_t CheerpWasmWriter::compileDowncastInitializerRecursive(WasmBuffer& code, Chunk<128> currClassAccess, StructType* currTy, uint32_t baseCount)
+{
+	int32_t typeIdx = linearHelper.getGCTypeIndex(currTy, COMPLETE_OBJECT);
+
+	if (currTy->hasDirectBase())
+	{
+		baseCount = compileDowncastInitializerRecursive(code, currClassAccess, currTy->getDirectBase(), baseCount);
+		if(!TypeSupport::hasBasesInfoMetadata(currTy, module))
+			return baseCount;
+	}
+	else
+	{
+		// store the current class into the the tmp local and downcast array
+		encodeInst(WasmU32Opcode::GET_LOCAL, 1, code);
+		encodeInst(WasmS32Opcode::I32_CONST, baseCount, code);
+		code << currClassAccess.str();
+		encodeInst(WasmU32Opcode::TEE_LOCAL, 2, code);
+		encodeInst(WasmGCOpcode::ARRAY_SET, linearHelper.getSplitRegularObjectIdx(), code);
+
+		// store the offset
+		encodeInst(WasmU32Opcode::GET_LOCAL, 2, code);
+		encodeInst(WasmGCOpcode::REF_CAST_NULL, typeIdx, code);
+		encodeInst(WasmS32Opcode::I32_CONST, baseCount, code);
+		encodeInst(WasmGCOpcode::STRUCT_SET, typeIdx, 0, code);
+
+		// store the downcast array
+		encodeInst(WasmU32Opcode::GET_LOCAL, 2, code);
+		encodeInst(WasmGCOpcode::REF_CAST_NULL, typeIdx, code);
+		encodeInst(WasmU32Opcode::GET_LOCAL, 1, code);
+		encodeInst(WasmGCOpcode::STRUCT_SET, typeIdx, 1, code);
+
+		baseCount++;
+	}
+
+	uint32_t firstBase;
+	uint32_t localBaseCount;
+	if (!types.getBasesInfo(currTy, firstBase, localBaseCount))
+		return baseCount;
+
+	for (uint32_t i = firstBase; i < (firstBase + localBaseCount); i++)
+	{
+		// TODO: can we just assert this?
+		if (!currTy->getElementType(i)->isStructTy())
+			continue ;
+
+		Chunk<128> nextClassAccess(currClassAccess);
+
+		// The +2 is to account for the .o offset and the .a array
+		encodeInst(WasmGCOpcode::STRUCT_GET, typeIdx, i+2, nextClassAccess);
+		encodeInst(WasmGCOpcode::REF_CAST_NULL, linearHelper.getGCTypeIndex(currTy->getElementType(i), COMPLETE_OBJECT), nextClassAccess);
+		baseCount = compileDowncastInitializerRecursive(code, nextClassAccess, cast<StructType>(currTy->getElementType(i)), baseCount);
+	}
+	return baseCount;
+}
+
+void CheerpWasmWriter::compileDowncastInitializer(WasmBuffer& code, StructType* sTy)
+{
+	const int32_t splitRegIdx = linearHelper.getSplitRegularObjectIdx();
+
+	// encode the local group count
+	encodeULEB128(2, code);
+	// the local downcast array
+	encodeULEB128(1, code);
+	encodeULEB128(0x63, code);
+	encodeSLEB128(splitRegIdx, code);
+	// a tmp anyref so we don't have to encode every struct_get over again
+	encodeULEB128(1, code);
+	encodeULEB128(0x6E, code);
+
+	// allocate the array and initialize the size
+	uint32_t size = getDowncastArraySize(sTy, 0);
+	encodeInst(WasmU32Opcode::REF_NULL, 0x6E, code);
+	encodeInst(WasmS32Opcode::I32_CONST, size, code);
+	encodeInst(WasmGCOpcode::ARRAY_NEW, splitRegIdx, code);
+	encodeInst(WasmU32Opcode::SET_LOCAL, 1, code);
+
+	// compile the logic:
+	Chunk<128> tmpBuffer;
+	encodeInst(WasmU32Opcode::GET_LOCAL, 0, tmpBuffer);
+	compileDowncastInitializerRecursive(code, tmpBuffer, sTy, 0);
+
+	// make sure to return the class
+	encodeInst(WasmU32Opcode::GET_LOCAL, 0, code);
+	encodeULEB128(0x0b, code);
+}
+
 void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F)
 {
 	assert(code.tell() == 0);
@@ -4600,7 +6057,7 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F)
 	assert(!F.empty());
 	currentFun = &F;
 
-	uint32_t numArgs = F.arg_size();
+	uint32_t numArgs = linearHelper.getExpandedFunctionType(&F)->getFunctionNumParams();
 	const llvm::BasicBlock* lastDepth0Block = nullptr;
 
 	const std::vector<Registerize::RegisterInfo>& regsInfo = registerize.getRegistersForFunction(&F);
@@ -4614,18 +6071,8 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F)
 	for(const Registerize::RegisterInfo& regInfo: regsInfo)
 	{
 		// Save the current local index
-		// TMP for GC testing
-		if (F.getName() == StringRef("_ZN9testClassC2Ev"))
-		{
-			localMap.at(reg) = numArgs;
-			locals.at((int)Registerize::REGISTER_KIND::INTEGER)++;
-		}
-		//
-		else
-		{
 		localMap.at(reg) = numArgs + locals.at((int)regInfo.regKind);
 		locals.at((int)regInfo.regKind)++;
-		}
 		reg++;
 	}
 
@@ -4663,10 +6110,6 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F)
 				offset += locals.at((int)Registerize::FLOAT);
 				offset += locals.at((int)Registerize::OBJECT);
 		}
-		// TMP for GC testing
-		if (F.getName() == StringRef("_ZN9testClassC2Ev"))
-			offset = 0;
-		//
 		localMap[reg++] += offset;
 	}
 
@@ -4766,11 +6209,9 @@ void CheerpWasmWriter::compileStorageType(Section& section, const Type* Ty)
 {
 	if (isNumberType(Ty) || Ty->isVectorTy())
 		encodeValType(Ty, section);
-	else if (Ty->isAggregateType())
+	else if (Ty->isAggregateType() || Ty->isPointerTy())
 	{
-		// nullable reference
-		encodeULEB128(0x63, section);
-		// anyref
+		// nullable anyref
 		encodeULEB128(0x6e, section);
 	}
 	else
@@ -4794,54 +6235,201 @@ void CheerpWasmWriter::compilePackedType(Section& section, const Type* Ty)
 	encodeULEB128(0x01, section);
 }
 
-void CheerpWasmWriter::compileArrayType(Section& section, const Type* Ty)
+// TODO: move to a utils file
+bool CheerpWasmWriter::needsOffsetAsElement(const StructType* sTy, uint32_t elemIdx)
 {
-	encodeULEB128(0x5E, section);
-	compileStorageType(section, Ty->getArrayElementType());
+	if (sTy->getElementType(elemIdx)->isPointerTy())
+	{
+		TypeAndIndex baseAndIndex(sTy, elemIdx, TypeAndIndex::STRUCT_MEMBER);
+		if (PA.getPointerKindForMemberPointer(baseAndIndex) == SPLIT_REGULAR)
+		{
+			if (PA.getConstantOffsetForMember(baseAndIndex) == NULL)
+			return (PA.getConstantOffsetForMember(baseAndIndex) == NULL);
+		}
+	}
+	return false;
 }
 
- void CheerpWasmWriter::compileStructType(Section& section, const Type* Ty)
+// TODO: move to a utils file
+bool CheerpWasmWriter::needsExpandedStruct(const StructType* sTy)
 {
-	encodeULEB128(0x5F, section);
-	encodeULEB128(Ty->getStructNumElements(), section);
-
-	for (size_t i = 0; i < Ty->getStructNumElements(); i++)
+	if (linearHelper.hasDowncastArray(sTy))
+		return true;
+	
+	for (uint32_t i = 0; i < sTy->getStructNumElements(); i++)
 	{
-		const Type* elemTy = Ty->getStructElementType(i);
-		if (elemTy->isIntegerTy(8) || elemTy->isIntegerTy(16))
-			compilePackedType(section, elemTy);
+		if (needsOffsetAsElement(sTy, i))
+			return true;
+	}
+	return false;
+}
+
+// TODO: move to a utils file
+uint32_t CheerpWasmWriter::getExpandedStructElemIdx(const StructType* sTy, uint32_t elemIdx)
+{
+	auto it = structElemIdxCache.find(sTy);
+	if (it == structElemIdxCache.end())
+		return (elemIdx);
+	return (it->second[elemIdx]);
+}
+
+// TODO: move to a utils file
+uint32_t CheerpWasmWriter::calculateAndCacheElemInfo(const StructType* sTy)
+{
+	assert(structElemIdxCache.find(sTy) == structElemIdxCache.end());
+	// TODO: is it clear by the function names/vars that this happens:
+	// Caching only the structs that need to be expanded. Should save on memory
+	// and make lookup faster. Does mean we have to loop through it twice,
+	// here and inside needsExpandedStruct
+	if (!needsExpandedStruct(sTy))
+		return (sTy->getStructNumElements());
+
+	uint32_t currOffset = 0;
+	if (linearHelper.hasDowncastArray(sTy))
+		currOffset += 2;
+
+	for (uint32_t i = 0; i < sTy->getStructNumElements(); i++)
+	{
+		structElemIdxCache[sTy][i] = currOffset;
+		if (needsOffsetAsElement(sTy, i))
+			currOffset++;
+		currOffset++;
+	}
+	return (currOffset);
+}
+
+void CheerpWasmWriter::compileArrayType(Section& section, const ArrayType* aTy)
+{
+	encodeULEB128(0x5E, section);
+	compileStorageType(section, aTy->getArrayElementType());
+}
+
+ void CheerpWasmWriter::compileStructType(Section& section, const StructType* sTy)
+{
+	bool hasDowncastArray = linearHelper.hasDowncastArray(sTy);
+	uint32_t elemCount = calculateAndCacheElemInfo(sTy);
+
+	encodeULEB128(0x5F, section);
+	encodeULEB128(elemCount, section);
+
+	// if the struct has a downcast array we extend it
+	// by adding an offset (.o) and array (.a) to the top of the struct
+	if (hasDowncastArray)
+	{
+		// encode the .o as a mutable i32
+		encodeULEB128(0x7f, section);
+		encodeULEB128(0x01, section);
+
+		// Split regular is encoded as an array of anyrefs
+		encodeULEB128(0x63, section);
+		encodeSLEB128(linearHelper.getSplitRegularObjectIdx(), section);
+		encodeULEB128(0x01, section);
+	}
+
+	for (size_t i = 0; i < sTy->getStructNumElements(); i++)
+	{
+		Type* elemTy = sTy->getStructElementType(i);
+		if (types.useWrapperArrayForMember(PA, const_cast<StructType*>(sTy), i))
+			compileStorageType(section, ArrayType::get(elemTy, 1));
 		else
 			compileStorageType(section, elemTy);
+
+		// If a pointer does not have a constant offset, add the offset into the struct
+		if (needsOffsetAsElement(sTy, i))
+		{
+			encodeULEB128(0x7f, section);
+			encodeULEB128(0x01, section);
+		}
+
+		if (hasDowncastArray && i + 1 == downcastIndex)
+		{
+			// encode the .o as a mutable i32
+			encodeULEB128(0x7f, section);
+			encodeULEB128(0x01, section);
+
+			// Split regular is encoded as an array of anyrefs
+			encodeULEB128(0x63, section);
+			encodeSLEB128(linearHelper.getSplitRegularObjectIdx(), section);
+			encodeULEB128(0x01, section);
+		}
 	}
+}
+
+void CheerpWasmWriter::compileSubType(Section& section, const StructType* sTy)
+{
+	// non-final subtype
+	encodeULEB128(0x50, section);
+
+	// If the struct has a direct base, encode that as its super type
+	// else it is a sub-type of another type, so we encode the super-type vector as empty
+	if (sTy->hasDirectBase())
+	{
+		encodeULEB128(1, section);
+		encodeSLEB128(linearHelper.getGCTypeIndex(sTy->getDirectBase(), COMPLETE_OBJECT), section);
+	}
+	else
+	{
+		encodeULEB128(0, section);
+		assert(linearHelper.isSuperType(sTy));
+	}
+
+	// compiling the struct itself
+	compileStructType(section, sTy);
 }
 
 void CheerpWasmWriter::compileTypeSection()
 {
 	if (linearHelper.getFunctionTypes().empty() && \
-		linearHelper.getAggregateTypes().empty())
+		linearHelper.getGCTypes().empty())
 		return;
 
 	Section section(0x01, "Type", this);
 
 	// Encode number of entries in the type section.
 	size_t typeCount = linearHelper.getFunctionTypes().size() + \
-					   linearHelper.getAggregateTypes().size();
+						linearHelper.getGCTypes().size() + \
+						globalDeps.classesWithBaseInfo().size();
 	encodeULEB128(typeCount, section);
+
+	// Define GC types
+	for (const auto& Ty : linearHelper.getGCTypes())
+	{
+		if (const StructType* sTy = dyn_cast<StructType>(Ty))
+		{
+			if (sTy->hasDirectBase() || linearHelper.isSuperType(sTy))
+				compileSubType(section, sTy);
+			else
+				compileStructType(section, sTy);
+		}
+		else if (const ArrayType* aTy = dyn_cast<ArrayType>(Ty))
+			compileArrayType(section, aTy);
+		else
+			report_fatal_error("Unexpected type", false);
+	}
 
 	// Define function type variables
 	for (const auto& fTy : linearHelper.getFunctionTypes())
 	{
 		encodeULEB128(0x60, section);
 		compileMethodParams(section, fTy);
+		// TODO: GC returns are encoded with their type index, should it be an anyref?
 		compileMethodResult(section, fTy->getReturnType());
 	}
 
-	for (const auto& Ty : linearHelper.getAggregateTypes())
+	// Define the function types used for the downcast array initializers
+	for (const auto& sTy : globalDeps.classesWithBaseInfo())
 	{
-		if (Ty->isStructTy())
-			compileStructType(section, Ty);
-		else if (Ty->isArrayTy())
-			compileArrayType(section, Ty);
+		const int32_t typeIdx = linearHelper.getGCTypeIndex(sTy, COMPLETE_OBJECT);
+		encodeULEB128(0x60, section);
+		// encode param
+		encodeULEB128(1, section);
+		encodeULEB128(0x63, section);
+		encodeSLEB128(typeIdx, section);
+
+		// encode result
+		encodeULEB128(1, section);
+		encodeULEB128(0x63, section);
+		encodeSLEB128(typeIdx, section);
 	}
 
 	section.encode();
@@ -4989,7 +6577,8 @@ void CheerpWasmWriter::compileFunctionSection()
 
 	Section section(0x03, "Function", this);
 
-	uint32_t count = linearHelper.functions().size();
+	// TODO: filter with only the Wasm classes with base info once we move away from the JS hack
+	uint32_t count = linearHelper.functions().size() + globalDeps.classesWithBaseInfo().size();
 	count = std::min(count, COMPILE_METHOD_LIMIT); // TODO
 
 	// Encode number of entries in the function section.
@@ -4998,12 +6587,27 @@ void CheerpWasmWriter::compileFunctionSection()
 	// Define function type ids
 	size_t i = 0;
 	for (const Function* F : linearHelper.functions()) {
-		const FunctionType* fTy = F->getFunctionType();
+		const FunctionType* fTy = linearHelper.getExpandedFunctionType(F);
 		const auto& found = linearHelper.getFunctionTypeIndices().find(fTy);
 		assert(found != linearHelper.getFunctionTypeIndices().end());
-		assert(found->second < linearHelper.getFunctionTypes().size());
+		// TODO: Since we've added more functions this assert does not work anymore
+		// find another way to assert it
+		// assert(found->second < linearHelper.getFunctionTypes().size());
 		encodeULEB128(found->second, section);
 
+		if (++i >= COMPILE_METHOD_LIMIT)
+			break; // TODO
+	}
+
+	// Define the function type ids for the downcast initializer functions
+	for (auto sTy : globalDeps.classesWithBaseInfo())
+	{
+		const FunctionType* fTy = FunctionType::get(sTy, {sTy}, false);
+		// const auto& found = linearHelper.getDowncastFuncIds().find(fTy);
+		const auto& found = linearHelper.getDowncastFuncTypeIndices().find(fTy);
+		assert(found != linearHelper.getDowncastFuncTypeIndices().end());
+		// TODO: add assert for id bound check
+		encodeULEB128(found->second, section);
 		if (++i >= COMPILE_METHOD_LIMIT)
 			break; // TODO
 	}
@@ -5209,7 +6813,7 @@ void CheerpWasmWriter::compileGlobalSection()
 	std::sort(orderedConstants.begin(), orderedConstants.end());
 
 	// Assign global ids
-	uint32_t globalId = 1;
+	uint32_t globalId = 2; // Skip stackTopGlobal and oSlotGlobal 
 	for(uint32_t i=0;i<orderedConstants.size();i++)
 	{
 		GlobalConstant& GC = orderedConstants[i];
@@ -5247,8 +6851,8 @@ void CheerpWasmWriter::compileGlobalSection()
 		stackTopGlobal = usedGlobals++;
 		int32_t stackTop = linearHelper.getStackStart();
 
-		// There is the stack and the globalized constants
-		encodeULEB128(1 + globalizedConstantsTmp.size() + globalizedGlobalsIDs.size(), section);
+		// The stack, the oSlot and the globalized constants
+		encodeULEB128(1 + 1 + globalizedConstantsTmp.size() + globalizedGlobalsIDs.size(), section);
 		// The global has type i32 (0x7f) and is mutable (0x01).
 		encodeULEB128(0x7f, section);
 		encodeULEB128(0x01, section);
@@ -5257,6 +6861,16 @@ void CheerpWasmWriter::compileGlobalSection()
 		encodeSLEB128(stackTop, section);
 		// Encode the end of the instruction sequence.
 		encodeULEB128(0x0b, section);
+
+		// The oSlot global, i32 and mutable
+		oSlotGlobal = usedGlobals++;
+		encodeULEB128(0x7f, section);
+		encodeULEB128(0x01, section);
+		// Initialize it to 0
+		encodeLiteralType(Type::getInt32Ty(Ctx), section);
+		encodeSLEB128(0, section);
+		encodeULEB128(0x0b, section);
+
 		// Render globals in reverse order
 		for(auto it = orderedConstants.begin(); it != orderedConstants.end(); ++it)
 		{
@@ -5272,6 +6886,7 @@ void CheerpWasmWriter::compileGlobalSection()
 				assert(GV->hasInitializer());
 				compileConstant(section, GV->getInitializer(), /*forGlobalInit*/true);
 				encodeULEB128(0x0b, section);
+				compiledGVars.insert(GV);
 				continue;
 			}
 			// Constant type
@@ -5281,6 +6896,7 @@ void CheerpWasmWriter::compileGlobalSection()
 			encodeULEB128(0x00, section);
 			compileConstant(section, C, /*forGlobalInit*/true);
 			encodeULEB128(0x0b, section);
+			compiledGVars.insert(cast<GlobalVariable>(C));
 		}
 
 		section.encode();
@@ -5387,7 +7003,7 @@ void CheerpWasmWriter::compileCodeSection()
 	Section codeSection(0x0a, "Code", this);
 	Section branchHintsSection(0x0, "metadata.code.branch_hint", this);
 
-	uint32_t count = linearHelper.functions().size();
+	uint32_t count = linearHelper.functions().size() + globalDeps.classesWithBaseInfo().size();
 	count = std::min(count, COMPILE_METHOD_LIMIT);
 	encodeULEB128(count, codeSection);		//Encode the number of Wasm functions
 	uint32_t countHinted = 0;
@@ -5438,6 +7054,25 @@ void CheerpWasmWriter::compileCodeSection()
 		if (++i == COMPILE_METHOD_LIMIT)
 			break; // TODO
 	}
+
+	// add the downcast initalizer functions
+	for (auto sTy : globalDeps.classesWithBaseInfo())
+	{
+		Chunk<128> downcastInitMethod;
+
+		compileDowncastInitializer(downcastInitMethod, sTy);
+
+#if WASM_DUMP_METHOD_DATA
+		llvm::errs() << "downcastInitMethod length: " << downcastInitMethod.tell() << '\n';
+		llvm::errs() << "downcastInitMethod: " << string_to_hex(downcastInitMethod.str()) << '\n';
+#endif
+		encodeULEB128(downcastInitMethod.tell(), codeSection);
+		codeSection << downcastInitMethod.str();
+
+		if (++i == COMPILE_METHOD_LIMIT)
+			break; // TODO
+	}
+
 	encodeULEB128(countHinted, branchHintsSection);	//Encode the number of Wasm functions
 	branchHintsSection << branchHintsChunk.str();
 
