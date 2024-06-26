@@ -47,6 +47,10 @@ private:
 public:
 	Chunk(): llvm::raw_svector_ostream(buffer)
 	{}
+	Chunk(Chunk& copy): llvm::raw_svector_ostream(buffer)
+	{
+		buffer = copy.buffer;
+	}
 	llvm::SmallVectorImpl<char>& buf()
 	{
 		return buffer;
@@ -102,9 +106,12 @@ private:
 
 	const NameGenerator& namegen;
 
+	TypeSupport types;
+
 	// Codegen custom globals
 	uint32_t usedGlobals;
 	uint32_t stackTopGlobal;
+	uint32_t oSlotGlobal;
 
 	// The wasm module heap size
 	uint32_t heapSize;
@@ -123,6 +130,14 @@ private:
 	// index includes the number of arguments that are defined before the first
 	// local variable.
 	std::vector<int> localMap;
+
+	// Used for dependency checking during the compilation of global variables.
+	std::set<const llvm::GlobalVariable*> compiledGVars;
+
+	// TODO: move to a utils file
+	// Used to keep track of the index of elements inside structs,
+	// the vector contains the index of split regulars without a constant offset.
+	std::unordered_map<const llvm::StructType*, std::unordered_map<uint32_t, uint32_t>> structElemIdxCache;
 
 	class TeeLocals
 	{
@@ -335,6 +350,7 @@ public:
 		llvm::SmallString<8> buf;
 		llvm::raw_svector_ostream wbuf(buf);
 		encodeInst(WasmU32Opcode::TEE_LOCAL, localId, wbuf);
+		llvm::errs() << "[putNOP] encoding TEE_LOCAL id: " << localId << "\n";
 		uint32_t teeSize = wbuf.tell();
 		if (!isValueUsed)
 		{
@@ -350,6 +366,9 @@ public:
 	//IFF returns true, it has modified the buffer so to obtain an extra value on the stack
 	bool hasPutTeeLocalOnStack(WasmBuffer& code, const llvm::Value* v)
 	{
+	
+		// TODO: get the right localId since SPLIT_REGULARS add extra indices into the arguments
+
 		const uint32_t currOffset = code.tell();
 		uint32_t bufferOffset;
 		uint32_t localId;
@@ -358,7 +377,26 @@ public:
 			llvm::SmallString<8> buf;
 			llvm::raw_svector_ostream wbuf(buf);
 			encodeInst(WasmU32Opcode::TEE_LOCAL, localId, wbuf);
+			llvm::errs() << "[hasPutTeeLocalOnStack] adding TEE_LOCAL of ID: " << localId << " where the currOffset is " << currOffset << " and the bufferOffset is " << bufferOffset << "\n";
+
 			code.pwrite(buf.begin(), wbuf.tell(), bufferOffset);
+			// If we call local_tee on a GC type it needs to be casted back to that type again
+			// since the local it will be stored into is of anyref type 
+			POINTER_KIND kind = COMPLETE_OBJECT;
+			kind = getLocalPointerKind(v);
+			if (v->getType()->isPointerTy())
+			{
+				kind = PA.getPointerKind(v);
+				if (kind == REGULAR && PA.getConstantOffsetForPointer(v)) // TODO: needsDowncastArray
+				{
+					llvm::errs() << "[hasPutTeeLocalOnStack] changing REGULAR to SPLIT_REGULAR\n";
+					kind = SPLIT_REGULAR;
+				}
+			}
+			// PA.Kind
+			llvm::errs() << "[hasPutTeeLocalOnStack] Compiling refCast\n";
+			llvm::errs() << "[hasPutTeeLocalOnStack] value: " << *v << "\n";
+			compileRefCast(code, v->getType(), kind);
 			return true;
 		}
 		return false;
@@ -381,12 +419,25 @@ private:
 	void compileNameSection();
 
 	static const char* getTypeString(const llvm::Type* t);
+	void compileMethodArgs(WasmBuffer& code, llvm::User::const_op_iterator it, llvm::User::const_op_iterator itE, const llvm::CallBase& callV);
 	void compileMethodLocals(WasmBuffer& code, const std::vector<int>& locals);
 	void compileMethodParams(WasmBuffer& code, const llvm::FunctionType* F);
 	void compileMethodResult(WasmBuffer& code, const llvm::Type* F);
 
-	void compileStructType(Section& section, const llvm::Type* Ty);
-	void compileArrayType(Section& section, const llvm::Type* Ty);
+	void compileRefCast(WasmBuffer& code, const llvm::Type* Ty, POINTER_KIND kind);
+	void compileCompleteObject(WasmBuffer& code, const llvm::Value* p, const llvm::Value* offset = (const llvm::Value *)nullptr, bool accessElem = true, bool accessArray = true);
+	void compileAccessToElement(WasmBuffer& code, llvm::Type* tp, llvm::ArrayRef< const llvm::Value* > indices, bool compileLastWrapperArray, bool accessLastElem);
+	void compileOffsetForGEP(WasmBuffer& code, llvm::Type* pointedOperandType, llvm::ArrayRef< const llvm::Value* > indices);
+	void compileGEPOffset(WasmBuffer& code, const llvm::User* gepInst);
+	void compileGEPBase(WasmBuffer& code, const llvm::User* gepInst);
+	void compileGEPGC(WasmBuffer& code, const llvm::User* gep_inst, POINTER_KIND kind, bool accessElem);
+	void compilePointerBase(WasmBuffer& code, const llvm::Value* ptr, const uint32_t elemIdx = 0);
+	void compilePointerBaseTyped(WasmBuffer& code, const llvm::Value* ptr, const llvm::Type* elemType, const uint32_t elemIdx = 0);
+	void compilePointerOffset(WasmBuffer& code, const llvm::Value* ptr);
+	void compilePointerAs(WasmBuffer& code, const llvm::Value* p, POINTER_KIND kind);
+	void compileSubType(Section& section, const llvm::StructType* sTy);
+	void compileStructType(Section& section, const llvm::StructType* sTy);
+	void compileArrayType(Section& section, const llvm::ArrayType* aTy);
 	void compilePackedType(Section& section, const llvm::Type* Ty);
 	void compileStorageType(Section& section, const llvm::Type* Ty);
 
@@ -394,6 +445,9 @@ private:
 		const std::vector<std::pair<int, int>>& cases);
 	void compileCondition(WasmBuffer& code, const llvm::Value* cond, bool booleanInvert);
 	const llvm::BasicBlock* compileTokens(WasmBuffer& code, const TokenList& Tokens);
+	uint32_t getDowncastArraySize(llvm::StructType* sTy, uint32_t size) const;
+	uint32_t compileDowncastInitializerRecursive(WasmBuffer& code, Chunk<128> currClassAccess, llvm::StructType* sTy, uint32_t baseCount);
+	void compileDowncastInitializer(WasmBuffer& code, llvm::StructType* sTy);
 	void compileMethod(WasmBuffer& code, const llvm::Function& F);
 	void compileImport(WasmBuffer& code, llvm::StringRef funcName, llvm::FunctionType* FTy);
 	void compileImportMemory(WasmBuffer& code);
@@ -405,11 +459,22 @@ private:
 	void compileLoad(WasmBuffer& code, const llvm::LoadInst& I, bool signExtend);
 	void compileStore(WasmBuffer& code, const llvm::StoreInst& I);
 	void compileGetLocal(WasmBuffer& code, const llvm::Instruction* v, uint32_t elemIdx);
-	void compileLoadGC(WasmBuffer& code, const llvm::Value* ptrOp, bool signExtend);
-	void compileStoreGC(WasmBuffer& code, const llvm::Value* ptrOp);
-	void allocateGC(WasmBuffer& code, const llvm::Type* Ty);
-	bool isInstructionGC(const llvm::Value* ptrOp) const;
-	bool isInstructionGC(const llvm::Instruction* I, const llvm::Value* ptrOp) const;
+	POINTER_KIND getLocalPointerKind(const llvm::Value* v);
+	llvm::Type* getStoreContainerType(const llvm::Value* ptrOp);
+	uint32_t calculateAndCacheElemInfo(const llvm::StructType* sTy);
+	uint32_t getExpandedStructElemIdx(const llvm::StructType* sTy, uint32_t elemIdx);
+	bool needsExpandedStruct(const llvm::StructType* sTy);
+	bool needsOffsetAsElement(const llvm::StructType* sTy, uint32_t elemIdx);
+	void compileLoadGC(WasmBuffer& code, const llvm::Type* Ty, const llvm::Value* ptrOp, llvm::StructType* sTy, uint32_t structElemIdx, bool isOffset, POINTER_KIND kind);
+	void compileStoreGC(WasmBuffer& code, const llvm::StoreInst& si, const llvm::Type* Ty, llvm::StructType* sTy, uint32_t structElemIdx, bool isOffset, POINTER_KIND ptrKind, POINTER_KIND storeKind);
+	void allocateComplexType(WasmBuffer& code, const llvm::Type* Ty);
+	void allocateSimpleType(WasmBuffer& code, const llvm::Type* Ty);
+	void allocateTypeGC(WasmBuffer& code, const llvm::Type* Ty);
+	void allocateGC(WasmBuffer& code, const llvm::Type* allocaType, POINTER_KIND kind, const bool needsRegular, const uint32_t arraySize = 1);
+	void callDowncastArrayInit(WasmBuffer& code, const llvm::Type* Ty);
+	void compileDowncastGC(WasmBuffer& code, const llvm::CallBase* callV);
+	uint32_t compileArraySizeGC(const DynamicAllocInfo & info);
+	bool isTypeGC(const llvm::Type* Ty) const;
 	// Returns true if all the uses have signed semantics
 	// NOTE: Careful, this is not in sync with needsUnsignedTruncation!
 	//       All the users listed here must _not_ call needsUnsignedTruncation!
@@ -490,6 +555,7 @@ public:
 		namegen(namegen),
 		usedGlobals(0),
 		stackTopGlobal(0),
+		oSlotGlobal(0),
 		heapSize(heapSize),
 		useWasmLoader(useWasmLoader),
 		prettyCode(prettyCode),
@@ -498,12 +564,15 @@ public:
 		exportedTable(exportedTable),
 		PA(PA),
 		inlineableCache(PA),
-		stream(s)
+		stream(s),
+		types(m)
 	{
 	}
 	void makeWasm();
 	void compileBB(WasmBuffer& code, const llvm::BasicBlock& BB, const llvm::PHINode* phiHandledAsResult = nullptr);
 	void compileDowncast(WasmBuffer& code, const llvm::CallBase* callV);
+	bool doesConstantDependOnUndefined(const llvm::Constant* C) const;
+	void compileConstantAggregate(WasmBuffer& code, const llvm::ConstantAggregate* ca);
 	void compileConstantExpr(WasmBuffer& code, const llvm::ConstantExpr* ce);
 	void compileConstant(WasmBuffer& code, const llvm::Constant* c, bool forGlobalInit);
 	void compileInstructionAndSet(WasmBuffer& code, const llvm::Instruction& I);
@@ -517,8 +586,8 @@ public:
 	static void encodeInst(WasmS64Opcode opcode, int64_t immediate, WasmBuffer& code);
 	static void encodeInst(WasmU32Opcode opcode, uint32_t immediate, WasmBuffer& code);
 	static void encodeInst(WasmGCOpcode opcode, WasmBuffer& code);
-	static void encodeInst(WasmGCOpcode opcode, uint32_t immediate, WasmBuffer& code);
-	static void encodeInst(WasmGCOpcode opcode, uint32_t i1, uint32_t i2, WasmBuffer& code);
+	static void encodeInst(WasmGCOpcode opcode, int32_t immediate, WasmBuffer& code);
+	static void encodeInst(WasmGCOpcode opcode, int32_t i1, int32_t i2, WasmBuffer& code);
 	static void encodeInst(WasmFCU32Opcode opcode, uint32_t immediate, WasmBuffer& code);
 	static void encodeInst(WasmFCU32U32Opcode opcode, uint32_t i1, uint32_t i2, WasmBuffer& code);
 	static void encodeInst(WasmSIMDOpcode opcode, WasmBuffer& code);

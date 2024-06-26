@@ -294,6 +294,7 @@ llvm::PreservedAnalyses ConstantExprLoweringPass::run(llvm::Module& M, llvm::Mod
 	PA.preserve<RegisterizeAnalysis>();
 	PA.preserve<InvokeWrappingAnalysis>();
 	PA.preserveSet<CFGAnalyses>();
+	PA.preserve<PointerAnalysis>();
 	return PA;
 }
 

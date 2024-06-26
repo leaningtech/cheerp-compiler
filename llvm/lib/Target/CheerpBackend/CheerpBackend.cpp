@@ -161,11 +161,11 @@ bool CheerpWritePass::runOnModule(Module& M)
   // inside not used instructions which are then not rendered.
   MPM.addPass(createModuleToFunctionPassAdaptor(cheerp::PreserveCheerpAnalysisPassWrapper<DCEPass, Function, FunctionAnalysisManager>()));
   MPM.addPass(cheerp::RegisterizePass(!NoJavaScriptMathFround, LinearOutput == Wasm));
+  MPM.addPass(cheerp::PointerAnalyzerPass());
   MPM.addPass(cheerp::LinearMemoryHelperPass(cheerp::LinearMemoryHelperInitializer({functionAddressMode, CheerpHeapSize, CheerpStackSize, CheerpStackOffset, growMem, hasAsmjsMem})));
   if (LinearOutput == LinearOutputTy::Wasm)
     MPM.addPass(cheerp::MemoryInitPass());
   MPM.addPass(cheerp::ConstantExprLoweringPass());
-  MPM.addPass(cheerp::PointerAnalyzerPass());
   MPM.addPass(cheerp::DelayInstsPass());
 
   MPM.addPass(cheerp::AllocaMergingPass());

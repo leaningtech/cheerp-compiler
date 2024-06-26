@@ -22,6 +22,7 @@ enum class WasmOpcode {
 	DROP = 0x1a,
 	SELECT = 0x1b,
 	F32_CONST = 0x43,
+	F64_CONST = 0x44,
 	I32_EQZ = 0x45,
 	I32_EQ = 0x46,
 	I32_NE = 0x47,
@@ -141,6 +142,8 @@ enum class WasmOpcode {
 	I64_REINTERPRET_F64 = 0xbd,
 	F32_REINTERPRET_I32 = 0xbe,
 	F64_REINTERPRET_I64 = 0xbf,
+	REF_IS_NULL = 0xD1,
+	REF_EQ = 0xD3,
 	GC = 0xfb,
 	FC = 0xfc,
 	SIMD = 0xfd,
@@ -150,6 +153,10 @@ enum class WasmOpcode {
 enum class WasmS32Opcode {
 	GROW_MEMORY = 0x40,
 	I32_CONST = 0x41,
+	// This reference Opcode is used with direct type indices
+	REF_NULL = 0xD0,
+	// REF_FUNC = 0xD2,
+	// REF_AS_NON_NULL = 0xD4,
 };
 
 enum class WasmS64Opcode {
@@ -169,6 +176,10 @@ enum class WasmU32Opcode {
 	TEE_LOCAL = 0x22,
 	GET_GLOBAL = 0x23,
 	SET_GLOBAL = 0x24,
+	// This reference Opcode is used with abstract heap types
+	REF_NULL = 0xD0,
+	// REF_FUNC = 0xD2,
+	// REF_AS_NON_NULL = 0xD4,
 };
 
 enum class WasmU32U32Opcode {
