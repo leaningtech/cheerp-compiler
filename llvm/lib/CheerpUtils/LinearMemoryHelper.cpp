@@ -15,7 +15,6 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Cheerp/Utility.h"
-#include <stack>
 
 using namespace cheerp;
 using namespace llvm;
@@ -257,6 +256,38 @@ bool LinearMemoryHelper::isZeroInitializer(const llvm::Constant* c) const
 	llvm_unreachable("Unsupported constant type");
 }
 
+
+
+
+
+
+
+
+
+static void printPtrKind(POINTER_KIND k)
+{
+	switch (k)
+	{
+		case COMPLETE_OBJECT: errs() << "COMPLETE_OBJECT\n"; break;
+		case REGULAR: errs() << "REGULAR\n"; break;
+		case SPLIT_REGULAR: errs() << "SPLIT_REGULAR\n"; break;
+		case BYTE_LAYOUT: errs() << "BYTE_LAYOUT\n"; break;
+		case RAW: errs() << "RAW\n"; break;
+		case CONSTANT: errs() << "CONSTANT\n"; break;
+		default:
+			assert(false && "Unexpected pointer kind\n");
+	}
+}
+
+
+
+
+
+
+
+
+
+
 const llvm::Value* LinearMemoryHelper::compileGEP(const llvm::Value* p, GepListener* listener, const PointerAnalyzer* PA) const
 {
 	return compileGEP(module, p, listener, PA);
@@ -383,8 +414,26 @@ bool LinearMemoryHelper::hasNonZeroInitialiser(const GlobalVariable* G) const
 	return !isZeroInitializer(init);
 }
 
+static bool TMPisTypeGC(const Type* Ty) // TODO: Expose the CheerpWasmWriter function or move it to a utils file
+{
+	if (Ty->isPointerTy()) {
+		return TMPisTypeGC(Ty->getPointerElementType());
+	}
+	if (const ArrayType* aTy = dyn_cast<ArrayType>(Ty))
+	{
+		return TMPisTypeGC(aTy->getArrayElementType());
+	}
+
+	if (const StructType* sTy = dyn_cast<StructType>(Ty))
+	{
+		return !sTy->hasAsmJS();
+	}
+	return false;
+}
+
 void LinearMemoryHelper::addGlobals()
 {
+	errs() << "[addGlobals] START\n";
 	generateGlobalizedGlobalsUsage();
 
 	const auto& targetData = module->getDataLayout();
@@ -395,7 +444,15 @@ void LinearMemoryHelper::addGlobals()
 	// of padding bytes.
 	for (const auto& G: module->globals())
 	{
-		if (G.getSection() != StringRef("asmjs")) continue;
+		// if (G.getSection() != StringRef("asmjs"))
+		// TODO: TMP for GC testing, revert later to the statement above
+		if (G.getSection() != StringRef("asmjs") && !(TMPisTypeGC(G.getType()) && G.getName().find("test") != std::string::npos))
+		{
+			errs() << "[addGlobals] Skipping global: " << G.getName() << " type is GC: " << (TMPisTypeGC(G.getType()) ? "true" : "false") << " type: " << *G.getType() << "\n";
+			continue;
+		}
+
+		errs() << "[addGlobals] adding global: " << G.getName() << "\n";
 		asmjsGlobals.push_back(&G);
 	}
 
@@ -420,7 +477,10 @@ void LinearMemoryHelper::addGlobals()
 	// Compute the global variable addresses.
 	for (const auto G: asmjsGlobals) {
 		//Globalized globals do not need an address
-		if (globalizedGlobalsUsage.count(G))
+		// if (globalizedGlobalsUsage.count(G))
+		// 	continue;
+		// TODO: this is TMP for GC testing, revert to the one above later
+		if (globalizedGlobalsUsage.count(G) && (!TMPisTypeGC(G->getType()) || (TMPisTypeGC(G->getType()) && G->getName().find("test") == std::string::npos)))
 			continue;
 		asmjsAddressableGlobals.push_back(G);
 		Type* ty = G->getValueType();
@@ -442,12 +502,22 @@ void LinearMemoryHelper::generateGlobalizedGlobalsUsage()
 		return;
 	if (WasmNoGlobalization)
 		return;
+
+	for (auto& GV : module->globals())
+	{
+		errs() << "[generateGlobalizedGlobalsUsage] Global: " << GV << "\n";
+	}
+
+
 	// Identify all globals which are only ever accessed with with load/store, we can promote those to globals
 	for (const GlobalVariable& GV: module->globals())
 	{
 		// Don't deal with undefined variables
 		if(!GV.hasInitializer())
+		{
+			errs() << "[generateGlobalizedGlobals] skipping global: " << GV.getName() << ", has no initializer\n";
 			continue;
+		}
 		uint32_t useCount = 0;
 		for(const Use& U: GV.uses())
 		{
@@ -459,15 +529,66 @@ void LinearMemoryHelper::generateGlobalizedGlobalsUsage()
 				if (cast<Instruction>(user)->getFunction()->getSection() == StringRef("asmjs"))
 					continue;
 			}
+
+			// TODO: is TMP for GC testing, remove later, might need to keep the GEP check?
+			if ((isBitCast(user) || isGEP(user)) && TMPisTypeGC(GV.getType())) // && GV.getName().find("test") != std::string::npos)
+				continue;
+
+			errs() << "[generateGlobalizedGlobals] skipping " << GV << " because of user: " << *user << "\n";
+
 			useCount = 0;
 			break;
 		}
 		// useCount == 0 means either access from outside linear memory, non-load/store user, or no user at all
 		if(useCount == 0)
+		{
+			errs() << "[generateGlobalizedGlobalsUsage] skipping global: " << GV << " usecount == 0\n";
 			continue;
+		}
+		errs() << "[generateGlobalizedGlobalsUsage] adding global: " << GV << " to the globalizedGlobalsUsage list with a use count of: " << useCount << "\n";
 		// We want to globalize this global, add it to the final map with his use count
 		globalizedGlobalsUsage.insert(std::make_pair(&GV, useCount));
 	}
+}
+
+void LinearMemoryHelper::cacheDowncastArrayClassesRecursive(StructType* sTy, const TypeSupport& types)
+{
+	if (downcastArrayClasses.count(sTy))
+		return ;
+	downcastArrayClasses.insert(sTy);
+
+	if (!sTy->hasDirectBase())
+		return ;
+
+	cacheDowncastArrayClassesRecursive(sTy->getDirectBase(), types);
+
+	uint32_t firstBase;
+	uint32_t baseCount;
+	if(!types.getBasesInfo(sTy, firstBase, baseCount))
+		return ;
+
+
+	errs() << "[checkDowncastArrayClasses] Adding Directbase: " << sTy->getDirectBase()->getName() << "\n"; 	
+	for (uint32_t i = firstBase; i < (firstBase + baseCount); i++)
+	{
+		assert(sTy->getElementType(i)->isStructTy());
+		cacheDowncastArrayClassesRecursive(cast<StructType>(sTy->getElementType(i)), types);
+	}
+}
+
+void LinearMemoryHelper::cacheDowncastArrayClasses()
+{
+	TypeSupport types(*module);
+
+	for (auto *sTy : globalDeps->classesWithBaseInfo())
+	{
+		errs() << "[checkDowncastArrayClasses] struct type: " << sTy->getName() << " has base info\n";
+		errs() << "[checkDowncastArrayClasses] direct base is: " << sTy->getDirectBase()->getName() << "\n";
+		cacheDowncastArrayClassesRecursive(sTy, types);
+	}
+
+	for (auto DCclass : downcastArrayClasses)
+		errs() << "[addDowncastArrayCLasses] added class: " << DCclass->getStructName() << "\n";
 }
 
 /**
@@ -481,7 +602,8 @@ static inline Type* getTypeAsArrayType(Type* Ty)
 /**
  * Converts an array to an array with the same type and a size of 1
  * 
- * This is done so we can compare any array, regardless of size
+ * This is done so we can compare all arrays based on element type
+ * rather than element type and size
 */
 static inline Type* convertArrayType(const Type* Ty)
 {
@@ -489,13 +611,17 @@ static inline Type* convertArrayType(const Type* Ty)
 	return (getTypeAsArrayType(Ty->getArrayElementType()));
 }
 
-static void topologicalDFS(const Type* Ty, std::vector<const Type*> allTypes, \
-		std::unordered_set<const Type*>&  assignedTypes,std::stack<const Type*>& sortedStack )
+void LinearMemoryHelper::dependencyDFS(const Type* Ty, std::unordered_set<const Type*>& assignedTypes, std::vector<const Type*>& sorted)
 {
 	assignedTypes.insert(Ty);
 
 	if (Ty->isStructTy())
 	{
+		// Sort super types before subtypes
+		const StructType* sTy = cast<StructType>(Ty);
+		if (sTy->hasDirectBase() && !assignedTypes.count(sTy->getDirectBase()))
+			dependencyDFS(sTy->getDirectBase(), assignedTypes, sorted);
+
 		for (size_t i = 0; i < Ty->getStructNumElements(); i++)
 		{
 			Type* elem = Ty->getStructElementType(i);
@@ -504,39 +630,27 @@ static void topologicalDFS(const Type* Ty, std::vector<const Type*> allTypes, \
 				if (elem->isArrayTy())
 					elem = convertArrayType(elem);
 				if (!assignedTypes.count(elem))
-					topologicalDFS(elem, allTypes, assignedTypes, sortedStack);
+					dependencyDFS(elem, assignedTypes, sorted);
 			}
 		}
 	}
 
-	sortedStack.push(Ty);
+	sorted.push_back(Ty);
 }
 
 /**
  * Sort all the types in an order that if a type has a dependency
  * then that type will be in front of it
- * 
- * This might be unnecessary if we keep every aggregate element as anyref
 */
-static void topologicalDependencySort(std::vector<const Type*>& allTypes, std::vector<const Type*>& sorted)
+void LinearMemoryHelper::dependencySort(std::vector<const Type*>& allTypes, std::vector<const Type*>& sorted)
 {
 	std::unordered_set<const Type*> assignedTypes;
-	std::stack<const Type*> sortedStack;
 
 	for (auto Ty : allTypes)
 	{
 		if (!assignedTypes.count(Ty))
-			topologicalDFS(Ty, allTypes, assignedTypes, sortedStack);
+			dependencyDFS(Ty, assignedTypes, sorted);
 	}
-
-	sorted.reserve(sortedStack.size());
-	while (!sortedStack.empty())
-	{
-		sorted.push_back(sortedStack.top());
-		sortedStack.pop();
-	}
-
-	std::reverse(sorted.begin(), sorted.end());
 }
 
 static void	addBasicArrayTypes(std::vector<const llvm::Type *>& unsorted, llvm::Module *module)
@@ -553,51 +667,194 @@ static void	addBasicArrayTypes(std::vector<const llvm::Type *>& unsorted, llvm::
 /**
  * Returns the index of an aggregate type within the wasm type section
 */
-uint32_t LinearMemoryHelper::getAggregateTypeIndex(const llvm::Type* Ty) const
+int32_t LinearMemoryHelper::getGCTypeIndex(const llvm::Type* Ty, POINTER_KIND kind) const
 {
-	assert(Ty->isAggregateType());
+	// TODO: clean the logic of this function up, its messy
+	errs() << "[getAggregateTypeIndex] Type: " << *Ty << "\n";
+	errs() << "[getAggregateTypeIndex] as kind: "; printPtrKind(kind);
+	assert(Ty->isPointerTy() || Ty->isAggregateType() || kind == SPLIT_REGULAR);
 
-	if (Ty->isStructTy())
+	if (kind == COMPLETE_OBJECT) // TODO: What to return with a CONSTANT? the same as a COMPLETE_OBJECT?
 	{
-		const auto& found = aggregateTypeIndices.find(Ty);
-		assert(found != aggregateTypeIndices.end());
+		Type* elemTy;
+		if (Ty->isStructTy())
+		{
+			const auto& found = GCTypeIndices.find(Ty);
+			assert(found != GCTypeIndices.end());
+			return (found->second);
+		}
+		else if (Ty->isPointerTy() && Ty->getPointerElementType()->isStructTy())
+		{
+			const auto& found = GCTypeIndices.find(Ty->getPointerElementType());
+			assert(found != GCTypeIndices.end());
+			return (found->second);
+		}
+		else if (Ty->isArrayTy())
+			elemTy = Ty->getArrayElementType();
+		else
+			elemTy = Ty->getPointerElementType();
+
+		// return the index for an array of anyref
+		if (elemTy->isAggregateType() || elemTy->isPointerTy())
+			return (splitRegularObjectIdx);
+
+		// convert the array to a size of 1 so we can retrieve the type idx
+		const auto& found = GCTypeIndices.find(getTypeAsArrayType(elemTy));
+		assert(found != GCTypeIndices.end());
 		return (found->second);
 	}
-	Type* elemTy = Ty->getArrayElementType();
-	const auto& found = aggregateTypeIndices.find(getTypeAsArrayType(elemTy));
-	assert(found != aggregateTypeIndices.end());
-	return (found->second);
+	else if (kind == SPLIT_REGULAR)
+	{
+		// since we can't detect arrays of non GC types as a GC type yet we use this for now
+		return (splitRegularObjectIdx);
+		// TODO: use this once we can detect split regulars of non GC type kinds
+			// if (Ty->isPointerTy() || Ty->isAggregateType())
+			// 	return (splitRegularObjectIdx);
+
+			// const auto& found = GCTypeIndices.find(getTypeAsArrayType(const_cast<Type*>(Ty)));
+			// assert(found != GCTypeIndices.end());
+			// return (found->second);
+	}
+	else if (kind == REGULAR)
+		return (regularObjectIdx);
+	else
+		report_fatal_error("unexpected pointer kind", false);
 }
 
-void LinearMemoryHelper::addAggregateTypes()
+Type* LinearMemoryHelper::getRegularType(void) const
 {
-	uint32_t idx = functionTypeIndices.size();
+	LLVMContext& CTX = module->getContext();
+
+	// Since ArrayTypes get converted to anyref in wasm we use a basic array
+	// to represent all other reference types
+	Type* arrTy = ArrayType::get(IntegerType::get(CTX, 32), 1);
+	Type* intTy = IntegerType::get(CTX, 32);
+	Type* regularObjectType = StructType::get(CTX, {arrTy, intTy}, false, NULL, false, true);
+	return regularObjectType;
+}
+
+Type* LinearMemoryHelper::getSplitRegularType(void) const
+{
+	LLVMContext& CTX = module->getContext();
+
+	// Since ArrayTypes get converted to anyref in wasm we use a basic array
+	// to represent all other reference types
+	Type* aTy = ArrayType::get(IntegerType::get(CTX, 32), 1);
+	Type* splitRegularType = ArrayType::get(aTy, 1);
+	return splitRegularType;
+}
+
+void LinearMemoryHelper::addGCTypes()
+{
+	errs() << "[addGCTypes] adding GC types\n";
+	// This is done so we dont create a specific Regular/SplitRegular object for every type,
+	// the internal object will be encoded as anyref so we can reuse it for all types. 
+	const Type* splitRegularType = getSplitRegularType();
+	GCTypes.push_back(splitRegularType);
+	GCTypeIndices[splitRegularType] = maxTypeIdx;
+	splitRegularObjectIdx = maxTypeIdx;
+	GCTypeCount++;
+	maxTypeIdx++;
+
+	const Type* regularType = getRegularType();
+	GCTypes.push_back(regularType);
+	GCTypeIndices[regularType] = maxTypeIdx;
+	regularObjectIdx = maxTypeIdx;
+	GCTypeCount++;
+	maxTypeIdx++;
+
 	std::vector<const Type*> unsorted;
+	std::vector<const Type*> sorted;
 
 	addBasicArrayTypes(unsorted, module);
 	for (auto sTy : module->getIdentifiedStructTypes())
 	{
 		// TODO: create a bool like ->hasWasmGC()
 		// and find a way to check for GC arrays
-		if (sTy->hasAsmJS() || (!sTy->hasAsmJS() && sTy->getName().find("test") == std::string::npos))
+		if (sTy->hasAsmJS() || ((!sTy->hasAsmJS() && sTy->getName().find("test") == std::string::npos) && \
+			(!sTy->hasAsmJS() && sTy->getName().find("_vtable_") == std::string::npos)))
+		{
+			errs() << "[addGCTypes] skipping type: " << *sTy << "\n";
 			continue;
+		}
 
-		Type *structAsType = llvm::cast<Type>(sTy);
-		unsorted.push_back(structAsType);
-		unsorted.push_back(getTypeAsArrayType(structAsType));
+		if (sTy->hasDirectBase())
+		{
+			const Type* directBase = sTy->getDirectBase();
+			superTypes.insert(cast<StructType>(directBase));
+		}
+
+		errs() << "[addGCTypes] adding type: " << *sTy << "\n";
+		unsorted.push_back(sTy);
 	}
 
-	topologicalDependencySort(unsorted, aggregateTypes);
+	dependencySort(unsorted, sorted);
 
-	for (auto Ty : aggregateTypes)
+	for (auto Ty : sorted)
 	{
-		aggregateTypeIndices[Ty] = idx;
-		idx++;
+		GCTypes.push_back(Ty);
+		GCTypeIndices[Ty] = maxTypeIdx;
+		GCTypeCount++;
+		maxTypeIdx++;
 	}
+
+	cacheDowncastArrayClasses();
+}
+
+/**
+ * Create a FunctionType* that includes expanded SPLIT_REGULAR and REGULAR pointer kinds
+*/
+const llvm::FunctionType* LinearMemoryHelper::createExpandedFunctionType(const llvm::Function* F)
+{
+	std::vector<Type*> newArgs;
+	Type* returnTy = F->getReturnType(); 
+
+	errs() << "[getExpandedFunctionType] getting function type for func: " << F->getName() << "\n"; 
+	errs() << "[getExpandedFunctionType] return type: " << *returnTy << "\n";
+
+	for(auto arg = F->arg_begin(); arg != F->arg_end(); arg++)
+	{
+		if (arg->getType()->isPointerTy() && PA.getPointerKindForArgument(&*arg) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&*arg))
+		{
+			newArgs.push_back(getSplitRegularType());
+			newArgs.push_back(IntegerType::get(module->getContext(), 32));
+		}
+		else if (arg->getType()->isPointerTy() && PA.getPointerKindForArgument(&*arg) == REGULAR && !PA.getConstantOffsetForPointer(&*arg))
+			newArgs.push_back(getRegularType());
+		else
+			newArgs.push_back(arg->getType());
+	}
+	
+	if (returnTy->isPointerTy())
+	{
+		POINTER_KIND kind = PA.getPointerKindForReturn(F);
+		errs() << "[getExpandedFunctionType] Type: " << *returnTy << " is a "; printPtrKind(kind);
+
+		if (kind == REGULAR)
+			returnTy = getRegularType();
+		else if (kind == COMPLETE_OBJECT)
+		{
+			// TODO: Does this work for double pointers etc?
+			returnTy = returnTy->getPointerElementType();
+		}
+		else if (kind == SPLIT_REGULAR)
+			returnTy = getSplitRegularType();
+	}
+	errs() << "[getExpandedFunctionType] returning function type for func: " << F->getName() << " is: " << *returnTy << "\n";
+	const FunctionType* newFTy = FunctionType::get(returnTy, newArgs, F->isVarArg());
+	expandedFunctionTypes[F] = newFTy;
+	return (newFTy);
+}
+
+const FunctionType* LinearMemoryHelper::getExpandedFunctionType(const Function* F) const
+{
+	assert(expandedFunctionTypes.find(F) != expandedFunctionTypes.end());
+	return (expandedFunctionTypes.at(F));
 }
 
 void LinearMemoryHelper::addFunctions()
 {
+	errs() << "[addFunctions] Adding function types\n";
 	// Construct the list of asmjs functions. Make sure that __wasm_nullptr is
 	// the first list entry, if defined.
 	if (mode == FunctionAddressMode::Wasm)
@@ -616,29 +873,36 @@ void LinearMemoryHelper::addFunctions()
 
 		// add every asmjs function that contains test in its name
 		if (F.getSection() != StringRef("asmjs")) {
-			if (F.getName().str().find("test") != std::string::npos)
+			if (F.getName().str().find("test") == std::string::npos)
 			{
-				errs() << "Found test function: " << F.getName().str() + "\n";
-			}
-			else
+				errs() << "[addFunctions] Skipping function: " << F.getName() << " no test in name\n";
 				continue;
+			}
 		}
 
 		// Do not add __wasm_nullptr twice.
 		if (mode == FunctionAddressMode::Wasm && F.getName() == StringRef(wasmNullptrName))
+		{
+			errs() << "[addFunctions] Skipping function: " << F.getName() << " not adding wasmNullPtr twice\n";
 			continue;
+		}
 
 		// Adding empty functions here will only cause a crash later
 		if (F.empty())
+		{
+			errs() << "[addFunction] Skipping function: " << F.getName() << " empty function\n";
 			continue;
+		}
 
 		// WebAssembly has some builtin functions (sqrt, abs, copysign, etc.)
 		// which should be omitted, and is therefore a subset of the asmjs
 		// function list.
 		if (mode == FunctionAddressMode::Wasm && TypedBuiltinInstr::isWasmIntrinsic(&F) && !F.hasAddressTaken()) {
+			errs() << "[addFunctions] Skipping function: " << F.getName() << " is a wasm intrinsic";
 			continue;
 		}
 
+		errs() << "[addFunctions] Adding function: " << F.getName() << "\n";
 		unsorted.push_back(&F);
 	}
 
@@ -665,17 +929,16 @@ void LinearMemoryHelper::addFunctions()
 	// asm.js functions will be added below.
 #define ADD_FUNCTION_TYPE(fTy) \
 if (!functionTypeIndices.count(fTy)) { \
-	uint32_t idx = functionTypeIndices.size(); \
-	functionTypeIndices[fTy] = idx; \
+	functionTypeIndices[fTy] = maxTypeIdx++; \
 	functionTypes.push_back(fTy); \
-	assert(idx < functionTypes.size()); \
 }
 #define ADD_BUILTIN(x, sig) if(globalDeps->needsBuiltin(BuiltinInstr::BUILTIN::x)) { needs_ ## sig = true; builtinIds[BuiltinInstr::x] = maxFunctionId++; }
 
 	for (const Function* F : globalDeps->asmJSImports()) {
-		const FunctionType* fTy = F->getFunctionType();
+		const FunctionType* fTy = createExpandedFunctionType(F);
 		ADD_FUNCTION_TYPE(fTy);
 		functionIds.insert(std::make_pair(F, maxFunctionId++));
+		errs() << "[addFunctions] added function " << F->getName() << " from globalDeps\n";
 	}
 	if(!NoNativeJavaScriptMath && mode == FunctionAddressMode::Wasm)
 	{
@@ -718,7 +981,8 @@ if (!functionTypeIndices.count(fTy)) { \
 	// Build the function tables first
 	for (const Function* F : asmjsFunctions_)
 	{
-		const FunctionType* fTy = F->getFunctionType();
+		errs() << "[addFunctions] trying to add function " << F->getName() << " from asmjsFunctions\n";
+		const FunctionType* fTy = createExpandedFunctionType(F);
 		if (F->hasAddressTaken() || F->getName() == StringRef(wasmNullptrName) || (freeTaken && F->getName() == StringRef("free"))) {
 			auto it = functionTables.find(fTy);
 			if (it == functionTables.end())
@@ -729,16 +993,25 @@ if (!functionTypeIndices.count(fTy)) { \
 			it->second.functions.push_back(F);
 		}
 
+		errs() << "[addFunctions] afterFunction table stuff\n";
+
 		functionIds.insert(std::make_pair(F, maxFunctionId++));
 
+		errs() << "[addFunctions] inserted pair\n";
+
+
 		const auto& found = functionTypeIndices.find(fTy);
+		errs() << "[addFunctions] after find\n";
 		if (found == functionTypeIndices.end()) {
-			uint32_t idx = functionTypeIndices.size();
-			functionTypeIndices[fTy] = idx;
+			functionTypeIndices[fTy] = maxTypeIdx++;
 			functionTypes.push_back(fTy);
-			assert(idx < functionTypes.size());
+			// assert(idx < functionTypes.size());
 		}
+		errs() << "[addFunctions] done adding function: " << F->getName() << "\n";
 	}
+
+	errs() << "[addFunctions] after while loop\n";
+	errs().flush();
 
 	// Then assign addresses in the order that the function tables are created.
 	// Without the creation order, it is possible that __wasm_nullptr will not
@@ -767,6 +1040,7 @@ if (!functionTypeIndices.count(fTy)) { \
 		t.second.offset = offset;
 		offset += t.second.functions.size();
 		
+		//TODO: check typeIndex
 		size_t typeIndex = 0;
 		for (auto& fTy : functionTypes) {
 			if (FunctionSignatureCmp(/*isStrict*/false)(t.first, fTy))
@@ -774,7 +1048,31 @@ if (!functionTypeIndices.count(fTy)) { \
 			typeIndex++;
 		}
 		t.second.typeIndex = typeIndex;
-		assert(typeIndex < functionTypes.size());
+		// TODO: this assert will fail because we added the GC types in front of the functions
+		// assert(typeIndex < functionTypes.size());
+	}
+
+	// Create the function types for the downcast array initializer functions
+	for (auto sTy : globalDeps->classesWithBaseInfo())
+	{
+		const FunctionType* fTy = FunctionType::get(sTy, {sTy}, false);
+		errs() << "[addFunctions] adding downcastArrayInitializer: " << *sTy << "\n";
+		errs() << "[addFunctions] Func Type: " << *fTy << "\n";
+		errs() << "[addFunctions] FuncTypeIdx: " << maxTypeIdx << "\n";
+		errs() << "[addFunctions] FuncId: " << maxFunctionId << "\n";
+		downcastFuncTypeIndices[fTy] = maxTypeIdx++;
+		downcastFuncIds[sTy] = maxFunctionId++;
+	}
+
+	errs() << "[addFunctions] AFTER ADDING\n";
+
+	for (auto sTy : globalDeps->classesWithBaseInfo())
+	{
+		const FunctionType* fTy = FunctionType::get(sTy, {sTy}, false);
+		errs() << "[addFunctions] downcastArrayInitializer: " << *sTy << "\n";
+		errs() << "[addFunctions] Func Type: " << *fTy << "\n";
+		errs() << "[addFunctions] FuncTypeIdx: " << downcastFuncTypeIndices[fTy] << "\n";
+		errs() << "[addFunctions] FuncId: " << downcastFuncIds[sTy] << "\n";
 	}
 }
 
