@@ -4309,6 +4309,12 @@ Sema::TemplateDeductionResult Sema::DeduceTemplateArguments(
     TemplateArgumentListInfo *ExplicitTemplateArgs, QualType ArgFunctionType,
     FunctionDecl *&Specialization, TemplateDeductionInfo &Info,
     bool IsAddressOfFunction) {
+
+  // Cheerp: Clang does not like when function types are qualified here
+  // Since the purpose is just matching the specialization with the base
+  // template, just strip it here
+  ArgFunctionType = Context.removeAddrSpaceQualType(ArgFunctionType);
+
   if (FunctionTemplate->isInvalidDecl())
     return TDK_Invalid;
 
@@ -4401,15 +4407,14 @@ Sema::TemplateDeductionResult Sema::DeduceTemplateArguments(
   // noreturn can't be dependent, so we don't actually need this for them
   // right now.)
   QualType SpecializationType = Specialization->getType();
-  if (!IsAddressOfFunction)
-    ArgFunctionType = adjustCCAndNoReturn(ArgFunctionType, SpecializationType,
-                                          /*AdjustExceptionSpec*/true);
-
   // Cheerp: Clang does not like when function types are qualified here
   // Since the purpose is just matching the specialization with the base
   // template, just strip it here
   SpecializationType = Context.removeAddrSpaceQualType(SpecializationType);
-  ArgFunctionType = Context.removeAddrSpaceQualType(ArgFunctionType);
+  if (!IsAddressOfFunction)
+    ArgFunctionType = adjustCCAndNoReturn(ArgFunctionType, SpecializationType,
+                                          /*AdjustExceptionSpec*/true);
+
   // If the requested function type does not match the actual type of the
   // specialization with respect to arguments of compatible pointer to function
   // types, template argument deduction fails.
