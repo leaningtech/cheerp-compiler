@@ -13838,7 +13838,7 @@ Sema::findInheritingConstructor(SourceLocation Loc,
   TypeSourceInfo *TInfo =
       Context.getTrivialTypeSourceInfo(BaseCtor->getType(), UsingLoc);
   FunctionProtoTypeLoc ProtoLoc =
-      TInfo->getTypeLoc().IgnoreParens().castAs<FunctionProtoTypeLoc>();
+      TInfo->getTypeLoc().IgnoreParens().getUnqualifiedLoc().castAs<FunctionProtoTypeLoc>();
 
   // Check the inherited constructor is valid and find the list of base classes
   // from which it was inherited.
