@@ -142,12 +142,21 @@ CodeGenModule::CodeGenModule(ASTContext &C,
   IntTy = llvm::IntegerType::get(LLVMContext, C.getTargetInfo().getIntWidth());
   IntPtrTy = llvm::IntegerType::get(LLVMContext,
     C.getTargetInfo().getMaxPointerWidth());
-  Int8PtrTy = Int8Ty->getPointerTo(0);
-  Int8PtrPtrTy = Int8PtrTy->getPointerTo(0);
+  DefaultAS = 0;
+  if (getLangOpts().Cheerp) {
+    DefaultAS = unsigned(getTriple().isCheerpWasm()?
+      cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+  }
+  Int8PtrTy = Int8Ty->getPointerTo(DefaultAS);
+  Int8PtrPtrTy = Int8PtrTy->getPointerTo(DefaultAS);
   const llvm::DataLayout &DL = M.getDataLayout();
   AllocaInt8PtrTy = Int8Ty->getPointerTo(DL.getAllocaAddrSpace());
   GlobalsInt8PtrTy = Int8Ty->getPointerTo(DL.getDefaultGlobalsAddressSpace());
   ASTAllocaAddressSpace = getTargetCodeGenInfo().getASTAllocaAddressSpace();
+
+  WasmVoidPtrTy = Int8Ty->getPointerTo(unsigned(cheerp::CheerpAS::Wasm));
+  GenericJSVoidPtrTy = Int8Ty->getPointerTo(unsigned(cheerp::CheerpAS::GenericJS));
+  ClientVoidPtrTy = Int8Ty->getPointerTo(unsigned(cheerp::CheerpAS::Client));
 
   // Build C++20 Module initializers.
   // TODO: Add Microsoft here once we know the mangling required for the
@@ -4078,10 +4087,6 @@ llvm::Constant *CodeGenModule::GetOrCreateLLVMFunction(
     IsIncompleteFunction = true;
   }
 
-  if (getLangOpts().Cheerp && AS == 0) {
-    bool asmjs = D? D->hasAttr<AsmJSAttr>() : getTriple().isCheerpWasm();
-    AS = unsigned(asmjs? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::Client);
-  }
   llvm::Function *F =
       llvm::Function::Create(FTy, llvm::Function::ExternalLinkage, AS,
                              Entry ? StringRef() : MangledName, &getModule());
@@ -4171,7 +4176,7 @@ llvm::Constant *CodeGenModule::GetOrCreateLLVMFunction(
     return F;
   }
 
-  llvm::Type *PTy = llvm::PointerType::getUnqual(Ty);
+  llvm::Type *PTy = llvm::PointerType::get(Ty, AS);
   return llvm::ConstantExpr::getBitCast(F, PTy);
 }
 
@@ -4201,10 +4206,11 @@ llvm::Constant *CodeGenModule::GetAddrOfFunction(GlobalDecl GD,
       GD = GlobalDecl(DD, Dtor_Base);
   }
 
+  unsigned AS = Context.getTargetAddressSpace(cast<FunctionDecl>(GD.getDecl())->getType().getAddressSpace());
   StringRef MangledName = getMangledName(GD);
   auto *F = GetOrCreateLLVMFunction(MangledName, Ty, GD, ForVTable, DontDefer,
                                     /*IsThunk=*/false, llvm::AttributeList(),
-                                    IsForDefinition);
+                                    IsForDefinition, AS);
   // Returns kernel handle for HIP kernel stub function.
   if (LangOpts.CUDA && !LangOpts.CUDAIsDevice &&
       cast<FunctionDecl>(GD.getDecl())->hasAttr<CUDAGlobalAttr>()) {
