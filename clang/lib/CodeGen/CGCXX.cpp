@@ -243,9 +243,12 @@ llvm::FunctionCallee CodeGenModule::getAddrAndTypeOfCXXStructor(
     FnType = getTypes().GetFunctionType(*FnInfo);
   }
 
+  unsigned AS = Context.getTargetAddressSpace(MD->getType().getAddressSpace());
   llvm::Constant *Ptr = GetOrCreateLLVMFunction(
       getMangledName(GD), FnType, GD, /*ForVTable=*/false, DontDefer,
-      /*IsThunk=*/false, /*ExtraAttrs=*/llvm::AttributeList(), IsForDefinition);
+      /*IsThunk=*/false, /*ExtraAttrs=*/llvm::AttributeList(), IsForDefinition, AS);
+  Ptr->dump();
+  assert(Ptr->getType()->getPointerAddressSpace()!=0);
   return {FnType, Ptr};
 }
 

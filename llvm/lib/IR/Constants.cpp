@@ -2207,6 +2207,11 @@ Constant *ConstantExpr::getIntToPtr(Constant *C, Type *DstTy,
 
 Constant *ConstantExpr::getBitCast(Constant *C, Type *DstTy,
                                    bool OnlyIfReduced) {
+  if(!CastInst::castIsValid(Instruction::BitCast, C, DstTy)) {
+    C->dump();
+    C->getType()->dump();
+    DstTy->dump();
+  }
   assert(CastInst::castIsValid(Instruction::BitCast, C, DstTy) &&
          "Invalid constantexpr bitcast!");
 

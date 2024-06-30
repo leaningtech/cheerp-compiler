@@ -89,6 +89,12 @@ public:
   llvm::LoadInst *CreateAlignedLoad(llvm::Type *Ty, llvm::Value *Addr,
                                     CharUnits Align,
                                     const llvm::Twine &Name = "") {
+    if(!llvm::cast<llvm::PointerType>(Addr->getType())
+               ->isOpaqueOrPointeeTypeMatches(Ty)) {
+      Addr->dump();
+      Addr->getType()->dump();
+      Ty->dump();
+    }
     assert(llvm::cast<llvm::PointerType>(Addr->getType())
                ->isOpaqueOrPointeeTypeMatches(Ty));
     return CreateAlignedLoad(Ty, Addr, Align.getAsAlign(), Name);
