@@ -661,6 +661,7 @@ static Triple::ObjectFormatType parseFormat(StringRef EnvironmentName) {
       .EndsWith("goff", Triple::GOFF)
       .EndsWith("macho", Triple::MachO)
       .EndsWith("wasm", Triple::Wasm)
+      .EndsWith("genericjs", Triple::Wasm)
       .EndsWith("spirv", Triple::SPIRV)
       .Default(Triple::UnknownObjectFormat);
 }
