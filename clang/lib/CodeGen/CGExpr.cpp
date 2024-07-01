@@ -1079,7 +1079,7 @@ Address CodeGenFunction::EmitPointerWithAlignment(const Expr *E,
             *TBAAInfo = CGM.mergeTBAAInfoForCast(*TBAAInfo,
                                                  TargetTypeTBAAInfo);
 	  const ExplicitCastExpr *ECE = cast<ExplicitCastExpr>(CE);
-	  if ((CGM.getTarget().isByteAddressable()==false) && ECE->getSubExpr()->getType() != ECE->getType()) {
+	  if ((CGM.getTarget().isByteAddressable()==false) && !getContext().hasSameType(ECE->getSubExpr()->getType(), ECE->getType())) {
             bool asmjs = CurFn->getSection()==StringRef("asmjs");
             llvm::Function* intrinsic = CGM.GetUserCastIntrinsic(ECE,
               ECE->getSubExpr()->getType(),
