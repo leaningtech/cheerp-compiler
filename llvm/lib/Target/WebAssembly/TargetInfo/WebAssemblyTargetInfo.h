@@ -20,6 +20,7 @@ class Target;
 
 Target &getTheWebAssemblyTarget32();
 Target &getTheWebAssemblyTarget64();
+Target &getTheCheerpBackendTarget();
 
 namespace WebAssembly {
 

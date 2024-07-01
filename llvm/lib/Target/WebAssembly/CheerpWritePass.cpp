@@ -10,32 +10,30 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Support/ToolOutputFile.h"
-#include "llvm/Support/FileSystem.h"
-#include "llvm/Support/Path.h"
-#include "llvm/IR/LegacyPassManager.h"
-#include "llvm/IR/PassManager.h"
-#include "llvm/IR/Function.h"
-#include "llvm/MC/TargetRegistry.h"
-#include "llvm/Cheerp/Writer.h"
-#include "llvm/Cheerp/WasmWriter.h"
-#include "llvm/Cheerp/DTSWriter.h"
-#include "llvm/Cheerp/PassRegistry.h"
-#include "llvm/Cheerp/PassUtility.h"
-#include "llvm/Cheerp/I64Lowering.h"
-#include "llvm/Cheerp/SIMDLowering.h"
-#include "llvm/Cheerp/SIMDTransform.h"
 #include "llvm/Cheerp/BitCastLowering.h"
+#include "llvm/Cheerp/DTSWriter.h"
+#include "llvm/Cheerp/I64Lowering.h"
 #include "llvm/Cheerp/JSStringLiteralLowering.h"
 #include "llvm/Cheerp/MemoryInit.h"
-#include "llvm/Transforms/Scalar/EarlyCSE.h"
+#include "llvm/Cheerp/PassRegistry.h"
+#include "llvm/Cheerp/PassUtility.h"
+#include "llvm/Cheerp/SIMDLowering.h"
+#include "llvm/Cheerp/SIMDTransform.h"
+#include "llvm/Cheerp/WasmWriter.h"
+#include "llvm/Cheerp/Writer.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/IR/PassManager.h"
+#include "llvm/MC/TargetRegistry.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/StandardInstrumentations.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Path.h"
 #include "llvm/Support/PrettyStackTrace.h"
 #include "llvm/Transforms/Scalar/DCE.h"
+#include "llvm/Transforms/Scalar/EarlyCSE.h"
 
 #include "CheerpWritePass.h"
-
-
 using namespace llvm;
 
 cl::opt<bool> VerbosePassManager("cheerp-verbose-pm", cl::init(false), cl::Hidden,
@@ -279,7 +277,7 @@ bool CheerpWritePass::runOnModule(Module& M)
 
   MPM.addPass(cheerp::CheerpWritePassImpl(Out, TM));
 
-  // Now that we have all of the passes ready, run them.
+  // Now that we have all the passes ready, run them.
   {
     PrettyStackTraceString CrashInfo("Optimizer");
     llvm::TimeTraceScope TimeScope("Optimizer");

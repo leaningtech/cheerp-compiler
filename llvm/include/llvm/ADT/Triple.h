@@ -784,9 +784,14 @@ public:
     return getArch() == Triple::arm || getArch() == Triple::armeb;
   }
 
-  /// Tests wheter the target is cheerp-wasm
+  /// Tests whether the target is cheerp-wasm
   bool isCheerpWasm() const {
     return getArch() == Triple::cheerp && getEnvironment() == Triple::WebAssembly;
+  }
+
+  /// Tests whether the target is cheerp (including cheerp-wasm and cheerp-js)
+  bool isCheerp() const{
+    return getArch() == Triple::cheerp;
   }
 
   /// Tests whether the target supports the EHABI exception
