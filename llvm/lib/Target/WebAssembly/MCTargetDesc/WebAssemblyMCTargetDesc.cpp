@@ -152,6 +152,10 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeWebAssemblyTargetMC() {
   RegisterMCInstrInfoFn I(getTheCheerpBackendTarget(), createCheerpMCInstrInfo);
   RegisterMCRegInfoFn R(getTheCheerpBackendTarget(), createCheerpMCRegInfo);
   RegisterMCSubtargetInfoFn S(getTheCheerpBackendTarget(), createCheerpMCSubtargetInfo);
+  TargetRegistry::RegisterMCCodeEmitter(getTheCheerpBackendTarget(), createCodeEmitter);
+  TargetRegistry::RegisterMCAsmBackend(getTheCheerpBackendTarget(), createAsmBackend);
+  TargetRegistry::RegisterObjectTargetStreamer(getTheCheerpBackendTarget(),
+                                                 createObjectTargetStreamer);
 
 }
 

@@ -9,6 +9,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/CodeGen/MachineModuleInfo.h"
+#include "llvm/Support/CodeGen.h"
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Cheerp/BitCastLowering.h"
 #include "llvm/Cheerp/DTSWriter.h"
@@ -74,6 +76,7 @@ PreservedAnalyses cheerp::CheerpWritePassImpl::run(Module& M, ModuleAnalysisMana
   bool WasmOnly = TargetTriple.getOS() == Triple::WASI;
   std::error_code ErrorCode;
   llvm::ToolOutputFile secondaryFile(SecondaryOutputFile, ErrorCode, sys::fs::OF_None);
+  llvm::ToolOutputFile streamerFile(SecondaryOutputFile+".tmp.wasm", ErrorCode, sys::fs::OF_None);
   std::unique_ptr<llvm::formatted_raw_ostream> secondaryOut;
   if (!SecondaryOutputFile.empty())
   {
@@ -137,7 +140,19 @@ PreservedAnalyses cheerp::CheerpWritePassImpl::run(Module& M, ModuleAnalysisMana
 
   if (LinearOutput != AsmJs && secondaryOut)
   {
-    cheerp::CheerpWasmWriter wasmWriter(M, MAM, *secondaryOut, PA, registerize, GDA, linearHelper, IW.getLandingPadTable(), namegen,
+    auto* MMIWP = new MachineModuleInfoWrapperPass(TM);
+    Expected<std::unique_ptr<MCStreamer>> MCStreamerOrErr =
+        TM->createMCStreamer(streamerFile.os(), nullptr, CodeGenFileType::CGFT_ObjectFile,
+            MMIWP->getMMI().getContext());
+    if (auto Err = MCStreamerOrErr.takeError())
+    {
+      llvm::errs()<<Err<<"\n";
+      llvm::report_fatal_error("Error in creating MCStreamer", false);
+      return PreservedAnalyses::none();
+    }
+    cheerp::CheerpWasmWriter wasmWriter(M, MAM, *secondaryOut, std::move(*MCStreamerOrErr),
+                                        PA, registerize, GDA, linearHelper,
+                                        IW.getLandingPadTable(), namegen,
                                         M.getContext(), CheerpHeapSize, !WasmOnly,
                                         PrettyCode, WasmSharedMemory,
                                         WasmExportedTable);
@@ -157,6 +172,7 @@ PreservedAnalyses cheerp::CheerpWritePassImpl::run(Module& M, ModuleAnalysisMana
     llvm::report_fatal_error(StringRef(dtsErrorCode.message()), false);
     return PreservedAnalyses::none();
   }
+  streamerFile.keep();
   if (!WasmOnly)
     secondaryFile.keep();
   if (MakeDTS)

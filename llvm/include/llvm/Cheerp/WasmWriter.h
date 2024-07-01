@@ -12,6 +12,7 @@
 #ifndef _CHEERP_WAST_WRITER_H
 #define _CHEERP_WAST_WRITER_H
 
+#include <memory>
 #include <sstream>
 
 #include "llvm/Cheerp/BaseWriter.h"
@@ -28,6 +29,7 @@
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/DebugInfo.h"
+#include "llvm/MC/MCStreamer.h"
 #include "llvm/Support/FormattedStream.h"
 
 namespace cheerp
@@ -454,7 +456,11 @@ private:
 	uint32_t numberOfImportedFunctions{0};
 public:
 	llvm::raw_ostream& stream;
-	CheerpWasmWriter(llvm::Module& m, llvm::ModuleAnalysisManager& MAM, llvm::raw_ostream& s, const cheerp::PointerAnalyzer & PA,
+	std::unique_ptr<llvm::MCStreamer> Streamer;
+	CheerpWasmWriter(
+			llvm::Module& m, llvm::ModuleAnalysisManager& MAM,
+			llvm::raw_ostream& s, std::unique_ptr<llvm::MCStreamer> Streamer,
+			const cheerp::PointerAnalyzer & PA,
 			cheerp::Registerize & registerize,
 			cheerp::GlobalDepsAnalyzer & gda,
 			const LinearMemoryHelper& linearHelper,
@@ -488,7 +494,8 @@ public:
 		exportedTable(exportedTable),
 		PA(PA),
 		inlineableCache(PA),
-		stream(s)
+		stream(s),
+		Streamer(std::move(Streamer))
 	{
 	}
 	void makeWasm();

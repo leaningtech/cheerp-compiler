@@ -47,10 +47,10 @@ namespace cheerp {
 class CheerpWritePassImpl : public PassInfoMixin<CheerpWritePassImpl> {
 private:
 	raw_ostream &Out;
-	TargetMachine *TM;
+	LLVMTargetMachine *TM;
 public:
 	PreservedAnalyses run(Module& M, ModuleAnalysisManager&);
-	CheerpWritePassImpl(raw_ostream &o, TargetMachine* _TM) :
+	CheerpWritePassImpl(raw_ostream &o, LLVMTargetMachine* _TM) :
 		Out(o), TM(_TM)
 	{
 		(void)(TM);

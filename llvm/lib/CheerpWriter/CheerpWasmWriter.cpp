@@ -24,6 +24,7 @@
 #include "llvm/IR/IntrinsicsWebAssembly.h"
 #include "llvm/IR/ProfDataUtils.h"
 #include "llvm/IR/Type.h"
+#include "llvm/MC/MCContext.h"
 #include "llvm/Support/LEB128.h"
 
 using namespace cheerp;
@@ -5224,6 +5225,7 @@ void CheerpWasmWriter::compileModule()
 void CheerpWasmWriter::makeWasm()
 {
 	compileModule();
+	Streamer->finish();
 }
 
 void CheerpWasmWriter::WasmGepWriter::addValue(const llvm::Value* v, uint32_t size)

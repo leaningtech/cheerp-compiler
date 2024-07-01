@@ -630,6 +630,6 @@ bool WebAssemblyTargetMachine::addPassesToEmitFile(
   if(!this->TargetTriple.isCheerp())
     return LLVMTargetMachine::addPassesToEmitFile(PM, Out, DwoOut, FileType, DisableVerify, MMIWP);
   
-  PM.add(new CheerpWritePass(Out, (TargetMachine*)this));
+  PM.add(new CheerpWritePass(Out, this));
   return false;
 }

@@ -18,9 +18,9 @@ private:
   raw_ostream &Out;
   static char ID;
   void getAnalysisUsage(AnalysisUsage& AU) const override { }
-  TargetMachine* TM;
+  LLVMTargetMachine* TM;
 public:
-  explicit CheerpWritePass(raw_ostream &o, TargetMachine* TM) :ModulePass(ID), Out(o), TM(TM) { }
+  explicit CheerpWritePass(raw_ostream &o, LLVMTargetMachine* TM) :ModulePass(ID), Out(o), TM(TM) { }
   bool runOnModule(Module &M) override;
   StringRef getPassName() const override { return "CheerpWritePass"; }
 };
