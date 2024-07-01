@@ -111,25 +111,6 @@ static Reloc::Model getEffectiveRelocModel(Optional<Reloc::Model> RM,
   return *RM;
 }
 
-static TargetPassConfig *
-addPassesToGenerateCode(LLVMTargetMachine &TM, PassManagerBase &PM,
-                        bool DisableVerify,
-                        MachineModuleInfoWrapperPass &MMIWP) {
-  // Targets may override createPassConfig to provide a target-specific
-  // subclass.
-  TargetPassConfig *PassConfig = TM.createPassConfig(PM);
-  // Set PassConfig options provided by TargetMachine.
-  PassConfig->setDisableVerify(DisableVerify);
-  PM.add(PassConfig);
-  PM.add(&MMIWP);
-
-  if (PassConfig->addISelPasses())
-    return nullptr;
-  PassConfig->addMachinePasses();
-  PassConfig->setInitialized();
-  return PassConfig;
-}
-
 /// Create an WebAssembly architecture model.
 ///
 WebAssemblyTargetMachine::WebAssemblyTargetMachine(
