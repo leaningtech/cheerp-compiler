@@ -6226,7 +6226,7 @@ bool SwitchLookupTable::WouldFitInRegister(const DataLayout &DL,
 static bool isTypeLegalForLookupTable(Type *Ty, const TargetTransformInfo &TTI,
                                       const DataLayout &DL) {
   // Allow any legal type.
-  if (TTI.isTypeLegal(Ty))
+  if (DL.isByteAddressable() && TTI.isTypeLegal(Ty))
     return true;
 
   auto *IT = dyn_cast<IntegerType>(Ty);
