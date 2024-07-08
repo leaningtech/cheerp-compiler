@@ -263,6 +263,21 @@ void TypeOptimizer::gatherAllTypesInfo(const Module& M)
 		uint32_t fieldIndex = cast<ConstantInt>(*std::prev(GEP->op_end()))->getZExtValue();
 		escapingFields.emplace(containerStructType, fieldIndex, TypeAndIndex::STRUCT_MEMBER);
 	}
+
+	// Mark classes that cannot be collapsed because they are used as a secondary base
+	for (const auto sTy : M.getIdentifiedStructTypes())
+	{
+		uint32_t firstBase;
+		uint32_t baseCount;
+		if (TypeSupport::getBasesInfo(M, sTy, firstBase, baseCount))
+		{
+			for (uint32_t i = firstBase; i< (firstBase + baseCount); i++)
+			{
+				assert(sTy->getElementType(i)->isStructTy());
+				uncollapsibleSecondaryBases.insert(sTy->getElementType(i));
+			}
+		}
+	}
 }
 
 /**
@@ -294,6 +309,9 @@ bool TypeOptimizer::canCollapseStruct(llvm::StructType* st, llvm::StructType* ne
 		assert(st->isLiteral());
 		return true;
 	}
+	// Secondary bases used inside a hierarchy where a downcast is performed on cannot safely be collapsed
+	if (uncollapsibleSecondaryBases.count(st))
+		return false;
 	// Stop if the element is just a int8, we may be dealing with an empty struct
 	// Empty structs are unsafe as the int8 inside is just a placeholder and will be replaced
 	// by a different type in a derived class

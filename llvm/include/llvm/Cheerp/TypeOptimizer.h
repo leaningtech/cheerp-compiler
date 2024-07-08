@@ -120,6 +120,7 @@ private:
 
 	llvm::Module* module;
 	const llvm::DataLayout* DL;
+	std::unordered_set<const llvm::Type*> uncollapsibleSecondaryBases;
 	std::unordered_map<const llvm::StructType*,std::set<llvm::StructType*>> downcastSourceToDestinationsMapping;
 	std::unordered_map<const llvm::StructType*, std::vector<std::pair<uint32_t, uint32_t>>> membersMappingData;
 	std::unordered_map<llvm::GlobalValue*, llvm::Constant*> globalsMapping;
