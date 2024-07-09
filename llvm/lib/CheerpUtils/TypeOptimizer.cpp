@@ -273,7 +273,8 @@ void TypeOptimizer::gatherAllTypesInfo(const Module& M)
 		{
 			for (uint32_t i = firstBase; i< (firstBase + baseCount); i++)
 			{
-				assert(sTy->getElementType(i)->isStructTy());
+				if (!sTy->getElementType(i)->isStructTy())
+					continue;
 				uncollapsibleSecondaryBases.insert(sTy->getElementType(i));
 			}
 		}
