@@ -139,6 +139,9 @@ private:
 	// the vector contains the index of split regulars without a constant offset.
 	std::unordered_map<const llvm::StructType*, std::unordered_map<uint32_t, uint32_t>> structElemIdxCache;
 
+	// Returns the index inside the struct where the downcast array is located
+	std::unordered_map<const llvm::StructType*, uint32_t> downcastArrayIndices;
+
 	class TeeLocals
 	{
 		struct TeeLocalCandidate
@@ -435,6 +438,7 @@ private:
 	void compilePointerBaseTyped(WasmBuffer& code, const llvm::Value* ptr, const llvm::Type* elemType, const uint32_t elemIdx = 0);
 	void compilePointerOffset(WasmBuffer& code, const llvm::Value* ptr);
 	void compilePointerAs(WasmBuffer& code, const llvm::Value* p, POINTER_KIND kind);
+	void compileRootStructWithDowncastArray(Section& section, const llvm::StructType* sTy);
 	void compileSubType(Section& section, const llvm::StructType* sTy);
 	void compileStructType(Section& section, const llvm::StructType* sTy);
 	void compileArrayType(Section& section, const llvm::ArrayType* aTy);
@@ -461,16 +465,17 @@ private:
 	void compileGetLocal(WasmBuffer& code, const llvm::Instruction* v, uint32_t elemIdx);
 	POINTER_KIND getLocalPointerKind(const llvm::Value* v);
 	llvm::Type* getStoreContainerType(const llvm::Value* ptrOp);
+	uint32_t cacheDowncastOffset(const llvm::StructType* sTy);
 	uint32_t calculateAndCacheElemInfo(const llvm::StructType* sTy);
 	uint32_t getExpandedStructElemIdx(const llvm::StructType* sTy, uint32_t elemIdx);
 	bool needsExpandedStruct(const llvm::StructType* sTy);
 	bool needsOffsetAsElement(const llvm::StructType* sTy, uint32_t elemIdx);
 	void compileLoadGC(WasmBuffer& code, const llvm::Type* Ty, const llvm::Value* ptrOp, llvm::StructType* sTy, uint32_t structElemIdx, bool isOffset, POINTER_KIND kind);
 	void compileStoreGC(WasmBuffer& code, const llvm::StoreInst& si, const llvm::Type* Ty, llvm::StructType* sTy, uint32_t structElemIdx, bool isOffset, POINTER_KIND ptrKind, POINTER_KIND storeKind);
-	void allocateComplexType(WasmBuffer& code, const llvm::Type* Ty);
 	void allocateSimpleType(WasmBuffer& code, const llvm::Type* Ty);
-	void allocateTypeGC(WasmBuffer& code, const llvm::Type* Ty);
-	void allocateGC(WasmBuffer& code, const llvm::Type* allocaType, POINTER_KIND kind, const bool needsRegular, const uint32_t arraySize = 1);
+	void allocateComplexType(WasmBuffer& code, const llvm::Type* Ty, bool hasDowncastArray);
+	void allocateTypeGC(WasmBuffer& code, const llvm::Type* Ty, bool hasDowncastArray);
+	void allocateGC(WasmBuffer& code, llvm::Type* allocaType, POINTER_KIND kind, const bool needsRegular, const uint32_t arraySize = 1);
 	void callDowncastArrayInit(WasmBuffer& code, const llvm::Type* Ty);
 	void compileDowncastGC(WasmBuffer& code, const llvm::CallBase* callV);
 	uint32_t compileArraySizeGC(const DynamicAllocInfo & info);

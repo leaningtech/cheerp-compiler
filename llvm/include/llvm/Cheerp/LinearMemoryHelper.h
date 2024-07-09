@@ -187,6 +187,8 @@ public:
 
 	typedef std::unordered_map<const llvm::Type*, int32_t> GCTypesIndicesMap;
 
+	typedef std::unordered_map<const llvm::StructType*, std::vector<const llvm::StructType*>> DirectBaseToSubTypesMap;
+
 	typedef std::unordered_map<const llvm::Type*, uint32_t> DowncastFuncIdMap;
 
 	typedef std::map<const llvm::Function*, const llvm::FunctionType*> ExpandedFunctionTypesMap;
@@ -248,18 +250,26 @@ public:
 		return asmjsFunctions_;
 	}
 
-	bool hasDowncastArray(const llvm::Type* Ty) const {
-		return (downcastArrayClasses.count(Ty) > 0);
+	const std::unordered_set<const llvm::StructType *>& getDowncastArrayClasses() const {
+		return downcastArrayClasses;
+	}
+
+	bool hasDowncastArray(const llvm::StructType* sTy) const {
+		return (downcastArrayClasses.count(sTy) > 0);
 	}
 
 	bool isSuperType(const llvm::StructType* sTy) const {
 		return (superTypes.count(sTy) > 0);
 	}
 
-	int32_t getGCTypeIndex(const llvm::Type* Ty, POINTER_KIND kind) const;
+	int32_t getGCTypeIndex(const llvm::Type* Ty, POINTER_KIND kind, bool needsDowncastArray = false) const;
 
 	const GCTypesIndicesMap& getGCTypeIndices() const {
 		return GCTypeIndices;
+	}
+
+	uint32_t getGCTypeCount() const {
+		return GCTypeCount;
 	}
 
 	// the init functions for downcasts will be encoded with direct type ID's
@@ -452,8 +462,9 @@ private:
 	void dependencyDFS(const llvm::Type* Ty, std::unordered_set<const llvm::Type*>& assignedTypes, std::vector<const llvm::Type*>& sorted);
 	void dependencySort(std::vector<const llvm::Type*>& allTypes, std::vector<const llvm::Type*>& sorted);
 
-	void cacheDowncastArrayClassesRecursive(llvm::StructType* sTy, const TypeSupport& types);
-	void cacheDowncastArrayClasses();
+	void markSubtypesForDowncast(const llvm::StructType* directBase, DirectBaseToSubTypesMap& subTypeMap);
+	void cacheDowncastArrayClassesRecursive(llvm::StructType* sTy, const TypeSupport& types, DirectBaseToSubTypesMap& subTypeMap);
+	void cacheDowncastArrayClasses(DirectBaseToSubTypesMap& subTypeMap);
 
 	llvm::Module* module;
 	PointerAnalyzer& PA;
@@ -468,8 +479,6 @@ private:
 	std::unordered_map<const llvm::Function*, uint32_t> functionIds;
 	std::array<uint32_t, BuiltinInstr::numGenericBuiltins()> builtinIds;
 	const llvm::Type* createExpandedType(const llvm::Type* Ty); 
-	// A map that uses a (Struct)Type as a key and returns a vector of types that have it as a DirectBase
-	// TODO: change into a set? currently only used to check if something is a directBase
 	std::unordered_set<const llvm::StructType*> superTypes;
 	const llvm::FunctionType* createExpandedFunctionType(const llvm::Function* F);
 	ExpandedFunctionTypesMap expandedFunctionTypes;
@@ -477,7 +486,7 @@ private:
 	std::unordered_map<const llvm::FunctionType*, int32_t> downcastFuncTypeIndices;
 	std::vector<const llvm::FunctionType*> functionTypes;
 	std::vector<const llvm::Type*> GCTypes;
-	std::unordered_set<const llvm::Type*> downcastArrayClasses;
+	std::unordered_set<const llvm::StructType*> downcastArrayClasses;
 	FunctionTypeIndicesMap functionTypeIndices;
 	GCTypesIndicesMap GCTypeIndices;
 	uint32_t GCTypeCount;
