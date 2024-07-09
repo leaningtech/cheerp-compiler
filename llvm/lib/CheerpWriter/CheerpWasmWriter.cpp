@@ -2169,7 +2169,6 @@ void CheerpWasmWriter::compileDowncastGC(WasmBuffer& code, const CallBase* callV
 	const Value * src = callV->getOperand(0);
 	const Value * offset = callV->getOperand(1);
 
-
 	Type* t = callV->getParamElementType(0);
 	// TODO: what is a client type and do we need to support it from the wasm side?
 	if(TypeSupport::isClientType(t) || (isa<ConstantInt>(offset) && cast<ConstantInt>(offset)->isNullValue()))
@@ -2190,7 +2189,8 @@ void CheerpWasmWriter::compileDowncastGC(WasmBuffer& code, const CallBase* callV
 	else
 	{
 		Type* returnTy = callV->getType();
-		int32_t returnTyIdx = linearHelper.getGCTypeIndex(returnTy, COMPLETE_OBJECT);
+		int32_t returnTypeIdx = linearHelper.getGCTypeIndex(returnTy, COMPLETE_OBJECT, true);
+		StructType* sTy = cast<StructType>(returnTy->getPointerElementType());
 		//Do a runtime downcast
 		if(result_kind == SPLIT_REGULAR)
 		{
@@ -2198,24 +2198,37 @@ void CheerpWasmWriter::compileDowncastGC(WasmBuffer& code, const CallBase* callV
 			assert(false);
 			uint32_t reg = registerize.getRegisterId(callV, 1, edgeContext);
 			uint32_t local = localMap.at(reg);
+			assert(downcastArrayIndices.find(sTy) != downcastArrayIndices.end());
+			assert(linearHelper.hasDowncastArray(sTy));
+
 			// store the .o-num
 			compileCompleteObject(code, src);
-			encodeInst(WasmGCOpcode::STRUCT_GET, returnTyIdx, 0, code);
+			// TODO: find a way to have the correct cast on the get local that happens above ^
+			// Root structs have to be cast from the root to the type that includes the
+			// downcast array and offset
+			if (!sTy->hasDirectBase())
+				encodeInst(WasmGCOpcode::REF_CAST, returnTypeIdx, code);
+			encodeInst(WasmGCOpcode::STRUCT_GET, returnTypeIdx, downcastArrayIndices[sTy], code);
 			compileOperand(code, offset);
 			encodeInst(WasmOpcode::I32_SUB, code);
 			encodeInst(WasmU32Opcode::SET_LOCAL, local, code);
 			// push the .a onto the stack so it can get stored
 			compileCompleteObject(code, src);
-			encodeInst(WasmGCOpcode::STRUCT_GET, returnTyIdx, 1, code);
+			// TODO: find a way to have the correct cast on the get local that happens above ^
+			// Root structs have to be cast from the root to the type that includes the
+			// downcast array and offset
+			if (!sTy->hasDirectBase())
+				encodeInst(WasmGCOpcode::REF_CAST, returnTypeIdx, code);
+			encodeInst(WasmGCOpcode::STRUCT_GET, returnTypeIdx, downcastArrayIndices[sTy] + 1, code);
 		}
 		else if(result_kind == REGULAR)
 		{
 			// create the .d using the .a
 			compileCompleteObject(code, src);
-			encodeInst(WasmGCOpcode::STRUCT_GET, returnTyIdx, 1, code);
+			encodeInst(WasmGCOpcode::STRUCT_GET, returnTypeIdx, downcastArrayIndices[sTy] + 1, code);
 			// create the .o using the .o-num
 			compileCompleteObject(code, src);
-			encodeInst(WasmGCOpcode::STRUCT_GET, returnTyIdx, 0, code);
+			encodeInst(WasmGCOpcode::STRUCT_GET, returnTypeIdx, downcastArrayIndices[sTy], code);
 			compileOperand(code, offset);
 			encodeInst(WasmOpcode::I32_SUB, code);
 
@@ -2231,14 +2244,28 @@ void CheerpWasmWriter::compileDowncastGC(WasmBuffer& code, const CallBase* callV
 		}
 		else
 		{
-			const int32_t typeIdx = linearHelper.getGCTypeIndex(src->getType(), COMPLETE_OBJECT);
+			const int32_t typeIdx = linearHelper.getGCTypeIndex(src->getType(), COMPLETE_OBJECT, true);
+			const StructType* sTy = cast<StructType>(src->getType()->getPointerElementType());
+			assert(downcastArrayIndices.find(sTy) != downcastArrayIndices.end());
+			assert(linearHelper.hasDowncastArray(sTy));
+
 			// push the downcast array on the stack
 			compileCompleteObject(code, src);
-			encodeInst(WasmGCOpcode::STRUCT_GET, typeIdx, 1, code);
+			// TODO: find a way to have the correct cast on the get local that happens above ^
+			// Root structs have to be cast from the root to the type that includes the
+			// downcast array and offset
+			if (!sTy->hasDirectBase())
+				encodeInst(WasmGCOpcode::REF_CAST, typeIdx, code);
+			encodeInst(WasmGCOpcode::STRUCT_GET, typeIdx, downcastArrayIndices[sTy] + 1, code);
 
 			// encode the .o-num
 			compileCompleteObject(code, src);
-			encodeInst(WasmGCOpcode::STRUCT_GET, typeIdx, 0, code);
+			// TODO: find a way to have the correct cast on the get local that happens above ^
+			// Root structs have to be cast from the root to the type that includes the
+			// downcast array and offset
+			if (!sTy->hasDirectBase())
+				encodeInst(WasmGCOpcode::REF_CAST, typeIdx, code);
+			encodeInst(WasmGCOpcode::STRUCT_GET, typeIdx, downcastArrayIndices[sTy], code);
 			compileOperand(code, offset);
 			encodeInst(WasmOpcode::I32_SUB, code);
 
@@ -2537,10 +2564,8 @@ void CheerpWasmWriter::compileStoreGC(WasmBuffer& code, const StoreInst& si, con
 	}
 	else if (ptrKind == POINTER_KIND::COMPLETE_OBJECT) // TODO: can COMPLETE_OBJECTS also be arrays?
 	{
-		const GetElementPtrInst* gep_inst = cast<GetElementPtrInst>(ptrOp);
-		// Type* baseTy = gep_inst->getSourceElementType();
 		Type* baseTy = getStoreContainerType(ptrOp);
-		const bool hasDowncastArray = linearHelper.hasDowncastArray(baseTy);
+		const GetElementPtrInst* gep_inst = cast<GetElementPtrInst>(ptrOp);
 		const int32_t typeIdx = linearHelper.getGCTypeIndex(baseTy, ptrKind);
 		// Note: We cannot use the ie.structElemIdx from the calling function,
 		// it will break REGULAR pointer kinds
@@ -2818,51 +2843,71 @@ void CheerpWasmWriter::allocateSimpleType(WasmBuffer& code, const Type* Ty)
 		encodeInst(WasmOpcode::F64_CONST, code);
 		encodeF64(0, code);
 	}
+	else
+		assert(false && "unexpected type");
 }
 
-void CheerpWasmWriter::allocateComplexType(WasmBuffer& code, const Type* Ty)
+void CheerpWasmWriter::allocateComplexType(WasmBuffer& code, const Type* Ty, bool hasDowncastArray)
 {
 	assert(Ty->isAggregateType() || Ty->isVectorTy());
 	if (auto aTy = dyn_cast<ArrayType>(Ty))
 	{
-		uint32_t typeIdx = linearHelper.getGCTypeIndex(Ty, COMPLETE_OBJECT);
-		allocateTypeGC(code, aTy->getArrayElementType());
+		uint32_t typeIdx = linearHelper.getGCTypeIndex(Ty, COMPLETE_OBJECT, hasDowncastArray);
+		allocateTypeGC(code, aTy->getArrayElementType(), hasDowncastArray);
 		encodeInst(WasmS32Opcode::I32_CONST, aTy->getArrayNumElements(), code); // TODO: use something like compileArraySize from CheerpWriter?
 		encodeInst(WasmGCOpcode::ARRAY_NEW, typeIdx, code);
 	}
 	else if (const StructType* sTy = dyn_cast<StructType>(Ty))
 	{
-		if (linearHelper.hasDowncastArray(sTy))
+		uint32_t firstBase;
+		uint32_t baseCount;
+		uint32_t downcastIdx = 0;
+		bool hasBases = types.getBasesInfo(sTy, firstBase, baseCount);
+		if (hasDowncastArray)
 		{
-			// encode the .o
-			encodeInst(WasmS32Opcode::I32_CONST, 0, code);
-			// encode the .a
-			encodeInst(WasmS32Opcode::REF_NULL, linearHelper.getSplitRegularObjectIdx(), code);
+			assert(downcastArrayIndices.find(sTy) != downcastArrayIndices.end());
+			assert(linearHelper.hasDowncastArray(sTy));
+			downcastIdx = downcastArrayIndices[sTy];
 		}
 		for (uint32_t i = 0; i < sTy->getNumElements(); i++)
 		{
 			const Type* elemTy = sTy->getStructElementType(i);
-			bool useWrapperArray = types.useWrapperArrayForMember(PA, const_cast<StructType*>(sTy), i);
 			if (elemTy->isPointerTy())
 			{
 				// Initialize pointers to NULL references
 				TypeAndIndex baseAndIndex(sTy, i, TypeAndIndex::STRUCT_MEMBER);
 				POINTER_KIND kind = PA.getPointerKindForMemberPointer(baseAndIndex);
 
-				uint32_t elemTypeIdx = linearHelper.getGCTypeIndex(elemTy, kind);
+				// TODO: check if this is correct
+				uint32_t elemTypeIdx = linearHelper.getGCTypeIndex(elemTy, kind, linearHelper.hasDowncastArray(dyn_cast<StructType>(elemTy->getPointerElementType())));
 				encodeInst(WasmS32Opcode::REF_NULL, elemTypeIdx, code);
 			}
 			else
-				allocateTypeGC(code, elemTy);
+			{
+				if (hasBases && i > firstBase)
+					allocateTypeGC(code, elemTy, hasDowncastArray);
+				else if (auto elemStruct = dyn_cast<StructType>(elemTy))
+					allocateTypeGC(code, elemTy, linearHelper.hasDowncastArray(elemStruct));
+				else
+					allocateTypeGC(code, elemTy, false);
+			}
 
-			if (useWrapperArray)
+			if (types.useWrapperArrayForMember(PA, const_cast<StructType*>(sTy), i))
 			{
 				uint32_t typeIdx = linearHelper.getGCTypeIndex(elemTy, SPLIT_REGULAR);
 				encodeInst(WasmS32Opcode::I32_CONST, 1, code);
 				encodeInst(WasmGCOpcode::ARRAY_NEW, typeIdx, code);
 			}
+
+			if (hasDowncastArray && i + 1 == downcastIdx)
+			{
+				// encode the .o
+				encodeInst(WasmS32Opcode::I32_CONST, 0, code);
+				// encode the .a
+				encodeInst(WasmS32Opcode::REF_NULL, linearHelper.getSplitRegularObjectIdx(), code);
+			}
 		}
-		uint32_t typeIdx = linearHelper.getGCTypeIndex(Ty, COMPLETE_OBJECT);
+		uint32_t typeIdx = linearHelper.getGCTypeIndex(Ty, COMPLETE_OBJECT, hasDowncastArray);
 		encodeInst(WasmGCOpcode::STRUCT_NEW, typeIdx, code);
 	}
 	else if (Ty->isVectorTy())
@@ -2874,30 +2919,39 @@ void CheerpWasmWriter::allocateComplexType(WasmBuffer& code, const Type* Ty)
 		assert(false && "unexpected type");
 }
 
-void CheerpWasmWriter::allocateTypeGC(WasmBuffer& code, const Type* allocaType)
+void CheerpWasmWriter::allocateTypeGC(WasmBuffer& code, const Type* allocaType, bool hasDowncastArray)
 {
 	const Type* Ty = allocaType->isPointerTy() ? allocaType->getPointerElementType() : allocaType;
 
 	if (Ty->isAggregateType())
-		allocateComplexType(code, Ty);
+		allocateComplexType(code, Ty, hasDowncastArray);
 	else
 		allocateSimpleType(code, Ty);
 }
 
-void CheerpWasmWriter::allocateGC(WasmBuffer& code, const Type* allocaType, POINTER_KIND kind, const bool needsRegular, const uint32_t arraySize)
+void CheerpWasmWriter::allocateGC(WasmBuffer& code, Type* allocaType, POINTER_KIND kind, const bool needsRegular, const uint32_t arraySize)
 {
 	assert(allocaType->isPointerTy() || allocaType->isAggregateType());
+	bool hasDowncastArray = false;
+	Type* nonPointerAllocaType = allocaType->isPointerTy() ? allocaType->getPointerElementType() : allocaType;
+	if (auto sTy = dyn_cast<StructType>(nonPointerAllocaType))
+	{
+		if (linearHelper.hasDowncastArray(sTy) && sTy->hasDirectBase())
+			hasDowncastArray = true;
+		assert(hasDowncastArray == (globalDeps.classesWithBaseInfo().count(sTy) > 0));
+	}
+
 	if (kind == COMPLETE_OBJECT)
 	{
-		allocateTypeGC(code, allocaType);
-		if (linearHelper.hasDowncastArray(allocaType))
-			callDowncastArrayInit(code, allocaType);
+		allocateTypeGC(code, allocaType, hasDowncastArray);
+		if (hasDowncastArray)
+			callDowncastArrayInit(code, nonPointerAllocaType);
 	}
 	else if (kind == SPLIT_REGULAR || kind == REGULAR)
 	{
-		allocateTypeGC(code, allocaType);
-		if (linearHelper.hasDowncastArray(allocaType))
-			callDowncastArrayInit(code, allocaType);
+		allocateTypeGC(code, allocaType, hasDowncastArray);
+		if (hasDowncastArray)
+			callDowncastArrayInit(code, nonPointerAllocaType);
 		encodeInst(WasmS32Opcode::I32_CONST, arraySize, code);
 		encodeInst(WasmGCOpcode::ARRAY_NEW, linearHelper.getGCTypeIndex(allocaType, SPLIT_REGULAR), code);
 		
@@ -4870,10 +4924,8 @@ void CheerpWasmWriter::compileGEPGC(WasmBuffer& code, const User* gep_inst, POIN
 	// the RAW kind to null pointers
 	if (isa<ConstantPointerNull>(gep_inst->getOperand(0)))
 	{
-		// TODO: is this correct?
 		const int32_t idx = linearHelper.getGCTypeIndex(gep_inst->getOperand(0)->getType(), kind);
 		encodeInst(WasmS32Opcode::REF_NULL, idx, code);
-		assert(false);
 	}
 	else if (kind == COMPLETE_OBJECT)
 	{
@@ -5966,7 +6018,7 @@ uint32_t CheerpWasmWriter::getDowncastArraySize(StructType* sTy, uint32_t size) 
 
 uint32_t CheerpWasmWriter::compileDowncastInitializerRecursive(WasmBuffer& code, Chunk<128> currClassAccess, StructType* currTy, uint32_t baseCount)
 {
-	int32_t typeIdx = linearHelper.getGCTypeIndex(currTy, COMPLETE_OBJECT);
+	int32_t typeIdx = linearHelper.getGCTypeIndex(currTy, COMPLETE_OBJECT, true);
 
 	if (currTy->hasDirectBase())
 	{
@@ -5976,6 +6028,9 @@ uint32_t CheerpWasmWriter::compileDowncastInitializerRecursive(WasmBuffer& code,
 	}
 	else
 	{
+		assert(downcastArrayIndices.find(currTy) != downcastArrayIndices.end());
+		assert(linearHelper.hasDowncastArray(currTy));
+
 		// store the current class into the the tmp local and downcast array
 		encodeInst(WasmU32Opcode::GET_LOCAL, 1, code);
 		encodeInst(WasmS32Opcode::I32_CONST, baseCount, code);
@@ -5987,13 +6042,13 @@ uint32_t CheerpWasmWriter::compileDowncastInitializerRecursive(WasmBuffer& code,
 		encodeInst(WasmU32Opcode::GET_LOCAL, 2, code);
 		encodeInst(WasmGCOpcode::REF_CAST_NULL, typeIdx, code);
 		encodeInst(WasmS32Opcode::I32_CONST, baseCount, code);
-		encodeInst(WasmGCOpcode::STRUCT_SET, typeIdx, 0, code);
+		encodeInst(WasmGCOpcode::STRUCT_SET, typeIdx, downcastArrayIndices[currTy], code);
 
 		// store the downcast array
 		encodeInst(WasmU32Opcode::GET_LOCAL, 2, code);
 		encodeInst(WasmGCOpcode::REF_CAST_NULL, typeIdx, code);
 		encodeInst(WasmU32Opcode::GET_LOCAL, 1, code);
-		encodeInst(WasmGCOpcode::STRUCT_SET, typeIdx, 1, code);
+		encodeInst(WasmGCOpcode::STRUCT_SET, typeIdx, downcastArrayIndices[currTy] + 1, code);
 
 		baseCount++;
 	}
@@ -6005,15 +6060,12 @@ uint32_t CheerpWasmWriter::compileDowncastInitializerRecursive(WasmBuffer& code,
 
 	for (uint32_t i = firstBase; i < (firstBase + localBaseCount); i++)
 	{
-		// TODO: can we just assert this?
 		if (!currTy->getElementType(i)->isStructTy())
 			continue ;
 
 		Chunk<128> nextClassAccess(currClassAccess);
-
-		// The +2 is to account for the .o offset and the .a array
-		encodeInst(WasmGCOpcode::STRUCT_GET, typeIdx, i+2, nextClassAccess);
-		encodeInst(WasmGCOpcode::REF_CAST_NULL, linearHelper.getGCTypeIndex(currTy->getElementType(i), COMPLETE_OBJECT), nextClassAccess);
+		encodeInst(WasmGCOpcode::STRUCT_GET, typeIdx, getExpandedStructElemIdx(currTy, i), nextClassAccess);
+		encodeInst(WasmGCOpcode::REF_CAST_NULL, linearHelper.getGCTypeIndex(currTy->getElementType(i), COMPLETE_OBJECT, true), nextClassAccess);
 		baseCount = compileDowncastInitializerRecursive(code, nextClassAccess, cast<StructType>(currTy->getElementType(i)), baseCount);
 	}
 	return baseCount;
@@ -6253,7 +6305,9 @@ bool CheerpWasmWriter::needsOffsetAsElement(const StructType* sTy, uint32_t elem
 // TODO: move to a utils file
 bool CheerpWasmWriter::needsExpandedStruct(const StructType* sTy)
 {
-	if (linearHelper.hasDowncastArray(sTy))
+	// The root struct will have the downcast array appended to the end
+	// meaning that all of the indices still line up
+	if (linearHelper.hasDowncastArray(sTy) && sTy->hasDirectBase())
 		return true;
 	
 	for (uint32_t i = 0; i < sTy->getStructNumElements(); i++)
@@ -6281,21 +6335,63 @@ uint32_t CheerpWasmWriter::calculateAndCacheElemInfo(const StructType* sTy)
 	// Caching only the structs that need to be expanded. Should save on memory
 	// and make lookup faster. Does mean we have to loop through it twice,
 	// here and inside needsExpandedStruct
+	// This function also returns the size of the expanded struct
 	if (!needsExpandedStruct(sTy))
+	{
 		return (sTy->getStructNumElements());
+	}
 
-	uint32_t currOffset = 0;
-	if (linearHelper.hasDowncastArray(sTy))
-		currOffset += 2;
+	uint32_t currIndex = 0;
+	uint32_t downcastArrayIndex = 0;
+	// The root type will have a second version of itself with the offset and array appended to it
+	bool hasDowncastArray = (linearHelper.hasDowncastArray(sTy) && sTy->hasDirectBase());
+	if (hasDowncastArray)
+	{
+		assert(downcastArrayIndices.find(sTy) != downcastArrayIndices.end());
+		assert(linearHelper.hasDowncastArray(sTy));
+		downcastArrayIndex = downcastArrayIndices[sTy];
+	}
 
+	const uint32_t numElems = sTy->getStructNumElements();
+	for (uint32_t i = 0; i < numElems; i++)
+	{
+		structElemIdxCache[sTy][i] = currIndex;
+		if (needsOffsetAsElement(sTy, i))
+			currIndex++;
+		if (hasDowncastArray && i + 1 == downcastArrayIndex)
+			currIndex += 2;
+		currIndex++;
+	}
+	return (currIndex);
+}
+
+uint32_t CheerpWasmWriter::cacheDowncastOffset(const llvm::StructType* sTy)
+{
+	assert(linearHelper.hasDowncastArray(sTy));
+	auto it = downcastArrayIndices.find(sTy);
+	if (it != downcastArrayIndices.end())
+	{
+		return (it->second);
+	}
+
+	uint32_t rootSize = 0;
+	if (sTy->hasDirectBase())
+	{
+		rootSize = cacheDowncastOffset(sTy->getDirectBase());
+		downcastArrayIndices[sTy] = rootSize;
+		return rootSize;
+	}
+
+	// Calculates the size of the root struct,
+	// The downcast array and offset are appended to the end of it
 	for (uint32_t i = 0; i < sTy->getStructNumElements(); i++)
 	{
-		structElemIdxCache[sTy][i] = currOffset;
 		if (needsOffsetAsElement(sTy, i))
-			currOffset++;
-		currOffset++;
+			rootSize++;
+		rootSize++;
 	}
-	return (currOffset);
+	downcastArrayIndices[sTy] = rootSize;
+	return rootSize;
 }
 
 void CheerpWasmWriter::compileArrayType(Section& section, const ArrayType* aTy)
@@ -6306,26 +6402,19 @@ void CheerpWasmWriter::compileArrayType(Section& section, const ArrayType* aTy)
 
  void CheerpWasmWriter::compileStructType(Section& section, const StructType* sTy)
 {
-	bool hasDowncastArray = linearHelper.hasDowncastArray(sTy);
+	bool hasDowncastArray = (linearHelper.hasDowncastArray(sTy) && sTy->hasDirectBase());
 	uint32_t elemCount = calculateAndCacheElemInfo(sTy);
+	uint32_t downcastIndex = 0;
 
 	encodeULEB128(0x5F, section);
 	encodeULEB128(elemCount, section);
 
-	// if the struct has a downcast array we extend it
-	// by adding an offset (.o) and array (.a) to the top of the struct
 	if (hasDowncastArray)
 	{
-		// encode the .o as a mutable i32
-		encodeULEB128(0x7f, section);
-		encodeULEB128(0x01, section);
-
-		// Split regular is encoded as an array of anyrefs
-		encodeULEB128(0x63, section);
-		encodeSLEB128(linearHelper.getSplitRegularObjectIdx(), section);
-		encodeULEB128(0x01, section);
+		assert(downcastArrayIndices.find(sTy) != downcastArrayIndices.end());
+		assert(linearHelper.hasDowncastArray(sTy));
+		downcastIndex = downcastArrayIndices[sTy];
 	}
-
 	for (size_t i = 0; i < sTy->getStructNumElements(); i++)
 	{
 		Type* elemTy = sTy->getStructElementType(i);
@@ -6364,8 +6453,11 @@ void CheerpWasmWriter::compileSubType(Section& section, const StructType* sTy)
 	// else it is a sub-type of another type, so we encode the super-type vector as empty
 	if (sTy->hasDirectBase())
 	{
+		const StructType* db = sTy->getDirectBase();
+		const bool hasDowncastArray = linearHelper.hasDowncastArray(sTy);
+		const int32_t directBaseIdx = linearHelper.getGCTypeIndex(db, COMPLETE_OBJECT, hasDowncastArray);
 		encodeULEB128(1, section);
-		encodeSLEB128(linearHelper.getGCTypeIndex(sTy->getDirectBase(), COMPLETE_OBJECT), section);
+		encodeSLEB128(directBaseIdx, section);
 	}
 	else
 	{
@@ -6375,6 +6467,46 @@ void CheerpWasmWriter::compileSubType(Section& section, const StructType* sTy)
 
 	// compiling the struct itself
 	compileStructType(section, sTy);
+}
+
+void CheerpWasmWriter::compileRootStructWithDowncastArray(Section& section, const StructType* sTy)
+{
+	// non-final subtype
+	encodeULEB128(0x50, section);
+
+	// inherits from the root
+	encodeULEB128(1, section);
+	encodeSLEB128(linearHelper.getGCTypeIndex(sTy, COMPLETE_OBJECT), section);
+
+	// encode the size of the struct, adding space for the offset and array
+	uint32_t elemCount = calculateAndCacheElemInfo(sTy);
+	encodeULEB128(0x5F, section);
+	encodeULEB128(elemCount + 2, section);
+
+	// unroll all of the root struct's types
+	for (size_t i = 0; i < sTy->getStructNumElements(); i++)
+	{
+		Type* elemTy = sTy->getStructElementType(i);
+		if (types.useWrapperArrayForMember(PA, const_cast<StructType*>(sTy), i))
+			compileStorageType(section, ArrayType::get(elemTy, 1));
+		else
+			compileStorageType(section, elemTy);
+		
+		// If a pointer does not have a constant offset, add the offset into the struct
+		if (needsOffsetAsElement(sTy, i))
+		{
+			encodeULEB128(0x7f, section);
+			encodeULEB128(0x01, section);
+		}
+	}
+	// encode the .o as a mutable i32
+	encodeULEB128(0x7f, section);
+	encodeULEB128(0x01, section);
+
+	// Reference to a split regular which is encoded as an array of anyrefs
+	encodeULEB128(0x63, section);
+	encodeSLEB128(linearHelper.getSplitRegularObjectIdx(), section);
+	encodeULEB128(0x01, section);
 }
 
 void CheerpWasmWriter::compileTypeSection()
@@ -6387,7 +6519,7 @@ void CheerpWasmWriter::compileTypeSection()
 
 	// Encode number of entries in the type section.
 	size_t typeCount = linearHelper.getFunctionTypes().size() + \
-						linearHelper.getGCTypes().size() + \
+						linearHelper.getGCTypeCount() + \
 						globalDeps.classesWithBaseInfo().size();
 	encodeULEB128(typeCount, section);
 
@@ -6396,10 +6528,27 @@ void CheerpWasmWriter::compileTypeSection()
 	{
 		if (const StructType* sTy = dyn_cast<StructType>(Ty))
 		{
+			if (linearHelper.hasDowncastArray(sTy))
+				cacheDowncastOffset(sTy);
+
 			if (sTy->hasDirectBase() || linearHelper.isSuperType(sTy))
 				compileSubType(section, sTy);
 			else
 				compileStructType(section, sTy);
+
+			// A root class marked with a downcast array needs to have a second
+			// version of itself that inherits from the root and appends
+			// the offset and downcast array to it.
+			//
+			// This allows for classes that don't use a downcast to still inherit
+			// from the root without the extra variables
+			//
+			// These extended classes are added right after the root,
+			// allowing the use the index of the root + 1 to retrieve them
+			if (!sTy->hasDirectBase() && linearHelper.hasDowncastArray(sTy))
+			{
+				compileRootStructWithDowncastArray(section, sTy);
+			}
 		}
 		else if (const ArrayType* aTy = dyn_cast<ArrayType>(Ty))
 			compileArrayType(section, aTy);
