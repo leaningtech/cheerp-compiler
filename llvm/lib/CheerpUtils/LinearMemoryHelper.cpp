@@ -501,37 +501,70 @@ void LinearMemoryHelper::generateGlobalizedGlobalsUsage()
 	}
 }
 
-void LinearMemoryHelper::cacheDowncastArrayClassesRecursive(StructType* sTy, const TypeSupport& types)
+void LinearMemoryHelper::markSubtypesForDowncast(const StructType* directBase, DirectBaseToSubTypesMap& subTypeMap)
+{
+	auto it = subTypeMap.find(directBase);
+	if (it == subTypeMap.end())
+		return ;
+
+	// The root class will have a secondary class that inherits from it and appends the offset and downcast array.
+	// This means that not all the classes that inherit from the root need the downcast array.
+	if (!directBase->hasDirectBase())
+		return ;
+
+	// Loop over all the sub types that have the current type as a direct base
+	for (const StructType* curr : it->second)
+	{
+		if (!downcastArrayClasses.count(curr))
+		{
+			downcastArrayClasses.insert(curr);
+			markSubtypesForDowncast(curr, subTypeMap);
+		}
+	}
+}
+
+void LinearMemoryHelper::cacheDowncastArrayClassesRecursive(StructType* sTy, const TypeSupport& types, DirectBaseToSubTypesMap& subTypeMap)
 {
 	if (downcastArrayClasses.count(sTy))
 		return ;
 	downcastArrayClasses.insert(sTy);
+	markSubtypesForDowncast(sTy, subTypeMap);
 
 	if (!sTy->hasDirectBase())
-		return ;
+	{
+		// Root structs marked with a downcast array will have 2 types of the struct.
+		// An 'infected' struct that inherits from the normal type and includes a downcast array and offset.
+		// We need to mark this struct as a super-type if it has not been already. 
+		if (!superTypes.count(sTy))
+			superTypes.insert(sTy);
 
-	cacheDowncastArrayClassesRecursive(sTy->getDirectBase(), types);
+		if (!TypeSupport::hasBasesInfoMetadata(sTy, *module))
+			return ;
+	}
+	else
+		cacheDowncastArrayClassesRecursive(sTy->getDirectBase(), types, subTypeMap);
 
 	uint32_t firstBase;
 	uint32_t baseCount;
 	if(!types.getBasesInfo(sTy, firstBase, baseCount))
 		return ;
 
-
 	for (uint32_t i = firstBase; i < (firstBase + baseCount); i++)
 	{
-		assert(sTy->getElementType(i)->isStructTy());
-		cacheDowncastArrayClassesRecursive(cast<StructType>(sTy->getElementType(i)), types);
+		if (!sTy->getElementType(i)->isStructTy())
+			continue ;
+
+		cacheDowncastArrayClassesRecursive(cast<StructType>(sTy->getElementType(i)), types, subTypeMap);
 	}
 }
 
-void LinearMemoryHelper::cacheDowncastArrayClasses()
+void LinearMemoryHelper::cacheDowncastArrayClasses(DirectBaseToSubTypesMap& subTypeMap)
 {
 	TypeSupport types(*module);
 
 	for (auto *sTy : globalDeps->classesWithBaseInfo())
 	{
-		cacheDowncastArrayClassesRecursive(sTy, types);
+		cacheDowncastArrayClassesRecursive(sTy, types, subTypeMap);
 	}
 }
 
@@ -611,7 +644,7 @@ static void	addBasicArrayTypes(std::vector<const llvm::Type *>& unsorted, llvm::
 /**
  * Returns the index of an aggregate type within the wasm type section
 */
-int32_t LinearMemoryHelper::getGCTypeIndex(const llvm::Type* Ty, POINTER_KIND kind) const
+int32_t LinearMemoryHelper::getGCTypeIndex(const llvm::Type* Ty, POINTER_KIND kind, bool needsDowncastArray) const
 {
 	// TODO: clean the logic of this function up, its messy
 	assert(Ty->isPointerTy() || Ty->isAggregateType() || kind == SPLIT_REGULAR);
@@ -619,17 +652,26 @@ int32_t LinearMemoryHelper::getGCTypeIndex(const llvm::Type* Ty, POINTER_KIND ki
 	if (kind == COMPLETE_OBJECT) // TODO: What to return with a CONSTANT? the same as a COMPLETE_OBJECT?
 	{
 		Type* elemTy;
-		if (Ty->isStructTy())
+		const StructType* sTy = dyn_cast<StructType>(Ty);
+		if (!sTy && Ty->isPointerTy())
+			sTy = dyn_cast<StructType>(Ty->getPointerElementType());
+
+		if (sTy)
 		{
-			const auto& found = GCTypeIndices.find(Ty);
+			const auto& found = GCTypeIndices.find(sTy);
 			assert(found != GCTypeIndices.end());
-			return (found->second);
-		}
-		else if (Ty->isPointerTy() && Ty->getPointerElementType()->isStructTy())
-		{
-			const auto& found = GCTypeIndices.find(Ty->getPointerElementType());
-			assert(found != GCTypeIndices.end());
-			return (found->second);
+			int typeIdx = found->second;
+
+			// A root class marked with a downcast array has 2 versions,
+			// the root itself and a class that inherits from it and appends
+			// the offset and downcast array to it
+			//
+			// The secondary class is encoded right after the root inside the type section
+			if (needsDowncastArray && !sTy->hasDirectBase())
+			{
+				typeIdx += 1;
+			}
+			return (typeIdx);
 		}
 		else if (Ty->isArrayTy())
 			elemTy = Ty->getArrayElementType();
@@ -706,6 +748,7 @@ void LinearMemoryHelper::addGCTypes()
 
 	std::vector<const Type*> unsorted;
 	std::vector<const Type*> sorted;
+	DirectBaseToSubTypesMap subTypeMap;
 
 	addBasicArrayTypes(unsorted, module);
 	for (auto sTy : module->getIdentifiedStructTypes())
@@ -720,24 +763,36 @@ void LinearMemoryHelper::addGCTypes()
 
 		if (sTy->hasDirectBase())
 		{
-			const Type* directBase = sTy->getDirectBase();
-			superTypes.insert(cast<StructType>(directBase));
+			const StructType* directBase = sTy->getDirectBase();
+			superTypes.insert(directBase);
+			subTypeMap[directBase].push_back(sTy);
 		}
 
 		unsorted.push_back(sTy);
 	}
 
 	dependencySort(unsorted, sorted);
+	cacheDowncastArrayClasses(subTypeMap);
 
 	for (auto Ty : sorted)
 	{
 		GCTypes.push_back(Ty);
 		GCTypeIndices[Ty] = maxTypeIdx;
+		
+		// Root classes marked with a downcast array will have a second version of the class
+		// that will inherit from the root and append an offset and array to it.
+		// The secondary classes will be given the root's index + 1
+		if (auto sTy = dyn_cast<StructType>(Ty))
+		{
+			if (downcastArrayClasses.count(sTy) && !sTy->hasDirectBase())
+			{
+				GCTypeCount++;
+				maxTypeIdx++;
+			}
+		}
 		GCTypeCount++;
 		maxTypeIdx++;
 	}
-
-	cacheDowncastArrayClasses();
 }
 
 /**
