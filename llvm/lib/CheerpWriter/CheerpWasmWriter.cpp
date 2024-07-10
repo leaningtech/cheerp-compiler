@@ -1639,8 +1639,7 @@ void CheerpWasmWriter::compileConstantAggregate(WasmBuffer& code, const Constant
 			if (useWrapperArray)
 			{
 				int32_t wrapperTypeIdx = linearHelper.getGCTypeIndex(elemTy, SPLIT_REGULAR);
-				encodeInst(WasmS32Opcode::I32_CONST, 1, code);
-				encodeInst(WasmGCOpcode::ARRAY_NEW, wrapperTypeIdx, code);
+				encodeInst(WasmGCOpcode::ARRAY_NEW_FIXED, wrapperTypeIdx, 1, code);
 			}
 		}
 		encodeInst(WasmGCOpcode::STRUCT_NEW, typeIdx, code);
@@ -2827,76 +2826,138 @@ void CheerpWasmWriter::callDowncastArrayInit(WasmBuffer&code, const Type* Ty)
 	encodeInst(WasmU32Opcode::CALL, initId, code);
 }
 
-void CheerpWasmWriter::allocateSimpleType(WasmBuffer& code, const Type* Ty)
+void CheerpWasmWriter::allocateSimpleType(WasmBuffer& code, Type* Ty, const Value* init)
 {
-	if (Ty->isIntegerTy(64))
-		encodeInst(WasmS64Opcode::I64_CONST, 0, code);
-	else if (Ty->isIntegerTy())
-		encodeInst(WasmS32Opcode::I32_CONST, 0, code);
-	else if (Ty->isFloatTy())
+	assert(TypeSupport::isSimpleType(Ty, false));
+	assert(!TypeSupport::hasByteLayout(Ty));
+	switch(Ty->getTypeID())
 	{
-		encodeInst(WasmOpcode::F32_CONST, code);
-		encodeF32(0, code);
+		case Type::IntegerTyID:
+		{
+			if(init)
+				compileOperand(code, init);
+			else if (Ty->isIntegerTy(64))
+				encodeInst(WasmS64Opcode::I64_CONST, 0, code);
+			else
+				encodeInst(WasmS32Opcode::I32_CONST, 0, code);
+			break;
+		}
+		case Type::FloatTyID:
+		{
+			if(init)
+				compileOperand(code, init);
+			else
+				encodeInst(WasmOpcode::F32_CONST, code);
+				encodeF32(0, code);
+			break;
+		}
+		case Type::DoubleTyID:
+		{
+			if(init)
+				compileOperand(code, init);
+			else
+				encodeInst(WasmOpcode::F64_CONST, code);
+				encodeF64(0, code);
+			break;
+		}
+		case Type::PointerTyID:
+		{
+			if(init)
+				compilePointerAs(code, init, PA.getPointerKindForStoredType(Ty));
+			else
+			{
+				POINTER_KIND kind = PA.getPointerKindForStoredType(Ty);
+				assert(kind != RAW);
+				int32_t typeIdx = linearHelper.getGCTypeIndex(Ty, kind);
+				// TODO: Should we check for a downcast array here?
+				encodeInst(WasmS32Opcode::REF_NULL, typeIdx, code);
+			}
+			break;
+		}
+		default:
+			assert(false && "unexpected type");
 	}
-	else if (Ty->isDoubleTy())
-	{
-		encodeInst(WasmOpcode::F64_CONST, code);
-		encodeF64(0, code);
-	}
-	else
-		assert(false && "unexpected type");
 }
 
-void CheerpWasmWriter::allocateComplexType(WasmBuffer& code, const Type* Ty, bool hasDowncastArray)
+void CheerpWasmWriter::allocateComplexType(WasmBuffer& code, Type* Ty, bool hasDowncastArray, uint32_t& usedValuesFromMap, const AllocaStoresExtractor::OffsetToValueMap *offsetToValueMap, uint32_t offset)
 {
-	assert(Ty->isAggregateType() || Ty->isVectorTy());
-	if (auto aTy = dyn_cast<ArrayType>(Ty))
+	assert(!TypeSupport::isSimpleType(Ty, false));
+	if (StructType* sTy = dyn_cast<StructType>(Ty))
 	{
-		uint32_t typeIdx = linearHelper.getGCTypeIndex(Ty, COMPLETE_OBJECT, hasDowncastArray);
-		allocateTypeGC(code, aTy->getArrayElementType(), hasDowncastArray);
-		encodeInst(WasmS32Opcode::I32_CONST, aTy->getArrayNumElements(), code); // TODO: use something like compileArraySize from CheerpWriter?
-		encodeInst(WasmGCOpcode::ARRAY_NEW, typeIdx, code);
-	}
-	else if (const StructType* sTy = dyn_cast<StructType>(Ty))
-	{
-		uint32_t firstBase;
-		uint32_t baseCount;
+		assert(!TypeSupport::hasByteLayout(sTy));
 		uint32_t downcastIdx = 0;
-		bool hasBases = types.getBasesInfo(sTy, firstBase, baseCount);
 		if (hasDowncastArray)
 		{
 			assert(downcastArrayIndices.find(sTy) != downcastArrayIndices.end());
 			assert(linearHelper.hasDowncastArray(sTy));
 			downcastIdx = downcastArrayIndices[sTy];
 		}
+
+		const StructLayout* SL = targetData.getStructLayout(sTy);
 		for (uint32_t i = 0; i < sTy->getNumElements(); i++)
 		{
-			const Type* elemTy = sTy->getStructElementType(i);
+			uint32_t totalOffset = offset + SL->getElementOffset(i);
+			Type* elemTy = sTy->getStructElementType(i);
+			Value* init = nullptr;
+			if(offsetToValueMap)
+			{
+				auto it = offsetToValueMap->find(totalOffset);
+				if(it != offsetToValueMap->end())
+					init = it->second;
+			}
+
 			if (elemTy->isPointerTy())
 			{
-				// Initialize pointers to NULL references
 				TypeAndIndex baseAndIndex(sTy, i, TypeAndIndex::STRUCT_MEMBER);
-				POINTER_KIND kind = PA.getPointerKindForMemberPointer(baseAndIndex);
+				POINTER_KIND memberKind = PA.getPointerKindForMemberPointer(baseAndIndex);
+				bool hasConstantOffset = PA.getConstantOffsetForMember(baseAndIndex);
 
-				// TODO: check if this is correct
-				uint32_t elemTypeIdx = linearHelper.getGCTypeIndex(elemTy, kind, linearHelper.hasDowncastArray(dyn_cast<StructType>(elemTy->getPointerElementType())));
-				encodeInst(WasmS32Opcode::REF_NULL, elemTypeIdx, code);
+				if (init)
+					usedValuesFromMap++;
+				assert(memberKind != RAW); //TODO: handle RAW pointers?
+				if((memberKind == REGULAR || memberKind == SPLIT_REGULAR) && hasConstantOffset)
+				{
+					if(init)
+						compilePointerBase(code, init);
+					else
+					{
+						encodeInst(WasmU32Opcode::REF_NULL, 0x6E, code);
+					}
+				}
+				else if (memberKind == SPLIT_REGULAR)
+				{
+					if(init)
+						compilePointerBase(code, init);
+					else
+					{
+						encodeInst(WasmU32Opcode::REF_NULL, 0x6E, code);
+					}
+
+					if(init)
+						compilePointerOffset(code, init);
+					else
+						encodeInst(WasmS32Opcode::I32_CONST, 0, code);
+				}
+				else if (init)
+					compilePointerAs(code, init, memberKind);
+				else // TODO: JS has a difference between null and nullObj here
+					encodeInst(WasmU32Opcode::REF_NULL, 0x6E, code);
+			}
+			else if(TypeSupport::isSimpleType(elemTy, false))
+			{
+				if(init)
+					usedValuesFromMap++;
+				allocateSimpleType(code, elemTy, init);
 			}
 			else
 			{
-				if (hasBases && i > firstBase)
-					allocateTypeGC(code, elemTy, hasDowncastArray);
-				else if (auto elemStruct = dyn_cast<StructType>(elemTy))
-					allocateTypeGC(code, elemTy, linearHelper.hasDowncastArray(elemStruct));
-				else
-					allocateTypeGC(code, elemTy, false);
+				allocateComplexType(code, elemTy, hasDowncastArray, usedValuesFromMap, offsetToValueMap, totalOffset);
 			}
 
-			if (types.useWrapperArrayForMember(PA, const_cast<StructType*>(sTy), i))
+			if (types.useWrapperArrayForMember(PA, sTy, i))
 			{
 				uint32_t typeIdx = linearHelper.getGCTypeIndex(elemTy, SPLIT_REGULAR);
-				encodeInst(WasmS32Opcode::I32_CONST, 1, code);
-				encodeInst(WasmGCOpcode::ARRAY_NEW, typeIdx, code);
+				encodeInst(WasmGCOpcode::ARRAY_NEW_FIXED, typeIdx, 1, code);
 			}
 
 			if (hasDowncastArray && i + 1 == downcastIdx)
@@ -2909,61 +2970,116 @@ void CheerpWasmWriter::allocateComplexType(WasmBuffer& code, const Type* Ty, boo
 		}
 		uint32_t typeIdx = linearHelper.getGCTypeIndex(Ty, COMPLETE_OBJECT, hasDowncastArray);
 		encodeInst(WasmGCOpcode::STRUCT_NEW, typeIdx, code);
-	}
-	else if (Ty->isVectorTy())
-	{
-		assert(false && "Still have to handle vecs for GC objects");
-		// TODO: add vecs
+
+		// TODO: is this correct? JS has it only for objects marked with a LITERAL_OBJ style
+		if (globalDeps.needsDowncastArray(sTy))
+			callDowncastArrayInit(code, sTy);
 	}
 	else
-		assert(false && "unexpected type");
-}
-
-void CheerpWasmWriter::allocateTypeGC(WasmBuffer& code, const Type* allocaType, bool hasDowncastArray)
-{
-	const Type* Ty = allocaType->isPointerTy() ? allocaType->getPointerElementType() : allocaType;
-
-	if (Ty->isAggregateType())
-		allocateComplexType(code, Ty, hasDowncastArray);
-	else
-		allocateSimpleType(code, Ty);
-}
-
-void CheerpWasmWriter::allocateGC(WasmBuffer& code, Type* allocaType, POINTER_KIND kind, const bool needsRegular, const uint32_t arraySize)
-{
-	assert(allocaType->isPointerTy() || allocaType->isAggregateType());
-	bool hasDowncastArray = false;
-	Type* nonPointerAllocaType = allocaType->isPointerTy() ? allocaType->getPointerElementType() : allocaType;
-	if (auto sTy = dyn_cast<StructType>(nonPointerAllocaType))
 	{
-		if (linearHelper.hasDowncastArray(sTy) && sTy->hasDirectBase())
-			hasDowncastArray = true;
-		assert(hasDowncastArray == (globalDeps.classesWithBaseInfo().count(sTy) > 0));
-	}
-
-	if (kind == COMPLETE_OBJECT)
-	{
-		allocateTypeGC(code, allocaType, hasDowncastArray);
-		if (hasDowncastArray)
-			callDowncastArrayInit(code, nonPointerAllocaType);
-	}
-	else if (kind == SPLIT_REGULAR || kind == REGULAR)
-	{
-		allocateTypeGC(code, allocaType, hasDowncastArray);
-		if (hasDowncastArray)
-			callDowncastArrayInit(code, nonPointerAllocaType);
-		encodeInst(WasmS32Opcode::I32_CONST, arraySize, code);
-		encodeInst(WasmGCOpcode::ARRAY_NEW, linearHelper.getGCTypeIndex(allocaType, SPLIT_REGULAR), code);
-		
-		if (kind == REGULAR && needsRegular)
+		ArrayType* aTy = cast<ArrayType>(Ty);
+		Type* elemTy = aTy->getElementType();
+		bool elemHasDowncast = false;
+		if (auto sTy = dyn_cast<StructType>(elemTy))
+			elemHasDowncast = sTy->hasDirectBase() && linearHelper.hasDowncastArray(sTy);
+		uint32_t typeIdx = linearHelper.getGCTypeIndex(Ty, COMPLETE_OBJECT);
+		for (uint64_t i = 0; i < aTy->getNumElements(); i++)
 		{
-			// compile the .o and add both to a regular object
+			uint32_t elementSize = targetData.getTypeAllocSize(aTy->getElementType());
+			uint32_t totalOffset = offset + elementSize * i;
+			if(TypeSupport::isSimpleType(elemTy, false))
+			{
+				llvm::Value* init = nullptr;
+				if(offsetToValueMap)
+				{
+					auto it = offsetToValueMap->find(totalOffset);
+					if(it != offsetToValueMap->end())
+						init = it->second;
+				}
+				if(init)
+					usedValuesFromMap++;
+				allocateSimpleType(code, elemTy, init);
+			}
+			else
+				allocateComplexType(code, elemTy, elemHasDowncast, usedValuesFromMap, offsetToValueMap, totalOffset);
+		}
+		encodeInst(WasmGCOpcode::ARRAY_NEW_FIXED, typeIdx, aTy->getArrayNumElements(), code);
+	}
+}
+
+void CheerpWasmWriter::allocateTypeGC(WasmBuffer& code, Type* allocaType, bool hasDowncastArray, const AllocaStoresExtractor::OffsetToValueMap *offsetToValueMap)
+{
+	if (TypeSupport::isSimpleType(allocaType, false))
+	{
+		Value* init = nullptr;
+		if (offsetToValueMap)
+		{
+			assert(offsetToValueMap->size() == 1);
+			auto it = offsetToValueMap->find(0);
+			if(it != offsetToValueMap->end())
+				init = it->second;
+		}
+		allocateSimpleType(code, allocaType, init);
+	}
+	else
+	{
+		uint32_t usedValuesFromMap = 0;
+		allocateComplexType(code, allocaType, hasDowncastArray, usedValuesFromMap, offsetToValueMap, 0);
+		if (offsetToValueMap)
+			assert(offsetToValueMap->size() == usedValuesFromMap);
+	}
+}
+
+void CheerpWasmWriter::compileAllocationGC(WasmBuffer& code, const DynamicAllocInfo& info)
+{
+	assert (info.isValidAlloc());
+
+	Type* Ty = info.getCastedPointedType();
+	bool needsDowncastArray = false;
+	if (auto sTy = dyn_cast<StructType>(Ty))
+		needsDowncastArray = sTy->hasDirectBase() && linearHelper.hasDowncastArray(sTy);
+	POINTER_KIND result = PA.getPointerKindAssert(info.getInstruction());
+	const ConstantInt* constantOffset = PA.getConstantOffsetForPointer(info.getInstruction());
+	bool needsRegular = result==REGULAR && !constantOffset && !needsDowncastArray;
+	assert(result != SPLIT_REGULAR || constantOffset);
+	assert(result != BYTE_LAYOUT);
+
+
+	//TODO:
+	assert(!info.useCreatePointerArrayFunc());
+	assert(!info.useCreateArrayFunc());
+	//
+
+	assert(!info.useTypedArray());
+	assert(info.getAllocType() != DynamicAllocInfo::cheerp_reallocate);
+	if (!info.sizeIsRuntime())
+	{
+		uint32_t numElem = compileArraySizeGC(info);
+		assert((result == REGULAR || result == SPLIT_REGULAR) || numElem <= 1);
+
+		for(uint32_t i = 0; i < numElem;i++)
+			allocateTypeGC(code, Ty, needsDowncastArray, nullptr);
+
+		if (numElem == 0)
+		{
+			encodeInst(WasmU32Opcode::REF_NULL, 0x6E, code);
+			numElem = 1;
+		}
+		if (result == REGULAR || result == SPLIT_REGULAR)
+		{
+			int32_t typeIdx = linearHelper.getSplitRegularObjectIdx();
+			encodeInst(WasmGCOpcode::ARRAY_NEW_FIXED, typeIdx, numElem, code);
+		}
+
+		if (needsRegular)
+		{
+			int32_t typeIdx = linearHelper.getRegularObjectIdx();
 			encodeInst(WasmS32Opcode::I32_CONST, 0, code);
-			encodeInst(WasmGCOpcode::STRUCT_NEW, linearHelper.getGCTypeIndex(allocaType, REGULAR), code);
+			encodeInst(WasmGCOpcode::STRUCT_NEW, typeIdx, code);
 		}
 	}
 	else
-		report_fatal_error("Unexpected pointer kind allocateGC", false);
+		assert(false);
 }
 
 uint32_t CheerpWasmWriter::compileArraySizeGC(const DynamicAllocInfo & info)
@@ -2995,16 +3111,34 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 	{
 		case Instruction::Alloca:
 		{
-			Type* allocaType = cast<AllocaInst>(I).getAllocatedType();
-			if (isTypeGC(allocaType))
+			const AllocaInst* ai = cast<AllocaInst>(&I);
+			Type* allocaType = ai->getAllocatedType();
+			POINTER_KIND kind = PA.getPointerKindAssert(ai);
+			const auto* allocaStores = allocaStoresExtractor.getValuesForAlloca(ai);
+			assert(isTypeGC(allocaType));
+			assert(kind != BYTE_LAYOUT);
+			assert(kind != RAW && "Allocas to RAW pointers are removed in the AllocaLowering pass");
+
+			bool needsDowncastArray = false;
+			if (auto sTy = dyn_cast<StructType>(allocaType))
+				needsDowncastArray = sTy->hasDirectBase() && linearHelper.hasDowncastArray(sTy);
+			allocateTypeGC(code, allocaType, needsDowncastArray, allocaStores);
+
+			if (kind == REGULAR)
 			{
-				POINTER_KIND kind = PA.getPointerKind(&I);
-				bool needsRegular = kind==REGULAR && PA.getConstantOffsetForPointer(&I); // TODO: needsDowncastArray
-				allocateGC(code, cast<AllocaInst>(I).getAllocatedType(), kind, needsRegular);
-				return false;
+				// TODO: switch the .a and .o around within the type,
+				// currently the .o is in front of the .a which is different from a regular's .d and .o order
+				assert(false);
+				encodeInst(WasmS32Opcode::I32_CONST, 0, code);
+				encodeInst(WasmGCOpcode::STRUCT_NEW, linearHelper.getRegularObjectIdx(), code);
 			}
-			else
-				llvm::report_fatal_error("Allocas in wasm should be removed in the AllocaLowering pass. This is a bug");
+			else if (kind == SPLIT_REGULAR)
+			{
+				encodeInst(WasmGCOpcode::STRUCT_NEW, linearHelper.getSplitRegularObjectIdx(), code);
+			}
+			else if (kind != COMPLETE_OBJECT)
+				llvm::report_fatal_error("unexpected pointer kind found");
+			return false;
 		}
 		case Instruction::Add:
 		case Instruction::And:
@@ -3433,9 +3567,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						if (isTypeGC(baseType))
 						{
 							DynamicAllocInfo da(&cast<CallBase>(ci), &targetData, false);
-							POINTER_KIND kind = PA.getPointerKind(&I);
-							bool needsRegular = kind==REGULAR && PA.getConstantOffsetForPointer(&I);
-							allocateGC(code, baseType, kind, needsRegular, compileArraySizeGC(da));
+							compileAllocationGC(code, da);
 							return false;
 						}
 						skipFirstParam = true;

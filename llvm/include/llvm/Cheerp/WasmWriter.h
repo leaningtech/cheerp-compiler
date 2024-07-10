@@ -18,6 +18,7 @@
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
 #include "llvm/Cheerp/LinearMemoryHelper.h"
 #include "llvm/Cheerp/NameGenerator.h"
+#include "llvm/Cheerp/AllocaMerging.h"
 #include "llvm/Cheerp/PointerAnalyzer.h"
 #include "llvm/Cheerp/Registerize.h"
 #include "llvm/Cheerp/InvokeWrapping.h"
@@ -105,6 +106,8 @@ private:
 	const LandingPadTable& landingPadTable;
 
 	const NameGenerator& namegen;
+
+	const AllocaStoresExtractor& allocaStoresExtractor;
 
 	TypeSupport types;
 
@@ -472,10 +475,10 @@ private:
 	bool needsOffsetAsElement(const llvm::StructType* sTy, uint32_t elemIdx);
 	void compileLoadGC(WasmBuffer& code, const llvm::Type* Ty, const llvm::Value* ptrOp, llvm::StructType* sTy, uint32_t structElemIdx, bool isOffset, POINTER_KIND kind);
 	void compileStoreGC(WasmBuffer& code, const llvm::StoreInst& si, const llvm::Type* Ty, llvm::StructType* sTy, uint32_t structElemIdx, bool isOffset, POINTER_KIND ptrKind, POINTER_KIND storeKind);
-	void allocateSimpleType(WasmBuffer& code, const llvm::Type* Ty);
-	void allocateComplexType(WasmBuffer& code, const llvm::Type* Ty, bool hasDowncastArray);
-	void allocateTypeGC(WasmBuffer& code, const llvm::Type* Ty, bool hasDowncastArray);
-	void allocateGC(WasmBuffer& code, llvm::Type* allocaType, POINTER_KIND kind, const bool needsRegular, const uint32_t arraySize = 1);
+	void allocateSimpleType(WasmBuffer& code, llvm::Type* Ty, const llvm::Value* init);
+	void allocateComplexType(WasmBuffer& code, llvm::Type* Ty, bool hasDowncastArray, uint32_t& usedValuesFromMap, const AllocaStoresExtractor::OffsetToValueMap* offsetToValueMap, uint32_t offset);
+	void allocateTypeGC(WasmBuffer& code, llvm::Type* Ty, bool hasDowncastArray, const AllocaStoresExtractor::OffsetToValueMap* offsetToValueMap = (const cheerp::AllocaStoresExtractor::OffsetToValueMap *)nullptr);
+	void compileAllocationGC(WasmBuffer& code, const DynamicAllocInfo& info);
 	void callDowncastArrayInit(WasmBuffer& code, const llvm::Type* Ty);
 	void compileDowncastGC(WasmBuffer& code, const llvm::CallBase* callV);
 	uint32_t compileArraySizeGC(const DynamicAllocInfo & info);
@@ -540,6 +543,7 @@ public:
 			const LinearMemoryHelper& linearHelper,
 			const LandingPadTable& landingPadTable,
 			const NameGenerator& namegen,
+			AllocaStoresExtractor& allocaStoresExtractor,
 			llvm::LLVMContext& C,
 			unsigned heapSize,
 			bool useWasmLoader,
@@ -558,6 +562,7 @@ public:
 		linearHelper(linearHelper),
 		landingPadTable(landingPadTable),
 		namegen(namegen),
+		allocaStoresExtractor(allocaStoresExtractor),
 		usedGlobals(0),
 		stackTopGlobal(0),
 		oSlotGlobal(0),
