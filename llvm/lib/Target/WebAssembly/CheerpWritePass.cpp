@@ -129,7 +129,7 @@ PreservedAnalyses cheerp::CheerpWritePassImpl::run(Module& M, ModuleAnalysisMana
   if (LinearOutput != AsmJs && secondaryOut)
   {
     cheerp::CheerpWasmWriter wasmWriter(M, MAM, *secondaryOut, PA, registerize, GDA, linearHelper, IW.getLandingPadTable(), namegen,
-                                        M.getContext(), CheerpHeapSize, !WasmOnly,
+                                        allocaStoresExtractor, M.getContext(), CheerpHeapSize, !WasmOnly,
                                         PrettyCode, WasmSharedMemory,
                                         WasmExportedTable);
     wasmWriter.makeWasm();
