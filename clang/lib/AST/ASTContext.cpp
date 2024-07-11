@@ -3283,9 +3283,13 @@ QualType ASTContext::getFunctionTypeWithExceptionSpec(
   // Anything else must be a function type. Rebuild it with the new exception
   // specification.
   const auto *Proto = Orig->castAs<FunctionProtoType>();
-  return getFunctionType(
+  auto Ret = getFunctionType(
       Proto->getReturnType(), Proto->getParamTypes(),
       Proto->getExtProtoInfo().withExceptionSpec(ESI));
+  if (Orig.hasAddressSpace()) {
+    Ret = getAddrSpaceQualType(Ret, Orig.getAddressSpace());
+  }
+  return Ret;
 }
 
 bool ASTContext::hasSameFunctionTypeIgnoringExceptionSpec(QualType T,
