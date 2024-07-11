@@ -576,6 +576,7 @@ namespace {
     bool isRedundantBeforeReturn() override { return true; }
     void Emit(CodeGenFunction &CGF, Flags flags) override {
       llvm::Value *V = CGF.Builder.CreateLoad(Stack);
+      V = CGF.Builder.CreateAddrSpaceCast(V, CGF.Int8Ty->getPointerTo(0));
       llvm::Function *F = CGF.CGM.getIntrinsic(llvm::Intrinsic::stackrestore);
       CGF.Builder.CreateCall(F, V);
     }
@@ -1620,13 +1621,17 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
   } else {
     EnsureInsertPoint();
 
+    uint32_t AS = getLangOpts().Cheerp? getContext().getTargetAddressSpace(Ty.getAddressSpace()) : CGM.getDataLayout().getAllocaAddrSpace();
+
     if (!DidCallStackSave) {
       // Save the stack.
       Address Stack =
-        CreateTempAlloca(Int8PtrTy, getPointerAlign(), "saved_stack");
+        CreateTempAlloca(getVoidPtrTy(true), getPointerAlign(), "saved_stack", nullptr, nullptr, AS);
 
       llvm::Function *F = CGM.getIntrinsic(llvm::Intrinsic::stacksave);
       llvm::Value *V = Builder.CreateCall(F);
+      if (AS != 0)
+        V = Builder.CreateAddrSpaceCast(V, Int8Ty->getPointerTo(AS));
       Builder.CreateStore(V, Stack);
 
       DidCallStackSave = true;
@@ -1639,7 +1644,6 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
     auto VlaSize = getVLASize(Ty);
     llvm::Type *llvmTy = ConvertTypeForMem(VlaSize.Type);
 
-    uint32_t AS = getLangOpts().Cheerp? getContext().getTargetAddressSpace(Ty.getAddressSpace()) : CGM.getDataLayout().getAllocaAddrSpace();
     // Allocate memory for the array.
     address = CreateTempAlloca(llvmTy, alignment, "vla", VlaSize.NumElts,
                                &AllocaAddr, AS);
