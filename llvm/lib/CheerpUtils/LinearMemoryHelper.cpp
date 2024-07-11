@@ -446,7 +446,7 @@ void LinearMemoryHelper::addGlobals()
 	{
 		// if (G.getSection() != StringRef("asmjs"))
 		// TODO: TMP for GC testing, revert later to the statement above
-		if (G.getSection() != StringRef("asmjs") && !(TMPisTypeGC(G.getType()) && G.getName().find("test") != std::string::npos))
+		if (G.getSection() != StringRef("asmjs") && !TMPisTypeGC(G.getType()))
 		{
 			errs() << "[addGlobals] Skipping global: " << G.getName() << " type is GC: " << (TMPisTypeGC(G.getType()) ? "true" : "false") << " type: " << *G.getType() << "\n";
 			continue;

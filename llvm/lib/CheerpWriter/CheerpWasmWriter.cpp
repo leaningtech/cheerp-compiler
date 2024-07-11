@@ -1609,7 +1609,16 @@ void CheerpWasmWriter::compileConstantAggregate(WasmBuffer& code, const Constant
 	assert(isTypeGC(Ty));
 	if (auto aTy = dyn_cast<ConstantArray>(ca))
 	{
-		assert(false);
+		Type* elemType = aTy->getType()->getElementType();
+		const int32_t typeIdx = linearHelper.getGCTypeIndex(Ty, COMPLETE_OBJECT);
+		for(uint32_t i = 0; i < aTy->getNumOperands(); i++)
+		{
+			if(elemType->isPointerTy())
+				compilePointerAs(code, aTy->getOperand(i), PA.getPointerKindForStoredType(elemType));
+			else
+				compileOperand(code, aTy->getOperand(i));
+		}
+		encodeInst(WasmGCOpcode::ARRAY_NEW_FIXED, typeIdx, aTy->getNumOperands(), code);
 	}
 	else if (auto cs = dyn_cast<ConstantStruct>(ca))
 	{
