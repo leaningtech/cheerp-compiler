@@ -294,9 +294,9 @@ uint32_t CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style, Str
 				compileSimpleType(element, init);
 			}
 			else if(style == THIS_OBJ)
-				compileComplexType(element, LITERAL_OBJ, varName, nextMaxDepth, 0, offsetToValueMap, totalOffset, usedValuesFromMap);
+				compileComplexType(element, LITERAL_OBJ, llvm::StringRef(""), nextMaxDepth, 0, offsetToValueMap, totalOffset, usedValuesFromMap);
 			else
-				numElements += compileComplexType(element, LITERAL_OBJ, varName, nextMaxDepth, totalLiteralProperties + numElements, offsetToValueMap, totalOffset, usedValuesFromMap);
+				numElements += compileComplexType(element, LITERAL_OBJ, llvm::StringRef(""), nextMaxDepth, totalLiteralProperties + numElements, offsetToValueMap, totalOffset, usedValuesFromMap);
 			if(useWrapperArray)
 			{
 				if(restoreMaxDepth)
@@ -368,7 +368,7 @@ uint32_t CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style, Str
 					compileSimpleType(element, init);
 				}
 				else
-					numElements += compileComplexType(element, LITERAL_OBJ, varName, nextMaxDepth, totalLiteralProperties + numElements, offsetToValueMap, totalOffset, usedValuesFromMap);
+					numElements += compileComplexType(element, LITERAL_OBJ, llvm::StringRef(""), nextMaxDepth, totalLiteralProperties + numElements, offsetToValueMap, totalOffset, usedValuesFromMap);
 			}
 			stream << ']';
 		}
