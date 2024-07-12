@@ -16,6 +16,7 @@
 #include "clang/AST/CharUnits.h"
 #include "clang/Basic/AddressSpaces.h"
 #include "llvm/IR/CallingConv.h"
+#include "llvm/IR/DataLayout.h"
 
 namespace llvm {
   class Type;
@@ -51,13 +52,13 @@ struct CodeGenTypeCache {
     llvm::IntegerType *PtrDiffTy;
   };
 
-  /// void* in address space 0
+  /// void* in address space 0 (Cheerp: default address space)
   union {
     llvm::PointerType *VoidPtrTy;
     llvm::PointerType *Int8PtrTy;
   };
 
-  /// void** in address space 0
+  /// void** in address space 0 (Cheerp: default address space)
   union {
     llvm::PointerType *VoidPtrPtrTy;
     llvm::PointerType *Int8PtrPtrTy;
@@ -74,6 +75,23 @@ struct CodeGenTypeCache {
     llvm::PointerType *GlobalsVoidPtrTy;
     llvm::PointerType *GlobalsInt8PtrTy;
   };
+
+  // Cheerp-specific pointer types
+  llvm::PointerType* WasmVoidPtrTy;
+  llvm::PointerType* GenericJSVoidPtrTy;
+  llvm::PointerType* ClientVoidPtrTy;
+  unsigned DefaultAS;
+  llvm::PointerType* getVoidPtrTy(bool asmjs, bool forFunc = false) {
+    if (DL.isByteAddressable())
+      return VoidPtrTy;
+    if (asmjs) {
+      return WasmVoidPtrTy;
+    }
+    if (forFunc) {
+      return ClientVoidPtrTy;
+    }
+    return GenericJSVoidPtrTy;
+  }
 
   /// The size and alignment of the builtin C type 'int'.  This comes
   /// up enough in various ABI lowering tasks to be worth pre-computing.
