@@ -4064,6 +4064,9 @@ bool Sema::MergeFunctionDecl(FunctionDecl *New, NamedDecl *&OldD, Scope *S,
         = Context.adjustFunctionType(OldType, OldTypeInfo.withNoReturn(true));
       OldQTypeForComparison = QualType(OldTypeForComparison, 0);
       assert(OldQTypeForComparison.isCanonical());
+      if (OldQType.hasAddressSpace()) {
+        OldQTypeForComparison = Context.getAddrSpaceQualType(OldQTypeForComparison, OldQType.getAddressSpace());
+      }
     }
     // CHEERP: We inject an AS qualifier only on non-static methods (for `this`),
     // but out-of-line static methods don't look as such at first glance,
@@ -15550,8 +15553,12 @@ Decl *Sema::ActOnFinishFunctionBody(Decl *dcl, Stmt *Body,
 
           // Update the return type to the deduced type.
           const auto *Proto = FD->getType()->castAs<FunctionProtoType>();
-          FD->setType(Context.getFunctionType(RetType, Proto->getParamTypes(),
-                                              Proto->getExtProtoInfo()));
+          QualType FTy = Context.getFunctionType(RetType, Proto->getParamTypes(),
+                                              Proto->getExtProtoInfo());
+          if (FD->getType().hasAddressSpace()) {
+            FTy = Context.getAddrSpaceQualType(FTy, FD->getType().getAddressSpace());
+          }
+          FD->setType(FTy);
         }
       }
 
