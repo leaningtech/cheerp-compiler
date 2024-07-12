@@ -634,7 +634,7 @@ CGCallee ItaniumCXXABI::EmitLoadOfMemberFunctionPointer(
     // Not zero adjustment, use the downcast instrinsic
     CGF.EmitBlock(FnVirtual);
     // Downcast from the type to i8*. GDA will ignore these when deciding if the downcast array is required.
-    llvm::Type* types[] = { CGF.Int8PtrTy, This->getType() };
+    llvm::Type* types[] = { Builder.getInt8PtrTy(This->getType()->getPointerAddressSpace()), This->getType() };
     llvm::Function* intrinsic = llvm::Intrinsic::getDeclaration(&CGM.getModule(),
                                   llvm::Intrinsic::cheerp_downcast, types);
 
@@ -1312,7 +1312,7 @@ void ItaniumCXXABI::emitVirtualObjectDelete(CodeGenFunction &CGF,
         Offset = llvm::ConstantInt::get(CGM.Int32Ty, 0);
       }
 
-      CompletePtr = CGF.GenerateVirtualcast(Ptr, CGF.Int8PtrTy, Offset);
+      CompletePtr = CGF.GenerateVirtualcast(Ptr, CGF.getVoidPtrTy(asmjs), Offset);
     } else {
       // Grab the vtable pointer as an intptr_t*.
       llvm::Value *VTable =
@@ -1381,7 +1381,7 @@ static llvm::FunctionCallee getThrowFn(CodeGenModule &CGM, bool asmjs) {
   // void __cxa_throw(void *thrown_exception, std::type_info *tinfo,
   //                  void (*dest) (void *));
 
-  llvm::Type *Args[3] = { CGM.Int8PtrTy, CGM.Int8PtrTy, CGM.Int8PtrTy };
+  llvm::Type *Args[3] = { CGM.getVoidPtrTy(asmjs), CGM.getVoidPtrTy(asmjs), CGM.getVoidPtrTy(asmjs, true /*forFunc*/) };
   llvm::FunctionType *FTy =
     llvm::FunctionType::get(CGM.VoidTy, Args, /*isVarArg=*/false);
 
@@ -1396,13 +1396,15 @@ static llvm::Function* getExceptionDestructorThunk(CodeGenModule& CGM, llvm::Con
   }
   StringRef DestName = Dest->getName();
   auto ThunkName = llvm::Twine("_ExThunk_",DestName).str();
-  llvm::FunctionType* Ty = llvm::FunctionType::get(CGM.VoidTy, CGM.VoidPtrTy, false);
+  llvm::FunctionType* Ty = llvm::FunctionType::get(CGM.VoidTy, CGM.getVoidPtrTy(asmjs), false);
   llvm::Function* Thunk = CGM.getModule().getFunction(ThunkName);
   if (Thunk) {
     assert(!Thunk->empty());
     return Thunk;
   }
-  Thunk = llvm::Function::Create(Ty, llvm::Function::LinkOnceODRLinkage, ThunkName, &CGM.getModule());
+  unsigned AS = unsigned(asmjs? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::Client);
+
+  Thunk = llvm::Function::Create(Ty, llvm::Function::LinkOnceODRLinkage, AS, ThunkName, &CGM.getModule());
   if (asmjs)
 	Thunk->setSection("asmjs");
   llvm::BasicBlock* Entry = llvm::BasicBlock::Create(CGM.getLLVMContext(), "entry", Thunk);
@@ -1419,12 +1421,12 @@ void ItaniumCXXABI::emitThrow(CodeGenFunction &CGF, const CXXThrowExpr *E) {
   llvm::Type *SizeTy = CGF.ConvertType(getContext().getSizeType());
   uint64_t TypeSize = getContext().getTypeSizeInChars(ThrowType).getQuantity();
 
+  bool asmjs = CGF.CurFn->getSection() == "asmjs";
   llvm::Type* elemTy = nullptr;
-
-  if (!CGM.getTarget().isByteAddressable()) {
+  if (CGM.getLangOpts().Cheerp) {
     elemTy = CGM.getTypes().ConvertType(ThrowType);
     if(elemTy->isPointerTy())
-      elemTy = CGM.VoidPtrTy;
+      elemTy = CGM.getVoidPtrTy(asmjs);
   }
 
   llvm::FunctionCallee AllocExceptionFn = getAllocateExceptionFn(CGM, elemTy);
@@ -1433,7 +1435,7 @@ void ItaniumCXXABI::emitThrow(CodeGenFunction &CGF, const CXXThrowExpr *E) {
   SmallVector<llvm::Value*> Ops(FT->getNumParams());
   if (FT->getNumParams() == 2) {
     // Cheerp specific logic
-    assert(!CGM.getTarget().isByteAddressable());
+    assert(CGM.getLangOpts().Cheerp);
     Ops[0] = llvm::Constant::getNullValue(FT->getParamType(0));
   }
   Ops.back() = llvm::ConstantInt::get(SizeTy, TypeSize);
@@ -1448,11 +1450,11 @@ void ItaniumCXXABI::emitThrow(CodeGenFunction &CGF, const CXXThrowExpr *E) {
   }
 
   CharUnits ExnAlign = CGF.getContext().getExnObjectAlignment();
-  if(!CGM.getTarget().isByteAddressable() && ThrowType->isPointerType())
-    CGF.EmitTypedPtrExprToExn(E->getSubExpr(), Address(ExceptionPtr, CGM.Int8PtrTy, ExnAlign));
+  if(CGM.getLangOpts().Cheerp && ThrowType->isPointerType())
+    CGF.EmitTypedPtrExprToExn(E->getSubExpr(), Address(ExceptionPtr, CGM.getVoidPtrTy(asmjs), ExnAlign));
   else
     CGF.EmitAnyExprToExn(
-      E->getSubExpr(), Address(ExceptionPtr, CGM.getTarget().isByteAddressable() ? CGM.Int8Ty : CGM.getTypes().ConvertType(ThrowType), ExnAlign));
+      E->getSubExpr(), Address(ExceptionPtr, CGM.getLangOpts().Cheerp ? CGM.getTypes().ConvertType(ThrowType) : CGM.Int8Ty , ExnAlign));
 
   // Now throw the exception.
   llvm::Value *TypeInfo = CGM.GetAddrOfRTTIDescriptor(ThrowType,
@@ -1467,20 +1469,19 @@ void ItaniumCXXABI::emitThrow(CodeGenFunction &CGF, const CXXThrowExpr *E) {
       CXXDestructorDecl *DtorD = Record->getDestructor();
       Dtor = CGM.getAddrOfCXXStructor(GlobalDecl(DtorD, Dtor_Complete));
       // CHEERP: We need to use a thunk that takes a void* and casts to the correct type
-      if(!CGM.getTarget().isByteAddressable()) {
+      if(CGM.getLangOpts().Cheerp) {
         bool asmjs = DtorD->hasAttr<AsmJSAttr>();
         Dtor = getExceptionDestructorThunk(CGM, Dtor, asmjs);
       }
-      Dtor = llvm::ConstantExpr::getBitCast(Dtor, CGM.Int8PtrTy);
+      Dtor = llvm::ConstantExpr::getBitCast(Dtor, CGM.getVoidPtrTy(asmjs, /*forFunc=*/true));
     }
   }
-  if (!Dtor) Dtor = llvm::Constant::getNullValue(CGM.Int8PtrTy);
+  if (!Dtor) Dtor = llvm::Constant::getNullValue(CGM.getVoidPtrTy(asmjs, /*forFunc=*/true));
 
-  TypeInfo = CGF.Builder.CreateBitCast(TypeInfo, CGM.Int8PtrTy);
+  TypeInfo = CGF.Builder.CreateBitCast(TypeInfo, CGM.getVoidPtrTy(asmjs));
 
-  llvm::Value* ExPtr = CGF.Builder.CreateBitCast(ExceptionPtr, CGM.Int8PtrTy);
+  llvm::Value* ExPtr = CGF.Builder.CreateBitCast(ExceptionPtr, CGM.getVoidPtrTy(asmjs));
   llvm::Value *args[] = { ExPtr, TypeInfo, Dtor };
-  bool asmjs = CGF.CurFn->getSection() == "asmjs";
   CGF.EmitNoreturnRuntimeCallOrInvoke(getThrowFn(CGM, asmjs), args);
 }
 
@@ -1495,20 +1496,22 @@ static llvm::FunctionCallee getItaniumDynamicCastFn(CodeGenFunction &CGF, bool a
   //                      const abi::__class_type_info *dst,
   //                      std::ptrdiff_t src2dst_offset);
 
-  llvm::Type *Int8PtrTy = CGF.Int8PtrTy;
+  llvm::Type *Int8PtrTy = CGF.getVoidPtrTy(asmjs);
   llvm::Type *PtrDiffTy =
     CGF.ConvertType(CGF.getContext().getPointerDiffType());
 
   llvm::FunctionType *FTy = NULL;
   llvm::StringRef FName;
+  unsigned AS = 0;
   if(CGF.getLangOpts().Cheerp) {
-    unsigned TinfoAS = unsigned(CGF.getTarget().getTriple().isCheerpWasm()? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+    unsigned TinfoAS = CGF.DefaultAS;
     unsigned VtableAS = unsigned(asmjs? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
 
     llvm::Type* classTypeInfoPtr = CGF.getTypes().GetClassTypeInfoType()->getPointerTo(TinfoAS);
     llvm::Type *Args[5] = { PtrDiffTy, CGF.getTypes().GetVTableBaseType(asmjs)->getPointerTo(VtableAS), classTypeInfoPtr, classTypeInfoPtr, PtrDiffTy };
     FTy = llvm::FunctionType::get(PtrDiffTy, Args, false);
     FName = asmjs? "__dynamic_cast_asmjs" : "__dynamic_cast_genericjs";
+    AS = unsigned(asmjs? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::Client);
   } else {
     llvm::Type *Args[4] = { Int8PtrTy, Int8PtrTy, Int8PtrTy, PtrDiffTy };
     FTy = llvm::FunctionType::get(Int8PtrTy, Args, false);
@@ -1522,7 +1525,7 @@ static llvm::FunctionCallee getItaniumDynamicCastFn(CodeGenFunction &CGF, bool a
   llvm::AttributeList Attrs = llvm::AttributeList::get(
       CGF.getLLVMContext(), llvm::AttributeList::FunctionIndex, FuncAttrs);
 
-  return CGF.CGM.CreateRuntimeFunction(FTy, FName, Attrs);
+  return CGF.CGM.CreateRuntimeFunction(FTy, FName, Attrs, false, false, AS);
 }
 
 static llvm::FunctionCallee getBadCastFn(CodeGenFunction &CGF) {
@@ -1760,7 +1763,7 @@ llvm::Value *ItaniumCXXABI::EmitDynamicCastToVoid(CodeGenFunction &CGF,
     } else {
       OffsetToTop = llvm::ConstantInt::get(CGM.Int32Ty, 0);
     }
-    llvm::Value *Ret = CGF.GenerateVirtualcast(ThisAddr, CGM.VoidPtrTy, OffsetToTop);
+    llvm::Value *Ret = CGF.GenerateVirtualcast(ThisAddr, CGM.getVoidPtrTy(asmjs), OffsetToTop);
     return Ret;
   }
 
@@ -1908,6 +1911,13 @@ void ItaniumCXXABI::addImplicitStructorParams(CodeGenFunction &CGF,
 
     // FIXME: avoid the fake decl
     QualType T = Context.getPointerType(Context.VoidPtrTy);
+    if (CGF.getLangOpts().Cheerp) {
+      bool asmjs = MD->getParent()->hasAttr<AsmJSAttr>();
+      LangAS AS = asmjs? LangAS::cheerp_wasm : LangAS::cheerp_genericjs;
+      T = Context.getAddrSpaceQualType(Context.VoidTy, AS);
+      T = Context.getAddrSpaceQualType(Context.getPointerType(T), AS);
+      T = Context.getAddrSpaceQualType(Context.getPointerType(T), AS);
+    }
     auto *VTTDecl = ImplicitParamDecl::Create(
         Context, /*DC=*/nullptr, MD->getLocation(), &Context.Idents.get("vtt"),
         T, ImplicitParamDecl::CXXVTT);
@@ -2127,14 +2137,15 @@ llvm::Value *ItaniumCXXABI::getVTableAddressPointInStructorWithVTT(
   uint64_t VirtualPointerIndex =
       CGM.getVTables().getSecondaryVirtualPointerIndex(VTableClass, Base);
 
+  bool asmjs = VTableClass->hasAttr<AsmJSAttr>();
   /// Load the VTT.
   llvm::Value *VTT = CGF.LoadCXXVTT();
   if (VirtualPointerIndex)
     VTT = CGF.Builder.CreateConstInBoundsGEP1_64(
-        CGF.VoidPtrTy, VTT, VirtualPointerIndex);
+        CGF.getVoidPtrTy(asmjs), VTT, VirtualPointerIndex);
 
   // And load the address point from the VTT.
-  return CGF.Builder.CreateAlignedLoad(CGF.VoidPtrTy, VTT,
+  return CGF.Builder.CreateAlignedLoad(CGF.getVoidPtrTy(asmjs), VTT,
                                        CGF.getPointerAlign());
 }
 

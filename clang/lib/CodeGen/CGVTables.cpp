@@ -614,6 +614,7 @@ llvm::Constant *CodeGenVTables::maybeEmitThunk(GlobalDecl GD,
     // Remove the name from the old thunk function and get a new thunk.
     OldThunkFn->setName(StringRef());
     ThunkFn = llvm::Function::Create(ThunkFnTy, llvm::Function::ExternalLinkage,
+                                     OldThunkFn->getType()->getAddressSpace(),
                                      Name.str(), &CGM.getModule());
     CGM.SetLLVMFunctionAttributes(GD, FnInfo, ThunkFn, /*IsThunk=*/false);
 
@@ -869,6 +870,7 @@ void CodeGenVTables::addVTableComponent(ConstantAggregateBuilderBase &builder,
       // Method is acceptable, continue processing as usual.
     }
 
+    bool asmjs = cast<CXXMethodDecl>(GD.getDecl())->getParent()->hasAttr<AsmJSAttr>();
     auto getSpecialVirtualFn = [&](StringRef name) -> llvm::Constant * {
       // FIXME(PR43094): When merging comdat groups, lld can select a local
       // symbol as the signature symbol even though it cannot be accessed
@@ -887,8 +889,9 @@ void CodeGenVTables::addVTableComponent(ConstantAggregateBuilderBase &builder,
         return llvm::ConstantPointerNull::get(CGM.Int8PtrTy);
       llvm::FunctionType *fnTy =
           llvm::FunctionType::get(CGM.VoidTy, /*isVarArg=*/false);
+      unsigned AS = unsigned(asmjs? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::Client);
       llvm::Constant *fn = cast<llvm::Constant>(
-          CGM.CreateRuntimeFunction(fnTy, name).getCallee());
+          CGM.CreateRuntimeFunction(fnTy, name, llvm::AttributeList(), false, false, AS).getCallee());
       if (auto f = dyn_cast<llvm::Function>(fn))
         f->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
       return fn;
@@ -915,7 +918,6 @@ void CodeGenVTables::addVTableComponent(ConstantAggregateBuilderBase &builder,
                layout.vtable_thunks()[nextVTableThunkIndex].first == componentIndex) {
       auto thunkInfo = layout.vtable_thunks()[nextVTableThunkIndex].second;
 
-      bool asmjs = cast<CXXMethodDecl>(GD.getDecl())->getParent()->hasAttr<AsmJSAttr>();
       if (!CGM.getTarget().isByteAddressable() && !asmjs) {
         // Override the non virtual offset in bytes with the topological offset
         // TODO: Really move topological offset logic in AST
