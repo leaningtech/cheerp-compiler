@@ -13759,8 +13759,11 @@ CXXConstructorDecl *Sema::DeclareImplicitDefaultConstructor(
     PushOnScopeChains(DefaultCon, S, false);
   ClassDecl->addDecl(DefaultCon);
 
-  // CHEERP: Inject asmjs/genericjs attribute if required
-  MaybeInjectCheerpModeAttr(DefaultCon);
+  if (getLangOpts().Cheerp) {
+    // CHEERP: Inject asmjs/genericjs attribute if required
+    MaybeInjectCheerpModeAttr(DefaultCon);
+    deduceCheerpAddressSpace(DefaultCon);
+  }
 
   return DefaultCon;
 }
@@ -13977,7 +13980,11 @@ void Sema::DefineInheritingConstructor(SourceLocation CurrentLocation,
 
   Constructor->setBody(new (Context) CompoundStmt(InitLoc));
   Constructor->markUsed(Context);
-  MaybeInjectCheerpModeAttr(Constructor);
+  if (getLangOpts().Cheerp) {
+    // CHEERP: Inject asmjs/genericjs attribute if required
+    MaybeInjectCheerpModeAttr(Constructor);
+    deduceCheerpAddressSpace(Constructor);
+  }
 
   if (ASTMutationListener *L = getASTMutationListener()) {
     L->CompletedImplicitDefinition(Constructor);
@@ -14050,8 +14057,11 @@ CXXDestructorDecl *Sema::DeclareImplicitDestructor(CXXRecordDecl *ClassDecl) {
     PushOnScopeChains(Destructor, S, false);
   ClassDecl->addDecl(Destructor);
 
-  // CHEERP: Inject asmjs/genericjs attribute if required
-  MaybeInjectCheerpModeAttr(Destructor);
+  if (getLangOpts().Cheerp) {
+    // CHEERP: Inject asmjs/genericjs attribute if required
+    MaybeInjectCheerpModeAttr(Destructor);
+    deduceCheerpAddressSpace(Destructor);
+  }
 
   return Destructor;
 }
@@ -14696,8 +14706,11 @@ CXXMethodDecl *Sema::DeclareImplicitCopyAssignment(CXXRecordDecl *ClassDecl) {
     PushOnScopeChains(CopyAssignment, S, false);
   ClassDecl->addDecl(CopyAssignment);
 
-  // CHEERP: Inject asmjs/genericjs attribute if required
-  MaybeInjectCheerpModeAttr(CopyAssignment);
+  if (getLangOpts().Cheerp) {
+    // CHEERP: Inject asmjs/genericjs attribute if required
+    MaybeInjectCheerpModeAttr(CopyAssignment);
+    deduceCheerpAddressSpace(CopyAssignment);
+  }
 
   return CopyAssignment;
 }
@@ -14780,10 +14793,14 @@ CXXMethodDecl *Sema::DeclareImplicitJsExportHelper(CXXRecordDecl *ClassDecl, CXX
 
   Helper->addAttr(JsExportAttr::CreateImplicit(Context));
 
-  // CHEERP: Inject asmjs/genericjs attribute
-  // This will use the class's one for deleteHelper and
-  // the Constructor's one for newHelper
-  MaybeInjectCheerpModeAttr(Helper, Constructor);
+  if (getLangOpts().Cheerp) {
+    // CHEERP: Inject asmjs/genericjs attribute
+    // This will use the class's one for deleteHelper and
+    // the Constructor's one for newHelper
+    // CHEERP: Inject asmjs/genericjs attribute if required
+    MaybeInjectCheerpModeAttr(Helper, Constructor);
+    deduceCheerpAddressSpace(Constructor);
+  }
 
   return Helper;
 }
@@ -15259,8 +15276,11 @@ CXXMethodDecl *Sema::DeclareImplicitMoveAssignment(CXXRecordDecl *ClassDecl) {
     PushOnScopeChains(MoveAssignment, S, false);
   ClassDecl->addDecl(MoveAssignment);
 
-  // CHEERP: Inject asmjs/genericjs attribute if required
-  MaybeInjectCheerpModeAttr(MoveAssignment);
+  if (getLangOpts().Cheerp) {
+    // CHEERP: Inject asmjs/genericjs attribute if required
+    MaybeInjectCheerpModeAttr(MoveAssignment);
+    deduceCheerpAddressSpace(MoveAssignment);
+  }
   return MoveAssignment;
 }
 
@@ -15652,8 +15672,11 @@ CXXConstructorDecl *Sema::DeclareImplicitCopyConstructor(
     PushOnScopeChains(CopyConstructor, S, false);
   ClassDecl->addDecl(CopyConstructor);
 
-  // CHEERP: Inject asmjs/genericjs attribute if required
-  MaybeInjectCheerpModeAttr(CopyConstructor);
+  if (getLangOpts().Cheerp) {
+    // CHEERP: Inject asmjs/genericjs attribute if required
+    MaybeInjectCheerpModeAttr(CopyConstructor);
+    deduceCheerpAddressSpace(CopyConstructor);
+  }
 
   return CopyConstructor;
 }
@@ -15788,8 +15811,11 @@ CXXConstructorDecl *Sema::DeclareImplicitMoveConstructor(
     PushOnScopeChains(MoveConstructor, S, false);
   ClassDecl->addDecl(MoveConstructor);
 
-  // CHEERP: Inject asmjs/genericjs attribute if required
-  MaybeInjectCheerpModeAttr(MoveConstructor);
+  if (getLangOpts().Cheerp) {
+    // CHEERP: Inject asmjs/genericjs attribute if required
+    MaybeInjectCheerpModeAttr(MoveConstructor);
+    deduceCheerpAddressSpace(MoveConstructor);
+  }
 
   return MoveConstructor;
 }
@@ -15889,8 +15915,11 @@ void Sema::DefineImplicitLambdaToFunctionPointerConversion(
     Invoker->setBody(new (Context) CompoundStmt(Conv->getLocation()));
   }
 
-  // CHEERP: inherit the asmjs/genericjs attributes from the lambda decl
-  MaybeInjectCheerpModeAttr(Invoker);
+  if (getLangOpts().Cheerp) {
+    // CHEERP: inherit the asmjs/genericjs attributes from the lambda decl
+    MaybeInjectCheerpModeAttr(Invoker);
+    deduceCheerpAddressSpace(Invoker);
+  }
 
   // Construct the body of the conversion function { return __invoke; }.
   Expr *FunctionRef = BuildDeclRefExpr(Invoker, Invoker->getType(), VK_LValue,
