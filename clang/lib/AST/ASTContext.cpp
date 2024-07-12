@@ -3246,7 +3246,12 @@ void ASTContext::adjustDeducedFunctionResultType(FunctionDecl *FD,
   while (true) {
     const auto *FPT = FD->getType()->castAs<FunctionProtoType>();
     FunctionProtoType::ExtProtoInfo EPI = FPT->getExtProtoInfo();
-    FD->setType(getFunctionType(ResultType, FPT->getParamTypes(), EPI));
+    LangAS AS = FD->getType().getAddressSpace();
+    QualType FTy = getFunctionType(ResultType, FPT->getParamTypes(), EPI);
+    if (AS != LangAS::Default) {
+      FTy = getAddrSpaceQualType(FTy, AS);
+    }
+    FD->setType(FTy);
     if (FunctionDecl *Next = FD->getPreviousDecl())
       FD = Next;
     else
