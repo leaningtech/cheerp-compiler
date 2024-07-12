@@ -1047,6 +1047,9 @@ void Sema::ActOnStartOfLambdaDefinition(LambdaIntroducer &Intro,
   buildLambdaScope(LSI, Method, Intro.Range, Intro.Default, Intro.DefaultLoc,
                    ExplicitParams, ExplicitResultType, !Method->isConst());
 
+  if (getLangOpts().Cheerp) {
+    deduceCheerpAddressSpace(Method);
+  }
   // C++11 [expr.prim.lambda]p9:
   //   A lambda-expression whose smallest enclosing scope is a block scope is a
   //   local lambda expression; any other lambda expression shall not have a
@@ -1406,6 +1409,7 @@ static void addFunctionPointerConversion(Sema &S, SourceRange IntroducerRange,
 
   // Add the conversion to function pointer.
   QualType PtrToFunctionTy = S.Context.getPointerType(InvokerFunctionTy);
+  InvokerFunctionTy = S.Context.removeAddrSpaceQualType(InvokerFunctionTy);
 
   // Create the type of the conversion function.
   FunctionProtoType::ExtProtoInfo ConvExtInfo(
@@ -1446,7 +1450,7 @@ static void addFunctionPointerConversion(Sema &S, SourceRange IntroducerRange,
   // The conversion function is a conversion to a pointer-to-function.
   TypeSourceInfo *ConvTSI = S.Context.getTrivialTypeSourceInfo(ConvTy, Loc);
   FunctionProtoTypeLoc ConvTL =
-      ConvTSI->getTypeLoc().getAs<FunctionProtoTypeLoc>();
+      ConvTSI->getTypeLoc().getUnqualifiedLoc().getAs<FunctionProtoTypeLoc>();
   // Get the result of the conversion function which is a pointer-to-function.
   PointerTypeLoc PtrToFunctionTL =
       ConvTL.getReturnLoc().getAs<PointerTypeLoc>();
@@ -1458,9 +1462,9 @@ static void addFunctionPointerConversion(Sema &S, SourceRange IntroducerRange,
   // Get the underlying function types that the conversion function will
   // be converting to (should match the type of the call operator).
   FunctionProtoTypeLoc CallOpConvTL =
-      PtrToFunctionTL.getPointeeLoc().getAs<FunctionProtoTypeLoc>();
+      PtrToFunctionTL.getPointeeLoc().getUnqualifiedLoc().getAs<FunctionProtoTypeLoc>();
   FunctionProtoTypeLoc CallOpConvNameTL =
-    ConvNamePtrToFunctionTL.getPointeeLoc().getAs<FunctionProtoTypeLoc>();
+    ConvNamePtrToFunctionTL.getPointeeLoc().getUnqualifiedLoc().getAs<FunctionProtoTypeLoc>();
 
   // Wire up the FunctionProtoTypeLocs with the call operator's parameters.
   // These parameter's are essentially used to transform the name and
@@ -1496,12 +1500,9 @@ static void addFunctionPointerConversion(Sema &S, SourceRange IntroducerRange,
   Conversion->setAccess(AS_public);
   Conversion->setImplicit(true);
 
-  // CHEERP: Add AsmJS attribute to function object if it exists on the lambda
-  if (Class->hasAttr<AsmJSAttr>()) {
-    auto spelling = Class->getAttr<AsmJSAttr>()->getSemanticSpelling();
-    Conversion->addAttr(
-        AsmJSAttr::CreateImplicit(S.Context, Conversion->getBeginLoc(),
-                                  AttributeCommonInfo::AS_GNU, spelling));
+  if (S.getLangOpts().Cheerp) {
+    S.MaybeInjectCheerpModeAttr(Conversion);
+    S.deduceCheerpAddressSpace(Conversion);
   }
 
   if (Class->isGenericLambda()) {
@@ -1580,6 +1581,9 @@ static void addFunctionPointerConversions(Sema &S, SourceRange IntroducerRange,
       S, *CallOpProto, [&](CallingConv CC) {
         QualType InvokerFunctionTy =
             S.getLambdaConversionFunctionResultType(CallOpProto, CC);
+        if (CallOperator->getType().hasAddressSpace()) {
+          InvokerFunctionTy = S.Context.getAddrSpaceQualType(InvokerFunctionTy, CallOperator->getType().getAddressSpace());
+        }
         addFunctionPointerConversion(S, IntroducerRange, Class, CallOperator,
                                      InvokerFunctionTy);
       });
