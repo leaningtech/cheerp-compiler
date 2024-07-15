@@ -5688,6 +5688,12 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
         D.setInvalidType(true);
       }
 
+      // CHEERP: Set the "this" address space of a member function pointer type
+      // to be the same address space as the class of the member pointer type
+      // (the class in which the member function is defined).
+      if (LangOpts.Cheerp && T->isFunctionProtoType())
+        T = Context.adjustCheerpMemberFunctionAddressSpace(T, ClsType);
+
       if (!ClsType.isNull())
         T = S.BuildMemberPointerType(T, ClsType, DeclType.Loc,
                                      D.getIdentifier());
