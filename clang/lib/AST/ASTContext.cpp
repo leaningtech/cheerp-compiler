@@ -13321,6 +13321,23 @@ LangAS ASTContext::getCheerpTypeAddressSpace(const Decl* D, LangAS fallback) con
   return AS;
 }
 
+QualType ASTContext::adjustCheerpFunctionAddressSpace(QualType T, LangAS AS) const {
+  const FunctionProtoType* FnTy = T->castAs<FunctionProtoType>();
+  FunctionProtoType::ExtProtoInfo EPI = FnTy->getExtProtoInfo();
+
+  if (AS == EPI.TypeQuals.getAddressSpace()) {
+    return T;
+  }
+
+  EPI.TypeQuals.setAddressSpace(AS);
+  QualType NewType = getFunctionType(FnTy->getReturnType(), FnTy->getParamTypes(), EPI);
+  return getAdjustedType(T, NewType);
+}
+
+QualType ASTContext::adjustCheerpMemberFunctionAddressSpace(QualType T, QualType ClassType) const {
+  return adjustCheerpFunctionAddressSpace(T, getCheerpTypeAddressSpace(ClassType));
+}
+
 // Explicitly instantiate this in case a Redeclarable<T> is used from a TU that
 // doesn't include ASTContext.h
 template

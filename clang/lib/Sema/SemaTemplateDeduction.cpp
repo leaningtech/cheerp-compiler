@@ -1793,7 +1793,15 @@ static Sema::TemplateDeductionResult DeduceTemplateArgumentsByTypeMatch(
       if (!FPA)
         return Sema::TDK_NonDeducedMismatch;
 
-      if (FPP->getMethodQuals() != FPA->getMethodQuals() ||
+      Qualifiers FPPQuals = FPP->getMethodQuals(),
+                 FPAQuals = FPA->getMethodQuals();
+
+      // CHEERP: Allow any method address space on the argument if the
+      // parameter has default method address space.
+      if (S.getLangOpts().Cheerp && !FPPQuals.hasAddressSpace() && FPAQuals.hasAddressSpace())
+        FPPQuals.setAddressSpace(FPAQuals.getAddressSpace());
+
+      if (FPPQuals != FPAQuals ||
           FPP->getRefQualifier() != FPA->getRefQualifier() ||
           FPP->isVariadic() != FPA->isVariadic())
         return Sema::TDK_NonDeducedMismatch;
