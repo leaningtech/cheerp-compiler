@@ -2826,6 +2826,9 @@ public:
   LangAS getCheerpTypeAddressSpace(QualType T, LangAS fallback = LangAS::Default) const;
   LangAS getCheerpTypeAddressSpace(const Decl* D, LangAS fallback = LangAS::Default) const;
 
+  QualType adjustCheerpFunctionAddressSpace(QualType T, LangAS AS) const;
+  QualType adjustCheerpMemberFunctionAddressSpace(QualType T, QualType ClassType) const;
+
   /// Get target-dependent integer value for null pointer which is used for
   /// constant folding.
   uint64_t getTargetNullPointerValue(QualType QT) const;
