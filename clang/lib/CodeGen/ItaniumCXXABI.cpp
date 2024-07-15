@@ -641,7 +641,7 @@ CGCallee ItaniumCXXABI::EmitLoadOfMemberFunctionPointer(
     llvm::CallBase* CB = Builder.CreateCall(intrinsic, {This, Adj});
     CB->addParamAttr(0, llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, ThisAddr.getElementType()));
     CB->addRetAttr(llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, CGF.Int8Ty));
-    llvm::Value* ThisNotZero = Builder.CreateBitCast(CB, This->getType());
+    llvm::Value* ThisNotZero = Builder.CreatePointerBitCastOrAddrSpaceCast(CB, This->getType());
     Builder.CreateBr(FnNonVirtual);
     CGF.EmitBlock(FnNonVirtual);
     llvm::PHINode* NewThis = Builder.CreatePHI(This->getType(), 2);
