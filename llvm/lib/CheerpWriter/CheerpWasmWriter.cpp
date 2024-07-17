@@ -5225,7 +5225,6 @@ void CheerpWasmWriter::compileModule()
 void CheerpWasmWriter::makeWasm()
 {
 	compileModule();
-	Streamer->finish();
 }
 
 void CheerpWasmWriter::WasmGepWriter::addValue(const llvm::Value* v, uint32_t size)

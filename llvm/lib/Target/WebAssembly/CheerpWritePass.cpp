@@ -29,9 +29,11 @@
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/StandardInstrumentations.h"
+#include "llvm/Support/CodeGen.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/PrettyStackTrace.h"
+#include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Transforms/Scalar/DCE.h"
 #include "llvm/Transforms/Scalar/EarlyCSE.h"
 
@@ -150,13 +152,20 @@ PreservedAnalyses cheerp::CheerpWritePassImpl::run(Module& M, ModuleAnalysisMana
       llvm::report_fatal_error("Error in creating MCStreamer", false);
       return PreservedAnalyses::none();
     }
-    cheerp::CheerpWasmWriter wasmWriter(M, MAM, *secondaryOut, std::move(*MCStreamerOrErr),
+//      (*MCStreamerOrErr)->initSections(false, *TM->getMCSubtargetInfo());
+//    Triple VTV(M.getDarwinTargetVariantTriple());
+//      (*MCStreamerOrErr)->emitVersionForTarget(TM->getTargetTriple(),M.getSDKVersion(),
+//                                               M.getDarwinTargetVariantTriple().empty()? nullptr:&VTV,
+//                                               M.getDarwinTargetVariantSDKVersion());
+
+    cheerp::CheerpWasmWriter wasmWriter(*TM, M, MAM, *secondaryOut, std::move(*MCStreamerOrErr),
                                         PA, registerize, GDA, linearHelper,
                                         IW.getLandingPadTable(), namegen,
                                         M.getContext(), CheerpHeapSize, !WasmOnly,
                                         PrettyCode, WasmSharedMemory,
                                         WasmExportedTable);
     wasmWriter.makeWasm();
+    wasmWriter.emitStreamerWasm();
   }
 
   allocaStoresExtractor.destroyStores();

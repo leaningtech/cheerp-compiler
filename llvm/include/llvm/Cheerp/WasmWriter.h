@@ -29,8 +29,13 @@
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/DebugInfo.h"
+#include "llvm/MC/MCContext.h"
+#include "llvm/MC/MCSectionWasm.h"
 #include "llvm/MC/MCStreamer.h"
+#include "llvm/MC/MCSymbol.h"
+#include "llvm/MC/MCSymbolWasm.h"
 #include "llvm/Support/FormattedStream.h"
+#include "llvm/Target/TargetMachine.h"
 
 namespace cheerp
 {
@@ -456,9 +461,11 @@ private:
 	uint32_t numberOfImportedFunctions{0};
 public:
 	llvm::raw_ostream& stream;
+        llvm::MCContext& OutContext;
+        llvm::TargetMachine &TM;
 	std::unique_ptr<llvm::MCStreamer> Streamer;
 	CheerpWasmWriter(
-			llvm::Module& m, llvm::ModuleAnalysisManager& MAM,
+			llvm::TargetMachine& TM, llvm::Module& m, llvm::ModuleAnalysisManager& MAM,
 			llvm::raw_ostream& s, std::unique_ptr<llvm::MCStreamer> Streamer,
 			const cheerp::PointerAnalyzer & PA,
 			cheerp::Registerize & registerize,
@@ -472,7 +479,7 @@ public:
 			bool prettyCode,
 			bool sharedMemory,
 			bool exportedTable):
-		module(m),
+                module(m),
 		MAM(MAM),
 		FAM(MAM.getResult<llvm::FunctionAnalysisManagerModuleProxy>(m).getManager()),
 		targetData(&m),
@@ -495,8 +502,10 @@ public:
 		PA(PA),
 		inlineableCache(PA),
 		stream(s),
-		Streamer(std::move(Streamer))
-	{
+		OutContext(Streamer->getContext()),
+		TM(TM),
+        Streamer(std::move(Streamer))
+        {
 	}
 	void makeWasm();
 	void compileBB(WasmBuffer& code, const llvm::BasicBlock& BB, const llvm::PHINode* phiHandledAsResult = nullptr);
@@ -549,6 +558,27 @@ public:
 	{
 		return inlineableCache.isInlineable(I);
 	}
+// for streamer usage
+public:
+      void emitStreamerWasm(void);
+private:
+
+      // from WasmAsmPrinter
+
+      std::vector<std::unique_ptr<std::string>> Names;
+
+      llvm::MCSymbolWasm *getMCSymbolForFunction(const llvm::Function *F);
+      llvm::MCSymbol *getOrCreateWasmSymbol(llvm::StringRef Name);
+      void emitSymbolType(const llvm::MCSymbolWasm* Sym);
+
+      llvm::StringRef storeName(llvm::StringRef Name) {
+          std::unique_ptr<std::string> N = std::make_unique<std::string>(Name);
+          Names.push_back(std::move(N));
+          return *Names.back();
+      }
+
+      // from AsmPrinter
+      llvm::MCSymbol *getSymbol(const llvm::GlobalValue *GV) const;
 };
 
 }

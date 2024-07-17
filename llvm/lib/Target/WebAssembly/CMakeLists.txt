@@ -16,6 +16,7 @@ add_public_tablegen_target(WebAssemblyCommonTableGen)
 
 add_llvm_target(WebAssemblyCodeGen
   CheerpWritePass.cpp
+  CheerpStreamerWriter.cpp
   WebAssemblyAddMissingPrototypes.cpp
   WebAssemblyArgumentMove.cpp
   WebAssemblyAsmPrinter.cpp
