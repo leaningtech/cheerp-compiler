@@ -12706,6 +12706,9 @@ bool Sema::DeduceVariableDeclarationType(VarDecl *VDecl, bool DirectInit,
   if (getLangOpts().OpenCL)
     deduceOpenCLAddressSpace(VDecl);
 
+  if (getLangOpts().Cheerp)
+    deduceCheerpAddressSpace(VDecl);
+
   // If this is a redeclaration, check that the type we just deduced matches
   // the previously declared type.
   if (VarDecl *Old = VDecl->getPreviousDecl()) {
