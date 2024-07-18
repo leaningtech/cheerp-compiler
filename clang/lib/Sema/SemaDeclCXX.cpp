@@ -14799,7 +14799,6 @@ CXXMethodDecl *Sema::DeclareImplicitJsExportHelper(CXXRecordDecl *ClassDecl, CXX
     // the Constructor's one for newHelper
     // CHEERP: Inject asmjs/genericjs attribute if required
     MaybeInjectCheerpModeAttr(Helper, Constructor);
-    deduceCheerpAddressSpace(Constructor);
   }
 
   return Helper;
@@ -14939,6 +14938,8 @@ void Sema::DefineImplicitJsExportHelper(CXXRecordDecl *ClassDecl, CXXMethodDecl*
   if (ASTMutationListener *L = getASTMutationListener()) {
     L->CompletedImplicitDefinition(Helper);
   }
+
+  deduceCheerpAddressSpace(Helper);
 }
 
 /// Diagnose an implicit copy operation for a class which is odr-used, but
