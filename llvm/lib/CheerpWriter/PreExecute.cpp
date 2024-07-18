@@ -971,7 +971,7 @@ bool PreExecute::runOnModule(Module& m)
         for (auto it = constructors.begin(); it != constructors.end();++it)
         {
             Constant* elem = *it;
-            Function* func = cast<Function>(elem->getAggregateElement(1));
+            Function* func = cast<Function>(elem->getAggregateElement(1)->stripPointerCastsSafe());
             int prio = cast<ConstantInt>(elem->getAggregateElement(0u))->getSExtValue();
             if (prio != curPrio && abortAtNextPrio)
             {
