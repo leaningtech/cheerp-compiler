@@ -4079,6 +4079,7 @@ bool Sema::MergeFunctionDecl(FunctionDecl *New, NamedDecl *&OldD, Scope *S,
       NewQType = Context.getFunctionType(NewProto->getReturnType(),
                                          NewProto->getParamTypes(),
                                          NewExtProtoInfo);
+      NewQType = Context.getAddrSpaceQualType(NewQType, New->getType().getAddressSpace());
       New->setType(NewQType);
     }
 
