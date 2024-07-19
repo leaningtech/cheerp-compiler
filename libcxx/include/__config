@@ -390,10 +390,12 @@
 
 #ifdef __CHEERP__
 # define _LIBCPP_BIG_ENDIAN    0
-# define _LIBCPP_HAS_NO_THREADS
 # define _LIBCPP_HAS_NO_ALIGNED_ALLOCATION
 # define _LIBCPP_HAS_NO_LIBRARY_ALIGNED_ALLOCATION
 # define _LIBCPP_ATOMIC_FLAG_TYPE bool
+#endif
+#ifndef __ASMJS__
+# define _LIBCPP_HAS_NO_THREADS
 #endif
 
 #  if !defined(_LIBCPP_LITTLE_ENDIAN) && !defined(_LIBCPP_BIG_ENDIAN)
@@ -892,7 +894,8 @@ _LIBCPP_BEGIN_NAMESPACE_STD _LIBCPP_END_NAMESPACE_STD
         defined(__sun__) ||                                                                                            \
         defined(__MVS__) ||                                                                                            \
         defined(_AIX) ||                                                                                               \
-        defined(__EMSCRIPTEN__)
+        defined(__EMSCRIPTEN__) ||                                                                                     \
+        defined(__ASMJS__)
 // clang-format on
 #      define _LIBCPP_HAS_THREAD_API_PTHREAD
 #    elif defined(__Fuchsia__)
