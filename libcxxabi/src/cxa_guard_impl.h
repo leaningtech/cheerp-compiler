@@ -152,6 +152,11 @@ private:
 //                       PlatformGetThreadID
 //===----------------------------------------------------------------------===//
 
+#ifdef __CHEERP__
+#define syscall(n,...) n(__VA_ARGS__)
+pid_t __syscall_gettid();
+#endif
+
 #if defined(__APPLE__) && defined(_LIBCPP_HAS_THREAD_API_PTHREAD)
 uint32_t PlatformThreadID() {
   static_assert(sizeof(mach_port_t) == sizeof(uint32_t), "");
