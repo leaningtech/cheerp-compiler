@@ -4321,7 +4321,8 @@ Sema::TemplateDeductionResult Sema::DeduceTemplateArguments(
   // Cheerp: Clang does not like when function types are qualified here
   // Since the purpose is just matching the specialization with the base
   // template, just strip it here
-  ArgFunctionType = Context.removeAddrSpaceQualType(ArgFunctionType);
+  if (!ArgFunctionType.isNull())
+    ArgFunctionType = Context.removeAddrSpaceQualType(ArgFunctionType);
 
   if (FunctionTemplate->isInvalidDecl())
     return TDK_Invalid;
