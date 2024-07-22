@@ -1491,7 +1491,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(const
 		stream << ")|0";
 		return COMPILE_OK;
 	}
-	else if(ident=="cheerpCreate_ZN6client6StringC2EPKc")
+	else if(ident=="cheerpCreate_ZN6client6StringC2EPU2jsKc")
 	{
 		// NativeRewriter has encoded the value as metadata if this optimization is possible
 		if(llvm::MDNode* md = callV.getMetadata("jsliteral"))
