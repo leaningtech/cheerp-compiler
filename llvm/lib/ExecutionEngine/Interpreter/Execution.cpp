@@ -1060,7 +1060,7 @@ void Interpreter::visitAllocaInst(AllocaInst &I) {
   SetValue(&I, Result, SF);
 
   if (AllocaListener)
-    AllocaListener(Ty, MemToAlloc, Memory.get());
+    AllocaListener(Ty, I.getAddressSpace(), MemToAlloc, Memory.get());
 
   if (I.getOpcode() == Instruction::Alloca)
     ECStack.back().Allocas.add(std::move(Memory));
