@@ -1767,7 +1767,13 @@ void CheerpWasmWriter::compileConstant(WasmBuffer& code, const Constant* c, bool
 	{
 		errs() << "[compileConstant] compileConstantPointerNull\n";
 		if (isTypeGC(c->getType()))
-			encodeInst(WasmU32Opcode::REF_NULL, 0x6E, code);
+		{
+			POINTER_KIND kind = PA.getPointerKind(c);
+			if (kind == COMPLETE_OBJECT || kind == CONSTANT)
+				encodeInst(WasmU32Opcode::REF_NULL, 0x6E, code);
+			else
+				encodeInst(WasmU32Opcode::GET_GLOBAL, nullObjGlobal, code);
+		}
 		else
 			encodeInst(WasmS32Opcode::I32_CONST, 0, code);
 	}
@@ -5506,8 +5512,7 @@ void CheerpWasmWriter::compilePointerAs(WasmBuffer& code, const llvm::Value* p, 
 		{
 			if (valueKind == CONSTANT)
 			{
-				const int32_t idx = linearHelper.getGCTypeIndex(p->getType(), kind);
-				encodeInst(WasmS32Opcode::REF_NULL, idx, code);
+				encodeInst(WasmU32Opcode::GET_GLOBAL, nullObjGlobal, code);
 				errs() << "[compilePointerAs] compile ConstNull END\n";
 			}
 			else if (PA.getConstantOffsetForPointer(p) || valueKind == SPLIT_REGULAR)
@@ -5775,9 +5780,7 @@ void CheerpWasmWriter::compilePointerBaseTyped(WasmBuffer& code, const Value* pt
 			assert(false);
 			// compileHeapForType(ty);
 		}
-		// encodes a null ref
-		uint32_t TyIdx = linearHelper.getGCTypeIndex(ty, kind);
-		encodeInst(WasmS32Opcode::REF_NULL, TyIdx, code);
+		encodeInst(WasmU32Opcode::GET_GLOBAL, nullArrayGlobal, code);
 		return;
 	}
 
@@ -7469,11 +7472,11 @@ void CheerpWasmWriter::compileGlobalSection()
 	std::sort(orderedConstants.begin(), orderedConstants.end());
 
 	// Assign global ids
-	uint32_t globalId = 2; // Skip stackTopGlobal and oSlotGlobal 
+	uint32_t globalId = 4; // Skip stackTopGlobal, oSlotGlobal, nullArrayGlobal and nullObjGlobal
 	for(uint32_t i=0;i<orderedConstants.size();i++)
 	{
 		GlobalConstant& GC = orderedConstants[i];
-		errs() << "[compileGlobalSection] Global: " << GC.C->getName() << "\n";
+		errs() << "[compileGlobalSection] Global: " << *GC.C << "\n";
 		if(GC.encoding == GLOBAL)
 		{
 			auto it = globalizedGlobalsUsage.find(cast<GlobalVariable>(GC.C));
@@ -7508,9 +7511,10 @@ void CheerpWasmWriter::compileGlobalSection()
 		stackTopGlobal = usedGlobals++;
 		int32_t stackTop = linearHelper.getStackStart();
 
-		// The stack, the oSlot and the globalized constants
-		encodeULEB128(1 + 1 + globalizedConstantsTmp.size() + globalizedGlobalsIDs.size(), section);
-		// The global has type i32 (0x7f) and is mutable (0x01).
+		// The stack, oSlot, nullArray, nullObj and the globalized constants
+		encodeULEB128(4 + globalizedConstantsTmp.size() + globalizedGlobalsIDs.size(), section);
+
+		// The stack top global has type i32 (0x7f) and is mutable (0x01).
 		encodeULEB128(0x7f, section);
 		encodeULEB128(0x01, section);
 		// The global value is a 'i32.const' literal.
@@ -7526,6 +7530,34 @@ void CheerpWasmWriter::compileGlobalSection()
 		// Initialize it to 0
 		encodeLiteralType(Type::getInt32Ty(Ctx), section);
 		encodeSLEB128(0, section);
+		// Encode the end of the instruction sequence.
+		encodeULEB128(0x0b, section);
+
+		// The nullArray global, reference of an array containing a null reference
+		nullArrayGlobal = usedGlobals++;
+		const int32_t splitRegIdx = linearHelper.getSplitRegularObjectIdx();
+		// Immutable reference type
+		encodeULEB128(0x63, section);
+		encodeSLEB128(splitRegIdx, section);
+		encodeULEB128(0x00, section);
+		// Create the array
+		encodeInst(WasmU32Opcode::REF_NULL, 0x6E, section);
+		encodeInst(WasmGCOpcode::ARRAY_NEW_FIXED, splitRegIdx, 1, section);
+		// Encode the end of the instruction sequence.
+		encodeULEB128(0x0b, section);
+
+		// The nullObj global, reference of a regular pointer kind struct containing the null array
+		nullObjGlobal = usedGlobals++;
+		const int32_t regularIdx = linearHelper.getRegularObjectIdx();
+		// Immutable reference type
+		encodeULEB128(0x63, section);
+		encodeSLEB128(regularIdx, section);
+		encodeULEB128(0x00, section);
+		// Create the struct
+		encodeInst(WasmU32Opcode::GET_GLOBAL, nullArrayGlobal, section); // .d
+		encodeInst(WasmS32Opcode::I32_CONST, 0, section); // .o
+		encodeInst(WasmGCOpcode::STRUCT_NEW, regularIdx, section);
+		// Encode the end of the instruction sequence.
 		encodeULEB128(0x0b, section);
 
 		// Render globals in reverse order
