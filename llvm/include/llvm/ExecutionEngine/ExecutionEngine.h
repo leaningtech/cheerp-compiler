@@ -186,7 +186,7 @@ protected:
   std::string ErrMsg;
 
   void (*StoreListener)(void* Addr);
-  void (*AllocaListener)(Type* Ty, uint32_t Size, void* Addr);
+  void (*AllocaListener)(Type* Ty, unsigned AS, uint32_t Size, void* Addr);
   void (*RetListener)(const std::vector<std::unique_ptr<char[]>>&);
 
 public:
@@ -545,7 +545,7 @@ public:
     StoreListener = P;
   }
   /// InstallAllocaListener - Listener to invoke on each alloca
-  void InstallAllocaListener(void (*P)(Type* Ty, uint32_t Size, void* Addr)) {
+  void InstallAllocaListener(void (*P)(Type* Ty, unsigned AS, uint32_t Size, void* Addr)) {
     AllocaListener = P;
   }
   /// InstallRetListener - Listener to invoke on each ret (the argument is the
