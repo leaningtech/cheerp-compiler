@@ -3602,6 +3602,13 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
       // There must be a cast from a valid type to void*
       const CastExpr *DestCast = dyn_cast<CastExpr>(DestE);
       const CastExpr *SrcCast = dyn_cast<CastExpr>(SrcE);
+      // First, ignore any address space cast
+      if (DestCast && DestCast->getCastKind() == CK_AddressSpaceConversion) {
+        DestCast = dyn_cast<CastExpr>(DestCast->getSubExpr());
+      }
+      if (SrcCast && SrcCast->getCastKind() == CK_AddressSpaceConversion) {
+        SrcCast = dyn_cast<CastExpr>(SrcCast->getSubExpr());
+      }
       if (!DestCast || DestCast->getSubExpr()->getType()->isVoidPointerType())
         CGM.getDiags().Report(DestE->getBeginLoc(), diag::err_cheerp_memintrinsic_type_unknown);
       else if (!SrcCast || SrcCast->getSubExpr()->getType()->isVoidPointerType())
