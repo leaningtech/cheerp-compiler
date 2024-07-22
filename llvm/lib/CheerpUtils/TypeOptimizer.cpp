@@ -1496,7 +1496,7 @@ Function* TypeOptimizer::rewriteFunctionSignature(Function* F)
 	F->setAttributes(PAL);
 
 	// Create the new function body and insert it into the module.
-	Function *NF = Function::Create(newFuncType, F->getLinkage(), F->getName());
+	Function *NF = Function::Create(newFuncType, F->getLinkage(), F->getAddressSpace(), F->getName());
 	NF->copyAttributesFrom(F);
 	NF->copyMetadata(F, 0);
 
