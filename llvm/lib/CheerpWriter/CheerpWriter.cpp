@@ -895,11 +895,15 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(const
 	}
 	else if(intrinsicId==Intrinsic::cheerp_virtualcast)
 	{
+		if(callV.use_empty())
+			return COMPILE_EMPTY;
 		compileVirtualcast( callV );
 		return COMPILE_OK;
 	}
 	else if(intrinsicId==Intrinsic::cheerp_downcast)
 	{
+		if(callV.use_empty())
+			return COMPILE_EMPTY;
 		compileDowncast( callV );
 		return COMPILE_OK;
 	}
