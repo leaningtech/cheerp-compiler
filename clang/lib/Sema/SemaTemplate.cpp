@@ -5257,7 +5257,7 @@ bool Sema::CheckTemplateTypeArgument(
 
   // CHEERP: If a template argument is a pointer/reference type, make sure
   // that it has a non-default address space
-  if (getLangOpts().Cheerp && (ArgType->isReferenceType() || ArgType->isPointerType())) {
+  if (getLangOpts().Cheerp && (ArgType->isReferenceType() || ArgType->isPointerType() || ArgType->isMemberPointerType())) {
     QualType Pointee = ArgType->getPointeeType();
     if (!Pointee.hasAddressSpace()) {
       LangAS AS = Context.getCheerpPointeeAddrSpace(Pointee.getTypePtr(), Param, CurCheerpFallbackAS);
