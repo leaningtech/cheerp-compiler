@@ -3182,7 +3182,7 @@ QualType ASTContext::getObjCGCQualType(QualType T,
 }
 
 QualType ASTContext::addPointeeAddrSpace(QualType T, LangAS AS) const {
-  if (!T->isPointerType() && !T->isReferenceType()) {
+  if (!T->isPointerType() && !T->isReferenceType() && !T->isMemberPointerType()) {
     return T;
   }
   if (const auto *DT = T->getAs<DecayedType>()) {
@@ -3209,6 +3209,8 @@ QualType ASTContext::addPointeeAddrSpace(QualType T, LangAS AS) const {
     return getLValueReferenceType(Pointee);
   if (T->isRValueReferenceType())
     return getLValueReferenceType(Pointee);
+  if (auto *MPT = T->getAs<MemberPointerType>())
+    return getMemberPointerType(Pointee, MPT->getClass());
   llvm_unreachable("not a pointer or reference type");
 }
 
@@ -7580,7 +7582,7 @@ LangAS ASTContext::getCheerpPointeeAddrSpace(const Type *PointeeType, Decl* D, L
   if (auto* TagTy = PointeeType->getAsTagDecl()) {
     return getCheerpTypeAddressSpace(TagTy);
   }
-  if (PointeeType->isPointerType() || PointeeType->isReferenceType()) {
+  if (PointeeType->isPointerType() || PointeeType->isReferenceType() || PointeeType->isMemberPointerType()) {
     LangAS PointeePointeeAS = getCheerpPointeeAddrSpace(PointeeType->getPointeeType().getTypePtr(), D, Fallback);
     switch (PointeePointeeAS) {
       case LangAS::cheerp_genericjs:
