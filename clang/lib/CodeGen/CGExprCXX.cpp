@@ -1366,7 +1366,7 @@ static RValue EmitNewDeleteCall(CodeGenFunction &CGF,
     allocType = CGF.getContext().getAddrSpaceQualType(allocType, AS);
   }
   //CHEERP TODO: warning/error when `cheerp && !asmjs && user_defined_new`
-  if(!IsDelete && cheerp && !(asmjs && user_defined_new))
+  if(!IsDelete && cheerp && !user_defined_new)
   {
     // Forge a call to a special type safe allocator intrinsic
     QualType retType = CGF.getContext().getPointerType(allocType);
@@ -1383,7 +1383,7 @@ static RValue EmitNewDeleteCall(CodeGenFunction &CGF,
     CallOrInvoke->addParamAttr(0, llvm::Attribute::get(CallOrInvoke->getContext(), llvm::Attribute::ElementType, elementType));
     RV = RValue::get(CallOrInvoke);
   }
-  else if(IsDelete && cheerp && !(asmjs && user_defined_new))
+  else if(IsDelete && cheerp && !user_defined_new)
   {
     QualType retType = CGF.getContext().getPointerType(allocType);
     llvm::Type* types[] = { CGF.ConvertType(retType) };
