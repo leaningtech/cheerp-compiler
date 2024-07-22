@@ -14633,8 +14633,14 @@ QualType
 TreeTransform<Derived>::RebuildMemberPointerType(QualType PointeeType,
                                                  QualType ClassType,
                                                  SourceLocation Sigil) {
-  if (SemaRef.getLangOpts().Cheerp && PointeeType->isFunctionProtoType())
-    PointeeType = SemaRef.Context.adjustCheerpMemberFunctionAddressSpace(PointeeType, ClassType);
+  if (SemaRef.getLangOpts().Cheerp) {
+    QualType T = PointeeType;
+    if (T->isFunctionProtoType())
+      T = SemaRef.Context.adjustCheerpMemberFunctionAddressSpace(T, ClassType);
+    T = SemaRef.deduceCheerpPointeeAddrSpace(T);
+    if (T != PointeeType)
+      PointeeType = SemaRef.Context.getAdjustedType(PointeeType, T);
+  }
 
   return SemaRef.BuildMemberPointerType(PointeeType, ClassType, Sigil,
                                         getDerived().getBaseEntity());
