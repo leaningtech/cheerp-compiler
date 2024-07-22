@@ -10229,17 +10229,14 @@ private:
     return DefaultABIInfo::classifyReturnType(RetTy);
   };
   ABIArgInfo classifyArgumentType(QualType Ty) const {
-    if (isAggregateTypeForABI(Ty)) {
+    auto Ret = DefaultABIInfo::classifyArgumentType(Ty);
+    if (Ret.isIndirect()) {
       LangAS DefaultAS = CGT.getTarget().getTriple().getEnvironment() == llvm::Triple::GenericJs?
           LangAS::cheerp_genericjs : LangAS::cheerp_wasm;
       LangAS AS = getContext().getCheerpTypeAddressSpace(Ty, DefaultAS);
-      auto ret = ABIArgInfo::getIndirect(
-          getContext().getTypeAlignInChars(Ty),
-          true/*byval*/, false /*Realign*/, nullptr /*Padding*/);
-      ret.setIndirectAddrSpace(getContext().getTargetAddressSpace(AS));
-      return ret;
+      Ret.setIndirectAddrSpace(getContext().getTargetAddressSpace(AS));
     }
-    return DefaultABIInfo::classifyArgumentType(Ty);
+    return Ret;
   };
 
   // DefaultABIInfo's classifyReturnType and classifyArgumentType are
