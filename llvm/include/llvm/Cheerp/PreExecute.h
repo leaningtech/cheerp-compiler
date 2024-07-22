@@ -34,10 +34,10 @@ public:
     llvm::GlobalVariable *globalValue;
     llvm::Type *allocType;
     size_t size;
+    unsigned addrSpace;
     bool hasCookie;
-    bool asmjs;
 
-    AllocData() : globalValue(nullptr), allocType(nullptr), size(0), hasCookie(false), asmjs(false) { }
+    AllocData() : globalValue(nullptr), allocType(nullptr), size(0), addrSpace(0), hasCookie(false) { }
 };
 
 class Allocator
@@ -87,12 +87,12 @@ public:
     bool runOnConstructor(llvm::Module& m, llvm::Function* c);
 
     void recordStore(void* Addr);
-    void recordTypedAllocation(llvm::Type *type, size_t size, char *buf, bool hasCookie, bool asmjs) {
+    void recordTypedAllocation(llvm::Type *type, unsigned AS, size_t size, char *buf, bool hasCookie) {
         AllocData data;
         data.allocType = type;
         data.size = size;
+        data.addrSpace = AS;
         data.hasCookie = hasCookie;
-        data.asmjs = asmjs;
         typedAllocations.insert(std::make_pair(buf, data));
     };
     void releaseTypedAllocation(char* buf) {
@@ -109,7 +109,7 @@ private:
             char* StoredAddr, char*& MallocStartAddress);
 
     llvm::Constant* computeInitializerFromMemory(const llvm::DataLayout* DL,
-            llvm::Type* memType, char* Addr, bool asmjs);
+            llvm::Type* memType, char* Addr);
 };
 
 class PreExecutePass : public llvm::PassInfoMixin<PreExecutePass> {
