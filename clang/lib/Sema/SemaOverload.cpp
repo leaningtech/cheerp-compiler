@@ -12318,6 +12318,12 @@ private:
   // R (S::*)(A) --> R (A), IsNonStaticMemberFunction = true
   void inline ExtractUnqualifiedFunctionTypeFromTargetType() {
     TargetFunctionType = S.ExtractUnqualifiedFunctionType(TargetType);
+
+    // CHEERP: We lost the function's address space :(. Add it back.
+    if (S.getLangOpts().Cheerp) {
+      assert(TargetType->isPointerType() && "TargetType should be a pointer in AddressOfFunctionResolver");
+      TargetFunctionType = S.Context.getAddrSpaceQualType(TargetFunctionType, TargetType->getPointeeType().getAddressSpace());
+    }
   }
 
   // return true if any matching specializations were found
