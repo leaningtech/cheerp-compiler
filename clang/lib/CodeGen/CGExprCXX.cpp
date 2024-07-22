@@ -1375,7 +1375,7 @@ static RValue EmitNewDeleteCall(CodeGenFunction &CGF,
     allocType = CGF.getContext().getAddrSpaceQualType(allocType, AS);
   }
   //CHEERP TODO: warning/error when `cheerp && !asmjs && user_defined_new`
-  if(!IsDelete && cheerp && !(asmjs && (user_defined_new || fancy_new)))
+  if(!IsDelete && cheerp && !user_defined_new && !(fancy_new && asmjs))
   {
     // Forge a call to a special type safe allocator intrinsic
     QualType retType = CGF.getContext().getPointerType(allocType);
@@ -1388,7 +1388,7 @@ static RValue EmitNewDeleteCall(CodeGenFunction &CGF,
     CallOrInvoke = cheerp::createCheerpAllocate(CGF.Builder, origFunc, elementType, Args[0].getKnownRValue().getScalarVal(), AS, use_array);
     RV = RValue::get(CallOrInvoke);
   }
-  else if(IsDelete && cheerp && !(asmjs && (user_defined_new || fancy_new)))
+  else if(IsDelete && cheerp && !user_defined_new && !(fancy_new && asmjs))
   {
     llvm::Constant* origFunc = nullptr;
     if (asmjs || !(allocType->getAsTagDecl() && allocType->getAsTagDecl()->hasAttr<GenericJSAttr>())) {
