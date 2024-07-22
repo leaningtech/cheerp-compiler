@@ -5694,6 +5694,9 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
       if (LangOpts.Cheerp && T->isFunctionProtoType())
         T = Context.adjustCheerpMemberFunctionAddressSpace(T, ClsType);
 
+      if (PtrAS != LangAS::Default && !T.hasAddressSpace())
+        T = Context.getAddrSpaceQualType(T, PtrAS);
+
       if (!ClsType.isNull())
         T = S.BuildMemberPointerType(T, ClsType, DeclType.Loc,
                                      D.getIdentifier());
