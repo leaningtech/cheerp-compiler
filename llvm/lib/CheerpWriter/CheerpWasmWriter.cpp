@@ -1574,7 +1574,7 @@ bool CheerpWasmWriter::doesConstantDependOnUndefined(const Constant* C) const
 {
 	if(isa<ConstantExpr>(C) && C->getOperand(0)->getType()->isPointerTy())
 		return doesConstantDependOnUndefined(cast<Constant>(C->getOperand(0)));
-	else if(isa<GlobalVariable>(C) && cast<GlobalVariable>(C)->getSection() == "asmjs" && !compiledGVars.count(cast<GlobalVariable>(C)))
+	else if(isa<GlobalVariable>(C) && cast<GlobalVariable>(C)->getSection() == "asmjs" && !globalizedConstants.count(C))
 		return true;
 	return false;
 }
@@ -7176,7 +7176,6 @@ void CheerpWasmWriter::compileGlobalSection()
 				assert(GV->hasInitializer());
 				compileConstant(section, GV->getInitializer(), /*forGlobalInit*/true);
 				encodeULEB128(0x0b, section);
-				compiledGVars.insert(GV);
 				continue;
 			}
 			// Constant type
@@ -7186,7 +7185,6 @@ void CheerpWasmWriter::compileGlobalSection()
 			encodeULEB128(0x00, section);
 			compileConstant(section, C, /*forGlobalInit*/true);
 			encodeULEB128(0x0b, section);
-			compiledGVars.insert(cast<GlobalVariable>(C));
 		}
 
 		section.encode();

@@ -134,9 +134,6 @@ private:
 	// local variable.
 	std::vector<int> localMap;
 
-	// Used for dependency checking during the compilation of global variables.
-	std::set<const llvm::GlobalVariable*> compiledGVars;
-
 	// TODO: move to a utils file
 	// Used to keep track of the index of elements inside structs,
 	// the vector contains the index of split regulars without a constant offset.
