@@ -115,6 +115,8 @@ private:
 	uint32_t usedGlobals;
 	uint32_t stackTopGlobal;
 	uint32_t oSlotGlobal;
+	uint32_t nullArrayGlobal;
+	uint32_t nullObjGlobal;
 
 	// The wasm module heap size
 	uint32_t heapSize;
@@ -558,6 +560,8 @@ public:
 		usedGlobals(0),
 		stackTopGlobal(0),
 		oSlotGlobal(0),
+		nullArrayGlobal(0),
+		nullObjGlobal(0),
 		heapSize(heapSize),
 		useWasmLoader(useWasmLoader),
 		prettyCode(prettyCode),
