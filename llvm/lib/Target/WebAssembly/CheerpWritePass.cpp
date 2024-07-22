@@ -10,8 +10,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/MachineModuleInfo.h"
-#include "llvm/Support/CodeGen.h"
-#include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Cheerp/BitCastLowering.h"
 #include "llvm/Cheerp/DTSWriter.h"
 #include "llvm/Cheerp/I64Lowering.h"
@@ -158,7 +156,7 @@ PreservedAnalyses cheerp::CheerpWritePassImpl::run(Module& M, ModuleAnalysisMana
 //                                               M.getDarwinTargetVariantTriple().empty()? nullptr:&VTV,
 //                                               M.getDarwinTargetVariantSDKVersion());
 
-    cheerp::CheerpWasmWriter wasmWriter(*TM, M, MAM, *secondaryOut, std::move(*MCStreamerOrErr),
+    cheerp::CheerpWasmWriter wasmWriter(TM, M, MAM, *secondaryOut, std::move(*MCStreamerOrErr),
                                         PA, registerize, GDA, linearHelper,
                                         IW.getLandingPadTable(), namegen,
                                         M.getContext(), CheerpHeapSize, !WasmOnly,

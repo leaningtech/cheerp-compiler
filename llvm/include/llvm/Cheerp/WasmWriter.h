@@ -36,6 +36,9 @@
 #include "llvm/MC/MCSymbolWasm.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Target/TargetMachine.h"
+#include "llvm/CodeGen/MachineModuleInfo.h"
+#include "llvm/Target/TargetLoweringObjectFile.h"
+#include "llvm/CodeGen/MachineOptimizationRemarkEmitter.h"
 
 namespace cheerp
 {
@@ -462,10 +465,12 @@ private:
 public:
 	llvm::raw_ostream& stream;
         llvm::MCContext& OutContext;
-        llvm::TargetMachine &TM;
+        llvm::TargetMachine* TM;
+        llvm::MachineModuleInfo* MMI;
 	std::unique_ptr<llvm::MCStreamer> Streamer;
+        const llvm::MCAsmInfo *MAI;
 	CheerpWasmWriter(
-			llvm::TargetMachine& TM, llvm::Module& m, llvm::ModuleAnalysisManager& MAM,
+			llvm::LLVMTargetMachine* TM, llvm::Module& m, llvm::ModuleAnalysisManager& MAM,
 			llvm::raw_ostream& s, std::unique_ptr<llvm::MCStreamer> Streamer,
 			const cheerp::PointerAnalyzer & PA,
 			cheerp::Registerize & registerize,
@@ -480,7 +485,7 @@ public:
 			bool sharedMemory,
 			bool exportedTable):
                 module(m),
-		MAM(MAM),
+                MAM(MAM),
 		FAM(MAM.getResult<llvm::FunctionAnalysisManagerModuleProxy>(m).getManager()),
 		targetData(&m),
 		currentFun(NULL),
@@ -504,8 +509,10 @@ public:
 		stream(s),
 		OutContext(Streamer->getContext()),
 		TM(TM),
-        Streamer(std::move(Streamer))
+                Streamer(std::move(Streamer)),
+        MAI(TM->getMCAsmInfo())
         {
+          MMI = new llvm::MachineModuleInfo(TM);
 	}
 	void makeWasm();
 	void compileBB(WasmBuffer& code, const llvm::BasicBlock& BB, const llvm::PHINode* phiHandledAsResult = nullptr);
@@ -564,21 +571,43 @@ public:
 private:
 
       // from WasmAsmPrinter
+      bool HasSplitStack = false;
+      bool HasNoSplitStack = false;
+      llvm::MCSymbol *CurrentFnSym = nullptr;
+      llvm::MCSymbol *CurrentFnBegin = nullptr;
+      llvm::MCSymbol *CurrentFnSymForSize = nullptr;
+      llvm::MCSymbol *CurrentFnBeginLocal = nullptr;
+      llvm::MCSymbol *CurrentSectionBeginSym = nullptr;
+      llvm::MCSymbol *CurrentPatchableFunctionEntrySym = nullptr;
+      //llvm::MachineOptimizationRemarkEmitter *ORE;
 
-      std::vector<std::unique_ptr<std::string>> Names;
+      void emitFunctionStreamer(const llvm::Function* F);
+      void setupSymbol(const llvm::Function* F);
+      void emitFunctionHeader(const llvm::Function* F);
+      void emitFunctionBodyStart(const llvm::Function* F);
 
       llvm::MCSymbolWasm *getMCSymbolForFunction(const llvm::Function *F);
       llvm::MCSymbol *getOrCreateWasmSymbol(llvm::StringRef Name);
       void emitSymbolType(const llvm::MCSymbolWasm* Sym);
 
-      llvm::StringRef storeName(llvm::StringRef Name) {
-          std::unique_ptr<std::string> N = std::make_unique<std::string>(Name);
-          Names.push_back(std::move(N));
-          return *Names.back();
-      }
+      void emitLinkage(const llvm::GlobalValue *GV, llvm::MCSymbol *GVSym) const;
+      void emitVisibility(llvm::MCSymbol *Sym, unsigned Visibility,
+                          bool IsDefinition = true) const;
 
       // from AsmPrinter
-      llvm::MCSymbol *getSymbol(const llvm::GlobalValue *GV) const;
+      llvm::MCSymbol *createTempSymbol(const llvm::Twine &Name) const {
+        return OutContext.createTempSymbol(Name, true);
+      }
+
+      llvm::MCSection *getUniqueSectionForFunction(const llvm::Function &F);
+
+      llvm::MCSymbol *getSymbol(const llvm::GlobalValue *GV) const {
+        const llvm::TargetLoweringObjectFile *TLOF = TM->getObjFileLowering();
+
+        llvm::SmallString<128> NameStr;
+        NameStr = namegen.getName(GV,0);
+        return TLOF->getContext().getOrCreateSymbol(NameStr);
+      }
 };
 
 }
