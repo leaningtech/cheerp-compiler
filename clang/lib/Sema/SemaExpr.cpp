@@ -14663,8 +14663,15 @@ QualType Sema::CheckAddressOfOperand(ExprResult &OrigOp, SourceLocation OpLoc) {
           while (cast<RecordDecl>(Ctx)->isAnonymousStructOrUnion())
             Ctx = Ctx->getParent();
 
+          QualType T = op->getType();
+
+          // CHEERP: the address space of a pointer-to-member is the address
+          // space of the class that contains the member
+          if (LangOpts.Cheerp)
+            T = Context.getAddrSpaceQualType(T, Context.getCheerpTypeAddressSpace(cast<RecordDecl>(Ctx)));
+
           QualType MPTy = Context.getMemberPointerType(
-              op->getType(),
+              T,
               Context.getTypeDeclType(cast<RecordDecl>(Ctx)).getTypePtr());
           // Under the MS ABI, lock down the inheritance model now.
           if (Context.getTargetInfo().getCXXABI().isMicrosoft())
