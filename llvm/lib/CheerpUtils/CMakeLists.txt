@@ -32,7 +32,7 @@ add_llvm_component_library(LLVMCheerpUtils
   SIMDTransform.cpp
   BitCastLowering.cpp
   JSStringLiteralLowering.cpp
-  MemoryInit.cpp
+  FinalizeMemoryInfo.cpp
   CheerpLowerAtomic.cpp
   JsExport.cpp
   )

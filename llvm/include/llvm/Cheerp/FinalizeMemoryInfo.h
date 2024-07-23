@@ -19,7 +19,7 @@ namespace cheerp
 
 using namespace llvm;
 
-class MemoryInitPass : public PassInfoMixin<MemoryInitPass> {
+class FinalizeMemoryInfoPass : public PassInfoMixin<FinalizeMemoryInfoPass> {
 private:
 
 public:

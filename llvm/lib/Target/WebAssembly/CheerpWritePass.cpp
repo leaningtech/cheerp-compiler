@@ -14,7 +14,7 @@
 #include "llvm/Cheerp/DTSWriter.h"
 #include "llvm/Cheerp/I64Lowering.h"
 #include "llvm/Cheerp/JSStringLiteralLowering.h"
-#include "llvm/Cheerp/MemoryInit.h"
+#include "llvm/Cheerp/FinalizeMemoryInfo.h"
 #include "llvm/Cheerp/PassRegistry.h"
 #include "llvm/Cheerp/PassUtility.h"
 #include "llvm/Cheerp/SIMDLowering.h"
@@ -60,15 +60,6 @@ PreservedAnalyses cheerp::CheerpWritePassImpl::run(Module& M, ModuleAnalysisMana
       return PreservedAnalyses::none();
     }
   }
-  PA.fullResolve();
-  PA.computeConstantOffsets(M);
-  // Destroy the stores here, we need them to properly compute the pointer kinds, but we want to optimize them away before registerize
-  allocaStoresExtractor.unlinkStores();
-
-  registerize.assignRegisters(M, PA);
-#ifdef REGISTERIZE_STATS
-  cheerp::reportRegisterizeStatistics();
-#endif
 
   Triple TargetTriple(M.getTargetTriple());
   bool WasmOnly = TargetTriple.getOS() == Triple::WASI;
@@ -261,8 +252,6 @@ bool CheerpWritePass::runOnModule(Module& M)
   MPM.addPass(createModuleToFunctionPassAdaptor(cheerp::PreserveCheerpAnalysisPassWrapper<DCEPass, Function, FunctionAnalysisManager>()));
   MPM.addPass(cheerp::RegisterizePass(!NoJavaScriptMathFround, LinearOutput == Wasm));
   MPM.addPass(cheerp::LinearMemoryHelperPass(cheerp::LinearMemoryHelperInitializer({functionAddressMode, CheerpHeapSize, CheerpStackSize, CheerpStackOffset, growMem, hasAsmjsMem})));
-  if (LinearOutput == LinearOutputTy::Wasm)
-    MPM.addPass(cheerp::MemoryInitPass());
   MPM.addPass(cheerp::ConstantExprLoweringPass());
   MPM.addPass(cheerp::PointerAnalyzerPass());
   MPM.addPass(cheerp::DelayInstsPass());
@@ -274,6 +263,9 @@ bool CheerpWritePass::runOnModule(Module& M)
   MPM.addPass(createModuleToFunctionPassAdaptor(cheerp::RemoveFwdBlocksPass()));
   // Keep this pass last, it is going to remove stores to memory from the LLVM visible code, so further optimizing afterwards will break
   MPM.addPass(cheerp::AllocaStoresExtractorPass());
+
+  // This pass needs to be ran after the AllocaStoresExtractorPass and does not do any optimizing.
+  MPM.addPass(cheerp::FinalizeMemoryInfoPass());
 
   MPM.addPass(cheerp::CheerpWritePassImpl(Out, TM));
 
