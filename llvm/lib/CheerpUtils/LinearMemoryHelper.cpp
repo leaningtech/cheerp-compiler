@@ -794,28 +794,27 @@ void LinearMemoryHelper::addGCTypes()
 /**
  * Create a FunctionType* that includes expanded SPLIT_REGULAR and REGULAR pointer kinds
 */
-const llvm::FunctionType* LinearMemoryHelper::createExpandedFunctionType(const llvm::Function* F)
+const llvm::FunctionType* LinearMemoryHelper::createExpandedFunctionType(const PointerAnalyzer* PA, const llvm::Function* F)
 {
 	std::vector<Type*> newArgs;
 	Type* returnTy = F->getReturnType(); 
 
-
 	for(auto arg = F->arg_begin(); arg != F->arg_end(); arg++)
 	{
-		if (arg->getType()->isPointerTy() && PA.getPointerKindForArgument(&*arg) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&*arg))
+		if (arg->getType()->isPointerTy() && PA->getPointerKindForArgument(&*arg) == SPLIT_REGULAR && !PA->getConstantOffsetForPointer(&*arg))
 		{
 			newArgs.push_back(getSplitRegularType());
 			newArgs.push_back(IntegerType::get(module->getContext(), 32));
 		}
-		else if (arg->getType()->isPointerTy() && PA.getPointerKindForArgument(&*arg) == REGULAR && !PA.getConstantOffsetForPointer(&*arg))
+		else if (arg->getType()->isPointerTy() && PA->getPointerKindForArgument(&*arg) == REGULAR && !PA->getConstantOffsetForPointer(&*arg))
 			newArgs.push_back(getRegularType());
 		else
 			newArgs.push_back(arg->getType());
 	}
-	
+
 	if (returnTy->isPointerTy())
 	{
-		POINTER_KIND kind = PA.getPointerKindForReturn(F);
+		POINTER_KIND kind = PA->getPointerKindForReturn(F);
 
 		if (kind == REGULAR)
 			returnTy = getRegularType();
@@ -838,7 +837,7 @@ const FunctionType* LinearMemoryHelper::getExpandedFunctionType(const Function* 
 	return (expandedFunctionTypes.at(F));
 }
 
-void LinearMemoryHelper::addFunctions()
+void LinearMemoryHelper::addFunctions(const PointerAnalyzer* PA)
 {
 	// Construct the list of asmjs functions. Make sure that __wasm_nullptr is
 	// the first list entry, if defined.
@@ -858,22 +857,18 @@ void LinearMemoryHelper::addFunctions()
 
 		// Do not add __wasm_nullptr twice.
 		if (mode == FunctionAddressMode::Wasm && F.getName() == StringRef(wasmNullptrName))
-		{
 			continue;
-		}
 
 		// Adding empty functions here will only cause a crash later
 		if (F.empty())
-		{
 			continue;
-		}
+		
 
 		// WebAssembly has some builtin functions (sqrt, abs, copysign, etc.)
 		// which should be omitted, and is therefore a subset of the asmjs
 		// function list.
-		if (mode == FunctionAddressMode::Wasm && TypedBuiltinInstr::isWasmIntrinsic(&F) && !F.hasAddressTaken()) {
+		if (mode == FunctionAddressMode::Wasm && TypedBuiltinInstr::isWasmIntrinsic(&F) && !F.hasAddressTaken())
 			continue;
-		}
 
 		unsorted.push_back(&F);
 	}
@@ -907,7 +902,7 @@ if (!functionTypeIndices.count(fTy)) { \
 #define ADD_BUILTIN(x, sig) if(globalDeps->needsBuiltin(BuiltinInstr::BUILTIN::x)) { needs_ ## sig = true; builtinIds[BuiltinInstr::x] = maxFunctionId++; }
 
 	for (const Function* F : globalDeps->asmJSImports()) {
-		const FunctionType* fTy = createExpandedFunctionType(F);
+		const FunctionType* fTy = createExpandedFunctionType(PA, F);
 		ADD_FUNCTION_TYPE(fTy);
 		functionIds.insert(std::make_pair(F, maxFunctionId++));
 	}
@@ -952,7 +947,7 @@ if (!functionTypeIndices.count(fTy)) { \
 	// Build the function tables first
 	for (const Function* F : asmjsFunctions_)
 	{
-		const FunctionType* fTy = createExpandedFunctionType(F);
+		const FunctionType* fTy = createExpandedFunctionType(PA, F);
 		if (F->hasAddressTaken() || F->getName() == StringRef(wasmNullptrName) || (freeTaken && F->getName() == StringRef("free"))) {
 			auto it = functionTables.find(fTy);
 			if (it == functionTables.end())

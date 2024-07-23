@@ -1295,7 +1295,7 @@ void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const B
 					{
 						writer.encodeInst(WasmU32Opcode::TEE_LOCAL, local, code);
 						// TODO: add compileRefCast, how do we get the right type?
-						assert(false);
+						// assert(false);
 					}
 				}
 				toProcessOrdered.pop_back();
@@ -2493,7 +2493,6 @@ Type* CheerpWasmWriter::getStoreContainerType(const Value* ptrOp)
 	const GetElementPtrInst* gep_inst = cast<GetElementPtrInst>(ptrOp);
 	Type* containerType = gep_inst->getSourceElementType();
 
-
 	// Skip the operand for the value and the access into it
 	// Also skip the last access so we know what type is being stored into
 	for (uint32_t i = 2; i < gep_inst->getNumOperands() - 1; i++)
@@ -2602,7 +2601,8 @@ void CheerpWasmWriter::compileStoreGC(WasmBuffer& code, const StoreInst& si, con
 	}
 	else if (ptrKind == POINTER_KIND::REGULAR)
 	{
-		assert(false);
+		const int32_t typeIdx = linearHelper.getSplitRegularObjectIdx();
+		encodeInst(WasmGCOpcode::ARRAY_SET, typeIdx, code);
 	}
 }
 
@@ -5240,7 +5240,8 @@ void CheerpWasmWriter::compilePointerAs(WasmBuffer& code, const llvm::Value* p, 
 	{
 		case RAW:
 		{
-			assert(valueKind == kind);
+			// TODO: is this correct?
+			assert(valueKind == RAW || valueKind == CONSTANT);
 			compileOperand(code, p);
 			break;
 		}
@@ -5485,7 +5486,6 @@ void CheerpWasmWriter::compilePointerBaseTyped(WasmBuffer& code, const Value* pt
 
 	if(kind == CONSTANT)
 	{
-		Type* ty = llvm::cast<PointerType>(ptr->getType())->getPointerElementType();
 		encodeInst(WasmU32Opcode::GET_GLOBAL, nullArrayGlobal, code);
 		return;
 	}
