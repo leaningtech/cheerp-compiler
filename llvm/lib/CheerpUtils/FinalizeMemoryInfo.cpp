@@ -30,7 +30,7 @@ PreservedAnalyses FinalizeMemoryInfoPass::run(Module& M, ModuleAnalysisManager& 
 
 	PA.fullResolve();
 	PA.computeConstantOffsets(M);
-	linearHelper.addFunctions();
+	linearHelper.addFunctions(&PA);
 	linearHelper.populateGlobalData();
 
 	if (LinearOutput == LinearOutputTy::Wasm)
