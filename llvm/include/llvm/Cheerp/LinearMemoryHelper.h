@@ -193,13 +193,13 @@ public:
 
 	typedef std::map<const llvm::Function*, const llvm::FunctionType*> ExpandedFunctionTypesMap;
 
-	LinearMemoryHelper(const LinearMemoryHelperInitializer& data, PointerAnalyzer& _PA) :
+	LinearMemoryHelper(const LinearMemoryHelperInitializer& data) :
 			module(nullptr), globalDeps(nullptr),
 		mode(data.mode), functionTables(3, FunctionSignatureHash(/*isStrict*/false), FunctionSignatureCmp(/*isStrict*/false)),
 		functionTypeIndices(3, FunctionSignatureHash(/*isStrict*/false), FunctionSignatureCmp(/*isStrict*/false)),
 		GCTypeCount(0), maxTypeIdx(0), maxFunctionId(0), memorySize(data.memorySize*1024*1024),
 		stackSize(data.stackSize*1024*1024), stackOffset((data.stackOffset+7) & ~7), growMem(data.growMem),
-		hasAsmjsMem(data.hasAsmjsMem), PA(_PA)
+		hasAsmjsMem(data.hasAsmjsMem)
 	{
 	}
 	bool runOnModule(llvm::Module& module, GlobalDepsAnalyzer* GDA)
@@ -207,8 +207,8 @@ public:
 		this->module = &module;
 		globalDeps = GDA;
 		builtinIds.fill(std::numeric_limits<uint32_t>::max());
+
 		addGCTypes();
-		addFunctions();
 		addStack();
 		addGlobals();
 		checkMemorySize();
@@ -217,8 +217,8 @@ public:
 		return false;
 	}
 
-	void addFunctions();
 	void populateGlobalData();
+	void addFunctions(const PointerAnalyzer* PA);
 
 	uint32_t getGlobalVariableAddress(const llvm::GlobalVariable* G) const;
 	const llvm::GlobalVariable* getGlobalVariableFromAddress(llvm::Value* C) const;
@@ -309,7 +309,6 @@ public:
 	}
 
 	const llvm::FunctionType* getExpandedFunctionType(const llvm::Function* F) const;
-
 
 	const std::vector<const llvm::Type*> getGCTypes() const {
 		return GCTypes;
@@ -454,7 +453,7 @@ private:
 	void setGlobalPtrIfPresent(llvm::StringRef name, uint32_t ptr);
 	void addGlobals();
 	void addGCTypes();
-	void addFunctions();
+	// void addFunctionIDs();
 	void addStack();
 	void addMemoryInfo();
 	void checkMemorySize();
@@ -467,7 +466,6 @@ private:
 	void cacheDowncastArrayClasses(DirectBaseToSubTypesMap& subTypeMap);
 
 	llvm::Module* module;
-	PointerAnalyzer& PA;
 	GlobalDepsAnalyzer* globalDeps;
 
 	LinearMemoryHelperInitializer::FunctionAddressMode mode;
@@ -478,9 +476,8 @@ private:
 
 	std::unordered_map<const llvm::Function*, uint32_t> functionIds;
 	std::array<uint32_t, BuiltinInstr::numGenericBuiltins()> builtinIds;
-	const llvm::Type* createExpandedType(const llvm::Type* Ty); 
 	std::unordered_set<const llvm::StructType*> superTypes;
-	const llvm::FunctionType* createExpandedFunctionType(const llvm::Function* F);
+	const llvm::FunctionType* createExpandedFunctionType(const PointerAnalyzer* PA, const llvm::Function* F);
 	ExpandedFunctionTypesMap expandedFunctionTypes;
 	DowncastFuncIdMap downcastFuncIds;
 	std::unordered_map<const llvm::FunctionType*, int32_t> downcastFuncTypeIndices;
@@ -529,11 +526,11 @@ private:
 class LinearMemoryHelperWrapper {
 	static LinearMemoryHelper* innerPtr;
 public:
-	static LinearMemoryHelper& getInner(llvm::ModuleAnalysisManager& MAM, LinearMemoryHelperInitializer& data, PointerAnalyzer& PA)
+	static LinearMemoryHelper& getInner(llvm::ModuleAnalysisManager& MAM, LinearMemoryHelperInitializer& data)
 	{
 		if (innerPtr)
 			delete innerPtr;
-		innerPtr = new LinearMemoryHelper(data, PA);
+		innerPtr = new LinearMemoryHelper(data);
 		innerPtr->MAM = &MAM;
 		return *innerPtr;
 	}
@@ -573,8 +570,7 @@ class LinearMemoryHelperPass : public llvm::PassInfoMixin<LinearMemoryHelperPass
 public:
 	llvm::PreservedAnalyses run(llvm::Module &M, llvm::ModuleAnalysisManager& MAM)
 	{
-		PointerAnalyzer& PA = MAM.getResult<PointerAnalysis>(M);
-		LinearMemoryHelper& LMH = MAM.getResult<LinearMemoryAnalysis>(M).getInner(MAM, data, PA);
+		LinearMemoryHelper& LMH = MAM.getResult<LinearMemoryAnalysis>(M).getInner(MAM, data);
 		GlobalDepsAnalyzer& GDA = MAM.getResult<GlobalDepsAnalysis>(M);
 		LMH.runOnModule(M, &GDA);
 

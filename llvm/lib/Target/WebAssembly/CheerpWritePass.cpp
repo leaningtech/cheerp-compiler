@@ -129,7 +129,7 @@ PreservedAnalyses cheerp::CheerpWritePassImpl::run(Module& M, ModuleAnalysisMana
   if (LinearOutput != AsmJs && secondaryOut)
   {
     cheerp::CheerpWasmWriter wasmWriter(M, MAM, *secondaryOut, PA, registerize, GDA, linearHelper, IW.getLandingPadTable(), namegen,
-                                        M.getContext(), CheerpHeapSize, !WasmOnly,
+                                        allocaStoresExtractor, M.getContext(), CheerpHeapSize, !WasmOnly,
                                         PrettyCode, WasmSharedMemory,
                                         WasmExportedTable);
     wasmWriter.makeWasm();
@@ -251,9 +251,9 @@ bool CheerpWritePass::runOnModule(Module& M)
   // inside not used instructions which are then not rendered.
   MPM.addPass(createModuleToFunctionPassAdaptor(cheerp::PreserveCheerpAnalysisPassWrapper<DCEPass, Function, FunctionAnalysisManager>()));
   MPM.addPass(cheerp::RegisterizePass(!NoJavaScriptMathFround, LinearOutput == Wasm));
-  MPM.addPass(cheerp::PointerAnalyzerPass());
   MPM.addPass(cheerp::LinearMemoryHelperPass(cheerp::LinearMemoryHelperInitializer({functionAddressMode, CheerpHeapSize, CheerpStackSize, CheerpStackOffset, growMem, hasAsmjsMem})));
   MPM.addPass(cheerp::ConstantExprLoweringPass());
+  MPM.addPass(cheerp::PointerAnalyzerPass());
   MPM.addPass(cheerp::DelayInstsPass());
 
   MPM.addPass(cheerp::AllocaMergingPass());
@@ -277,137 +277,6 @@ bool CheerpWritePass::runOnModule(Module& M)
   }
 
   return false;
-}
-
-PreservedAnalyses cheerp::CheerpWritePassImpl::run(Module& M, ModuleAnalysisManager& MAM)
-{
-  cheerp::Registerize &registerize = MAM.getResult<cheerp::RegisterizeAnalysis>(M);
-  cheerp::GlobalDepsAnalyzer &GDA = MAM.getResult<cheerp::GlobalDepsAnalysis>(M);
-  cheerp::PointerAnalyzer &PA = MAM.getResult<cheerp::PointerAnalysis>(M);
-  cheerp::InvokeWrapping &IW = MAM.getResult<cheerp::InvokeWrappingAnalysis>(M);
-  cheerp::AllocaStoresExtractor &allocaStoresExtractor = MAM.getResult<cheerp::AllocaStoresExtractorAnalysis>(M);
-  cheerp::LinearMemoryHelper &linearHelper = MAM.getResult<LinearMemoryAnalysis>(M);
-  std::unique_ptr<cheerp::SourceMapGenerator> sourceMapGenerator;
-  GDA.forceTypedArrays = ForceTypedArrays;
-  if (!SourceMap.empty())
-  {
-    std::error_code ErrorCode;
-    sourceMapGenerator.reset(new cheerp::SourceMapGenerator(SourceMap, SourceMapPrefix, SourceMapStandAlone, ErrorCode));
-    if (ErrorCode)
-    {
-       // An error occurred opening the source map file, bail out
-       llvm::report_fatal_error(StringRef(ErrorCode.message()), false);
-       return PreservedAnalyses::none();
-    }
-  }
-  PA.fullResolve();
-  PA.computeConstantOffsets(M);
-  // Destroy the stores here, we need them to properly compute the pointer kinds, but we want to optimize them away before registerize
-  allocaStoresExtractor.unlinkStores();
-
-  registerize.assignRegisters(M, PA);
-#ifdef REGISTERIZE_STATS
-  cheerp::reportRegisterizeStatistics();
-#endif
-
-  Triple TargetTriple(M.getTargetTriple());
-  bool WasmOnly = TargetTriple.getOS() == Triple::WASI;
-  std::error_code ErrorCode;
-  llvm::ToolOutputFile secondaryFile(SecondaryOutputFile, ErrorCode, sys::fs::OF_None);
-  std::unique_ptr<llvm::formatted_raw_ostream> secondaryOut;
-  if (!SecondaryOutputFile.empty())
-  {
-    secondaryOut.reset(new formatted_raw_ostream(secondaryFile.os()));
-  }
-  else if (WasmOnly && LinearOutput != AsmJs)
-  {
-    secondaryOut.reset(new formatted_raw_ostream(Out));
-  }
-  
-  std::error_code dtsErrorCode;
-  llvm::ToolOutputFile dtsFile(DTSOutputFile, dtsErrorCode, sys::fs::OF_None);
-  std::unique_ptr<llvm::formatted_raw_ostream> dtsOut;
-  if (!DTSOutputFile.empty())
-  {
-    dtsOut.reset(new formatted_raw_ostream(dtsFile.os()));
-  }
-
-  // Build the ordered list of reserved names
-  std::vector<std::string> reservedNames(ReservedNames.begin(), ReservedNames.end());
-  std::sort(reservedNames.begin(), reservedNames.end());
-
-  cheerp::NameGenerator namegen(M, GDA, registerize, PA, linearHelper, reservedNames, PrettyCode, WasmExportedMemory);
-
-  std::string wasmFile;
-  std::string asmjsMemFile;
-  llvm::formatted_raw_ostream* memOut = nullptr;
-  switch (LinearOutput)
-  {
-    case Wasm:
-      if (!SecondaryOutputPath.empty())
-        wasmFile = SecondaryOutputPath.getValue();
-      else if (!SecondaryOutputFile.empty())
-        wasmFile = std::string(llvm::sys::path::filename(SecondaryOutputFile.getValue()));
-      break;
-    case AsmJs:
-      if (!SecondaryOutputPath.empty())
-        asmjsMemFile = SecondaryOutputPath.getValue();
-      else if (!SecondaryOutputFile.empty())
-        asmjsMemFile = std::string(llvm::sys::path::filename(SecondaryOutputFile.getValue()));
-      memOut = secondaryOut.get();
-      break;
-  }
-
-  MODULE_TYPE makeModule = getModuleType(MakeModule);
-
-  if (MakeDTS && dtsOut)
-  {
-    cheerp::CheerpDTSWriter dtsWriter(M, *dtsOut, sourceMapGenerator.get(), PrettyCode, makeModule);
-    dtsWriter.makeDTS();
-  }
-
-  if (!WasmOnly)
-  {
-    cheerp::CheerpWriter writer(M, MAM, Out, PA, registerize, GDA, linearHelper, namegen, allocaStoresExtractor, IW.getLandingPadTable(), memOut, asmjsMemFile,
-            sourceMapGenerator.get(), PrettyCode, makeModule, !NoNativeJavaScriptMath,
-            !NoJavaScriptMathImul, !NoJavaScriptMathFround, !NoCredits, MeasureTimeToMain, CheerpHeapSize,
-            BoundsCheck, SymbolicGlobalsAsmJS, wasmFile, ForceTypedArrays);
-    writer.makeJS();
-  }
-
-  if (LinearOutput != AsmJs && secondaryOut)
-  {
-    cheerp::CheerpWasmWriter wasmWriter(M, MAM, *secondaryOut, PA, registerize, GDA, linearHelper, IW.getLandingPadTable(), namegen,
-                                    allocaStoresExtractor, M.getContext(), CheerpHeapSize, !WasmOnly,
-                                    PrettyCode, WasmSharedMemory,
-                                    WasmExportedTable);
-    wasmWriter.makeWasm();
-  }
-
-  allocaStoresExtractor.destroyStores();
- 
-  if (!SecondaryOutputFile.empty() && ErrorCode)
-  {
-    // An error occurred opening the asm.js memory file, bail out
-    llvm::report_fatal_error(StringRef(ErrorCode.message()), false);
-    return PreservedAnalyses::none();
-  }
-  if (!DTSOutputFile.empty() && dtsErrorCode)
-  {
-    llvm::report_fatal_error(StringRef(dtsErrorCode.message()), false);
-    return PreservedAnalyses::none();
-  }
-  if (!WasmOnly)
-    secondaryFile.keep();
-  if (MakeDTS)
-    dtsFile.keep();
-
-
-	return PreservedAnalyses::none();
-}
-
-void CheerpWritePass::getAnalysisUsage(AnalysisUsage& AU) const
-{
 }
 
 char CheerpWritePass::ID = 0;

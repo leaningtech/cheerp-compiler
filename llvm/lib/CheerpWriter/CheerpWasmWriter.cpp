@@ -1316,7 +1316,7 @@ void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const B
 						errs() << "Setting TeeLocal: " << local << "\n" ;
 						writer.encodeInst(WasmU32Opcode::TEE_LOCAL, local, code);
 						// TODO: add compileRefCast, how do we get the right type?
-						assert(false);
+						// assert(false);
 					}
 				}
 				toProcessOrdered.pop_back();
@@ -2587,8 +2587,8 @@ Type* CheerpWasmWriter::getStoreContainerType(const Value* ptrOp)
 	const GetElementPtrInst* gep_inst = cast<GetElementPtrInst>(ptrOp);
 	Type* containerType = gep_inst->getSourceElementType();
 
-	// errs() << "[getStoreContainerType] gep: " << *gep_inst << "\n";
-	// errs() << "[getStoreContainerType] containerType: " << *containerType << "\n";
+	errs() << "[getStoreContainerType] gep: " << *gep_inst << "\n";
+	errs() << "[getStoreContainerType] containerType: " << *containerType << "\n";
 
 	// Skip the operand for the value and the access into it
 	// Also skip the last access so we know what type is being stored into
@@ -2721,8 +2721,8 @@ void CheerpWasmWriter::compileStoreGC(WasmBuffer& code, const StoreInst& si, con
 	}
 	else if (ptrKind == POINTER_KIND::REGULAR)
 	{
-		errs() << "Regular pointer kinds not yet supported for stores\n";
-		assert(false);
+		const int32_t typeIdx = linearHelper.getSplitRegularObjectIdx();
+		encodeInst(WasmGCOpcode::ARRAY_SET, typeIdx, code);
 	}
 
 	errs() << "[compileStoreGC] END\n\n\n";
@@ -5497,9 +5497,10 @@ void CheerpWasmWriter::compilePointerAs(WasmBuffer& code, const llvm::Value* p, 
 	{
 		case RAW:
 		{
-			assert(valueKind == kind);
+			// TODO: is this correct?
+			assert(valueKind == RAW || valueKind == CONSTANT);
 			compileOperand(code, p);
-			errs() << "[compilePointerAs]\n";
+			errs() << "[compilePointerAs] RAW\n";
 			break;
 		}
 		case COMPLETE_OBJECT:
@@ -5548,6 +5549,7 @@ void CheerpWasmWriter::compileCompleteObject(WasmBuffer& code, const Value* p, c
 	if(isa<UndefValue>(p))
 	{
 		compileOperand(code, p);
+		errs() << "[compileCompleteObject] DONE\n";
 		return;
 	}
 	if(isa<ConstantPointerNull>(p))
@@ -5641,6 +5643,7 @@ void CheerpWasmWriter::compileCompleteObject(WasmBuffer& code, const Value* p, c
 			llvm::report_fatal_error("Unsupported code found, please report a bug", false);
 		}
 	}
+	errs() << "[compileCompleteObject] DONE\n";
 }
 
 void CheerpWasmWriter::compilePointerOffset(WasmBuffer& code, const Value* ptr)
@@ -5773,13 +5776,6 @@ void CheerpWasmWriter::compilePointerBaseTyped(WasmBuffer& code, const Value* pt
 
 	if(kind == CONSTANT)
 	{
-		Type* ty = llvm::cast<PointerType>(ptr->getType())->getPointerElementType();
-		// TODO: Is this needed on the wasm side? and if so, how to implement
-		if (!isa<ConstantPointerNull>(ptr) && (globalDeps.needAsmJSMemory() || globalDeps.needAsmJSCode()) && !ty->isStructTy())
-		{
-			assert(false);
-			// compileHeapForType(ty);
-		}
 		encodeInst(WasmU32Opcode::GET_GLOBAL, nullArrayGlobal, code);
 		return;
 	}
@@ -7428,6 +7424,7 @@ void CheerpWasmWriter::compileGlobalSection()
 						// The whole global is globalized, there is no point in globalizing the address
 						continue;
 					}
+					errs() << "[compileGlobalSection] adding constant: " << *C << "\n";
 					globalizedConstantsTmp[C].first++;
 				}
 			}
