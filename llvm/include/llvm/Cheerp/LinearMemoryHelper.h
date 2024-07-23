@@ -198,15 +198,16 @@ public:
 		this->module = &module;
 		globalDeps = GDA;
 		builtinIds.fill(std::numeric_limits<uint32_t>::max());
-		addFunctions();
 		addStack();
 		addGlobals();
 		checkMemorySize();
 		addMemoryInfo();
-		populateGlobalData();
 
 		return false;
 	}
+
+	void addFunctions();
+	void populateGlobalData();
 
 	uint32_t getGlobalVariableAddress(const llvm::GlobalVariable* G) const;
 	const llvm::GlobalVariable* getGlobalVariableFromAddress(llvm::Value* C) const;
@@ -392,11 +393,9 @@ private:
 
 	void setGlobalPtrIfPresent(llvm::StringRef name, uint32_t ptr);
 	void addGlobals();
-	void addFunctions();
 	void addStack();
 	void addMemoryInfo();
 	void checkMemorySize();
-	void populateGlobalData();
 
 	llvm::Module* module;
 	GlobalDepsAnalyzer* globalDeps;
