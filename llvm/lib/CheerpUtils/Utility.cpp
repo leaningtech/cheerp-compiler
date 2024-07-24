@@ -1256,7 +1256,7 @@ bool replaceCallOfBitCastWithBitCastOfCall(CallBase& callInst, bool mayFail, boo
 		return false;
 	}
 
-	if (bitCast->getOpcode() != Instruction::BitCast)
+	if (bitCast->getOpcode() != Instruction::BitCast && bitCast->getOpcode() != Instruction::AddrSpaceCast)
 	{
 		assert(mayFail && "ConstantExpr BitCast expected");
 		return false;
