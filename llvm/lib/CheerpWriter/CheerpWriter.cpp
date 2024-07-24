@@ -966,7 +966,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(const
 		//keeping all local variable around. The helper
 		//method is printed on demand depending on a flag
 		assert( isa<Function>( callV.getOperand(0) ) );
-		POINTER_KIND argKind = PA.getPointerKindAssert( &*cast<Function>(callV.getOperand(0))->arg_begin() );
+		POINTER_KIND argKind = PA.getPointerKindForArgument( &*cast<Function>(callV.getOperand(0))->arg_begin() );
 		if(argKind == SPLIT_REGULAR)
 			stream << namegen.getBuiltinName(NameGenerator::Builtin::CREATE_CLOSURE_SPLIT) << "(";
 		else
