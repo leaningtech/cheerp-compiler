@@ -308,7 +308,7 @@ llvm::Type* getGEPContainerType(const llvm::User* gep);
 
 inline bool isFreeFunctionName(llvm::StringRef name)
 {
-	return name=="free" || name=="_ZdlPv" || name=="_ZdaPv";
+	return name=="free" || name.starts_with("_Zdl") || name.starts_with("_Zda");
 }
 
 struct LoopWithDepth
