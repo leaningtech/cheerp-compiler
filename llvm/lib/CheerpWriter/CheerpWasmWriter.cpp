@@ -2448,100 +2448,82 @@ uint32_t CheerpWasmWriter::compileLoadStorePointer(WasmBuffer& code, const Value
 	return offset;
 }
 
-void CheerpWasmWriter::compileLoadGC(WasmBuffer& code, const Type* Ty, const Value* ptrOp, StructType* sTy, uint32_t structElemIdx, bool isOffset, POINTER_KIND kind)
+void CheerpWasmWriter::compileLoadGC(WasmBuffer& code, const LoadInst& li, Type* loadedType, const Value* ptrOp, StructType* sTy, uint32_t structElemIdx, bool isOffset)
 {
+	POINTER_KIND kind = PA.getPointerKind(ptrOp);
+	POINTER_KIND loadedPtrKind = COMPLETE_OBJECT;
 	assert(kind != BYTE_LAYOUT);
 	assert(kind != RAW);
+
+	assert(!sTy); // TODO: what to do if the sTy is not null?
 	errs() << "[compileLoadGC] compiling load: " << *ptrOp << "\n";
+	errs() << "[compileLoadGC] ptr kind: "; printPtrKind(kind);
 	if (kind == CONSTANT)
 	{
-		// An invalid access to null/undefined which has not been removed by optizations.
+		// An invalid access to null/undefined which has not been removed by optimizations.
 		// Generate code that will trap at runtime.
-		// TODO: check if this passes validation
-		assert(false);
+		assert(false); // TODO: check if this passes validation
 		encodeInst(WasmOpcode::UNREACHABLE, code);
 		return ;
 	}
 
-	errs() << "[compileLoadGC] ptrOp: " << *ptrOp << "\n";
-	compileCompleteObject(code, ptrOp); // accessElem = true
-	if(sTy)
+	// Compiles the reference and offset the load is performed on
+	compileCompleteObject(code, ptrOp, NULL, false);
+
+	// If the loaded type is a pointer get its type and its kind so
+	// we can get the correct type index and reference cast
+	if (loadedType->isPointerTy())
 	{
-		assert(false); // TODO: should use ie.structElemIdx or use the last operand from the GEP, like in the store?
-		errs() << "[compileLoadGC] compileAccessToElement of struct type: " << *Ty << "\n";
-		compileAccessToElement(code, sTy, {ConstantInt::get(IntegerType::get(Ty->getContext(), 32), structElemIdx)}, false, true); // TODO: accessElem = true?
+		loadedType = loadedType->getNonOpaquePointerElementType();
+		loadedPtrKind = PA.getPointerKind(&li);
 	}
 
-	if(isOffset)
-		assert(false); // TODO: CheerpWriter adds 'o' into stream
+	// The load
+	if (kind == SPLIT_REGULAR || kind == POINTER_KIND::REGULAR)
+	{
+		assert(!isOffset);
+		const size_t typeIdx = linearHelper.getGCTypeIndex(loadedType, SPLIT_REGULAR);
+		errs() << "[compileLoadGC] ARRAY_GET on SPLIT_REGULAR\n";
+		errs() << "[compileLoadGC] ARRAY_GET on: " << *loadedType << "\n";
+		encodeInst(WasmGCOpcode::ARRAY_GET, typeIdx, code);
+	}
+	else if (kind == COMPLETE_OBJECT)
+	{
+		const GetElementPtrInst* gep_inst = cast<GetElementPtrInst>(ptrOp);
+		Type* targetType = getGEPContainerType(gep_inst);
+		int32_t elemIdx = cast<ConstantInt>(std::prev(gep_inst->op_end())->get())->getLimitedValue();
 
+		errs() << "[compileLoadGC] Trying to store into targetType: " << *targetType << "\n";
+		errs() << "[compileLoadGC] GEP: " << *gep_inst << "\n";
 
-	//TODO: we most likely want to split the loading like we do with stores,
-	// this will make it possible to load the offset as well
+		// If a wrapper array was used we load from the array instead
+		StructType* sTy = cast<StructType>(targetType);
+		if (types.useWrapperArrayForMember(PA, sTy, elemIdx))
+		{
+			assert(!isOffset);
+			const int32_t arrayTypeIdx = linearHelper.getGCTypeIndex(loadedType, SPLIT_REGULAR);
+			encodeInst(WasmGCOpcode::ARRAY_GET, arrayTypeIdx, code);
+		}
+		else
+		{
+			const int32_t typeIdx = linearHelper.getGCTypeIndex(targetType, kind);
+			elemIdx = getExpandedStructElemIdx(sTy, elemIdx);
 
-	// POINTER_KIND ptrKind = PA.getPointerKind(ptrOp);
-	// POINTER_KIND elemPtrKind = COMPLETE_OBJECT;
-	// Type* elemType = NULL;
-	// assert(ptrKind != POINTER_KIND::RAW);
+			// Load the offset instead
+			if (isOffset)
+				elemIdx++;
+			errs() << "[compileLoadGC] STRUCT_SET of typeIdx: " << typeIdx << " at field: " << elemIdx << "\n";
+			encodeInst(WasmGCOpcode::STRUCT_GET, typeIdx, elemIdx, code);
+		}
+	}
+	else
+	{
+		llvm::report_fatal_error("unsupported GC load");
+	}
 
-	// if (ptrKind == SPLIT_REGULAR)
-	// {
-	// 	const size_t typeIdx = linearHelper.getGCTypeIndex(Ty, ptrKind);
-	// 	elemType = Ty->getPointerElementType();
-	// 	errs() << "[compileLoadGC] ARRAY_GET on SPLIT_REGULAR\n";
-	// 	errs() << "[compileLoad] ARRAY_GET on: " << *Ty << "\n";
-	// 	encodeInst(WasmGCOpcode::ARRAY_GET, typeIdx, code);
-	// }
-	// else if (ptrKind == COMPLETE_OBJECT)
-	// {
-	// 	const GetElementPtrInst* gepInst = cast<GetElementPtrInst>(ptrOp);
-	// 	const Type* objTy = gepInst->getPointerOperandType();
-	// 	errs() << "[compileLoadGC] Ty: " << *Ty << "\n";
-	// 	errs() << "[compileLoadGC] ptrOp: " << *ptrOp << "\n"; 
-	// 	errs() << "[compileLoadGC] ptrOpTy: " << *gepInst->getPointerOperandType() << "\n";
-	// 	if (auto sTy = dyn_cast<StructType>(objTy->getPointerElementType()))
-	// 	{
-	// 		uint32_t expandedElemIdx = getExpandedStructElemIdx(sTy, structElemIdx);
-	// 		const size_t typeIdx = linearHelper.getGCTypeIndex(objTy, ptrKind);
-	// 		elemType = sTy->getStructElementType(structElemIdx);
-	// 		errs() << "[compileLoadGC] objTy: " << *objTy << " elemIdx: " << structElemIdx << "\n";
-	// 		errs() << "[compileLoadGC] Type idx: " << typeIdx << " for type: " << *objTy->getPointerElementType() << "\n";
-			
-	// 		if (elemType->isPointerTy())
-	// 		{
-	// 			TypeAndIndex b = {sTy, structElemIdx, TypeAndIndex::STRUCT_MEMBER};
-	// 			elemPtrKind = PA.getPointerKindForMember(b);
-	// 		}
-
-	// 		if (isOffset) // load the offset instead
-	// 			expandedElemIdx += 1;
-
-	// 		errs() << "[compileLoadGC] STRUCT_GET\n";
-	// 		encodeInst(WasmGCOpcode::STRUCT_GET, typeIdx, expandedElemIdx, code);
-	// 	}
-	// 	else
-	// 	{
-	// 		const size_t typeIdx = linearHelper.getGCTypeIndex(Ty, ptrKind);
-
-	// 		elemType = const_cast<Type*>(Ty);
-	// 		elemPtrKind = COMPLETE_OBJECT;
-	// 		errs() << "[compileLoad] ARRAY_GET on: " << *Ty << "\n";
-	// 		encodeInst(WasmGCOpcode::ARRAY_GET, typeIdx, code);
-	// 	}
-	// }
-	// else if (ptrKind == POINTER_KIND::REGULAR)
-	// {
-	// 	errs() << "Regular pointers are not yet implemented for loads\n";
-	// 	assert(false);
-	// }
-	// else
-	// {
-	// 	llvm::report_fatal_error("unsupported GC load type");
-	// }
-
-	// // If the elementType is a GC type cast it from anyref to the right reference
-	// if (!isOffset && elemType)
-	// 	compileRefCast(code, elemType, elemPtrKind);
+	// If the we did not load an offset try to compile a reference cast
+	if (!isOffset)
+		compileRefCast(code, loadedType, loadedPtrKind);
 }
 
 void CheerpWasmWriter::compileLoad(WasmBuffer& code, const LoadInst& li, bool signExtend)
@@ -2559,10 +2541,10 @@ void CheerpWasmWriter::compileLoad(WasmBuffer& code, const LoadInst& li, bool si
 		// TODO: should this be in a loop?
 		if (LoadIsGC)
 		{
+			assert(!STy); // TODO: find a test case
 			errs() << "[compileLoad] compilingLoadGC\n";
-			POINTER_KIND kind = PA.getPointerKind(ptrOp);
 			bool isOffset = ie.ptrIdx == 1;
-			compileLoadGC(code, li.getType(), ptrOp, STy, ie.structIdx, isOffset, kind);
+			compileLoadGC(code, li, Ty, ptrOp, STy, ie.structIdx, isOffset);
 		}
 		else
 		{
@@ -2582,149 +2564,100 @@ void CheerpWasmWriter::compileLoad(WasmBuffer& code, const LoadInst& li, bool si
 	}
 }
 
-Type* CheerpWasmWriter::getStoreContainerType(const Value* ptrOp)
-{
-	const GetElementPtrInst* gep_inst = cast<GetElementPtrInst>(ptrOp);
-	Type* containerType = gep_inst->getSourceElementType();
-
-	errs() << "[getStoreContainerType] gep: " << *gep_inst << "\n";
-	errs() << "[getStoreContainerType] containerType: " << *containerType << "\n";
-
-	// Skip the operand for the value and the access into it
-	// Also skip the last access so we know what type is being stored into
-	for (uint32_t i = 2; i < gep_inst->getNumOperands() - 1; i++)
-	{
-		// TODO: can this only be a struct type or are arrays also possible?
-		assert(dyn_cast<StructType>(containerType));
-		const uint64_t elemIdx = cast<ConstantInt>(gep_inst->getOperand(i))->getLimitedValue();
-		containerType = cast<StructType>(containerType)->getStructElementType(elemIdx);
-	}
-	return (containerType);
-}
-
-void CheerpWasmWriter::compileStoreGC(WasmBuffer& code, const StoreInst& si, const Type* Ty, StructType* sTy, uint32_t structElemIdx, bool isOffset, POINTER_KIND ptrKind, POINTER_KIND storeKind)
+void CheerpWasmWriter::compileStoreGC(WasmBuffer& code, const StoreInst& si, Type* storedType, StructType* sTy, uint32_t structElemIdx, bool isOffset, POINTER_KIND ptrKind, POINTER_KIND storeKind)
 {
 	errs() << "[compileStoreGC] START\n";
 	assert(ptrKind != CONSTANT);
 	assert(ptrKind != BYTE_LAYOUT);
 	assert(storeKind != BYTE_LAYOUT);
 	auto* ptrOp = si.getPointerOperand();
-	auto* valOp = si.getValueOperand();  
+	auto* valOp = si.getValueOperand(); 
 
-
-	// The pointer
 	errs() << "[compileStoreGC] compiling pointer operand\n";
 	errs() << "[compileStoreGC] storeKind: "; printPtrKind(storeKind);
 	errs() << "[compileStoreGC] ptrKind: "; printPtrKind(ptrKind);
-	errs() << "[compileStoreGC] Ty: " << *Ty << "\n";
+	errs() << "[compileStoreGC] storedType: " << *storedType << "\n";
 	errs() << "[compileStoreGC] struct elemIdx: " << structElemIdx << "\n";
 	errs() << "[compileStoreGC] is offset: " << (isOffset ? "true" : "false") << "\n";
 	errs() << "[compileStoreGC] storeInst: " << si << "\n";
 
 
-	if (ptrKind == SPLIT_REGULAR && storeKind != SPLIT_REGULAR) // TODO: maybe always do if ptrKind is SPLIT_REGULAR?
-		compileCompleteObject(code, ptrOp, NULL, false, false);
-	else
-		compileCompleteObject(code, ptrOp, NULL, false, true);
-
-	if(sTy)
-	{
-		//TODO: find a testcase
-		assert(false);
-		errs() << "[compileStoreGC] compiling access to struct type: " << *sTy << "\n";
-		compileAccessToElement(code, sTy, {ConstantInt::get(IntegerType::get(Ty->getContext(), 32), structElemIdx)}, false, false);
-	}
-	if(isOffset)
-		assert (false); // TODO: WasmWriter adds 'o' into stream here?
-	
+	// Compiles the reference and offset where the store is performed on
+	compileCompleteObject(code, ptrOp, nullptr, false);
 
 
-
+	assert(!sTy); // TODO: what to do is sTy is not NULL? find a test case
 
 
 	errs() << "\n\n[compileStoreGC] compiling value to be stored\n";
 	// The value
-	if(sTy)
+	if(storedType->isPointerTy())
 	{
-		errs() << "[compileStoreGC] compiling AggregateElem\n";
-		compileAggregateElem(code, valOp, structElemIdx);
+		errs() << "[compileStoreGC] compiling pointer type\n";
+		assert(storeKind != CONSTANT);
+		bool hasConstantOffset = PA.getConstantOffsetForPointer(ptrOp);
+		if(storeKind==SPLIT_REGULAR || (storeKind == REGULAR && hasConstantOffset))
+		{
+			if (isOffset)
+			{
+				assert(storeKind == SPLIT_REGULAR);
+				compilePointerOffset(code, valOp);
+			}
+			else
+				compilePointerBase(code, valOp, structElemIdx);
+		}
+		else
+			compilePointerAs(code, valOp, storeKind);
 	}
 	else
 	{
-		if(Ty->isPointerTy())
-		{
-			errs() << "[compileStoreGC] compiling pointer type\n";
-			assert(storeKind != CONSTANT);
-			assert(storeKind != BYTE_LAYOUT);
-			bool hasConstantOffset = PA.getConstantOffsetForPointer(ptrOp);
-			if(storeKind==SPLIT_REGULAR || (storeKind == REGULAR && hasConstantOffset))
-			{
-				if(isOffset)
-				{
-					assert(storeKind == SPLIT_REGULAR);
-					compilePointerOffset(code, valOp);
-				}
-				else
-				{
-					compilePointerBase(code, valOp, structElemIdx);
-				}
-			}
-			else
-			{
-				compilePointerAs(code, valOp, storeKind);
-			}
-		}
-		else
-		{
-			errs() << "[compileStoreGC] compiling operand\n";
-			compileOperand(code, valOp);
-		}
+		errs() << "[compileStoreGC] compiling value operand\n";
+		compileOperand(code, valOp);
 	}
+
 
 	// The store
 	errs() << "\n\n[compileStoreGC] compiling the store: " << si << "\n";
-	if (ptrKind == POINTER_KIND::SPLIT_REGULAR)
+	if (ptrKind == POINTER_KIND::SPLIT_REGULAR || ptrKind == POINTER_KIND::REGULAR)
 	{
-		errs() << "[compileStoreGC] ARRAY_SET\n";
-		const uint32_t typeIdx = linearHelper.getGCTypeIndex(Ty, ptrKind);
+		assert(!isOffset);
+		errs() << "[compileStoreGC] ARRAY_SET for a SPLIT_REGULAR\n";
+		const uint32_t typeIdx = linearHelper.getGCTypeIndex(storedType, SPLIT_REGULAR);
 		encodeInst(WasmGCOpcode::ARRAY_SET, typeIdx, code);
 	}
-	else if (ptrKind == POINTER_KIND::COMPLETE_OBJECT) // TODO: can COMPLETE_OBJECTS also be arrays?
+	else if (ptrKind == POINTER_KIND::COMPLETE_OBJECT)
 	{
 		errs() << "[compileStoreGC] Storing into complete object\n";
-		Type* baseTy = getStoreContainerType(ptrOp);
 		const GetElementPtrInst* gep_inst = cast<GetElementPtrInst>(ptrOp);
-		const int32_t typeIdx = linearHelper.getGCTypeIndex(baseTy, ptrKind);
-		// Note: We cannot use the ie.structElemIdx from the calling function,
-		// it will break REGULAR pointer kinds
-		const Value* elemIdxOperand = *(std::prev(gep_inst->op_end()));
-		int32_t elemIdx = cast<ConstantInt>(elemIdxOperand)->getLimitedValue();
+		Type* targetType = getGEPContainerType(gep_inst);
+		int32_t elemIdx = cast<ConstantInt>(std::prev(gep_inst->op_end())->get())->getLimitedValue();
 
-		errs() << "[compileStoreGC] Trying to store into baseTy: " << *baseTy << "\n";
+		errs() << "[compileStoreGC] Trying to store into targetType: " << *targetType << "\n";
 		errs() << "[compileStoreGC] GEP: " << *gep_inst << "\n";
 
 		// If a wrapper array was used we store into the array instead
-		StructType* sTy = cast<StructType>(baseTy);
-		bool hasDowncastArray = linearHelper.hasDowncastArray(sTy);
+		StructType* sTy = cast<StructType>(targetType);
 		if (types.useWrapperArrayForMember(PA, sTy, elemIdx))
 		{
-			const Type* memTy = sTy->getElementType(elemIdx);
-			const int32_t arrayTypeIdx = linearHelper.getGCTypeIndex(memTy, SPLIT_REGULAR);
+			const int32_t arrayTypeIdx = linearHelper.getGCTypeIndex(storedType, SPLIT_REGULAR);
 			encodeInst(WasmGCOpcode::ARRAY_SET, arrayTypeIdx, code);
 		}
 		else
 		{
+			const int32_t typeIdx = linearHelper.getGCTypeIndex(targetType, ptrKind);
 			elemIdx = getExpandedStructElemIdx(sTy, elemIdx);
+
+			// Store into the offset instead
+			if (isOffset)
+				elemIdx++;
 			errs() << "[compileStoreGC] STRUCT_SET of typeIdx: " << typeIdx << " at field: " << elemIdx << "\n";
 			encodeInst(WasmGCOpcode::STRUCT_SET, typeIdx, elemIdx, code);
 		}
 	}
-	else if (ptrKind == POINTER_KIND::REGULAR)
+	else
 	{
-		const int32_t typeIdx = linearHelper.getSplitRegularObjectIdx();
-		encodeInst(WasmGCOpcode::ARRAY_SET, typeIdx, code);
+		llvm::report_fatal_error("unsupported GC store");
 	}
-
 	errs() << "[compileStoreGC] END\n\n\n";
 }
 
@@ -2741,22 +2674,22 @@ void CheerpWasmWriter::compileStore(WasmBuffer& code, const StoreInst& si)
 		if (StoreIsGC) // TODO: should this be in the loop?
 		{
 			errs() << "[compileStore] GC store found\n";
-			POINTER_KIND elemPtrKind = COMPLETE_OBJECT;
+			POINTER_KIND storePtrKind = COMPLETE_OBJECT;
 			if(STy)
 			{
 				Ty = STy->getElementType(ie.structIdx);
 				if(Ty->isPointerTy())
 				{
 					TypeAndIndex b(STy, ie.structIdx, TypeAndIndex::STRUCT_MEMBER);
-					elemPtrKind = PA.getPointerKindForMemberPointer(b); // TODO: check if should be getPointerKindForMember
+					storePtrKind = PA.getPointerKindForMemberPointer(b);
 				}
 			}
 			else if(Ty->isPointerTy())
 			{
-				elemPtrKind = PA.getPointerKind(&si);
+				storePtrKind = PA.getPointerKind(&si);
 			}
 			bool isOffset = ie.ptrIdx == 1;
-			compileStoreGC(code, si, Ty, STy, ie.structIdx, isOffset, ptrKind, elemPtrKind);
+			compileStoreGC(code, si, Ty, STy, ie.structIdx, isOffset, ptrKind, storePtrKind);
 		}
 		else
 		{
@@ -5176,10 +5109,12 @@ void CheerpWasmWriter::renderDeferred(WasmBuffer& code, const vector<const llvm:
 	}
 }
 
-void CheerpWasmWriter::compileAccessToElement(WasmBuffer& code, Type* tp, ArrayRef< const Value* > indices, bool compileLastWrapperArray, bool accessLastElem)
+void CheerpWasmWriter::compileAccessToElement(WasmBuffer& code, Type* tp, ArrayRef< const Value* > indices, bool compileLastWrapperArray, const bool compileFullAccess)
 {
 	errs() << "[compileAccessToElement] START\n";
-	for(uint32_t i=0;i<indices.size();i++)
+	// If compileFullAccess is set to false the final element we want to access is used inside a load or a store.
+	// The last reference and offset are left the stack, the access is done through a GET or a SET within the load or store function.
+	for(uint32_t i = 0; i < indices.size(); i++)
 	{
 		errs() << "[compileAccessToElement] compiling indice: " << *indices[i] << "\n";
 		assert(!TypeSupport::hasByteLayout(tp));
@@ -5195,7 +5130,7 @@ void CheerpWasmWriter::compileAccessToElement(WasmBuffer& code, Type* tp, ArrayR
 			uint64_t elemIdx = index.getLimitedValue();
 
 			elemIdx = getExpandedStructElemIdx(st, elemIdx);
-			if (!accessLastElem && i == indices.size()-1)
+			if (!compileFullAccess && i == indices.size()-1)
 			{
 				// If we should leave the last reference on the stack but
 				// it is a wrapper array, load the array and encode the offset (0)
@@ -5204,7 +5139,6 @@ void CheerpWasmWriter::compileAccessToElement(WasmBuffer& code, Type* tp, ArrayR
 					encodeInst(WasmGCOpcode::STRUCT_GET, structIndex, elemIdx, code);
 					compileRefCast(code, elemTy, SPLIT_REGULAR);
 					encodeInst(WasmS32Opcode::I32_CONST, 0, code);
-					errs() << "\n\n\n\n[compileAccessToElement] leaving offset on stack\n";
 				}
 				return ;
 			}
@@ -5231,23 +5165,15 @@ void CheerpWasmWriter::compileAccessToElement(WasmBuffer& code, Type* tp, ArrayR
 			}
 			// TODO: is this the correct compileRefCast if we've used a wrapper array?
 			compileRefCast(code, elemTy, elemPtrKind);
-
-
-
-
-
 			tp = st->getElementType(index.getZExtValue());
 		}
 		else if(const ArrayType* at = dyn_cast<ArrayType>(tp))
 		{
 			compileOperand(code, indices[i]);
 
-			// We still compile the operand so the offset is on the stack and we can decide to to a load or store later
-			if (!accessLastElem && i == indices.size()-1)
-			{
-				errs() << "[compileAccessToElement] skipping access\n";
+			// We still compile the operand so the offset is on the stack and we can decide to to a load/store later
+			if (!compileFullAccess && i == indices.size()-1)
 				return ;
-			}
 
 			errs() << "[compileAccessToElement] ARRAY_GET on an array type\n";
 			uint32_t arrayIndex = linearHelper.getGCTypeIndex(tp, COMPLETE_OBJECT);
@@ -5264,12 +5190,11 @@ void CheerpWasmWriter::compileAccessToElement(WasmBuffer& code, Type* tp, ArrayR
 	}
 }
 
-void CheerpWasmWriter::compileGEPGC(WasmBuffer& code, const User* gep_inst, POINTER_KIND kind, bool accessElem)
+void CheerpWasmWriter::compileGEPGC(WasmBuffer& code, const User* gep_inst, POINTER_KIND kind, const bool compileFullAccess)
 {
 	assert(kind != RAW);
 	assert(kind != BYTE_LAYOUT);
 	errs() << "[compileGEPGC] START\n";
-	errs() << "[compileGEPGC] accessElem: " << (accessElem ? "true" : "false") << "\n";
 	errs() << "[compileGEPGC] inst: " << *gep_inst << "\n";
 	errs() << "[compileGEPGC] kind: "; printPtrKind(kind);
 	errs() << "[compileGEPGC] kind from gep_inst: "; printPtrKind(PA.getPointerKind(gep_inst));
@@ -5285,16 +5210,11 @@ void CheerpWasmWriter::compileGEPGC(WasmBuffer& code, const User* gep_inst, POIN
 		assert(isa<ConstantInt>(indices.back()));
 	}
 
-	// For GEP's we want to access and load/get all elements except for the first GEP.
-	// This ensures that the reference will still be on the stack and we can choose to do a load or store
-	// on the last element rather than access it right away
-	bool accessElemCompleteObject = accessElem;
-	if (isGEP(gep_inst->getOperand(0)))
-		accessElemCompleteObject = true;
-	else
-	{
-		errs() << "[compileGEPGC] operand 0 is not a GEP: " << *gep_inst->getOperand(0) << "\n";
-	}
+	// If the next operand is a GEP or if we have indices left to compile
+	// we need to fully compile the next object.
+	bool fullyCompileNextObject = compileFullAccess;
+	if (compileFullAccess == false && isGEP(gep_inst->getOperand(0)) || (indices.size() - 1 > 0))
+		fullyCompileNextObject = true;
 
 	// TODO: we need this hack because PointerAnalyzer cannot correctly assign
 	// the RAW kind to null pointers
@@ -5308,8 +5228,6 @@ void CheerpWasmWriter::compileGEPGC(WasmBuffer& code, const User* gep_inst, POIN
 		const llvm::Instruction* I = dyn_cast<Instruction>(gep_inst->getOperand(0));
 		errs() << "[compileGEPGC] is the GEP inlineable: " << ((I && isInlineable(*I)) ? "yes" : "no") << "\n";
 		errs() << "[compileGEPGC] gep_inst: " << *gep_inst << "\n";
-		if (I)
-			errs() << "[compileGEPGC] gep_inst operand(0) instruction: " << *I << "\n";
 		if (I && !isInlineable(*I) && (isGEP(I) || isBitCast(I)) && PA.getPointerKindAssert(I) == COMPLETE_OBJECT)
 		{
 			assert(!isBitCast(I)); // TODO: bitcasts?
@@ -5317,20 +5235,20 @@ void CheerpWasmWriter::compileGEPGC(WasmBuffer& code, const User* gep_inst, POIN
 			compileGetLocal(code, I, 0);
 		} else {
 			errs() << "[compileGEPGC] compileCompleteObject\n";
-			compileCompleteObject(code, gep_inst->getOperand(0), indices.front(), accessElemCompleteObject);
+			compileCompleteObject(code, gep_inst->getOperand(0), indices.front(), fullyCompileNextObject);
 		}
 		errs() << "[compileGEPGC] compileAccessToElement ind size: " << indices.size() - 1 << "\n";
 		errs() << "[compileGEPGC] compiling access to element: " << *cast<GEPOperator>(gep_inst)->getSourceElementType() << "\n";
-		compileAccessToElement(code, baseType, makeArrayRef(std::next(indices.begin()), indices.end()), /*compileLastWrapperArray*/true, accessElem);
+		compileAccessToElement(code, baseType, makeArrayRef(std::next(indices.begin()), indices.end()), true, compileFullAccess);
 	}
 	else
 	{
 		if (PA.getConstantOffsetForPointer(gep_inst))
 		{
 			errs() << "[compileGEPGC] Has constant offset for pointer\n";
-			compileCompleteObject(code, gep_inst->getOperand(0), indices.front(), accessElemCompleteObject);
+			compileCompleteObject(code, gep_inst->getOperand(0), indices.front(), fullyCompileNextObject);
 
-			compileAccessToElement(code, baseType, makeArrayRef(std::next(indices.begin()), std::prev(indices.end())), /*compileLastWrapperArray*/false, accessElem);
+			compileAccessToElement(code, baseType, makeArrayRef(std::next(indices.begin()), std::prev(indices.end())), false, compileFullAccess);
 			errs() << "[compileGEPGC] DONE\n\n\n";
 			return;
 		}
@@ -5407,8 +5325,8 @@ void CheerpWasmWriter::compileGEPOffset(WasmBuffer& code, const User* gep_inst)
 		if (useDownCastArray)
 		{
 			Type* basePointedType = basePointerType->getPointerElementType();
-			compileCompleteObject(code, gep_inst->getOperand(0), indices.front(), false);
-			compileAccessToElement(code, basePointedType, makeArrayRef(std::next(indices.begin()), indices.end()), /*compileLastWrapperArray*/true, true); // TODO: accessElem = true?
+			compileCompleteObject(code, gep_inst->getOperand(0), indices.front());
+			compileAccessToElement(code, basePointedType, makeArrayRef(std::next(indices.begin()), indices.end()), true, true);
 			assert(false && "Should this be a get on a regularObject?");
 			encodeInst(WasmGCOpcode::STRUCT_GET, linearHelper.getRegularObjectIdx(), 1, code); // access .o
 			errs() << "[compileGEPOffset] STRUCT_GET (.o)\n";
@@ -5461,11 +5379,11 @@ void CheerpWasmWriter::compileGEPBase(WasmBuffer& code, const llvm::User* gep_in
 			return;
 		}
 
-		compileCompleteObject(code, gep_inst->getOperand(0), indices.front(), false);
+		compileCompleteObject(code, gep_inst->getOperand(0), indices.front());
 		Type* basePointedType = basePointerType->getPointerElementType();
 		if (useDownCastArray)
 		{
-			compileAccessToElement(code, basePointedType, makeArrayRef(std::next(indices.begin()),indices.end()), /*compileLastWrapperArray*/true, true); // TODO: accessElem = true?
+			compileAccessToElement(code, basePointedType, makeArrayRef(std::next(indices.begin()),indices.end()), true, true);
 			// TODO: should this be handled here or inside the load/store?
 			// stream << ".a";
 			errs() << "Should compile Wasm equivalent of the JS's .a access here\n";
@@ -5473,11 +5391,11 @@ void CheerpWasmWriter::compileGEPBase(WasmBuffer& code, const llvm::User* gep_in
 		}
 		else if(containerStructType)
 		{
-			compileAccessToElement(code, basePointedType, makeArrayRef(std::next(indices.begin()),indices.end()), /*compileLastWrapperArray*/false, true); // TODO: accessElem = true?
+			compileAccessToElement(code, basePointedType, makeArrayRef(std::next(indices.begin()),indices.end()), false, true);
 		}
 		else
 		{
-			compileAccessToElement(code, basePointedType, makeArrayRef(std::next(indices.begin()),std::prev(indices.end())), /*compileLastWrapperArray*/true, true); // TODO: accessElem = true?
+			compileAccessToElement(code, basePointedType, makeArrayRef(std::next(indices.begin()),std::prev(indices.end())), true, true);
 		}
 	}
 }
@@ -5505,7 +5423,7 @@ void CheerpWasmWriter::compilePointerAs(WasmBuffer& code, const llvm::Value* p, 
 		}
 		case COMPLETE_OBJECT:
 		{
-			compileCompleteObject(code, p, NULL, true);
+			compileCompleteObject(code, p);
 			errs() << "[compilePointerAs] compileCompleteObject END\n";
 			break;
 		}
@@ -5540,10 +5458,9 @@ void CheerpWasmWriter::compilePointerAs(WasmBuffer& code, const llvm::Value* p, 
 	}
 }
 
-void CheerpWasmWriter::compileCompleteObject(WasmBuffer& code, const Value* p, const Value* offset, bool accessElem, bool accessArray)
+void CheerpWasmWriter::compileCompleteObject(WasmBuffer& code, const Value* p, const Value* offset, const bool compileFullAccess)
 {
 	errs() << "[compileCompleteObject] START\n";
-	errs() << "[compileCompleteObject] accessElem: " << (accessElem ? "true" : "false") << "\n";
 	errs() << "[compileCompleteObject] Value: " << *p << "\n";
 	// Special handle for undefined pointers
 	if(isa<UndefValue>(p))
@@ -5577,17 +5494,12 @@ void CheerpWasmWriter::compileCompleteObject(WasmBuffer& code, const Value* p, c
 
 	bool isOffsetConstantZero = offset == nullptr || (isa<Constant>(offset) && cast<Constant>(offset)->isZeroValue());
 
-	// Direct access path:
-	/**
-	 * If p comes from a gep, we can just compile that GEP as COMPLETE_OBJECT
-	 * That is, instead of a0.a1["a2"] we got a0.a1.a2
-	 */
 	if(isOffsetConstantZero)
 	{
 		if(isGEP(p))
 		{
 			errs() << "[compileCompleteObject] calling compileGEPGC\n";
-			compileGEPGC(code, cast<User>(p), COMPLETE_OBJECT, accessElem);
+			compileGEPGC(code, cast<User>(p), COMPLETE_OBJECT, compileFullAccess);
 			errs() << "[compileCompleteObject] DONE\n";
 			return;
 		}
@@ -5617,20 +5529,16 @@ void CheerpWasmWriter::compileCompleteObject(WasmBuffer& code, const Value* p, c
 			}
 		}
 
-		errs() << "[compileCompleteObject] accessElem: " << (accessElem ? "true" : "false") << "\n";
-		errs() << "[compileCompleteObject] decide to do an access on an array here:\n";
-		errs() << "[compileCompleteObject] kind of p: "; printPtrKind(kind);
-		errs() << "[compileCompleteObject] p: " << *p << "\n"; 
-
-
-		if (accessArray)
+		// If this is an operand used by a load/store we do not access the array, but instead leave it on the stack.
+		// The load/store instruction will be accessing the reference.
+		if (compileFullAccess)
 		{
 			uint32_t typeIdx = linearHelper.getGCTypeIndex(p->getType(), SPLIT_REGULAR);
 			encodeInst(WasmGCOpcode::ARRAY_GET, typeIdx, code);
-			errs() << "[compileCompleteObject] ARRAY_GET on type index: " << typeIdx << " for pointer type: "; printPtrKind(SPLIT_REGULAR);
 			compileRefCast(code, p->getType(), COMPLETE_OBJECT); // TODO: Is it possible for the array to contain other pointer kinds?
+			errs() << "[compileCompleteObject] Accessing (split) reg array, no load store found\n";
+			errs() << "[compileCompleteObject] ARRAY_GET on type index: " << typeIdx << " for pointer type: "; printPtrKind(SPLIT_REGULAR);
 		}
-
 	}
 	else
 	{
@@ -5795,7 +5703,7 @@ void CheerpWasmWriter::compilePointerBaseTyped(WasmBuffer& code, const Value* pt
 			case Intrinsic::cheerp_cast_user:
 				return compilePointerBase(code, II->getOperand(0));
 			case Intrinsic::cheerp_make_regular:
-				return compileCompleteObject(code, II->getOperand(0), NULL, false);
+				return compileCompleteObject(code, II->getOperand(0));
 			default:
 				break;
 		}
