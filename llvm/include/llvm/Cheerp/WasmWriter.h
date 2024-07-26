@@ -425,12 +425,12 @@ private:
 	void compileMethodResult(WasmBuffer& code, const llvm::Type* F);
 
 	void compileRefCast(WasmBuffer& code, const llvm::Type* Ty, POINTER_KIND kind);
-	void compileCompleteObject(WasmBuffer& code, const llvm::Value* p, const llvm::Value* offset = (const llvm::Value *)nullptr, bool accessElem = true, bool accessArray = true);
-	void compileAccessToElement(WasmBuffer& code, llvm::Type* tp, llvm::ArrayRef< const llvm::Value* > indices, bool compileLastWrapperArray, bool accessLastElem);
+	void compileCompleteObject(WasmBuffer& code, const llvm::Value* p, const llvm::Value* offset = (const llvm::Value *)nullptr, const bool compileFullAccess = true);
+	void compileAccessToElement(WasmBuffer& code, llvm::Type* tp, llvm::ArrayRef< const llvm::Value* > indices, bool compileLastWrapperArray, const bool compileFullAccess);
 	void compileOffsetForGEP(WasmBuffer& code, llvm::Type* pointedOperandType, llvm::ArrayRef< const llvm::Value* > indices);
 	void compileGEPOffset(WasmBuffer& code, const llvm::User* gepInst);
 	void compileGEPBase(WasmBuffer& code, const llvm::User* gepInst);
-	void compileGEPGC(WasmBuffer& code, const llvm::User* gep_inst, POINTER_KIND kind, bool accessElem);
+	void compileGEPGC(WasmBuffer& code, const llvm::User* gep_inst, POINTER_KIND kind, bool compileFullAccess);
 	void compilePointerBase(WasmBuffer& code, const llvm::Value* ptr, const uint32_t elemIdx = 0);
 	void compilePointerBaseTyped(WasmBuffer& code, const llvm::Value* ptr, const llvm::Type* elemType, const uint32_t elemIdx = 0);
 	void compilePointerOffset(WasmBuffer& code, const llvm::Value* ptr);
@@ -461,14 +461,13 @@ private:
 	void compileStore(WasmBuffer& code, const llvm::StoreInst& I);
 	void compileGetLocal(WasmBuffer& code, const llvm::Instruction* v, uint32_t elemIdx);
 	POINTER_KIND getLocalPointerKind(const llvm::Value* v);
-	llvm::Type* getStoreContainerType(const llvm::Value* ptrOp);
 	uint32_t cacheDowncastOffset(const llvm::StructType* sTy);
 	uint32_t calculateAndCacheElemInfo(const llvm::StructType* sTy);
 	uint32_t getExpandedStructElemIdx(const llvm::StructType* sTy, uint32_t elemIdx);
 	bool needsExpandedStruct(const llvm::StructType* sTy);
 	bool needsOffsetAsElement(const llvm::StructType* sTy, uint32_t elemIdx);
-	void compileLoadGC(WasmBuffer& code, const llvm::Type* Ty, const llvm::Value* ptrOp, llvm::StructType* sTy, uint32_t structElemIdx, bool isOffset, POINTER_KIND kind);
-	void compileStoreGC(WasmBuffer& code, const llvm::StoreInst& si, const llvm::Type* Ty, llvm::StructType* sTy, uint32_t structElemIdx, bool isOffset, POINTER_KIND ptrKind, POINTER_KIND storeKind);
+	void compileLoadGC(WasmBuffer& code, const llvm::LoadInst& li, llvm::Type* loadedType, const llvm::Value* ptrOp, llvm::StructType* sTy, uint32_t structElemIdx, bool isOffset);
+	void compileStoreGC(WasmBuffer& code, const llvm::StoreInst& si, llvm::Type* storedType, llvm::StructType* sTy, uint32_t structElemIdx, bool isOffset, POINTER_KIND ptrKind, POINTER_KIND storeKind);
 	void allocateSimpleType(WasmBuffer& code, llvm::Type* Ty, const llvm::Value* init);
 	void allocateComplexType(WasmBuffer& code, llvm::Type* Ty, bool hasDowncastArray, uint32_t& usedValuesFromMap, const AllocaStoresExtractor::OffsetToValueMap* offsetToValueMap, uint32_t offset);
 	void allocateTypeGC(WasmBuffer& code, llvm::Type* Ty, bool hasDowncastArray, const AllocaStoresExtractor::OffsetToValueMap* offsetToValueMap = (const cheerp::AllocaStoresExtractor::OffsetToValueMap *)nullptr);
