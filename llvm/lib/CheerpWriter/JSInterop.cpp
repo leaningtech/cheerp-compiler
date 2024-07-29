@@ -80,7 +80,7 @@ static std::pair<std::string, std::string> buildArgumentsString(const llvm::Func
 			continue;
 		}
 
-		POINTER_KIND innerKind = PA.getPointerKind(&(*it));
+		POINTER_KIND innerKind = PA.getPointerKindForArgument(&(*it));
 		POINTER_KIND outerKind = innerKind;
 		if (Type* tp = it->getAttribute(Attribute::JsExportType).getValueAsType())
 		{
