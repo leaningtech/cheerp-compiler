@@ -9410,6 +9410,9 @@ QualType Sema::BuiltinEnumUnderlyingType(QualType BaseType,
 }
 
 QualType Sema::BuiltinAddPointer(QualType BaseType, SourceLocation Loc) {
+  if (Context.getLangOpts().Cheerp) {
+    BaseType = deduceCheerpPointeeAddrSpace(BaseType);
+  }
   QualType Pointer = BaseType.isReferenceable() || BaseType->isVoidType()
                          ? BuildPointerType(BaseType.getNonReferenceType(), Loc,
                                             DeclarationName())
@@ -9452,6 +9455,10 @@ QualType Sema::BuiltinDecay(QualType BaseType, SourceLocation Loc) {
 QualType Sema::BuiltinAddReference(QualType BaseType, UTTKind UKind,
                                    SourceLocation Loc) {
   assert(LangOpts.CPlusPlus);
+
+  if (Context.getLangOpts().Cheerp) {
+    BaseType = deduceCheerpPointeeAddrSpace(BaseType);
+  }
   QualType Reference =
       BaseType.isReferenceable()
           ? BuildReferenceType(BaseType,
