@@ -52,7 +52,7 @@ PreservedAnalyses CallConstructorsPass::run(llvm::Module &M, llvm::ModuleAnalysi
 
 	for (Constant* C: cheerp::getGlobalConstructors(M))
 	{
-		Builder.CreateCall(Ty, cast<Function>(C->getAggregateElement(1)));
+		Builder.CreateCall(Ty, cast<Function>(C->getAggregateElement(1)->stripPointerCastsSafe()));
 	}
 	Function* Main = getMainFunction(M);
 	bool Wasi = Triple(M.getTargetTriple()).getOS() == Triple::WASI;
