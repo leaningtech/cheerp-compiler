@@ -5596,6 +5596,7 @@ Sema::PerformObjectArgumentInitialization(Expr *From,
       From = CreateMaterializeTemporaryExpr(FromRecordType, From,
                                             Method->getRefQualifier() !=
                                                 RefQualifierKind::RQ_RValue);
+      FromRecordType = From->getType();
     }
   }
 
