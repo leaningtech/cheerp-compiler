@@ -383,6 +383,7 @@ llvm::Type* AllocaArraysMerging::collectUniformAlloca(std::vector<AllocaInst*>& 
 	}
 
 	Type* elementType = targetAlloca->getAllocatedType()->getArrayElementType();
+	unsigned AS = targetAlloca->getAddressSpace();
 	auto sourceCandidate=targetCandidate;
 	++sourceCandidate;
 	// Now that we have computed the sourceCandidate we can invalidate the targetCandidate
@@ -398,6 +399,12 @@ llvm::Type* AllocaArraysMerging::collectUniformAlloca(std::vector<AllocaInst*>& 
 		}
 		// Both are arrays, check the types
 		if(elementType != sourceAlloca->getAllocatedType()->getArrayElementType())
+		{
+			++sourceCandidate;
+			continue;
+		}
+		// Both are in the same address space
+		if(AS != sourceAlloca->getAddressSpace())
 		{
 			++sourceCandidate;
 			continue;
