@@ -7585,8 +7585,8 @@ LangAS ASTContext::getCheerpPointeeAddrSpace(const Type *PointeeType, Decl* D, L
   if (PointeeType->isPointerType() || PointeeType->isReferenceType() || PointeeType->isMemberPointerType()) {
     LangAS PointeePointeeAS = getCheerpPointeeAddrSpace(PointeeType->getPointeeType().getTypePtr(), D, Fallback);
     switch (PointeePointeeAS) {
-      case LangAS::cheerp_genericjs:
       case LangAS::cheerp_client:
+      case LangAS::cheerp_bytelayout:
         return LangAS::cheerp_genericjs;
       default:
         break;
@@ -7594,6 +7594,9 @@ LangAS ASTContext::getCheerpPointeeAddrSpace(const Type *PointeeType, Decl* D, L
   }
   if (auto* TdTy = PointeeType->getAs<TypedefType>()) {
     return getCheerpPointeeAddrSpace(TdTy->desugar().getTypePtr(), D, Fallback);
+  }
+  if (auto* ATy = dyn_cast<ArrayType>(PointeeType)) {
+    return getCheerpPointeeAddrSpace(ATy->getElementType().getTypePtr(), D, Fallback);
   }
   LangAS Ret = Fallback;
   while (D) {
@@ -7606,7 +7609,12 @@ LangAS ASTContext::getCheerpPointeeAddrSpace(const Type *PointeeType, Decl* D, L
       break;
     }
     if (D->hasAttr<clang::GenericJSAttr>()) {
-      Ret = LangAS::cheerp_genericjs;
+      RecordDecl* RD = dyn_cast<RecordDecl>(D);
+      if (RD && RD->isUnion()) {
+        Ret = LangAS::cheerp_bytelayout;
+      } else {
+        Ret = LangAS::cheerp_genericjs;
+      }
       break;
     }
     DeclContext* C = D->getDeclContext();
