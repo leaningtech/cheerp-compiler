@@ -631,7 +631,7 @@ public:
 	 * 
 	 * Will report an llvm error if the use of the result is not consistent
 	 */
-	llvm::PointerType * getCastedType() const { return castedElementType->getPointerTo(); }
+	llvm::PointerType * getCastedType() const { return castedElementType->getPointerTo(unsigned(AS)); }
 	llvm::Type* getCastedPointedType() const { return castedElementType; }
 	/**
 	 * This argument will never be null
@@ -669,12 +669,13 @@ public:
 	bool useTypedArray() const;
 
 private:
-	llvm::Type * computeCastedElementType() const;
+	std::pair<llvm::Type*, cheerp::CheerpAS> computeCastedElementType() const;
 	
 	const llvm::CallBase* call;
 	AllocType type;
 	uint32_t typeSize;
 	llvm::Type* castedElementType;
+	cheerp::CheerpAS AS;
 	bool forceTypedArrays;
 };
 
