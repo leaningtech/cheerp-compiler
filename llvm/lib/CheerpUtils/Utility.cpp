@@ -834,11 +834,11 @@ std::pair<std::string, std::string> TypeSupport::ClientFunctionDemangled::getCli
 	return std::make_pair(namespaced, funcName);
 }
 
-DynamicAllocInfo::DynamicAllocInfo( const CallBase* callV, const DataLayout* DL, bool forceTypedArrays ) : call(callV), type( getAllocType(callV) ), castedElementType(nullptr), forceTypedArrays(forceTypedArrays)
+DynamicAllocInfo::DynamicAllocInfo( const CallBase* callV, const DataLayout* DL, bool forceTypedArrays ) : call(callV), type( getAllocType(callV) ), castedElementType(nullptr), AS(cheerp::CheerpAS::Default), forceTypedArrays(forceTypedArrays)
 {
 	if ( isValidAlloc() )
 	{
-		castedElementType = computeCastedElementType();
+		std::tie(castedElementType, AS) = computeCastedElementType();
 		typeSize = DL->getTypeAllocSize(castedElementType);
 	}
 }
@@ -874,7 +874,7 @@ DynamicAllocInfo::AllocType DynamicAllocInfo::getAllocType( const CallBase* call
 	return ret;
 }
 
-Type * DynamicAllocInfo::computeCastedElementType() const
+std::pair<Type*, cheerp::CheerpAS> DynamicAllocInfo::computeCastedElementType() const
 {
 	assert(isValidAlloc() );
 	
@@ -882,7 +882,7 @@ Type * DynamicAllocInfo::computeCastedElementType() const
 	{
 		assert( call->getType()->isPointerTy() );
 		assert( call->getParamElementType(0) );
-		return call->getParamElementType(0);
+		return std::make_pair(call->getParamElementType(0), cheerp::getCheerpAS(cast<PointerType>(call->getType())));
 	}
 	
 	auto getTypeForUse = [](const User * U) -> Type *
@@ -903,7 +903,7 @@ Type * DynamicAllocInfo::computeCastedElementType() const
 	// If there are no casts, use i8*
 	if ( call->user_end() == firstNonNull )
 	{
-		return Type::getInt8Ty(call->getContext());
+		return std::make_pair(Type::getInt8Ty(call->getContext()), cheerp::CheerpAS::GenericJS);
 	}
 	
 	Type * pt = getTypeForUse(*firstNonNull);
@@ -930,7 +930,7 @@ Type * DynamicAllocInfo::computeCastedElementType() const
 		llvm::report_fatal_error("Unsupported code found, please report a bug", false);
 	}
 	
-	return pt;
+	return std::make_pair(pt, cheerp::CheerpAS::GenericJS);
 }
 
 const Value * DynamicAllocInfo::getByteSizeArg() const
