@@ -8030,6 +8030,7 @@ static void CheckForNullPointerDereference(Sema &S, const Expr *E) {
 MaterializeTemporaryExpr *
 Sema::CreateMaterializeTemporaryExpr(QualType T, Expr *Temporary,
                                      bool BoundToLvalueReference) {
+  T = deduceCheerpPointeeAddrSpace(T);
   auto MTE = new (Context)
       MaterializeTemporaryExpr(T, Temporary, BoundToLvalueReference);
 
