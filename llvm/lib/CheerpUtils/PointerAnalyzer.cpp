@@ -63,6 +63,10 @@ POINTER_KIND PointerAnalyzer::getPointerKindAssert(const Value* p) const
 }
 POINTER_KIND PointerAnalyzer::getPointerKind(const Value* p) const
 {
+	// TODO: do something better for nullptr
+	if (isa<ConstantPointerNull>(p)) {
+		return CONSTANT;
+	}
 	if (auto* SI = dyn_cast<StoreInst>(p)) {
 		return getPointerKindForType(SI->getPointerOperandType());
 	}
