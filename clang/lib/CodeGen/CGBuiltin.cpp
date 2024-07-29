@@ -12845,6 +12845,9 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
   }
   else if (BuiltinID == Builtin::BIfree) {
     const CastExpr* argCE=dyn_cast<CastExpr>(E->getArg(0));
+    if (argCE && argCE->getCastKind() == CK_AddressSpaceConversion) {
+      argCE = dyn_cast<CastExpr>(argCE->getSubExpr());
+    }
     llvm::Type* elementType = nullptr;
     if (argCE) {
       QualType ptrTy = argCE->getSubExpr()->getType();
