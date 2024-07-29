@@ -898,11 +898,11 @@ std::pair<std::string, std::string> TypeSupport::ClientFunctionDemangled::getCli
 	return std::make_pair(namespaced, funcName);
 }
 
-DynamicAllocInfo::DynamicAllocInfo( const CallBase* callV, const DataLayout* DL, bool forceTypedArrays ) : call(callV), type( getAllocType(callV) ), castedElementType(nullptr), forceTypedArrays(forceTypedArrays)
+DynamicAllocInfo::DynamicAllocInfo( const CallBase* callV, const DataLayout* DL, bool forceTypedArrays ) : call(callV), type( getAllocType(callV) ), castedElementType(nullptr), AS(cheerp::CheerpAS::Default), forceTypedArrays(forceTypedArrays)
 {
 	if ( isValidAlloc() )
 	{
-		castedElementType = computeCastedElementType();
+		std::tie(castedElementType, AS) = computeCastedElementType();
 		typeSize = DL->getTypeAllocSize(castedElementType);
 	}
 }
@@ -927,14 +927,14 @@ DynamicAllocInfo::AllocType DynamicAllocInfo::getAllocType( const CallBase* call
 	return ret;
 }
 
-Type * DynamicAllocInfo::computeCastedElementType() const
+std::pair<Type*, cheerp::CheerpAS> DynamicAllocInfo::computeCastedElementType() const
 {
 	switch(type)
 	{
 	case cheerp_allocate:
 	case cheerp_reallocate:
 		assert( call->getRetElementType() );
-		return call->getRetElementType();
+		return std::make_pair(call->getRetElementType(), cheerp::getCheerpAS(cast<PointerType>(call->getType())));
 	case not_an_alloc:
 		llvm_unreachable("not an alloc");
 	}
