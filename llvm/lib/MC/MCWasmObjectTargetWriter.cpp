@@ -11,8 +11,9 @@
 using namespace llvm;
 
 MCWasmObjectTargetWriter::MCWasmObjectTargetWriter(bool Is64Bit,
-                                                   bool IsEmscripten)
-    : Is64Bit(Is64Bit), IsEmscripten(IsEmscripten) {}
+                                                   bool IsEmscripten,
+                                                   bool IsCheerp)
+    : Is64Bit(Is64Bit), IsEmscripten(IsEmscripten), IsCheerp(IsCheerp) {}
 
 // Pin the vtable to this object file
 MCWasmObjectTargetWriter::~MCWasmObjectTargetWriter() = default;

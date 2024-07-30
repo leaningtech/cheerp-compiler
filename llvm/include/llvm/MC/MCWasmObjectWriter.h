@@ -22,9 +22,10 @@ class raw_pwrite_stream;
 class MCWasmObjectTargetWriter : public MCObjectTargetWriter {
   const unsigned Is64Bit : 1;
   const unsigned IsEmscripten : 1;
+  const unsigned IsCheerp : 1;
 
 protected:
-  explicit MCWasmObjectTargetWriter(bool Is64Bit_, bool IsEmscripten);
+  explicit MCWasmObjectTargetWriter(bool Is64Bit_, bool IsEmscripten, bool IsCheerp);
 
 public:
   virtual ~MCWasmObjectTargetWriter();
@@ -42,6 +43,7 @@ public:
   /// @{
   bool is64Bit() const { return Is64Bit; }
   bool isEmscripten() const { return IsEmscripten; }
+  bool isCheerp() const {return IsCheerp; }
   /// @}
 };
 

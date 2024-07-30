@@ -31,7 +31,7 @@ using namespace llvm;
 namespace {
 class WebAssemblyWasmObjectWriter final : public MCWasmObjectTargetWriter {
 public:
-  explicit WebAssemblyWasmObjectWriter(bool Is64Bit, bool IsEmscripten);
+  explicit WebAssemblyWasmObjectWriter(bool Is64Bit, bool IsEmscripten, bool IsCheerp);
 
 private:
   unsigned getRelocType(const MCValue &Target, const MCFixup &Fixup,
@@ -41,8 +41,9 @@ private:
 } // end anonymous namespace
 
 WebAssemblyWasmObjectWriter::WebAssemblyWasmObjectWriter(bool Is64Bit,
-                                                         bool IsEmscripten)
-    : MCWasmObjectTargetWriter(Is64Bit, IsEmscripten) {}
+                                                         bool IsEmscripten,
+                                                         bool IsCheerp)
+    : MCWasmObjectTargetWriter(Is64Bit, IsEmscripten, IsCheerp) {}
 
 static const MCSection *getTargetSection(const MCExpr *Expr) {
   if (auto SyExp = dyn_cast<MCSymbolRefExpr>(Expr)) {
@@ -159,6 +160,6 @@ unsigned WebAssemblyWasmObjectWriter::getRelocType(
 }
 
 std::unique_ptr<MCObjectTargetWriter>
-llvm::createWebAssemblyWasmObjectWriter(bool Is64Bit, bool IsEmscripten) {
-  return std::make_unique<WebAssemblyWasmObjectWriter>(Is64Bit, IsEmscripten);
+llvm::createWebAssemblyWasmObjectWriter(bool Is64Bit, bool IsEmscripten, bool IsCheerp) {
+  return std::make_unique<WebAssemblyWasmObjectWriter>(Is64Bit, IsEmscripten, IsCheerp);
 }

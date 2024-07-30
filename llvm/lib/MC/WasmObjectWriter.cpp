@@ -253,6 +253,7 @@ class WasmObjectWriter : public MCObjectWriter {
   // TargetObjectWriter wranppers.
   bool is64Bit() const { return TargetObjectWriter->is64Bit(); }
   bool isEmscripten() const { return TargetObjectWriter->isEmscripten(); }
+  bool isCheerp() const { return TargetObjectWriter->isCheerp(); }
 
   void startSection(SectionBookkeeping &Section, unsigned SectionId);
   void startCustomSection(SectionBookkeeping &Section, StringRef Name);
@@ -1335,11 +1336,19 @@ void WasmObjectWriter::prepareImports(
   // valid without it. In the future, we could perhaps be more clever and omit
   // it if there are no loads or stores.
   wasm::WasmImport MemImport;
-  MemImport.Module = "env";
-  MemImport.Field = "__linear_memory";
-  MemImport.Kind = wasm::WASM_EXTERNAL_MEMORY;
-  MemImport.Memory.Flags = is64Bit() ? wasm::WASM_LIMITS_FLAG_IS_64
-                                     : wasm::WASM_LIMITS_FLAG_NONE;
+  if(isCheerp()){
+    MemImport.Module = "i";
+    MemImport.Field = "memory";
+    MemImport.Kind = wasm::WASM_EXTERNAL_MEMORY;
+    MemImport.Memory.Flags = wasm::WASM_LIMITS_FLAG_NONE;
+  }
+  else {
+    MemImport.Module = "env";
+    MemImport.Field = "__linear_memory";
+    MemImport.Kind = wasm::WASM_EXTERNAL_MEMORY;
+    MemImport.Memory.Flags =
+        is64Bit() ? wasm::WASM_LIMITS_FLAG_IS_64 : wasm::WASM_LIMITS_FLAG_NONE;
+  }
   Imports.push_back(MemImport);
 
   // Populate SignatureIndices, and Imports and WasmIndices for undefined
@@ -1368,7 +1377,7 @@ void WasmObjectWriter::prepareImports(
     if (!WS.isDefined() && !WS.isComdat()) {
       if (WS.isFunction()) {
         wasm::WasmImport Import;
-        Import.Module = WS.getImportModule();
+        Import.Module = isCheerp()? "i" : WS.getImportModule();
         Import.Field = WS.getImportName();
         Import.Kind = wasm::WASM_EXTERNAL_FUNCTION;
         Import.SigIndex = getFunctionType(WS);
@@ -1392,7 +1401,7 @@ void WasmObjectWriter::prepareImports(
           report_fatal_error("undefined tag symbol cannot be weak");
 
         wasm::WasmImport Import;
-        Import.Module = WS.getImportModule();
+        Import.Module = isCheerp()? "i" : WS.getImportModule();
         Import.Field = WS.getImportName();
         Import.Kind = wasm::WASM_EXTERNAL_TAG;
         Import.SigIndex = getTagType(WS);
@@ -1404,7 +1413,7 @@ void WasmObjectWriter::prepareImports(
           report_fatal_error("undefined table symbol cannot be weak");
 
         wasm::WasmImport Import;
-        Import.Module = WS.getImportModule();
+        Import.Module = isCheerp()? "i" : WS.getImportModule();
         Import.Field = WS.getImportName();
         Import.Kind = wasm::WASM_EXTERNAL_TABLE;
         Import.Table = WS.getTableType();

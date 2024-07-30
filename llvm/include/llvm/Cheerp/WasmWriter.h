@@ -580,14 +580,20 @@ private:
       llvm::MCSymbol *CurrentSectionBeginSym = nullptr;
       llvm::MCSymbol *CurrentPatchableFunctionEntrySym = nullptr;
       //llvm::MachineOptimizationRemarkEmitter *ORE;
+      std::vector<std::unique_ptr<llvm::wasm::WasmSignature>> Signatures;
 
       void emitFunctionStreamer(const llvm::Function* F);
       void setupSymbol(const llvm::Function* F);
       void emitFunctionHeader(const llvm::Function* F);
       void emitFunctionBodyStart(const llvm::Function* F);
+      void emitExportFunction(const llvm::Function* F);
+      void emitKCFITypeId(const llvm::Function* F);
+      void emitGlobalConstant(const llvm::DataLayout &DL, const llvm::Constant *CV);
+      void EmitToStreamer(llvm::MCStreamer &S, const llvm::MCInst &Inst);
+      void emitFunctionEntryLabel();
+      const llvm::MCExpr *lowerConstant(const llvm::Constant *CV);
 
       llvm::MCSymbolWasm *getMCSymbolForFunction(const llvm::Function *F);
-      llvm::MCSymbol *getOrCreateWasmSymbol(llvm::StringRef Name);
       void emitSymbolType(const llvm::MCSymbolWasm* Sym);
 
       void emitLinkage(const llvm::GlobalValue *GV, llvm::MCSymbol *GVSym) const;
@@ -607,6 +613,10 @@ private:
         llvm::SmallString<128> NameStr;
         NameStr = namegen.getName(GV,0);
         return TLOF->getContext().getOrCreateSymbol(NameStr);
+      }
+
+      void addSignature(std::unique_ptr<llvm::wasm::WasmSignature> &&Sig) {
+        Signatures.push_back(std::move(Sig));
       }
 };
 

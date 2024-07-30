@@ -32,11 +32,12 @@ namespace {
 class WebAssemblyAsmBackend final : public MCAsmBackend {
   bool Is64Bit;
   bool IsEmscripten;
+  bool IsCheerp;
 
 public:
-  explicit WebAssemblyAsmBackend(bool Is64Bit, bool IsEmscripten)
+  explicit WebAssemblyAsmBackend(bool Is64Bit, bool IsEmscripten, bool IsCheerp)
       : MCAsmBackend(support::little), Is64Bit(Is64Bit),
-        IsEmscripten(IsEmscripten) {}
+        IsEmscripten(IsEmscripten), IsCheerp(IsCheerp) {}
 
   unsigned getNumFixupKinds() const override {
     return WebAssembly::NumTargetFixupKinds;
@@ -119,11 +120,11 @@ void WebAssemblyAsmBackend::applyFixup(const MCAssembler &Asm,
 
 std::unique_ptr<MCObjectTargetWriter>
 WebAssemblyAsmBackend::createObjectTargetWriter() const {
-  return createWebAssemblyWasmObjectWriter(Is64Bit, IsEmscripten);
+  return createWebAssemblyWasmObjectWriter(Is64Bit, IsEmscripten, IsCheerp);
 }
 
 } // end anonymous namespace
 
 MCAsmBackend *llvm::createWebAssemblyAsmBackend(const Triple &TT) {
-  return new WebAssemblyAsmBackend(TT.isArch64Bit(), TT.isOSEmscripten());
+  return new WebAssemblyAsmBackend(TT.isArch64Bit(), TT.isOSEmscripten(), TT.isCheerp());
 }
