@@ -382,18 +382,9 @@ private:
 	void compilePointerOffset(const llvm::Value*, PARENT_PRIORITY parentPrio, bool forEscapingPointer=false);
 
 	/**
-	 * BYTE_LAYOUT_OFFSET_FULL: Compile the full offset in bytes till the element
-	 * BYTE_LAYOUT_OFFSET_STOP_AT_ARRAY: Compile the offset in bytes till the array, if any, containing the element.
-	 *                                   The offset into the array will be returned.
-         * BYTE_LAYOUT_OFFSET_NO_PRINT: Like BYTE_LAYOUT_OFFSET_STOP_AT_ARRAY, but does not print any code.
-	 */
-	enum BYTE_LAYOUT_OFFSET_MODE { BYTE_LAYOUT_OFFSET_FULL = 0, BYTE_LAYOUT_OFFSET_STOP_AT_ARRAY, BYTE_LAYOUT_OFFSET_NO_PRINT };
-	/**
 	 * Compile the offset in bytes from the byte layout base found by recursively traversing BitCasts and GEPs.
-	 * If a GEP from a byte layout pointer to an immutable type is contained in an ArrayType we want to construct the typed array
-	 * starting from the array itself instead of from the value. This will make it possible to loop backward over the array.
 	 */
-	const llvm::Value* compileByteLayoutOffset(const llvm::Value* p, BYTE_LAYOUT_OFFSET_MODE offsetMode);
+	void compileByteLayoutOffset(const llvm::Value* p);
 
 	void compileRawPointer(const llvm::Value* p, PARENT_PRIORITY prio = PARENT_PRIORITY::HIGHEST, bool forceGEP = false);
 
@@ -548,12 +539,12 @@ private:
 	 */
 	enum COMPILE_TYPE_STYLE { LITERAL_OBJ=0, THIS_OBJ };
 	void compileTypedArrayType(llvm::Type* t);
-	void compileSimpleType(llvm::Type* t, llvm::Value* init);
+	void compileSimpleType(llvm::Type* t, cheerp::CheerpAS AS, llvm::Value* init);
 	// varName is used for a fake assignment to break literals into smaller units.
 	// This is useful to avoid a huge penalty on V8 when creating large literals
 	uint32_t compileComplexType(llvm::Type* t, COMPILE_TYPE_STYLE style, llvm::StringRef varName, uint32_t maxDepth, uint32_t totalLiteralProperties,
 					const AllocaStoresExtractor::OffsetToValueMap* offsetToValueMap, uint32_t offset, uint32_t& usedValuesFromMap);
-	void compileType(llvm::Type* t, COMPILE_TYPE_STYLE style, llvm::StringRef varName = llvm::StringRef(), const AllocaStoresExtractor::OffsetToValueMap* offsetToValueMap = nullptr);
+	void compileType(llvm::Type* t, cheerp::CheerpAS AS, COMPILE_TYPE_STYLE style, llvm::StringRef varName = llvm::StringRef(), const AllocaStoresExtractor::OffsetToValueMap* offsetToValueMap = nullptr);
 	uint32_t compileClassTypeRecursive(const std::string& baseName, llvm::StructType* currentType, uint32_t baseCount);
 	void compileClassType(llvm::StructType* T);
 	void compileClassConstructor(llvm::StructType* T);

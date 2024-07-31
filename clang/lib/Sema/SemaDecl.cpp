@@ -18224,9 +18224,6 @@ FieldDecl *Sema::CheckFieldDecl(DeclarationName Name, QualType T,
 
   NewFD->setAccess(AS);
 
-  if (getLangOpts().Cheerp && T->isRecordType() && T->getAsRecordDecl()->isByteLayout())
-    deduceCheerpAddressSpace(NewFD);
-
   return NewFD;
 }
 
@@ -18707,6 +18704,10 @@ void Sema::ActOnFields(Scope *S, SourceLocation RecLoc, Decl *EnclosingDecl,
     if (!FD->isAnonymousStructOrUnion()) {
       // Remember all fields written by the user.
       RecFields.push_back(FD);
+    }
+
+    if (LangOpts.Cheerp) {
+      deduceCheerpAddressSpace(FD);
     }
 
     // If the field is already invalid for some reason, don't emit more
