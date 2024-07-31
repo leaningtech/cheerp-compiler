@@ -666,7 +666,7 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 
 		for(uint32_t i = 0; i < numElem;i++)
 		{
-			compileType(t, LITERAL_OBJ, isInlineable(*info.getInstruction(), PA) || info.getInstruction()->use_empty() ? StringRef() : getName(info.getInstruction(), 0));
+			compileType(t, getCheerpAS(info.getInstruction()), LITERAL_OBJ, isInlineable(*info.getInstruction(), PA) || info.getInstruction()->use_empty() ? StringRef() : getName(info.getInstruction(), 0));
 			if((i+1) < numElem)
 				stream << ',';
 		}
@@ -2068,9 +2068,10 @@ void CheerpWriter::compilePointerBaseTyped(const Value* p, Type* elementType, bo
 		switch(II->getIntrinsicID())
 		{
 			case Intrinsic::cheerp_upcast_collapsed:
-			case Intrinsic::cheerp_typed_ptrcast:
 			case Intrinsic::cheerp_cast_user:
 				return compilePointerBaseTyped(II->getOperand(0), II->getParamElementType(0));
+			case Intrinsic::cheerp_typed_ptrcast:
+				return compileBitCastBase(II, /*forEscapingPointer*/ true);
 			case Intrinsic::cheerp_make_regular:
 				return compileCompleteObject(II->getOperand(0));
 			default:
@@ -2274,9 +2275,11 @@ void CheerpWriter::compilePointerOffset(const Value* p, PARENT_PRIORITY parentPr
 		switch(II->getIntrinsicID())
 		{
 			case Intrinsic::cheerp_upcast_collapsed:
-			case Intrinsic::cheerp_typed_ptrcast:
 			case Intrinsic::cheerp_cast_user:
 				compilePointerOffset(II->getOperand(0), parentPrio);
+				return;
+			case Intrinsic::cheerp_typed_ptrcast:
+				compileBitCastOffset(II, parentPrio);
 				return;
 			case Intrinsic::cheerp_make_regular:
 				compileOperand(II->getOperand(1), parentPrio);
@@ -2704,7 +2707,7 @@ void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio
 		if (asmjs && c->getType()->isPointerTy())
 			stream << '0';
 		else
-			compileType(c->getType(), LITERAL_OBJ);
+			compileType(c->getType(), CheerpAS::GenericJS, LITERAL_OBJ);
 	}
 	else
 	{
@@ -3261,24 +3264,24 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			if(k == REGULAR)
 			{
 				stream << "{d:[";
-				compileType(ai->getAllocatedType(), LITERAL_OBJ, varName, allocaStores);
+				compileType(ai->getAllocatedType(), getCheerpAS(ai), LITERAL_OBJ, varName, allocaStores);
 				stream << "],o:0}";
 			}
 			else if(k == SPLIT_REGULAR)
 			{
 				stream << '[';
-				compileType(ai->getAllocatedType(), LITERAL_OBJ, varName, allocaStores);
+				compileType(ai->getAllocatedType(), getCheerpAS(ai), LITERAL_OBJ, varName, allocaStores);
 				stream << ']';
 			}
 			else if(k == BYTE_LAYOUT)
 			{
 				assert(!allocaStores);
 				stream << "{d:";
-				compileType(ai->getAllocatedType(), LITERAL_OBJ, varName);
+				compileType(ai->getAllocatedType(), getCheerpAS(ai), LITERAL_OBJ, varName);
 				stream << ",o:0}";
 			}
 			else 
-				compileType(ai->getAllocatedType(), LITERAL_OBJ, varName, allocaStores);
+				compileType(ai->getAllocatedType(), getCheerpAS(ai), LITERAL_OBJ, varName, allocaStores);
 
 			return COMPILE_OK;
 		}
