@@ -37,8 +37,17 @@ void CheerpWriter::compileTypedArrayType(Type* t)
 	}
 }
 
-void CheerpWriter::compileSimpleType(Type* t, llvm::Value* init)
+void CheerpWriter::compileSimpleType(Type* t, CheerpAS AS, llvm::Value* init)
 {
+	if (AS == CheerpAS::ByteLayout || TypeSupport::hasByteLayout(t)) {
+		uint32_t typeSize = targetData.getTypeAllocSize(t);
+		stream << "new DataView(new ArrayBuffer(";
+		// Round up the size to make sure that any typed array can be initialized from the buffer
+		stream << ((typeSize + 7) & (~7));
+		stream << "))";
+		return;
+	}
+
 	assert(TypeSupport::isSimpleType(t, forceTypedArrays));
 	switch(t->getTypeID())
 	{
@@ -98,37 +107,15 @@ void CheerpWriter::compileSimpleType(Type* t, llvm::Value* init)
 			}
 			break;
 		}
-		case Type::StructTyID:
-		{
-			assert(init == nullptr);
-			assert(TypeSupport::hasByteLayout(t));
-			uint32_t typeSize = targetData.getTypeAllocSize(t);
-			stream << "new DataView(new ArrayBuffer(";
-			// Round up the size to make sure that any typed array can be initialized from the buffer
-			stream << ((typeSize + 7) & (~7));
-			stream << "))";
-			break;
-		}
 		case Type::ArrayTyID:
 		{
 			assert(init == nullptr);
-			if(TypeSupport::hasByteLayout(t))
-			{
-				uint32_t typeSize = targetData.getTypeAllocSize(t);
-				stream << "new DataView(new ArrayBuffer(";
-				// Round up the size to make sure that any typed array can be initialized from the buffer
-				stream << ((typeSize + 7) & (~7));
-				stream << "))";
-			}
-			else
-			{
-				ArrayType* at=cast<ArrayType>(t);
-				Type* et=at->getElementType();
-				assert(types.isTypedArrayType(et, forceTypedArrays) && at->getNumElements()>1);
-				stream << "new ";
-				compileTypedArrayType(et);
-				stream << '(' << at->getNumElements() << ')';
-			}
+			ArrayType* at=cast<ArrayType>(t);
+			Type* et=at->getElementType();
+			assert(types.isTypedArrayType(et, forceTypedArrays) && at->getNumElements()>1);
+			stream << "new ";
+			compileTypedArrayType(et);
+			stream << '(' << at->getNumElements() << ')';
 			break;
 		}
 		default:
@@ -291,7 +278,7 @@ uint32_t CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style, Str
 			{
 				if(init)
 					usedValuesFromMap++;
-				compileSimpleType(element, init);
+				compileSimpleType(element, CheerpAS::GenericJS, init);
 			}
 			else if(style == THIS_OBJ)
 				compileComplexType(element, LITERAL_OBJ, varName, nextMaxDepth, 0, offsetToValueMap, totalOffset, usedValuesFromMap);
@@ -365,7 +352,7 @@ uint32_t CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style, Str
 					}
 					if(init)
 						usedValuesFromMap++;
-					compileSimpleType(element, init);
+					compileSimpleType(element, CheerpAS::GenericJS, init);
 				}
 				else
 					numElements += compileComplexType(element, LITERAL_OBJ, varName, nextMaxDepth, totalLiteralProperties + numElements, offsetToValueMap, totalOffset, usedValuesFromMap);
@@ -376,9 +363,9 @@ uint32_t CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style, Str
 	return shouldReturnElementsCount ? numElements : 0;
 }
 
-void CheerpWriter::compileType(Type* t, COMPILE_TYPE_STYLE style, StringRef varName, const AllocaStoresExtractor::OffsetToValueMap* offsetToValueMap)
+void CheerpWriter::compileType(Type* t, CheerpAS AS, COMPILE_TYPE_STYLE style, StringRef varName, const AllocaStoresExtractor::OffsetToValueMap* offsetToValueMap)
 {
-	if(TypeSupport::isSimpleType(t, forceTypedArrays))
+	if(AS == CheerpAS::ByteLayout || TypeSupport::isSimpleType(t, forceTypedArrays))
 	{
 		llvm::Value* init = nullptr;
 		if(offsetToValueMap)
@@ -388,7 +375,7 @@ void CheerpWriter::compileType(Type* t, COMPILE_TYPE_STYLE style, StringRef varN
 			if(it != offsetToValueMap->end())
 				init = it->second;
 		}
-		compileSimpleType(t, init);
+		compileSimpleType(t, AS, init);
 	}
 	else
 	{
@@ -465,7 +452,7 @@ void CheerpWriter::compileArrayClassType(Type* T)
 	stream << "var r=[];" << NewLine;
 	stream << "for(var i=0;i<e;i++)" << NewLine;
 	stream << "r[i]=";
-	compileType(T, LITERAL_OBJ, "r[i]");
+	compileType(T, CheerpAS::GenericJS, LITERAL_OBJ, "r[i]");
 	stream << ';' << NewLine << "return r;" << NewLine << '}' << NewLine;
 }
 
@@ -476,7 +463,7 @@ void CheerpWriter::compileResizeArrayClassType(Type* T)
 	stream << "(r,s,e){" << NewLine;
 	stream << "for(var i=s;i<e;i++)" << NewLine;
 	stream << "r[i]=";
-	compileType(T, LITERAL_OBJ, "r[i]");
+	compileType(T, CheerpAS::GenericJS, LITERAL_OBJ, "r[i]");
 	stream << ';' << NewLine << "return r;" << NewLine << '}' << NewLine;
 }
 

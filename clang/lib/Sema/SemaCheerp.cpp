@@ -789,16 +789,31 @@ cheerp::CheerpAttributeToAdd cheerp::getCheerpAttributeToAdd(clang::Sema& S, con
 	// If already present, return the current decl's attribute
 	if (decl->hasAttr<clang::AsmJSAttr>())
 		return CheerpAttributeToAdd::AsmJSLike;
+	else if (decl->hasAttr<clang::ByteLayoutAttr>())
+		return CheerpAttributeToAdd::ByteLayout;
 	else if (decl->hasAttr<clang::GenericJSAttr>())
 		return CheerpAttributeToAdd::GenericJS;
 
 	// Inherit from context (possibly walking up in the tree until a DeclContext is tagged or no DeclContext exists)
+	const clang::Decl* orig = decl;
 	while (const clang::DeclContext* ctx = decl->getDeclContext())
 	{
 		decl = clang::cast<clang::Decl>(ctx);
 
 		if (decl->hasAttr<clang::AsmJSAttr>())
 			return CheerpAttributeToAdd::AsmJSLike;
+		else if (decl->hasAttr<clang::ByteLayoutAttr>() ||
+			(clang::isa<clang::RecordDecl>(decl) && clang::cast<clang::RecordDecl>(decl)->isUnion()))
+		{
+			// Only add the attribute to fields with a record type
+			if (auto* FD = clang::dyn_cast<clang::FieldDecl>(orig))
+			{
+				if (!FD->getType()->isRecordType()) {
+					return CheerpAttributeToAdd::None;
+				}
+			}
+			return CheerpAttributeToAdd::ByteLayout;
+		}
 		else if (decl->hasAttr<clang::GenericJSAttr>())
 			return CheerpAttributeToAdd::GenericJS;
 	}
