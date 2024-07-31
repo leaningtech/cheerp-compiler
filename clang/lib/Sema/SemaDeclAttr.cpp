@@ -9606,7 +9606,7 @@ void Sema::MaybeInjectCheerpModeAttr(Decl* D, const Decl* inheritFrom) {
   if (Context.getTargetInfo().isByteAddressable())
     return;
   // We inject the attributes only on these types of declaration
-  if (!isa<FunctionDecl>(D) && !isa<TagDecl>(D) && !isa<VarDecl>(D) && !isa<TypedefDecl>(D))
+  if (!isa<FunctionDecl>(D) && !isa<TagDecl>(D) && !isa<VarDecl>(D) && !isa<TypedefDecl>(D) && !isa<FieldDecl>(D))
     return;
   // if asmjs or genericjs explicitly added, do nothing
   if (D->hasAttr<AsmJSAttr>() || D->hasAttr<GenericJSAttr>())
@@ -9615,11 +9615,18 @@ void Sema::MaybeInjectCheerpModeAttr(Decl* D, const Decl* inheritFrom) {
   const Decl* referenceDecl = inheritFrom ? inheritFrom : D;
   const auto attributeToAdd = cheerp::getCheerpAttributeToAdd(*this, referenceDecl);
 
+  // Only add the ByteLayout attribute on fields
+  if (attributeToAdd != cheerp::CheerpAttributeToAdd::ByteLayout && isa<FieldDecl>(D)) {
+    return;
+  }
   if (attributeToAdd == cheerp::CheerpAttributeToAdd::AsmJSLike) {
     cheerp::checksOnAsmJSAttributeInjection(*this, D);
     auto AsmJSSpelling = referenceDecl->hasAttr<AsmJSAttr>() ? referenceDecl->getAttr<AsmJSAttr>()->getSemanticSpelling() :
       (LangOpts.getCheerpLinearOutput() == LangOptions::CHEERP_LINEAR_OUTPUT_AsmJs ? AsmJSAttr::CXX11_cheerp_asmjs : AsmJSAttr::CXX11_cheerp_wasm);
     D->addAttr(AsmJSAttr::CreateImplicit(Context, D->getBeginLoc(), AttributeCommonInfo::AS_GNU, AsmJSSpelling));
+  } else if (attributeToAdd == cheerp::CheerpAttributeToAdd::ByteLayout) {
+      D->addAttr(ByteLayoutAttr::CreateImplicit(Context, D->getBeginLoc(), AttributeCommonInfo::AS_GNU, ByteLayoutAttr::CXX11_cheerp_bytelayout));
+      D->addAttr(GenericJSAttr::CreateImplicit(Context, D->getBeginLoc(), AttributeCommonInfo::AS_GNU, GenericJSAttr::CXX11_cheerp_genericjs));
   } else if (attributeToAdd == cheerp::CheerpAttributeToAdd::GenericJS) {
       D->addAttr(GenericJSAttr::CreateImplicit(Context, D->getBeginLoc(), AttributeCommonInfo::AS_GNU, GenericJSAttr::CXX11_cheerp_genericjs));
   }
