@@ -7611,12 +7611,7 @@ LangAS ASTContext::getCheerpPointeeAddrSpace(const Type *PointeeType, Decl* D, L
       break;
     }
     if (D->hasAttr<clang::GenericJSAttr>()) {
-      RecordDecl* RD = dyn_cast<RecordDecl>(D);
-      if (RD && RD->isUnion()) {
-        Ret = LangAS::cheerp_bytelayout;
-      } else {
-        Ret = LangAS::cheerp_genericjs;
-      }
+      Ret = LangAS::cheerp_genericjs;
       break;
     }
     DeclContext* C = D->getDeclContext();
@@ -13325,7 +13320,7 @@ LangAS ASTContext::getCheerpTypeAddressSpace(const Decl* D, LangAS fallback) con
     return fallback;
   }
   LangAS AS = fallback;
-  if (D->hasAttr<ByteLayoutAttr>() || (isa<RecordDecl>(D) && cast<RecordDecl>(D)->isByteLayout())) {
+  if (D->hasAttr<ByteLayoutAttr>()) {
     AS = LangAS::cheerp_bytelayout;
   } else if (AnalysisDeclContext::isInClientNamespace(D)) {
     AS = clang::LangAS::cheerp_client;
