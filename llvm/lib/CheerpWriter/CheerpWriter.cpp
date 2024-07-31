@@ -564,7 +564,7 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 	POINTER_KIND result = PA.getPointerKindAssert(info.getInstruction());
 	const ConstantInt* constantOffset = PA.getConstantOffsetForPointer(info.getInstruction());
 	bool needsDowncastArray = isa<StructType>(t) && globalDeps.needsDowncastArray(cast<StructType>(t));
-	bool needsRegular = result==REGULAR && !constantOffset && !needsDowncastArray;
+	bool needsRegular = result==REGULAR && !constantOffset;
 	assert(result != SPLIT_REGULAR || constantOffset);
 
 	if(needsRegular)
