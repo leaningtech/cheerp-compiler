@@ -365,9 +365,8 @@ void CheerpWriter::compileBitCastBase(const llvm::User* bi, bool forEscapingPoin
 
 void CheerpWriter::compileBitCastOffset(const llvm::User* bi, PARENT_PRIORITY parentPrio)
 {
-	Type* dst=bi->getType();
 	//Special case unions
-	if(PA.getPointerKind(bi->getOperand(0)) == BYTE_LAYOUT)
+	if(PA.getPointerKind(bi->getOperand(0)) == BYTE_LAYOUT && isa<CallInst>(bi))
 	{
 		//Find the type
 		llvm::Type* elementType = cast<CallInst>(bi)->getRetElementType();
@@ -377,7 +376,7 @@ void CheerpWriter::compileBitCastOffset(const llvm::User* bi, PARENT_PRIORITY pa
 		{
 			uint32_t size = targetData.getTypeAllocSize(pointedType);
 			if(size != 1 && parentPrio > SHIFT) stream << '(';
-			compileByteLayoutOffset( bi->getOperand(0), BYTE_LAYOUT_OFFSET_FULL );
+			compileByteLayoutOffset( bi->getOperand(0));
 			if(size != 1)
 			{
 				stream << ">>" << Log2_32(size);
