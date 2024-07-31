@@ -421,11 +421,14 @@ bool StructMemFuncLowering::runOnBlock(BasicBlock& BB, bool asmjs)
 		assert(pointedType);
 		uint32_t alignInt = 0;
 		//We want to decompose everything which is not a byte layout structure. memset is always decomposed.
+		bool isByteLayout = (isa<StructType>(pointedType) && cast<StructType>(pointedType)->hasByteLayout()) ||
+			CI->getArgOperand(0)->getType()->getPointerAddressSpace() == unsigned(cheerp::CheerpAS::ByteLayout);
 		if(mode != MEMSET)
 		{
-			bool isByteLayout = isa<StructType>(pointedType) && cast<StructType>(pointedType)->hasByteLayout();
 			if(isByteLayout)
+			{
 				continue;
+			}
 			MemTransferInst* MTI = cast<MemTransferInst>(CI);
 			alignInt = std::min(MTI->getSourceAlignment(), MTI->getDestAlignment());
 		}
@@ -441,6 +444,12 @@ bool StructMemFuncLowering::runOnBlock(BasicBlock& BB, bool asmjs)
 		Value* src=CI->getOperand(1);
 		Value* size=CI->getOperand(2);
 		unsigned AS = dst->getType()->getPointerAddressSpace();
+		if (isByteLayout && AS != unsigned(cheerp::CheerpAS::ByteLayout))
+		{
+			AS = unsigned(cheerp::CheerpAS::ByteLayout);
+			IRBuilder<> IRB(CI);
+			dst = IRB.CreateAddrSpaceCast(dst, pointedType->getPointerTo(AS), "ascast");
+		}
 		Type* int32Type = IntegerType::get(BB.getContext(), 32);
 		assert(alignInt != 0);
 		// Do not inline memory intrinsics with a large or non-constant size
