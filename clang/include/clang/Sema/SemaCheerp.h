@@ -138,7 +138,7 @@ private:
 
 enum class CheerpAttributeToAdd
 {
-	None, AsmJSLike, GenericJS
+	None, AsmJSLike, GenericJS, ByteLayout
 };
 
 CheerpAttributeToAdd getCheerpAttributeToAdd(clang::Sema& S, const clang::Decl*& decl);
