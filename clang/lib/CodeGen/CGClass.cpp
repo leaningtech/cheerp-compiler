@@ -886,6 +886,10 @@ static void EmitMemberInitializer(CodeGenFunction &CGF,
 
   llvm::Value *ThisPtr = CGF.LoadCXXThis();
   QualType RecordTy = CGF.getContext().getTypeDeclType(ClassDecl);
+  if (CGF.getLangOpts().Cheerp) {
+    LangAS AS = CGF.getContext().getCheerpTypeAddressSpace(RecordTy);
+    RecordTy = CGF.getContext().getAddrSpaceQualType(RecordTy, AS);
+  }
   LValue LHS;
 
   // If a base constructor is being emitted, create an LValue that has the
