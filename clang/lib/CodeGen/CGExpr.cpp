@@ -31,6 +31,7 @@
 #include "clang/Basic/SourceManager.h"
 #include "llvm/ADT/Hashing.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/LLVMContext.h"
@@ -4486,7 +4487,13 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
   }
 
   unsigned RecordCVR = base.getVRQualifiers();
+  bool CheerpEnterUnion = false;
   if (rec->isUnion()) {
+    // CHEERP: genericjs unions are always as-casted to bytelayout when accessed
+    if (getLangOpts().Cheerp && addr.getAddressSpace() == unsigned(cheerp::CheerpAS::GenericJS)) {
+      addr = Builder.CreateAddrSpaceCast(addr, addr.getElementType()->getPointerTo(unsigned(cheerp::CheerpAS::ByteLayout)), Twine(addr.getName(), ".unioncast"));
+      CheerpEnterUnion = true;
+    }
     // For unions, there is no pointer adjustment.
     if (CGM.getCodeGenOpts().StrictVTablePointers &&
         hasAnyVptr(FieldType, getContext()))
@@ -4543,10 +4550,21 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
 
   // CHEERP: We allow fields to have an address space to support bytelayout
   // When accessing such fields we cast the pointer to the field's address space
-  unsigned FieldAS = CGM.getContext().getTargetAddressSpace(FieldType.getAddressSpace());
-  if (FieldAS != addr.getAddressSpace() && FieldAS != 0) {
-    llvm::Type* Ty = CGM.getTypes().ConvertTypeForMem(FieldType);
-    addr = Builder.CreateAddrSpaceCast(addr, Ty->getPointerTo(FieldAS), Twine(addr.getName(), ".fieldcast"));
+  // When entering inside genericjs unions, we need a cheerp_typed_ptrcast instead
+  // unless the field is bytelayout
+  if (CGM.getLangOpts().Cheerp) {
+    unsigned AS = getContext().getTargetAddressSpace(FieldType.getAddressSpace());
+    if (AS == unsigned(cheerp::CheerpAS::ByteLayout)) {
+      addr = Builder.CreateAddrSpaceCast(addr, addr.getElementType()->getPointerTo(AS), Twine(addr.getName(), ".blcast"));
+    } else if (CheerpEnterUnion) {
+      AS = unsigned(cheerp::CheerpAS::GenericJS);
+      llvm::Value* Src = addr.getPointer();
+      llvm::Type* DestTy = CGM.getTypes().ConvertTypeForMem(FieldType);
+      auto* F = CGM.getIntrinsic(llvm::Intrinsic::cheerp_typed_ptrcast, {DestTy->getPointerTo(AS), Src->getType()});
+      llvm::CallBase* Casted = Builder.CreateCall(F, {Src}, Src->hasName()? Src->getName() + ".ascast" : "");
+      Casted->addRetAttr(llvm::Attribute::get(getLLVMContext(), llvm::Attribute::ElementType, DestTy));
+      addr = addr.withPointer(Casted);
+    }
   }
 
   if (field->hasAttr<AnnotateAttr>())
