@@ -4858,7 +4858,7 @@ void CheerpWasmWriter::compileInstructionAndSet(WasmBuffer& code, const llvm::In
 
 	assert(compiled.count(&I) == 0);
 	compiled.insert(&I);
-	errs() << "[compileInstructionAndSet] compiling instruction\n";
+	errs() << "[compileInstructionAndSet] compiling instruction: " << I << "\n";
 	const bool ret = compileInstruction(code, I);
 
 	flushSetLocalDependencies(code, I);
@@ -4874,38 +4874,31 @@ void CheerpWasmWriter::compileInstructionAndSet(WasmBuffer& code, const llvm::In
 		SmallVector<InstElem, 2> elems(getInstElems(&I, PA));
 		for(auto it = elems.rbegin(); it != elems.rend(); ++it)
 		{
-			// errs() << "[compileInstructionAndSet] Looping over InstructionElements[" << i++ << "] totalIdx: " << it->totalIdx << "\n";
 			if(I.use_empty()) {
 				encodeInst(WasmOpcode::DROP, code);
 			} else {
-				// The idea behind catching the oSlot is as follows:
-				// We check if the instruction returns a split regular,
-				// if it does we check all the registers it tries to set_local into
-				// the register with an Integer type should be the oSLot so we don't add
-				// it to the tee_local candidates
+				// We check if there is a call/Invoke instruction and if it returns a split regular.
+				// If then the register we're trying to store into is an integer,
+				// we are trying to store the offset so we retrieve the oSlot global.
 				Registerize::REGISTER_KIND regKind = registerize.getRegKindFromInstElem(*it, false, &PA);
+				bool isCallOrInvoke = (I.getOpcode() == Instruction::Call || I.getOpcode() == Instruction::Invoke);
+				bool useOSlot = (splitRegReturn && isCallOrInvoke && regKind == Registerize::REGISTER_KIND::INTEGER);
 				uint32_t reg = registerize.getRegisterId(&I, it->totalIdx, edgeContext);
 				uint32_t local = localMap.at(reg);
 				// TODO: figure out how to deal with tee locals and aggregates
-				if(!I.getType()->isStructTy() && (!splitRegReturn || (splitRegReturn && regKind != Registerize::REGISTER_KIND::INTEGER)))
+				if(!I.getType()->isStructTy() && !useOSlot)
 					teeLocals.addCandidate(&I, /*isInstructionAssigment*/true, local, code.tell());
-				// errs() << "[compileInstructionAndSet] is splitRegReturn: " << (splitRegReturn ? "true" : "false") << "\n";
-				// errs() << "[compileInstructionAndSet] Setting local: " << local << "\n";
 
-				// Setting the oSlot into the right local
-				// Using a TEE_LOCAL here breaks things
-				// TODO: check if this works properly
-				if (splitRegReturn && regKind == Registerize::REGISTER_KIND::INTEGER)
+				// Retrieve the oSlot so we can set it inside the local
+				if (useOSlot)
 					encodeInst(WasmU32Opcode::GET_GLOBAL, oSlotGlobal, code);
 
 				encodeInst(WasmU32Opcode::SET_LOCAL, local, code);
 			}
 		}
 	}
-	// errs() << "[compileInstructionAndSet] teeLocals instruction start\n";
 	teeLocals.instructionStart(code);
-	// errs() << "[compileInstructionAndSet] done compiling instruction: " << I << "\n";
-	// errs() << "[compileInstructionAndSet] END\n\n";
+	errs() << "[compileInstructionAndSet] done compiling instruction: " << I << "\n";
 }
 
 bool CheerpWasmWriter::shouldDefer(const llvm::Instruction* I) const
