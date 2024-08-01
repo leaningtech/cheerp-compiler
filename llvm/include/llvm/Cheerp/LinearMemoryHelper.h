@@ -403,8 +403,24 @@ private:
 		RefPointer,
 		Vector,
 	};
+	// TODO: Only used inside typeKindOf: can be removed after we stop hacking GC types in from the JS side
+	static bool TMPisTypeGC(const llvm::Type* Ty)
+	{
+		if (Ty->isPointerTy())
+			return TMPisTypeGC(Ty->getPointerElementType());
+		if (const llvm::ArrayType* aTy = llvm::dyn_cast<llvm::ArrayType>(Ty))
+			return (TMPisTypeGC(aTy->getArrayElementType()));
+		if (const llvm::StructType* sTy = llvm::dyn_cast<llvm::StructType>(Ty))
+			return !sTy->hasAsmJS();
+		return false;
+	}
 	static TypeKind typeKindOf(const llvm::Type* type, bool isStrict)
 	{
+		// TODO: Should be removable after we stop hacking GC types in from the JS side
+		// Is needed to have function type comparisons working properly
+		if (TMPisTypeGC(type))
+			return TypeKind::RefPointer;
+
 		if (type->isIntegerTy(64))
 			return TypeKind::Integer64;
 		if (type->isIntegerTy())
