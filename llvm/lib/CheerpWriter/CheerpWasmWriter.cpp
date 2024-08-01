@@ -2375,12 +2375,13 @@ uint32_t CheerpWasmWriter::compileLoadStorePointer(WasmBuffer& code, const Value
 
 void CheerpWasmWriter::compileLoadGC(WasmBuffer& code, const LoadInst& li, Type* loadedType, const Value* ptrOp, StructType* sTy, uint32_t structElemIdx, bool isOffset)
 {
+	// For aggregate type handling see the implementation inside CheerpWriter
+	assert(sTy == NULL && "Loads of aggregates are not supported");
 	POINTER_KIND kind = PA.getPointerKind(ptrOp);
 	POINTER_KIND loadedPtrKind = COMPLETE_OBJECT;
 	assert(kind != BYTE_LAYOUT);
 	assert(kind != RAW);
 
-	assert(!sTy); // TODO: what to do if the sTy is not null?
 	if (kind == CONSTANT)
 	{
 		// An invalid access to null/undefined which has not been removed by optimizations.
@@ -2449,10 +2450,12 @@ void CheerpWasmWriter::compileLoad(WasmBuffer& code, const LoadInst& li, bool si
 	bool LoadIsGC = PA.getPointerKind(ptrOp) != RAW || isTypeGC(ptrOp->getType()); // TODO: use address space
 	for(const auto& ie: getInstElems(&li, PA))
 	{
-		// TODO: should this be in a loop?
 		if (LoadIsGC)
 		{
-			assert(!STy); // TODO: find a test case
+			if (STy)
+			{
+				// Aggregate loads are currently asserted inside compileLoadGC
+			}
 			bool isOffset = ie.ptrIdx == 1;
 			compileLoadGC(code, li, Ty, ptrOp, STy, ie.structIdx, isOffset);
 		}
@@ -2475,6 +2478,8 @@ void CheerpWasmWriter::compileLoad(WasmBuffer& code, const LoadInst& li, bool si
 
 void CheerpWasmWriter::compileStoreGC(WasmBuffer& code, const StoreInst& si, Type* storedType, StructType* sTy, uint32_t structElemIdx, bool isOffset, POINTER_KIND ptrKind, POINTER_KIND storeKind)
 {
+	// For aggregate type handling see the implementation inside CheerpWriter
+	assert(sTy == NULL && "Stores of aggregates are not supported");
 	assert(ptrKind != CONSTANT);
 	assert(ptrKind != BYTE_LAYOUT);
 	assert(storeKind != BYTE_LAYOUT);
@@ -2483,7 +2488,7 @@ void CheerpWasmWriter::compileStoreGC(WasmBuffer& code, const StoreInst& si, Typ
 
 	// Compiles the reference and offset where the store is performed on
 	compileCompleteObject(code, ptrOp, nullptr, false);
-	assert(!sTy); // TODO: what to do is sTy is not NULL? find a test case
+
 	// The value
 	if(storedType->isPointerTy())
 	{
@@ -2553,17 +2558,12 @@ void CheerpWasmWriter::compileStore(WasmBuffer& code, const StoreInst& si)
 	bool StoreIsGC = ptrKind != RAW; // TODO: check address space
 	for(const auto& ie: getInstElems(&si, PA))
 	{
-		if (StoreIsGC) // TODO: should this be in the loop?
+		if (StoreIsGC)
 		{
 			POINTER_KIND storePtrKind = COMPLETE_OBJECT;
 			if(STy)
 			{
-				Ty = STy->getElementType(ie.structIdx);
-				if(Ty->isPointerTy())
-				{
-					TypeAndIndex b(STy, ie.structIdx, TypeAndIndex::STRUCT_MEMBER);
-					storePtrKind = PA.getPointerKindForMemberPointer(b);
-				}
+				// Aggregate stores are currently asserted inside compileStoreGC
 			}
 			else if(Ty->isPointerTy())
 			{
