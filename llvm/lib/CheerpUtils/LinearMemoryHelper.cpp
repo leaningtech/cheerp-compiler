@@ -864,6 +864,10 @@ void LinearMemoryHelper::addGCTypes()
 */
 const llvm::FunctionType* LinearMemoryHelper::createExpandedFunctionType(const PointerAnalyzer* PA, const llvm::Function* F)
 {
+	auto it = expandedFunctionTypes.find(F);
+	if (it != expandedFunctionTypes.end())
+		return (it->second);
+	
 	std::vector<Type*> newArgs;
 	Type* returnTy = F->getReturnType(); 
 
