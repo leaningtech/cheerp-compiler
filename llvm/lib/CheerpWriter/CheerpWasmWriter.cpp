@@ -6007,22 +6007,18 @@ void CheerpWasmWriter::compileCondition(WasmBuffer& code, const llvm::Value* con
 		Value* op0 = ci->getOperand(0);
 		Value* op1 = ci->getOperand(1);
 
-
-		if (isTypeGC(op0->getType()) || isTypeGC(op1->getType())) // TODO: can just check one fo the two?
+		if (isTypeGC(op0->getType()) || isTypeGC(op1->getType())) // TODO: can just check one of the two?
 		{
-			// TODO: using the passed booleanInvert seems to not work in some cases,
-			// in WasmWriter it gets caught by a TK_IfNot token rather than the TK_BrIfNot
-			booleanInvert = p==CmpInst::ICMP_NE;
+			errs() << "[compileCondition] op0:" << *op0 << "\n[compileCondition] op1: " << *op1 << "\n";
+			errs() << "[compileCondition] Should invert: " << (p == CmpInst::ICMP_NE ? "true" : "false") << "\n";
 			// Optimization for NULL reference comparison
 			if (isa<ConstantPointerNull>(op0) || isa<ConstantPointerNull>(op1))
 			{
 				if (isa<ConstantPointerNull>(op0))
 					std::swap(op0, op1);
-				errs() << "[compileCondition] op0:" << *op0 << "\n[compileCondition] op1: " << *op1 << "\n";
-				errs() << "[compileCondition] " << (booleanInvert ? "true" : "false") << "\n";
 				compileOperand(code, op0);
 				encodeInst(WasmOpcode::REF_IS_NULL, code);
-				if (booleanInvert)
+				if (p == CmpInst::ICMP_NE)
 					encodeInst(WasmOpcode::I32_EQZ, code);
 				teeLocals.removeConsumed();
 				return;
@@ -6031,7 +6027,7 @@ void CheerpWasmWriter::compileCondition(WasmBuffer& code, const llvm::Value* con
 			compileOperand(code, op0);
 			compileOperand(code, op1);
 			encodeInst(WasmOpcode::REF_EQ, code);
-			if (booleanInvert)
+			if (p == CmpInst::ICMP_NE)
 				encodeInst(WasmOpcode::I32_EQZ, code);
 			teeLocals.removeConsumed();
 			return;
@@ -6228,12 +6224,9 @@ const BasicBlock* CheerpWasmWriter::compileTokens(WasmBuffer& code,
 				// The condition goes first
 				const BranchInst* bi=cast<BranchInst>(T.getBB()->getTerminator());
 				assert(bi->isConditional());
-				errs() << "Calling compileCondition: TK_BrIf or TK_BrIfNot " << (IfNot ? "true" : "false") << "\n";
 				compileCondition(code, bi->getCondition(), IfNot);
 				const int Depth = getDepth(T.getMatch());
 				teeLocals.clearTopmostCandidates(code, Depth+1);
-				// TODO: IfNot does not work correctly for some GC comparisons
-				// this might be fixed if we stop hacking things over from the JS side
 				encodeBranchHint(bi, IfNot, code);
 				encodeInst(WasmU32Opcode::BR_IF, Depth, code);
 				break;
@@ -6245,7 +6238,6 @@ const BasicBlock* CheerpWasmWriter::compileTokens(WasmBuffer& code,
 				// The condition goes first
 				const BranchInst* bi=cast<BranchInst>(T.getBB()->getTerminator());
 				assert(bi->isConditional());
-				errs() << "Calling compileCondition: TK_If or TK_IfNot " << (IfNot ? "true" : "false") << "\n";
 				compileCondition(code, bi->getCondition(), IfNot);
 				teeLocals.addIndentation(code);
 				encodeBranchHint(bi, IfNot, code);
