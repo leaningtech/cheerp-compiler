@@ -2278,17 +2278,6 @@ void CheerpWasmWriter::compileDowncastGC(WasmBuffer& code, const CallBase* callV
 			assert(downcastArrayIndices.find(sTy) != downcastArrayIndices.end());
 			assert(linearHelper.hasDowncastArray(sTy));
 
-			// store the .o-num
-			compileCompleteObject(code, src);
-			// TODO: find a way to have the correct cast on the get local that happens above ^
-			// Root structs have to be cast from the root to the type that includes the
-			// downcast array and offset
-			if (!sTy->hasDirectBase())
-				encodeInst(WasmGCOpcode::REF_CAST, returnTypeIdx, code);
-			encodeInst(WasmGCOpcode::STRUCT_GET, returnTypeIdx, downcastArrayIndices[sTy], code);
-			compileOperand(code, offset);
-			encodeInst(WasmOpcode::I32_SUB, code);
-			encodeInst(WasmU32Opcode::SET_LOCAL, local, code);
 			// push the .a onto the stack so it can get stored
 			compileCompleteObject(code, src);
 			// TODO: find a way to have the correct cast on the get local that happens above ^
@@ -2296,16 +2285,27 @@ void CheerpWasmWriter::compileDowncastGC(WasmBuffer& code, const CallBase* callV
 			// downcast array and offset
 			if (!sTy->hasDirectBase())
 				encodeInst(WasmGCOpcode::REF_CAST, returnTypeIdx, code);
+			encodeInst(WasmGCOpcode::STRUCT_GET, returnTypeIdx, downcastArrayIndices[sTy], code);
+			// store the .o-num
+			compileCompleteObject(code, src);
+			// TODO: find a way to have the correct cast on the get local that happens above ^
+			// Root structs have to be cast from the root to the type that includes the
+			// downcast array and offset
+			if (!sTy->hasDirectBase())
+				encodeInst(WasmGCOpcode::REF_CAST, returnTypeIdx, code);
 			encodeInst(WasmGCOpcode::STRUCT_GET, returnTypeIdx, downcastArrayIndices[sTy] + 1, code);
+			compileOperand(code, offset);
+			encodeInst(WasmOpcode::I32_SUB, code);
+			encodeInst(WasmU32Opcode::SET_LOCAL, local, code);
 		}
 		else if(result_kind == REGULAR)
 		{
 			// create the .d using the .a
 			compileCompleteObject(code, src);
-			encodeInst(WasmGCOpcode::STRUCT_GET, returnTypeIdx, downcastArrayIndices[sTy] + 1, code);
+			encodeInst(WasmGCOpcode::STRUCT_GET, returnTypeIdx, downcastArrayIndices[sTy], code);
 			// create the .o using the .o-num
 			compileCompleteObject(code, src);
-			encodeInst(WasmGCOpcode::STRUCT_GET, returnTypeIdx, downcastArrayIndices[sTy], code);
+			encodeInst(WasmGCOpcode::STRUCT_GET, returnTypeIdx, downcastArrayIndices[sTy] + 1, code);
 			compileOperand(code, offset);
 			encodeInst(WasmOpcode::I32_SUB, code);
 
@@ -2334,7 +2334,7 @@ void CheerpWasmWriter::compileDowncastGC(WasmBuffer& code, const CallBase* callV
 			if (!sTy->hasDirectBase())
 				encodeInst(WasmGCOpcode::REF_CAST, typeIdx, code);
 			// errs() << "[compileDowncastGC] getting the downcast array from typeidx: " << typeIdx << " at offset: " << (downcastArrayIndices[sTy] + 1) << "\n";  
-			encodeInst(WasmGCOpcode::STRUCT_GET, typeIdx, downcastArrayIndices[sTy] + 1, code);
+			encodeInst(WasmGCOpcode::STRUCT_GET, typeIdx, downcastArrayIndices[sTy], code);
 
 			// encode the .o-num
 			compileCompleteObject(code, src);
@@ -2344,7 +2344,7 @@ void CheerpWasmWriter::compileDowncastGC(WasmBuffer& code, const CallBase* callV
 			if (!sTy->hasDirectBase())
 				encodeInst(WasmGCOpcode::REF_CAST, typeIdx, code);
 			// errs() << "[compileDowncastGC] getting the downcast offset from typeidx: " << typeIdx << " at offset: " << (downcastArrayIndices[sTy]) << "\n";
-			encodeInst(WasmGCOpcode::STRUCT_GET, typeIdx, downcastArrayIndices[sTy], code);
+			encodeInst(WasmGCOpcode::STRUCT_GET, typeIdx, downcastArrayIndices[sTy] + 1, code);
 			compileOperand(code, offset);
 			encodeInst(WasmOpcode::I32_SUB, code);
 
@@ -3056,11 +3056,11 @@ void CheerpWasmWriter::allocateComplexType(WasmBuffer& code, Type* Ty, bool hasD
 
 			if (hasDowncastArray && i + 1 == downcastIdx)
 			{
-				errs() << "[allocateComplexType] Allocating the .o and .a at index: " << i << "\n";
-				// encode the .o
-				encodeInst(WasmS32Opcode::I32_CONST, 0, code);
+				errs() << "[allocateComplexType] Allocating the .a and .o at index: " << i << "\n";
 				// encode the .a
 				encodeInst(WasmS32Opcode::REF_NULL, linearHelper.getSplitRegularObjectIdx(), code);
+				// encode the .o
+				encodeInst(WasmS32Opcode::I32_CONST, 0, code);
 			}
 		}
 		uint32_t typeIdx = linearHelper.getGCTypeIndex(Ty, COMPLETE_OBJECT, hasDowncastArray);
@@ -3228,9 +3228,6 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 
 			if (kind == REGULAR)
 			{
-				// TODO: switch the .a and .o around within the type,
-				// currently the .o is in front of the .a which is different from a regular's .d and .o order
-				assert(false);
 				encodeInst(WasmS32Opcode::I32_CONST, 0, code);
 				encodeInst(WasmGCOpcode::STRUCT_NEW, linearHelper.getRegularObjectIdx(), code);
 			}
@@ -6397,16 +6394,16 @@ uint32_t CheerpWasmWriter::compileDowncastInitializerRecursive(WasmBuffer& code,
 		encodeInst(WasmU32Opcode::TEE_LOCAL, 2, code);
 		encodeInst(WasmGCOpcode::ARRAY_SET, linearHelper.getSplitRegularObjectIdx(), code);
 
-		// store the offset
-		encodeInst(WasmU32Opcode::GET_LOCAL, 2, code);
-		encodeInst(WasmGCOpcode::REF_CAST_NULL, typeIdx, code);
-		encodeInst(WasmS32Opcode::I32_CONST, baseCount, code);
-		encodeInst(WasmGCOpcode::STRUCT_SET, typeIdx, downcastArrayIndices[currTy], code);
-
 		// store the downcast array
 		encodeInst(WasmU32Opcode::GET_LOCAL, 2, code);
 		encodeInst(WasmGCOpcode::REF_CAST_NULL, typeIdx, code);
 		encodeInst(WasmU32Opcode::GET_LOCAL, 1, code);
+		encodeInst(WasmGCOpcode::STRUCT_SET, typeIdx, downcastArrayIndices[currTy], code);
+
+		// store the offset
+		encodeInst(WasmU32Opcode::GET_LOCAL, 2, code);
+		encodeInst(WasmGCOpcode::REF_CAST_NULL, typeIdx, code);
+		encodeInst(WasmS32Opcode::I32_CONST, baseCount, code);
 		encodeInst(WasmGCOpcode::STRUCT_SET, typeIdx, downcastArrayIndices[currTy] + 1, code);
 
 		baseCount++;
@@ -6815,15 +6812,16 @@ void CheerpWasmWriter::compileArrayType(Section& section, const ArrayType* aTy)
 			encodeULEB128(0x01, section);
 		}
 
+		// Adds the downcast array and its offset at the current index
 		if (hasDowncastArray && i + 1 == downcastIndex)
 		{
-			// encode the .o as a mutable i32
-			encodeULEB128(0x7f, section);
-			encodeULEB128(0x01, section);
-
-			// Split regular is encoded as an array of anyrefs
+			// encode the .a as a split regular, an array of anyrefs
 			encodeULEB128(0x63, section);
 			encodeSLEB128(linearHelper.getSplitRegularObjectIdx(), section);
+			encodeULEB128(0x01, section);
+
+			// encode the .o as a mutable i32
+			encodeULEB128(0x7f, section);
 			encodeULEB128(0x01, section);
 		}
 	}
@@ -6887,13 +6885,13 @@ void CheerpWasmWriter::compileRootStructWithDowncastArray(Section& section, cons
 			encodeULEB128(0x01, section);
 		}
 	}
-	// encode the .o as a mutable i32
-	encodeULEB128(0x7f, section);
-	encodeULEB128(0x01, section);
-
-	// Reference to a split regular which is encoded as an array of anyrefs
+	// encode the .a as a split regular, an array of anyrefs
 	encodeULEB128(0x63, section);
 	encodeSLEB128(linearHelper.getSplitRegularObjectIdx(), section);
+	encodeULEB128(0x01, section);
+
+	// encode the .o as a mutable i32
+	encodeULEB128(0x7f, section);
 	encodeULEB128(0x01, section);
 }
 
