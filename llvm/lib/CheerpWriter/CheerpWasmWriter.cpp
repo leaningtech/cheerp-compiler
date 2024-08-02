@@ -2941,9 +2941,15 @@ void CheerpWasmWriter::allocateSimpleType(WasmBuffer& code, Type* Ty, const Valu
 			{
 				POINTER_KIND kind = PA.getPointerKindForStoredType(Ty);
 				assert(kind != RAW);
-				int32_t typeIdx = linearHelper.getGCTypeIndex(Ty, kind);
-				// TODO: Should we check for a downcast array here?
-				encodeInst(WasmS32Opcode::REF_NULL, typeIdx, code);
+				if (kind == COMPLETE_OBJECT)
+				{
+					int32_t typeIdx = linearHelper.getGCTypeIndex(Ty, kind);
+					encodeInst(WasmS32Opcode::REF_NULL, typeIdx, code);
+				}
+				else if (kind == RAW)
+					encodeInst(WasmS32Opcode::I32_CONST, 0, code);
+				else
+					encodeInst(WasmU32Opcode::GET_GLOBAL, nullObjGlobal, code);
 				errs() << "[allocateSimpleType] allocating null\n";
 			}
 			break;
@@ -3002,20 +3008,14 @@ void CheerpWasmWriter::allocateComplexType(WasmBuffer& code, Type* Ty, bool hasD
 					if(init)
 						compilePointerBase(code, init);
 					else
-					{
-						errs() << "[allocateComplexType] encoding NULL\n";
-						encodeInst(WasmU32Opcode::REF_NULL, 0x6E, code);
-					}
+						encodeInst(WasmU32Opcode::GET_GLOBAL, nullArrayGlobal, code);
 				}
 				else if (memberKind == SPLIT_REGULAR)
 				{
 					if(init)
 						compilePointerBase(code, init);
 					else
-					{
-						errs() << "[allocateComplexType] encoding NULL\n";
-						encodeInst(WasmU32Opcode::REF_NULL, 0x6E, code);
-					}
+						encodeInst(WasmU32Opcode::GET_GLOBAL, nullArrayGlobal, code);
 
 					if(init)
 						compilePointerOffset(code, init);
@@ -3024,8 +3024,16 @@ void CheerpWasmWriter::allocateComplexType(WasmBuffer& code, Type* Ty, bool hasD
 				}
 				else if (init)
 					compilePointerAs(code, init, memberKind);
-				else // TODO: JS has a difference between null and nullObj here
+				else if (memberKind == COMPLETE_OBJECT)
 					encodeInst(WasmU32Opcode::REF_NULL, 0x6E, code);
+				else if (memberKind == RAW)
+				{
+					// TODO: test RAW pointers
+					assert(false);
+					encodeInst(WasmS32Opcode::I32_CONST, 0, code);
+				}
+				else
+					encodeInst(WasmU32Opcode::GET_GLOBAL, nullObjGlobal, code);
 			}
 			else if(TypeSupport::isSimpleType(elemTy, false))
 			{
