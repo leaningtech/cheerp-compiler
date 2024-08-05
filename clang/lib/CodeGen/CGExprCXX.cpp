@@ -464,8 +464,12 @@ CodeGenFunction::EmitCXXMemberPointerCallExpr(const CXXMemberCallExpr *E,
 
   CallArgList Args;
 
-  QualType ThisType =
-    getContext().getPointerType(getContext().getTagDeclType(RD));
+  QualType ThisType = getContext().getTagDeclType(RD);
+
+  if (getLangOpts().Cheerp)
+    ThisType = getContext().getAddrSpaceQualType(ThisType, getContext().getCheerpTypeAddressSpace(RD));
+
+  ThisType = getContext().getPointerType(ThisType);
 
   // Push the this ptr.
   Args.add(RValue::get(ThisPtrForCall), ThisType);
