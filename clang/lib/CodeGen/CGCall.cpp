@@ -87,6 +87,8 @@ CanQualType CodeGenTypes::DeriveThisType(const CXXRecordDecl *RD,
 
   if (MD)
     RecTy = Context.getAddrSpaceQualType(RecTy, MD->getMethodQualifiers().getAddressSpace());
+  else if (RD)
+    RecTy = Context.getAddrSpaceQualType(RecTy, Context.getCheerpTypeAddressSpace(RD));
   return Context.getPointerType(CanQualType::CreateUnsafe(RecTy));
 }
 
