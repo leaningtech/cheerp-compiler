@@ -4690,7 +4690,7 @@ void CheerpWriter::compileLoadElem(const LoadInst& li, Type* Ty, StructType* STy
 		compileCompleteObject(ptrOp);
 		if(STy)
 		{
-			compileAccessToElement(STy, {ConstantInt::get(IntegerType::get(Ty->getContext(), 32), structElemIdx)}, false);
+			compileAccessToElement(STy, {ConstantInt::get(IntegerType::get(Ty->getContext(), 32), structElemIdx)}, true);
 		}
 		if(isOffset)
 			stream << 'o';
@@ -4840,7 +4840,7 @@ void CheerpWriter::compileStoreElem(const StoreInst& si, Type* Ty, StructType* S
 		compileCompleteObject(ptrOp);
 		if(STy)
 		{
-			compileAccessToElement(STy, {ConstantInt::get(IntegerType::get(Ty->getContext(), 32), structElemIdx)}, false);
+			compileAccessToElement(STy, {ConstantInt::get(IntegerType::get(Ty->getContext(), 32), structElemIdx)}, true);
 		}
 		if(isOffset)
 			stream << 'o';
