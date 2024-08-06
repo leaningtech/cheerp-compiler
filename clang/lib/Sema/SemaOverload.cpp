@@ -12321,8 +12321,7 @@ private:
     TargetFunctionType = S.ExtractUnqualifiedFunctionType(TargetType);
 
     // CHEERP: We lost the function's address space :(. Add it back.
-    if (S.getLangOpts().Cheerp) {
-      assert(TargetType->isPointerType() && "TargetType should be a pointer in AddressOfFunctionResolver");
+    if (S.getLangOpts().Cheerp && (TargetType->isPointerType() || TargetType->isReferenceType() || TargetType->isMemberPointerType())) {
       TargetFunctionType = S.Context.getAddrSpaceQualType(TargetFunctionType, TargetType->getPointeeType().getAddressSpace());
     }
   }
