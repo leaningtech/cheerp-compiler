@@ -5983,7 +5983,8 @@ public:
   SwitchLookupTable(
       Module &M, uint64_t TableSize, ConstantInt *Offset,
       const SmallVectorImpl<std::pair<ConstantInt *, Constant *>> &Values,
-      Constant *DefaultValue, const DataLayout &DL, const StringRef &FuncName, const StringRef &SectionName);
+      Constant *DefaultValue, const DataLayout &DL, const StringRef &FuncName,
+      const StringRef &SectionName, unsigned int AddressSpace);
 
   /// Build instructions with Builder to retrieve the value at
   /// the position given by Index in the lookup table.
@@ -6037,7 +6038,8 @@ private:
 SwitchLookupTable::SwitchLookupTable(
     Module &M, uint64_t TableSize, ConstantInt *Offset,
     const SmallVectorImpl<std::pair<ConstantInt *, Constant *>> &Values,
-    Constant *DefaultValue, const DataLayout &DL, const StringRef &FuncName, const StringRef& SectionName) {
+    Constant *DefaultValue, const DataLayout &DL, const StringRef &FuncName,
+    const StringRef& SectionName, unsigned int AddressSpace) {
   assert(Values.size() && "Can't build lookup table without values!");
   assert(TableSize >= Values.size() && "Can't fit values in table!");
 
@@ -6143,7 +6145,9 @@ SwitchLookupTable::SwitchLookupTable(
 
   Array = new GlobalVariable(M, ArrayTy, /*isConstant=*/true,
                              GlobalVariable::PrivateLinkage, Initializer,
-                             "switch.table." + FuncName);
+                             "switch.table." + FuncName, nullptr,
+                             GlobalVariable::NotThreadLocal, AddressSpace);
+
   // Cheerp: Propagate section
   Array->setSection(SectionName);
   Array->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
@@ -6626,7 +6630,7 @@ static bool SwitchToLookupTable(SwitchInst *SI, IRBuilder<> &Builder,
     Constant *DV = NeedMask ? ResultLists[PHI][0].second : DefaultResults[PHI];
     StringRef FuncName = Fn->getName();
     SwitchLookupTable Table(Mod, TableSize, TableIndexOffset, ResultList, DV,
-                            DL, FuncName, Fn->getSection());
+                            DL, FuncName, Fn->getSection(), Fn->getAddressSpace());
 
     Value *Result = Table.BuildLookup(TableIndex, Builder);
 
