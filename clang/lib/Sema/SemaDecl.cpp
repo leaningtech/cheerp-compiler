@@ -14225,7 +14225,15 @@ void Sema::AddJsExportPropertyHelper(DeclaratorDecl* Decl, bool Set)
   DeclarationName Name(&PP.getIdentifierTable().get(String));
   DeclContext* DC = Decl->getDeclContext();
   SourceLocation Loc = Decl->getLocation();
-  QualType Type = Context.getFunctionType(ResultTy, Args, {});
+  FunctionProtoType::ExtProtoInfo EPI;
+
+  if (CXXRecordDecl* RD = dyn_cast<CXXRecordDecl>(DC))
+  {
+    LangAS AS = Context.getCheerpTypeAddressSpace(RD);
+    EPI.TypeQuals.addAddressSpace(AS);
+  }
+
+  QualType Type = Context.getFunctionType(ResultTy, Args, EPI);
   TypeSourceInfo* TSI = Context.getTrivialTypeSourceInfo(Type, Loc);
   FunctionDecl* Helper;
   bool Field = false;
