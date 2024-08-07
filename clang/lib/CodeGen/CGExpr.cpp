@@ -31,6 +31,7 @@
 #include "clang/Basic/SourceManager.h"
 #include "llvm/ADT/Hashing.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/LLVMContext.h"
@@ -4487,6 +4488,10 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
 
   unsigned RecordCVR = base.getVRQualifiers();
   if (rec->isUnion()) {
+    // CHEERP: genericjs unions are always as-casted to bytelayout when accessed
+    if (getLangOpts().Cheerp && base.getAddressSpace() == LangAS::cheerp_genericjs) {
+      addr = Builder.CreateAddrSpaceCast(addr, addr.getElementType()->getPointerTo(unsigned(cheerp::CheerpAS::ByteLayout)), Twine(addr.getName(), ".unioncast"));
+    }
     // For unions, there is no pointer adjustment.
     if (CGM.getCodeGenOpts().StrictVTablePointers &&
         hasAnyVptr(FieldType, getContext()))
@@ -4543,10 +4548,26 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
 
   // CHEERP: We allow fields to have an address space to support bytelayout
   // When accessing such fields we cast the pointer to the field's address space
-  unsigned FieldAS = CGM.getContext().getTargetAddressSpace(FieldType.getAddressSpace());
-  if (FieldAS != addr.getAddressSpace() && FieldAS != 0) {
-    llvm::Type* Ty = CGM.getTypes().ConvertTypeForMem(FieldType);
-    addr = Builder.CreateAddrSpaceCast(addr, Ty->getPointerTo(FieldAS), Twine(addr.getName(), ".fieldcast"));
+  if (CGM.getLangOpts().Cheerp) {
+    LangAS FieldAS = FieldType.getAddressSpace();
+    if (FieldAS == LangAS::Default)
+      FieldAS = base.getAddressSpace();
+    if (FieldAS == LangAS::Default) {
+      FieldType.dump();
+      assert(false);
+    }
+    unsigned LLVMFieldAS = CGM.getContext().getTargetAddressSpace(FieldAS);
+    if (LLVMFieldAS != addr.getAddressSpace()) {
+      LangAS BaseAS = base.getType().getAddressSpace();
+      if (rec->isUnion() && BaseAS == LangAS::cheerp_genericjs) {
+        BaseAS = LangAS::cheerp_bytelayout;
+      }
+      llvm::Type* Ty = CGM.getTypes().ConvertTypeForMem(FieldType);
+      llvm::Value* casted = CGM.getTargetCodeGenInfo().performAddrSpaceCast(
+        *this, addr.getPointer(), BaseAS, FieldAS,
+        Ty->getPointerTo(LLVMFieldAS), true, Ty);
+      addr = addr.withPointer(casted);
+    }
   }
 
   if (field->hasAttr<AnnotateAttr>())
