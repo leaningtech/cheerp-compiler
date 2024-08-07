@@ -21132,7 +21132,8 @@ void Sema::CheckCheerpFFICall(const FunctionDecl* Parent, const FunctionDecl* FD
   // Allow some builtins in any case, since they will become intrinsics
   if (FDecl->getBuiltinID() == Builtin::BImemcpy ||
       FDecl->getBuiltinID() == Builtin::BImemmove ||
-      FDecl->getBuiltinID() == Builtin::BImemset)
+      FDecl->getBuiltinID() == Builtin::BImemset ||
+      FDecl->getBuiltinID() == Builtin::BIrealloc)
     return;
   if (Parent->hasAttr<GenericJSAttr>() && FDecl->hasAttr<AsmJSAttr>()) {
     auto p = FDecl->parameters().begin();
