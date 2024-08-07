@@ -3202,7 +3202,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileTerminatorInstru
 							stream << "return ";
 							assert(k != REGULAR);
 							if(k==SPLIT_REGULAR)
-								compilePointerBase(retVal);
+								compilePointerBase(retVal, /*forEscapingPointer*/true);
 							else
 								compilePointerAs(retVal, k);
 							break;
