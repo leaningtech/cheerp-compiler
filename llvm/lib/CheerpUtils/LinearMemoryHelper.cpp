@@ -962,10 +962,7 @@ if (!functionTypeIndices.count(fTy)) { \
 			it->second.functions.push_back(F);
 		}
 
-
 		functionIds.insert(std::make_pair(F, maxFunctionId++));
-
-
 
 		const auto& found = functionTypeIndices.find(fTy);
 		if (found == functionTypeIndices.end()) {
@@ -1016,18 +1013,66 @@ if (!functionTypeIndices.count(fTy)) { \
 		// assert(typeIndex < functionTypes.size());
 	}
 
-	// Create the function types for the downcast array initializer functions
+	// Assign the function types ids for the downcast array initializer functions
 	for (auto sTy : globalDeps->classesWithBaseInfo())
 	{
-		const FunctionType* fTy = FunctionType::get(sTy, {sTy}, false);
-		downcastFuncTypeIndices[fTy] = maxTypeIdx++;
+		assert(downcastFuncTypeIndices.find(sTy) == downcastFuncTypeIndices.end());
+		assert(downcastFuncIds.find(sTy) == downcastFuncIds.end());
+		downcastFuncTypeIndices[sTy] = maxTypeIdx++;
 		downcastFuncIds[sTy] = maxFunctionId++;
 	}
 
-
-	for (auto sTy : globalDeps->classesWithBaseInfo())
+	// Assign the indices used for the create pointer array function
+	if (globalDeps->needCreatePointerArray())
 	{
-		const FunctionType* fTy = FunctionType::get(sTy, {sTy}, false);
+		createPointerArrayFuncTypeIndex = maxTypeIdx++;
+		createPointerArrayFuncId = maxFunctionId++;
+	}
+
+	bool addedSplitRegular = false;
+	// Assign the function ids used for creating dynamically allocated arrays with unknown sizes
+	for (auto Ty : globalDeps->dynAllocArrays())
+	{
+		// We only need to create separate functions for arrays of aggregate types,
+		// all other types can be initialized through ARRAY_NEW_DEFAULT
+		if (Ty->isAggregateType())
+		{
+			if (!addedSplitRegular)
+			{
+				addedSplitRegular = true;
+				createArrayFuncTypeIndex = maxTypeIdx++;
+			}
+			assert(createArrayFuncIds.find(Ty) == createArrayFuncIds.end());
+			typesThatRequireCreateArrayFunc.push_back(Ty);
+			createArrayFuncIds[Ty] = maxFunctionId++;
+		}
+	}
+
+	// Assign the ids used for the functions responsible for resizing arrays of different types
+	int32_t resizeArrayFuncTypeIndexWithSplitReg;
+	addedSplitRegular = false;
+	for (auto Ty : globalDeps->dynResizeArrays())
+	{
+		// All aggregate and pointer types can be collapsed into a split regular type,
+		// doing this will save on the amount of function types we have to create
+		if (Ty->isAggregateType() || Ty->isPointerTy())
+		{
+			if (!addedSplitRegular)
+			{
+				addedSplitRegular = true;
+				resizeArrayFuncTypeIndexWithSplitReg = maxTypeIdx++;
+				typesUsedForDynResizeFuncTypes.push_back(Ty);
+			}
+			resizeArrayFuncTypeIndices[Ty] = resizeArrayFuncTypeIndexWithSplitReg;
+		}
+		else
+		{
+			resizeArrayFuncTypeIndices[Ty] = maxTypeIdx++;
+			typesUsedForDynResizeFuncTypes.push_back(Ty);
+		}
+
+		assert(resizeArrayFuncIds.find(Ty) == resizeArrayFuncIds.end());
+		resizeArrayFuncIds[Ty] = maxFunctionId++;
 	}
 }
 
