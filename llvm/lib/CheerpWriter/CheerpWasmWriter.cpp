@@ -2360,6 +2360,55 @@ void CheerpWasmWriter::compileDowncastGC(WasmBuffer& code, const CallBase* callV
 	errs() << "[compileDowncastGC] Done\n";
 }
 
+void CheerpWasmWriter::compileVirtualcastGC(WasmBuffer& code, const CallBase* callV)
+{
+	// TODO: find a test case
+	assert(false);
+
+	assert( callV->arg_size() == 2 );
+	assert( callV->getCalledFunction() && callV->getCalledFunction()->getIntrinsicID() == Intrinsic::cheerp_virtualcast);
+
+	POINTER_KIND kind = PA.getPointerKindAssert(callV);
+	const Value * src = callV->getOperand(0);
+	const Value * offset = callV->getOperand(1);
+	const StructType* sTy = cast<StructType>(src->getType()->getNonOpaquePointerElementType());
+	const int32_t typeIdx = linearHelper.getGCTypeIndex(sTy, COMPLETE_OBJECT, true);
+
+	assert(kind != RAW);
+	if (kind == SPLIT_REGULAR)
+	{
+		// push the .a on the stack
+		compileCompleteObject(code, src);
+		encodeInst(WasmGCOpcode::STRUCT_GET, typeIdx, downcastArrayIndices[sTy], code);
+		// store the offset
+		uint32_t reg = registerize.getRegisterId(callV, 1, edgeContext);
+		uint32_t local = localMap.at(reg);
+
+		compileOperand(code, offset);
+		encodeInst(WasmU32Opcode::SET_LOCAL, local, code);
+	}
+	else if (kind == REGULAR)
+	{
+		// encode the .d
+		compileCompleteObject(code, src);
+		encodeInst(WasmGCOpcode::STRUCT_GET, typeIdx, downcastArrayIndices[sTy], code);
+		// encode the .o
+		compileOperand(code, offset);
+		// create a new REGULAR object
+		encodeInst(WasmGCOpcode::STRUCT_NEW, linearHelper.getRegularObjectIdx(), code);
+	}
+	else
+	{
+		// Access the downcast array using the offset
+		compileCompleteObject(code, src);
+		encodeInst(WasmGCOpcode::STRUCT_GET, typeIdx, downcastArrayIndices[sTy], code);
+		compileOperand(code, offset);
+		encodeInst(WasmGCOpcode::ARRAY_GET, linearHelper.getSplitRegularObjectIdx(), code);
+		// TODO: cast to the result type
+		assert(false);
+	}
+}
+
 void CheerpWasmWriter::compileDowncast(WasmBuffer& code, const CallBase* callV)
 {
 	errs() << "[compileDowncast]\n";
@@ -2371,14 +2420,6 @@ void CheerpWasmWriter::compileDowncast(WasmBuffer& code, const CallBase* callV)
 	const Value* offset = callV->getOperand(1);
 
 	Type* t = callV->getParamElementType(0);
-
-	if (isTypeGC(t))
-	{
-		errs() << "[compileDowncast] calling GC downcast\n";
-		compileDowncastGC(code, callV);
-		errs() << "[compileDowncast] done calling GC downcast\n";
-		return ;
-	}
 
 	compileOperand(code, src);
 
@@ -3555,12 +3596,26 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						return true;
 					}
 					case Intrinsic::cheerp_downcast:
+					{
+						if (isTypeGC(ci.getParamElementType(0)))
+							compileDowncastGC(code, &ci);
+						else
+							compileDowncast(code, &ci);
+						if(useTailCall)
+						{
+							encodeInst(WasmOpcode::RETURN, code);
+							return true;
+						}
+						return false;
+					}
 					case Intrinsic::cheerp_virtualcast:
 					{
-						//TODO:
-						assert (intrinsicId != Intrinsic::cheerp_virtualcast);
 						errs() << "[compileInlineInstruction] cheerp_downcast or cheerp_virtualcast\n";
-						compileDowncast(code, &ci);
+						//TODO: find a test case for GC types when a virtualcast happens
+						if (isTypeGC(ci.getParamElementType(0)))
+							compileVirtualcastGC(code, &ci);
+						else
+							compileDowncast(code, &ci);
 						if(useTailCall)
 						{
 							encodeInst(WasmOpcode::RETURN, code);
@@ -3570,10 +3625,19 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 					}
 					case Intrinsic::cheerp_downcast_current:
 					{
-						//TODO:
 						errs() << "[compileInlineInstruction] cheerp_downcast_current\n";
-						assert(false);
-						compileOperand(code, ci.getOperand(0));
+						if (isTypeGC(ci.getOperand(0)->getType()))
+						{
+							// TODO: find a test case for GC types
+							assert(false);
+							compileCompleteObject(code, ci.getOperand(0));
+							StructType* sTy = cast<StructType>(ci.getOperand(0)->getType()->getNonOpaquePointerElementType());
+							int32_t typeIdx = linearHelper.getGCTypeIndex(sTy, COMPLETE_OBJECT, true);
+							// Retrieve the .o
+							encodeInst(WasmGCOpcode::STRUCT_GET, typeIdx, downcastArrayIndices[sTy] + 1, code);
+						}
+						else
+							compileOperand(code, ci.getOperand(0));
 						if(useTailCall)
 						{
 							encodeInst(WasmOpcode::RETURN, code);
@@ -3584,7 +3648,14 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 					case Intrinsic::cheerp_upcast_collapsed:
 					{
 						errs() << "[compileInlineInstruction] cheerp_upcast_collapsed\n";
-						compileOperand(code, ci.getOperand(0));
+						if (isTypeGC(ci.getOperand(0)->getType()))
+						{
+							// TODO: find a test case
+							assert(false);
+							compilePointerAs(code, ci.getOperand(0), PA.getPointerKindAssert(&ci));
+						}
+						else
+							compileOperand(code, ci.getOperand(0));
 						if(useTailCall)
 						{
 							encodeInst(WasmOpcode::RETURN, code);
@@ -3597,7 +3668,14 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						errs() << "[compileInlineInstruction] cheerp_upcast_user\n";
 						if(ci.use_empty())
 							return true;
-						compileOperand(code, ci.getOperand(0));
+						if (isTypeGC(ci.getOperand(0)->getType()))
+						{
+							// TODO: find a test case
+							assert(false);
+							// JS writer does a compileBitCast here
+						}
+						else
+							compileOperand(code, ci.getOperand(0));
 						// NOTE: If there are no uses this cannot be a tail-call (the user would have been the return)
 						if(useTailCall)
 						{
