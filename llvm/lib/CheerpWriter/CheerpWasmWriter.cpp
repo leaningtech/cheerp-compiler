@@ -3134,30 +3134,93 @@ void CheerpWasmWriter::compileAllocationGC(WasmBuffer& code, const DynamicAllocI
 	assert (info.isValidAlloc());
 
 	Type* Ty = info.getCastedPointedType();
-	bool needsDowncastArray = false;
-	if (auto sTy = dyn_cast<StructType>(Ty))
-		needsDowncastArray = sTy->hasDirectBase() && linearHelper.hasDowncastArray(sTy);
 	POINTER_KIND result = PA.getPointerKindAssert(info.getInstruction());
 	const ConstantInt* constantOffset = PA.getConstantOffsetForPointer(info.getInstruction());
-	bool needsRegular = result==REGULAR && !constantOffset && !needsDowncastArray;
-	assert(result != SPLIT_REGULAR || constantOffset);
+	bool needsDowncastArray = isa<StructType>(Ty) && globalDeps.needsDowncastArray(cast<StructType>(Ty));
+	bool needsRegular = result==REGULAR && !constantOffset;
+
+	errs() << "[compileAllocationGC] Type: " << *Ty << "\n";
+
+	assert(!info.useTypedArray()); // TODO:
 	assert(result != BYTE_LAYOUT);
-
-
-	//TODO:
-	assert(!info.useCreatePointerArrayFunc());
-	assert(!info.useCreateArrayFunc());
-	//
-
-	assert(!info.useTypedArray());
-	assert(info.getAllocType() != DynamicAllocInfo::cheerp_reallocate);
-	if (!info.sizeIsRuntime())
+	assert(result != SPLIT_REGULAR || constantOffset);
+	int32_t splitRegIdx = linearHelper.getSplitRegularObjectIdx();
+	if (info.useCreatePointerArrayFunc())
 	{
-		uint32_t numElem = compileArraySizeGC(info);
+		assert(globalDeps.needCreatePointerArray());
+		if (info.getAllocType() == DynamicAllocInfo::cheerp_reallocate)
+		{
+			compilePointerBaseTyped(code, info.getMemoryArg(), info.getCastedPointedType());
+			compilePointerBaseTyped(code, info.getMemoryArg(), info.getCastedPointedType());
+			encodeInst(WasmGCOpcode::ARRAY_LEN, splitRegIdx, code);
+		}
+		else
+		{
+			// TODO: can we call compileArraySize twice? it compiles the value again
+			compileArraySizeGC(code, info, true);
+			encodeInst(WasmGCOpcode::ARRAY_NEW_DEFAULT, splitRegIdx, code);
+			// if we have to allocate an array with just null references we can
+			// use the array_new_default rather than the createPointerArray func
+			if (PA.getPointerKindForStoredType(info.getCastedType()) == COMPLETE_OBJECT)
+				return ;
+		}
+
+		compileArraySizeGC(code, info, true);
+
+		if (PA.getPointerKindForStoredType(info.getCastedType()) == COMPLETE_OBJECT)
+			encodeInst(WasmS32Opcode::REF_NULL, 0x6E, code);
+		else
+			encodeInst(WasmU32Opcode::GET_GLOBAL, nullObjGlobal, code);
+
+		// parameters are (array, start index, size, init object)
+		encodeInst(WasmU32Opcode::CALL, linearHelper.getCreatePointerArrayFuncId(), code);
+	}
+	else if (info.useCreateArrayFunc())
+	{
+		errs() << "[compileAllocationGC] Using create array func\n"; 
+		if (info.getAllocType() == DynamicAllocInfo::cheerp_reallocate)
+		{
+			assert(globalDeps.dynResizeArrays().count(Ty));
+			auto it = linearHelper.getResizeArrayFuncIds().find(Ty);
+			assert(it != linearHelper.getResizeArrayFuncIds().end());
+			compilePointerBaseTyped(code, info.getMemoryArg(), info.getCastedPointedType());
+			compilePointerBaseTyped(code, info.getMemoryArg(), info.getCastedPointedType());
+			encodeInst(WasmGCOpcode::ARRAY_LEN, splitRegIdx, code);
+			compileArraySizeGC(code, info, true);
+			encodeInst(WasmU32Opcode::CALL, it->second, code);
+		}
+		else
+		{
+			compileArraySizeGC(code, info, true);
+			// non-aggregate types can be created using ARRAY_NEW_DEFAULT
+			if (Ty->isAggregateType())
+			{
+				auto it = linearHelper.getCreateArrayFuncIds().find(Ty);
+				assert(it != linearHelper.getCreateArrayFuncIds().end());
+				encodeInst(WasmU32Opcode::CALL, it->second, code);
+			}
+			else
+			{
+				int32_t arrayTypeIdx = linearHelper.getGCTypeIndex(Ty, SPLIT_REGULAR);
+				encodeInst(WasmGCOpcode::ARRAY_NEW_DEFAULT, arrayTypeIdx, code);
+			}
+		}
+
+		if (result == COMPLETE_OBJECT)
+		{
+			encodeInst(WasmS32Opcode::I32_CONST, 0, code);
+			encodeInst(WasmGCOpcode::ARRAY_GET, splitRegIdx, code);
+		}
+	}
+	else if (!info.sizeIsRuntime())
+	{
+		errs() << "[compileAllocationGC] size is not runtime info\n";
+		assert(info.getAllocType() != DynamicAllocInfo::cheerp_reallocate);
+		uint32_t numElem = compileArraySizeGC(code, info, false);
 		assert((result == REGULAR || result == SPLIT_REGULAR) || numElem <= 1);
 
 		for(uint32_t i = 0; i < numElem;i++)
-			allocateTypeGC(code, Ty, needsDowncastArray, nullptr);
+			allocateTypeGC(code, Ty, needsDowncastArray);
 
 		if (numElem == 0)
 		{
@@ -3165,10 +3228,7 @@ void CheerpWasmWriter::compileAllocationGC(WasmBuffer& code, const DynamicAllocI
 			numElem = 1;
 		}
 		if (result == REGULAR || result == SPLIT_REGULAR)
-		{
-			int32_t typeIdx = linearHelper.getSplitRegularObjectIdx();
-			encodeInst(WasmGCOpcode::ARRAY_NEW_FIXED, typeIdx, numElem, code);
-		}
+			encodeInst(WasmGCOpcode::ARRAY_NEW_FIXED, splitRegIdx, numElem, code);
 
 		if (needsRegular)
 		{
@@ -3178,13 +3238,18 @@ void CheerpWasmWriter::compileAllocationGC(WasmBuffer& code, const DynamicAllocI
 		}
 	}
 	else
-		assert(false);
+	{
+		llvm::errs() << "Allocating type " << *Ty << "\n";
+		llvm::report_fatal_error("Unsupported type in allocation", false);
+	}
 }
 
-uint32_t CheerpWasmWriter::compileArraySizeGC(const DynamicAllocInfo & info)
+uint32_t CheerpWasmWriter::compileArraySizeGC(WasmBuffer& code, const DynamicAllocInfo & info, bool encode)
 {
 	Type * t = info.getCastedPointedType();
 	uint32_t typeSize = targetData.getTypeAllocSize(t);
+	// TODO: is the use of this correct?
+	bool useMul = false;
 
 	uint32_t numElem = 1;
 	if(const Value* numberOfElements = info.getNumberOfElementsArg())
@@ -3192,15 +3257,35 @@ uint32_t CheerpWasmWriter::compileArraySizeGC(const DynamicAllocInfo & info)
 		if(isa<ConstantInt>(numberOfElements))
 			numElem = getIntFromValue(numberOfElements);
 		else
-			assert(false);
+		{
+			assert(encode);
+			compileOperand(code, numberOfElements);
+			useMul = true;
+		}
 	}
 	if(!info.sizeIsRuntime())
 	{
 		uint32_t allocatedSize = getIntFromValue(info.getByteSizeArg());
 		numElem *= (allocatedSize + typeSize - 1);
-		return numElem / typeSize;
+		if (encode)
+		{
+			encodeInst(WasmS32Opcode::I32_CONST, numElem / typeSize, code);
+			if (useMul)
+				encodeInst(WasmOpcode::I32_MUL, code);
+		}
+		else
+			return numElem / typeSize;
 	}
-	assert(false);
+	else
+	{
+		assert(encode);
+		compileOperand(code, info.getByteSizeArg());
+		if (useMul)
+			encodeInst(WasmOpcode::I32_MUL, code);
+		encodeInst(WasmS32Opcode::I32_CONST, typeSize, code);
+		encodeInst(WasmOpcode::I32_DIV_U, code); // TODO: use DIV_S or DIV_U
+	}
+	assert(encode);
 	return -1;
 }
 
@@ -3696,6 +3781,14 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 					}
 					case Intrinsic::cheerp_reallocate:
 					{
+						Type* baseType = I.getOperand(0)->getType();
+						// TODO: find a way to check if the realloc is called on GC arrays of non-GC types 
+						if (isTypeGC(baseType))
+						{
+							DynamicAllocInfo da(&cast<CallBase>(ci), &targetData, false);
+							compileAllocationGC(code, da);
+							break;
+						}
 						calledFunc = module.getFunction("realloc");
 						if (!calledFunc)
 							llvm::report_fatal_error("missing realloc definition");
@@ -6459,6 +6552,218 @@ void CheerpWasmWriter::compileDowncastInitializer(WasmBuffer& code, StructType* 
 	encodeULEB128(0x0b, code);
 }
 
+/**
+ * The logic of this function boils down to this:
+ * 	array* resizeArray(oldArray, oldSize, newSize)	
+ * 	{
+ * 		array* newArray = new array[newSize];
+ * 		int i = 0;
+ *
+ * 		while (i != oldSize && i != newSize)
+ * 			newArray[i] = oldArray[i];
+ * 		while (i != newSize)
+ * 			newArray[i] = type{};
+ * 		return newArray;
+ * 	}
+ */
+void CheerpWasmWriter::compileResizeArrayFunc(WasmBuffer& code, Type* Ty)
+{
+	int32_t arrayTypeIdx = linearHelper.getGCTypeIndex(Ty, SPLIT_REGULAR);
+	// encode the local group count
+	encodeULEB128(2, code);
+	// encode the index
+	encodeULEB128(1, code);
+	encodeULEB128(0x7f, code);
+	// encode the new array local
+	encodeULEB128(1, code);
+	encodeULEB128(0x63, code);
+	encodeSLEB128(arrayTypeIdx, code);
+
+
+	// create an array with the new size
+	encodeInst(WasmU32Opcode::GET_LOCAL, 2, code);
+	encodeInst(WasmGCOpcode::ARRAY_NEW_DEFAULT, arrayTypeIdx, code);
+	encodeInst(WasmU32Opcode::SET_LOCAL, 4, code);
+
+	// create the first loop and it's exit block
+	encodeInst(WasmU32Opcode::BLOCK, 0x40, code);
+	encodeInst(WasmU32Opcode::LOOP, 0x40, code);
+
+	// loop till (index == oldSize || index == newSize)
+	encodeInst(WasmU32Opcode::GET_LOCAL, 3, code);	// index
+	encodeInst(WasmU32Opcode::GET_LOCAL, 1, code);	// oldSize
+	encodeInst(WasmOpcode::I32_EQ, code);			// check equal
+	encodeInst(WasmU32Opcode::GET_LOCAL, 3, code);	// index
+	encodeInst(WasmU32Opcode::GET_LOCAL, 2, code);	// newSize
+	encodeInst(WasmOpcode::I32_EQ, code);			// check equal
+	encodeInst(WasmOpcode::I32_OR, code);			// OR comparison
+	encodeInst(WasmU32Opcode::BR_IF, 1, code);		// break out of the loop
+
+	// copy from the old array into the new array
+	encodeInst(WasmU32Opcode::GET_LOCAL, 4, code);	// new array
+	encodeInst(WasmU32Opcode::GET_LOCAL, 3, code);	// index
+	encodeInst(WasmU32Opcode::GET_LOCAL, 0, code);	// old array
+	encodeInst(WasmU32Opcode::GET_LOCAL, 3, code);	// index
+	encodeInst(WasmGCOpcode::ARRAY_GET, arrayTypeIdx, code);
+	encodeInst(WasmGCOpcode::ARRAY_SET, arrayTypeIdx, code);
+
+	// increase index iterator
+	encodeInst(WasmU32Opcode::GET_LOCAL, 3, code);
+	encodeInst(WasmS32Opcode::I32_CONST, 1, code);
+	encodeInst(WasmOpcode::I32_ADD, code);
+	encodeInst(WasmU32Opcode::SET_LOCAL, 3, code);
+
+	// continue the loop
+	encodeInst(WasmU32Opcode::BR, 0, code);
+
+	// end the exit block and loop
+	encodeULEB128(0x0b, code);
+	encodeULEB128(0x0b, code);
+
+	// if the allocated type is not an aggregate we can return right away,
+	// all the values are 0 initialized through ARRAY_NEW_DEFAULT
+	if (!Ty->isAggregateType())
+	{
+		encodeInst(WasmU32Opcode::GET_LOCAL, 4, code);
+		encodeULEB128(0x0b, code);
+		return ;
+	}
+
+	// create the second loop and it's exit block
+	encodeInst(WasmU32Opcode::BLOCK, 0x40, code);
+	encodeInst(WasmU32Opcode::LOOP, 0x40, code);
+
+	// loop till index == newSize
+	encodeInst(WasmU32Opcode::GET_LOCAL, 3, code);	// index
+	encodeInst(WasmU32Opcode::GET_LOCAL, 2, code);	// newSize
+	encodeInst(WasmOpcode::I32_EQ, code);			// equal
+	encodeInst(WasmU32Opcode::BR_IF, 1, code);		// break out of the loop
+
+	// insert a new object at the current array index
+	encodeInst(WasmU32Opcode::GET_LOCAL, 4, code);
+	encodeInst(WasmU32Opcode::GET_LOCAL, 3, code);
+	allocateTypeGC(code, Ty, false);
+	encodeInst(WasmGCOpcode::ARRAY_SET, arrayTypeIdx, code);
+
+	// increase index iterator
+	encodeInst(WasmU32Opcode::GET_LOCAL, 3, code);
+	encodeInst(WasmS32Opcode::I32_CONST, 1, code);
+	encodeInst(WasmOpcode::I32_ADD, code);
+	encodeInst(WasmU32Opcode::SET_LOCAL, 3, code);
+
+	// continue the loop
+	encodeInst(WasmU32Opcode::BR, 0, code);
+
+	// end the exit block and loop
+	encodeULEB128(0x0b, code);
+	encodeULEB128(0x0b, code);
+
+	// make sure to return the array
+	encodeInst(WasmU32Opcode::GET_LOCAL, 4, code);
+	encodeULEB128(0x0b, code);
+}
+
+void CheerpWasmWriter::compileCreateDynamicAllocArrayFunc(WasmBuffer& code, Type* Ty)
+{
+	int32_t arrayTypeIdx = linearHelper.getSplitRegularObjectIdx();
+	// non-aggregate types should be handled as an ARRAY_NEW_DEFAULT instead of a function call
+	assert (Ty->isAggregateType());
+	// encode the local group count
+	encodeULEB128(2, code);
+	// encode the index
+	encodeULEB128(1, code);
+	encodeULEB128(0x7f, code);
+	// encode the array local
+	encodeULEB128(1, code);
+	encodeULEB128(0x63, code);
+	encodeSLEB128(arrayTypeIdx, code);
+
+
+	// create an array with the required size
+	encodeInst(WasmU32Opcode::GET_LOCAL, 0, code);
+	encodeInst(WasmGCOpcode::ARRAY_NEW_DEFAULT, arrayTypeIdx, code);
+	encodeInst(WasmU32Opcode::SET_LOCAL, 2, code);
+
+	// create the loop and it's exit block
+	encodeInst(WasmU32Opcode::BLOCK, 0x40, code);
+	encodeInst(WasmU32Opcode::LOOP, 0x40, code);
+
+	// loop till index == size
+	encodeInst(WasmU32Opcode::GET_LOCAL, 1, code);
+	encodeInst(WasmU32Opcode::GET_LOCAL, 0, code);
+	encodeInst(WasmOpcode::I32_EQ, code);
+	encodeInst(WasmU32Opcode::BR_IF, 1, code);
+
+	// retrieve the array and the offset to store into
+	encodeInst(WasmU32Opcode::GET_LOCAL, 2, code);
+	encodeInst(WasmU32Opcode::GET_LOCAL, 1, code);
+
+	// allocate the type
+	allocateTypeGC(code, Ty, false);
+
+	// store the newly allocated type inside the array
+	encodeInst(WasmGCOpcode::ARRAY_SET, arrayTypeIdx, code);
+
+	// increase index iterator
+	encodeInst(WasmU32Opcode::GET_LOCAL, 1, code);
+	encodeInst(WasmS32Opcode::I32_CONST, 1, code);
+	encodeInst(WasmOpcode::I32_ADD, code);
+	encodeInst(WasmU32Opcode::SET_LOCAL, 1, code);
+
+	// continue the loop
+	encodeInst(WasmU32Opcode::BR, 0, code);
+
+	// end the exit block and loop
+	encodeULEB128(0x0b, code);
+	encodeULEB128(0x0b, code);
+
+	// make sure to return the array
+	encodeInst(WasmU32Opcode::GET_LOCAL, 2, code);
+	encodeULEB128(0x0b, code);
+}
+
+// parameter order -> the array, start index, size, init object
+void CheerpWasmWriter::compileCreatePointerArrayFunc(WasmBuffer& code)
+{
+	int32_t arrayTypeIdx = linearHelper.getSplitRegularObjectIdx();
+	// encode the local group count
+	encodeULEB128(0, code);
+
+
+	// create the loop and it's exit block
+	encodeInst(WasmU32Opcode::BLOCK, 0x40, code);
+	encodeInst(WasmU32Opcode::LOOP, 0x40, code);
+
+	// loop till index == size
+	encodeInst(WasmU32Opcode::GET_LOCAL, 1, code);
+	encodeInst(WasmU32Opcode::GET_LOCAL, 2, code);
+	encodeInst(WasmOpcode::I32_EQ, code);
+	encodeInst(WasmU32Opcode::BR_IF, 1, code);
+
+	// store the given init object into the array at the current index
+	encodeInst(WasmU32Opcode::GET_LOCAL, 0, code);
+	encodeInst(WasmU32Opcode::GET_LOCAL, 1, code);
+	encodeInst(WasmU32Opcode::GET_LOCAL, 3, code);
+	encodeInst(WasmGCOpcode::ARRAY_SET, arrayTypeIdx, code);
+
+	// increase index iterator
+	encodeInst(WasmU32Opcode::GET_LOCAL, 1, code);
+	encodeInst(WasmS32Opcode::I32_CONST, 1, code);
+	encodeInst(WasmOpcode::I32_ADD, code);
+	encodeInst(WasmU32Opcode::SET_LOCAL, 1, code);
+
+	// continue the loop
+	encodeInst(WasmU32Opcode::BR, 0, code);
+
+	// end the exit block and loop
+	encodeULEB128(0x0b, code);
+	encodeULEB128(0x0b, code);
+
+	// make sure to return the array
+	encodeInst(WasmU32Opcode::GET_LOCAL, 0, code);
+	encodeULEB128(0x0b, code);
+}
+
 void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F)
 {
 	assert(code.tell() == 0);
@@ -6902,23 +7207,30 @@ void CheerpWasmWriter::compileTypeSection()
 		return;
 
 	Section section(0x01, "Type", this);
+	uint32_t currentTypeIdx = 0;
 
 	// Encode number of entries in the type section.
 	errs() << "[compileTypeSection] encodingType count\n";
-	size_t typeCount = linearHelper.getFunctionTypes().size() + \
-						linearHelper.getGCTypeCount() + \
-						globalDeps.classesWithBaseInfo().size();
+	// TODO: Right now we take all of the needed functions from the global deps,
+	// this needs to be seperated into JS and WASM
+	size_t typeCount = linearHelper.getGCTypeCount() + \
+						linearHelper.getFunctionTypes().size() + \
+						globalDeps.classesWithBaseInfo().size() + \
+						globalDeps.needCreatePointerArray() + \
+						(linearHelper.getTypesThatRequireCreateArrayFunc().size() > 0) + \
+						linearHelper.getTypesUsedForDynResizeFuncTypes().size();
 	encodeULEB128(typeCount, section);
 
 	errs() << "[compileTypeSection] encodingAggregateTypes\n";
 	// Define GC types
-	uint32_t i = 0;
 	for (const auto& Ty : linearHelper.getGCTypes())
 	{
-		errs() << "[compileTypeSection] encoding type idx: " << i++ << ": " << *Ty << "\n";
+		errs() << "[compileTypeSection] encoding type idx: " << currentTypeIdx << ": " << *Ty << "\n";
+		auto it = linearHelper.getGCTypeIndices().find(Ty);
+		assert(it != linearHelper.getGCTypeIndices().end());
+		assert(currentTypeIdx == (uint32_t) it->second);
 		if (const StructType* sTy = dyn_cast<StructType>(Ty))
 		{
-			errs() << "[compileTypeSection] Struct " << ((sTy->hasDirectBase() || linearHelper.isSuperType(sTy)) ? "is marked" : "has no mark") << " for subType\n";
 			if (linearHelper.hasDowncastArray(sTy))
 				cacheDowncastOffset(sTy);
 
@@ -6938,7 +7250,8 @@ void CheerpWasmWriter::compileTypeSection()
 			// allowing the use the index of the root + 1 to retrieve them
 			if (!sTy->hasDirectBase() && linearHelper.hasDowncastArray(sTy))
 			{
-				errs() << "[compileTypeSection] adding the root struct with downcast array type idx: " << i++ << ": " << *sTy << "\n";
+				currentTypeIdx++;
+				assert(currentTypeIdx == (uint32_t) linearHelper.getGCTypeIndex(Ty, COMPLETE_OBJECT, true));
 				compileRootStructWithDowncastArray(section, sTy);
 			}
 		}
@@ -6946,33 +7259,99 @@ void CheerpWasmWriter::compileTypeSection()
 			compileArrayType(section, aTy);
 		else
 			report_fatal_error("Unexpected type", false);
+		currentTypeIdx++;
 	}
+	assert(currentTypeIdx == (uint32_t) linearHelper.getGCTypeCount());
 
 	// Define function type variables
 	errs() << "[compileTypeSection] encodingFunctionTypes\n";
 	for (const auto& fTy : linearHelper.getFunctionTypes())
 	{
+		auto it = linearHelper.getFunctionTypeIndices().find(fTy);
+		assert(it != linearHelper.getFunctionTypeIndices().end());
+		assert(currentTypeIdx == it->second);
 		errs() << "[compileTypeSection] adding functiontype: " << *fTy << "\n";
 		encodeULEB128(0x60, section);
 		compileMethodParams(section, fTy);
-		// TODO: GC returns are encoded with their type index, should it be an anyref?
 		compileMethodResult(section, fTy->getReturnType());
+		currentTypeIdx++;
 	}
 
 	// Define the function types used for the downcast array initializers
 	for (const auto& sTy : globalDeps.classesWithBaseInfo())
 	{
-		const int32_t typeIdx = linearHelper.getGCTypeIndex(sTy, COMPLETE_OBJECT);
+		auto it = linearHelper.getDowncastFuncTypeIndices().find(sTy);
+		assert(it != linearHelper.getDowncastFuncTypeIndices().end());
+		assert(currentTypeIdx == it->second);
+		const int32_t structTypeIdx = linearHelper.getGCTypeIndex(sTy, COMPLETE_OBJECT, true);
 		encodeULEB128(0x60, section);
 		// encode param
 		encodeULEB128(1, section);
 		encodeULEB128(0x63, section);
-		encodeSLEB128(typeIdx, section);
+		encodeSLEB128(structTypeIdx, section);
 
 		// encode result
 		encodeULEB128(1, section);
 		encodeULEB128(0x63, section);
-		encodeSLEB128(typeIdx, section);
+		encodeSLEB128(structTypeIdx, section);
+		currentTypeIdx++;
+	}
+
+	// Define the function type used for the CreatePointerArrayFunc function
+	if (globalDeps.needCreatePointerArray())
+	{
+		assert(currentTypeIdx == (uint32_t) linearHelper.getCreatePointerArrayFuncTypeIndex());
+		encodeULEB128(0x60, section);
+		// encode params: (ref array, i32 startIndex, i32 size, ref initValue)
+		encodeULEB128(4, section);
+		encodeULEB128(0x63, section);
+		encodeSLEB128(linearHelper.getSplitRegularObjectIdx(), section);
+		encodeULEB128(0x7F, section);
+		encodeULEB128(0x7F, section);
+		encodeULEB128(0x6E, section);
+
+		// encode the result
+		encodeULEB128(1, section);
+		encodeULEB128(0x63, section);
+		encodeSLEB128(linearHelper.getSplitRegularObjectIdx(), section);
+		currentTypeIdx++;
+	}
+
+	// Define the function type used for the CreateArrayFunc functions
+	if (linearHelper.getCreateArrayFuncIds().size() > 0)
+	{
+		assert(currentTypeIdx == (uint32_t) linearHelper.getCreateArrayFuncTypeIndex());
+		encodeULEB128(0x60, section);
+		// encode param
+		encodeULEB128(1, section);
+		encodeULEB128(0x7F, section);
+
+		// encode the result
+		encodeULEB128(1, section);
+		encodeULEB128(0x63, section);
+		encodeSLEB128(linearHelper.getSplitRegularObjectIdx(), section);
+		currentTypeIdx++;
+	}
+
+	for (auto Ty : linearHelper.getTypesUsedForDynResizeFuncTypes())
+	{
+		auto it = linearHelper.getDynResizeFuncTypeIndices().find(Ty);
+		assert(it != linearHelper.getDynResizeFuncTypeIndices().end());
+		assert(currentTypeIdx == it->second);
+		int32_t arrayTypeIdx = linearHelper.getGCTypeIndex(Ty, SPLIT_REGULAR);
+		encodeULEB128(0x60, section);
+		// encode params: (ref oldArray, i32 oldSize, i32 newSize)
+		encodeULEB128(3, section);
+		encodeULEB128(0x63, section);
+		encodeSLEB128(arrayTypeIdx, section);
+		encodeULEB128(0x7F, section);
+		encodeULEB128(0x7F, section);
+
+		// encode the result
+		encodeULEB128(1, section);
+		encodeULEB128(0x63, section);
+		encodeSLEB128(arrayTypeIdx, section);
+		currentTypeIdx++;
 	}
 
 	section.encode();
@@ -7120,23 +7499,32 @@ void CheerpWasmWriter::compileFunctionSection()
 
 	Section section(0x03, "Function", this);
 
-	// TODO: filter with only the Wasm classes with base info once we move away from the JS hack
-	uint32_t count = linearHelper.functions().size() + globalDeps.classesWithBaseInfo().size();
+	// TODO: filter with only the WasmGC types for all the globalDeps
+	uint32_t count = linearHelper.functions().size() + \
+						globalDeps.classesWithBaseInfo().size() + \
+						globalDeps.needCreatePointerArray() + \
+						globalDeps.dynAllocArrays().size() + \
+						globalDeps.dynResizeArrays().size();
 	count = std::min(count, COMPILE_METHOD_LIMIT); // TODO
 
 	// Encode number of entries in the function section.
 	encodeULEB128(count, section);
 
 	// Define function type ids
-	size_t i = 0;
+	size_t i = numberOfImportedFunctions;
 	for (const Function* F : linearHelper.functions()) {
 		const FunctionType* fTy = linearHelper.getExpandedFunctionType(F);
-		const auto& found = linearHelper.getFunctionTypeIndices().find(fTy);
-		assert(found != linearHelper.getFunctionTypeIndices().end());
-		// TODO: Since we've added more functions this assert does not work anymore
-		// find another way to assert it
-		// assert(found->second < linearHelper.getFunctionTypes().size());
-		encodeULEB128(found->second, section);
+		const auto& typeIt = linearHelper.getFunctionTypeIndices().find(fTy);
+		const auto& indexIt = linearHelper.getFunctionIds().find(F);
+
+		assert(typeIt != linearHelper.getFunctionTypeIndices().end());
+		assert(indexIt != linearHelper.getFunctionIds().end());
+		errs() << "[compileFunctionSection] Function: " << F->getName() << " should have index: " << indexIt->second << " i is currently: " << i << "\n";
+		// TODO: Currently does not work since we hack in functions from the JS side,
+		// Should work once we stop doing so.
+		// assert(i == indexIt->second);
+
+		encodeULEB128(typeIt->second, section);
 
 		if (++i >= COMPILE_METHOD_LIMIT)
 			break; // TODO
@@ -7145,18 +7533,49 @@ void CheerpWasmWriter::compileFunctionSection()
 	// Define the function type ids for the downcast initializer functions
 	for (auto sTy : globalDeps.classesWithBaseInfo())
 	{
-		const FunctionType* fTy = FunctionType::get(sTy, {sTy}, false);
-		// errs() << "[compileFunctionSection] Trying to find downcastInitFuncId for fTy: " << *fTy << "\n";
-		// const auto& found = linearHelper.getDowncastFuncIds().find(fTy);
-		const auto& found = linearHelper.getDowncastFuncTypeIndices().find(fTy);
-		assert(found != linearHelper.getDowncastFuncTypeIndices().end());
-		errs() << "[compileFunctionSection] Func Type: " << *fTy << "\n";
-		errs() << "[compileFunctionSection] Adding index for type: " << *sTy << "\n";
-		errs() << "[compileFunctionSection] index: " << found->second << "\n";
-		// TODO: add assert for id bound check
-		encodeULEB128(found->second, section);
+		const auto& typeIt = linearHelper.getDowncastFuncTypeIndices().find(sTy);
+		const auto& indexIt = linearHelper.getDowncastFuncIds().find(sTy);
+		assert(typeIt != linearHelper.getDowncastFuncTypeIndices().end());
+		assert(indexIt != linearHelper.getDowncastFuncIds().end());
+		assert(i == indexIt->second);
+
+		encodeULEB128(typeIt->second, section);
 		if (++i >= COMPILE_METHOD_LIMIT)
 			break; // TODO
+	}
+
+	// Define the function type id for the create pointer array function
+	if (globalDeps.needCreatePointerArray())
+	{
+		assert(i == linearHelper.getCreatePointerArrayFuncId());
+		encodeULEB128(linearHelper.getCreatePointerArrayFuncTypeIndex(), section);
+		++i; // TODO
+	}
+
+	// Define the function type ids for the createDynamicArrayAlloc functions
+	for (auto Ty : globalDeps.dynAllocArrays())
+	{
+		const auto& indexIt = linearHelper.getCreateArrayFuncIds().find(Ty);
+		assert(indexIt != linearHelper.getCreateArrayFuncIds().end());
+		assert(i == indexIt->second);
+
+		encodeULEB128(linearHelper.getCreateArrayFuncTypeIndex(), section);
+		if (++i >= COMPILE_METHOD_LIMIT)
+			break; // TODO
+	}
+
+	// Define the function type ids for the resize array functions
+	for (auto Ty : globalDeps.dynResizeArrays())
+	{
+		const auto& typeIt = linearHelper.getDynResizeFuncTypeIndices().find(Ty);
+		const auto& indexIt = linearHelper.getResizeArrayFuncIds().find(Ty);
+		assert(typeIt != linearHelper.getDynResizeFuncTypeIndices().end());
+		assert(indexIt != linearHelper.getResizeArrayFuncIds().end());
+		assert(i == indexIt->second);
+
+		encodeULEB128(typeIt->second, section);
+		if (++i >= COMPILE_METHOD_LIMIT)
+			break; // TODO	
 	}
 
 	section.encode();
@@ -7587,7 +8006,12 @@ void CheerpWasmWriter::compileCodeSection()
 	Section codeSection(0x0a, "Code", this);
 	Section branchHintsSection(0x0, "metadata.code.branch_hint", this);
 
-	uint32_t count = linearHelper.functions().size() + globalDeps.classesWithBaseInfo().size();
+	// TODO: filter with only the WasmGC types for all the globalDeps
+	uint32_t count = linearHelper.functions().size() + \
+						globalDeps.classesWithBaseInfo().size() + \
+						globalDeps.needCreatePointerArray() +\
+						linearHelper.getTypesThatRequireCreateArrayFunc().size() + \
+						globalDeps.dynResizeArrays().size();
 	count = std::min(count, COMPILE_METHOD_LIMIT);
 	encodeULEB128(count, codeSection);		//Encode the number of Wasm functions
 	uint32_t countHinted = 0;
@@ -7656,6 +8080,60 @@ void CheerpWasmWriter::compileCodeSection()
 		if (++i == COMPILE_METHOD_LIMIT)
 			break; // TODO
 	}
+
+	// add the createPointerArray function
+	if (globalDeps.needCreatePointerArray())
+	{
+		Chunk<128> createPointerArray;
+
+		compileCreatePointerArrayFunc(createPointerArray);
+
+#if WASM_DUMP_METHOD_DATA
+		llvm::errs() << "createPointerArray length: " << createPointerArray.tell() << '\n';
+		llvm::errs() << "createPointerArray: " << string_to_hex(createPointerArray.str()) << '\n';
+#endif
+		encodeULEB128(createPointerArray.tell(), codeSection);
+		codeSection << createPointerArray.str();
+
+		++i; // TODO
+	}
+
+	// add the createDynamicArrayAlloc initalizer functions
+	for (auto Ty : linearHelper.getTypesThatRequireCreateArrayFunc())
+	{
+		Chunk<128> createDynAllocArray;
+
+		compileCreateDynamicAllocArrayFunc(createDynAllocArray, Ty);
+
+#if WASM_DUMP_METHOD_DATA
+		llvm::errs() << "createDynAllocArray length: " << createDynAllocArray.tell() << '\n';
+		llvm::errs() << "createDynAllocArray: " << string_to_hex(createDynAllocArray.str()) << '\n';
+#endif
+		encodeULEB128(createDynAllocArray.tell(), codeSection);
+		codeSection << createDynAllocArray.str();
+
+		if (++i == COMPILE_METHOD_LIMIT)
+			break; // TODO
+	}
+
+	// add the resizeArray functions
+	for (auto Ty : globalDeps.dynResizeArrays())
+	{
+		Chunk<128> resizeArrayFunc;
+
+		compileResizeArrayFunc(resizeArrayFunc, Ty);
+
+#if WASM_DUMP_METHOD_DATA
+		llvm::errs() << "resizeArrayFunc length: " << resizeArrayFunc.tell() << '\n';
+		llvm::errs() << "resizeArrayFunc: " << string_to_hex(resizeArrayFunc.str()) << '\n';
+#endif
+		encodeULEB128(resizeArrayFunc.tell(), codeSection);
+		codeSection << resizeArrayFunc.str();
+
+		if (++i == COMPILE_METHOD_LIMIT)
+			break; // TODO
+	}
+
 
 	encodeULEB128(countHinted, branchHintsSection);	//Encode the number of Wasm functions
 	branchHintsSection << branchHintsChunk.str();

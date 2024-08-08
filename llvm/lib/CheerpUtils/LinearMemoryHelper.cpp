@@ -992,7 +992,7 @@ if (!functionTypeIndices.count(fTy)) { \
 		const FunctionType* fTy = createExpandedFunctionType(PA, F);
 		ADD_FUNCTION_TYPE(fTy);
 		functionIds.insert(std::make_pair(F, maxFunctionId++));
-		errs() << "[addFunctions] added function " << F->getName() << " from globalDeps\n";
+		errs() << "[addFunctions] added function " << F->getName() << " from globalDeps at index: " << maxFunctionId - 1 << "\n";
 	}
 	if(!NoNativeJavaScriptMath && mode == FunctionAddressMode::Wasm)
 	{
@@ -1051,6 +1051,8 @@ if (!functionTypeIndices.count(fTy)) { \
 
 		functionIds.insert(std::make_pair(F, maxFunctionId++));
 
+		errs() << "[addFunctions] inserted Func: " << F->getName() << " at index: " << maxFunctionId - 1 << "\n";
+
 		errs() << "[addFunctions] inserted pair\n";
 
 
@@ -1106,28 +1108,74 @@ if (!functionTypeIndices.count(fTy)) { \
 		// assert(typeIndex < functionTypes.size());
 	}
 
-	// Create the function types for the downcast array initializer functions
+	// Assign the function types ids for the downcast array initializer functions
 	for (auto sTy : globalDeps->classesWithBaseInfo())
 	{
-		const FunctionType* fTy = FunctionType::get(sTy, {sTy}, false);
+		// const FunctionType* fTy = FunctionType::get(sTy, {sTy}, false);
 		errs() << "[addFunctions] adding downcastArrayInitializer: " << *sTy << "\n";
-		errs() << "[addFunctions] Func Type: " << *fTy << "\n";
+		// errs() << "[addFunctions] Func Type: " << *fTy << "\n";
 		errs() << "[addFunctions] FuncTypeIdx: " << maxTypeIdx << "\n";
 		errs() << "[addFunctions] FuncId: " << maxFunctionId << "\n";
-		downcastFuncTypeIndices[fTy] = maxTypeIdx++;
+		assert(downcastFuncTypeIndices.find(sTy) == downcastFuncTypeIndices.end());
+		assert(downcastFuncIds.find(sTy) == downcastFuncIds.end());
+		downcastFuncTypeIndices[sTy] = maxTypeIdx++;
 		downcastFuncIds[sTy] = maxFunctionId++;
 	}
 
-	errs() << "[addFunctions] AFTER ADDING\n";
-
-	for (auto sTy : globalDeps->classesWithBaseInfo())
+	// Assign the indices used for the create pointer array function
+	if (globalDeps->needCreatePointerArray())
 	{
-		const FunctionType* fTy = FunctionType::get(sTy, {sTy}, false);
-		errs() << "[addFunctions] downcastArrayInitializer: " << *sTy << "\n";
-		errs() << "[addFunctions] Func Type: " << *fTy << "\n";
-		errs() << "[addFunctions] FuncTypeIdx: " << downcastFuncTypeIndices[fTy] << "\n";
-		errs() << "[addFunctions] FuncId: " << downcastFuncIds[sTy] << "\n";
+		createPointerArrayFuncTypeIndex = maxTypeIdx++;
+		createPointerArrayFuncId = maxFunctionId++;
 	}
+
+	bool addedSplitRegular = false;
+	// Assign the function ids used for creating dynamically allocated arrays with unknown sizes
+	for (auto Ty : globalDeps->dynAllocArrays())
+	{
+		// We only need to create separate functions for arrays of aggregate types,
+		// all other types can be initialized through ARRAY_NEW_DEFAULT
+		if (Ty->isAggregateType())
+		{
+			if (!addedSplitRegular)
+			{
+				addedSplitRegular = true;
+				createArrayFuncTypeIndex = maxTypeIdx++;
+			}
+			assert(createArrayFuncIds.find(Ty) == createArrayFuncIds.end());
+			typesThatRequireCreateArrayFunc.push_back(Ty);
+			createArrayFuncIds[Ty] = maxFunctionId++;
+		}
+	}
+
+	// Assign the ids used for the functions responsible for resizing arrays of different types
+	int32_t resizeArrayFuncTypeIndexWithSplitReg;
+	addedSplitRegular = false;
+	for (auto Ty : globalDeps->dynResizeArrays())
+	{
+		// All aggregate and pointer types can be collapsed into a split regular type,
+		// doing this will save on the amount of function types we have to create
+		if (Ty->isAggregateType() || Ty->isPointerTy())
+		{
+			if (!addedSplitRegular)
+			{
+				addedSplitRegular = true;
+				resizeArrayFuncTypeIndexWithSplitReg = maxTypeIdx++;
+				typesUsedForDynResizeFuncTypes.push_back(Ty);
+			}
+			resizeArrayFuncTypeIndices[Ty] = resizeArrayFuncTypeIndexWithSplitReg;
+		}
+		else
+		{
+			resizeArrayFuncTypeIndices[Ty] = maxTypeIdx++;
+			typesUsedForDynResizeFuncTypes.push_back(Ty);
+		}
+
+		assert(resizeArrayFuncIds.find(Ty) == resizeArrayFuncIds.end());
+		resizeArrayFuncIds[Ty] = maxFunctionId++;
+	}
+
+	errs() << "[addFunctions] AFTER ADDING\n";
 }
 
 void LinearMemoryHelper::addStack()
