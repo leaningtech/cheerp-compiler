@@ -189,7 +189,7 @@ public:
 
 	typedef std::unordered_map<const llvm::StructType*, std::vector<const llvm::StructType*>> DirectBaseToSubTypesMap;
 
-	typedef std::unordered_map<const llvm::Type*, uint32_t> DowncastFuncIdMap;
+	typedef std::unordered_map<const llvm::Type*, uint32_t> TypeToIndexMap;
 
 	typedef std::map<const llvm::Function*, const llvm::FunctionType*> ExpandedFunctionTypesMap;
 
@@ -268,17 +268,49 @@ public:
 		return GCTypeIndices;
 	}
 
-	uint32_t getGCTypeCount() const {
+	int32_t getGCTypeCount() const {
 		return GCTypeCount;
 	}
 
+	uint32_t getCreatePointerArrayFuncTypeIndex() const {
+		return createPointerArrayFuncTypeIndex;
+	}
+
+	uint32_t getCreatePointerArrayFuncId() const {
+		return createPointerArrayFuncId;
+	}
+
+	const std::vector<const llvm::Type*> getTypesUsedForDynResizeFuncTypes() const {
+		return typesUsedForDynResizeFuncTypes;
+	}
+	
+	const TypeToIndexMap getDynResizeFuncTypeIndices() const {
+		return resizeArrayFuncTypeIndices;
+	}
+
+	const TypeToIndexMap& getResizeArrayFuncIds() const {
+		return resizeArrayFuncIds;
+	}
+
+	const std::vector<llvm::Type*>& getTypesThatRequireCreateArrayFunc() const {
+		return typesThatRequireCreateArrayFunc;
+	}
+	
+	int32_t getCreateArrayFuncTypeIndex() const {
+		return createArrayFuncTypeIndex;
+	}
+
+
+	const TypeToIndexMap& getCreateArrayFuncIds() const {
+		return createArrayFuncIds;
+	}
+
 	// the init functions for downcasts will be encoded with direct type ID's
-	// rather than anyref, this is why we need a separate map
-	const std::unordered_map<const llvm::FunctionType*, int32_t>& getDowncastFuncTypeIndices() const {
+	const TypeToIndexMap& getDowncastFuncTypeIndices() const {
 		return downcastFuncTypeIndices;
 	}
 
-	const DowncastFuncIdMap& getDowncastFuncIds() const {
+	const TypeToIndexMap& getDowncastFuncIds() const {
 		return downcastFuncIds;
 	}
 
@@ -494,14 +526,29 @@ private:
 	std::unordered_set<const llvm::StructType*> superTypes;
 	const llvm::FunctionType* createExpandedFunctionType(const PointerAnalyzer* PA, const llvm::Function* F);
 	ExpandedFunctionTypesMap expandedFunctionTypes;
-	DowncastFuncIdMap downcastFuncIds;
-	std::unordered_map<const llvm::FunctionType*, int32_t> downcastFuncTypeIndices;
+	TypeToIndexMap downcastFuncIds;
+	TypeToIndexMap downcastFuncTypeIndices;
+	TypeToIndexMap createArrayFuncIds;
+	TypeToIndexMap resizeArrayFuncIds;
+	TypeToIndexMap resizeArrayFuncTypeIndices;
+	// All struct, array and pointer types can be collapsed down to a split regular type
+	// these variables hold all the types that are required for the function types
+	std::vector<const llvm::Type*> typesUsedForDynResizeFuncTypes;
+	std::vector<const llvm::Type*> typesUsedForCreateArrayFuncTypes;
+	// non-aggregate types do not have to be allocated though a create array function
+	// this vector hold all the types that do require a separate function
+	std::vector<llvm::Type*> typesThatRequireCreateArrayFunc;
+	uint32_t createArrayFuncTypeIndex;
+	uint32_t createPointerArrayFuncId;
+	uint32_t createPointerArrayFuncTypeIndex;
 	std::vector<const llvm::FunctionType*> functionTypes;
 	std::vector<const llvm::Type*> GCTypes;
 	std::unordered_set<const llvm::StructType*> downcastArrayClasses;
+	// This map does not include function type indices for extra added functions
+	// like the downcast or array initializers, they have their own maps
 	FunctionTypeIndicesMap functionTypeIndices;
 	GCTypesIndicesMap GCTypeIndices;
-	uint32_t GCTypeCount;
+	int32_t GCTypeCount;
 	uint32_t maxTypeIdx;
 	uint32_t maxFunctionId;
 	int32_t regularObjectIdx;
