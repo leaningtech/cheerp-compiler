@@ -477,6 +477,7 @@ private:
 	void compileAllocationGC(WasmBuffer& code, const DynamicAllocInfo& info);
 	void callDowncastArrayInit(WasmBuffer& code, const llvm::Type* Ty);
 	void compileDowncastGC(WasmBuffer& code, const llvm::CallBase* callV);
+	void compileVirtualcastGC(WasmBuffer& code, const llvm::CallBase* callV);
 	uint32_t compileArraySizeGC(WasmBuffer& code, const DynamicAllocInfo & info, bool encode);
 	bool isTypeGC(const llvm::Type* Ty) const;
 	// Returns true if all the uses have signed semantics
