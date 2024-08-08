@@ -615,13 +615,17 @@ void LinearMemoryHelper::cacheDowncastArrayClasses(DirectBaseToSubTypesMap& subT
 
 	for (auto *sTy : globalDeps->classesWithBaseInfo())
 	{
-		errs() << "[checkDowncastArrayClasses] struct type: " << sTy->getName() << " has base info\n";
-		errs() << "[checkDowncastArrayClasses] direct base is: " << sTy->getDirectBase()->getName() << "\n";
+		if (sTy->hasName())
+			errs() << "[checkDowncastArrayClasses] struct type: " << sTy->getName() << " has base info\n";
 		cacheDowncastArrayClassesRecursive(sTy, types, subTypeMap);
+		errs() << "[cacheDowncastArrayClasses] adding sTy: " << *sTy << "\n";
 	}
 
 	for (auto DCclass : downcastArrayClasses)
-		errs() << "[addDowncastArrayCLasses] added class: " << DCclass->getStructName() << "\n";
+	{
+		if (DCclass->hasName())
+			errs() << "[addDowncastArrayCLasses] added class: " << DCclass->getStructName() << "\n";
+	}
 }
 
 /**

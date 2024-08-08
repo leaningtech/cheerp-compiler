@@ -1770,7 +1770,10 @@ void CheerpWasmWriter::compileConstant(WasmBuffer& code, const Constant* c, bool
 		{
 			POINTER_KIND kind = PA.getPointerKind(c);
 			if (kind == COMPLETE_OBJECT || kind == CONSTANT)
-				encodeInst(WasmU32Opcode::REF_NULL, 0x6E, code);
+			{
+				int32_t typeIdx = linearHelper.getGCTypeIndex(c->getType(), COMPLETE_OBJECT);
+				encodeInst(WasmS32Opcode::REF_NULL, typeIdx, code);
+			}
 			else
 				encodeInst(WasmU32Opcode::GET_GLOBAL, nullObjGlobal, code);
 		}
@@ -4445,8 +4448,18 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 				compileCondition(code, si.getCondition(), /*booleanInvert*/false);
 				if (si.getCondition()->getType()->isVectorTy())
 					encodeInst(WasmSIMDOpcode::V128_BITSELECT, code);
+				else if (isTypeGC(Ty))
+				{
+					encodeInst(WasmOpcode::SELECT_VAL, code);
+					// encode the vector for the result type, length must be 1
+					encodeULEB128(1, code);
+					// encode the result type
+					encodeULEB128(0x63, code);
+					encodeSLEB128(linearHelper.getGCTypeIndex(Ty, COMPLETE_OBJECT), code);
+				}
 				else
 					encodeInst(WasmOpcode::SELECT, code);
+				errs() << "[SELECT] " << si << "\n";
 			}
 			break;
 		}
