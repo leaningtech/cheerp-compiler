@@ -21,6 +21,7 @@ enum class WasmOpcode {
 	RETURN = 0x0f,
 	DROP = 0x1a,
 	SELECT = 0x1b,
+	SELECT_VAL = 0x1c,
 	F32_CONST = 0x43,
 	F64_CONST = 0x44,
 	I32_EQZ = 0x45,
