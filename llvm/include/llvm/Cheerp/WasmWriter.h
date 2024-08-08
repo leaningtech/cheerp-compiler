@@ -449,6 +449,9 @@ private:
 	uint32_t getDowncastArraySize(llvm::StructType* sTy, uint32_t size) const;
 	uint32_t compileDowncastInitializerRecursive(WasmBuffer& code, Chunk<128> currClassAccess, llvm::StructType* sTy, uint32_t baseCount);
 	void compileDowncastInitializer(WasmBuffer& code, llvm::StructType* sTy);
+	void compileCreatePointerArrayFunc(WasmBuffer& code);
+	void compileCreateDynamicAllocArrayFunc(WasmBuffer& code, llvm::Type* Ty);
+	void compileResizeArrayFunc(WasmBuffer& code, llvm::Type* Ty);
 	void compileMethod(WasmBuffer& code, const llvm::Function& F);
 	void compileImport(WasmBuffer& code, llvm::StringRef funcName, llvm::FunctionType* FTy);
 	void compileImportMemory(WasmBuffer& code);
@@ -474,7 +477,7 @@ private:
 	void compileAllocationGC(WasmBuffer& code, const DynamicAllocInfo& info);
 	void callDowncastArrayInit(WasmBuffer& code, const llvm::Type* Ty);
 	void compileDowncastGC(WasmBuffer& code, const llvm::CallBase* callV);
-	uint32_t compileArraySizeGC(const DynamicAllocInfo & info);
+	uint32_t compileArraySizeGC(WasmBuffer& code, const DynamicAllocInfo & info, bool encode);
 	bool isTypeGC(const llvm::Type* Ty) const;
 	// Returns true if all the uses have signed semantics
 	// NOTE: Careful, this is not in sync with needsUnsignedTruncation!
