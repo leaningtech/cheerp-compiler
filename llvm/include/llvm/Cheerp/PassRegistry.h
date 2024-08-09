@@ -41,6 +41,7 @@
 #include "llvm/Cheerp/CallConstructors.h"
 #include "llvm/Cheerp/CommandLine.h"
 #include "llvm/Cheerp/CheerpLowerAtomic.h"
+#include "llvm/Cheerp/UnionOptimizer.h"
 
 namespace cheerp {
 
