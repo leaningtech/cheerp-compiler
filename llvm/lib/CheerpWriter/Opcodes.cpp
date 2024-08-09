@@ -375,10 +375,14 @@ void CheerpWriter::compileBitCastOffset(const llvm::User* bi, PARENT_PRIORITY pa
 		llvm::Type* pointedType = (isArray)?elementType->getArrayElementType():elementType;
 		if(TypeSupport::isTypedArrayType(pointedType, /* forceTypedArray*/ true))
 		{
-			compileByteLayoutOffset( bi->getOperand(0), BYTE_LAYOUT_OFFSET_FULL );
 			uint32_t size = targetData.getTypeAllocSize(pointedType);
+			if(size != 1 && parentPrio > SHIFT) stream << '(';
+			compileByteLayoutOffset( bi->getOperand(0), BYTE_LAYOUT_OFFSET_FULL );
 			if(size != 1)
+			{
 				stream << ">>" << Log2_32(size);
+				if(parentPrio > SHIFT) stream << ')';
+			}
 			return;
 		}
 	}
