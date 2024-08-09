@@ -42,6 +42,7 @@
 #include "llvm/Cheerp/CommandLine.h"
 #include "llvm/Cheerp/CheerpLowerAtomic.h"
 #include "llvm/Cheerp/ThreadLocalLowering.h"
+#include "llvm/Cheerp/UnionOptimizer.h"
 
 namespace cheerp {
 
