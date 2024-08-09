@@ -1550,6 +1550,10 @@ MaybeAlign AttributeList::getRetStackAlignment() const {
   return getRetAttrs().getStackAlignment();
 }
 
+Type *AttributeList::getRetElementType() const {
+  return getRetAttrs().getElementType();
+}
+
 uint64_t AttributeList::getRetDereferenceableBytes() const {
   return getRetAttrs().getDereferenceableBytes();
 }
