@@ -830,6 +830,9 @@ public:
   /// Return the alignment of the return value.
   MaybeAlign getRetAlignment() const;
 
+  /// Return the element type of the return value.
+  Type *getRetElementType() const;
+
   /// Return the alignment for the specified function parameter.
   MaybeAlign getParamAlignment(unsigned ArgNo) const;
 
