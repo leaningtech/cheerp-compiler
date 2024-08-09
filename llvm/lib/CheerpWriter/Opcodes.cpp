@@ -370,7 +370,7 @@ void CheerpWriter::compileBitCastOffset(const llvm::User* bi, PARENT_PRIORITY pa
 	if(PA.getPointerKind(bi->getOperand(0)) == BYTE_LAYOUT)
 	{
 		//Find the type
-		llvm::Type* elementType = dst->getNonOpaquePointerElementType();
+		llvm::Type* elementType = cast<CallInst>(bi)->getRetElementType();
 		bool isArray=isa<ArrayType>(elementType);
 		llvm::Type* pointedType = (isArray)?elementType->getArrayElementType():elementType;
 		if(TypeSupport::isTypedArrayType(pointedType, /* forceTypedArray*/ true))
