@@ -30,6 +30,7 @@
 #include "llvm/Cheerp/CFGPasses.h"
 #include "llvm/Cheerp/ByValLowering.h"
 #include "llvm/Cheerp/PassUtility.h"
+#include "llvm/Cheerp/UnionOptimizer.h"
 #include "llvm/CodeGen/RegAllocRegistry.h"
 #include "llvm/CodeGen/SchedulerRegistry.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
@@ -947,6 +948,7 @@ void EmitAssemblyHelper::RunOptimizationPipeline(
             //We need this to track this in custom constructors for DOM types, such as String::String(const char*)
             MPM.addPass(createModuleToFunctionPassAdaptor(cheerp::RequiredPassWrapper<PromotePass>()));
             MPM.addPass(createModuleToFunctionPassAdaptor(cheerp::CheerpNativeRewriterPass()));
+            MPM.addPass(createModuleToFunctionPassAdaptor(cheerp::UnionOptimizerPass()));
           });
       PB.registerOptimizerLastEPCallback(
           [](ModulePassManager &MPM, OptimizationLevel Level) {
