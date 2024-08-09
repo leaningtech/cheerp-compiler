@@ -414,6 +414,7 @@ FUNCTION_PASS("CheerpLowerSwitch", cheerp::CheerpLowerSwitchPass())
 FUNCTION_PASS("GEPOptimizer", cheerp::GEPOptimizerPass())
 FUNCTION_PASS("I64Lowering", cheerp::I64LoweringPass())
 FUNCTION_PASS("ReplaceNopCastsAndByteSwaps", cheerp::ReplaceNopCastsAndByteSwapsPass())
+FUNCTION_PASS("UnionOptimizer", cheerp::UnionOptimizerPass())
 #undef FUNCTION_PASS
 
 #ifndef FUNCTION_PASS_WITH_PARAMS

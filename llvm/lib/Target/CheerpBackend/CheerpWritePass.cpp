@@ -9,6 +9,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Cheerp/UnionOptimizer.h"
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
@@ -232,6 +233,7 @@ bool CheerpWritePass::runOnModule(Module& M)
     //Wrap these in a FunctionPassManager
     FunctionPassManager FPM;
 
+    FPM.addPass(cheerp::UnionOptimizerPass());
     FPM.addPass(cheerp::I64LoweringPass());
     // Run a simple constant elimination pass to clean up suboptimal code left
     // by I64Lowering.
