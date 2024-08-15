@@ -1640,6 +1640,11 @@ void CheerpWriter::compileEqualPointersComparison(const llvm::Value* lhs, const 
 	else
 		compareString = (p == CmpInst::ICMP_NE) ? "!==" : "===";
 
+	auto canCompareAsSplitRegular = [&](POINTER_KIND kind, const llvm::Value* value) -> bool {
+		return (kind == REGULAR || kind == SPLIT_REGULAR || kind == RAW || kind == CONSTANT ||
+		(isGEP(value) && (cast<User>(value)->getNumOperands() == 2 || getGEPContainerType(cast<User>(value))->isArrayTy())));
+	};
+
 	if(compareRaw)
 	{
 		stream << "(";
@@ -1653,8 +1658,7 @@ void CheerpWriter::compileEqualPointersComparison(const llvm::Value* lhs, const 
 	// NOTE: For any pointer-to-immutable, converting to CO is actually a dereference. (base[offset] in both cases)
 	//       PA enforces that comparisons between pointers-to-immutable (which include pointers-to-pointers)
 	//       need a SPLIT_REGULAR kind. Make sure to also use SPLIT_REGULAR if one kind is CONSTANT (e.g. null)
-	else if((lhsKind == REGULAR || lhsKind == SPLIT_REGULAR || lhsKind == RAW ||lhsKind == CONSTANT || (isGEP(lhs) && cast<User>(lhs)->getNumOperands()==2)) &&
-		(rhsKind == REGULAR || rhsKind == SPLIT_REGULAR || rhsKind == RAW ||rhsKind == CONSTANT || (isGEP(rhs) && cast<User>(rhs)->getNumOperands()==2)))
+	else if (canCompareAsSplitRegular(lhsKind, lhs) && canCompareAsSplitRegular(rhsKind, rhs))
 	{
 		assert(lhsKind != COMPLETE_OBJECT || !isa<Instruction>(lhs) ||
 				isInlineable(*cast<Instruction>(lhs), PA));

@@ -280,7 +280,7 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 		if (IPointerKind == COMPLETE_OBJECT) {
 			auto type = cast<GetElementPtrInst>(I).getResultElementType();
 			// Always inline geps to immutable fields of a complete object.
-			if (TypeSupport::isImmutableType(type))
+			if (TypeSupport::isImmutableType(type) || getGEPContainerType(&I)->isArrayTy())
 				return true;
 
 			return !hasMoreThan1Use;
