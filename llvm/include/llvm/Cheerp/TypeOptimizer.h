@@ -28,7 +28,7 @@ class TypeOptimizer
 private:
 	struct TypeMappingInfo
 	{
-		enum MAPPING_KIND { IDENTICAL, COLLAPSED, COLLAPSING, COLLAPSING_BUT_USED, BYTE_LAYOUT_TO_ARRAY, POINTER_FROM_ARRAY, FLATTENED_ARRAY,
+		enum MAPPING_KIND { IDENTICAL, COLLAPSED, COLLAPSING, COLLAPSING_BUT_USED, POINTER_FROM_ARRAY, FLATTENED_ARRAY,
 						MERGED_MEMBER_ARRAYS, MERGED_MEMBER_ARRAYS_AND_COLLAPSED, PADDING};
 		llvm::Type* mappedType;
 		MAPPING_KIND elementMappingKind;
@@ -124,7 +124,6 @@ private:
 	std::unordered_map<const llvm::StructType*, std::vector<std::pair<uint32_t, uint32_t>>> membersMappingData;
 	std::unordered_map<llvm::GlobalValue*, llvm::Constant*> globalsMapping;
 	std::unordered_map<llvm::GlobalValue*, llvm::Type*> globalTypeMapping;
-	std::unordered_map<const llvm::StructType*, llvm::Type*> baseTypesForByteLayout;
 	std::unordered_map<const llvm::Type*, TypeMappingInfo> typesMapping;
 	cheerp::DeterministicUnorderedSet<llvm::Function*> pendingFunctions;
 	std::vector<llvm::Function*> emptiedFunctions;
@@ -156,10 +155,8 @@ private:
 	uint8_t rewriteGEPIndexes(llvm::SmallVector<llvm::Value*, 4>& newIndexes, llvm::Type* ptrType, llvm::Type* srcType, llvm::ArrayRef<llvm::Value*> idxs,
 				llvm::Type* targetType, llvm::Instruction* insertionPoint, llvm::Type* returnType);
 	bool isUnsafeDowncastSource(llvm::StructType* st);
-	void addAllBaseTypesForByteLayout(llvm::StructType* st, llvm::Type* base);
 	bool canCollapseStruct(llvm::StructType* st, llvm::StructType* newStruct, llvm::Type* newType);
 	bool isI64ToRewrite(const llvm::Type* t);
-	static void pushAllBaseConstantElements(llvm::SmallVector<llvm::Constant*, 4>& newElements, llvm::Constant* C, llvm::Type* baseType);
 	// Helper function to handle the various kind of arrays in constants
 	static void pushAllArrayConstantElements(llvm::SmallVector<llvm::Constant*, 4>& newElements, llvm::Constant* array);
 	static llvm::StructType* isEscapingStructGEP(const llvm::User* GEP);
