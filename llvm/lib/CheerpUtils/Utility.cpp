@@ -289,7 +289,7 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 		// Split regular, regular, and byte layout are always inlined.
 		return true;
 	}
-	else if(I.getOpcode()==Instruction::BitCast)
+	else if(I.getOpcode()==Instruction::BitCast || I.getOpcode()==Instruction::AddrSpaceCast)
 	{
 		if (!I.getType()->isPointerTy())
 		{
@@ -388,6 +388,7 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 						// Reached the direct user
 						if(!nextInst->hasOneUse() &&
 							(nextInst->getOpcode() == Instruction::BitCast ||
+							nextInst->getOpcode() == Instruction::AddrSpaceCast ||
 							nextInst->getOpcode() == Instruction::Trunc))
 						{
 							// Avoid interacting with the bitcast/trunc logic for now
