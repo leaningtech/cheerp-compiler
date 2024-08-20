@@ -32,75 +32,6 @@ bool TypeOptimizer::isI64ToRewrite(const Type* t)
 	return t->isIntegerTy(64) && (!UseBigInts || LinearOutput == AsmJs);
 }
 
-void TypeOptimizer::addAllBaseTypesForByteLayout(StructType* st, Type* baseType)
-{
-	if(ArrayType* AT=dyn_cast<ArrayType>(baseType))
-		addAllBaseTypesForByteLayout(st, AT->getElementType());
-	else if(StructType* ST=dyn_cast<StructType>(baseType))
-	{
-		// TODO: This is broken for unions inside union. We would need to indirectly reference them.
-		for(uint32_t i=0;i<ST->getNumElements();i++)
-			addAllBaseTypesForByteLayout(st, ST->getElementType(i));
-	}
-	else
-	{
-		// If there is no base type so far, initialize it
-		auto it = baseTypesForByteLayout.find(st);
-		if(it == baseTypesForByteLayout.end())
-			baseTypesForByteLayout.insert(std::make_pair(st, baseType));
-		else if (it->second != baseType)
-		{
-			// The known base type is not the same as the passed one
-			it->second = NULL;
-		}
-	}
-}
-
-void TypeOptimizer::pushAllBaseConstantElements(SmallVector<llvm::Constant*, 4>& newElements, Constant* C, Type* baseType)
-{
-	if(C->getType()==baseType)
-		newElements.push_back(C);
-	else if(ArrayType* AT=dyn_cast<ArrayType>(C->getType()))
-	{
-		if(ConstantArray* CA=dyn_cast<ConstantArray>(C))
-		{
-			for(unsigned i=0;i<AT->getNumElements();i++)
-				pushAllBaseConstantElements(newElements, CA->getOperand(i), baseType);
-		}
-		else if(ConstantDataSequential* CDS=dyn_cast<ConstantDataSequential>(C))
-		{
-			for(unsigned i=0;i<AT->getNumElements();i++)
-				pushAllBaseConstantElements(newElements, CDS->getElementAsConstant(i), baseType);
-		}
-		else
-		{
-			assert(isa<ConstantAggregateZero>(C));
-			// TODO: Could be optimized as we know that the elements should all be of baseType
-			for(unsigned i=0;i<AT->getNumElements();i++)
-				pushAllBaseConstantElements(newElements, Constant::getNullValue(AT->getElementType()), baseType);
-		}
-	}
-	else if(StructType* ST=dyn_cast<StructType>(C->getType()))
-	{
-		if(ConstantStruct* CS=dyn_cast<ConstantStruct>(C))
-		{
-			for(unsigned i=0;i<ST->getNumElements();i++)
-				pushAllBaseConstantElements(newElements, CS->getOperand(i), baseType);
-		}
-		else
-		{
-			assert(isa<ConstantAggregateZero>(C));
-			// TODO: Could be optimized as we know that the elements should all be of baseType
-			for(unsigned i=0;i<ST->getNumElements();i++)
-				pushAllBaseConstantElements(newElements, Constant::getNullValue(ST->getElementType(i)), baseType);
-		}
-	}
-	else
-	{
-		// It's not an aggregate and not the baseType, something is wrong here
-		assert(false);
-	}
-}
 
 llvm::StructType* TypeOptimizer::isEscapingStructGEP(const User* GEP)
 {
@@ -183,16 +114,6 @@ void TypeOptimizer::gatherAllTypesInfo(const Module& M)
 						StructType* sourceType = cast<StructType>(II->getParamElementType(0));
 						downcastSourceToDestinationsMapping[sourceType].clear();
 					}
-				}
-				else if(const BitCastInst* BC=dyn_cast<BitCastInst>(&I))
-				{
-					if (!BC->getDestTy()->isPointerTy())
-						continue;
-					// Find out all the types that bytelayout structs are casted to
-					StructType* st = dyn_cast<StructType>(BC->getSrcTy()->getNonOpaquePointerElementType());
-					if(!st || !st->hasByteLayout())
-						continue;
-					addAllBaseTypesForByteLayout(st, BC->getDestTy()->getNonOpaquePointerElementType());
 				}
 				else if(const GetElementPtrInst* GEP=dyn_cast<GetElementPtrInst>(&I))
 				{
@@ -420,54 +341,6 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 			return CacheAndReturn(st, TypeMappingInfo::IDENTICAL);
 		if(st->isOpaque())
 			return CacheAndReturn(st, TypeMappingInfo::IDENTICAL);
-		while(TypeSupport::hasByteLayout(st))
-		{
-			addAllBaseTypesForByteLayout(st, st);
-			// If the data of this byte layout struct is always accessed as the same type, we can replace it with an array of that type
-			// This is useful for an idiom used by C++ graphics code to have a vector both accessible as named elements and as an array
-			// union { struct { double x,y,z; }; double elemets[3]; };
-			auto it=baseTypesForByteLayout.find(st);
-			assert(it!=baseTypesForByteLayout.end());
-			if(it->second == NULL)
-				break;
-			// Check that the struct fits exactly N values of the base type
-			uint32_t structSize = DL->getTypeAllocSize(st);
-			uint32_t elementSize = DL->getTypeAllocSize(it->second);
-			if(structSize % elementSize)
-				break;
-
-			bool areSubStructsConvertible = true;
-			// Every struct type inside the struct must be also convertible to array
-			for(uint32_t i=0;i<st->getNumElements();i++)
-			{
-				StructType* subSt = dyn_cast<StructType>(st->getElementType(i));
-				if(!subSt)
-					continue;
-				if(!subSt->hasByteLayout())
-				{
-					// If subSt is a struct but not bytelayout code generation is broken
-					areSubStructsConvertible = false;
-					break;
-				}
-				const TypeMappingInfo& subInfo = rewriteType(subSt);
-				if(subInfo.elementMappingKind != TypeMappingInfo::BYTE_LAYOUT_TO_ARRAY)
-				{
-					areSubStructsConvertible = false;
-					break;
-				}
-			}
-			if(!areSubStructsConvertible)
-				break;
-
-			uint32_t numElements = structSize / elementSize;
-			// See if we can replace it with a single element
-			if(numElements==1)
-				return CacheAndReturn(it->second, TypeMappingInfo::BYTE_LAYOUT_TO_ARRAY);
-
-			// Replace this byte layout struct with an array
-			Type* newType = ArrayType::get(it->second, numElements);
-			return CacheAndReturn(newType, TypeMappingInfo::BYTE_LAYOUT_TO_ARRAY);
-		}
 
 		// Generate a new type if it's not a literal struct. It may end up being the same as the old one
 		// In case of literal, it will be created as a literal at the end.
@@ -929,19 +802,7 @@ std::pair<Constant*, uint8_t> TypeOptimizer::rewriteConstant(Constant* C, bool r
 	}
 	else if(ConstantStruct* CS=dyn_cast<ConstantStruct>(C))
 	{
-		if(newTypeInfo.elementMappingKind == TypeMappingInfo::BYTE_LAYOUT_TO_ARRAY)
-		{
-			auto baseTypeIt = baseTypesForByteLayout.find(cast<StructType>(CS->getType()));
-			assert(baseTypeIt != baseTypesForByteLayout.end() && baseTypeIt->second);
-			// Forge a ConstantArray
-			SmallVector<Constant*, 4> newElements;
-			pushAllBaseConstantElements(newElements, CS, baseTypeIt->second);
-			if(newElements.size() == 1)
-				return std::make_pair(newElements[0], 0);
-			ArrayType* newArrayType = ArrayType::get(baseTypeIt->second, newElements.size());
-			return std::make_pair(ConstantArray::get(newArrayType, newElements), 0);
-		}
-		else if(newTypeInfo.elementMappingKind == TypeMappingInfo::COLLAPSED)
+		if(newTypeInfo.elementMappingKind == TypeMappingInfo::COLLAPSED)
 		{
 			assert(cast<StructType>(CS->getType())->getNumElements()==1);
 			Constant* element = CS->getOperand(0);
@@ -1273,64 +1134,6 @@ uint8_t TypeOptimizer::rewriteGEPIndexes(SmallVector<Value*, 4>& newIndexes, Typ
 			}
 			case TypeMappingInfo::COLLAPSED:
 				break;
-			case TypeMappingInfo::BYTE_LAYOUT_TO_ARRAY:
-			{
-				assert(integerOffset==0);
-				assert(isa<StructType>(curType));
-				if(curTypeMappingInfo.mappedType == targetType)
-				{
-					if(targetType->isArrayTy())
-					{
-						// We are transforming all pointers to arrays to pointers to elements
-						Value* Zero = getConstantForGEP(Int32Ty, 0, returnType);
-						AddIndex(Zero);
-					}
-					return 0;
-				}
-				auto baseTypeIt = baseTypesForByteLayout.find(cast<StructType>(curType));
-				assert(baseTypeIt != baseTypesForByteLayout.end() && baseTypeIt->second);
-				if(!curTypeMappingInfo.mappedType->isArrayTy())
-				{
-					// If it's not an array it must be a single element and we should stop immediately
-					assert(curTypeMappingInfo.mappedType == baseTypeIt->second);
-					return 0;
-				}
-				uint32_t baseTypeSize = DL->getTypeAllocSize(baseTypeIt->second);
-				// All the indexes needs to be flattened to a byte offset and then to an array offset
-				// NOTE: We are willingly iterating over 'i' again
-				for(;i<idxs.size();i++)
-				{
-					if(StructType* ST=dyn_cast<StructType>(curType))
-					{
-						assert(isa<ConstantInt>(idxs[i]));
-						uint32_t elementIndex = cast<ConstantInt>(idxs[i])->getZExtValue();
-						uint32_t elementOffset = DL->getStructLayout(ST)->getElementOffset(elementIndex);
-						// All offsets should be multiple of the base type size
-						assert(!(elementOffset % baseTypeSize));
-						AddIndex(getConstantForGEP(Int32Ty, elementOffset / baseTypeSize, returnType));
-						curType = ST->getElementType(elementIndex);
-					}
-					else
-					{
-						uint32_t elementSize = DL->getTypeAllocSize(curType->getArrayElementType());
-						// All offsets should be multiple of the base type size
-						assert(!(elementSize % baseTypeSize));
-						AddMultipliedIndex(idxs[i], elementSize / baseTypeSize);
-						assert(isa<ArrayType>(curType));
-						curType = curType->getArrayElementType();
-					}
-					addToLastIndex = true;
-				}
-				// All indexes have been consumed now, we can just return
-				assert(rewriteType(curType) == targetType);
-				if(targetType->isArrayTy())
-				{
-					// We are transforming all pointers to arrays to pointers to elements
-					Value* Zero = getConstantForGEP(Int32Ty, 0, returnType);
-					AddIndex(Zero);
-				}
-				return 0;
-			}
 			case TypeMappingInfo::POINTER_FROM_ARRAY:
 			{
 				// This should only happen for the first element
