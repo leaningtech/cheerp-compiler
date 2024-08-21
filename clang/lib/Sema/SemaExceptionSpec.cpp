@@ -724,7 +724,7 @@ bool Sema::handlerCanCatch(QualType HandlerType, QualType ExceptionType) {
         ExceptionType->getPointeeType(), EQuals);
     HandlerType = Context.getUnqualifiedArrayType(
         HandlerType->getPointeeType(), HQuals);
-    if (!HQuals.compatiblyIncludes(EQuals))
+    if (!HQuals.compatiblyIncludes(EQuals, HandlerType.getTypePtr(), ExceptionType.getTypePtr()))
       return false;
 
     if (HandlerType->isVoidType() && ExceptionType->isObjectType())
