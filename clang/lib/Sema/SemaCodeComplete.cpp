@@ -1252,8 +1252,8 @@ static OverloadCompare compareOverloads(const CXXMethodDecl &Candidate,
   // So make some decision based on the qualifiers.
   Qualifiers CandidateQual = Candidate.getMethodQualifiers();
   Qualifiers IncumbentQual = Incumbent.getMethodQualifiers();
-  bool CandidateSuperset = CandidateQual.compatiblyIncludes(IncumbentQual);
-  bool IncumbentSuperset = IncumbentQual.compatiblyIncludes(CandidateQual);
+  bool CandidateSuperset = CandidateQual.compatiblyIncludes(IncumbentQual, nullptr, nullptr);
+  bool IncumbentSuperset = IncumbentQual.compatiblyIncludes(CandidateQual, nullptr, nullptr);
   if (CandidateSuperset == IncumbentSuperset)
     return OverloadCompare::BothViable;
   return IncumbentSuperset ? OverloadCompare::Dominates
