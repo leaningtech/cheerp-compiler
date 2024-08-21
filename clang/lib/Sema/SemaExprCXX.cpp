@@ -4711,11 +4711,11 @@ Sema::PerformImplicitConversion(Expr *From, QualType ToType,
     break;
 
   case ICK_Block_Pointer_Conversion: {
-    LangAS AddrSpaceL =
-        ToType->castAs<BlockPointerType>()->getPointeeType().getAddressSpace();
-    LangAS AddrSpaceR =
-        FromType->castAs<BlockPointerType>()->getPointeeType().getAddressSpace();
-    assert(Qualifiers::isAddressSpaceSupersetOf(AddrSpaceL, AddrSpaceR) &&
+    QualType TypeL = ToType->castAs<BlockPointerType>()->getPointeeType();
+    QualType TypeR = FromType->castAs<BlockPointerType>()->getPointeeType();
+    LangAS AddrSpaceL = TypeL.getAddressSpace();
+    LangAS AddrSpaceR = TypeR.getAddressSpace();
+    assert(Qualifiers::isAddressSpaceSupersetOf(AddrSpaceL, AddrSpaceR, TypeL.getTypePtr(), TypeR.getTypePtr()) &&
            "Invalid cast");
     CastKind Kind =
         AddrSpaceL != AddrSpaceR ? CK_AddressSpaceConversion : CK_BitCast;
@@ -6940,6 +6940,8 @@ QualType Sema::FindCompositePointerType(SourceLocation Loc,
     Qualifiers Q1, Q2;
     Composite1 = Context.getUnqualifiedArrayType(Composite1, Q1);
     Composite2 = Context.getUnqualifiedArrayType(Composite2, Q2);
+    const Type *CT1 = Composite1.getTypePtr();
+    const Type *CT2 = Composite2.getTypePtr();
 
     // Top-level qualifiers are ignored. Merge at all lower levels.
     if (!Steps.empty()) {
@@ -6953,8 +6955,8 @@ QualType Sema::FindCompositePointerType(SourceLocation Loc,
       if (Q1.getAddressSpace() == Q2.getAddressSpace()) {
         Quals.setAddressSpace(Q1.getAddressSpace());
       } else if (Steps.size() == 1) {
-        bool MaybeQ1 = Q1.isAddressSpaceSupersetOf(Q2);
-        bool MaybeQ2 = Q2.isAddressSpaceSupersetOf(Q1);
+        bool MaybeQ1 = Q1.isAddressSpaceSupersetOf(Q2, CT1, CT2);
+        bool MaybeQ2 = Q2.isAddressSpaceSupersetOf(Q1, CT2, CT1);
         if (MaybeQ1 == MaybeQ2) {
           // Exception for ptr size address spaces. Should be able to choose
           // either address space during comparison.
