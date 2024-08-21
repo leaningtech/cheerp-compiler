@@ -2600,7 +2600,7 @@ static QualType AdoptQualifiers(ASTContext &Context, QualType T, Qualifiers Qs){
   if (TQs == Qs)
     return T;
 
-  if (Qs.compatiblyIncludes(TQs))
+  if (Qs.compatiblyIncludes(TQs, nullptr, nullptr))
     return Context.getQualifiedType(T, Qs);
 
   return Context.getQualifiedType(T.getUnqualifiedType(), Qs);
@@ -2823,7 +2823,7 @@ bool Sema::isObjCWritebackConversion(QualType FromType, QualType ToType,
 
   // Make sure that we have compatible qualifiers.
   FromQuals.setObjCLifetime(Qualifiers::OCL_Autoreleasing);
-  if (!ToQuals.compatiblyIncludes(FromQuals))
+  if (!ToQuals.compatiblyIncludes(FromQuals, ToPointee.getTypePtr(), FromPointee.getTypePtr()))
     return false;
 
   // Remove qualifiers from the pointee type we're converting from; they
@@ -3309,6 +3309,8 @@ static bool isQualificationConversionStep(QualType FromType, QualType ToType,
                                           bool &ObjCLifetimeConversion) {
   Qualifiers FromQuals = FromType.getQualifiers();
   Qualifiers ToQuals = ToType.getQualifiers();
+  const Type *FromTypePtr = FromType.getTypePtr();
+  const Type *ToTypePtr = ToType.getTypePtr();
 
   // Ignore __unaligned qualifier.
   FromQuals.removeUnaligned();
@@ -3337,7 +3339,7 @@ static bool isQualificationConversionStep(QualType FromType, QualType ToType,
 
   //   -- for every j > 0, if const is in cv 1,j then const is in cv
   //      2,j, and similarly for volatile.
-  if (!CStyle && !ToQuals.compatiblyIncludes(FromQuals))
+  if (!CStyle && !ToQuals.compatiblyIncludes(FromQuals, ToTypePtr, FromTypePtr))
     return false;
 
   // If address spaces mismatch:
@@ -3347,8 +3349,8 @@ static bool isQualificationConversionStep(QualType FromType, QualType ToType,
   //  - in non-top levels it is not a valid conversion.
   if (ToQuals.getAddressSpace() != FromQuals.getAddressSpace() &&
       (!IsTopLevel ||
-       !(ToQuals.isAddressSpaceSupersetOf(FromQuals) ||
-         (CStyle && FromQuals.isAddressSpaceSupersetOf(ToQuals)))))
+       !(ToQuals.isAddressSpaceSupersetOf(FromQuals, ToTypePtr, FromTypePtr) ||
+         (CStyle && FromQuals.isAddressSpaceSupersetOf(ToQuals, FromTypePtr, ToTypePtr)))))
     return false;
 
   //   -- if the cv 1,j and cv 2,j are different, then const is in
@@ -5020,7 +5022,7 @@ TryReferenceInit(Sema &S, Expr *Init, QualType DeclType,
     // MS compiler ignores __unaligned qualifier for references; do the same.
     T1Quals.removeUnaligned();
     T2Quals.removeUnaligned();
-    if (!T1Quals.compatiblyIncludes(T2Quals))
+    if (!T1Quals.compatiblyIncludes(T2Quals, T1.getTypePtr(), T2.getTypePtr()))
       return ICS;
   }
 
@@ -5505,7 +5507,7 @@ TryObjectArgumentInitialization(Sema &S, SourceLocation Loc, QualType FromType,
   if (FromTypeCanon.hasAddressSpace()) {
     Qualifiers QualsImplicitParamType = ImplicitParamType.getQualifiers();
     Qualifiers QualsFromType = FromTypeCanon.getQualifiers();
-    if (!QualsImplicitParamType.isAddressSpaceSupersetOf(QualsFromType)) {
+    if (!QualsImplicitParamType.isAddressSpaceSupersetOf(QualsFromType, ImplicitParamType.getTypePtr(), FromTypeCanon.getTypePtr())) {
       ICS.setBad(BadConversionSequence::bad_qualifiers,
                  FromType, ImplicitParamType);
       return ICS;
@@ -6568,7 +6570,7 @@ void Sema::AddOverloadCandidate(
     // destination address space.
     if (!Qualifiers::isAddressSpaceSupersetOf(
             Constructor->getMethodQualifiers().getAddressSpace(),
-            CandidateSet.getDestAS())) {
+            CandidateSet.getDestAS(), nullptr, nullptr)) {
       Candidate.Viable = false;
       Candidate.FailureKind = ovl_fail_object_addrspace_mismatch;
     }
@@ -10149,9 +10151,9 @@ bool clang::isBetterOverloadCandidate(
     LangAS AS1 = CD1->getMethodQualifiers().getAddressSpace();
     LangAS AS2 = CD2->getMethodQualifiers().getAddressSpace();
     if (AS1 != AS2) {
-      if (Qualifiers::isAddressSpaceSupersetOf(AS2, AS1))
+      if (Qualifiers::isAddressSpaceSupersetOf(AS2, AS1, nullptr, nullptr))
         return true;
-      if (Qualifiers::isAddressSpaceSupersetOf(AS2, AS1))
+      if (Qualifiers::isAddressSpaceSupersetOf(AS2, AS1, nullptr, nullptr))
         return false;
     }
   }

@@ -55,6 +55,26 @@
 
 using namespace clang;
 
+static bool isCheerpAddressSpace(LangAS AS) {
+	return
+		AS == LangAS::cheerp_client ||
+		AS == LangAS::cheerp_genericjs ||
+		AS == LangAS::cheerp_bytelayout ||
+		AS == LangAS::cheerp_wasm;
+}
+
+bool Qualifiers::isCheerpAddressSpaceSupersetOf(LangAS A, LangAS B, const Type *AT, const Type *BT) {
+	return
+		(A == LangAS::Default && isCheerpAddressSpace(B)) ||
+		(B == LangAS::Default && isCheerpAddressSpace(A)) ||
+		(A == LangAS::cheerp_genericjs && B == LangAS::cheerp_client) ||
+		(B == LangAS::cheerp_genericjs && A == LangAS::cheerp_client) ||
+		(
+			A == LangAS::cheerp_genericjs && (B == LangAS::cheerp_wasm || B == LangAS::cheerp_bytelayout) &&
+			AT && !AT->hasPointerRepresentation() && !AT->isMemberPointerType() && !AT->isArrayType() && !AT->isFunctionType()
+		);
+}
+
 bool Qualifiers::isStrictSupersetOf(Qualifiers Other) const {
   return (*this != Other) &&
     // CVR qualifiers superset
