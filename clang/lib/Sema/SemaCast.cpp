@@ -705,8 +705,8 @@ CastsAwayConstness(Sema &Self, QualType SrcType, QualType DestType,
 
     // Determine the relevant qualifiers at this level.
     Qualifiers SrcQuals, DestQuals;
-    Self.Context.getUnqualifiedArrayType(UnwrappedSrcType, SrcQuals);
-    Self.Context.getUnqualifiedArrayType(UnwrappedDestType, DestQuals);
+    QualType SrcType = Self.Context.getUnqualifiedArrayType(UnwrappedSrcType, SrcQuals);
+    QualType DestType = Self.Context.getUnqualifiedArrayType(UnwrappedDestType, DestQuals);
 
     // We do not meaningfully track object const-ness of Objective-C object
     // types. Remove const from the source type if either the source or
@@ -726,7 +726,7 @@ CastsAwayConstness(Sema &Self, QualType SrcType, QualType DestType,
           *CastAwayQualifiers = SrcCvrQuals - DestCvrQuals;
 
         // If we removed a cvr-qualifier, this is casting away 'constness'.
-        if (!DestCvrQuals.compatiblyIncludes(SrcCvrQuals)) {
+        if (!DestCvrQuals.compatiblyIncludes(SrcCvrQuals, DestType.getTypePtr(), SrcType.getTypePtr())) {
           if (TheOffendingSrcType)
             *TheOffendingSrcType = PrevUnwrappedSrcType;
           if (TheOffendingDestType)
@@ -1465,7 +1465,7 @@ static TryCastResult TryStaticCast(Sema &Self, ExprResult &SrcExpr,
             SrcPointeeQuals.removeObjCGCAttr();
             SrcPointeeQuals.removeObjCLifetime();
             if (DestPointeeQuals != SrcPointeeQuals &&
-                !DestPointeeQuals.compatiblyIncludes(SrcPointeeQuals)) {
+                !DestPointeeQuals.compatiblyIncludes(SrcPointeeQuals, DestPointee.getTypePtr(), SrcPointee.getTypePtr())) {
               msg = diag::err_bad_cxx_cast_qualifiers_away;
               return TC_Failed;
             }
@@ -2523,9 +2523,11 @@ static TryCastResult TryReinterpretCast(Sema &Self, ExprResult &SrcExpr,
   if (IsAddressSpaceConversion(SrcType, DestType)) {
     Kind = CK_AddressSpaceConversion;
     assert(SrcType->isPointerType() && DestType->isPointerType());
+    QualType DestPointee = DestType->getPointeeType();
+    QualType SrcPointee = SrcType->getPointeeType();
     if (!CStyle &&
-        !DestType->getPointeeType().getQualifiers().isAddressSpaceSupersetOf(
-            SrcType->getPointeeType().getQualifiers())) {
+        !DestPointee.getQualifiers().isAddressSpaceSupersetOf(
+            SrcPointee.getQualifiers(), DestPointee.getTypePtr(), SrcPointee.getTypePtr())) {
       SuccessResult = TC_Failed;
     }
   } else if (IsLValueCast) {
