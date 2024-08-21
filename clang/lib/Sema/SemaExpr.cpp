@@ -8345,6 +8345,8 @@ static QualType checkConditionalPointerCompatibility(Sema &S, ExprResult &LHS,
   // anything.
   Qualifiers lhQual = lhptee.getQualifiers();
   Qualifiers rhQual = rhptee.getQualifiers();
+  const Type *lhType = lhptee.getTypePtr();
+  const Type *rhType = rhptee.getTypePtr();
 
   LangAS ResultAddrSpace = LangAS::Default;
   LangAS LAddrSpace = lhQual.getAddressSpace();
@@ -8352,9 +8354,9 @@ static QualType checkConditionalPointerCompatibility(Sema &S, ExprResult &LHS,
 
   // OpenCL v1.1 s6.5 - Conversion between pointers to distinct address
   // spaces is disallowed.
-  if (lhQual.isAddressSpaceSupersetOf(rhQual))
+  if (lhQual.isAddressSpaceSupersetOf(rhQual, lhType, rhType))
     ResultAddrSpace = LAddrSpace;
-  else if (rhQual.isAddressSpaceSupersetOf(lhQual))
+  else if (rhQual.isAddressSpaceSupersetOf(lhQual, rhType, lhType))
     ResultAddrSpace = RAddrSpace;
   else {
     S.Diag(Loc, diag::err_typecheck_op_on_nonoverlapping_address_space_pointers)
@@ -9401,16 +9403,16 @@ checkPointerTypesForAssignment(Sema &S, QualType LHSType, QualType RHSType,
     rhq.removeObjCLifetime();
   }
 
-  if (!lhq.compatiblyIncludes(rhq)) {
+  if (!lhq.compatiblyIncludes(rhq, lhptee, rhptee)) {
     // Treat address-space mismatches as fatal.
-    if (!lhq.isAddressSpaceSupersetOf(rhq))
+    if (!lhq.isAddressSpaceSupersetOf(rhq, lhptee, rhptee))
       return Sema::IncompatiblePointerDiscardsQualifiers;
 
     // It's okay to add or remove GC or lifetime qualifiers when converting to
     // and from void*.
     else if (lhq.withoutObjCGCAttr().withoutObjCLifetime()
                         .compatiblyIncludes(
-                                rhq.withoutObjCGCAttr().withoutObjCLifetime())
+                                rhq.withoutObjCGCAttr().withoutObjCLifetime(), lhptee, rhptee)
              && (lhptee->isVoidType() || rhptee->isVoidType()))
       ; // keep old
 

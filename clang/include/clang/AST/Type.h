@@ -485,6 +485,8 @@ public:
     Mask |= qs.Mask;
   }
 
+  static bool isCheerpAddressSpaceSupersetOf(LangAS A, LangAS B, const Type *AT, const Type *BT);
+
   /// Returns true if address space A is equal to or a superset of B.
   /// OpenCL v2.0 defines conversion rules (OpenCLC v2.0 s6.5.5) and notion of
   /// overlapping address spaces.
@@ -492,7 +494,7 @@ public:
   ///   every address space is a superset of itself.
   /// CL2.0 adds:
   ///   __generic is a superset of any address space except for __constant.
-  static bool isAddressSpaceSupersetOf(LangAS A, LangAS B) {
+  static bool isAddressSpaceSupersetOf(LangAS A, LangAS B, const Type *AT, const Type *BT) {
     // Address spaces must match exactly.
     return A == B ||
            // Otherwise in OpenCLC v2.0 s6.5.5: every address space except
@@ -518,31 +520,20 @@ public:
            (A == LangAS::Default &&
             (B == LangAS::cuda_constant || B == LangAS::cuda_device ||
              B == LangAS::cuda_shared)) ||
-           // CHEERP: WIP
-           (A == LangAS::cheerp_genericjs && B == LangAS::cheerp_client) ||
-           (A == LangAS::cheerp_client && B == LangAS::cheerp_genericjs) ||
-           (A == LangAS::cheerp_genericjs && B == LangAS::Default) ||
-           (A == LangAS::cheerp_wasm && B == LangAS::Default) ||
-           (A == LangAS::cheerp_client && B == LangAS::Default) ||
-           (A == LangAS::Default && B == LangAS::cheerp_genericjs) ||
-           (A == LangAS::Default && B == LangAS::cheerp_wasm) ||
-           (A == LangAS::cheerp_genericjs && B == LangAS::cheerp_wasm) ||
-           (A == LangAS::cheerp_genericjs && B == LangAS::cheerp_bytelayout) ||
-           (A == LangAS::Default && B == LangAS::cheerp_bytelayout) ||
-           (A == LangAS::cheerp_bytelayout && B == LangAS::Default);
+           isCheerpAddressSpaceSupersetOf(A, B, AT, BT);
   }
 
   /// Returns true if the address space in these qualifiers is equal to or
   /// a superset of the address space in the argument qualifiers.
-  bool isAddressSpaceSupersetOf(Qualifiers other) const {
-    return isAddressSpaceSupersetOf(getAddressSpace(), other.getAddressSpace());
+  bool isAddressSpaceSupersetOf(Qualifiers other, const Type *AT, const Type *BT) const {
+    return isAddressSpaceSupersetOf(getAddressSpace(), other.getAddressSpace(), AT, BT);
   }
 
   /// Determines if these qualifiers compatibly include another set.
   /// Generally this answers the question of whether an object with the other
   /// qualifiers can be safely used as an object with these qualifiers.
-  bool compatiblyIncludes(Qualifiers other) const {
-    return isAddressSpaceSupersetOf(other) &&
+  bool compatiblyIncludes(Qualifiers other, const Type *AT, const Type *BT) const {
+    return isAddressSpaceSupersetOf(other, AT, BT) &&
            // ObjC GC qualifiers can match, be added, or be removed, but can't
            // be changed.
            (getObjCGCAttr() == other.getObjCGCAttr() || !hasObjCGCAttr() ||
@@ -1184,8 +1175,10 @@ public:
   bool isAddressSpaceOverlapping(QualType T) const {
     Qualifiers Q = getQualifiers();
     Qualifiers TQ = T.getQualifiers();
+    const Type *AT = getTypePtr();
+    const Type *BT = T.getTypePtr();
     // Address spaces overlap if at least one of them is a superset of another
-    return Q.isAddressSpaceSupersetOf(TQ) || TQ.isAddressSpaceSupersetOf(Q);
+    return Q.isAddressSpaceSupersetOf(TQ, AT, BT) || TQ.isAddressSpaceSupersetOf(Q, BT, AT);
   }
 
   /// Returns gc attribute of this type.
@@ -6814,7 +6807,7 @@ inline FunctionType::ExtInfo getFunctionExtInfo(QualType t) {
 inline bool QualType::isMoreQualifiedThan(QualType other) const {
   Qualifiers MyQuals = getQualifiers();
   Qualifiers OtherQuals = other.getQualifiers();
-  return (MyQuals != OtherQuals && MyQuals.compatiblyIncludes(OtherQuals));
+  return (MyQuals != OtherQuals && MyQuals.compatiblyIncludes(OtherQuals, getTypePtr(), other.getTypePtr()));
 }
 
 /// Determine whether this type is at last
@@ -6828,7 +6821,7 @@ inline bool QualType::isAtLeastAsQualifiedAs(QualType other) const {
   if (getUnqualifiedType()->isVoidType())
     OtherQuals.removeUnaligned();
 
-  return getQualifiers().compatiblyIncludes(OtherQuals);
+  return getQualifiers().compatiblyIncludes(OtherQuals, getTypePtr(), other.getTypePtr());
 }
 
 /// If Type is a reference type (e.g., const
