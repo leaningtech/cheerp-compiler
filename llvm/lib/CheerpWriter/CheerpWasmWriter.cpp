@@ -3028,7 +3028,7 @@ void CheerpWasmWriter::compileAllocationGC(WasmBuffer& code, const DynamicAllocI
 		{
 			compilePointerBaseTyped(code, info.getMemoryArg(), info.getCastedPointedType());
 			compilePointerBaseTyped(code, info.getMemoryArg(), info.getCastedPointedType());
-			encodeInst(WasmGCOpcode::ARRAY_LEN, splitRegIdx, code);
+			encodeInst(WasmGCOpcode::ARRAY_LEN, code);
 		}
 		else
 		{
@@ -3060,7 +3060,7 @@ void CheerpWasmWriter::compileAllocationGC(WasmBuffer& code, const DynamicAllocI
 			assert(it != linearHelper.getResizeArrayFuncIds().end());
 			compilePointerBaseTyped(code, info.getMemoryArg(), info.getCastedPointedType());
 			compilePointerBaseTyped(code, info.getMemoryArg(), info.getCastedPointedType());
-			encodeInst(WasmGCOpcode::ARRAY_LEN, splitRegIdx, code);
+			encodeInst(WasmGCOpcode::ARRAY_LEN, code);
 			compileArraySizeGC(code, info, true);
 			encodeInst(WasmU32Opcode::CALL, it->second, code);
 		}
