@@ -1624,7 +1624,8 @@ void CheerpWasmWriter::compileConstantAggregate(WasmBuffer& code, const Constant
 
 void CheerpWasmWriter::compileConstant(WasmBuffer& code, const Constant* c, bool forGlobalInit)
 {
-	if (hasPutTeeLocalOnStack(code, c))
+
+	if (hasPutTeeLocalOnStack(code, c, 0))
 		return;
 	if(const ConstantExpr* CE = dyn_cast<ConstantExpr>(c))
 	{
@@ -1742,7 +1743,7 @@ void CheerpWasmWriter::compileConstant(WasmBuffer& code, const Constant* c, bool
 void CheerpWasmWriter::compileGetLocal(WasmBuffer& code, const llvm::Instruction* I, uint32_t elemIdx)
 {
 	compileInstructionAndSet(code, *I);
-	if (hasPutTeeLocalOnStack(code, I))
+	if (hasPutTeeLocalOnStack(code, I, elemIdx))
 	{
 		//Successfully find a candidate to transform in tee local
 		return;
@@ -1832,7 +1833,7 @@ void CheerpWasmWriter::compileOperand(WasmBuffer& code, const llvm::Value* v)
 	}
 	else if(const Argument* arg=dyn_cast<Argument>(v))
 	{
-		if (hasPutTeeLocalOnStack(code, arg)) {
+		if (hasPutTeeLocalOnStack(code, arg, 0)) {
 			return;
 		}
 		
@@ -5485,12 +5486,8 @@ void CheerpWasmWriter::compilePointerOffset(WasmBuffer& code, const Value* ptr)
 	{
 		if(const Argument* arg=dyn_cast<Argument>(ptr))
 		{
-			if (hasPutTeeLocalOnStack(code, arg))
-			{
-				//TODO: can we use hasPutTeeLocalOnStack here?
-				assert(false);
+			if (hasPutTeeLocalOnStack(code, arg, 1))
 				return;
-			}
 
 			uint32_t local = linearHelper.getArgumentLocalId(arg, 1);
 			encodeInst(WasmU32Opcode::GET_LOCAL, local, code);
@@ -5600,7 +5597,7 @@ void CheerpWasmWriter::compilePointerBaseTyped(WasmBuffer& code, const Value* pt
 
 	if(const Argument* arg=dyn_cast<Argument>(ptr))
 	{
-		if (hasPutTeeLocalOnStack(code, arg))
+		if (hasPutTeeLocalOnStack(code, arg, 0))
 		{
 			return;
 		}
