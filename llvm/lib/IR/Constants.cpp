@@ -1282,13 +1282,14 @@ StructType *ConstantStruct::getTypeForElements(LLVMContext &Context,
                                                bool Packed,
                                                StructType* DirectBase,
                                                bool ByteLayout,
-                                               bool AsmJS) {
+                                               bool AsmJS,
+                                               bool WasmGC) {
   unsigned VecSize = V.size();
   SmallVector<Type*, 16> EltTypes(VecSize);
   for (unsigned i = 0; i != VecSize; ++i)
     EltTypes[i] = V[i]->getType();
 
-  return StructType::get(Context, EltTypes, Packed, DirectBase, ByteLayout, AsmJS);
+  return StructType::get(Context, EltTypes, Packed, DirectBase, ByteLayout, AsmJS, WasmGC);
 }
 
 
@@ -1296,10 +1297,11 @@ StructType *ConstantStruct::getTypeForElements(ArrayRef<Constant*> V,
                                                bool Packed,
                                                StructType* DirectBase,
                                                bool ByteLayout,
-                                               bool AsmJS) {
+                                               bool AsmJS,
+                                               bool WasmGC) {
   assert(!V.empty() &&
          "ConstantStruct::getTypeForElements cannot be called on empty list");
-  return getTypeForElements(V[0]->getContext(), V, Packed, DirectBase, ByteLayout, AsmJS);
+  return getTypeForElements(V[0]->getContext(), V, Packed, DirectBase, ByteLayout, AsmJS, WasmGC);
 }
 
 ConstantStruct::ConstantStruct(StructType *T, ArrayRef<Constant *> V)

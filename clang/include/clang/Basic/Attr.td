@@ -2155,12 +2155,19 @@ def AsmJS : InheritableAttr {
   let PragmaAttributeSupport = 1;
 }
 
+def WasmGC : InheritableAttr {
+  let Spellings = [CXX11<"cheerp", "wasmgc">, GNU<"cheerp_wasmgc">];
+  let Documentation = [Undocumented];
+  let PragmaAttributeSupport = 1;
+}
+
 def GenericJS : InheritableAttr {
   let Spellings = [CXX11<"cheerp", "genericjs">, GNU<"cheerp_genericjs">];
   let Documentation = [Undocumented];
   let PragmaAttributeSupport = 1;
 }
 def : MutualExclusions<[AsmJS, GenericJS]>;
+def : MutualExclusions<[WasmGC, GenericJS]>;
 
 def ByteLayout : InheritableAttr {
   let Spellings = [CXX11<"cheerp", "bytelayout">, GNU<"cheerp_bytelayout">];
@@ -2169,6 +2176,7 @@ def ByteLayout : InheritableAttr {
 }
 def : MutualExclusions<[JsExport, ByteLayout]>;
 def : MutualExclusions<[GenericJS, ByteLayout]>;
+def : MutualExclusions<[WasmGC, ByteLayout]>;
 
 def DefaultNew : Attr {
   let Spellings = [CXX11<"cheerp", "default_new">, GNU<"cheerp_default_new">];

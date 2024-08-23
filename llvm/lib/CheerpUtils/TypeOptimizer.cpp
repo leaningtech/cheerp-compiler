@@ -730,11 +730,11 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 		StructType* newDirectBase = st->getDirectBase() ? dyn_cast<StructType>(rewriteType(st->getDirectBase()).mappedType) : NULL;
 		if (st->isLiteral())
 		{
-			newStruct = StructType::get(st->getContext(), newTypes, st->isPacked(), newDirectBase, st->hasByteLayout(), st->hasAsmJS());
+			newStruct = StructType::get(st->getContext(), newTypes, st->isPacked(), newDirectBase, st->hasByteLayout(), st->hasAsmJS(), st->hasWasmGC());
 			typesMapping[t] = TypeMappingInfo(newStruct, TypeMappingInfo::IDENTICAL);
 		}
 		else
-			newStruct->setBody(newTypes, st->isPacked(), newDirectBase, st->hasByteLayout(), st->hasAsmJS());
+			newStruct->setBody(newTypes, st->isPacked(), newDirectBase, st->hasByteLayout(), st->hasAsmJS(), st->hasWasmGC());
 
 		return CacheAndReturn(newStruct, newStructKind);
 	}

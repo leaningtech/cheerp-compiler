@@ -32,8 +32,9 @@ class IRMover {
       bool IsPacked;
       bool ByteLayout;
       bool AsmJS;
+      bool WasmGC;
       StringRef StructName;
-      KeyTy(ArrayRef<Type *> E, Type* D, bool P, bool B, bool A, StringRef N);
+      KeyTy(ArrayRef<Type *> E, Type* D, bool P, bool B, bool A, bool G, StringRef N);
       KeyTy(const StructType *ST);
       bool operator==(const KeyTy &that) const;
       bool operator!=(const KeyTy &that) const;
@@ -62,7 +63,7 @@ public:
     void addNonOpaque(StructType *Ty);
     void switchToNonOpaque(StructType *Ty);
     void addOpaque(StructType *Ty);
-    StructType *findNonOpaque(ArrayRef<Type *> ETypes, Type* DirectBase, bool IsPacked, bool ByteLayout, bool AsmJS, StringRef StructName);
+    StructType *findNonOpaque(ArrayRef<Type *> ETypes, Type* DirectBase, bool IsPacked, bool ByteLayout, bool AsmJS, bool WasmGC, StringRef StructName);
     bool hasType(StructType *Ty);
   };
 

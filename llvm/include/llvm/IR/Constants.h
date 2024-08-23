@@ -460,12 +460,12 @@ public:
 
   /// Return an anonymous struct that has the specified elements.
   /// If the struct is possibly empty, then you must specify a context.
-  static Constant *getAnon(ArrayRef<Constant *> V, bool Packed = false, StructType* DirectBase = NULL, bool AsmJS = false) {
-    return get(getTypeForElements(V, Packed, DirectBase, /*ByteLayout*/false, AsmJS), V);
+  static Constant *getAnon(ArrayRef<Constant *> V, bool Packed = false, StructType* DirectBase = NULL, bool AsmJS = false, bool WasmGC = false) {
+    return get(getTypeForElements(V, Packed, DirectBase, /*ByteLayout*/false, AsmJS, WasmGC), V);
   }
   static Constant *getAnon(LLVMContext &Ctx, ArrayRef<Constant *> V,
-                           bool Packed = false, StructType* DirectBase = NULL, bool AsmJS = false) {
-    return get(getTypeForElements(Ctx, V, Packed, DirectBase, /*ByteLayout*/false, AsmJS), V);
+                           bool Packed = false, StructType* DirectBase = NULL, bool AsmJS = false, bool WasmGC = false) {
+    return get(getTypeForElements(Ctx, V, Packed, DirectBase, /*ByteLayout*/false, AsmJS, WasmGC), V);
   }
 
   /// Return an anonymous struct type to use for a constant with the specified
@@ -474,14 +474,16 @@ public:
                                         bool Packed = false,
                                         StructType* DirectBase = NULL,
                                         bool ByteLayout = false,
-                                        bool AsmJS = false);
+                                        bool AsmJS = false,
+                                        bool WasmGC = false);
   /// This version of the method allows an empty list.
   static StructType *getTypeForElements(LLVMContext &Ctx,
                                         ArrayRef<Constant *> V,
                                         bool Packed = false,
                                         StructType* DirectBase = NULL,
                                         bool ByteLayout = false,
-                                        bool AsmJS = false);
+                                        bool AsmJS = false,
+                                        bool WasmGC = false);
 
   /// Specialization - reduce amount of casting.
   inline StructType *getType() const {
