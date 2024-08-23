@@ -193,6 +193,10 @@ public:
 
 	typedef std::map<const llvm::Function*, const llvm::FunctionType*> ExpandedFunctionTypesMap;
 
+	// Used to get the right localId for an argument, where the argument's number
+	// can be used as an index in the vector to ge the right id 
+	typedef std::unordered_map<const llvm::Function*, std::vector<uint32_t>> ArgumentLocalIdMap;
+
 	LinearMemoryHelper(const LinearMemoryHelperInitializer& data) :
 			module(nullptr), globalDeps(nullptr),
 		mode(data.mode), functionTables(3, FunctionSignatureHash(/*isStrict*/false), FunctionSignatureCmp(/*isStrict*/false)),
@@ -341,6 +345,8 @@ public:
 	}
 
 	const llvm::FunctionType* getExpandedFunctionType(const llvm::Function* F) const;
+
+	uint32_t getArgumentLocalId(const llvm::Argument* arg, uint32_t elemIdx) const;
 
 	const std::vector<const llvm::Type*> getGCTypes() const {
 		return GCTypes;
@@ -515,6 +521,7 @@ private:
 	std::unordered_set<const llvm::StructType*> superTypes;
 	const llvm::FunctionType* createExpandedFunctionType(const PointerAnalyzer* PA, const llvm::Function* F);
 	ExpandedFunctionTypesMap expandedFunctionTypes;
+	ArgumentLocalIdMap localIdsForArguments;
 	TypeToIndexMap downcastFuncIds;
 	TypeToIndexMap downcastFuncTypeIndices;
 	TypeToIndexMap createArrayFuncIds;
