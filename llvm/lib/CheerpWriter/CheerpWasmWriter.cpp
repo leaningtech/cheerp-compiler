@@ -1712,7 +1712,11 @@ void CheerpWasmWriter::compileConstant(WasmBuffer& code, const Constant* c, bool
 			const Type* Ty = GV->getType();
 			POINTER_KIND kind = COMPLETE_OBJECT;
 			if (Ty->isPointerTy())
+			{
 				kind = PA.getPointerKind(GV);
+				if (kind == REGULAR && PA.getConstantOffsetForPointer(GV))
+					kind = SPLIT_REGULAR;
+			}
 			errs() << "[compileInlineOperand] Casting global " << *Ty << " to ptr kind: "; printPtrKind(kind);
 			compileRefCast(code, Ty, kind);
 		}
@@ -1804,7 +1808,11 @@ void CheerpWasmWriter::compileGetLocal(WasmBuffer& code, const llvm::Instruction
 	{
 		POINTER_KIND kind = COMPLETE_OBJECT;
 		if (localType->isPointerTy())
+		{
 			kind = PA.getPointerKind(I);
+			if (kind == REGULAR && PA.getConstantOffsetForPointer(I))
+				kind = SPLIT_REGULAR;
+		}
 		compileRefCast(code, localType, kind);
 	}
 	errs() << "[compileGetLocal] DONE\n";
@@ -1853,7 +1861,11 @@ void CheerpWasmWriter::compileOperand(WasmBuffer& code, const llvm::Value* v)
 			{
 				POINTER_KIND kind = COMPLETE_OBJECT;
 				if (Ty->isPointerTy())
+				{
 					kind = PA.getPointerKind(v);
+					if (kind == REGULAR && PA.getConstantOffsetForPointer(v))
+						kind = SPLIT_REGULAR;
+				}
 				compileRefCast(code, Ty, kind);
 				errs() << "[compileInlineOperand] Casting global " << *Ty << " to ptr kind: "; printPtrKind(kind);
 			}
@@ -1899,9 +1911,12 @@ void CheerpWasmWriter::compileOperand(WasmBuffer& code, const llvm::Value* v)
 		// If the get_local is called on a WasmGC type we need to cast it from anyref to the right reftype
 		POINTER_KIND kind = COMPLETE_OBJECT;
 		if (arg->getType()->isPointerTy())
+		{
 			kind = PA.getPointerKindForArgument(arg);
+			if (kind == REGULAR && PA.getConstantOffsetForPointer(arg))
+				kind = SPLIT_REGULAR;
+		}
 		compileRefCast(code, arg->getType(), kind);
-
 	}
 	else
 	{
@@ -2480,6 +2495,8 @@ void CheerpWasmWriter::compileLoadGC(WasmBuffer& code, const LoadInst& li, Type*
 	{
 		loadedType = loadedType->getNonOpaquePointerElementType();
 		loadedPtrKind = PA.getPointerKind(&li);
+		if (loadedPtrKind == REGULAR && PA.getConstantOffsetForPointer(&li))
+			loadedPtrKind = SPLIT_REGULAR;
 	}
 
 	// The load
@@ -4368,7 +4385,11 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 					{
 						POINTER_KIND kind = COMPLETE_OBJECT;
 						if (loadTy->isPointerTy())
+						{
 							kind = PA.getPointerKind(&li);
+							if (kind == REGULAR && PA.getConstantOffsetForPointer(&li))
+								kind = SPLIT_REGULAR;
+						}
 						errs() << "[compileInlineInstruction] Casting global " << *loadTy << " to ptr kind: "; printPtrKind(kind);
 						compileRefCast(code, loadTy, kind);
 					}
@@ -5277,6 +5298,8 @@ void CheerpWasmWriter::compileAccessToElement(WasmBuffer& code, Type* tp, ArrayR
 			{
 				TypeAndIndex b = {st, (uint32_t)index.getLimitedValue(), TypeAndIndex::STRUCT_MEMBER};
 				elemPtrKind = PA.getPointerKindForMemberPointer(b);
+				if (elemPtrKind == REGULAR && PA.getConstantOffsetForMember(b))
+					elemPtrKind = SPLIT_REGULAR;
 			}
 
 			if((i!=indices.size()-1 || compileLastWrapperArray) && types.useWrapperArrayForMember(PA, st, index.getLimitedValue()))
@@ -5879,7 +5902,11 @@ void CheerpWasmWriter::compilePointerBaseTyped(WasmBuffer& code, const Value* pt
 		// If the get_local is called on a WasmGC type we need to cast it from anyref to the right reftype
 		POINTER_KIND kind = COMPLETE_OBJECT;
 		if (arg->getType()->isPointerTy())
+		{
 			kind = PA.getPointerKindForArgument(arg);
+			if (kind == REGULAR && PA.getConstantOffsetForPointer(arg))
+				kind = SPLIT_REGULAR;
+		}
 		compileRefCast(code, arg->getType(), kind);
 		return ;
 	}
@@ -6006,32 +6033,6 @@ void CheerpWasmWriter::compileMethodArgs(WasmBuffer& code, User::const_op_iterat
 			compileOperand(code, *cur);
 		}
 	}
-}
-
-// TODO: is this still needed once we switch from hacking JS functions into wasm
-// to having attributes for GC?
-POINTER_KIND CheerpWasmWriter::getLocalPointerKind(const Value* v)
-{
-	POINTER_KIND kind = COMPLETE_OBJECT;
-	if (v->getType()->isPointerTy())
-	{
-		kind = PA.getPointerKind(v);
-		errs() << "[getLocalPointerKind] getPointerKind: "; printPtrKind(kind);
-		if (auto ci = dyn_cast<CallInst>(v))
-		{
-			errs() << "[getLocalPointerKind] value is a call Instruction";
-			const Function* calledFunc = ci->getCalledFunction();
-			unsigned intrId = calledFunc->getIntrinsicID();
-
-			if (intrId == Intrinsic::cheerp_allocate || intrId == Intrinsic::cheerp_allocate_array)
-			{
-				errs() << "[getLocalPointerKind] Found a cheerp alloca intrinsic\n";
-				if (kind == REGULAR)
-					return (SPLIT_REGULAR);
-			}
-		}
-	}
-	return (kind);
 }
 
 void CheerpWasmWriter::compileMethodLocals(WasmBuffer& code, const vector<int>& locals)

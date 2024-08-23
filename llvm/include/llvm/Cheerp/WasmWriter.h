@@ -388,7 +388,6 @@ public:
 			// If we call local_tee on a GC type it needs to be casted back to that type again
 			// since the local it will be stored into is of anyref type 
 			POINTER_KIND kind = COMPLETE_OBJECT;
-			kind = getLocalPointerKind(v);
 			if (v->getType()->isPointerTy())
 			{
 				kind = PA.getPointerKind(v);
@@ -398,7 +397,6 @@ public:
 					kind = SPLIT_REGULAR;
 				}
 			}
-			// PA.Kind
 			llvm::errs() << "[hasPutTeeLocalOnStack] Compiling refCast\n";
 			llvm::errs() << "[hasPutTeeLocalOnStack] value: " << *v << "\n";
 			compileRefCast(code, v->getType(), kind);
