@@ -5263,7 +5263,6 @@ void CheerpWasmWriter::compileAccessToElement(WasmBuffer& code, Type* tp, ArrayR
 
 			uint32_t structIndex = linearHelper.getGCTypeIndex(tp, COMPLETE_OBJECT);
 			const Type* elemTy = st->getStructElementType(index.getLimitedValue());
-			const bool hasDowncastArray = linearHelper.hasDowncastArray(st);
 			POINTER_KIND elemPtrKind = COMPLETE_OBJECT;
 			uint64_t elemIdx = index.getLimitedValue();
 
@@ -5292,9 +5291,13 @@ void CheerpWasmWriter::compileAccessToElement(WasmBuffer& code, Type* tp, ArrayR
 					elemPtrKind = SPLIT_REGULAR;
 			}
 
+			if (types.useWrapperArrayForMember(PA, st, index.getLimitedValue()))
+				compileRefCast(code, elemTy, SPLIT_REGULAR);
+			else
+				compileRefCast(code, elemTy, elemPtrKind);
+
 			if((i!=indices.size()-1 || compileLastWrapperArray) && types.useWrapperArrayForMember(PA, st, index.getLimitedValue()))
 			{
-				compileRefCast(code, elemTy, SPLIT_REGULAR);
 				int32_t typeIdx = linearHelper.getGCTypeIndex(elemTy, SPLIT_REGULAR);
 				errs() << "[compileAccessToElement] Compiling wrapper array: elemTy: " << *elemTy << "\n";
 				errs() << "[compileAccessToElement] ptrKind of element (non wrapper): "; printPtrKind(elemPtrKind);
@@ -5302,9 +5305,9 @@ void CheerpWasmWriter::compileAccessToElement(WasmBuffer& code, Type* tp, ArrayR
 				encodeInst(WasmS32Opcode::I32_CONST, 0, code);
 				encodeInst(WasmGCOpcode::ARRAY_GET, typeIdx, code);
 				errs() << "[compileAccessToElement] ARRAY_GET on type index: " << typeIdx << " for pointer type: "; printPtrKind(SPLIT_REGULAR);
+				// TODO: is this the correct compileRefCast if we've used a wrapper array?
+				compileRefCast(code, elemTy, elemPtrKind);
 			}
-			// TODO: is this the correct compileRefCast if we've used a wrapper array?
-			compileRefCast(code, elemTy, elemPtrKind);
 			tp = st->getElementType(index.getZExtValue());
 		}
 		else if(const ArrayType* at = dyn_cast<ArrayType>(tp))
