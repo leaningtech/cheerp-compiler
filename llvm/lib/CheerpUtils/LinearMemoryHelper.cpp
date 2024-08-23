@@ -802,10 +802,8 @@ void LinearMemoryHelper::addGCTypes()
 	addBasicArrayTypes(unsorted, module);
 	for (auto sTy : module->getIdentifiedStructTypes())
 	{
-		// TODO: create a bool like ->hasWasmGC()
-		// and find a way to check for GC arrays
-		if (sTy->hasAsmJS() || ((!sTy->hasAsmJS() && sTy->getName().find("test") == std::string::npos) && \
-			(!sTy->hasAsmJS() && sTy->getName().find("_vtable_") == std::string::npos)))
+		errs() << "[addGCTypes] Looking at type: " << *sTy << "\n";
+		if (!sTy->hasWasmGC())
 		{
 			errs() << "[addGCTypes] skipping type: " << *sTy << "\n";
 			continue;
