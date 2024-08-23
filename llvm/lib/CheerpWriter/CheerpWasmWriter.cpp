@@ -90,51 +90,10 @@ static inline void encodeRegisterKind(Registerize::REGISTER_KIND regKind, WasmBu
 	}
 }
 
-// TODO: change to use address spaces and move to a utils file
-bool CheerpWasmWriter::isTypeGC(const Type* Ty) const
-{
-	if (Ty->isPointerTy()) {
-		return isTypeGC(Ty->getPointerElementType());
-	}
-	if (const ArrayType* aTy = dyn_cast<ArrayType>(Ty))
-	{
-		// return (true);
-		return isTypeGC(aTy->getArrayElementType());
-	}
-
-	if (const StructType* sTy = dyn_cast<StructType>(Ty))
-	{
-		errs() << "[isTypeGC] Type: " << *Ty <<  (!sTy->hasAsmJS() ? " is a GC type\n" : " is not a GC type\n");
-		return !sTy->hasAsmJS(); // create sTy->hasWasmGC() or use address space?
-	}
-	return false;
-}
-
-// TODO: change to use address spaces and move to a utils file
-bool TMPisTypeGC(const Type* Ty)
-{
-	if (Ty->isPointerTy()) {
-		return TMPisTypeGC(Ty->getPointerElementType());
-	}
-	if (const ArrayType* aTy = dyn_cast<ArrayType>(Ty))
-	{
-		// currently returning true for all arrays since we can't check if an int array
-		// should be GC at the moment
-		return (true);
-		// return TMPisTypeGC(aTy->getArrayElementType());
-	}
-
-	if (const StructType* sTy = dyn_cast<StructType>(Ty))
-	{
-		return !sTy->hasAsmJS();
-	}
-	return false;
-}
-
 static uint32_t getValType(const Type* t)
 {
 	errs() << "[getValType] trying to find: " << *t << "\n";
-	if (TMPisTypeGC(t))
+	if (TypeSupport::isTypeGC_arraysTrue(t))
 		return 0x6e;
 	else if (t->isIntegerTy(64))
 		return 0x7e;
@@ -1106,7 +1065,7 @@ void CheerpWasmWriter::encodeLoad(llvm::Type* ty, uint32_t offset,
 		WasmBuffer& code, bool signExtend, bool atomic)
 {
 	assert(!(atomic && signExtend));
-	assert(!isTypeGC(ty)); // TODO: check for GC loads for VA list
+	assert(!TypeSupport::isTypeGC(ty)); // TODO: check for GC loads for VA list
 	if (ty->isIntegerTy())
 	{
 		uint32_t bitWidth = targetData.getTypeStoreSizeInBits(ty);
@@ -1359,7 +1318,7 @@ const char* CheerpWasmWriter::getTypeString(const Type* t)
 
 void CheerpWasmWriter::compileGEP(WasmBuffer& code, const llvm::User* gep_inst, bool standalone)
 {
-	if (isTypeGC(cast<GetElementPtrInst>(gep_inst)->getPointerOperandType()))
+	if (TypeSupport::isTypeGC(cast<GetElementPtrInst>(gep_inst)->getPointerOperandType()))
 	{
 		errs() << "[compileGEP] Calling compileGEPGC\n";
 		compileGEPGC(code, gep_inst, PA.getPointerKind(gep_inst), true);
@@ -1606,7 +1565,7 @@ void CheerpWasmWriter::compileConstantAggregate(WasmBuffer& code, const Constant
 {
 	errs() << "[compileConstantAggregate] compiling aggregate: " << *ca << "\n";
 	const Type* Ty = ca->getType();
-	assert(isTypeGC(Ty));
+	assert(TypeSupport::isTypeGC(Ty));
 	if (auto aTy = dyn_cast<ConstantArray>(ca))
 	{
 		Type* elemType = aTy->getType()->getElementType();
@@ -1744,7 +1703,7 @@ void CheerpWasmWriter::compileConstant(WasmBuffer& code, const Constant* c, bool
 	else if(const GlobalVariable* GV = dyn_cast<GlobalVariable>(c))
 	{
 		errs() << "[compileConstant] compileConstantGlobalVariable\n";
-		if (isTypeGC(GV->getType()))
+		if (TypeSupport::isTypeGC(GV->getType()))
 		{
 			auto it = globalizedGlobalsIDs.find(GV);
 			assert(it != globalizedGlobalsIDs.end());
@@ -1766,7 +1725,7 @@ void CheerpWasmWriter::compileConstant(WasmBuffer& code, const Constant* c, bool
 	else if(isa<ConstantPointerNull>(c))
 	{
 		errs() << "[compileConstant] compileConstantPointerNull\n";
-		if (isTypeGC(c->getType()))
+		if (TypeSupport::isTypeGC(c->getType()))
 		{
 			POINTER_KIND kind = PA.getPointerKind(c);
 			if (kind == COMPLETE_OBJECT || kind == CONSTANT)
@@ -1889,8 +1848,8 @@ void CheerpWasmWriter::compileOperand(WasmBuffer& code, const llvm::Value* v)
 			const Type* Ty = v->getType();
 			// TODO: Asserting, not sure if GC globals can be constants and if we even need a cast here
 			// we most likely do so for now i'm leaving this here
-			assert(!isTypeGC(Ty));
-			if (isTypeGC(Ty))
+			assert(!TypeSupport::isTypeGC(Ty));
+			if (TypeSupport::isTypeGC(Ty))
 			{
 				POINTER_KIND kind = COMPLETE_OBJECT;
 				if (Ty->isPointerTy())
@@ -2433,7 +2392,7 @@ void CheerpWasmWriter::compileDowncast(WasmBuffer& code, const CallBase* callV)
 
 void CheerpWasmWriter::compileRefCast(WasmBuffer& code, const Type* Ty, POINTER_KIND kind)
 {
-	if (isTypeGC(Ty))
+	if (TypeSupport::isTypeGC(Ty))
 	{
 		int32_t idx = linearHelper.getGCTypeIndex(Ty, kind);
 		errs() << "[compileRefCast] casting to index: " << idx << "\n";
@@ -2577,7 +2536,7 @@ void CheerpWasmWriter::compileLoad(WasmBuffer& code, const LoadInst& li, bool si
 	auto* Ty = li.getType();
 	auto* STy = dyn_cast<StructType>(Ty);
 
-	bool LoadIsGC = PA.getPointerKind(ptrOp) != RAW || isTypeGC(ptrOp->getType()); // TODO: use address space
+	bool LoadIsGC = PA.getPointerKind(ptrOp) != RAW || TypeSupport::isTypeGC(ptrOp->getType()); // TODO: use address space
 	errs() << "[compileLoad] compiling load: " << li << "\n";
 	errs() << "[compileLoad] ptrOp: " << *ptrOp << "\n";
 	errs() << "[compileLoad] ptrOp type: " << *ptrOp->getType() << "\n"; 
@@ -3346,7 +3305,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			POINTER_KIND kind = PA.getPointerKindAssert(ai);
 			const auto* allocaStores = allocaStoresExtractor.getValuesForAlloca(ai);
 			errs() << "[compileInlineInstruction] Alloca for type: " << *allocaType << "\n";
-			assert(isTypeGC(allocaType));
+			assert(TypeSupport::isTypeGC(allocaType));
 			assert(kind != BYTE_LAYOUT);
 			assert(kind != RAW && "Allocas to RAW pointers are removed in the AllocaLowering pass");
 
@@ -3452,20 +3411,10 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			errs() << "[compileInlineInstruction] instruction: " << cast<BitCastInst>(I) << "\n";
 			errs() << "[compileInlineInstruction] destTy: " << *cast<BitCastInst>(I).getDestTy() << "\n";
 			errs() << "[compileInlineInstruction] srcTy: " << *cast<BitCastInst>(I).getSrcTy() << "\n";
-			if (isTypeGC(cast<BitCastInst>(I).getDestTy()) || isTypeGC(cast<BitCastInst>(I).getSrcTy()))
+			if (TypeSupport::isTypeGC(cast<BitCastInst>(I).getDestTy()) || TypeSupport::isTypeGC(cast<BitCastInst>(I).getSrcTy()))
 			{
 				// TODO: assert that it is a up/down cast?
-				assert(isTypeGC(cast<BitCastInst>(I).getDestTy()) && isTypeGC(cast<BitCastInst>(I).getSrcTy()) && "Bitcasting from a GC type to a non-GC type is not supported");
-				
-				// TODO: check if we can use this:
-				// if a REF_CAST has been done right before, we can change that ref_cast's type index
-				// we have to make sure that the type index that was in there before is of the same byte length as the new
-				// const uint32_t currOffset = code.tell();
-				// llvm::SmallString<8> buf;
-				// llvm::raw_svector_ostream wbuf(buf);
-				// uint32_t size = encodeSLEB128(linearHelper.getGCTypeIndex(cast<BitCastInst>(I).getDestTy(), COMPLETE_OBJECT), wbuf);
-				// code.pwrite(buf.begin(), wbuf.tell(), currOffset - size);
-
+				assert(TypeSupport::isTypeGC(cast<BitCastInst>(I).getDestTy()) && TypeSupport::isTypeGC(cast<BitCastInst>(I).getSrcTy()) && "Bitcasting from a GC type to a non-GC type is not supported");
 				compileRefCast(code, cast<BitCastInst>(I).getDestTy(), COMPLETE_OBJECT);
 			}
 			if(I.getType()->isIntegerTy())
@@ -3597,7 +3546,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 					}
 					case Intrinsic::cheerp_downcast:
 					{
-						if (isTypeGC(ci.getParamElementType(0)))
+						if (TypeSupport::isTypeGC(ci.getParamElementType(0)))
 							compileDowncastGC(code, &ci);
 						else
 							compileDowncast(code, &ci);
@@ -3612,7 +3561,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 					{
 						errs() << "[compileInlineInstruction] cheerp_downcast or cheerp_virtualcast\n";
 						//TODO: find a test case for GC types when a virtualcast happens
-						if (isTypeGC(ci.getParamElementType(0)))
+						if (TypeSupport::isTypeGC(ci.getParamElementType(0)))
 							compileVirtualcastGC(code, &ci);
 						else
 							compileDowncast(code, &ci);
@@ -3626,7 +3575,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 					case Intrinsic::cheerp_downcast_current:
 					{
 						errs() << "[compileInlineInstruction] cheerp_downcast_current\n";
-						if (isTypeGC(ci.getOperand(0)->getType()))
+						if (TypeSupport::isTypeGC(ci.getOperand(0)->getType()))
 						{
 							// TODO: find a test case for GC types
 							assert(false);
@@ -3648,7 +3597,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 					case Intrinsic::cheerp_upcast_collapsed:
 					{
 						errs() << "[compileInlineInstruction] cheerp_upcast_collapsed\n";
-						if (isTypeGC(ci.getOperand(0)->getType()))
+						if (TypeSupport::isTypeGC(ci.getOperand(0)->getType()))
 						{
 							// TODO: find a test case
 							assert(false);
@@ -3668,7 +3617,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						errs() << "[compileInlineInstruction] cheerp_upcast_user\n";
 						if(ci.use_empty())
 							return true;
-						if (isTypeGC(ci.getOperand(0)->getType()))
+						if (TypeSupport::isTypeGC(ci.getOperand(0)->getType()))
 						{
 							// TODO: find a test case
 							assert(false);
@@ -3840,7 +3789,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 					{
 						// check for WasmGC allocation
 						Type* baseType = I.getOperand(0)->getType();
-						if (isTypeGC(baseType))
+						if (TypeSupport::isTypeGC(baseType))
 						{
 							DynamicAllocInfo da(&cast<CallBase>(ci), &targetData, false);
 							compileAllocationGC(code, da);
@@ -3863,8 +3812,8 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 					case Intrinsic::cheerp_reallocate:
 					{
 						Type* baseType = I.getOperand(0)->getType();
-						// TODO: find a way to check if the realloc is called on GC arrays of non-GC types 
-						if (isTypeGC(baseType))
+						// TODO: find a way to check if the realloc is called on GC arrays of non-GC types
+						if (TypeSupport::isTypeGC(baseType))
 						{
 							DynamicAllocInfo da(&cast<CallBase>(ci), &targetData, false);
 							compileAllocationGC(code, da);
@@ -3877,7 +3826,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 					}
 					case Intrinsic::cheerp_deallocate:
 					{
-						if (isTypeGC(I.getOperand(0)->getType()))
+						if (TypeSupport::isTypeGC(I.getOperand(0)->getType()))
 							return false;
 						calledFunc = module.getFunction("free");
 						if (!calledFunc)
@@ -4415,7 +4364,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 					// We can encode this as a get_global
 					encodeInst(WasmU32Opcode::GET_GLOBAL, it->second, code);
 					const Type* loadTy = li.getType();
-					if (isTypeGC(loadTy))
+					if (TypeSupport::isTypeGC(loadTy))
 					{
 						POINTER_KIND kind = COMPLETE_OBJECT;
 						if (loadTy->isPointerTy())
@@ -4484,7 +4433,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 					break;
 
 				// errs() << "[compileInlineInstruction] return instruction is not inlineable\n";
-				if (isTypeGC(retVal->getType()))
+				if (TypeSupport::isTypeGC(retVal->getType()))
 				{
 					// TODO: Can the return value be a non-pointer?
 					assert(retVal->getType()->isPointerTy());
@@ -4526,7 +4475,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 				compileCondition(code, si.getCondition(), /*booleanInvert*/false);
 				if (si.getCondition()->getType()->isVectorTy())
 					encodeInst(WasmSIMDOpcode::V128_BITSELECT, code);
-				else if (isTypeGC(Ty))
+				else if (TypeSupport::isTypeGC(Ty))
 				{
 					encodeInst(WasmOpcode::SELECT_VAL, code);
 					// encode the vector for the result type, length must be 1

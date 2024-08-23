@@ -414,23 +414,6 @@ bool LinearMemoryHelper::hasNonZeroInitialiser(const GlobalVariable* G) const
 	return !isZeroInitializer(init);
 }
 
-static bool TMPisTypeGC(const Type* Ty) // TODO: Expose the CheerpWasmWriter function or move it to a utils file
-{
-	if (Ty->isPointerTy()) {
-		return TMPisTypeGC(Ty->getPointerElementType());
-	}
-	if (const ArrayType* aTy = dyn_cast<ArrayType>(Ty))
-	{
-		return TMPisTypeGC(aTy->getArrayElementType());
-	}
-
-	if (const StructType* sTy = dyn_cast<StructType>(Ty))
-	{
-		return !sTy->hasAsmJS();
-	}
-	return false;
-}
-
 void LinearMemoryHelper::addGlobals()
 {
 	errs() << "[addGlobals] START\n";
@@ -446,9 +429,9 @@ void LinearMemoryHelper::addGlobals()
 	{
 		// if (G.getSection() != StringRef("asmjs"))
 		// TODO: TMP for GC testing, revert later to the statement above
-		if (G.getSection() != StringRef("asmjs") && !(TMPisTypeGC(G.getType()) && G.getName().find("test") != std::string::npos))
+		if (G.getSection() != StringRef("asmjs") && !(TypeSupport::isTypeGC(G.getType()) && G.getName().find("test") != std::string::npos))
 		{
-			errs() << "[addGlobals] Skipping global: " << G.getName() << " type is GC: " << (TMPisTypeGC(G.getType()) ? "true" : "false") << " type: " << *G.getType() << "\n";
+			errs() << "[addGlobals] Skipping global: " << G.getName() << " type is GC: " << (TypeSupport::isTypeGC(G.getType()) ? "true" : "false") << " type: " << *G.getType() << "\n";
 			continue;
 		}
 
@@ -480,7 +463,7 @@ void LinearMemoryHelper::addGlobals()
 		// if (globalizedGlobalsUsage.count(G))
 		// 	continue;
 		// TODO: this is TMP for GC testing, revert to the one above later
-		if (globalizedGlobalsUsage.count(G) && (!TMPisTypeGC(G->getType()) || (TMPisTypeGC(G->getType()) && G->getName().find("test") == std::string::npos)))
+		if (globalizedGlobalsUsage.count(G) && (!TypeSupport::isTypeGC(G->getType()) || (TypeSupport::isTypeGC(G->getType()) && G->getName().find("test") == std::string::npos)))
 			continue;
 		asmjsAddressableGlobals.push_back(G);
 		Type* ty = G->getValueType();
@@ -531,7 +514,7 @@ void LinearMemoryHelper::generateGlobalizedGlobalsUsage()
 			}
 
 			// TODO: is TMP for GC testing, remove later, might need to keep the GEP check?
-			if ((isBitCast(user) || isGEP(user)) && TMPisTypeGC(GV.getType())) // && GV.getName().find("test") != std::string::npos)
+			if ((isBitCast(user) || isGEP(user)) && TypeSupport::isTypeGC(GV.getType())) // && GV.getName().find("test") != std::string::npos)
 				continue;
 
 			errs() << "[generateGlobalizedGlobals] skipping " << GV << " because of user: " << *user << "\n";
