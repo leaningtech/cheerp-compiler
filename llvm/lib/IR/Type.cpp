@@ -404,9 +404,9 @@ bool FunctionType::isValidArgumentType(Type *ArgTy) {
 // Primitive Constructors.
 
 StructType *StructType::get(LLVMContext &Context, ArrayRef<Type*> ETypes,
-                            bool isPacked, StructType* directBase, bool isByteLayout, bool isAsmJS) {
+                            bool isPacked, StructType* directBase, bool isByteLayout, bool isAsmJS, bool isWasmGC) {
   LLVMContextImpl *pImpl = Context.pImpl;
-  const AnonStructTypeKeyInfo::KeyTy Key(ETypes, directBase, isPacked, isByteLayout, isAsmJS);
+  const AnonStructTypeKeyInfo::KeyTy Key(ETypes, directBase, isPacked, isByteLayout, isAsmJS, isWasmGC);
 
   StructType *ST;
   // Since we only want to allocate a fresh struct type in case none is found
@@ -420,7 +420,7 @@ StructType *StructType::get(LLVMContext &Context, ArrayRef<Type*> ETypes,
     // in-place.
     ST = new (Context.pImpl->Alloc) StructType(Context);
     ST->setSubclassData(SCDB_IsLiteral);  // Literal struct.
-    ST->setBody(ETypes, isPacked, directBase, isByteLayout, isAsmJS);
+    ST->setBody(ETypes, isPacked, directBase, isByteLayout, isAsmJS, isWasmGC);
     *Insertion.first = ST;
   } else {
     // The struct type was found. Just return it.
@@ -442,7 +442,7 @@ bool StructType::containsScalableVectorType() const {
   return false;
 }
 
-void StructType::setBody(ArrayRef<Type*> Elements, bool isPacked, StructType* directBase, bool isByteLayout, bool isAsmJS) {
+void StructType::setBody(ArrayRef<Type*> Elements, bool isPacked, StructType* directBase, bool isByteLayout, bool isAsmJS, bool isWasmGC) {
   assert(isOpaque() && "Struct body already set!");
 
   setSubclassData(getSubclassData() | SCDB_HasBody);
@@ -454,6 +454,8 @@ void StructType::setBody(ArrayRef<Type*> Elements, bool isPacked, StructType* di
     setSubclassData(getSubclassData() | SCDB_ByteLayout);
   if (isAsmJS)
     setSubclassData(getSubclassData() | SCDB_AsmJS);
+  if (isWasmGC)
+    setSubclassData(getSubclassData() | SCDB_WasmGC);
 
   NumContainedTys = Elements.size();
 
@@ -533,15 +535,15 @@ StructType *StructType::create(LLVMContext &Context, StringRef Name) {
 }
 
 StructType *StructType::get(LLVMContext &Context, bool isPacked, StructType* directBase,
-                            bool isByteLayout, bool isAsmJS) {
-  return get(Context, None, isPacked, directBase, isByteLayout, isAsmJS);
+                            bool isByteLayout, bool isAsmJS, bool isWasmGC) {
+  return get(Context, None, isPacked, directBase, isByteLayout, isAsmJS, isWasmGC);
 }
 
 StructType *StructType::create(LLVMContext &Context, ArrayRef<Type*> Elements,
                                StringRef Name, bool isPacked, StructType* directBase,
-                               bool isByteLayout, bool isAsmJS) {
+                               bool isByteLayout, bool isAsmJS, bool isWasmGC) {
   StructType *ST = create(Context, Name);
-  ST->setBody(Elements, isPacked, directBase, isByteLayout, isAsmJS);
+  ST->setBody(Elements, isPacked, directBase, isByteLayout, isAsmJS, isWasmGC);
   return ST;
 }
 
@@ -555,10 +557,10 @@ StructType *StructType::create(LLVMContext &Context) {
 
 StructType *StructType::create(ArrayRef<Type*> Elements, StringRef Name,
                                bool isPacked, StructType* directBase,
-                               bool isByteLayout, bool isAsmJS) {
+                               bool isByteLayout, bool isAsmJS, bool isWasmGC) {
   assert(!Elements.empty() &&
          "This method may not be invoked with an empty list");
-  return create(Elements[0]->getContext(), Elements, Name, isPacked, directBase, isByteLayout, isAsmJS);
+  return create(Elements[0]->getContext(), Elements, Name, isPacked, directBase, isByteLayout, isAsmJS, isWasmGC);
 }
 
 StructType *StructType::create(ArrayRef<Type*> Elements) {
@@ -615,6 +617,7 @@ bool StructType::isLayoutIdentical(StructType *Other) const {
   if (isPacked() != Other->isPacked() ||
       hasByteLayout() != Other->hasByteLayout() ||
       hasAsmJS() != Other->hasAsmJS() ||
+      hasWasmGC() != Other->hasWasmGC() ||
       getNumElements() != Other->getNumElements() ||
       getDirectBase() != Other->getDirectBase())
     return false;

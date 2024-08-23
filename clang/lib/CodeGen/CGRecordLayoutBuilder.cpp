@@ -982,13 +982,15 @@ CodeGenTypes::ComputeRecordLayout(const RecordDecl *D, llvm::StructType *Ty) {
   // Cheerp: set this type as asmjs based on attribute
   bool isAsmJS = D->hasAttr<AsmJSAttr>();
 
+  bool isWasmGC = D->hasAttr<WasmGCAttr>();
+
   if (isa<CXXRecordDecl>(D) && !D->isUnion() && !D->hasAttr<FinalAttr>()) {
     BaseTy = Ty;
     if (Builder.Layout.getNonVirtualSize() != Builder.Layout.getSize()) {
       CGRecordLowering BaseBuilder(*this, D, /*Packed=*/Builder.Packed);
       BaseBuilder.lower(/*NonVirtualBaseType=*/true);
       BaseTy = llvm::StructType::create(getLLVMContext());
-      BaseTy->setBody(BaseBuilder.FieldTypes, BaseBuilder.Packed, DirectBase, isByteLayout, isAsmJS);
+      BaseTy->setBody(BaseBuilder.FieldTypes, BaseBuilder.Packed, DirectBase, isByteLayout, isAsmJS, isWasmGC);
       addRecordTypeName(D, BaseTy, ".base");
       // Use the .base type as the directbase, which itself has the right type as the directbase
       if(!getTarget().isByteAddressable())
@@ -1003,7 +1005,7 @@ CodeGenTypes::ComputeRecordLayout(const RecordDecl *D, llvm::StructType *Ty) {
   // Fill in the struct *after* computing the base type.  Filling in the body
   // signifies that the type is no longer opaque and record layout is complete,
   // but we may need to recursively layout D while laying D out as a base type.
-  Ty->setBody(Builder.FieldTypes, Builder.Packed, DirectBase, isByteLayout, isAsmJS);
+  Ty->setBody(Builder.FieldTypes, Builder.Packed, DirectBase, isByteLayout, isAsmJS, isWasmGC);
 
   auto RL = std::make_unique<CGRecordLayout>(
       Ty, BaseTy, Builder.DirectBaseLayout, (bool)Builder.IsZeroInitializable,

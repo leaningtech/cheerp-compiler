@@ -968,7 +968,7 @@ llvm::Type *CodeGenVTables::getVTableType(const VTableLayout &layout, const CXXR
     }
   }
 
-  return llvm::StructType::get(CGM.getLLVMContext(), tys, false, NULL, /*isByteLayout*/false, asmjs);
+  return llvm::StructType::get(CGM.getLLVMContext(), tys, false, NULL, /*isByteLayout*/false, asmjs, false);
 }
 
 void CodeGenVTables::createVTableInitializer(ConstantStructBuilder &builder,
@@ -1068,7 +1068,7 @@ llvm::GlobalVariable *CodeGenVTables::GenerateConstructionVTable(
   auto components = builder.beginStruct();
   createVTableInitializer(components, RD, *VTLayout, RTTI,
                           VTable->hasLocalLinkage());
-  components.finishAndSetAsInitializer(VTable, nullptr, asmjs);
+  components.finishAndSetAsInitializer(VTable, nullptr, asmjs, false);
   if (asmjs)
     VTable->setSection("asmjs");
 
@@ -1549,7 +1549,7 @@ llvm::Type* CodeGenTypes::GetVTableSubObjectType(CodeGenModule& CGM,
     VTableTypes.push_back(OffsetTy);
   }
   llvm::StructType* ret = llvm::StructType::get(CGM.getLLVMContext(), VTableTypes,
-                            false, cast<llvm::StructType>(CGM.getTypes().GetVTableBaseType(asmjs)), /*isByteLayout*/false, asmjs);
+                            false, cast<llvm::StructType>(CGM.getTypes().GetVTableBaseType(asmjs)), /*isByteLayout*/false, asmjs, false);
   return ret;
 }
 
@@ -1598,7 +1598,7 @@ llvm::Type* CodeGenTypes::GetBasicVTableType(uint32_t virtualMethodsCount, bool 
   for(uint32_t j=0;j<virtualMethodsCount;j++)
     VTableTypes.push_back(FuncPtrTy);
 
-  return llvm::StructType::get(getLLVMContext(), VTableTypes, false, cast<llvm::StructType>(GetVTableBaseType(asmjs)), /*isByteLayout*/false, asmjs);
+  return llvm::StructType::get(getLLVMContext(), VTableTypes, false, cast<llvm::StructType>(GetVTableBaseType(asmjs)), /*isByteLayout*/false, asmjs, false);
 }
 
 llvm::Type* CodeGenTypes::GetClassTypeInfoType()

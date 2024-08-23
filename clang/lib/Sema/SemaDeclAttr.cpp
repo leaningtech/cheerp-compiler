@@ -8474,6 +8474,18 @@ static void handleAsmJSAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
   handleSimpleAttribute<AsmJSAttr>(S, D, Attr);
 }
 
+static void handleWasmGCAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
+  if (isa<CXXRecordDecl>(D)) {
+    if (checkAttrMutualExclusion<JsExportAttr>(S, D, Attr))
+      return;
+    if (checkAttrMutualExclusion<ByteLayoutAttr>(S, D, Attr))
+      return;
+  }
+  if (D->getDeclContext()->isClientNamespace())
+    assert(false);
+  handleSimpleAttribute<WasmGCAttr>(S, D, Attr);
+}
+
 static void handleGenericJSAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
   handleSimpleAttribute<GenericJSAttr>(S, D, Attr);
 }
@@ -9346,6 +9358,9 @@ ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D, const ParsedAttr &AL,
     break;
   case ParsedAttr::AT_AsmJS:
     handleAsmJSAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_WasmGC:
+    handleWasmGCAttr(S, D, AL);
     break;
   case ParsedAttr::AT_GenericJS:
     handleGenericJSAttr(S, D, AL);
