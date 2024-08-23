@@ -3666,7 +3666,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						{
 							DynamicAllocInfo da(&cast<CallBase>(ci), &targetData, false);
 							compileAllocationGC(code, da);
-							break;
+							return false;
 						}
 						calledFunc = module.getFunction("realloc");
 						if (!calledFunc)
