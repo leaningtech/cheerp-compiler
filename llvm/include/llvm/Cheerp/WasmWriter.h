@@ -484,7 +484,6 @@ private:
 	void compileDowncastGC(WasmBuffer& code, const llvm::CallBase* callV);
 	void compileVirtualcastGC(WasmBuffer& code, const llvm::CallBase* callV);
 	uint32_t compileArraySizeGC(WasmBuffer& code, const DynamicAllocInfo & info, bool encode);
-	bool isTypeGC(const llvm::Type* Ty) const;
 	// Returns true if all the uses have signed semantics
 	// NOTE: Careful, this is not in sync with needsUnsignedTruncation!
 	//       All the users listed here must _not_ call needsUnsignedTruncation!

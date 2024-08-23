@@ -554,6 +554,8 @@ public:
 
 	static bool getBasesInfo(const llvm::Module& module, const llvm::StructType* t, uint32_t& firstBase, uint32_t& baseCount);
 
+	static bool isTypeGC_arraysTrue(const llvm::Type* Ty);
+	static bool isTypeGC(const llvm::Type* Ty);
 	static bool isJSExportedType(llvm::StructType* st, const llvm::Module& m);
 	static bool isJSExportedPtrType(llvm::Type* t, const llvm::Module& m)
 	{
