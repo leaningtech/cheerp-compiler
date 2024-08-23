@@ -204,10 +204,30 @@ private:
 			return -1;
 
 		}
-		bool couldPutTeeLocalOnStack(const llvm::Value* v, const uint32_t currOffset, uint32_t& bufferOffset, uint32_t& localId)
+		bool couldPutTeeLocalOnStack(const llvm::Value* v, const uint32_t currOffset, uint32_t& bufferOffset, uint32_t& localId, \
+			uint32_t elemIdx, std::vector<int>& localMap, const Registerize& registerize, const LinearMemoryHelper& linearHelper)
 		{
 			if(teeLocalCandidatesStack.empty() || currOffset != teeLocalCandidatesStack.back().instStartPos)
 				return false;
+
+			// Aggregates and offsets for (split) regular pointers can have different localIds
+			// To make sure we are taking the right candidate we check if the valueLocalId matches
+			// the one found inside the candidate, then we can perform a TEE_LOCAL
+			uint32_t valueLocalId;
+			if (const llvm::Instruction* inst = llvm::dyn_cast<llvm::Instruction>(v))
+			{
+				uint32_t reg = registerize.getRegisterId(inst, elemIdx, EdgeContext::emptyContext());
+				valueLocalId = localMap.at(reg);
+			}
+			else if (const llvm::Argument* arg = llvm::dyn_cast<llvm::Argument>(v))
+				valueLocalId = linearHelper.getArgumentLocalId(arg, elemIdx);
+			else if (const llvm::Constant* c = llvm::dyn_cast<llvm::Constant>(v))
+			{
+				// CHECK: There should never be a case where a constant has performed a set_local
+				return false;
+			}
+			else
+				llvm::llvm_unreachable_internal("unexpected value kind");
 
 			// Search for candidates
 			TeeLocalCandidatesVector& teeLocalCandidates = teeLocalCandidatesStack.back().stack;
@@ -215,7 +235,7 @@ private:
 			{
 				if(it->used)
 					break;
-				if(it->v == v)
+				if(it->v == v && it->localId == valueLocalId)
 				{
 					it->used = true;
 					bufferOffset = it->bufferOffset;
@@ -369,15 +389,12 @@ public:
 		code.pwrite(buf.begin(), teeSize, bufferOffset);
 	}
 	//IFF returns true, it has modified the buffer so to obtain an extra value on the stack
-	bool hasPutTeeLocalOnStack(WasmBuffer& code, const llvm::Value* v)
+	bool hasPutTeeLocalOnStack(WasmBuffer& code, const llvm::Value* v, uint32_t elemIdx)
 	{
-	
-		// TODO: get the right localId since SPLIT_REGULARS add extra indices into the arguments
-
 		const uint32_t currOffset = code.tell();
 		uint32_t bufferOffset;
 		uint32_t localId;
-		if (teeLocals.couldPutTeeLocalOnStack(v, currOffset, bufferOffset, localId))
+		if (teeLocals.couldPutTeeLocalOnStack(v, currOffset, bufferOffset, localId, elemIdx, localMap, registerize, linearHelper))
 		{
 			llvm::SmallString<8> buf;
 			llvm::raw_svector_ostream wbuf(buf);
