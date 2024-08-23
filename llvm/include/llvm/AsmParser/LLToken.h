@@ -185,6 +185,7 @@ enum Kind {
   kw_bytelayout,
   kw_directbase,
   kw_asmjs,
+  kw_wasmgc,
 
   // Memory attribute:
   kw_read,

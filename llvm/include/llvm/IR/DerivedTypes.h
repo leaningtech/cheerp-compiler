@@ -221,7 +221,8 @@ class StructType : public Type {
     SCDB_IsSized = 8,
     SCDB_ByteLayout = 16,
     SCDB_DirectBase = 32,
-    SCDB_AsmJS = 64
+    SCDB_AsmJS = 64,
+    SCDB_WasmGC = 128
   };
 
   /// For a named struct that actually has a name, this is a pointer to the
@@ -240,11 +241,11 @@ public:
 
   static StructType *create(ArrayRef<Type *> Elements, StringRef Name,
                             bool isPacked = false, StructType* directBase = NULL,
-                            bool isByteLayout = false, bool isAsmJS = false);
+                            bool isByteLayout = false, bool isAsmJS = false, bool isWasmGC = false);
   static StructType *create(ArrayRef<Type *> Elements);
   static StructType *create(LLVMContext &Context, ArrayRef<Type *> Elements,
                             StringRef Name, bool isPacked = false, StructType* directBase = NULL,
-                            bool isByteLayout = false, bool isAsmJS = false);
+                            bool isByteLayout = false, bool isAsmJS = false, bool isWasmGC = false);
   static StructType *create(LLVMContext &Context, ArrayRef<Type *> Elements);
   template <class... Tys>
   static std::enable_if_t<are_base_of<Type, Tys...>::value, StructType *>
@@ -256,10 +257,10 @@ public:
   /// This static method is the primary way to create a literal StructType.
   static StructType *get(LLVMContext &Context, ArrayRef<Type*> Elements,
                          bool isPacked = false, StructType* directBase = NULL,
-                         bool isByteLayout = false, bool isAsmJS = false);
+                         bool isByteLayout = false, bool isAsmJS = false, bool isWasmGC = false);
 
   /// Create an empty structure type.
-  static StructType *get(LLVMContext &Context, bool isPacked = false, StructType* directBase = NULL, bool isByteLayout = false, bool isAsmJS = false);
+  static StructType *get(LLVMContext &Context, bool isPacked = false, StructType* directBase = NULL, bool isByteLayout = false, bool isAsmJS = false, bool isWasmGC = false);
 
   /// This static method is a convenience method for creating structure types by
   /// specifying the elements as arguments. Note that this method always returns
@@ -300,6 +301,10 @@ public:
   //// in Cheerp
   bool hasAsmJS() const { return getSubclassData() & SCDB_AsmJS; }
 
+  /// hasWasmGC - Return true if this type should be used as a GC type inside
+  //// the wasm module
+  bool hasWasmGC() const { return getSubclassData() & SCDB_WasmGC; }
+
   bool hasDirectBase() const { return getSubclassData() & SCDB_DirectBase; }
   StructType* getDirectBase() const { return hasDirectBase()?cast<StructType>(ContainedTys[NumContainedTys-1]):NULL; }
 
@@ -316,7 +321,7 @@ public:
   void setName(StringRef Name);
 
   /// Specify a body for an opaque identified type.
-  void setBody(ArrayRef<Type*> Elements, bool isPacked = false, StructType* directBase = NULL, bool isByteLayout = false, bool isAsmJS = false);
+  void setBody(ArrayRef<Type*> Elements, bool isPacked = false, StructType* directBase = NULL, bool isByteLayout = false, bool isAsmJS = false, bool isWasmGC = false);
 
   template <typename... Tys>
   std::enable_if_t<are_base_of<Type, Tys...>::value, void>

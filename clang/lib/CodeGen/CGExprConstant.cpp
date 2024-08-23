@@ -520,9 +520,13 @@ llvm::Constant *ConstantAggregateBuilder::buildFrom(
   if(RD) {
     asmjs = RD->hasAttr<AsmJSAttr>();
   }
+  bool wasmgc = false;
+  if (RD) {
+    wasmgc = RD->hasAttr<WasmGCAttr>();
+  }
 
   llvm::StructType *STy = llvm::ConstantStruct::getTypeForElements(
-      CGM.getLLVMContext(), Packed ? PackedElems : UnpackedElems, Packed, DirectBaseTy, isByteLayout, asmjs);
+      CGM.getLLVMContext(), Packed ? PackedElems : UnpackedElems, Packed, DirectBaseTy, isByteLayout, asmjs, wasmgc);
 
   // Pick the type to use.  If the type is layout identical to the desired
   // type then use it, otherwise use whatever the builder produced for us.

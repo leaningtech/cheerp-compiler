@@ -2424,24 +2424,25 @@ Error BitcodeReader::parseTypeTableBody() {
       ResultTy = FunctionType::get(ResultTy, ArgTys, Record[0]);
       break;
     }
-    case bitc::TYPE_CODE_STRUCT_ANON: {  // STRUCT: [ispacked, bytelayout, asmjs, hasdirectbase, eltty x N]
-      if (Record.size() < 4)
+    case bitc::TYPE_CODE_STRUCT_ANON: {  // STRUCT: [ispacked, bytelayout, asmjs, wasmgc, hasdirectbase, eltty x N]
+      if (Record.size() < 5)
         return error("Invalid anon struct record");
       bool hasByteLayout = Record[1];
       bool hasAsmJS = Record[2];
-      bool hasDirectBase = Record[3];
+      bool hasWasmGC = Record[3];
+      bool hasDirectBase = Record[4];
       SmallVector<Type*, 8> EltTys;
-      for (unsigned i = 4, e = (hasDirectBase ? Record.size()-1 : Record.size()); i != e; ++i) {
+      for (unsigned i = 5, e = (hasDirectBase ? Record.size()-1 : Record.size()); i != e; ++i) {
         if (Type *T = getTypeByID(Record[i]))
           EltTys.push_back(T);
         else
           break;
       }
       StructType* directBase = hasDirectBase ? cast<StructType>(getTypeByID(Record.back())) : NULL;
-      if (EltTys.size() != (hasDirectBase ? Record.size()-5 : Record.size()-4))
+      if (EltTys.size() != (hasDirectBase ? Record.size()-6 : Record.size()-5))
         return error("Invalid type");
-      ContainedIDs.append(Record.begin() + 4, Record.end());
-      StructType* Res = StructType::get(Context, EltTys, Record[0], directBase, hasByteLayout, hasAsmJS);
+      ContainedIDs.append(Record.begin() + 5, Record.end());
+      StructType* Res = StructType::get(Context, EltTys, Record[0], directBase, hasByteLayout, hasAsmJS, hasWasmGC);
       ResultTy = Res;
       break;
     }
@@ -2450,13 +2451,13 @@ Error BitcodeReader::parseTypeTableBody() {
         return error("Invalid struct name record");
       continue;
 
-    case bitc::TYPE_CODE_STRUCT_NAMED: { // STRUCT: [ispacked, bytelayout, asmjs, hasdirectbase, eltty x N]
-      if (Record.size() < 4)
+    case bitc::TYPE_CODE_STRUCT_NAMED: { // STRUCT: [ispacked, bytelayout, asmjs, wasmgc, hasdirectbase, eltty x N]
+      if (Record.size() < 5)
         return error("Invalid named struct record");
       bool hasByteLayout = Record[1];
       bool hasAsmJS = Record[2];
-      bool hasDirectBase = Record[3];
-
+      bool hasWasmGC = Record[3];
+      bool hasDirectBase = Record[4];
       if (NumRecords >= TypeList.size())
         return error("Invalid TYPE table");
 
@@ -2470,22 +2471,22 @@ Error BitcodeReader::parseTypeTableBody() {
       TypeName.clear();
 
       SmallVector<Type*, 8> EltTys;
-      for (unsigned i = 4, e = (hasDirectBase ? Record.size()-1 : Record.size()); i != e; ++i) {
+      for (unsigned i = 5, e = (hasDirectBase ? Record.size()-1 : Record.size()); i != e; ++i) {
         if (Type *T = getTypeByID(Record[i]))
           EltTys.push_back(T);
         else
           break;
       }
       StructType* directBase = hasDirectBase ? cast<StructType>(getTypeByID(Record.back())) : NULL;
-      if (EltTys.size() != (hasDirectBase ? Record.size()-5 : Record.size()-4))
+      if (EltTys.size() != (hasDirectBase ? Record.size()-6 : Record.size()-5))
         return error("Invalid named struct record");
-      Res->setBody(EltTys, Record[0], directBase, hasByteLayout, hasAsmJS);
-      ContainedIDs.append(Record.begin() + 4, Record.end());
+      Res->setBody(EltTys, Record[0], directBase, hasByteLayout, hasAsmJS, hasWasmGC);
+      ContainedIDs.append(Record.begin() + 5, Record.end());
       ResultTy = Res;
       break;
     }
-    case bitc::TYPE_CODE_OPAQUE: {       // OPAQUE: [bytelayout, asmjs]
-      if (Record.size() != 3)
+    case bitc::TYPE_CODE_OPAQUE: {       // OPAQUE: [bytelayout, asmjs, wasmgc]
+      if (Record.size() != 4)
         return error("Invalid opaque type record");
 
       if (NumRecords >= TypeList.size())
