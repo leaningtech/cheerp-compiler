@@ -5670,7 +5670,7 @@ void CheerpWasmWriter::compileMethodArgs(WasmBuffer& code, User::const_op_iterat
 		Type* Ty = (*cur)->getType();
 
 
-		if(Ty->isPointerTy() && !TypeSupport::isRawPointer(Ty, false))
+		if(Ty->isPointerTy() && TypeSupport::isTypeGC(Ty->getPointerElementType()))
 		{
 			POINTER_KIND argKind = UNKNOWN;
 			// Calling convention:
