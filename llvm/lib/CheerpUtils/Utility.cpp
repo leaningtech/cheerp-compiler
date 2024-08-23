@@ -741,6 +741,30 @@ char TypeSupport::getPrefixCharForMember(const PointerAnalyzer& PA, llvm::Struct
 		return 'a';
 }
 
+// Currently it is not possible to check if an integer array type is GC or not
+// This function returns true for all arrays 
+bool TypeSupport::isTypeGC_arraysTrue(const Type* Ty)
+{
+	if (Ty->isPointerTy())
+		return isTypeGC(Ty->getPointerElementType());
+	if (const ArrayType* aTy = dyn_cast<ArrayType>(Ty))
+		return true;
+	if (const StructType* sTy = dyn_cast<StructType>(Ty))
+		return sTy->hasWasmGC();
+	return false;
+}
+
+bool TypeSupport::isTypeGC(const Type* Ty)
+{
+	if (Ty->isPointerTy())
+		return isTypeGC(Ty->getPointerElementType());
+	if (const ArrayType* aTy = dyn_cast<ArrayType>(Ty))
+		return isTypeGC(aTy->getArrayElementType());
+	if (const StructType* sTy = dyn_cast<StructType>(Ty))
+		return sTy->hasWasmGC();
+	return false;
+}
+
 bool TypeSupport::isJSExportedType(StructType* st, const Module& m)
 {
 	if (st->isLiteral())

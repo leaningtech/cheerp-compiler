@@ -382,23 +382,6 @@ bool LinearMemoryHelper::hasNonZeroInitialiser(const GlobalVariable* G) const
 	return !isZeroInitializer(init);
 }
 
-static bool TMPisTypeGC(const Type* Ty) // TODO: Expose the CheerpWasmWriter function or move it to a utils file
-{
-	if (Ty->isPointerTy()) {
-		return TMPisTypeGC(Ty->getPointerElementType());
-	}
-	if (const ArrayType* aTy = dyn_cast<ArrayType>(Ty))
-	{
-		return TMPisTypeGC(aTy->getArrayElementType());
-	}
-
-	if (const StructType* sTy = dyn_cast<StructType>(Ty))
-	{
-		return !sTy->hasAsmJS();
-	}
-	return false;
-}
-
 void LinearMemoryHelper::addGlobals()
 {
 	generateGlobalizedGlobalsUsage();
@@ -481,7 +464,7 @@ void LinearMemoryHelper::generateGlobalizedGlobalsUsage()
 			}
 
 			// Globalize all GC variables that are used
-			if (TMPisTypeGC(GV.getType()))
+			if (TypeSupport::isTypeGC(GV.getType()))
 				continue;
 
 			useCount = 0;
