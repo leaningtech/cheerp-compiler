@@ -848,6 +848,7 @@ void LinearMemoryHelper::addGCTypes()
 
 /**
  * Create a FunctionType* that includes expanded SPLIT_REGULAR and REGULAR pointer kinds
+ * Also caches the localIds for the arguments where the number of the argument can be used to retrieve the localId
 */
 const llvm::FunctionType* LinearMemoryHelper::createExpandedFunctionType(const PointerAnalyzer* PA, const llvm::Function* F)
 {
@@ -856,23 +857,30 @@ const llvm::FunctionType* LinearMemoryHelper::createExpandedFunctionType(const P
 		return (it->second);
 	
 	std::vector<Type*> newArgs;
+	std::vector<uint32_t> argumentLocalIds(F->arg_size());
 	Type* returnTy = F->getReturnType(); 
 
 	errs() << "[createExpandedFunctionType] getting function type for func: " << F->getName() << "\n";
 	errs() << "[createExpandedFunctionType] old func type: " << *F->getFunctionType() << "\n";
 	errs() << "[createExpandedFunctionType] return type: " << *returnTy << "\n";
 
+	uint32_t currentLocalId = 0;
+	uint32_t currentArgIndex = 0;
 	for(auto arg = F->arg_begin(); arg != F->arg_end(); arg++)
 	{
+		argumentLocalIds[currentArgIndex] = currentLocalId;
 		if (arg->getType()->isPointerTy() && PA->getPointerKindForArgument(&*arg) == SPLIT_REGULAR && !PA->getConstantOffsetForPointer(&*arg))
 		{
 			newArgs.push_back(getSplitRegularType());
 			newArgs.push_back(IntegerType::get(module->getContext(), 32));
+			currentLocalId++;
 		}
 		else if (arg->getType()->isPointerTy() && PA->getPointerKindForArgument(&*arg) == REGULAR && !PA->getConstantOffsetForPointer(&*arg))
 			newArgs.push_back(getRegularType());
 		else
 			newArgs.push_back(arg->getType());
+		currentLocalId++;
+		currentArgIndex++;
 	}
 
 	if (returnTy->isPointerTy())
@@ -893,6 +901,7 @@ const llvm::FunctionType* LinearMemoryHelper::createExpandedFunctionType(const P
 	errs() << "[createExpandedFunctionType] returning function type for func: " << F->getName() << " is: " << *returnTy << "\n";
 	const FunctionType* newFTy = FunctionType::get(returnTy, newArgs, F->isVarArg());
 	expandedFunctionTypes[F] = newFTy;
+	localIdsForArguments.emplace(F, std::move(argumentLocalIds));
 	return (newFTy);
 }
 
@@ -900,6 +909,17 @@ const FunctionType* LinearMemoryHelper::getExpandedFunctionType(const Function* 
 {
 	assert(expandedFunctionTypes.find(F) != expandedFunctionTypes.end());
 	return (expandedFunctionTypes.at(F));
+}
+
+uint32_t LinearMemoryHelper::getArgumentLocalId(const Argument* arg, uint32_t elemIdx) const
+{
+	assert(elemIdx == 0 || (elemIdx == 1 && arg->getType()->isPointerTy()));
+	const Function* func = arg->getParent();
+	uint32_t argNo = arg->getArgNo();
+	auto it = localIdsForArguments.find(func);
+	assert(it != localIdsForArguments.end());
+	assert(argNo < it->second.size());
+	return (it->second[argNo] + elemIdx);
 }
 
 void LinearMemoryHelper::addFunctions(const PointerAnalyzer* PA)

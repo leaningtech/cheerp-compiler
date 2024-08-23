@@ -1895,18 +1895,8 @@ void CheerpWasmWriter::compileOperand(WasmBuffer& code, const llvm::Value* v)
 			return;
 		}
 		
-		uint32_t local = arg->getArgNo();
-		uint32_t splitRegsInArgs = 0;
-		// Add an offset for the amount of split regular indices that came before this argument
-		// TODO: make a helper function for this that caches offsets
-		for (size_t i = 0; i < local; i++)
-		{
-			Argument* prevArg = arg->getParent()->getArg(i);
-			if (prevArg->getType()->isPointerTy() && PA.getPointerKindForArgument(prevArg) == SPLIT_REGULAR)
-				splitRegsInArgs++;
-		}
-		errs() << "[compileOperand] getLocal: " << local + splitRegsInArgs << "\n";
-		encodeInst(WasmU32Opcode::GET_LOCAL, local + splitRegsInArgs, code);
+		uint32_t local = linearHelper.getArgumentLocalId(arg, 0);
+		encodeInst(WasmU32Opcode::GET_LOCAL, local, code);
 
 		// If the get_local is called on a WasmGC type we need to cast it from anyref to the right reftype
 		POINTER_KIND kind = COMPLETE_OBJECT;
@@ -5764,17 +5754,9 @@ void CheerpWasmWriter::compilePointerOffset(WasmBuffer& code, const Value* ptr)
 				return;
 			}
 
-			// TODO: cache this inside a helper function
-			uint32_t local = arg->getArgNo();
-			uint32_t splitRegsInArgs = 0;
-			for (size_t i = 0; i < local; i++)
-			{
-				Argument* prevArg = arg->getParent()->getArg(i);
-				if (prevArg->getType()->isPointerTy() && PA.getPointerKindForArgument(prevArg) == SPLIT_REGULAR)
-					splitRegsInArgs++;
-			}
-			encodeInst(WasmU32Opcode::GET_LOCAL, local + splitRegsInArgs + 1, code);
-			errs() << "[compilePointerOffset] getLocal: " << local + splitRegsInArgs + 1<< "\n";
+			uint32_t local = linearHelper.getArgumentLocalId(arg, 1);
+			encodeInst(WasmU32Opcode::GET_LOCAL, local, code);
+			errs() << "[compilePointerOffset] getLocal: " << local << "\n";
 		}
 		else
 		{
@@ -5888,16 +5870,9 @@ void CheerpWasmWriter::compilePointerBaseTyped(WasmBuffer& code, const Value* pt
 			return;
 		}
 
-		uint32_t local = arg->getArgNo();
-		uint32_t splitRegsInArgs = 0;
-		for (size_t i = 0; i < local; i++)
-		{
-			Argument* prevArg = arg->getParent()->getArg(i);
-			if (prevArg->getType()->isPointerTy() && PA.getPointerKindForArgument(prevArg) == SPLIT_REGULAR)
-				splitRegsInArgs++;
-		}
-		encodeInst(WasmU32Opcode::GET_LOCAL, local + splitRegsInArgs, code);
-		errs() << "[compilePointerBaseType] getLocal: " << local + splitRegsInArgs << "\n";
+		uint32_t local = linearHelper.getArgumentLocalId(arg, 0);
+		encodeInst(WasmU32Opcode::GET_LOCAL, local, code);
+		errs() << "[compilePointerBaseType] getLocal: " << local << "\n";
 
 		// If the get_local is called on a WasmGC type we need to cast it from anyref to the right reftype
 		POINTER_KIND kind = COMPLETE_OBJECT;
