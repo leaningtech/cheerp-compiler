@@ -97,11 +97,12 @@ struct AnonStructTypeKeyInfo {
     bool isPacked;
     bool isByteLayout;
     bool isAsmJS;
+    bool isWasmGC;
 
-    KeyTy(const ArrayRef<Type *> &E, StructType* b, bool P, bool B, bool A) : ETypes(E), directBase(b), isPacked(P), isByteLayout(B), isAsmJS(A) {}
+    KeyTy(const ArrayRef<Type *> &E, StructType* b, bool P, bool B, bool A, bool G) : ETypes(E), directBase(b), isPacked(P), isByteLayout(B), isAsmJS(A), isWasmGC(G) {}
 
     KeyTy(const StructType *ST)
-        : ETypes(ST->elements()), directBase(ST->getDirectBase()), isPacked(ST->isPacked()), isByteLayout(ST->hasByteLayout()), isAsmJS(ST->hasAsmJS()) {}
+        : ETypes(ST->elements()), directBase(ST->getDirectBase()), isPacked(ST->isPacked()), isByteLayout(ST->hasByteLayout()), isAsmJS(ST->hasAsmJS()), isWasmGC(ST->hasWasmGC()) {}
 
     bool operator==(const KeyTy &that) const {
       if (isPacked != that.isPacked)
@@ -109,6 +110,8 @@ struct AnonStructTypeKeyInfo {
       if (isByteLayout != that.isByteLayout)
         return false;
       if (isAsmJS != that.isAsmJS)
+        return false;
+      if (isWasmGC != that.isWasmGC)
         return false;
       if (ETypes != that.ETypes)
         return false;
@@ -129,7 +132,7 @@ struct AnonStructTypeKeyInfo {
 
   static unsigned getHashValue(const KeyTy &Key) {
     return hash_combine(
-        hash_combine_range(Key.ETypes.begin(), Key.ETypes.end()), Key.directBase, Key.isPacked, Key.isByteLayout, Key.isAsmJS);
+        hash_combine_range(Key.ETypes.begin(), Key.ETypes.end()), Key.directBase, Key.isPacked, Key.isByteLayout, Key.isAsmJS, Key.isWasmGC);
   }
 
   static unsigned getHashValue(const StructType *ST) {

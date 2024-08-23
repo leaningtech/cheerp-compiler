@@ -635,6 +635,9 @@ void TypePrinting::printStructBody(StructType *STy, raw_ostream &OS) {
   if(STy->hasAsmJS())
     OS << "asmjs ";
 
+  if (STy->hasWasmGC())
+    OS << "wasmgc ";
+
   if (STy->isOpaque()) {
     OS << "opaque ";
     return;

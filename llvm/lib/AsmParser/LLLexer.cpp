@@ -660,6 +660,7 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(opaque);
   KEYWORD(bytelayout);
   KEYWORD(asmjs);
+  KEYWORD(wasmgc);
 
   KEYWORD(comdat);
 

@@ -1978,7 +1978,7 @@ void ItaniumCXXABI::emitVTableDefinitions(CodeGenVTables &CGVT,
   auto components = builder.beginStruct();
   CGVT.createVTableInitializer(components, RD, VTLayout, RTTI,
                                llvm::GlobalValue::isLocalLinkage(Linkage));
-  components.finishAndSetAsInitializer(VTable, nullptr, RD->hasAttr<AsmJSAttr>());
+  components.finishAndSetAsInitializer(VTable, nullptr, RD->hasAttr<AsmJSAttr>(), RD->hasAttr<WasmGCAttr>());
 
   // Set the correct linkage.
   VTable->setLinkage(Linkage);
@@ -3951,12 +3951,13 @@ void ItaniumRTTIBuilder::BuildVTablePointer(const Type *Ty) {
   if(!CGM.getTarget().isByteAddressable()) {
     bool asmjs = false;
     if (Ty->isRecordType()){
-      asmjs = cast<CXXRecordDecl>(cast<RecordType>(Ty)->getDecl())->hasAttr<AsmJSAttr>();
+      asmjs = cast<CXXRecordDecl>(cast<RecordType>(Ty)->getDecl())->hasAttr<AsmJSAttr>() ||
+        cast<CXXRecordDecl>(cast<RecordType>(Ty)->getDecl())->hasAttr<WasmGCAttr>();
     } else {
       asmjs = CGM.getContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly;
     }
     llvm::Type* WrapperTypes[] = {CGM.getTypes().GetBasicVTableType(8, asmjs)};
-    llvm::Type* VTableType = llvm::StructType::get(CGM.getLLVMContext(), WrapperTypes, false, NULL, /*bytelayout*/false, asmjs);
+    llvm::Type* VTableType = llvm::StructType::get(CGM.getLLVMContext(), WrapperTypes, false, NULL, /*bytelayout*/false, asmjs, false);
     llvm::Constant *VTable = CGM.getModule().getOrInsertGlobal(VTableName, VTableType);
     llvm::Constant *Zero = llvm::ConstantInt::get(CGM.Int32Ty, 0);
     llvm::SmallVector<llvm::Constant*, 2> GepIndexes;
@@ -4228,7 +4229,7 @@ llvm::Constant *ItaniumRTTIBuilder::BuildTypeInfo(
   }
 
   llvm::Type* directBase = CGM.getTarget().isByteAddressable() ? NULL : CGM.getTypes().GetClassTypeInfoType();
-  llvm::Constant *Init = llvm::ConstantStruct::getAnon(Fields, false, directBase ? cast<llvm::StructType>(directBase) : NULL, asmjs);
+  llvm::Constant *Init = llvm::ConstantStruct::getAnon(Fields, false, directBase ? cast<llvm::StructType>(directBase) : NULL, asmjs, false);
 
   SmallString<256> Name;
   llvm::raw_svector_ostream Out(Name);
@@ -4407,6 +4408,7 @@ void ItaniumRTTIBuilder::BuildVMIClassTypeInfo(const CXXRecordDecl *RD) {
   const ASTRecordLayout &Layout = CGM.getContext().getASTRecordLayout(RD);
   const CGRecordLayout &CGLayout = CGM.getTypes().getCGRecordLayout(RD);
   bool asmjs = CGM.getContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly;
+  bool wasmgc = RD->hasAttr<WasmGCAttr>();
 
   llvm::Type *UnsignedIntLTy =
     CGM.getTypes().ConvertType(CGM.getContext().UnsignedIntTy);
@@ -4502,7 +4504,7 @@ void ItaniumRTTIBuilder::BuildVMIClassTypeInfo(const CXXRecordDecl *RD) {
       OffsetFlags |= BCTI_Public;
 
     baseFields.push_back(llvm::ConstantInt::get(OffsetFlagsLTy, OffsetFlags));
-    basesFields.push_back(llvm::ConstantStruct::getAnon(baseFields, false, NULL, asmjs));
+    basesFields.push_back(llvm::ConstantStruct::getAnon(baseFields, false, NULL, asmjs, wasmgc));
   }
   if(!CGM.getTarget().isByteAddressable()) {
     typedef std::pair<const CXXRecordDecl*, unsigned> RdUnsignedPair;
@@ -4530,7 +4532,7 @@ void ItaniumRTTIBuilder::BuildVMIClassTypeInfo(const CXXRecordDecl *RD) {
         Offset = CGLayout.getTotalOffsetToBase(pair.second);
       baseFields.push_back(llvm::ConstantInt::get(OffsetFlagsLTy, Offset));
 
-      basesFields.push_back(llvm::ConstantStruct::getAnon(baseFields, false, NULL, asmjs));
+      basesFields.push_back(llvm::ConstantStruct::getAnon(baseFields, false, NULL, asmjs, wasmgc));
     }
   }
   llvm::ArrayType* basesArrayType = llvm::ArrayType::get(basesFields[0]->getType(), basesFields.size());
