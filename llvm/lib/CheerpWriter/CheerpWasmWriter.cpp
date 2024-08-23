@@ -1652,7 +1652,7 @@ void CheerpWasmWriter::compileConstant(WasmBuffer& code, const Constant* c, bool
 	else
 		errs() << "[compileConstant] compiling a literal constant\n";
 
-	if (hasPutTeeLocalOnStack(code, c))
+	if (hasPutTeeLocalOnStack(code, c, 0))
 	{
 		errs() << "[compileConstant] hasPutTeeLocal on stack\n";
 		return;
@@ -1788,7 +1788,7 @@ void CheerpWasmWriter::compileGetLocal(WasmBuffer& code, const llvm::Instruction
 {
 	errs() << "[compileGetLocal] compiling get local for: ", I->dump(); 
 	compileInstructionAndSet(code, *I);
-	if (hasPutTeeLocalOnStack(code, I))
+	if (hasPutTeeLocalOnStack(code, I, elemIdx))
 	{
 		errs() << "[compileGetLocal] did a TEE_LOCAL\n";
 		//Successfully find a candidate to transform in tee local
@@ -1890,7 +1890,7 @@ void CheerpWasmWriter::compileOperand(WasmBuffer& code, const llvm::Value* v)
 	else if(const Argument* arg=dyn_cast<Argument>(v))
 	{
 		errs() << "[compileOperand] compiling argument: "; arg->dump();
-		if (hasPutTeeLocalOnStack(code, arg)) {
+		if (hasPutTeeLocalOnStack(code, arg, 0)) {
 			errs() << "[compileOperand] has put a teeLocal on stack\n";
 			return;
 		}
@@ -5746,13 +5746,8 @@ void CheerpWasmWriter::compilePointerOffset(WasmBuffer& code, const Value* ptr)
 		if(const Argument* arg=dyn_cast<Argument>(ptr))
 		{
 			errs() << "[compilePointerOffset] compiling argument: "; arg->dump();
-			if (hasPutTeeLocalOnStack(code, arg))
-			{
-				//TODO: can we use hasPutTeeLocalOnStack here?
-				errs() << "add offset of +1 to localId\n";
-				assert(false);
+			if (hasPutTeeLocalOnStack(code, arg, 1))
 				return;
-			}
 
 			uint32_t local = linearHelper.getArgumentLocalId(arg, 1);
 			encodeInst(WasmU32Opcode::GET_LOCAL, local, code);
@@ -5864,7 +5859,7 @@ void CheerpWasmWriter::compilePointerBaseTyped(WasmBuffer& code, const Value* pt
 	if(const Argument* arg=dyn_cast<Argument>(ptr))
 	{
 		errs() << "[compilePointerBaseType] compiling argument: "; arg->dump();
-		if (hasPutTeeLocalOnStack(code, arg))
+		if (hasPutTeeLocalOnStack(code, arg, 0))
 		{
 			errs() << "[compilePointerBaseType] Has put tee_local on stack\n";
 			return;
