@@ -2508,7 +2508,7 @@ void CheerpWasmWriter::compileStoreGC(WasmBuffer& code, const StoreInst& si, Typ
 	if(storedType->isPointerTy())
 	{
 		assert(storeKind != CONSTANT);
-		bool hasConstantOffset = PA.getConstantOffsetForPointer(ptrOp);
+		bool hasConstantOffset = PA.getConstantOffsetForPointer(&si);
 		if(storeKind==SPLIT_REGULAR || (storeKind == REGULAR && hasConstantOffset))
 		{
 			if (isOffset)
