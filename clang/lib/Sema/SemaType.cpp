@@ -4605,7 +4605,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
   ASTContext &Context = S.Context;
   const LangOptions &LangOpts = S.getLangOpts();
 
-  auto getPointeeAddressSpace = [&S, &Context, &D](QualType T) {
+  auto getPointeeAddressSpace = [&S, &Context, &D](QualType T, const DeclaratorChunk &DeclType) {
     LangAS PtrAS = LangAS::Default;
     if (Context.getLangOpts().Cheerp) {
       auto hasAttr = [&D](ParsedAttr::Kind A) -> bool {
@@ -4613,7 +4613,8 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
         D.getDeclarationAttributes().hasAttribute(A) ||
         D.getDeclSpec().getAttributes().hasAttribute(A);
       };
-      if (hasAttr(ParsedAttr::AT_GenericJSAddressSpace) || hasAttr(ParsedAttr::AT_WasmAddressSpace)) {
+      if (DeclType.getAttrs().hasAttribute(ParsedAttr::AT_GenericJSAddressSpace) ||
+          DeclType.getAttrs().hasAttribute(ParsedAttr::AT_WasmAddressSpace)) {
         // Do nothing, the address space is naturally added
       } else {
         LangAS DefaultAS = S.CurCheerpFallbackAS;
@@ -5007,7 +5008,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
     state.setCurrentChunkIndex(chunkIndex);
     DeclaratorChunk &DeclType = D.getTypeObject(chunkIndex);
     IsQualifiedFunction &= DeclType.Kind == DeclaratorChunk::Paren;
-    LangAS PtrAS = getPointeeAddressSpace(T);
+    LangAS PtrAS = getPointeeAddressSpace(T, DeclType);
     switch (DeclType.Kind) {
     case DeclaratorChunk::Paren:
       if (i == 0)
