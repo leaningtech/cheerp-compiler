@@ -1935,6 +1935,14 @@ Sema::ActOnStringLiteral(ArrayRef<Token> StringToks, Scope *UDLScope) {
     Diag(RemovalDiagLoc, RemovalDiag);
   }
 
+  // CHEERP: String literals are always in linear memory, even in genericjs
+  // contexts.
+  if (getLangOpts().Cheerp) {
+    if (Context.getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly) {
+      CharTy = Context.getAddrSpaceQualType(CharTy, LangAS::cheerp_wasm);
+    }
+  }
+
   QualType StrTy =
       Context.getStringLiteralArrayType(CharTy, Literal.GetNumStringChars());
 
