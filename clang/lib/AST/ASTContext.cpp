@@ -7615,9 +7615,10 @@ LangAS ASTContext::getCheerpPointeeAddrSpace(const Type *PointeeType, Decl* D, L
     DeclContext* C = D->getDeclContext();
     D = C? cast<Decl>(C) : nullptr;
   }
-  // TODO assign a AS to functions directly, so this flawed heuristic is not needed
-  if (PointeeType->isFunctionType()) {
-    return Ret == LangAS::cheerp_genericjs? LangAS::cheerp_client : Fallback;
+  // TODO giving client_as to js functions is a dirty hack to make sure they
+  // are made into complete objects.
+  if (PointeeType->isFunctionType() && Ret == LangAS::cheerp_genericjs) {
+    Ret = LangAS::cheerp_client;
   }
   return Ret;
 }
