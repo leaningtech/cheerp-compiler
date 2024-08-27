@@ -4935,13 +4935,42 @@ static void TryReferenceInitializationCore(Sema &S,
   const Type *T1Ptr = T1.getTypePtr();
   const Type *T2Ptr = T2.getTypePtr();
 
+  // CHEERP: Skip the address space check. This makes it so we can implicitly
+  // construct objects in one address space, by calling a constructor that
+  // takes an argument in an incompatible address space.
+  //
+  // For example:
+  //
+  //     namespace client [[cheerp::genericjs]] {
+  //         class [[cheerp::client_layout]] String {
+  //         public:
+  //             String();
+  //             String(const char *str) : String() {}
+  //         };
+  //     }
+  //
+  //     [[cheerp::genericjs]]
+  //     void foo(const client::String &str);
+  //
+  //     [[cheerp::genericjs]]
+  //     int main() {
+  //         // NOTE: "hello" is wasm_as when compiling with
+  //         // "-target cheerp-wasm", even though main is a js function.
+  //         foo("hello");
+  //     }
+  //
+  // Skipping the check entirely may allow some invalid code, but we ignore
+  // this for now.
+  bool canInitializeAddressSpace = S.getLangOpts().Cheerp ||
+      T1Quals.isAddressSpaceSupersetOf(T2Quals, T1Ptr, T2Ptr);
+
   //     - Otherwise, the reference shall be an lvalue reference to a
   //       non-volatile const type (i.e., cv1 shall be const), or the reference
   //       shall be an rvalue reference.
   //       For address spaces, we interpret this to mean that an addr space
   //       of a reference "cv1 T1" is a superset of addr space of "cv2 T2".
   if (isLValueRef && !(T1Quals.hasConst() && !T1Quals.hasVolatile() &&
-                       T1Quals.isAddressSpaceSupersetOf(T2Quals, T1Ptr, T2Ptr))) {
+                       canInitializeAddressSpace)) {
     if (S.Context.getCanonicalType(T2) == S.Context.OverloadTy)
       Sequence.SetFailed(InitializationSequence::FK_AddressOfOverloadFailed);
     else if (ConvOvlResult && !Sequence.getFailedCandidateSet().empty())
@@ -4950,7 +4979,7 @@ static void TryReferenceInitializationCore(Sema &S,
                                   ConvOvlResult);
     else if (!InitCategory.isLValue())
       Sequence.SetFailed(
-          T1Quals.isAddressSpaceSupersetOf(T2Quals, T1Ptr, T2Ptr)
+          canInitializeAddressSpace
               ? InitializationSequence::
                     FK_NonConstLValueReferenceBindingToTemporary
               : InitializationSequence::FK_ReferenceInitDropsQualifiers);
