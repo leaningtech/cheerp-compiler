@@ -4144,7 +4144,10 @@ Sema::IsStringLiteralToNonConstPointerConversion(Expr *From, QualType ToType) {
           = ToPtrType->getPointeeType()->getAs<BuiltinType>()) {
         // This conversion is considered only when there is an
         // explicit appropriate pointer target type (C++ 4.2p2).
-        if (!ToPtrType->getPointeeType().hasQualifiers()) {
+        if (!ToPtrType->getPointeeType().hasQualifiers() ||
+            // CHEERP: Also allow this conversion when the target type has
+            // non-cvr qualifiers, such as address spaces.
+            (getLangOpts().Cheerp && !ToPtrType->getPointeeType().getCVRQualifiers())) {
           switch (StrLit->getKind()) {
             case StringLiteral::UTF8:
             case StringLiteral::UTF16:
