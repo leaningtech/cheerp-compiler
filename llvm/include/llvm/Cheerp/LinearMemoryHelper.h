@@ -105,6 +105,9 @@ public:
 			size_t r2 = typeKindOf(rhs->getReturnType(), isStrict);
 			if (r1 != r2)
 				return false;
+			// For WasmGC return types are encoded using direct type indices so the types must match 
+			if (r1 == TypeKind::RefPointer && lhs->getReturnType() != rhs->getReturnType())
+				return false;
 			if (lhs->getNumParams() != rhs->getNumParams())
 				return false;
 			auto lit = lhs->param_begin();
