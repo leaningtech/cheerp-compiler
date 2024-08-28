@@ -189,11 +189,15 @@ void LandingPadTable::populate(Module& M, GlobalDepsAnalyzer& GDA)
 	if(elemTy == nullptr)
 		return;
 
+	Triple Triple(M.getTargetTriple());
+	bool asmjs = Triple.isCheerpWasm();
+	unsigned AS = unsigned(asmjs? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+
 	Type* oldElementType = table->getValueType();
 
 	Constant* init = ConstantArray::get(ArrayType::get(elemTy, v.size()), v);
 	table->setValueType(init->getType());
-	table->mutateType(init->getType()->getPointerTo());
+	table->mutateType(init->getType()->getPointerTo(AS));
 	table->setInitializer(init);
 	// Move the table to the end of the globals. Since GDA already ran we can't deal
 	// with the fact that the RTTI globals referenced here may be not yet defined.
@@ -314,7 +318,8 @@ static InvokeInst* replaceIndirectInvokeWithStub(Module& M, InvokeInst* IV, Indi
 		for(auto& arg: make_range(Stub->arg_begin()+1, Stub->arg_end()))
 			params.push_back(&arg);
 		Value* TableIdx = Stub->getArg(0);
-		Value* Called = Builder.CreateIntToPtr(TableIdx, OldTy->getPointerTo());
+		unsigned AS = unsigned(cheerp::CheerpAS::Wasm);
+		Value* Called = Builder.CreateIntToPtr(TableIdx, OldTy->getPointerTo(AS));
 		Value* Call = Builder.CreateCall(OldTy, Called, params);
 		Value* Ret = Call->getType()->isVoidTy() ? nullptr : Call;
 		Builder.CreateRet(Ret);
@@ -363,13 +368,17 @@ static Function* wrapInvoke(Module& M, InvokeInst& IV, DenseSet<Instruction*>& T
 
 static Function* wrapResume(Module& M, ResumeInst* RS)
 {
-	PointerType* Int8PtrTy = Type::getInt8Ty(M.getContext())->getPointerTo(0);
+	Triple Triple(M.getTargetTriple());
+	bool asmjs = Triple.isCheerpWasm();
+	unsigned AS = unsigned(asmjs? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+
+	PointerType* Int8PtrTy = Type::getInt8Ty(M.getContext())->getPointerTo(AS);
 	Function* CxaResume = M.getFunction("__cxa_resume");
 	assert(CxaResume);
 	IRBuilder<> Builder(RS);
 	Value* LP = RS->getOperand(0);
 	Value* Val = Builder.CreateExtractValue(LP, {0});
-    if (Triple(M.getTargetTriple()).isCheerpWasm()) {
+    if (asmjs) {
       Val = Builder.CreateIntToPtr(Val, Int8PtrTy);
     } else {
 		llvm::Function *MakeReg = Intrinsic::getDeclaration(&M, Intrinsic::cheerp_make_regular, {Int8PtrTy, Int8PtrTy});
