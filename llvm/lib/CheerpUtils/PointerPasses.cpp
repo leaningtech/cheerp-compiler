@@ -566,7 +566,7 @@ static Function* getOrCreateGenericJSFree(Module& M, Function* Orig)
 {
 	FunctionType* Ty = Orig->getFunctionType();
 	std::string name = Twine("__genericjs__", Orig->getName()).str();
-	Function* New = cast<Function>(M.getOrInsertFunction(name, Ty).getCallee());
+	Function* New = getOrCreateFunction(M, Ty, name, CheerpAS::Client, /*isExternal*/true);
 	if (!New->empty())
 		return New;
 	New->addFnAttr(Attribute::NoInline);

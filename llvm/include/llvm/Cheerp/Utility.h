@@ -964,6 +964,9 @@ void removeSIMDAttribute(llvm::Function* F);
 
 llvm::GlobalVariable* getOrCreateSretSlot(llvm::Module& m);
 
+llvm::Function* getOrCreateFunction(llvm::Module& m, llvm::FunctionType* Ty,
+	llvm::StringRef Name, CheerpAS AS, bool isExtern = false);
+
 } // namespace cheerp
 
 namespace std
