@@ -1364,7 +1364,13 @@ static llvm::FunctionCallee getAllocateExceptionFn(CodeGenModule &CGM, llvm::Typ
   // void *__cxa_allocate_exception(size_t thrown_size);
 
   if (CGM.getLangOpts().Cheerp) {
-    bool asmjs = cast<llvm::StructType>(pointedTy)->hasAsmJS();
+    //CHEERP: TODO revisit this
+    bool asmjs = false;
+    if (auto* ST = dyn_cast<llvm::StructType>(pointedTy)) {
+      asmjs = ST->hasAsmJS();
+    } else {
+      asmjs = CGM.getTriple().isCheerpWasm();
+    }
     unsigned AS = unsigned(asmjs? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
     llvm::Type* Tys[2] = { pointedTy->getPointerTo(AS), pointedTy->getPointerTo(AS) };
     llvm::Function *F = CGM.getIntrinsic(llvm::Intrinsic::cheerp_allocate, Tys);
@@ -5073,7 +5079,7 @@ static void InitCatchParam(CodeGenFunction &CGF,
 
     // Otherwise, it returns a pointer into the exception object.
 
-    llvm::Type *PtrTy = LLVMCatchTy->getPointerTo(0); // addrspace 0 ok
+    llvm::Type *PtrTy = LLVMCatchTy->getPointerTo(AdjustedExn->getType()->getPointerAddressSpace());
     llvm::Value *Cast = CGF.Builder.CreateBitCast(AdjustedExn, PtrTy);
 
     LValue srcLV = CGF.MakeNaturalAlignAddrLValue(Cast, CatchType);
@@ -5098,13 +5104,12 @@ static void InitCatchParam(CodeGenFunction &CGF,
   auto catchRD = CatchType->getAsCXXRecordDecl();
   CharUnits caughtExnAlignment = CGF.CGM.getClassPointerAlignment(catchRD);
 
-  llvm::Type *PtrTy = LLVMCatchTy->getPointerTo(0); // addrspace 0 ok
-
   // Check for a copy expression.  If we don't have a copy expression,
   // that means a trivial copy is okay.
   const Expr *copyExpr = CatchParam.getInit();
   if (!copyExpr) {
     llvm::Value *rawAdjustedExn = CallBeginCatch(CGF, Exn, true);
+    llvm::Type *PtrTy = LLVMCatchTy->getPointerTo(rawAdjustedExn->getType()->getPointerAddressSpace());
     Address adjustedExn(CGF.Builder.CreateBitCast(rawAdjustedExn, PtrTy),
                         LLVMCatchTy, caughtExnAlignment);
     LValue Dest = CGF.MakeAddrLValue(ParamAddr, CatchType);
@@ -5117,6 +5122,8 @@ static void InitCatchParam(CodeGenFunction &CGF,
   // pointer before copying.
   llvm::CallInst *rawAdjustedExn =
     CGF.EmitNounwindRuntimeCall(getGetExceptionPtrFn(CGF.CGM), Exn);
+
+  llvm::Type *PtrTy = LLVMCatchTy->getPointerTo(rawAdjustedExn->getType()->getPointerAddressSpace());
 
   // Cast that to the appropriate type.
   Address adjustedExn(CGF.Builder.CreateBitCast(rawAdjustedExn, PtrTy),
