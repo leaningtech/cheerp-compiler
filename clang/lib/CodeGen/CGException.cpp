@@ -1096,7 +1096,7 @@ static void emitWasmCatchPadBlock(CodeGenFunction &CGF,
   CGF.Builder.CreateStore(Exn, CGF.getExceptionSlot());
   llvm::CallInst *Selector = CGF.Builder.CreateCall(GetSelectorFn, CPI);
 
-  llvm::Function *TypeIDFn = CGF.CGM.getIntrinsic(llvm::Intrinsic::eh_typeid_for);
+  llvm::Function *TypeIDFn = CGF.CGM.getIntrinsic(llvm::Intrinsic::eh_typeid_for, {CGF.Int8PtrTy});
 
   // If there's only a single catch-all, branch directly to its handler.
   if (CatchScope.getNumHandlers() == 1 &&
@@ -1179,9 +1179,10 @@ static void emitCatchDispatchBlock(CodeGenFunction &CGF,
   CGBuilderTy::InsertPoint savedIP = CGF.Builder.saveIP();
   CGF.EmitBlockAfterUses(dispatchBlock);
 
+  bool asmjs = CGF.getTarget().getTriple().isCheerpWasm();
   // Select the right handler.
   llvm::Function *llvm_eh_typeid_for =
-    CGF.CGM.getIntrinsic(llvm::Intrinsic::eh_typeid_for);
+    CGF.CGM.getIntrinsic(llvm::Intrinsic::eh_typeid_for, {CGF.getVoidPtrTy(asmjs)});
 
   // Load the selector value.
   llvm::Value *selector = CGF.getSelectorFromSlot();
@@ -1195,7 +1196,7 @@ static void emitCatchDispatchBlock(CodeGenFunction &CGF,
     assert(handler.Type.Flags == 0 &&
            "landingpads do not support catch handler flags");
     assert(typeValue && "fell into catch-all case!");
-    typeValue = CGF.Builder.CreateBitCast(typeValue, CGF.Int8PtrTy);
+    typeValue = CGF.Builder.CreateBitCast(typeValue, CGF.getVoidPtrTy(asmjs));
 
     // Figure out the next block.
     bool nextIsEnd;
