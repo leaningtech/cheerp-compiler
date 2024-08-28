@@ -1489,4 +1489,16 @@ GlobalVariable* getOrCreateSretSlot(Module& m)
 	}));
 }
 
+llvm::Function* getOrCreateFunction(llvm::Module& m, llvm::FunctionType* Ty,
+	llvm::StringRef Name, CheerpAS AS, bool isExtern) {
+	Function* F = m.getFunction(Name);
+	if (F)
+		return F;
+
+	GlobalVariable::LinkageTypes Linkage = isExtern?
+		GlobalVariable::ExternalLinkage : GlobalVariable::InternalLinkage;
+	Function* New = Function::Create(Ty, Linkage, unsigned(AS), Name);
+	m.getFunctionList().push_back(New);
+	return New;
+}
 }
