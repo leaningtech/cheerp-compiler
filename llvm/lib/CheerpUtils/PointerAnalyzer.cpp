@@ -68,7 +68,7 @@ POINTER_KIND PointerAnalyzer::getPointerKind(const Value* p) const
 		return CONSTANT;
 	}
 	if (auto* SI = dyn_cast<StoreInst>(p)) {
-		return getPointerKindForType(SI->getPointerOperandType());
+		return getPointerKindForType(SI->getValueOperand()->getType());
 	}
 	if(p->getType()->getPointerAddressSpace()==0) {
 		p->dump();
