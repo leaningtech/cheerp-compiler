@@ -567,7 +567,7 @@ static Function* getOrCreateGenericJSFree(Module& M, bool isAllGenericJS)
 	Function* Orig = M.getFunction("free");
 	assert(Orig);
 	FunctionType* Ty = Orig->getFunctionType();
-	Function* New = cast<Function>(M.getOrInsertFunction("__genericjs__free", Ty).getCallee());
+	Function* New = getOrCreateFunction(M, Ty, "__genericjs__free", CheerpAS::Client, /*isExternal*/true);
 	if (!New->empty())
 		return New;
 	New->addFnAttr(Attribute::NoInline);
