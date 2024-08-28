@@ -22,6 +22,7 @@
 #include "clang/AST/Expr.h"
 #include "clang/AST/RecordLayout.h"
 #include "clang/CodeGen/CGFunctionInfo.h"
+#include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Module.h"
@@ -553,10 +554,17 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
                                     /* UseNativeHalf = */ false);
       break;
 
-    case BuiltinType::NullPtr:
+    case BuiltinType::NullPtr: {
       // Model std::nullptr_t as i8*
-      ResultType = llvm::Type::getInt8PtrTy(getLLVMContext());
+      unsigned AS = 0;
+      //CHEERP: TODO: revisit this
+      if (Context.getLangOpts().Cheerp) {
+        bool asmjs = Context.getTargetInfo().getTriple().isCheerpWasm();
+        AS = unsigned(asmjs? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+      }
+      ResultType = llvm::Type::getInt8PtrTy(getLLVMContext(), AS);
       break;
+    }
 
     case BuiltinType::UInt128:
     case BuiltinType::Int128:
