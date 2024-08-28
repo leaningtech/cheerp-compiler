@@ -17141,6 +17141,9 @@ Decl *Sema::ActOnExceptionDeclarator(Scope *S, Declarator &D) {
     CurContext->addDecl(ExDecl);
 
   ProcessDeclAttributes(S, ExDecl, D);
+  if (Context.getLangOpts().Cheerp) {
+    deduceCheerpAddressSpace(ExDecl);
+  }
   return ExDecl;
 }
 
