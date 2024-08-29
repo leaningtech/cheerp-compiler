@@ -1787,7 +1787,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 						StoreInst* orig = cast<StoreInst>(&I);
 						if (wasm)
 						{
-							Value* BC = Builder.CreateBitCast(Base, Int64Ty->getPointerTo());
+							Value* BC = Builder.CreateBitCast(Base, Int64Ty->getPointerTo(unsigned(cheerp::CheerpAS::Wasm)));
 							Builder.CreateAlignedStore(mappedValue, BC, orig->getAlign(), isVolatile);
 						}
 						else
@@ -1839,7 +1839,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 						LoadInst* orig = cast<LoadInst>(&I);
 						if (wasm)
 						{
-							Value* BC = Builder.CreateBitCast(Base, Int64Ty->getPointerTo());
+							Value* BC = Builder.CreateBitCast(Base, Int64Ty->getPointerTo(unsigned(cheerp::CheerpAS::Wasm)));
 							V = Builder.CreateAlignedLoad(Int64Ty, BC, orig->getAlign(), isVolatile);
 						}
 						else
