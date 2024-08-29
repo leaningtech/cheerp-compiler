@@ -265,24 +265,16 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 						{
 							//cheerp_allocate(nullptr, N) -> malloc(N), so we need to move argument(1) to argument(0)
 							IRBuilder<> Builder(ci);
-							FunctionAnalysisManager& FAM = MAM->getResult<FunctionAnalysisManagerModuleProxy>(module).getManager();
-							const llvm::TargetLibraryInfo* TLI = &FAM.getResult<TargetLibraryAnalysis>(F);
-							assert(TLI);
-							Value* newCall = emitMalloc(ci->getOperand(1), Builder, *DL, TLI);
-							Type* oldType = ci->getType();
-							if(oldType != newCall->getType())
-							{
-								Instruction* newCast = new BitCastInst(UndefValue::get(newCall->getType()), oldType, "", ci->getNextNode());
-								ci->replaceAllUsesWith(newCast);
-								ci->mutateType(newCall->getType());
-								newCast->setOperand(0, ci);
-							}
-							ci->replaceAllUsesWith(newCall);
+							Function* F = module.getFunction("malloc");
+							assert(F);
+							Value* newParamCast = Builder.CreateBitCast(ci->getOperand(1), F->getFunctionType()->getParamType(0), "");
+							Instruction*  newCall = Builder.CreateCall(F, {newParamCast}, "");
+							Value* newCast = Builder.CreateBitCast(newCall, ci->getType(), "");
+							ci->replaceAllUsesWith(newCast);
 
 							//Set up loop variable, so the next loop will check and possibly expand newCall
-							--instructionIterator;
+							instructionIterator = BasicBlock::iterator(newCall);
 							advance = false;
-							assert(&*instructionIterator == newCall);
 
 							ci->eraseFromParent();
 							continue;
