@@ -39,6 +39,7 @@
 #include "llvm/CodeGen/MachineModuleInfo.h"
 #include "llvm/Target/TargetLoweringObjectFile.h"
 #include "llvm/CodeGen/MachineOptimizationRemarkEmitter.h"
+#include "llvm/CodeGen/AsmPrinter.h"
 
 namespace cheerp
 {
@@ -46,7 +47,6 @@ namespace cheerp
 const uint32_t WasmPage = 64*1024;
 
 class CheerpWasmWriter;
-
 typedef llvm::raw_pwrite_stream WasmBuffer;
 
 
@@ -567,46 +567,76 @@ public:
 	}
 // for streamer usage
 public:
+      // for streamer part
       void emitStreamerWasm(void);
 private:
-
       // from WasmAsmPrinter
       bool HasSplitStack = false;
       bool HasNoSplitStack = false;
+
+      // from AsmPrinter, could be related with other processing on the MCSymbol
       llvm::MCSymbol *CurrentFnSym = nullptr;
       llvm::MCSymbol *CurrentFnBegin = nullptr;
       llvm::MCSymbol *CurrentFnSymForSize = nullptr;
       llvm::MCSymbol *CurrentFnBeginLocal = nullptr;
       llvm::MCSymbol *CurrentSectionBeginSym = nullptr;
       llvm::MCSymbol *CurrentPatchableFunctionEntrySym = nullptr;
+      llvm::MCSymbol *CurrentFnEnd = nullptr;
       //llvm::MachineOptimizationRemarkEmitter *ORE;
       std::vector<std::unique_ptr<llvm::wasm::WasmSignature>> Signatures;
 
+      // emit Function ( but only import, should be complete for all the info needed )
       void emitFunctionStreamer(const llvm::Function* F);
       void setupSymbol(const llvm::Function* F);
       void emitFunctionHeader(const llvm::Function* F);
       void emitFunctionBodyStart(const llvm::Function* F);
+
+      // emit data section, but still has issues about the symbol name and register issue
+      void emitDataSection();
+
+      // emit export functions, is split from the emitFunctionStreamer
       void emitExportFunction(const llvm::Function* F);
+
+      // might be useful when we want to define functions in the export
       void emitKCFITypeId(const llvm::Function* F);
       void emitGlobalConstant(const llvm::DataLayout &DL, const llvm::Constant *CV);
       void EmitToStreamer(llvm::MCStreamer &S, const llvm::MCInst &Inst);
       void emitFunctionEntryLabel();
+
+      // for mapping the address, but will have to get access to the other Symbols
+      llvm::MCSymbol *getAddrLabel(const llvm::Function* F);
+
+      // lowering function in AsmPrinter, seems to be necessary for MCExpr, need
+      // to be transform into Cheerp structure
       const llvm::MCExpr *lowerConstant(const llvm::Constant *CV);
 
+      // Symbol generation function, but now the same as the one used in AsmPrinter
       llvm::MCSymbolWasm *getMCSymbolForFunction(const llvm::Function *F);
-      void emitSymbolType(const llvm::MCSymbolWasm* Sym);
 
+      // seems to be useless functions but used when emitting import section
+      void emitSymbolType(const llvm::MCSymbolWasm* Sym);
       void emitLinkage(const llvm::GlobalValue *GV, llvm::MCSymbol *GVSym) const;
       void emitVisibility(llvm::MCSymbol *Sym, unsigned Visibility,
                           bool IsDefinition = true) const;
 
       // from AsmPrinter
+
+      // like its name, used when emitting data section, but need to co-operate
+      // with NameGen
       llvm::MCSymbol *createTempSymbol(const llvm::Twine &Name) const {
         return OutContext.createTempSymbol(Name, true);
       }
 
+      // data symbol seems to be classified into External Symbol
+      llvm::MCSymbol *GetExternalSymbolSymbol(llvm::StringRef Sym) const;
+
+      // trying to co-operate with Chunk on data section
+      llvm::MCSymbolWasm *createDataSymbol(llvm::StringRef Sym) const;
+
+      // this is necessary for emitting functions
       llvm::MCSection *getUniqueSectionForFunction(const llvm::Function &F);
 
+      // symbols getter
       llvm::MCSymbol *getSymbol(const llvm::GlobalValue *GV) const {
         const llvm::TargetLoweringObjectFile *TLOF = TM->getObjFileLowering();
 
@@ -615,6 +645,7 @@ private:
         return TLOF->getContext().getOrCreateSymbol(NameStr);
       }
 
+      // signature is still unavailable or useless
       void addSignature(std::unique_ptr<llvm::wasm::WasmSignature> &&Sig) {
         Signatures.push_back(std::move(Sig));
       }

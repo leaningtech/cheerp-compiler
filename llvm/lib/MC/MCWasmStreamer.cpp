@@ -123,6 +123,7 @@ bool MCWasmStreamer::emitSymbolAttribute(MCSymbol *S, MCSymbolAttr Attribute) {
   case MCSA_Protected:
     return false;
   case MCSA_Exported:
+    Symbol->setType(wasm::WASM_SYMBOL_TYPE_FUNCTION);
     Symbol->setExportName(Symbol->getName());
     Symbol->setExported();
     break;

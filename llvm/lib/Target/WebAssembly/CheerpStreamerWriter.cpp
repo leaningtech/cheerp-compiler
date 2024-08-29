@@ -5,6 +5,7 @@
 #include "llvm/MC/MCWasmObjectWriter.h"
 #include "llvm/BinaryFormat/Dwarf.h"
 #include "llvm/BinaryFormat/Wasm.h"
+#include "llvm/BinaryFormat/ELF.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/Cheerp/WasmWriter.h"
 #include "llvm/IR/Attributes.h"
@@ -77,6 +78,8 @@ void CheerpWasmWriter::emitStreamerWasm() {
     emitFunctionStreamer(F);
   }
 
+//  emitDataSection();
+
   Streamer->finish();
   Streamer->reset();
 }
@@ -85,21 +88,18 @@ void CheerpWasmWriter::emitFunctionStreamer(const Function* F) {
   emitFunctionHeader(F);
   emitFunctionBodyStart(F);
 
-//  bool HasAnyRealCode = false;
-//
-//  // If the function is empty and the object file uses .subsections_via_symbols,
-//  // then we need to emit *something* to the function body to prevent the
-//  // labels from collapsing together.  Just emit a noop.
-//  // Similarly, don't emit empty functions on Windows either. It can lead to
-//  // duplicate entries (two functions with the same RVA) in the Guard CF Table
-//  // after linking, causing the kernel not to load the binary:
-//  // https://developercommunity.visualstudio.com/content/problem/45366/vc-linker-creates-invalid-dll-with-clang-cl.html
-//  // FIXME: Hide this behind some API in e.g. MCAsmInfo or MCTargetStreamer.
-//  const Triple &TT = TM->getTargetTriple();
-//
-//  // Switch to the original section in case basic block sections was used.
-//  Streamer->switchSection(/*TODO current section*/ nullptr);
-//
+  bool HasAnyRealCode = false;
+
+  // If the function is empty and the object file uses .subsections_via_symbols,
+  // then we need to emit *something* to the function body to prevent the
+  // labels from collapsing together.  Just emit a noop.
+  // Similarly, don't emit empty functions on Windows either. It can lead to
+  // duplicate entries (two functions with the same RVA) in the Guard CF Table
+  // after linking, causing the kernel not to load the binary:
+  // https://developercommunity.visualstudio.com/content/problem/45366/vc-linker-creates-invalid-dll-with-clang-cl.html
+  // FIXME: Hide this behind some API in e.g. MCAsmInfo or MCTargetStreamer.
+  const Triple &TT = TM->getTargetTriple();
+
 //  for (const auto &BB : *F) {
 //    if (!BB.hasAddressTaken())
 //      continue;
@@ -109,56 +109,40 @@ void CheerpWasmWriter::emitFunctionStreamer(const Function* F) {
 //    Streamer->AddComment("Address of block that was removed by CodeGen");
 //    Streamer->emitLabel(Sym);
 //  }
-//
-//  // Emit target-specific gunk after the function body.
-//  emitFunctionBodyEnd();
-//
-//  // Even though wasm supports .type and .size in general, function symbols
-//  // are automatically sized.
-//  bool EmitFunctionSize = MAI->hasDotTypeDotSizeDirective() && !TT.isWasm();
-//
-//  if (EmitFunctionSize) {
-//    // Create a symbol for the end of function.
-//    CurrentFnEnd = createTempSymbol("func_end");
-//    Streamer->emitLabel(CurrentFnEnd);
-//  }
-//
-//  // If the target wants a .size directive for the size of the function, emit
-//  // it.
-//  if (EmitFunctionSize) {
-//    // We can get the size as difference between the function label and the
-//    // temp label.
-//    const MCExpr *SizeExp = MCBinaryExpr::createSub(
-//        MCSymbolRefExpr::create(CurrentFnEnd, OutContext),
-//        MCSymbolRefExpr::create(CurrentFnSymForSize, OutContext), OutContext);
-//    Streamer->emitELFSize(CurrentFnSym, SizeExp);
-//    if (CurrentFnBeginLocal)
-//      Streamer->emitELFSize(CurrentFnBeginLocal, SizeExp);
-//  }
-//
-//  MBBSectionRanges[MF->front().getSectionIDNum()] =
-//      MBBSectionRange{CurrentFnBegin, CurrentFnEnd};
-//
-//  // Print out jump tables referenced by the function.
-//  emitJumpTableInfo();
-//
-//  // Emit section containing BB address offsets and their metadata, when
-//  // BB labels are requested for this function. Skip empty functions.
-//  if (MF->hasBBLabels() && HasAnyRealCode)
-//    emitBBAddrMapSection(*MF);
-//
-//  // Emit sections containing instruction and function PCs.
-//  emitPCSections(*MF);
-//
-//  // Emit section containing stack size metadata.
-//  emitStackSizeSection(*MF);
-//
-//  // Emit .su file containing function stack size information.
-//  emitStackUsage(*MF);
-//
-//  emitPatchableFunctionEntries();
-//
-//  Streamer->addBlankLine();
+  // Even though wasm supports .type and .size in general, function symbols
+  // are automatically sized.
+  bool EmitFunctionSize = MAI->hasDotTypeDotSizeDirective() && !TT.isCheerp();
+
+  if (EmitFunctionSize) {
+    // Create a symbol for the end of function.
+    CurrentFnEnd = createTempSymbol("func_end");
+    Streamer->emitLabel(CurrentFnEnd);
+  }
+
+  // If the target wants a .size directive for the size of the function, emit
+  // it.
+  if (EmitFunctionSize) {
+    // We can get the size as difference between the function label and the
+    // temp label.
+    const MCExpr *SizeExp = MCBinaryExpr::createSub(
+        MCSymbolRefExpr::create(CurrentFnEnd, OutContext),
+        MCSymbolRefExpr::create(CurrentFnSymForSize, OutContext), OutContext);
+    Streamer->emitELFSize(CurrentFnSym, SizeExp);
+    if (CurrentFnBeginLocal)
+      Streamer->emitELFSize(CurrentFnBeginLocal, SizeExp);
+  }
+
+  Streamer->addBlankLine();
+}
+
+void CheerpWasmWriter::emitDataSection() {
+  uint32_t amountChunks = linearHelper.getAmountChunks();
+  for (uint32_t i = 0; i < amountChunks; ++i) {
+    const LinearMemoryHelper::GlobalDataChunk &chunk = linearHelper.getGlobalDataChunk(i);
+    std::string buf(reinterpret_cast<const char *>(&chunk.view[0]), chunk.view.size());
+    MCSymbolWasm *sym = createDataSymbol(buf);
+    Streamer->emitSymbolAttribute(sym, MCSA_ELF_TypeObject);// FIXME: not sure if it should be this
+  }
 }
 
 void CheerpWasmWriter::setupSymbol(const llvm::Function *F) {
@@ -299,7 +283,7 @@ void CheerpWasmWriter::emitExportFunction(const llvm::Function *F) {
   MCSection *currSection = TM->getObjFileLowering()->getUniqueSectionForFunction(*F, *TM);
   Streamer->switchSection(currSection);
   auto Sym = getSymbol(F);
-
+// TODO: exported symbols need to be defined
   Streamer->emitSymbolAttribute(Sym, MCSA_Exported);
 }
 
@@ -569,6 +553,24 @@ const MCExpr *CheerpWasmWriter::lowerConstant(const Constant *CV) {
   raw_string_ostream OS(S);
   OS << "Unsupported expression in static initializer: ";
   report_fatal_error(Twine(OS.str()));
+}
+
+MCSymbol *CheerpWasmWriter::getAddrLabel(const llvm::Function *F) {
+
+}
+
+MCSymbolWasm *CheerpWasmWriter::createDataSymbol(StringRef Name) const {
+  auto *WasmSym = cast<MCSymbolWasm>(GetExternalSymbolSymbol(Name));
+  if(WasmSym->getType()) return WasmSym;
+
+  WasmSym->setType(wasm::WASM_SYMBOL_TYPE_DATA);
+  return WasmSym;
+}
+
+MCSymbol *CheerpWasmWriter::GetExternalSymbolSymbol(llvm::StringRef Sym) const {
+  SmallString<60> NameStr;
+  NameStr = namegen.filterLLVMName(Sym, NameGenerator::GLOBAL);
+  return OutContext.getOrCreateSymbol(NameStr);
 }
 
 }
