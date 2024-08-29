@@ -256,7 +256,7 @@ bool AllocaLowering::runOnFunction(Function& F, DominatorTree& DT, cheerp::Globa
 
 		IRBuilder<> Builder(va);
 		Value* valist = va->getOperand(0);
-		valist = Builder.CreateBitCast(valist, savedStack->getType()->getPointerTo(0));
+		valist = Builder.CreateBitCast(valist, savedStack->getType()->getPointerTo(unsigned(cheerp::CheerpAS::Wasm)));
 		Instruction* store = new StoreInst(savedStack, valist, /*isVolatile*/false, Align(1));
 		ReplaceInstWithInst(va->getParent()->getInstList(), ii, store);
 	}
@@ -284,7 +284,7 @@ bool AllocaLowering::runOnFunction(Function& F, DominatorTree& DT, cheerp::Globa
 			i++;
 			Constant* offset = ConstantInt::get(int32Ty, -i*8, true);
 			Value* loc = Builder.CreateGEP(Int8Ty, stackPtr, offset);
-			loc = Builder.CreateBitCast(loc, op->get()->getType()->getPointerTo(0));
+			loc = Builder.CreateBitCast(loc, op->get()->getType()->getPointerTo(unsigned(cheerp::CheerpAS::Wasm)));
 			Builder.CreateStore(op->get(), loc);
 		}
 		// Pop the vararg arguments after the call
