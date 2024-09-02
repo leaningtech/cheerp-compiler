@@ -2380,7 +2380,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						// NOTE: No point in adding a return even if 'useTailCall' is true
 						return true;
 					}
-					case Intrinsic::stacksave:
+					case Intrinsic::cheerp_stacksave:
 					{
 						encodeInst(WasmU32Opcode::GET_GLOBAL, STACK_TOP_GLOBAL, code);
 						if(useTailCall)
@@ -2390,7 +2390,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						}
 						return false;
 					}
-					case Intrinsic::stackrestore:
+					case Intrinsic::cheerp_stackrestore:
 					{
 						compileOperand(code, ci.getOperand(0));
 						encodeInst(WasmU32Opcode::SET_GLOBAL, STACK_TOP_GLOBAL, code);
