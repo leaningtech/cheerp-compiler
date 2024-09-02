@@ -1978,6 +1978,12 @@ void CheerpWasmWriter::compileICmp(const Value* op0, const Value* op1, const Cmp
 		if(isa<Constant>(op1) && cast<Constant>(op1)->isNullValue())
 			useEqz = true;
 	}
+	if (op0->getType()->isPointerTy() && TypeSupport::isTypeGC(op0->getType()))
+	{
+		assert(TypeSupport::isTypeGC(op1->getType()));
+		compileReferenceComparison(code, op0, op1, p);
+		return ;
+	}
 	if(op0->getType()->isPointerTy())
 	{
 		compileOperand(code, op0);
@@ -5880,6 +5886,72 @@ void CheerpWasmWriter::compileMethodResult(WasmBuffer& code, const Type* ty)
 	}
 }
 
+void CheerpWasmWriter::compileReferenceComparison(WasmBuffer& code, const Value* lhs, const Value* rhs, CmpInst::Predicate p)
+{
+	if (isa<ConstantPointerNull>(lhs))
+		std::swap(lhs, rhs);
+
+	POINTER_KIND lhsKind = PA.getPointerKind(lhs);
+	POINTER_KIND rhsKind = PA.getPointerKind(rhs);
+
+	assert(rhsKind != BYTE_LAYOUT);
+	assert(lhsKind != BYTE_LAYOUT);
+	assert(rhsKind != RAW);
+	assert(lhsKind != RAW);
+
+	auto canCompareAsSplitRegular = [&](POINTER_KIND kind, const llvm::Value* value) -> bool {
+		return (kind == REGULAR || kind == SPLIT_REGULAR || kind == CONSTANT ||
+		(isGEP(value) && (cast<User>(value)->getNumOperands() == 2 || getGEPContainerType(cast<User>(value))->isArrayTy())));
+	};
+
+	// NOTE: For any pointer-to-immutable, converting to CO is actually a dereference. (base[offset] in both cases)
+	//       PA enforces that comparisons between pointers-to-immutable (which include pointers-to-pointers)
+	//       need a SPLIT_REGULAR kind. Make sure to also use SPLIT_REGULAR if one kind is CONSTANT (e.g. null)
+	if (canCompareAsSplitRegular(lhsKind, lhs) && canCompareAsSplitRegular(rhsKind, rhs))
+	{
+		assert(lhsKind != COMPLETE_OBJECT || !isa<Instruction>(lhs) || isInlineable(*cast<Instruction>(lhs)));
+		assert(rhsKind != COMPLETE_OBJECT || !isa<Instruction>(rhs) || isInlineable(*cast<Instruction>(rhs)));
+
+		// First compares the lhs and rhs references with one another, then compares the offsets
+		// depending on the predicate it will perform an AND or an OR on the comparisons
+		// lhsRef == rhsRef && lhsOffset == rhsOffset
+		// lhsRef != rhsRef || lhsOffset != rhsOffset
+		compilePointerBase(code, lhs);
+		if (isa<ConstantPointerNull>(rhs) && lhsKind == COMPLETE_OBJECT)
+			encodeInst(WasmOpcode::REF_IS_NULL, code);
+		else
+		{
+			compilePointerBase(code, rhs);
+			encodeInst(WasmOpcode::REF_EQ, code);
+		}
+		if (p == CmpInst::ICMP_NE)
+			encodeInst(WasmOpcode::I32_EQZ, code);
+		compilePointerOffset(code, lhs);
+		compilePointerOffset(code, rhs);
+		encodeInst(WasmOpcode::I32_EQ, code);
+		if (p == CmpInst::ICMP_NE)
+		{
+			encodeInst(WasmOpcode::I32_EQZ, code);
+			encodeInst(WasmOpcode::I32_OR, code);
+		}
+		else
+			encodeInst(WasmOpcode::I32_AND, code);
+	}
+	else
+	{
+		compilePointerAs(code, lhs, COMPLETE_OBJECT);
+		if (isa<ConstantPointerNull>(rhs) && lhsKind == COMPLETE_OBJECT)
+			encodeInst(WasmOpcode::REF_IS_NULL, code);
+		else
+		{
+			compilePointerAs(code, rhs, COMPLETE_OBJECT);
+			encodeInst(WasmOpcode::REF_EQ, code);
+		}
+		if (p == CmpInst::ICMP_NE)
+			encodeInst(WasmOpcode::I32_EQZ, code);
+	}
+}
+
 void CheerpWasmWriter::compileCondition(WasmBuffer& code, const llvm::Value* cond, bool booleanInvert)
 {
 	bool canInvertCond = isa<Instruction>(cond) && isInlineable(*cast<Instruction>(cond));
@@ -5901,31 +5973,14 @@ void CheerpWasmWriter::compileCondition(WasmBuffer& code, const llvm::Value* con
 		Value* op0 = ci->getOperand(0);
 		Value* op1 = ci->getOperand(1);
 
-		if (TypeSupport::isTypeGC(op0->getType()) || TypeSupport::isTypeGC(op1->getType())) // TODO: can just check one of the two?
+		if (TypeSupport::isTypeGC(op0->getType()))
 		{
-			errs() << "[compileCondition] op0:" << *op0 << "\n[compileCondition] op1: " << *op1 << "\n";
-			errs() << "[compileCondition] Should invert: " << (p == CmpInst::ICMP_NE ? "true" : "false") << "\n";
-			// Optimization for NULL reference comparison
-			if (isa<ConstantPointerNull>(op0) || isa<ConstantPointerNull>(op1))
-			{
-				if (isa<ConstantPointerNull>(op0))
-					std::swap(op0, op1);
-				compileOperand(code, op0);
-				encodeInst(WasmOpcode::REF_IS_NULL, code);
-				if (p == CmpInst::ICMP_NE)
-					encodeInst(WasmOpcode::I32_EQZ, code);
-				teeLocals.removeConsumed();
-				return;
-			}
-
-			compileOperand(code, op0);
-			compileOperand(code, op1);
-			encodeInst(WasmOpcode::REF_EQ, code);
-			if (p == CmpInst::ICMP_NE)
-				encodeInst(WasmOpcode::I32_EQZ, code);
+			assert(TypeSupport::isTypeGC(op1->getType()));
+			compileReferenceComparison(code, op0, op1, p);
 			teeLocals.removeConsumed();
 			return;
 		}
+		assert(!TypeSupport::isTypeGC(op1->getType()));
 
 		if(ci->isCommutative() && isa<Constant>(op0))
 		{
