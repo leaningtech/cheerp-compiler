@@ -394,7 +394,7 @@ void LinearMemoryHelper::addGlobals()
 	// of padding bytes.
 	for (const auto& G: module->globals())
 	{
-		if (G.getType()->getPointerAddressSpace() != 3) continue;
+		if (G.getType()->getPointerAddressSpace() != unsigned(cheerp::CheerpAS::Wasm)) continue;
 		asmjsGlobals.push_back(&G);
 	}
 
