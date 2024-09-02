@@ -39,7 +39,7 @@ static Function* getOrCreateGetStackWrapper(Module* M, cheerp::GlobalDepsAnalyze
 		return wrapper;
 	BasicBlock* entry = BasicBlock::Create(M->getContext(),"entry", wrapper);
 	IRBuilder<> Builder(entry);
-	Function* getStackIntr = Intrinsic::getDeclaration(M, Intrinsic::stacksave);
+	Function* getStackIntr = Intrinsic::getDeclaration(M, Intrinsic::cheerp_stacksave);
 	Value* ret = Builder.CreateCall(getStackIntr, {}, "savedStack");
 	Builder.CreateRet(ret);
 
@@ -58,7 +58,7 @@ static Function* getOrCreateSetStackWrapper(Module* M, cheerp::GlobalDepsAnalyze
 		return wrapper;
 	BasicBlock* entry = BasicBlock::Create(M->getContext(),"entry", wrapper);
 	IRBuilder<> Builder(entry);
-	Function* setStackIntr = Intrinsic::getDeclaration(M, Intrinsic::stackrestore);
+	Function* setStackIntr = Intrinsic::getDeclaration(M, Intrinsic::cheerp_stackrestore);
 	Value* arg = &*wrapper->arg_begin();
 	Builder.CreateCall(setStackIntr, arg);
 	Builder.CreateRetVoid();
@@ -174,8 +174,8 @@ bool AllocaLowering::runOnFunction(Function& F, DominatorTree& DT, cheerp::Globa
 	Function *getStack, *setStack;
 	if (asmjs)
 	{
-		getStack = Intrinsic::getDeclaration(M, Intrinsic::stacksave);
-		setStack = Intrinsic::getDeclaration(M, Intrinsic::stackrestore);
+		getStack = Intrinsic::getDeclaration(M, Intrinsic::cheerp_stacksave);
+		setStack = Intrinsic::getDeclaration(M, Intrinsic::cheerp_stackrestore);
 	}
 	else
 	{
