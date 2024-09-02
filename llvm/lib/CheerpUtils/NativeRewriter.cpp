@@ -146,19 +146,6 @@ Function* CheerpNativeRewriterPass::getReturningConstructor(Module& M, Function*
 	return cast<Function>(M.getOrInsertFunction(Twine("cheerpCreate",called->getName()).str(),newFunctionType).getCallee());
 }
 
-static bool redundantStringConstructor(Instruction* ci, SmallVectorImpl<Value*>& initialArgs)
-{
-	if (initialArgs.size() != 1)
-		return false;
-	Type* ty = ci->getOperand(0)->getType();
-	Type* argTy = initialArgs[0]->getType();
-	if (!argTy->isPointerTy() || !argTy->getPointerElementType()->isStructTy())
-		return false;
-	if (ty == argTy && ty->getPointerElementType()->getStructName() == StringRef("class._ZN6client6StringE"))
-		return true;
-	return false;
-}
-
 static bool isClientTransparent(Function* called)
 {
 	if (auto* metadata = called->getMetadata("cheerp.clienttransparent"))
@@ -188,7 +175,9 @@ bool CheerpNativeRewriterPass::rewriteIfNativeConstructorCall(Module& M, Instruc
 		return false;
 
 	//Transparent client constructors only cast their argument to the type that
-	//is being constructed, without actually calling any constructor
+	//is being constructed, without actually calling any constructor. This also
+	//optimizes the case of String(String), by removing the constructor call
+	//entirely.
 	if (isClientTransparent(called))
 	{
 		auto* castInst = new BitCastInst(newI, PointerType::getUnqual(initialArgs[0]->getType()), "", callInst);
@@ -198,15 +187,6 @@ bool CheerpNativeRewriterPass::rewriteIfNativeConstructorCall(Module& M, Instruc
 		return true;
 	}
 
-	//We optimize the special case of String(String), removing the constructor
-	//call entirely
-	if (redundantStringConstructor(callInst, initialArgs))
-	{
-		new StoreInst(initialArgs[0], newI, callInst);
-		if (auto* inv = dyn_cast<InvokeInst>(callInst))
-			BranchInst::Create(inv->getNormalDest(), inv->getParent());
-		return true;
-	}
 	Function* newFunc = getReturningConstructor(M, called);
 	CallBase* newCall = nullptr;
 	Instruction* InsertPt = nullptr;
