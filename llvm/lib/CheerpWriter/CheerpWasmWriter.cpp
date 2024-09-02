@@ -1336,7 +1336,7 @@ const char* CheerpWasmWriter::getTypeString(const Type* t)
 		return "f32";
 	else if(t->isDoubleTy())
 		return "f64";
-	else if(t->isPointerTy())
+	else if(t->isPointerTy() || TypeSupport::isTypeGC(t))
 		return "anyref";
 	else
 	{
