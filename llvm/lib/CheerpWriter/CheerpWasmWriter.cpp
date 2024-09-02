@@ -65,11 +65,13 @@ static inline void encodeRegisterKind(Registerize::REGISTER_KIND regKind, WasmBu
 			encodeULEB128(0x7e, stream);
 			break;
 		case Registerize::OBJECT:
-			encodeULEB128(0x6e, stream);
-			// encodeULEB128(0x6f, stream);  tmp for GC testing
+			encodeULEB128(0x6f, stream);
 			break;
 		case Registerize::VECTOR:
 			encodeULEB128(0x7b, stream);
+			break;
+		case Registerize::REFERENCE:
+			encodeULEB128(0x6e, stream);
 			break;
 	}
 }
@@ -5743,6 +5745,7 @@ void CheerpWasmWriter::compileMethodLocals(WasmBuffer& code, const vector<int>& 
 	groups += (uint32_t) locals.at(Registerize::FLOAT) > 0;
 	groups += (uint32_t) locals.at(Registerize::OBJECT) > 0;
 	groups += (uint32_t) locals.at(Registerize::VECTOR) > 0;
+	groups += (uint32_t) locals.at(Registerize::REFERENCE) > 0;
 
 	// Local declarations are compressed into a vector whose entries
 	// consist of:
@@ -5781,6 +5784,11 @@ void CheerpWasmWriter::compileMethodLocals(WasmBuffer& code, const vector<int>& 
 	if (locals.at(Registerize::VECTOR)) {
 		encodeULEB128(locals.at(Registerize::VECTOR), code);
 		encodeRegisterKind(Registerize::VECTOR, code);
+	}
+
+	if (locals.at(Registerize::REFERENCE)) {
+		encodeULEB128(locals.at(Registerize::REFERENCE), code);
+		encodeRegisterKind(Registerize::REFERENCE, code);	
 	}
 }
 
@@ -6510,7 +6518,7 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F)
 	const std::vector<Registerize::RegisterInfo>& regsInfo = registerize.getRegistersForFunction(&F);
 	const uint32_t localCount = regsInfo.size();
 
-	vector<int> locals(6, 0);
+	vector<int> locals(7, 0);
 	localMap.assign(localCount, 0);
 	uint32_t reg = 0;
 
@@ -6556,6 +6564,15 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F)
 				offset += locals.at((int)Registerize::DOUBLE);
 				offset += locals.at((int)Registerize::FLOAT);
 				offset += locals.at((int)Registerize::OBJECT);
+				break;
+			case Registerize::REFERENCE:
+				offset += locals.at((int)Registerize::INTEGER);
+				offset += locals.at((int)Registerize::INTEGER64);
+				offset += locals.at((int)Registerize::DOUBLE);
+				offset += locals.at((int)Registerize::FLOAT);
+				offset += locals.at((int)Registerize::OBJECT);
+				offset += locals.at((int)Registerize::VECTOR);
+				break;
 		}
 		localMap[reg++] += offset;
 	}
