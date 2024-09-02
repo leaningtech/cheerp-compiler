@@ -509,6 +509,8 @@ public:
 	// Is the kind of values of this type RAW, in the given context?
 	static bool isRawPointer(const llvm::Type* t, bool asmjs)
 	{
+		if (isTypeGC(t))
+			return false;
 		if (isAsmJSPointer(t))
 			return true;
 		if (!asmjs)
