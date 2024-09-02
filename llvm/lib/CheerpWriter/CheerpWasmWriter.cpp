@@ -1140,14 +1140,38 @@ void CheerpWasmWriter::encodeWasmIntrinsic(WasmBuffer& code, const llvm::Functio
 
 //Return whether explicit assigment to the phi is needed
 //Also insert the relevant instruction into getLocalDone when needed
-bool CheerpWasmWriter::requiresExplicitAssigment(const Instruction* phi, const Value* incoming)
+bool CheerpWasmWriter::requiresExplicitAssigment(const Instruction* phi, const Value* incoming, uint32_t elemIdx)
 {
+	Type* phiType=phi->getType();
 	const Instruction* incomingInst=getUniqueIncomingInst(incoming, PA);
 	if(!incomingInst)
 		return true;
 	assert(!isInlineable(*incomingInst));
-	const bool isSameRegister = (registerize.getRegisterId(phi, 0, EdgeContext::emptyContext())
-			== registerize.getRegisterId(incomingInst, 0, edgeContext));
+	if (phiType->isPointerTy() && TypeSupport::isTypeGC(phiType))
+	{
+		POINTER_KIND incomingKind = PA.getPointerKindAssert(incomingInst);
+		POINTER_KIND phiKind = PA.getPointerKindAssert(phi);
+		assert(phiKind != BYTE_LAYOUT && incomingKind != BYTE_LAYOUT);
+		if (incomingKind != phiKind)
+		{
+			getLocalDone.insert(incomingInst);
+			return true;
+		}
+		const ConstantInt* incomingOffset = nullptr;
+		const ConstantInt* phiOffset = nullptr;
+		if(incomingKind == SPLIT_REGULAR || incomingKind == REGULAR)
+			incomingOffset = PA.getConstantOffsetForPointer(incomingInst);
+		if(phiKind == SPLIT_REGULAR || phiKind == REGULAR)
+			phiOffset = PA.getConstantOffsetForPointer(phi);
+		if (incomingOffset != phiOffset)
+		{
+			getLocalDone.insert(incomingInst);
+			return true;
+		}
+	}
+	uint32_t phiReg = registerize.getRegisterId(phi, elemIdx, EdgeContext::emptyContext());
+	uint32_t incomingReg = registerize.getRegisterId(incomingInst, elemIdx, edgeContext);
+	const bool isSameRegister = (phiReg == incomingReg);
 	if (isSameRegister)
 		getLocalDone.insert(incomingInst);
 	return !isSameRegister;
@@ -1200,11 +1224,11 @@ void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const B
 			for (const auto& phiEl : phiToHandle)
 			{
 				const auto* phi = cast<PHINode>(phiEl.instruction);
-				assert(phiEl.ptrIdx == 0);
-				uint32_t elemIdx = phiEl.structIdx;
+				// The elemIdx represents the index of an aggregate or the offset used by a SPLIT_REGULAR
+				uint32_t elemIdx = ((phiEl.ptrIdx == 0) ? phiEl.structIdx : 1);
 				const Value* incoming = phi->getIncomingValueForBlock(fromBB);
 				// We can avoid assignment from the same register if no pointer kind conversion is required
-				if(!writer.requiresExplicitAssigment(phi, incoming))
+				if (!writer.requiresExplicitAssigment(phi, incoming, elemIdx))
 					continue;
 				// We can leave undefined values undefined
 				if (isa<UndefValue>(incoming))
@@ -1227,6 +1251,33 @@ void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const B
 				if(incomingElem.first->getType()->isStructTy())
 				{
 					writer.compileAggregateElem(code, incomingElem.first, incomingElem.second);
+				}
+				else if (incomingElem.first->getType()->isPointerTy() && TypeSupport::isTypeGC(incomingElem.first->getType()))
+				{
+					assert(toProcessMap[incomingElem].size() > 0);
+					POINTER_KIND kind = PA.getPointerKind(toProcessMap[incomingElem][0].first);
+					bool hasConstantOffset = PA.getConstantOffsetForPointer(toProcessMap[incomingElem][0].first);
+
+					assert(kind != CONSTANT);
+					if (kind == REGULAR || (kind == SPLIT_REGULAR && hasConstantOffset))
+					{
+						// assert that we are not handling the offset
+						assert(incomingElem.second == 0);
+						writer.compilePointerBase(code, incomingElem.first);
+					}
+					else if (kind == SPLIT_REGULAR)
+					{
+						// if we are processing the base
+						if (incomingElem.second == 0)
+							writer.compilePointerBase(code, incomingElem.first);
+						else
+							writer.compilePointerOffset(code, incomingElem.first);
+					}
+					else
+					{
+						POINTER_KIND incomingKind = PA.getPointerKind(incomingElem.first);
+						writer.compilePointerAs(code, incomingElem.first, kind);
+					}
 				}
 				else
 				{
@@ -1256,8 +1307,7 @@ void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const B
 					else
 					{
 						writer.encodeInst(WasmU32Opcode::TEE_LOCAL, local, code);
-						// TODO: add compileRefCast, how do we get the right type?
-						// assert(false);
+						// No refcast necessary for GC types since they will be set into an anyref local right after
 					}
 				}
 				toProcessOrdered.pop_back();
@@ -6640,7 +6690,7 @@ void CheerpWasmWriter::checkImplicitedAssignedPhi(const llvm::Function& F)
 				break;
 			const PHINode& phi = cast<PHINode>(I);
 			for (uint32_t index = 0; index < phi.getNumIncomingValues(); index++)
-				requiresExplicitAssigment(&phi, phi.getIncomingValue(index));
+				requiresExplicitAssigment(&phi, phi.getIncomingValue(index), 0); // TODO: use the right elemIdx
 		}
 	}
 }
