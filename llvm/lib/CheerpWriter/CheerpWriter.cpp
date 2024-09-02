@@ -1098,12 +1098,12 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(const
 		stream << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) << "()";
 		return COMPILE_OK;
 	}
-	else if(intrinsicId==Intrinsic::stacksave)
+	else if(intrinsicId==Intrinsic::cheerp_stacksave)
 	{
 		stream << namegen.getBuiltinName(NameGenerator::Builtin::STACKPTR);
 		return COMPILE_OK;
 	}
-	else if(intrinsicId==Intrinsic::stackrestore)
+	else if(intrinsicId==Intrinsic::cheerp_stackrestore)
 	{
 		stream << namegen.getBuiltinName(NameGenerator::Builtin::STACKPTR) << "=";
 		compileOperand(*it, LOWEST);
