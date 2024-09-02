@@ -646,7 +646,7 @@ public:
 	void encodeDataSectionChunk(WasmBuffer& data, uint32_t address, llvm::StringRef buf);
 	void compileFloatToText(WasmBuffer& code, const llvm::APFloat& f, uint32_t precision);
 	GLOBAL_CONSTANT_ENCODING shouldEncodeConstantAsGlobal(const llvm::Constant* C, uint32_t useCount, uint32_t getGlobalCost);
-	bool requiresExplicitAssigment(const llvm::Instruction* phi, const llvm::Value* incoming);
+	bool requiresExplicitAssigment(const llvm::Instruction* phi, const llvm::Value* incoming, uint32_t elemIdx);
 	void compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const llvm::BasicBlock* to, const llvm::BasicBlock* from, const llvm::PHINode* phiHandledAsResult = nullptr);
 	bool isInlineable(const llvm::Instruction& I) const
 	{
