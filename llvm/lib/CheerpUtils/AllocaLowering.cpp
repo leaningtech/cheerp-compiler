@@ -33,14 +33,14 @@ using namespace llvm;
 static Function* getOrCreateGetStackWrapper(Module* M, cheerp::GlobalDepsAnalyzer& GDA)
 {
 	Type* i8Ty = IntegerType::getInt8Ty(M->getContext());
-	Type* i8PtrTy = PointerType::get(i8Ty, 0);
+	Type* i8PtrTy = PointerType::get(i8Ty, (unsigned)CheerpAS::Wasm);
 	FunctionType* fTy = FunctionType::get(i8PtrTy,{});
 	Function* wrapper = cast<Function>(M->getOrInsertFunction("__getStackPtr", fTy).getCallee());
 	if (!wrapper->empty())
 		return wrapper;
 	BasicBlock* entry = BasicBlock::Create(M->getContext(),"entry", wrapper);
 	IRBuilder<> Builder(entry);
-	Function* getStackIntr = Intrinsic::getDeclaration(M, Intrinsic::stacksave);
+	Function* getStackIntr = Intrinsic::getDeclaration(M, Intrinsic::cheerp_stacksave);
 	Value* ret = Builder.CreateCall(getStackIntr, {}, "savedStack");
 	Builder.CreateRet(ret);
 
@@ -51,7 +51,7 @@ static Function* getOrCreateGetStackWrapper(Module* M, cheerp::GlobalDepsAnalyze
 static Function* getOrCreateSetStackWrapper(Module* M, cheerp::GlobalDepsAnalyzer& GDA)
 {
 	Type* i8Ty = IntegerType::getInt8Ty(M->getContext());
-	Type* i8PtrTy = PointerType::get(i8Ty, 0);
+	Type* i8PtrTy = PointerType::get(i8Ty, (unsigned)CheerpAS::Wasm);
 	Type* argTy[] = {i8PtrTy};
 	FunctionType* fTy = FunctionType::get(Type::getVoidTy(M->getContext()),ArrayRef<Type*>(argTy,1), false);
 	Function* wrapper = cast<Function>(M->getOrInsertFunction("__setStackPtr", fTy).getCallee());
@@ -59,7 +59,7 @@ static Function* getOrCreateSetStackWrapper(Module* M, cheerp::GlobalDepsAnalyze
 		return wrapper;
 	BasicBlock* entry = BasicBlock::Create(M->getContext(),"entry", wrapper);
 	IRBuilder<> Builder(entry);
-	Function* setStackIntr = Intrinsic::getDeclaration(M, Intrinsic::stackrestore);
+	Function* setStackIntr = Intrinsic::getDeclaration(M, Intrinsic::cheerp_stackrestore);
 	Value* arg = &*wrapper->arg_begin();
 	Builder.CreateCall(setStackIntr, arg);
 	Builder.CreateRetVoid();
@@ -182,8 +182,8 @@ bool AllocaLowering::runOnFunction(Function& F, DominatorTree& DT, cheerp::Globa
 	Function *getStack, *setStack;
 	if (asmjs)
 	{
-		getStack = Intrinsic::getDeclaration(M, Intrinsic::stacksave);
-		setStack = Intrinsic::getDeclaration(M, Intrinsic::stackrestore);
+		getStack = Intrinsic::getDeclaration(M, Intrinsic::cheerp_stacksave);
+		setStack = Intrinsic::getDeclaration(M, Intrinsic::cheerp_stackrestore);
 	}
 	else
 	{
