@@ -1250,7 +1250,7 @@ public:
 	}
 
 	// Registers should have a consistent JS type
-	enum REGISTER_KIND { OBJECT=0, INTEGER, INTEGER64, DOUBLE, FLOAT, VECTOR };
+	enum REGISTER_KIND { OBJECT=0, INTEGER, INTEGER64, DOUBLE, FLOAT, VECTOR, REFERENCE };
 
 	struct RegisterInfo
 	{
