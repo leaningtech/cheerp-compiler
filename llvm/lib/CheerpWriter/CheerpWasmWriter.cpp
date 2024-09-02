@@ -5151,19 +5151,21 @@ void CheerpWasmWriter::compileAccessToElement(WasmBuffer& code, Type* tp, ArrayR
 			}
 
 			if (types.useWrapperArrayForMember(PA, st, index.getLimitedValue()))
+			{
 				compileRefCast(code, elemTy, SPLIT_REGULAR);
+				if (i!=indices.size()-1 || compileLastWrapperArray)
+				{
+					int32_t typeIdx = linearHelper.getGCTypeIndex(elemTy, SPLIT_REGULAR);
+					encodeInst(WasmS32Opcode::I32_CONST, 0, code);
+					encodeInst(WasmGCOpcode::ARRAY_GET, typeIdx, code);
+					// TODO: is this the correct compileRefCast if we've used a wrapper array?
+					assert(false);
+					compileRefCast(code, elemTy, elemPtrKind);
+				}
+			}
 			else
 				compileRefCast(code, elemTy, elemPtrKind);
 
-			if((i!=indices.size()-1 || compileLastWrapperArray) && types.useWrapperArrayForMember(PA, st, index.getLimitedValue()))
-			{
-				int32_t typeIdx = linearHelper.getGCTypeIndex(elemTy, SPLIT_REGULAR);
-
-				encodeInst(WasmS32Opcode::I32_CONST, 0, code);
-				encodeInst(WasmGCOpcode::ARRAY_GET, typeIdx, code);
-				// TODO: is this the correct compileRefCast if we've used a wrapper array?
-				compileRefCast(code, elemTy, elemPtrKind);
-			}
 			tp = st->getElementType(index.getZExtValue());
 		}
 		else if(const ArrayType* at = dyn_cast<ArrayType>(tp))
