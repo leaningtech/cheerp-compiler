@@ -461,6 +461,7 @@ private:
 	void compileBranchTable(WasmBuffer& code, const llvm::SwitchInst* si,
 		const std::vector<std::pair<int, int>>& cases);
 	void compileCondition(WasmBuffer& code, const llvm::Value* cond, bool booleanInvert);
+	void compileReferenceComparison(WasmBuffer& code, const llvm::Value* lhs, const llvm::Value* rhs, llvm::CmpInst::Predicate p);
 	const llvm::BasicBlock* compileTokens(WasmBuffer& code, const TokenList& Tokens);
 	uint32_t getDowncastArraySize(llvm::StructType* sTy, uint32_t size) const;
 	uint32_t compileDowncastInitializerRecursive(WasmBuffer& code, Chunk<128> currClassAccess, llvm::StructType* sTy, uint32_t baseCount);
