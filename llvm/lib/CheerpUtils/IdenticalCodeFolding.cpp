@@ -345,7 +345,7 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 					case Intrinsic::vaend:
 					case Intrinsic::invariant_end:
 					case Intrinsic::trap:
-					case Intrinsic::stacksave:
+					case Intrinsic::cheerp_stacksave:
 					{
 						return CacheAndReturn(true);
 					}

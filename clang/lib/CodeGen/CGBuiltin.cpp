@@ -12561,11 +12561,11 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
     return Builder.CreateCall(F, Ops);
   }
   else if (BuiltinID == Cheerp::BI__builtin_cheerp_stack_save) {
-    Function *F = CGM.getIntrinsic(Intrinsic::stacksave);
+    Function *F = CGM.getIntrinsic(Intrinsic::cheerp_stacksave);
     return Builder.CreateCall(F, Ops);
   }
   else if (BuiltinID == Cheerp::BI__builtin_cheerp_stack_restore) {
-    Function *F = CGM.getIntrinsic(Intrinsic::stackrestore);
+    Function *F = CGM.getIntrinsic(Intrinsic::cheerp_stackrestore);
     return Builder.CreateCall(F, Ops);
   }
   else if (BuiltinID == Cheerp::BI__builtin_cheerp_get_thread_pointer) {
