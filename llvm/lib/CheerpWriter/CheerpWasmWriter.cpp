@@ -5857,33 +5857,22 @@ void CheerpWasmWriter::compileMethodParams(WasmBuffer& code, const FunctionType*
 		encodeValType(fTy->getParamType(i), code);
 }
 
-static bool isReturnTypeGC(const Type* Ty)
-{
-	if (auto sTy = dyn_cast<StructType>(Ty))
-		return (!sTy->hasAsmJS());
-	if (auto aTy = dyn_cast<ArrayType>(Ty))
-		return (true); // TODO: use address spaces
-	return (false);
-}
-
 void CheerpWasmWriter::compileMethodResult(WasmBuffer& code, const Type* ty)
 {
 	if (ty->isVoidTy())
 	{
 		encodeULEB128(0, code);
+		return;
+	}
+	encodeULEB128(1, code);
+	if (TypeSupport::isTypeGC_arraysTrue(ty))
+	{
+		// Nullable reference
+		encodeULEB128(0x63, code);
+		encodeSLEB128(linearHelper.getGCTypeIndex(ty, COMPLETE_OBJECT), code);
 	}
 	else
-	{
-		encodeULEB128(1, code);
-		if (isReturnTypeGC(ty))
-		{
-			// Nullable reference
-			encodeULEB128(0x63, code);
-			encodeSLEB128(linearHelper.getGCTypeIndex(ty, COMPLETE_OBJECT), code);
-		}
-		else
-			encodeValType(ty, code);
-	}
+		encodeValType(ty, code);
 }
 
 void CheerpWasmWriter::compileReferenceComparison(WasmBuffer& code, const Value* lhs, const Value* rhs, CmpInst::Predicate p)
