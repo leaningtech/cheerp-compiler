@@ -2931,6 +2931,8 @@ Registerize::REGISTER_KIND Registerize::getRegKindFromType(const llvm::Type* t, 
 		return INTEGER;
 	else if(t->isVectorTy())
 		return VECTOR;
+	else if (TypeSupport::isTypeGC(t))
+		return REFERENCE;
 	// NOTE: the Void type is considered an OBJECT
 	else
 		return OBJECT;
