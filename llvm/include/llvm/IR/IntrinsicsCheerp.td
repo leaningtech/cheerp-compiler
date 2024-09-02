@@ -122,6 +122,15 @@ def int_cheerp_environ : Intrinsic<[llvm_anyptr_ty]>;
 
 def int_cheerp_argv : Intrinsic<[llvm_anyptr_ty]>;
 
+// pointer to wasm address space
+def llvm_wasm_ptr_ty        : LLVMQualPointerType<llvm_i8_ty, 4>;
+
+// cheerp version of stacksave, using the wasm address space
+def int_cheerp_stacksave     : DefaultAttrsIntrinsic<[llvm_wasm_ptr_ty]>;
+// cheerp version of stackrestore, using the wasm address space
+def int_cheerp_stackrestore  : DefaultAttrsIntrinsic<[], [llvm_wasm_ptr_ty]>;
+
+
 // SIMD left shift
 def int_cheerp_wasm_shl : Intrinsic<[llvm_anyvector_ty],
                             [llvm_anyvector_ty, llvm_anyint_ty],
