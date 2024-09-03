@@ -21242,34 +21242,21 @@ void Sema::CheckCheerpFFICall(const FunctionDecl* Parent, const FunctionDecl* FD
       return;
     }
     // Since variadic functions are not permitted, we have as many arguments as parameters
-    bool anyref = getLangOpts().CheerpAnyref;
-
     if (const clang::CXXConstructorDecl* constructor = dyn_cast<clang::CXXConstructorDecl>(FDecl))
-      if (!Sema::isAsmJSCompatible(constructor->getParent()->getTypeForDecl()->getCanonicalTypeInternal(), anyref))
+      if (!Sema::isAsmJSCompatible(constructor->getParent()->getTypeForDecl()->getCanonicalTypeInternal()))
         Diag(Loc,
              diag::err_cheerp_incompatible_attributes)
           << FDecl->getAttr<GenericJSAttr>() << "constructor" << FDecl
           << Parent->getAttr<AsmJSAttr>() << "caller function" << Parent;
 
-    auto checkTypeCanCrossAsmJSToGenericJSBoundary = [this, &FDecl, &Parent, &Loc, &anyref](const Type* pt, const NamedDecl* p, StringRef message) -> void
+    auto checkTypeCanCrossAsmJSToGenericJSBoundary = [this, &FDecl, &Parent, &Loc](const Type* pt, const NamedDecl* p, StringRef message) -> void
     {
-      if (pt->hasPointerRepresentation() && (pt->getPointeeType()->hasPointerRepresentation() || pt->getPointeeType()->isArrayType())) {
-        Diag(Loc,
-             diag::err_cheerp_wrong_pointer_pointer_param)
-          << FDecl << FDecl->getAttr<GenericJSAttr>()
-          << Parent << Parent->getAttr<AsmJSAttr>()
-          << p;
-      } else if (pt->hasPointerRepresentation() && pt->getPointeeType()->isFunctionType()) {
+      if (pt->hasPointerRepresentation() && pt->getPointeeType()->isFunctionType()) {
         Diag(Loc,
              diag::err_cheerp_wrong_func_pointer_param)
           << FDecl << FDecl->getAttr<GenericJSAttr>()
           << Parent << Parent->getAttr<AsmJSAttr>()
           << p;
-      } else if (!Sema::isAsmJSCompatible(pt->getCanonicalTypeInternal(), anyref)) {
-        Diag(Loc,
-             diag::err_cheerp_incompatible_attributes)
-          << FDecl->getAttr<GenericJSAttr>() << message << p
-          << Parent->getAttr<AsmJSAttr>() << "caller" << Parent;
       }
     };
 
