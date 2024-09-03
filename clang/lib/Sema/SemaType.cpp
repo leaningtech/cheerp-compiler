@@ -5896,6 +5896,19 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
        D.getContext() == DeclaratorContext::LambdaExprParameter))
     S.Diag(D.getIdentifierLoc(), diag::warn_deprecated_volatile_param) << T;
 
+  // CHEERP: The address space of a record type must match the attribute it was
+  // declared with.
+  QualType InnerType = T.getNonReferenceType();
+  while (InnerType->isPointerType())
+    InnerType = InnerType->getPointeeType();
+  if (RecordDecl* Tag = InnerType->getAsRecordDecl()) {
+    LangAS TypeAS = InnerType.getAddressSpace();
+    LangAS TagAS = Context.getCheerpTypeAddressSpace(Tag);
+    if (TypeAS != LangAS::Default && TypeAS != TagAS)
+      S.Diag(D.getIdentifierLoc(), diag::err_cheerp_incompatible_class_address_space) <<
+        T << TagAS << TypeAS;
+  }
+
   // If there was an ellipsis in the declarator, the declaration declares a
   // parameter pack whose type may be a pack expansion type.
   if (D.hasEllipsis()) {
