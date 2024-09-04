@@ -48,6 +48,7 @@ static const unsigned SPIRDefIsPrivMap[] = {
     0, // cheerp_genericjs
     0, // cheerp_bytelayout
     0, // cheerp_wasm
+    0, // cheerp_wasmgc
 };
 
 // Used by both the SPIR and SPIR-V targets.
@@ -82,6 +83,7 @@ static const unsigned SPIRDefIsGenMap[] = {
     0, // cheerp_genericjs
     0, // cheerp_bytelayout
     0, // cheerp_wasm
+    0, // cheerp_wasmgc
 };
 
 // Base class for SPIR and SPIR-V target info.

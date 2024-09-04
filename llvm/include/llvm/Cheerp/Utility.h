@@ -378,11 +378,12 @@ enum class CheerpAS {
 	GenericJS = 2,
 	ByteLayout = 3,
 	Wasm = 4,
+	WasmGC = 5,
 };
 
 inline CheerpAS getCheerpAS(const llvm::PointerType* t) {
 	unsigned AS = t->getAddressSpace();
-	assert(AS <= unsigned(CheerpAS::Wasm));
+	assert(AS <= unsigned(CheerpAS::WasmGC));
 	return static_cast<CheerpAS>(AS);
 }
 inline CheerpAS getCheerpAS(const llvm::Value* v) {

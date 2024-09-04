@@ -64,6 +64,7 @@ enum class LangAS : unsigned {
   cheerp_genericjs,
   cheerp_bytelayout,
   cheerp_wasm,
+  cheerp_wasmgc,
 
   // This denotes the count of language-specific address spaces and also
   // the offset added to the target-specific address spaces, which are usually

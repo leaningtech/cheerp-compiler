@@ -60,6 +60,7 @@ const LangASMap AMDGPUTargetInfo::AMDGPUDefIsGenMap = {
     Generic,  // cheerp_client
     Generic,  // cheerp_genericjs
     Generic,  // cheerp_wasm
+    Generic,  // cheerp_wasmgc
 };
 
 const LangASMap AMDGPUTargetInfo::AMDGPUDefIsPrivMap = {
@@ -87,6 +88,7 @@ const LangASMap AMDGPUTargetInfo::AMDGPUDefIsPrivMap = {
     Generic,  // cheerp_client
     Generic,  // cheerp_genericjs
     Generic,  // cheerp_wasm
+    Generic,  // cheerp_wasmgc
 
 };
 } // namespace targets

@@ -48,6 +48,7 @@ static const unsigned NVPTXAddrSpaceMap[] = {
     0, // cheerp_genericjs
     0, // cheerp_bytelayout
     0, // cheerp_wasm
+    0, // cheerp_wasmgc
 };
 
 /// The DWARF address class. Taken from

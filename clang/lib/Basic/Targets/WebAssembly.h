@@ -213,6 +213,7 @@ static const unsigned CheerpAddrSpaceMap[] = {
     2,   // cheerp_genericjs
     3,   // cheerp_bytelayout
     4,   // cheerp_wasm
+    5,   // cheerp_wasmgc
 };
 
 // Cheerp base class

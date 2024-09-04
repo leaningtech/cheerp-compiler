@@ -49,6 +49,7 @@ static const unsigned X86AddrSpaceMap[] = {
     0,   // cheerp_genericjs
     0,   // cheerp_bytelayout
     0,   // cheerp_wasm
+    0,   // cheerp_wasmgc
 };
 
 // X86 target abstract base class; x86-32 and x86-64 are very close, so
