@@ -7070,7 +7070,7 @@ void CheerpWasmWriter::compileTypeSection()
 	encodeULEB128(typeCount, section);
 
 	// Define GC types
-	for (const auto& Ty : linearHelper.getGCTypes())
+	for (const auto* Ty : linearHelper.getGCTypes())
 	{
 		auto it = linearHelper.getGCTypeIndices().find(Ty);
 		assert(it != linearHelper.getGCTypeIndices().end());
