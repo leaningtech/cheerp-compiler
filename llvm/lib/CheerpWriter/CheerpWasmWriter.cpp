@@ -7299,7 +7299,7 @@ void CheerpWasmWriter::compileImportSection()
 	for (const Function* F : globalDeps.asmJSImports())
 	{
 		StringRef name = useWasmLoader ? namegen.getName(F, 0) : F->getName();
-		compileImport(section, name, F->getFunctionType());
+		compileImport(section, name, linearHelper.getExpandedFunctionType(F));
 	}
 
 	Type* f64 = Type::getDoubleTy(module.getContext());
