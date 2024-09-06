@@ -692,7 +692,7 @@ Type* LinearMemoryHelper::getRegularType(void) const
 	// to represent all other reference types
 	Type* arrTy = ArrayType::get(IntegerType::get(CTX, 32), 1);
 	Type* intTy = IntegerType::get(CTX, 32);
-	Type* regularObjectType = StructType::get(CTX, {arrTy, intTy}, false, NULL, false, true);
+	Type* regularObjectType = StructType::get(CTX, {arrTy, intTy}, false, NULL, false, false, true);
 	return regularObjectType;
 }
 
