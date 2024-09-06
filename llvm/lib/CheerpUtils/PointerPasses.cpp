@@ -566,7 +566,8 @@ static Function* getOrCreateGenericJSFree(Module& M, bool isAllGenericJS)
 {
 	Function* Orig = M.getFunction("free");
 	assert(Orig);
-	FunctionType* Ty = Orig->getFunctionType();
+	Type* JSVoidPtr = IntegerType::get(M.getContext(), 8)->getPointerTo(unsigned(CheerpAS::GenericJS));
+	FunctionType* Ty = FunctionType::get(Orig->getReturnType(), {JSVoidPtr}, false);
 	Function* New = getOrCreateFunction(M, Ty, "__genericjs__free", CheerpAS::Client, /*isExternal*/true);
 	if (!New->empty())
 		return New;
@@ -576,10 +577,9 @@ static Function* getOrCreateGenericJSFree(Module& M, bool isAllGenericJS)
 
 	if (!isAllGenericJS)
 	{
-		Type* VoidPtr = IntegerType::get(M.getContext(), 8)->getPointerTo();
-		Type* Tys[] = { VoidPtr };
-		Function *GetBase = Intrinsic::getDeclaration(&M, Intrinsic::cheerp_is_linear_heap, Tys);
-		Function *ElemSize = Intrinsic::getDeclaration(&M, Intrinsic::cheerp_pointer_elem_size, Tys);
+		Type* WasmVoidPtr = IntegerType::get(M.getContext(), 8)->getPointerTo(unsigned(CheerpAS::Wasm));
+		Function *GetBase = Intrinsic::getDeclaration(&M, Intrinsic::cheerp_is_linear_heap, {JSVoidPtr});
+		Function *ElemSize = Intrinsic::getDeclaration(&M, Intrinsic::cheerp_pointer_elem_size, {JSVoidPtr});
 
 		BasicBlock* ExitBlock = BasicBlock::Create(M.getContext(), "exitblk", New);
 		BasicBlock* ForwardBlock = BasicBlock::Create(M.getContext(), "fwdblk", New);
@@ -592,11 +592,11 @@ static Function* getOrCreateGenericJSFree(Module& M, bool isAllGenericJS)
 		Builder.CreateRetVoid();
 
 		Builder.SetInsertPoint(ForwardBlock);
-		Function *PtrOffset = Intrinsic::getDeclaration(&M, Intrinsic::cheerp_pointer_offset, Tys);
+		Function *PtrOffset = Intrinsic::getDeclaration(&M, Intrinsic::cheerp_pointer_offset, {JSVoidPtr});
 		CallInst* Offset = Builder.CreateCall(PtrOffset, Params);
 		CallInst* Size = Builder.CreateCall(ElemSize, Params);
 		Value* OffsetShifted = Builder.CreateMul(Offset, Size);
-		Value* OffsetP = Builder.CreateIntToPtr(OffsetShifted, VoidPtr);
+		Value* OffsetP = Builder.CreateIntToPtr(OffsetShifted, WasmVoidPtr);
 		Value* Params2[] = { OffsetP };
 		Builder.CreateCall(Orig, Params2);
 	}
@@ -612,86 +612,30 @@ bool FreeAndDeleteRemoval::runOnModule(Module& M)
 	std::vector<Use*> usesToBeReplaced;
 	for (Function& f: M)
 	{
-		if (cheerp::isFreeFunctionName(f.getName()))
-		{
-			auto UI = f.use_begin(), E = f.use_end();
-			for (; UI != E;)
-			{
-				Use &U = *UI;
-				++UI;
-				User* Usr = U.getUser();
-				if (CallBase* call = dyn_cast<CallBase>(Usr))
-				{
-					if (!isWasmTarget)
-					{
-						deleteInstructionAndUnusedOperands(call);
-						Changed = true;
-						continue;
-					}
-				}
+		if (!cheerp::isFreeFunctionName(f.getName()) || f.getIntrinsicID() != Intrinsic::cheerp_deallocate)
+			continue;
+		if (f.getFunctionType()->getParamType(0)->getPointerAddressSpace() != unsigned(CheerpAS::GenericJS))
+			continue;
 
-				if (Instruction* inst = dyn_cast<Instruction>(Usr))
-				{
-					Function* Parent = inst->getParent()->getParent();
-					if (Parent->getSection() == StringRef("asmjs") || Parent->getName() == StringRef("__genericjs__free"))
-					{
-						continue;
-					}
-					U.set(getOrCreateGenericJSFree(M, !isWasmTarget));
-					Changed = true;
-				}
-				else if (GlobalValue* gv = dyn_cast<GlobalValue>(Usr))
-				{
-					if (gv->getSection() == StringRef("asmjs"))
-					{
-						continue;
-					}
-					U.set(getOrCreateGenericJSFree(M, !isWasmTarget));
-					Changed = true;
-				}
-				else if (Constant* c = dyn_cast<Constant>(Usr))
-				{
-					if (isa<Function>(U.get()) && cheerp::isFreeFunctionName(cast<Function>(U.get())->getName()))
-					{
-						usesToBeReplaced.push_back(&U);
-						Changed = true;
-					}
-				}
-				else
-				{
-					U.set(getOrCreateGenericJSFree(M, !isWasmTarget));
-					Changed = true;
-				}
-
-			}
-		}
-		else if (f.getIntrinsicID() == Intrinsic::cheerp_deallocate)
+		auto UI = f.use_begin(), E = f.use_end();
+		for (; UI != E;)
 		{
-			auto UI = f.use_begin(), E = f.use_end();
-			for (; UI != E;)
+			Use &U = *UI;
+			++UI;
+			User* Usr = U.getUser();
+			if (CallBase* call = dyn_cast<CallBase>(Usr))
 			{
-				Use &U = *UI;
-				++UI;
-				if (CallInst* call = dyn_cast<CallInst>(U.getUser()))
+				auto* elemTy = dyn_cast_or_null<StructType>(call->getParamElementType(0));
+				if (!isWasmTarget || (elemTy && !elemTy->hasAsmJS()))
 				{
-					bool asmjs = call->getParent()->getParent()->getSection()==StringRef("asmjs");
-					if (asmjs)
-						continue;
-					Type* ty = call->getOperand(0)->getType();
-					assert(isa<PointerType>(ty));
-					// TODO add the elementtype attribute to cheerp_deallocate calls and use the type
-					// to delete the call for genericjs structs
-					if (!isWasmTarget)
-					{
-						deleteInstructionAndUnusedOperands(call);
-						Changed = true;
-					}
-					else
-					{
-						U.set(getOrCreateGenericJSFree(M, false));
-					}
+					deleteInstructionAndUnusedOperands(call);
+					Changed = true;
+					continue;
 				}
 			}
+
+			usesToBeReplaced.push_back(&U);
+			Changed = true;
 		}
 
 		{
