@@ -2883,7 +2883,7 @@ void CheerpWasmWriter::allocateSimpleType(WasmBuffer& code, Type* Ty, const Valu
 				compileOperand(code, init);
 			else
 				encodeInst(WasmOpcode::F32_CONST, code);
-				encodeF32(0, code);
+			encodeF32(0, code);
 			break;
 		}
 		case Type::DoubleTyID:
@@ -2892,7 +2892,7 @@ void CheerpWasmWriter::allocateSimpleType(WasmBuffer& code, Type* Ty, const Valu
 				compileOperand(code, init);
 			else
 				encodeInst(WasmOpcode::F64_CONST, code);
-				encodeF64(0, code);
+			encodeF64(0, code);
 			break;
 		}
 		case Type::PointerTyID:
