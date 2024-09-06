@@ -388,14 +388,14 @@ bool StoreMerging::processBlockOfStores(const std::unordered_map<const llvm::Val
 		{
 			assert(strategy == LOAD);
 			LoadInst* lowLoad = cast<LoadInst>(lowValue);
-			Value* loadBitcast = builder.CreateBitCast(lowLoad->getPointerOperand(), bigType->getPointerTo());
+			Value* loadBitcast = builder.CreateBitOrPointerCast(lowLoad->getPointerOperand(), bigType->getPointerTo(lowLoad->getPointerOperand()->getType()->getPointerAddressSpace()));
 			LoadInst* newLoad = builder.CreateLoad(bigType, loadBitcast);
 			newLoad->setAlignment(llvm::Align(alignment));
 			sum = newLoad;
 		}
 
 		//BitCast the pointer operand
-		Value* bitcast = builder.CreateBitCast(lowStore->getPointerOperand(), bigType->getPointerTo());
+		Value* bitcast = builder.CreateBitCast(lowStore->getPointerOperand(), bigType->getPointerTo(lowStore->getPointerOperand()->getType()->getPointerAddressSpace()));
 
 		//Actually create the store
 		StoreInst* biggerStore = cast<StoreInst>(builder.CreateStore(sum, bitcast));
