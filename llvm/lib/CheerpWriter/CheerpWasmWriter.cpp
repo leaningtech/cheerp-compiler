@@ -88,8 +88,19 @@ static uint32_t getValType(const Type* t)
 		return 0x7d;
 	else if (t->isDoubleTy())
 		return 0x7c;
-	else if (t->isPointerTy())
-		return 0x6f;
+	else if (auto* pt = dyn_cast<PointerType>(t))
+	{
+		switch(getCheerpAS(pt))
+		{
+			case CheerpAS::Client:
+			case CheerpAS::GenericJS:
+				return 0x6f;
+			case CheerpAS::WasmGC:
+				return 0x6e;
+			default:
+				llvm_unreachable("unsupported");
+		}
+	}
 	else if (t->isVectorTy())
 		return 0x7b;
 	else
@@ -6769,10 +6780,28 @@ void CheerpWasmWriter::compileStorageType(Section& section, const Type* Ty)
 {
 	if (isNumberType(Ty) || Ty->isVectorTy())
 		encodeValType(Ty, section);
-	else if (Ty->isAggregateType() || Ty->isPointerTy())
+	else if (Ty->isAggregateType())
 	{
 		// nullable anyref
+		// TODO maybe not nullable? 
 		encodeULEB128(0x6e, section);
+	}
+	else if (auto* PTy = dyn_cast<PointerType>(Ty))
+	{
+		switch (getCheerpAS(PTy))
+		{
+			case CheerpAS::Client:
+			case CheerpAS::GenericJS:
+				// nullable externref
+				encodeULEB128(0x6f, section);
+				break;
+			case CheerpAS::WasmGC:
+				// nullable anyref
+				encodeULEB128(0x6e, section);
+				break;
+			default:
+				llvm_unreachable("unsupported");
+		}
 	}
 	else
 	{
@@ -6926,7 +6955,9 @@ void CheerpWasmWriter::compileArrayType(Section& section, const ArrayType* aTy)
 	for (size_t i = 0; i < sTy->getStructNumElements(); i++)
 	{
 		Type* elemTy = sTy->getStructElementType(i);
-		if (types.useWrapperArrayForMember(PA, const_cast<StructType*>(sTy), i))
+		// NOTE: hasName is just a hack to force the regular pointer type to not have
+		// a wrapper array for the offset field. TODO fix this properly
+		if (types.useWrapperArrayForMember(PA, const_cast<StructType*>(sTy), i) && sTy->hasName())
 			compileStorageType(section, ArrayType::get(elemTy, 1));
 		else
 			compileStorageType(section, elemTy);

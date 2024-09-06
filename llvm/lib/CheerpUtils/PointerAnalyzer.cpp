@@ -44,6 +44,7 @@ static POINTER_KIND getPointerKindForType(const Type* t) {
 		case CheerpAS::Client: {
 			return COMPLETE_OBJECT;
 		}
+		case CheerpAS::WasmGC:
 		case CheerpAS::GenericJS: {
 			return REGULAR;
 		}
