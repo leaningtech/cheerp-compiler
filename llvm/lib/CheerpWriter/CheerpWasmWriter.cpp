@@ -3750,6 +3750,46 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 							llvm::report_fatal_error("missing free definition");
 						break;
 					}
+					case Intrinsic::cheerp_typed_ptrcast:
+					{
+						Type* DestTy = ci.getRetElementType();
+						uint32_t idx = 0;
+						if (DestTy->isIntegerTy(8))
+						{
+							idx = heapGlobals[HEAP8];
+						}
+						else if (DestTy->isIntegerTy(16))
+						{
+							idx = heapGlobals[HEAP16];
+						}
+						else if (DestTy->isIntegerTy(32))
+						{
+							idx = heapGlobals[HEAP32];
+						}
+						else if (DestTy->isIntegerTy(64))
+						{
+							idx = heapGlobals[HEAP64];
+						}
+						else if (DestTy->isFloatTy())
+						{
+							idx = heapGlobals[HEAPF32];
+						}
+						else if (DestTy->isDoubleTy())
+						{
+							idx = heapGlobals[HEAPF64];
+						}
+						else
+						{
+							report_fatal_error("unknown base type");
+						}
+						encodeInst(WasmU32Opcode::GET_GLOBAL, idx, code);
+						compileOperand(code, ci.getOperand(0));
+						uint32_t TypeSize = targetData.getTypeAllocSize(DestTy);
+						size_t Shift = Log2_32(TypeSize);
+						encodeInst(WasmS32Opcode::I32_CONST, Shift, code);
+						encodeInst(WasmOpcode::I32_SHR_U, code);
+						return true;
+					}
 					case Intrinsic::eh_typeid_for:
 					{
 						auto& local = landingPadTable.getLocalTypeIdMap(currentFun);
@@ -7200,7 +7240,7 @@ void CheerpWasmWriter::compileTypeSection()
 	section.encode();
 }
 
-void CheerpWasmWriter::compileImport(WasmBuffer& code, StringRef funcName, FunctionType* fTy)
+void CheerpWasmWriter::compileImport(WasmBuffer& code, StringRef funcName, const FunctionType* fTy)
 {
 	std::string fieldName;
 	std::string moduleName;
