@@ -566,7 +566,8 @@ static Function* getOrCreateGenericJSFree(Module& M, bool isAllGenericJS)
 {
 	Function* Orig = M.getFunction("free");
 	assert(Orig);
-	FunctionType* Ty = Orig->getFunctionType();
+	Type* JSVoidPtr = IntegerType::get(M.getContext(), 8)->getPointerTo(unsigned(CheerpAS::GenericJS));
+	FunctionType* Ty = FunctionType::get(Orig->getReturnType(), {JSVoidPtr}, false);
 	Function* New = getOrCreateFunction(M, Ty, "__genericjs__free", CheerpAS::Client, /*isExternal*/true);
 	if (!New->empty())
 		return New;
@@ -576,10 +577,9 @@ static Function* getOrCreateGenericJSFree(Module& M, bool isAllGenericJS)
 
 	if (!isAllGenericJS)
 	{
-		Type* VoidPtr = IntegerType::get(M.getContext(), 8)->getPointerTo();
-		Type* Tys[] = { VoidPtr };
-		Function *GetBase = Intrinsic::getDeclaration(&M, Intrinsic::cheerp_is_linear_heap, Tys);
-		Function *ElemSize = Intrinsic::getDeclaration(&M, Intrinsic::cheerp_pointer_elem_size, Tys);
+		Type* WasmVoidPtr = IntegerType::get(M.getContext(), 8)->getPointerTo(unsigned(CheerpAS::Wasm));
+		Function *GetBase = Intrinsic::getDeclaration(&M, Intrinsic::cheerp_is_linear_heap, {JSVoidPtr});
+		Function *ElemSize = Intrinsic::getDeclaration(&M, Intrinsic::cheerp_pointer_elem_size, {JSVoidPtr});
 
 		BasicBlock* ExitBlock = BasicBlock::Create(M.getContext(), "exitblk", New);
 		BasicBlock* ForwardBlock = BasicBlock::Create(M.getContext(), "fwdblk", New);
@@ -592,11 +592,11 @@ static Function* getOrCreateGenericJSFree(Module& M, bool isAllGenericJS)
 		Builder.CreateRetVoid();
 
 		Builder.SetInsertPoint(ForwardBlock);
-		Function *PtrOffset = Intrinsic::getDeclaration(&M, Intrinsic::cheerp_pointer_offset, Tys);
+		Function *PtrOffset = Intrinsic::getDeclaration(&M, Intrinsic::cheerp_pointer_offset, {JSVoidPtr});
 		CallInst* Offset = Builder.CreateCall(PtrOffset, Params);
 		CallInst* Size = Builder.CreateCall(ElemSize, Params);
 		Value* OffsetShifted = Builder.CreateMul(Offset, Size);
-		Value* OffsetP = Builder.CreateIntToPtr(OffsetShifted, VoidPtr);
+		Value* OffsetP = Builder.CreateIntToPtr(OffsetShifted, WasmVoidPtr);
 		Value* Params2[] = { OffsetP };
 		Builder.CreateCall(Orig, Params2);
 	}
