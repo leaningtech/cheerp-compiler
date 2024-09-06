@@ -291,7 +291,7 @@ public:
 		return typesUsedForDynResizeFuncTypes;
 	}
 	
-	const TypeToIndexMap getDynResizeFuncTypeIndices() const {
+	const TypeToIndexMap& getDynResizeFuncTypeIndices() const {
 		return resizeArrayFuncTypeIndices;
 	}
 
