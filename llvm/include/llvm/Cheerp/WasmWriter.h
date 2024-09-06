@@ -482,7 +482,7 @@ private:
 	void compileCreateDynamicAllocArrayFunc(WasmBuffer& code, llvm::Type* Ty);
 	void compileResizeArrayFunc(WasmBuffer& code, llvm::Type* Ty);
 	void compileMethod(WasmBuffer& code, const llvm::Function& F);
-	void compileImport(WasmBuffer& code, llvm::StringRef funcName, llvm::FunctionType* FTy);
+	void compileImport(WasmBuffer& code, llvm::StringRef funcName, const llvm::FunctionType* FTy);
 	void compileImportMemory(WasmBuffer& code);
 	void compileGlobal(const llvm::GlobalVariable& G);
 	// Returns true if it has handled local assignent internally
