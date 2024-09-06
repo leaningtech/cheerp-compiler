@@ -3347,7 +3347,6 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 void CheerpWriter::compileGEPBase(const llvm::User* gep_inst, bool forEscapingPointer)
 {
 	SmallVector< const Value*, 8 > indices(std::next(gep_inst->op_begin()), gep_inst->op_end());
-	Type* basePointerType = gep_inst->getOperand(0)->getType();
 	Type* targetType = cast<GEPOperator>(gep_inst)->getResultElementType();
 
 	StructType* containerStructType = dyn_cast<StructType>(getGEPContainerType(gep_inst));
@@ -3498,8 +3497,6 @@ void CheerpWriter::compilePointerAs(const llvm::Value* p, POINTER_KIND kind, PAR
 void CheerpWriter::compileGEPOffset(const llvm::User* gep_inst, PARENT_PRIORITY parentPrio)
 {
 	SmallVector< const Value*, 8 > indices(std::next(gep_inst->op_begin()), gep_inst->op_end());
-	Type* basePointerType = gep_inst->getOperand(0)->getType();
-	Type* targetType = cast<GEPOperator>(gep_inst)->getResultElementType();
 	Type* sourceType = cast<GEPOperator>(gep_inst)->getSourceElementType();
 
 	StructType* containerStructType = dyn_cast<StructType>(getGEPContainerType(gep_inst));
@@ -5275,7 +5272,6 @@ void CheerpWriter::compileBB(const BasicBlock& BB)
 			else
 				sourceMapGenerator->setDebugLoc(nullptr);
 		}
-		bool isDowncast = false;
 		if(const IntrinsicInst* II=dyn_cast<IntrinsicInst>(&I))
 		{
 			//Skip some kind of intrinsics
@@ -5291,8 +5287,6 @@ void CheerpWriter::compileBB(const BasicBlock& BB)
 			{
 				continue;
 			}
-			else if(II->getIntrinsicID()==Intrinsic::cheerp_downcast)
-				isDowncast = true;
 		}
 		if(!I.use_empty() && !I.getType()->isVoidTy())
 		{
