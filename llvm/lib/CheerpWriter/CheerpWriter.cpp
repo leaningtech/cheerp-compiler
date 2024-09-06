@@ -3170,7 +3170,11 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileTerminatorInstru
 						case Registerize::VECTOR:
 							llvm::report_fatal_error("VECTOR register kind should not appear outside of WASM");
 							break;
+						case Registerize::REFERENCE:
+							llvm::report_fatal_error("REFERENCE register kind should not appear outside of WASM");
+							break;
 						case Registerize::OBJECT:
+						{
 							POINTER_KIND k=PA.getPointerKindForReturn(ri.getParent()->getParent());
 							// For SPLIT_REGULAR we return the .d part and store the .o part into oSlot
 							if(k==SPLIT_REGULAR)
@@ -3186,6 +3190,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileTerminatorInstru
 							else
 								compilePointerAs(retVal, k);
 							break;
+						}
 					}
 				}
 			}
@@ -5033,6 +5038,9 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileCallInstruction(
 			case Registerize::VECTOR:
 				llvm::report_fatal_error("VECTOR register kind should not appear outside of WASM");
 				break;
+			case Registerize::REFERENCE:
+				llvm::report_fatal_error("REFERENCE register kind should not appear outside of WASM");
+				break;
 		}
 		return COMPILE_OK;
 	}
@@ -5093,6 +5101,9 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileCallInstruction(
 				break;
 			case Registerize::VECTOR:
 				llvm::report_fatal_error("VECTOR register kind should not appear outside of WASM");
+				break;
+			case Registerize::REFERENCE:
+				llvm::report_fatal_error("REFERENCE register kind should not appear outside of WASM");
 				break;
 			case Registerize::OBJECT:
 				if(PA.getPointerKindAssert(&ci) == SPLIT_REGULAR && !ci.use_empty())
@@ -5849,6 +5860,9 @@ void CheerpWriter::compileMethod(const Function& F)
 				case Registerize::VECTOR:
 					llvm::report_fatal_error("VECTOR register kind should not appear outside of WASM");
 					break;
+				case Registerize::REFERENCE:
+					llvm::report_fatal_error("REFERENCE register kind should not appear outside of WASM");
+					break;
 			}
 			stream << ';' << NewLine;
 		}
@@ -6104,6 +6118,9 @@ void CheerpWriter::compileParamTypeAnnotationsAsmJS(const Function* F)
 				break;
 			case Registerize::VECTOR:
 				llvm::report_fatal_error("VECTOR register kind should not appear outside of WASM");
+				break;
+			case Registerize::REFERENCE:
+				llvm::report_fatal_error("REFERENCE register kind should not appear outside of WASM");
 				break;
 		}
 		stream << ';' << NewLine;
