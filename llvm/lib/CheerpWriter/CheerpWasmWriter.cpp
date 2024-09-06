@@ -1286,7 +1286,6 @@ void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const B
 					}
 					else
 					{
-						POINTER_KIND incomingKind = PA.getPointerKind(incomingElem.first);
 						writer.compilePointerAs(code, incomingElem.first, kind);
 					}
 				}
