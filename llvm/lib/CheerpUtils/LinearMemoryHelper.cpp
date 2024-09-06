@@ -690,9 +690,9 @@ Type* LinearMemoryHelper::getRegularType(void) const
 
 	// Since ArrayTypes get converted to anyref in wasm we use a basic array
 	// to represent all other reference types
-	Type* arrTy = ArrayType::get(IntegerType::get(CTX, 32), 1);
+	Type* ptrTy = PointerType::get(IntegerType::getInt8Ty(CTX), unsigned(CheerpAS::WasmGC));
 	Type* intTy = IntegerType::get(CTX, 32);
-	Type* regularObjectType = StructType::get(CTX, {arrTy, intTy}, false, NULL, false, false, true);
+	Type* regularObjectType = StructType::get(CTX, {ptrTy, intTy}, false, NULL, false, false, true);
 	return regularObjectType;
 }
 
@@ -700,10 +700,8 @@ Type* LinearMemoryHelper::getSplitRegularType(void) const
 {
 	LLVMContext& CTX = module->getContext();
 
-	// Since ArrayTypes get converted to anyref in wasm we use a basic array
-	// to represent all other reference types
-	Type* aTy = ArrayType::get(IntegerType::get(CTX, 32), 1);
-	Type* splitRegularType = ArrayType::get(aTy, 1);
+	Type* ptrTy = PointerType::get(IntegerType::getInt8Ty(CTX), unsigned(CheerpAS::WasmGC));
+	Type* splitRegularType = ArrayType::get(ptrTy, 1);
 	return splitRegularType;
 }
 
@@ -792,32 +790,16 @@ const llvm::FunctionType* LinearMemoryHelper::createExpandedFunctionType(const P
 		argumentLocalIds[currentArgIndex] = currentLocalId;
 		if (arg->getType()->isPointerTy() && PA->getPointerKindForArgument(&*arg) == SPLIT_REGULAR && !PA->getConstantOffsetForPointer(&*arg))
 		{
-			newArgs.push_back(getSplitRegularType());
+			newArgs.push_back(arg->getType());
 			newArgs.push_back(IntegerType::get(module->getContext(), 32));
 			currentLocalId++;
 		}
-		else if (arg->getType()->isPointerTy() && PA->getPointerKindForArgument(&*arg) == REGULAR && !PA->getConstantOffsetForPointer(&*arg))
-			newArgs.push_back(getRegularType());
 		else
 			newArgs.push_back(arg->getType());
 		currentLocalId++;
 		currentArgIndex++;
 	}
 
-	if (returnTy->isPointerTy())
-	{
-		POINTER_KIND kind = PA->getPointerKindForReturn(F);
-
-		if (kind == REGULAR)
-			returnTy = getRegularType();
-		else if (kind == COMPLETE_OBJECT)
-		{
-			// TODO: Does this work for double pointers etc?
-			returnTy = returnTy->getPointerElementType();
-		}
-		else if (kind == SPLIT_REGULAR)
-			returnTy = getSplitRegularType();
-	}
 	const FunctionType* newFTy = FunctionType::get(returnTy, newArgs, F->isVarArg());
 	expandedFunctionTypes[F] = newFTy;
 	localIdsForArguments.emplace(F, std::move(argumentLocalIds));
@@ -855,7 +837,6 @@ void LinearMemoryHelper::addFunctions(const PointerAnalyzer* PA)
 	std::vector<const llvm::Function*> unsorted;
 	for (auto& F: module->functions())
 	{
-		// add every asmjs function that contains test in its name
 		if (F.getSection() != StringRef("asmjs"))
 			continue;
 
