@@ -7535,6 +7535,71 @@ void CheerpWasmWriter::compileMemorySection()
 	}
 }
 
+void CheerpWasmWriter::compileReservedGlobals(Section& section)
+{
+	// Start the stack from the end of default memory
+	stackTopGlobal = usedGlobals++;
+	int32_t stackTop = linearHelper.getStackStart();
+	// The stack top global has type i32 (0x7f) and is mutable (0x01).
+	encodeULEB128(0x7f, section);
+	encodeULEB128(0x01, section);
+	// The global value is a 'i32.const' literal.
+	encodeLiteralType(Type::getInt32Ty(Ctx), section);
+	encodeSLEB128(stackTop, section);
+	// Encode the end of the instruction sequence.
+	encodeULEB128(0x0b, section);
+
+	// The oSlot global, i32 and mutable
+	oSlotGlobal = usedGlobals++;
+	encodeULEB128(0x7f, section);
+	encodeULEB128(0x01, section);
+	// Initialize it to 0
+	encodeLiteralType(Type::getInt32Ty(Ctx), section);
+	encodeSLEB128(0, section);
+	// Encode the end of the instruction sequence.
+	encodeULEB128(0x0b, section);
+
+	// The nullArray global, reference of an array containing a null reference
+	nullArrayGlobal = usedGlobals++;
+	const int32_t splitRegIdx = linearHelper.getSplitRegularObjectIdx();
+	// Immutable reference type
+	encodeULEB128(0x63, section);
+	encodeSLEB128(splitRegIdx, section);
+	encodeULEB128(0x00, section);
+	// Create the array
+	encodeInst(WasmU32Opcode::REF_NULL, 0x6E, section);
+	encodeInst(WasmGCOpcode::ARRAY_NEW_FIXED, splitRegIdx, 1, section);
+	// Encode the end of the instruction sequence.
+	encodeULEB128(0x0b, section);
+
+	// The nullObj global, reference of a regular pointer kind struct containing the null array
+	nullObjGlobal = usedGlobals++;
+	const int32_t regularIdx = linearHelper.getRegularObjectIdx();
+	// Immutable reference type
+	encodeULEB128(0x63, section);
+	encodeSLEB128(regularIdx, section);
+	encodeULEB128(0x00, section);
+	// Create the struct
+	encodeInst(WasmU32Opcode::GET_GLOBAL, nullArrayGlobal, section); // .d
+	encodeInst(WasmS32Opcode::I32_CONST, 0, section); // .o
+	encodeInst(WasmGCOpcode::STRUCT_NEW, regularIdx, section);
+	// Encode the end of the instruction sequence.
+	encodeULEB128(0x0b, section);
+
+	// The HEAP types (HEAP8, HEAP16, ...)
+	for (uint32_t heapType = 0; heapType < HEAP_TYPES::HEAP_COUNT; heapType++)
+	{
+		// The heapGlobals have the type externref (0x6f) and are mutable (0x01)
+		heapGlobals[heapType] = usedGlobals++;
+		encodeULEB128(0x6f, section);
+		encodeULEB128(0x01, section);
+		// Initialize it to null
+		encodeInst(WasmU32Opcode::REF_NULL, 0x6f, section);
+		// Encode the end of the instruction sequence.
+		encodeULEB128(0x0b, section);
+	}
+}
+
 void CheerpWasmWriter::compileGlobalSection()
 {
 	// Temporary map for the globalized constants. We update the global one at the end, to avoid
@@ -7620,8 +7685,11 @@ void CheerpWasmWriter::compileGlobalSection()
 
 	std::sort(orderedConstants.begin(), orderedConstants.end());
 
+	// Number of reserved globals: stackTopGlobal, oSlotGlobal, nullArrayGlobal, nullObjGlobal and the heapGlobals
+	const uint32_t reservedGlobalsCount = 4 + heapGlobals.size();
+
 	// Assign global ids
-	uint32_t globalId = 4; // Skip stackTopGlobal, oSlotGlobal, nullArrayGlobal and nullObjGlobal
+	uint32_t globalId = reservedGlobalsCount;
 	for(uint32_t i=0;i<orderedConstants.size();i++)
 	{
 		GlobalConstant& GC = orderedConstants[i];
@@ -7655,58 +7723,10 @@ void CheerpWasmWriter::compileGlobalSection()
 	{
 		Section section(0x06, "Global", this);
 
-		// Start the stack from the end of default memory
-		stackTopGlobal = usedGlobals++;
-		int32_t stackTop = linearHelper.getStackStart();
+		// Amount of globals: the reserved globals, globalized constants and regular globals
+		encodeULEB128(reservedGlobalsCount + globalizedConstantsTmp.size() + globalizedGlobalsIDs.size(), section);
 
-		// The stack, oSlot, nullArray, nullObj and the globalized constants
-		encodeULEB128(4 + globalizedConstantsTmp.size() + globalizedGlobalsIDs.size(), section);
-
-		// The stack top global has type i32 (0x7f) and is mutable (0x01).
-		encodeULEB128(0x7f, section);
-		encodeULEB128(0x01, section);
-		// The global value is a 'i32.const' literal.
-		encodeLiteralType(Type::getInt32Ty(Ctx), section);
-		encodeSLEB128(stackTop, section);
-		// Encode the end of the instruction sequence.
-		encodeULEB128(0x0b, section);
-
-		// The oSlot global, i32 and mutable
-		oSlotGlobal = usedGlobals++;
-		encodeULEB128(0x7f, section);
-		encodeULEB128(0x01, section);
-		// Initialize it to 0
-		encodeLiteralType(Type::getInt32Ty(Ctx), section);
-		encodeSLEB128(0, section);
-		// Encode the end of the instruction sequence.
-		encodeULEB128(0x0b, section);
-
-		// The nullArray global, reference of an array containing a null reference
-		nullArrayGlobal = usedGlobals++;
-		const int32_t splitRegIdx = linearHelper.getSplitRegularObjectIdx();
-		// Immutable reference type
-		encodeULEB128(0x63, section);
-		encodeSLEB128(splitRegIdx, section);
-		encodeULEB128(0x00, section);
-		// Create the array
-		encodeInst(WasmU32Opcode::REF_NULL, 0x6E, section);
-		encodeInst(WasmGCOpcode::ARRAY_NEW_FIXED, splitRegIdx, 1, section);
-		// Encode the end of the instruction sequence.
-		encodeULEB128(0x0b, section);
-
-		// The nullObj global, reference of a regular pointer kind struct containing the null array
-		nullObjGlobal = usedGlobals++;
-		const int32_t regularIdx = linearHelper.getRegularObjectIdx();
-		// Immutable reference type
-		encodeULEB128(0x63, section);
-		encodeSLEB128(regularIdx, section);
-		encodeULEB128(0x00, section);
-		// Create the struct
-		encodeInst(WasmU32Opcode::GET_GLOBAL, nullArrayGlobal, section); // .d
-		encodeInst(WasmS32Opcode::I32_CONST, 0, section); // .o
-		encodeInst(WasmGCOpcode::STRUCT_NEW, regularIdx, section);
-		// Encode the end of the instruction sequence.
-		encodeULEB128(0x0b, section);
+		compileReservedGlobals(section);
 
 		// Render globals in reverse order
 		for(auto it = orderedConstants.begin(); it != orderedConstants.end(); ++it)

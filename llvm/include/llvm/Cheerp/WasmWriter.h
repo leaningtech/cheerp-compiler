@@ -111,12 +111,23 @@ private:
 
 	TypeSupport types;
 
+	enum HEAP_TYPES {
+		HEAP8=0,
+		HEAP16,
+		HEAP32,
+		HEAPF32,
+		HEAPF64,
+		HEAP64,
+		HEAP_COUNT
+	};
+
 	// Codegen custom globals
 	uint32_t usedGlobals;
 	uint32_t stackTopGlobal;
 	uint32_t oSlotGlobal;
 	uint32_t nullArrayGlobal;
 	uint32_t nullObjGlobal;
+	std::array<uint32_t, HEAP_TYPES::HEAP_COUNT> heapGlobals;
 
 	// The wasm module heap size
 	uint32_t heapSize;
@@ -458,6 +469,7 @@ private:
 	void compilePackedType(Section& section, const llvm::Type* Ty);
 	void compileStorageType(Section& section, const llvm::Type* Ty);
 
+	void compileReservedGlobals(Section& section);
 	void compileBranchTable(WasmBuffer& code, const llvm::SwitchInst* si,
 		const std::vector<std::pair<int, int>>& cases);
 	void compileCondition(WasmBuffer& code, const llvm::Value* cond, bool booleanInvert);
