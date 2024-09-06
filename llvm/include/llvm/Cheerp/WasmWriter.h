@@ -576,6 +576,7 @@ public:
 		landingPadTable(landingPadTable),
 		namegen(namegen),
 		allocaStoresExtractor(allocaStoresExtractor),
+		types(m),
 		usedGlobals(0),
 		stackTopGlobal(0),
 		oSlotGlobal(0),
@@ -589,8 +590,7 @@ public:
 		exportedTable(exportedTable),
 		PA(PA),
 		inlineableCache(PA),
-		stream(s),
-		types(m)
+		stream(s)
 	{
 	}
 	void makeWasm();
