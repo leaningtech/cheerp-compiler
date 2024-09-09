@@ -541,7 +541,7 @@ void LinearMemoryHelper::cacheDowncastArrayClasses(DirectBaseToSubTypesMap& subT
 {
 	TypeSupport types(*module);
 
-	for (auto *sTy : globalDeps->classesWithBaseInfo())
+	for (auto *sTy : globalDeps->classesWithBaseInfoWasm())
 	{
 		cacheDowncastArrayClassesRecursive(sTy, types, subTypeMap);
 	}
@@ -993,7 +993,7 @@ if (!functionTypeIndices.count(fTy)) { \
 	}
 
 	// Assign the function types ids for the downcast array initializer functions
-	for (auto sTy : globalDeps->classesWithBaseInfo())
+	for (auto sTy : globalDeps->classesWithBaseInfoWasm())
 	{
 		assert(downcastFuncTypeIndices.find(sTy) == downcastFuncTypeIndices.end());
 		assert(downcastFuncIds.find(sTy) == downcastFuncIds.end());
@@ -1002,7 +1002,7 @@ if (!functionTypeIndices.count(fTy)) { \
 	}
 
 	// Assign the indices used for the create pointer array function
-	if (globalDeps->needCreatePointerArray())
+	if (globalDeps->needCreatePointerArrayWasm())
 	{
 		createPointerArrayFuncTypeIndex = maxTypeIdx++;
 		createPointerArrayFuncId = maxFunctionId++;
@@ -1010,7 +1010,7 @@ if (!functionTypeIndices.count(fTy)) { \
 
 	bool addedSplitRegular = false;
 	// Assign the function ids used for creating dynamically allocated arrays with unknown sizes
-	for (auto Ty : globalDeps->dynAllocArrays())
+	for (auto Ty : globalDeps->dynAllocArraysWasm())
 	{
 		// We only need to create separate functions for arrays of aggregate types,
 		// all other types can be initialized through ARRAY_NEW_DEFAULT
@@ -1030,7 +1030,7 @@ if (!functionTypeIndices.count(fTy)) { \
 	// Assign the ids used for the functions responsible for resizing arrays of different types
 	int32_t resizeArrayFuncTypeIndexWithSplitReg;
 	addedSplitRegular = false;
-	for (auto Ty : globalDeps->dynResizeArrays())
+	for (auto Ty : globalDeps->dynResizeArraysWasm())
 	{
 		// All aggregate and pointer types can be collapsed into a split regular type,
 		// doing this will save on the amount of function types we have to create

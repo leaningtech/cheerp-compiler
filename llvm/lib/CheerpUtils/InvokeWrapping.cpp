@@ -230,7 +230,7 @@ void LandingPadTable::populate(Module& M, GlobalDepsAnalyzer& GDA)
 
 	if (v.size() > 8)
 	{
-		GDA.insertDynAllocArray(elemTy);
+		GDA.insertDynAllocArrayJs(elemTy);
 	}
 }
 

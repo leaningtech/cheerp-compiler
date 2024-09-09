@@ -180,7 +180,7 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 	useTypesSet constructorTypes;
 	useTypesSet arrayTypes;
 	useTypesSet resizeTypes;
-	for(Type* T: gda.classesWithBaseInfo())
+	for(Type* T: gda.classesWithBaseInfoJs())
 	{
 		classTypes.insert(std::make_pair(1,T));
 	}
@@ -188,11 +188,11 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 	{
 		constructorTypes.insert(std::make_pair(1,T));
 	}
-	for(Type* T: gda.dynAllocArrays())
+	for(Type* T: gda.dynAllocArraysJs())
 	{
 		arrayTypes.insert(std::make_pair(1,T));
 	}
-	for(Type* T: gda.dynResizeArrays())
+	for(Type* T: gda.dynResizeArraysJs())
 	{
 		resizeTypes.insert(std::make_pair(1,T));
 	}
@@ -604,7 +604,7 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 		}
 	}
 
-	for(Type* T: gda.classesWithBaseInfo())
+	for(Type* T: gda.classesWithBaseInfoJs())
 	{
 		if(isa<StructType>(T) && cast<StructType>(T)->hasName())
 		{
@@ -626,7 +626,7 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 		else
 			constructormap.insert(std::make_pair(T, StringRef("construct_literal" + std::to_string(constructormap.size()))));
 	}
-	for(Type* T: gda.dynAllocArrays())
+	for(Type* T: gda.dynAllocArraysJs())
 	{
 		if(isa<StructType>(T) && cast<StructType>(T)->hasName())
 		{
@@ -637,7 +637,7 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 		else
 			arraymap.insert(std::make_pair(T, StringRef("createArray_literal" + std::to_string(arraymap.size()))));
 	}
-	for(Type* T: gda.dynResizeArrays())
+	for(Type* T: gda.dynResizeArraysJs())
 	{
 		if(isa<StructType>(T) && cast<StructType>(T)->hasName())
 		{

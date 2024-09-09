@@ -317,7 +317,7 @@ uint32_t CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style, Str
 		{
 			if(element->isPointerTy())
 			{
-				assert( globalDeps.needCreatePointerArray() );
+				assert( globalDeps.needCreatePointerArrayJs() );
 				stream << namegen.getBuiltinName(NameGenerator::Builtin::CREATE_POINTER_ARRAY) << "([],0," << at->getNumElements();
 				stream << ',';
 				if(PA.getPointerKindForStoredType(element)==COMPLETE_OBJECT)
@@ -328,7 +328,7 @@ uint32_t CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style, Str
 			}
 			else
 			{
-				assert( globalDeps.dynAllocArrays().count(element) );
+				assert( globalDeps.dynAllocArraysJs().count(element) );
 				stream <<  namegen.getArrayName(element) << "(" << at->getNumElements() << ')';
 			}
 		}

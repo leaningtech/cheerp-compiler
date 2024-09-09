@@ -627,13 +627,13 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 		else
 			stream << "nullObj";
 		stream << ')';
-		assert( globalDeps.needCreatePointerArray() );
+		assert( globalDeps.needCreatePointerArrayJs() );
 	}
 	else if (info.useCreateArrayFunc() )
 	{
 		if (info.getAllocType() == DynamicAllocInfo::cheerp_reallocate)
 		{
-			assert( globalDeps.dynResizeArrays().count(t) );
+			assert( globalDeps.dynResizeArraysJs().count(t) );
 
 			stream << namegen.getArrayResizeName(t) << '(';
 			compilePointerBaseTyped(info.getMemoryArg(), info.getCastedPointedType());
@@ -645,7 +645,7 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 		}
 		else
 		{
-			assert( globalDeps.dynAllocArrays().count(t) );
+			assert( globalDeps.dynAllocArraysJs().count(t) );
 			stream << namegen.getArrayName(t) << '(';
 			compileArraySize(info, /* shouldPrint */true);
 			stream << ')';
@@ -5978,7 +5978,7 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 		{
 			//TODO: Verify that it makes sense to assume struct with no name has no bases
 			if(st->hasName() && module.getNamedMetadata(Twine(st->getName(),"_bases")) &&
-				globalDeps.classesWithBaseInfo().count(st))
+				globalDeps.classesWithBaseInfoJs().count(st))
 			{
 				stream << namegen.getClassName(st) << '(';
 				compilePointerAs(&G, COMPLETE_OBJECT);
@@ -6758,16 +6758,16 @@ void CheerpWriter::compileGenericJS()
 			compileClassConstructor(st);
 	}
 
-	for ( StructType * st : globalDeps.classesWithBaseInfo() )
+	for ( StructType * st : globalDeps.classesWithBaseInfoJs() )
 		compileClassType(st);
 
-	for ( Type * st : globalDeps.dynAllocArrays() )
+	for ( Type * st : globalDeps.dynAllocArraysJs() )
 		compileArrayClassType(st);
 
-	for ( Type * st : globalDeps.dynResizeArrays() )
+	for ( Type * st : globalDeps.dynResizeArraysJs() )
 		compileResizeArrayClassType(st);
 
-	if ( globalDeps.needCreatePointerArray() )
+	if ( globalDeps.needCreatePointerArrayJs() )
 		compileArrayPointerType();
 	
 	//Compile the closure creation helper

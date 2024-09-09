@@ -76,7 +76,7 @@ bool AllocaArrays::replaceAlloca(AllocaInst* ai, cheerp::GlobalDepsAnalyzer& gda
 		DataLayout targetData(M);
 		Type* int32Ty = IntegerType::getInt32Ty(M->getContext());
 		Type* allocTy = ai->getAllocatedType();
-		gda.visitDynSizedAlloca(allocTy);
+		gda.visitDynSizedAllocaJs(allocTy);
 		Function* cheerp_allocate = Intrinsic::getDeclaration(M, Intrinsic::cheerp_allocate, ai->getType());
 
 		IRBuilder<> Builder(ai);

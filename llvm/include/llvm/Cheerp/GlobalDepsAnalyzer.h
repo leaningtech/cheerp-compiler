@@ -72,8 +72,9 @@ public:
 	/**
 	 * Get a list of the classes which require bases info
 	 */
-	const std::unordered_set<llvm::StructType*> & classesWithBaseInfo() const { return classesWithBaseInfoNeeded; }
-	
+	const std::unordered_set<llvm::StructType*> & classesWithBaseInfoJs() const { return classesWithBaseInfoNeededJs; }
+	const std::unordered_set<llvm::StructType*> & classesWithBaseInfoWasm() const { return classesWithBaseInfoNeededWasm; }
+
 	/**
 	 * Get a list of the classes which are allocated in the code
 	 */
@@ -82,13 +83,15 @@ public:
 	/**
 	 * Get a list of the arrays which are dynamically allocated with unknown size
 	 */
-	const std::unordered_set<llvm::Type*> & dynAllocArrays() const { return arraysNeeded; }
+	const std::unordered_set<llvm::Type*> & dynAllocArraysJs() const { return arraysNeededJs; }
+	const std::unordered_set<llvm::Type*> & dynAllocArraysWasm() const { return arraysNeededWasm; }
 
 	/**
 	 * Get a list of the arrays which are dynamically resized
 	 */
-	const std::unordered_set<llvm::Type*> & dynResizeArrays() const { return arrayResizesNeeded; }
-	
+	const std::unordered_set<llvm::Type*> & dynResizeArraysJs() const { return arrayResizesNeededJs; }
+	const std::unordered_set<llvm::Type*> & dynResizeArraysWasm() const { return arrayResizesNeededWasm; }
+
 	/**
 	 * Get a list of the asm.js functions called from genericjs
 	 */
@@ -117,7 +120,8 @@ public:
 	/**
 	 * Determine if we need to compile a createPointerArrays function
 	 */
-	bool needCreatePointerArray() const { return hasPointerArrays; }
+	bool needCreatePointerArrayJs() const { return hasPointerArraysJs; }
+	bool needCreatePointerArrayWasm() const { return hasPointerArraysWasm; }
 
 	/**
 	 * Determine if we need to compile the definition of CheerpException
@@ -128,7 +132,7 @@ public:
 
 	bool runOnModule( llvm::Module & );
 
-	void visitType( llvm::Type* t, bool forceTypedArray );
+	void visitType( llvm::Type* t, bool forceTypedArray, bool isWasm );
 
 	// Visit the `derived` struct and all its bases recursively, looking for `base`.
 	// If there is a match, add `derived` to the classesWithBasesInfoNeeded set.
@@ -162,7 +166,7 @@ public:
 
 	// This is used in InvokeWrapping to insert the array of __cheerp_clause
 	// if it is longer than 8 elements.
-	void insertDynAllocArray(llvm::Type* t);
+	void insertDynAllocArrayJs(llvm::Type* t);
 
 	// Remove function from GDA's function list.
 	void eraseFunction(llvm::Function* F);
@@ -239,10 +243,13 @@ private:
 	std::unordered_set< const llvm::GlobalValue * > reachableGlobals; // Set of all the reachable globals
 	
 	FixupMap varsFixups;
-	std::unordered_set<llvm::StructType* > classesWithBaseInfoNeeded;
+	std::unordered_set<llvm::StructType* > classesWithBaseInfoNeededJs;
+	std::unordered_set<llvm::StructType* > classesWithBaseInfoNeededWasm;
 	std::unordered_set<llvm::StructType* > classesNeeded;
-	std::unordered_set<llvm::Type* > arraysNeeded;
-	std::unordered_set<llvm::Type* > arrayResizesNeeded;
+	std::unordered_set<llvm::Type* > arraysNeededJs;
+	std::unordered_set<llvm::Type* > arraysNeededWasm;
+	std::unordered_set<llvm::Type* > arrayResizesNeededJs;
+	std::unordered_set<llvm::Type* > arrayResizesNeededWasm;
 	DeterministicFunctionSet asmJSExportedFuncions;
 	DeterministicFunctionSet asmJSImportedFuncions;
 
@@ -262,7 +269,8 @@ private:
 	
 	bool hasCreateClosureUsers;
 	bool hasVAArgs;
-	bool hasPointerArrays;
+	bool hasPointerArraysJs;
+	bool hasPointerArraysWasm;
 	bool hasAtomics;
 	bool hasCheerpException;
 
@@ -282,7 +290,7 @@ public:
 	/**
 	 * Visit dynamic-sized allocation
 	 */
-	void visitDynSizedAlloca( llvm::Type* pointedType );
+	void visitDynSizedAllocaJs( llvm::Type* pointedType );
 };
 
 class GlobalDepsAnalysis;

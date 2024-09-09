@@ -3091,7 +3091,7 @@ void CheerpWasmWriter::compileAllocationGC(WasmBuffer& code, const DynamicAllocI
 	int32_t splitRegIdx = linearHelper.getSplitRegularObjectIdx();
 	if (info.useCreatePointerArrayFunc())
 	{
-		assert(globalDeps.needCreatePointerArray());
+		assert(globalDeps.needCreatePointerArrayWasm());
 		if (info.getAllocType() == DynamicAllocInfo::cheerp_reallocate)
 		{
 			compilePointerBaseTyped(code, info.getMemoryArg(), info.getCastedPointedType());
@@ -3123,7 +3123,7 @@ void CheerpWasmWriter::compileAllocationGC(WasmBuffer& code, const DynamicAllocI
 	{
 		if (info.getAllocType() == DynamicAllocInfo::cheerp_reallocate)
 		{
-			assert(globalDeps.dynResizeArrays().count(Ty));
+			assert(globalDeps.dynResizeArraysWasm().count(Ty));
 			auto it = linearHelper.getResizeArrayFuncIds().find(Ty);
 			assert(it != linearHelper.getResizeArrayFuncIds().end());
 			compilePointerBaseTyped(code, info.getMemoryArg(), info.getCastedPointedType());
@@ -7098,12 +7098,10 @@ void CheerpWasmWriter::compileTypeSection()
 	uint32_t currentTypeIdx = 0;
 
 	// Encode number of entries in the type section.
-	// TODO: Right now we take all of the needed functions from the global deps,
-	// this needs to be seperated into JS and WASM
 	size_t typeCount = linearHelper.getGCTypeCount() + \
 						linearHelper.getFunctionTypes().size() + \
-						globalDeps.classesWithBaseInfo().size() + \
-						globalDeps.needCreatePointerArray() + \
+						globalDeps.classesWithBaseInfoWasm().size() + \
+						globalDeps.needCreatePointerArrayWasm() + \
 						(linearHelper.getTypesThatRequireCreateArrayFunc().size() > 0) + \
 						linearHelper.getTypesUsedForDynResizeFuncTypes().size();
 	encodeULEB128(typeCount, section);
@@ -7161,7 +7159,7 @@ void CheerpWasmWriter::compileTypeSection()
 	}
 
 	// Define the function types used for the downcast array initializers
-	for (const auto& sTy : globalDeps.classesWithBaseInfo())
+	for (const auto& sTy : globalDeps.classesWithBaseInfoWasm())
 	{
 		auto it = linearHelper.getDowncastFuncTypeIndices().find(sTy);
 		assert(it != linearHelper.getDowncastFuncTypeIndices().end());
@@ -7181,7 +7179,7 @@ void CheerpWasmWriter::compileTypeSection()
 	}
 
 	// Define the function type used for the CreatePointerArrayFunc function
-	if (globalDeps.needCreatePointerArray())
+	if (globalDeps.needCreatePointerArrayWasm())
 	{
 		assert(currentTypeIdx == (uint32_t) linearHelper.getCreatePointerArrayFuncTypeIndex());
 		encodeULEB128(0x60, section);
@@ -7382,12 +7380,11 @@ void CheerpWasmWriter::compileFunctionSection()
 
 	Section section(0x03, "Function", this);
 
-	// TODO: filter with only the WasmGC types for all the globalDeps
 	uint32_t count = linearHelper.functions().size() + \
-						globalDeps.classesWithBaseInfo().size() + \
-						globalDeps.needCreatePointerArray() + \
-						globalDeps.dynAllocArrays().size() + \
-						globalDeps.dynResizeArrays().size();
+						globalDeps.classesWithBaseInfoWasm().size() + \
+						globalDeps.needCreatePointerArrayWasm() + \
+						globalDeps.dynAllocArraysWasm().size() + \
+						globalDeps.dynResizeArraysWasm().size();
 	count = std::min(count, COMPILE_METHOD_LIMIT); // TODO
 
 	// Encode number of entries in the function section.
@@ -7413,7 +7410,7 @@ void CheerpWasmWriter::compileFunctionSection()
 	}
 
 	// Define the function type ids for the downcast initializer functions
-	for (auto sTy : globalDeps.classesWithBaseInfo())
+	for (auto sTy : globalDeps.classesWithBaseInfoWasm())
 	{
 		const auto& typeIt = linearHelper.getDowncastFuncTypeIndices().find(sTy);
 		const auto& indexIt = linearHelper.getDowncastFuncIds().find(sTy);
@@ -7427,7 +7424,7 @@ void CheerpWasmWriter::compileFunctionSection()
 	}
 
 	// Define the function type id for the create pointer array function
-	if (globalDeps.needCreatePointerArray())
+	if (globalDeps.needCreatePointerArrayWasm())
 	{
 		assert(i == linearHelper.getCreatePointerArrayFuncId());
 		encodeULEB128(linearHelper.getCreatePointerArrayFuncTypeIndex(), section);
@@ -7435,7 +7432,7 @@ void CheerpWasmWriter::compileFunctionSection()
 	}
 
 	// Define the function type ids for the createDynamicArrayAlloc functions
-	for (auto Ty : globalDeps.dynAllocArrays())
+	for (auto Ty : globalDeps.dynAllocArraysWasm())
 	{
 		const auto& indexIt = linearHelper.getCreateArrayFuncIds().find(Ty);
 		assert(indexIt != linearHelper.getCreateArrayFuncIds().end());
@@ -7447,7 +7444,7 @@ void CheerpWasmWriter::compileFunctionSection()
 	}
 
 	// Define the function type ids for the resize array functions
-	for (auto Ty : globalDeps.dynResizeArrays())
+	for (auto Ty : globalDeps.dynResizeArraysWasm())
 	{
 		const auto& typeIt = linearHelper.getDynResizeFuncTypeIndices().find(Ty);
 		const auto& indexIt = linearHelper.getResizeArrayFuncIds().find(Ty);
@@ -7914,12 +7911,11 @@ void CheerpWasmWriter::compileCodeSection()
 	Section codeSection(0x0a, "Code", this);
 	Section branchHintsSection(0x0, "metadata.code.branch_hint", this);
 
-	// TODO: filter with only the WasmGC types for all the globalDeps
 	uint32_t count = linearHelper.functions().size() + \
-						globalDeps.classesWithBaseInfo().size() + \
-						globalDeps.needCreatePointerArray() +\
+						globalDeps.classesWithBaseInfoWasm().size() + \
+						globalDeps.needCreatePointerArrayWasm() + \
 						linearHelper.getTypesThatRequireCreateArrayFunc().size() + \
-						globalDeps.dynResizeArrays().size();
+						globalDeps.dynResizeArraysWasm().size();
 	count = std::min(count, COMPILE_METHOD_LIMIT);
 	encodeULEB128(count, codeSection);		//Encode the number of Wasm functions
 	uint32_t countHinted = 0;
@@ -7972,7 +7968,7 @@ void CheerpWasmWriter::compileCodeSection()
 	}
 
 	// add the downcast initalizer functions
-	for (auto sTy : globalDeps.classesWithBaseInfo())
+	for (auto sTy : globalDeps.classesWithBaseInfoWasm())
 	{
 		Chunk<128> downcastInitMethod;
 
@@ -7990,7 +7986,7 @@ void CheerpWasmWriter::compileCodeSection()
 	}
 
 	// add the createPointerArray function
-	if (globalDeps.needCreatePointerArray())
+	if (globalDeps.needCreatePointerArrayWasm())
 	{
 		Chunk<128> createPointerArray;
 
@@ -8025,7 +8021,7 @@ void CheerpWasmWriter::compileCodeSection()
 	}
 
 	// add the resizeArray functions
-	for (auto Ty : globalDeps.dynResizeArrays())
+	for (auto Ty : globalDeps.dynResizeArraysWasm())
 	{
 		Chunk<128> resizeArrayFunc;
 

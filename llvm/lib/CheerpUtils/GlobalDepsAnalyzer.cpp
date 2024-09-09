@@ -44,8 +44,8 @@ const char* wasmNullptrName = "__wasm_nullptr";
 GlobalDepsAnalyzer::GlobalDepsAnalyzer(MATH_MODE mathMode_, bool llcPass)
 	: hasBuiltin{{false}}, mathMode(mathMode_), DL(NULL),
 	  entryPoint(NULL), hasCreateClosureUsers(false), hasVAArgs(false),
-	  hasPointerArrays(false), hasCheerpException(false), llcPass(llcPass),
-	  hasUndefinedSymbolErrors(false), forceTypedArrays(false)
+	  hasPointerArraysJs(false), hasPointerArraysWasm(false), hasCheerpException(false),
+	  llcPass(llcPass), hasUndefinedSymbolErrors(false), forceTypedArrays(false)
 {
 }
 static void createNullptrFunction(llvm::Module& module)
@@ -1164,7 +1164,9 @@ void GlobalDepsAnalyzer::visitGlobal( const GlobalValue * C, VisitedSet & visite
 				visitConstant( GV->getInitializer(), visited, Newsubexpr);
 				Type* globalType = GV->getInitializer()->getType();
 				if(GV->getSection() != StringRef("asmjs"))
-					visitType(globalType, /*forceTypedArray*/ false);
+					visitType(globalType, /*forceTypedArray*/ false, false);
+				else if (TypeSupport::isTypeGC(GV->getType()))
+					visitType(globalType, false, true);
 			}
 			varsOrder.push_back(GV);
 		}
@@ -1223,14 +1225,14 @@ void GlobalDepsAnalyzer::visitConstant( const Constant * C, VisitedSet & visited
 	}
 }
 
-void GlobalDepsAnalyzer::visitDynSizedAlloca( llvm::Type* pointedType )
+void GlobalDepsAnalyzer::visitDynSizedAllocaJs( llvm::Type* pointedType )
 {
 	if(TypeSupport::isTypedArrayType(pointedType, forceTypedArrays))
 		return;
 	else if(pointedType->isPointerTy())
-		hasPointerArrays = true;
+		hasPointerArraysJs = true;
 	else
-		arraysNeeded.insert( pointedType );
+		arraysNeededJs.insert( pointedType );
 }
 
 void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
@@ -1266,7 +1268,9 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 			{
 				Type* allocaType = AI->getAllocatedType();
 				if(!isAsmJS)
-					visitType(allocaType, forceTypedArrays);
+					visitType(allocaType, forceTypedArrays, false);
+				else if (TypeSupport::isTypeGC(allocaType))
+					visitType(allocaType, forceTypedArrays, true);
 			}
 			else if ( const CallBase* CB = dyn_cast<CallBase>(&I) )
 			{
@@ -1275,13 +1279,27 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 				{
 					assert(!TypeSupport::isAsmJSPointed(ai.getCastedPointedType()));
 					if ( ai.useCreatePointerArrayFunc() )
-						hasPointerArrays = true;
+						hasPointerArraysJs = true;
 					else if ( ai.useCreateArrayFunc() )
 					{
 						if ( ai.getAllocType() == DynamicAllocInfo::cheerp_reallocate )
-							arrayResizesNeeded.insert( ai.getCastedPointedType() );
+							arrayResizesNeededJs.insert( ai.getCastedPointedType() );
 						else
-							arraysNeeded.insert( ai.getCastedPointedType() );
+							arraysNeededJs.insert( ai.getCastedPointedType() );
+					}
+					if ( StructType* ST = dyn_cast<StructType>(ai.getCastedPointedType()) )
+						visitStruct(ST);
+				}
+				else if ( isAsmJS && ai.isValidAlloc() && TypeSupport::isTypeGC(ai.getCastedPointedType()) )
+				{
+					if ( ai.useCreatePointerArrayFunc() )
+						hasPointerArraysWasm = true;
+					else if ( ai.useCreateArrayFunc() )
+					{
+						if ( ai.getAllocType() == DynamicAllocInfo::cheerp_reallocate )
+							arrayResizesNeededWasm.insert( ai.getCastedPointedType() );
+						else
+							arraysNeededWasm.insert( ai.getCastedPointedType() );
 					}
 					if ( StructType* ST = dyn_cast<StructType>(ai.getCastedPointedType()) )
 						visitStruct(ST);
@@ -1432,7 +1450,10 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 		{
 			if (TypeSupport::hasBasesInfoMetadata(st, *F->getParent()))
 			{
-				classesWithBaseInfoNeeded.insert(st);
+				if (TypeSupport::isTypeGC(st))
+					classesWithBaseInfoNeededWasm.insert(st);
+				else
+					classesWithBaseInfoNeededJs.insert(st);
 				visitStruct(st);
 				break;
 			}
@@ -1479,7 +1500,10 @@ void GlobalDepsAnalyzer::visitVirtualcastBases(StructType* derived, StructType* 
 		if (direct == base)
 		{
 			visitedClasses.emplace(derived, true);
-			classesWithBaseInfoNeeded.insert(derived);
+			if (TypeSupport::isTypeGC(derived))
+				classesWithBaseInfoNeededWasm.insert(derived);
+			else
+				classesWithBaseInfoNeededJs.insert(derived);
 			return;
 		}
 	}
@@ -1498,7 +1522,10 @@ void GlobalDepsAnalyzer::visitVirtualcastBases(StructType* derived, StructType* 
 			if (visitedClasses[st])
 			{
 				visitedClasses.emplace(derived, true);
-				classesWithBaseInfoNeeded.insert(derived);
+				if (TypeSupport::isTypeGC(derived))
+					classesWithBaseInfoNeededWasm.insert(derived);
+				else
+					classesWithBaseInfoNeededJs.insert(derived);
 				return;
 			}
 		}
@@ -1506,7 +1533,7 @@ void GlobalDepsAnalyzer::visitVirtualcastBases(StructType* derived, StructType* 
 	visitedClasses.emplace(derived, false);
 }
 
-void GlobalDepsAnalyzer::visitType( Type* t, bool forceTypedArray )
+void GlobalDepsAnalyzer::visitType( Type* t, bool forceTypedArray, bool isWasm )
 {
 	if( ArrayType* AT=dyn_cast<ArrayType>(t) )
 	{
@@ -1514,10 +1541,17 @@ void GlobalDepsAnalyzer::visitType( Type* t, bool forceTypedArray )
 		if(elementType->isStructTy() && cast<StructType>(elementType)->hasAsmJS())
 			return;
 		else if(elementType->isPointerTy())
-			hasPointerArrays = true;
-		else if(!TypeSupport::isTypedArrayType(elementType, forceTypedArray) && AT->getNumElements() > 8)
-			arraysNeeded.insert(elementType);
-		visitType(elementType, forceTypedArray);
+		{
+			if (isWasm && TypeSupport::isTypeGC(AT))
+				hasPointerArraysWasm = true;
+			else if (!isWasm)
+				hasPointerArraysJs = true;
+		}
+		else if(!TypeSupport::isTypedArrayType(elementType, forceTypedArray) && AT->getNumElements() > 8 && !isWasm)
+			arraysNeededJs.insert(elementType);
+		else if (isWasm && TypeSupport::isTypeGC(AT))
+			arraysNeededWasm.insert(elementType);
+		visitType(elementType, forceTypedArray, isWasm);
 	}
 	else if( StructType* ST=dyn_cast<StructType>(t) )
 		visitStruct(ST);
@@ -1525,13 +1559,14 @@ void GlobalDepsAnalyzer::visitType( Type* t, bool forceTypedArray )
 
 void GlobalDepsAnalyzer::visitStruct( StructType* ST )
 {
-	if(ST->hasByteLayout() || ST->hasAsmJS())
+	if(ST->hasByteLayout() || (ST->hasAsmJS() && !TypeSupport::isTypeGC(ST)))
 		return;
 	if (ST->hasName() && ST->getName() == "class._ZN6client15CheerpExceptionE")
 		hasCheerpException = true;
-	classesNeeded.insert(ST);
+	if (!ST->hasAsmJS())
+		classesNeeded.insert(ST);
 	for(uint32_t i=0;i<ST->getNumElements();i++)
-		visitType(ST->getElementType(i), /*forceTypedArray*/ false);
+		visitType(ST->getElementType(i), /*forceTypedArray*/ false, ST->hasAsmJS());
 }
 
 llvm::StructType* GlobalDepsAnalyzer::needsDowncastArray(llvm::StructType* t) const
@@ -1539,7 +1574,7 @@ llvm::StructType* GlobalDepsAnalyzer::needsDowncastArray(llvm::StructType* t) co
 	// True if the struct or any of its direct bases is used in a downcast
 	while(t)
 	{
-		if(classesWithBaseInfoNeeded.count(t))
+		if(classesWithBaseInfoNeededJs.count(t) || classesWithBaseInfoNeededWasm.count(t))
 			return t;
 		t=t->getDirectBase();
 	}
@@ -1689,8 +1724,8 @@ void GlobalDepsAnalyzer::removeAsmJSImport(const llvm::Function* F) {
 	asmJSImportedFuncions.erase(F);
 }
 
-void GlobalDepsAnalyzer::insertDynAllocArray(Type* t) {
-	arraysNeeded.insert(t);
+void GlobalDepsAnalyzer::insertDynAllocArrayJs(Type* t) {
+	arraysNeededJs.insert(t);
 }
 
 void GlobalDepsAnalyzer::eraseFunction(llvm::Function* F) {

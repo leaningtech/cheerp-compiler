@@ -531,7 +531,7 @@ bool AllocaArraysMerging::runOnFunction(Function& F, cheerp::PointerAnalyzer& PA
 			// Build new alloca
 			Type* newAllocaType = ArrayType::get(elementType, arraysToMerge.getNewSize());
 			// Add the new struct type to the GlobalDepsAnalyzer, it may need the createArray helper
-			GDA.visitType(newAllocaType, /*forceTypedArray*/ false);
+			GDA.visitType(newAllocaType, /*forceTypedArray*/ false, false);
 			// Find out the insertion point
 			Instruction* insertionPoint = nullptr;
 			for(auto it: arraysToMerge)
