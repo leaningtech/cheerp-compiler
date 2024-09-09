@@ -6237,17 +6237,17 @@ void CheerpWriter::compileAssignHeaps(bool wasm)
 	const std::string shortestName = namegen.getShortestLocalName();
 	int last = wasm ? LAST_WASM : LAST_ASMJS;
 
-	if (isHeapNameUsed(HEAP64) && !UseBigInts)
-	{
-		llvm_unreachable("Unexpected BigInt");
-	}
+	//if (isHeapNameUsed(HEAP64) && !UseBigInts)
+	//{
+	//	llvm_unreachable("Unexpected BigInt");
+	//}
 
 	stream << "function " << namegen.getBuiltinName(NameGenerator::Builtin::ASSIGN_HEAPS) << "(" << shortestName << "){" << NewLine;
 	for (int i = HEAP8; i<=last; i++)
 	{
-		if (!isHeapNameUsed(i))
-			continue;
-		stream << getHeapName(i) << "=new " << typedArrayNames[i] << "(" << shortestName << ");" << NewLine;
+		//if (!isHeapNameUsed(i))
+		//	continue;
+		stream << "__asm."<< getHeapName(i) << ".value="<< getHeapName(i) << "=new " << typedArrayNames[i] << "(" << shortestName << ");" << NewLine;
 	}
 	stream << "}" << NewLine;
 }
@@ -6802,8 +6802,8 @@ void CheerpWriter::compileWasmLoader()
 	stream << "var ";
 	for (int i = HEAP8; i<=LAST_WASM; i++)
 	{
-		if (!isHeapNameUsed(i))
-			continue;
+		//if (!isHeapNameUsed(i))
+		//	continue;
 		stream << getHeapName(i) << "=null,";
 	}
 	stream << "__asm=null,";

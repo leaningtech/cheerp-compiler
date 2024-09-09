@@ -7770,8 +7770,24 @@ void CheerpWasmWriter::compileExportSection()
 
 	// We may need to export the table and/or the memory.
 	bool exportMemory = WasmExportedMemory || !useWasmLoader;
-	uint32_t extraExports = uint32_t(exportedTable) + uint32_t(exportMemory);
+	uint32_t extraExports = uint32_t(exportedTable) + uint32_t(exportMemory) + heapGlobals.size();
 	encodeULEB128(exports.size() + extraExports, section);
+
+	// Encode the heap globals
+	auto exportHeapN = [&](auto namegenID, auto globalID)
+	{
+		StringRef name = namegen.getBuiltinName(namegenID);
+		encodeULEB128(name.size(), section);
+		section.write(name.data(), name.size());
+		encodeULEB128(0x03, section);
+		encodeULEB128(heapGlobals[globalID], section);
+	};
+	exportHeapN(NameGenerator::HEAP8, HEAP8);
+	exportHeapN(NameGenerator::HEAP16, HEAP16);
+	exportHeapN(NameGenerator::HEAP32, HEAP32);
+	exportHeapN(NameGenerator::HEAP64, HEAP64);
+	exportHeapN(NameGenerator::HEAPF32, HEAPF32);
+	exportHeapN(NameGenerator::HEAPF64, HEAPF64);
 
 	if (exportMemory)
 	{
