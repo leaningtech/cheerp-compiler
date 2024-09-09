@@ -147,10 +147,9 @@ private:
 	// local variable.
 	std::vector<int> localMap;
 
-	// TODO: move to a utils file
-	// Used to keep track of the index of elements inside structs,
-	// the vector contains the index of split regulars without a constant offset.
-	std::unordered_map<const llvm::StructType*, std::unordered_map<uint32_t, uint32_t>> structElemIdxCache;
+	// Used to keep track of the index of elements inside structs.
+	// The expanded offset can be retrieved by indexing on the vector with the non-expanded offset
+	std::unordered_map<const llvm::StructType*, std::vector<uint32_t>> structElemIdxCache;
 
 	// Returns the index inside the struct where the downcast array is located
 	std::unordered_map<const llvm::StructType*, uint32_t> downcastArrayIndices;

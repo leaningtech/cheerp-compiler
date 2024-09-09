@@ -6900,6 +6900,7 @@ uint32_t CheerpWasmWriter::getExpandedStructElemIdx(const StructType* sTy, uint3
 	auto it = structElemIdxCache.find(sTy);
 	if (it == structElemIdxCache.end())
 		return (elemIdx);
+	assert(elemIdx < it->second.size());
 	return (it->second[elemIdx]);
 }
 
@@ -6929,6 +6930,7 @@ uint32_t CheerpWasmWriter::calculateAndCacheElemInfo(const StructType* sTy)
 	}
 
 	const uint32_t numElems = sTy->getStructNumElements();
+	structElemIdxCache[sTy].reserve(numElems);
 	for (uint32_t i = 0; i < numElems; i++)
 	{
 		structElemIdxCache[sTy][i] = currIndex;
