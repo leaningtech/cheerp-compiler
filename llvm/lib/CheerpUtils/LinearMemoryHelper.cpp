@@ -980,16 +980,9 @@ if (!functionTypeIndices.count(fTy)) { \
 		t.second.offset = offset;
 		offset += t.second.functions.size();
 		
-		//TODO: check typeIndex
-		size_t typeIndex = 0;
-		for (auto& fTy : functionTypes) {
-			if (FunctionSignatureCmp(/*isStrict*/false)(t.first, fTy))
-				break;
-			typeIndex++;
-		}
-		t.second.typeIndex = typeIndex;
-		// TODO: this assert will fail because we added the GC types in front of the functions
-		// assert(typeIndex < functionTypes.size());
+		auto it = functionTypeIndices.find(t.first);
+		assert(it != functionTypeIndices.end());
+		t.second.typeIndex = it->second;
 	}
 
 	// Assign the function types ids for the downcast array initializer functions
