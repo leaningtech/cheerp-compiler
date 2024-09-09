@@ -429,6 +429,15 @@ bool PointerUsageVisitor::visitRawChain( const Value * p)
 		{
 			return true;
 		}
+		else if (const SelectInst* si = dyn_cast<SelectInst>(p))
+		{
+			bool allRawOperands = true;
+			for (unsigned int i = 1; i < si->getNumOperands(); i++)
+				if (!visitRawChain(si->getOperand(i)))
+					allRawOperands = false;
+			if (allRawOperands)
+				return true;
+		}
 		top = cast<Instruction>(p)->getParent()->getParent();
 	}
 	else if (isa<Argument>(p) )
