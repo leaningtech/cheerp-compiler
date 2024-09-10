@@ -625,17 +625,12 @@ static void	addBasicArrayTypes(std::vector<const llvm::Type *>& unsorted, llvm::
 */
 int32_t LinearMemoryHelper::getGCTypeIndex(const llvm::Type* Ty, POINTER_KIND kind, bool needsDowncastArray) const
 {
-	// TODO: clean the logic of this function up, its messy
-	assert(Ty->isPointerTy() || Ty->isAggregateType() || kind == SPLIT_REGULAR);
+	assert(Ty->isAggregateType() || kind == SPLIT_REGULAR || kind == REGULAR);
 
-	if (kind == COMPLETE_OBJECT) // TODO: What to return with a CONSTANT? the same as a COMPLETE_OBJECT?
+	if (kind == COMPLETE_OBJECT || kind == CONSTANT)
 	{
-		Type* elemTy;
-		const StructType* sTy = dyn_cast<StructType>(Ty);
-		if (!sTy && Ty->isPointerTy())
-			sTy = dyn_cast<StructType>(Ty->getPointerElementType());
-
-		if (sTy)
+		assert(!Ty->isPointerTy());
+		if (const StructType* sTy = dyn_cast<StructType>(Ty))
 		{
 			const auto& found = GCTypeIndices.find(sTy);
 			assert(found != GCTypeIndices.end());
@@ -652,23 +647,26 @@ int32_t LinearMemoryHelper::getGCTypeIndex(const llvm::Type* Ty, POINTER_KIND ki
 			}
 			return (typeIdx);
 		}
-		else if (Ty->isArrayTy())
-			elemTy = Ty->getArrayElementType();
+		else if (const ArrayType* aTy = dyn_cast<ArrayType>(Ty))
+		{
+			Type* elemTy = Ty->getArrayElementType();
+
+			// return the index for an array of anyref
+			if (elemTy->isAggregateType() || elemTy->isPointerTy())
+				return (splitRegularObjectIdx);
+
+			// convert the array to a size of 1 so we can retrieve the type idx
+			const auto& found = GCTypeIndices.find(getTypeAsArrayType(elemTy));
+			assert(found != GCTypeIndices.end());
+			return (found->second);
+		}
 		else
-			elemTy = Ty->getPointerElementType();
-
-		// return the index for an array of anyref
-		if (elemTy->isAggregateType() || elemTy->isPointerTy())
-			return (splitRegularObjectIdx);
-
-		// convert the array to a size of 1 so we can retrieve the type idx
-		const auto& found = GCTypeIndices.find(getTypeAsArrayType(elemTy));
-		assert(found != GCTypeIndices.end());
-		return (found->second);
+			report_fatal_error("unable to find type index", false);
 	}
 	else if (kind == SPLIT_REGULAR)
 	{
 		// since we can't detect arrays of non GC types as a GC type yet we use this for now
+		assert(Ty->isPointerTy() || Ty->isAggregateType());
 		return (splitRegularObjectIdx);
 		// TODO: use this once we can detect split regulars of non GC type kinds
 			// if (Ty->isPointerTy() || Ty->isAggregateType())
@@ -679,7 +677,11 @@ int32_t LinearMemoryHelper::getGCTypeIndex(const llvm::Type* Ty, POINTER_KIND ki
 			// return (found->second);
 	}
 	else if (kind == REGULAR)
+	{
+		assert(Ty->isPointerTy() || Ty->isAggregateType());
 		return (regularObjectIdx);
+		// TODO: add regular objects for non GC type kinds
+	}
 	else
 		report_fatal_error("unexpected pointer kind", false);
 }

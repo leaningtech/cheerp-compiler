@@ -1756,8 +1756,13 @@ void CheerpWasmWriter::compileConstant(WasmBuffer& code, const Constant* c, bool
 			POINTER_KIND kind = PA.getPointerKind(c);
 			if (kind == COMPLETE_OBJECT || kind == CONSTANT)
 			{
-				int32_t typeIdx = linearHelper.getGCTypeIndex(c->getType(), COMPLETE_OBJECT);
-				encodeInst(WasmS32Opcode::REF_NULL, typeIdx, code);
+				if (!c->getType()->isOpaquePointerTy())
+				{
+					int32_t typeIdx = linearHelper.getGCTypeIndex(c->getType()->getNonOpaquePointerElementType(), COMPLETE_OBJECT);
+					encodeInst(WasmS32Opcode::REF_NULL, typeIdx, code);
+				}
+				else
+					encodeInst(WasmU32Opcode::REF_NULL, 0x6E, code);
 			}
 			else
 				encodeInst(WasmU32Opcode::GET_GLOBAL, nullObjGlobal, code);
@@ -2240,9 +2245,8 @@ void CheerpWasmWriter::compileDowncastGC(WasmBuffer& code, const CallBase* callV
 	}
 	else
 	{
-		Type* returnTy = callV->getType();
-		int32_t returnTypeIdx = linearHelper.getGCTypeIndex(returnTy, COMPLETE_OBJECT, true);
-		StructType* sTy = cast<StructType>(returnTy->getPointerElementType());
+		StructType* sTy = cast<StructType>(callV->getType()->getPointerElementType());
+		int32_t returnTypeIdx = linearHelper.getGCTypeIndex(sTy, COMPLETE_OBJECT, true);
 		//Do a runtime downcast
 		if(result_kind == SPLIT_REGULAR)
 		{
@@ -2296,8 +2300,8 @@ void CheerpWasmWriter::compileDowncastGC(WasmBuffer& code, const CallBase* callV
 		}
 		else
 		{
-			const int32_t typeIdx = linearHelper.getGCTypeIndex(src->getType(), COMPLETE_OBJECT, true);
 			const StructType* sTy = cast<StructType>(src->getType()->getPointerElementType());
+			const int32_t typeIdx = linearHelper.getGCTypeIndex(sTy, COMPLETE_OBJECT, true);
 			assert(downcastArrayIndices.find(sTy) != downcastArrayIndices.end());
 			assert(linearHelper.hasDowncastArray(sTy));
 
@@ -2401,10 +2405,15 @@ void CheerpWasmWriter::compileDowncast(WasmBuffer& code, const CallBase* callV)
 
 void CheerpWasmWriter::compileRefCast(WasmBuffer& code, const Type* Ty, POINTER_KIND kind)
 {
-	if (TypeSupport::isTypeGC(Ty))
+	if (TypeSupport::isTypeGC(Ty) && !Ty->isOpaquePointerTy())
 	{
+		int32_t typeIdx;
+		if (Ty->isPointerTy())
+			typeIdx = linearHelper.getGCTypeIndex(Ty->getNonOpaquePointerElementType(), kind);
+		else
+			typeIdx = linearHelper.getGCTypeIndex(Ty, kind);
 		encodeInst(WasmGCOpcode::REF_CAST_NULL, code);
-		encodeSLEB128(linearHelper.getGCTypeIndex(Ty, kind), code);
+		encodeSLEB128(typeIdx, code);
 	}
 }
 
@@ -2478,6 +2487,7 @@ void CheerpWasmWriter::compileLoadGC(WasmBuffer& code, const LoadInst& li, Type*
 	// we can get the correct type index and reference cast
 	if (loadedType->isPointerTy())
 	{
+		assert(!loadedType->isOpaquePointerTy());
 		loadedType = loadedType->getNonOpaquePointerElementType();
 		loadedPtrKind = PA.getPointerKind(&li);
 		if (loadedPtrKind == REGULAR && PA.getConstantOffsetForPointer(&li))
@@ -2494,10 +2504,9 @@ void CheerpWasmWriter::compileLoadGC(WasmBuffer& code, const LoadInst& li, Type*
 	else if (kind == COMPLETE_OBJECT)
 	{
 		const GetElementPtrInst* gep_inst = cast<GetElementPtrInst>(ptrOp);
-		Type* targetType = getGEPContainerType(gep_inst);
+		StructType* sTy = cast<StructType>(getGEPContainerType(gep_inst));
 		int32_t elemIdx = cast<ConstantInt>(std::prev(gep_inst->op_end())->get())->getLimitedValue();
 		// If a wrapper array was used we load from the array instead
-		StructType* sTy = cast<StructType>(targetType);
 		if (types.useWrapperArrayForMember(PA, sTy, elemIdx))
 		{
 			assert(!isOffset);
@@ -2506,7 +2515,7 @@ void CheerpWasmWriter::compileLoadGC(WasmBuffer& code, const LoadInst& li, Type*
 		}
 		else
 		{
-			const int32_t typeIdx = linearHelper.getGCTypeIndex(targetType, kind);
+			const int32_t typeIdx = linearHelper.getGCTypeIndex(sTy, kind);
 			elemIdx = getExpandedStructElemIdx(sTy, elemIdx);
 			// Load the offset instead
 			if (isOffset)
@@ -2604,11 +2613,10 @@ void CheerpWasmWriter::compileStoreGC(WasmBuffer& code, const StoreInst& si, Typ
 	else if (ptrKind == POINTER_KIND::COMPLETE_OBJECT)
 	{
 		const GetElementPtrInst* gep_inst = cast<GetElementPtrInst>(ptrOp);
-		Type* targetType = getGEPContainerType(gep_inst);
+		StructType* sTy = cast<StructType>(getGEPContainerType(gep_inst));
 		int32_t elemIdx = cast<ConstantInt>(std::prev(gep_inst->op_end())->get())->getLimitedValue();
 
 		// If a wrapper array was used we store into the array instead
-		StructType* sTy = cast<StructType>(targetType);
 		if (types.useWrapperArrayForMember(PA, sTy, elemIdx))
 		{
 			const int32_t arrayTypeIdx = linearHelper.getGCTypeIndex(storedType, SPLIT_REGULAR);
@@ -2616,7 +2624,7 @@ void CheerpWasmWriter::compileStoreGC(WasmBuffer& code, const StoreInst& si, Typ
 		}
 		else
 		{
-			const int32_t typeIdx = linearHelper.getGCTypeIndex(targetType, ptrKind);
+			const int32_t typeIdx = linearHelper.getGCTypeIndex(sTy, ptrKind);
 			elemIdx = getExpandedStructElemIdx(sTy, elemIdx);
 
 			// Store into the offset instead
@@ -2905,8 +2913,13 @@ void CheerpWasmWriter::allocateSimpleType(WasmBuffer& code, Type* Ty, const Valu
 				assert(kind != RAW);
 				if (kind == COMPLETE_OBJECT)
 				{
-					int32_t typeIdx = linearHelper.getGCTypeIndex(Ty, kind);
-					encodeInst(WasmS32Opcode::REF_NULL, typeIdx, code);
+					if (!Ty->isOpaquePointerTy())
+					{
+						int32_t typeIdx = linearHelper.getGCTypeIndex(Ty->getNonOpaquePointerElementType(), kind);
+						encodeInst(WasmS32Opcode::REF_NULL, typeIdx, code);
+					}
+					else
+						encodeInst(WasmU32Opcode::REF_NULL, 0x6E, code);
 				}
 				else if (kind == RAW)
 					encodeInst(WasmS32Opcode::I32_CONST, 0, code);
@@ -3013,21 +3026,20 @@ void CheerpWasmWriter::allocateComplexType(WasmBuffer& code, Type* Ty, bool hasD
 				encodeInst(WasmS32Opcode::I32_CONST, 0, code);
 			}
 		}
-		uint32_t typeIdx = linearHelper.getGCTypeIndex(Ty, COMPLETE_OBJECT, hasDowncastArray);
+		uint32_t typeIdx = linearHelper.getGCTypeIndex(sTy, COMPLETE_OBJECT, hasDowncastArray);
 		encodeInst(WasmGCOpcode::STRUCT_NEW, typeIdx, code);
 
 		// TODO: is this correct? JS has it only for objects marked with a LITERAL_OBJ style
 		if (globalDeps.needsDowncastArray(sTy))
 			callDowncastArrayInit(code, sTy);
 	}
-	else
+	else if (ArrayType* aTy = dyn_cast<ArrayType>(Ty))
 	{
-		ArrayType* aTy = cast<ArrayType>(Ty);
 		Type* elemTy = aTy->getElementType();
 		bool elemHasDowncast = false;
 		if (auto sTy = dyn_cast<StructType>(elemTy))
 			elemHasDowncast = sTy->hasDirectBase() && linearHelper.hasDowncastArray(sTy);
-		uint32_t typeIdx = linearHelper.getGCTypeIndex(Ty, COMPLETE_OBJECT);
+		uint32_t typeIdx = linearHelper.getGCTypeIndex(aTy, COMPLETE_OBJECT);
 		for (uint64_t i = 0; i < aTy->getNumElements(); i++)
 		{
 			uint32_t elementSize = targetData.getTypeAllocSize(aTy->getElementType());
@@ -3050,6 +3062,8 @@ void CheerpWasmWriter::allocateComplexType(WasmBuffer& code, Type* Ty, bool hasD
 		}
 		encodeInst(WasmGCOpcode::ARRAY_NEW_FIXED, typeIdx, aTy->getArrayNumElements(), code);
 	}
+	else
+		report_fatal_error("unsupported complex type found", false);
 }
 
 void CheerpWasmWriter::allocateTypeGC(WasmBuffer& code, Type* allocaType, bool hasDowncastArray, const AllocaStoresExtractor::OffsetToValueMap *offsetToValueMap)
@@ -4431,8 +4445,25 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 					// encode the vector for the result type, length must be 1
 					encodeULEB128(1, code);
 					// encode the result type
-					encodeULEB128(0x63, code);
-					encodeSLEB128(linearHelper.getGCTypeIndex(Ty, COMPLETE_OBJECT), code);
+					if (Ty->isOpaquePointerTy())
+					{
+						// nullable anyref
+						encodeULEB128(0x6e, code);
+					}
+					else
+					{
+						int32_t typeIdx;
+						if (Ty->isPointerTy())
+						{
+							// TODO: can we have different pointer kinds returning from SELECTs?
+							POINTER_KIND kind = PA.getPointerKind(&si);
+							typeIdx = linearHelper.getGCTypeIndex(Ty->getNonOpaquePointerElementType(), kind);
+						}
+						else
+							typeIdx = linearHelper.getGCTypeIndex(Ty, COMPLETE_OBJECT);
+						encodeULEB128(0x63, code);
+						encodeSLEB128(typeIdx, code);
+					}
 				}
 				else
 					encodeInst(WasmOpcode::SELECT, code);
@@ -5172,7 +5203,7 @@ void CheerpWasmWriter::compileAccessToElement(WasmBuffer& code, Type* tp, ArrayR
 			assert(isa<ConstantInt>(indices[i]));
 			const APInt& index = cast<Constant>(indices[i])->getUniqueInteger();
 
-			uint32_t structIndex = linearHelper.getGCTypeIndex(tp, COMPLETE_OBJECT);
+			uint32_t structIndex = linearHelper.getGCTypeIndex(st, COMPLETE_OBJECT);
 			const Type* elemTy = st->getStructElementType(index.getLimitedValue());
 			POINTER_KIND elemPtrKind = COMPLETE_OBJECT;
 			uint64_t elemIdx = index.getLimitedValue();
@@ -5226,7 +5257,7 @@ void CheerpWasmWriter::compileAccessToElement(WasmBuffer& code, Type* tp, ArrayR
 			if (!compileFullAccess && i == indices.size()-1)
 				return ;
 
-			uint32_t arrayIndex = linearHelper.getGCTypeIndex(tp, COMPLETE_OBJECT);
+			uint32_t arrayIndex = linearHelper.getGCTypeIndex(at, COMPLETE_OBJECT);
 			encodeInst(WasmGCOpcode::ARRAY_GET, arrayIndex, code);
 			compileRefCast(code, at->getArrayElementType(), COMPLETE_OBJECT);
 			tp = at->getElementType();
@@ -5264,8 +5295,7 @@ void CheerpWasmWriter::compileGEPGC(WasmBuffer& code, const User* gep_inst, POIN
 	// the RAW kind to null pointers
 	if (isa<ConstantPointerNull>(gep_inst->getOperand(0)))
 	{
-		const int32_t idx = linearHelper.getGCTypeIndex(gep_inst->getOperand(0)->getType(), kind);
-		encodeInst(WasmS32Opcode::REF_NULL, idx, code);
+		compileConstant(code, cast<ConstantPointerNull>(gep_inst->getOperand(0)), false);
 	}
 	else if (kind == COMPLETE_OBJECT)
 	{
@@ -5535,6 +5565,7 @@ void CheerpWasmWriter::compileCompleteObject(WasmBuffer& code, const Value* p, c
 			uint32_t typeIdx = linearHelper.getGCTypeIndex(p->getType(), SPLIT_REGULAR);
 			encodeInst(WasmGCOpcode::ARRAY_GET, typeIdx, code);
 			compileRefCast(code, p->getType(), COMPLETE_OBJECT); // TODO: Is it possible for the array to contain other pointer kinds?
+			assert(!p->getType()->isPointerTy());
 		}
 	}
 	else
@@ -5696,6 +5727,7 @@ void CheerpWasmWriter::compilePointerBaseTyped(WasmBuffer& code, const Value* pt
 		(isa<ConstantExpr>(ptr) && cast<ConstantExpr>(ptr)->getOpcode() == Instruction::Select))
 	{
 		const User* u = cast<User>(ptr);
+		const Type* Ty = u->getOperand(1)->getType();
 		compileOperand(code, u->getOperand(0));
 		compilePointerBase(code, u->getOperand(1), 1);
 		compilePointerBase(code, u->getOperand(2), 2);
@@ -5703,8 +5735,25 @@ void CheerpWasmWriter::compilePointerBaseTyped(WasmBuffer& code, const Value* pt
 		// encode the vector for the result type, length must be 1
 		encodeULEB128(1, code);
 		// encode the result type
-		encodeULEB128(0x63, code);
-		encodeSLEB128(linearHelper.getGCTypeIndex(u->getOperand(1)->getType(), COMPLETE_OBJECT), code);
+		if (Ty->isOpaquePointerTy())
+		{
+			// nullable anyref
+			encodeULEB128(0x6e, code);
+		}
+		else
+		{
+			int32_t typeIdx;
+			if (Ty->isPointerTy())
+			{
+				// TODO: can we have different pointer kinds returning from SELECTs?
+				POINTER_KIND kind = PA.getPointerKind(ptr);
+				typeIdx = linearHelper.getGCTypeIndex(Ty->getNonOpaquePointerElementType(), kind);
+			}
+			else
+				typeIdx = linearHelper.getGCTypeIndex(Ty, COMPLETE_OBJECT);
+			encodeULEB128(0x63, code);
+			encodeSLEB128(typeIdx, code);
+		}
 		assert(false); // TODO: find a testcase
 		return;
 	}
@@ -5919,9 +5968,22 @@ void CheerpWasmWriter::compileMethodResult(WasmBuffer& code, const Type* ty)
 	encodeULEB128(1, code);
 	if (TypeSupport::isTypeGC_arraysTrue(ty))
 	{
-		// Nullable reference
-		encodeULEB128(0x63, code);
-		encodeSLEB128(linearHelper.getGCTypeIndex(ty, COMPLETE_OBJECT), code);
+		if (ty->isOpaquePointerTy())
+		{
+			// nullable anyref
+			encodeULEB128(0x6e, code);
+		}
+		else
+		{
+			// nullable reference
+			int32_t typeIdx;
+			if (ty->isPointerTy())
+				typeIdx = linearHelper.getGCTypeIndex(ty->getNonOpaquePointerElementType(), COMPLETE_OBJECT);
+			else
+				typeIdx = linearHelper.getGCTypeIndex(ty, COMPLETE_OBJECT);
+			encodeULEB128(0x63, code);
+			encodeSLEB128(typeIdx, code);
+		}
 	}
 	else
 		encodeValType(ty, code);
@@ -7136,7 +7198,7 @@ void CheerpWasmWriter::compileTypeSection()
 			if (!sTy->hasDirectBase() && linearHelper.hasDowncastArray(sTy))
 			{
 				currentTypeIdx++;
-				assert(currentTypeIdx == (uint32_t) linearHelper.getGCTypeIndex(Ty, COMPLETE_OBJECT, true));
+				assert(currentTypeIdx == (uint32_t) linearHelper.getGCTypeIndex(sTy, COMPLETE_OBJECT, true));
 				compileRootStructWithDowncastArray(section, sTy);
 			}
 		}
