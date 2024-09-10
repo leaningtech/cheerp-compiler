@@ -386,7 +386,6 @@ public:
 		llvm::SmallString<8> buf;
 		llvm::raw_svector_ostream wbuf(buf);
 		encodeInst(WasmU32Opcode::TEE_LOCAL, localId, wbuf);
-		llvm::errs() << "[putNOP] encoding TEE_LOCAL id: " << localId << "\n";
 		uint32_t teeSize = wbuf.tell();
 		if (!isValueUsed)
 		{
