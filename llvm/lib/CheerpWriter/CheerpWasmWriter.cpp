@@ -3419,7 +3419,6 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			const Function * calledFunc = ci.getCalledFunction();
 			const Value * calledValue = ci.getCalledOperand();
 			const FunctionType* fTy = ci.getFunctionType();
-			// const FunctionType* fTy = linearHelper.getExpandedFunctionType(calledFunc);
 			if (ci.isInlineAsm())
 			{
 				// TODO: remove is TMP for GC testing
@@ -5949,13 +5948,42 @@ void CheerpWasmWriter::compileMethodLocals(WasmBuffer& code, const vector<int>& 
 	}
 }
 
+uint32_t CheerpWasmWriter::getFunctionTypeArgumentCount(const FunctionType* fTy)
+{
+	uint32_t argumentCount = 0;
+	for (int i = 0; i < fTy->getNumParams(); i++)
+	{
+		Type* currTy = fTy->getParamType(i);
+		if (currTy->isPointerTy())
+		{
+			POINTER_KIND kind = PA.getPointerKindForStoredType(currTy);
+			// TODO: Currently not taking into account constant offsets
+			if (kind == REGULAR || kind == SPLIT_REGULAR)
+				argumentCount++;
+		}
+		argumentCount++;
+	}
+	return argumentCount;
+}
+
 void CheerpWasmWriter::compileMethodParams(WasmBuffer& code, const FunctionType* fTy)
 {
-	uint32_t numArgs = fTy->getNumParams();
-		encodeULEB128(numArgs, code);
+	uint32_t numArgs = getFunctionTypeArgumentCount(fTy);
+	encodeULEB128(numArgs, code);
 
-	for(uint32_t i = 0; i < numArgs; i++)
-		encodeValType(fTy->getParamType(i), code);
+	const IntegerType* intTy = IntegerType::get(module.getContext(), 32);
+	for(uint32_t i = 0; i < fTy->getNumParams(); i++)
+	{
+		Type* currTy = fTy->getParamType(i);
+		encodeValType(currTy, code);
+		if (currTy->isPointerTy())
+		{
+			POINTER_KIND kind = PA.getPointerKindForStoredType(currTy);
+			// TODO: Currently not taking into account constant offsets
+			if (kind == REGULAR || kind == SPLIT_REGULAR)
+				encodeValType(intTy, code);
+		}
+	}
 }
 
 void CheerpWasmWriter::compileMethodResult(WasmBuffer& code, const Type* ty)
@@ -6720,7 +6748,7 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F)
 	assert(!F.empty());
 	currentFun = &F;
 
-	uint32_t numArgs = linearHelper.getExpandedFunctionType(&F)->getFunctionNumParams();
+	uint32_t numArgs = getFunctionTypeArgumentCount(F.getFunctionType());
 	const llvm::BasicBlock* lastDepth0Block = nullptr;
 
 	const std::vector<Registerize::RegisterInfo>& regsInfo = registerize.getRegistersForFunction(&F);
@@ -7400,7 +7428,7 @@ void CheerpWasmWriter::compileImportSection()
 	for (const Function* F : globalDeps.asmJSImports())
 	{
 		StringRef name = useWasmLoader ? namegen.getName(F, 0) : F->getName();
-		compileImport(section, name, linearHelper.getExpandedFunctionType(F));
+		compileImport(section, name, F->getFunctionType());
 	}
 
 	Type* f64 = Type::getDoubleTy(module.getContext());
@@ -7457,7 +7485,7 @@ void CheerpWasmWriter::compileFunctionSection()
 	// Define function type ids
 	size_t i = numberOfImportedFunctions;
 	for (const Function* F : linearHelper.functions()) {
-		const FunctionType* fTy = linearHelper.getExpandedFunctionType(F);
+		const FunctionType* fTy = F->getFunctionType();
 		const auto& typeIt = linearHelper.getFunctionTypeIndices().find(fTy);
 		const auto& indexIt = linearHelper.getFunctionIds().find(F);
 

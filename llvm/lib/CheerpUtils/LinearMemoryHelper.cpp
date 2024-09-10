@@ -770,46 +770,30 @@ void LinearMemoryHelper::addGCTypes()
 }
 
 /**
- * Create a FunctionType* that includes expanded SPLIT_REGULAR and REGULAR pointer kinds
- * Also caches the localIds for the arguments where the number of the argument can be used to retrieve the localId
+ * Caches the localIds for the arguments where the number of the argument can be used to retrieve the localId
 */
-const llvm::FunctionType* LinearMemoryHelper::createExpandedFunctionType(const PointerAnalyzer* PA, const llvm::Function* F)
+void LinearMemoryHelper::cacheFunctionArgumentLocalIds(const PointerAnalyzer* PA, const Function* F)
 {
-	auto it = expandedFunctionTypes.find(F);
-	if (it != expandedFunctionTypes.end())
-		return (it->second);
-	
-	std::vector<Type*> newArgs;
-	std::vector<uint32_t> argumentLocalIds(F->arg_size());
-	Type* returnTy = F->getReturnType();
+	auto it = localIdsForArguments.find(F);
+	if (it != localIdsForArguments.end())
+		return ;
 
 	uint32_t currentLocalId = 0;
 	uint32_t currentArgIndex = 0;
+	std::vector<uint32_t> argumentLocalIds(F->arg_size());
 	for(auto arg = F->arg_begin(); arg != F->arg_end(); arg++)
 	{
 		argumentLocalIds[currentArgIndex] = currentLocalId;
-		if (arg->getType()->isPointerTy() && PA->getPointerKindForArgument(&*arg) == SPLIT_REGULAR && !PA->getConstantOffsetForPointer(&*arg))
+		if (arg->getType()->isPointerTy() && PA->getPointerKindForArgument(&*arg) == SPLIT_REGULAR)
 		{
-			newArgs.push_back(arg->getType());
-			newArgs.push_back(IntegerType::get(module->getContext(), 32));
+			// TODO: Currently all SPLIT_REGULAR pointerkinds are encoded with an offset inside the WasmWriter
+			assert(!PA->getConstantOffsetForPointer(&*arg));
 			currentLocalId++;
 		}
-		else
-			newArgs.push_back(arg->getType());
 		currentLocalId++;
 		currentArgIndex++;
 	}
-
-	const FunctionType* newFTy = FunctionType::get(returnTy, newArgs, F->isVarArg());
-	expandedFunctionTypes[F] = newFTy;
 	localIdsForArguments.emplace(F, std::move(argumentLocalIds));
-	return (newFTy);
-}
-
-const FunctionType* LinearMemoryHelper::getExpandedFunctionType(const Function* F) const
-{
-	assert(expandedFunctionTypes.find(F) != expandedFunctionTypes.end());
-	return (expandedFunctionTypes.at(F));
 }
 
 uint32_t LinearMemoryHelper::getArgumentLocalId(const Argument* arg, uint32_t elemIdx) const
@@ -887,7 +871,8 @@ if (!functionTypeIndices.count(fTy)) { \
 #define ADD_BUILTIN(x, sig) if(globalDeps->needsBuiltin(BuiltinInstr::BUILTIN::x)) { needs_ ## sig = true; builtinIds[BuiltinInstr::x] = maxFunctionId++; }
 
 	for (const Function* F : globalDeps->asmJSImports()) {
-		const FunctionType* fTy = createExpandedFunctionType(PA, F);
+		cacheFunctionArgumentLocalIds(PA, F);
+		const FunctionType* fTy = F->getFunctionType();
 		ADD_FUNCTION_TYPE(fTy);
 		functionIds.insert(std::make_pair(F, maxFunctionId++));
 	}
@@ -932,7 +917,8 @@ if (!functionTypeIndices.count(fTy)) { \
 	// Build the function tables first
 	for (const Function* F : asmjsFunctions_)
 	{
-		const FunctionType* fTy = createExpandedFunctionType(PA, F);
+		cacheFunctionArgumentLocalIds(PA, F);
+		const FunctionType* fTy = F->getFunctionType();
 		if (F->hasAddressTaken() || F->getName() == StringRef(wasmNullptrName) || (freeTaken && F->getName() == StringRef("free"))) {
 			auto it = functionTables.find(fTy);
 			if (it == functionTables.end())

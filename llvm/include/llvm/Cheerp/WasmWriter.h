@@ -480,6 +480,7 @@ private:
 	void compileCreatePointerArrayFunc(WasmBuffer& code);
 	void compileCreateDynamicAllocArrayFunc(WasmBuffer& code, llvm::Type* Ty);
 	void compileResizeArrayFunc(WasmBuffer& code, llvm::Type* Ty);
+	uint32_t getFunctionTypeArgumentCount(const llvm::FunctionType* fTy);
 	void compileMethod(WasmBuffer& code, const llvm::Function& F);
 	void compileImport(WasmBuffer& code, llvm::StringRef funcName, const llvm::FunctionType* FTy);
 	void compileImportMemory(WasmBuffer& code);

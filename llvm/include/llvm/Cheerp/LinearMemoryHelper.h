@@ -118,6 +118,7 @@ public:
 				r2 = typeKindOf(*rit, isStrict);
 				if (r1 != r2)
 					return false;
+				// TODO: add a check to make sure that pointers with and without constant offsets dont match
 			}
 			return true;
 		}
@@ -193,8 +194,6 @@ public:
 	typedef std::unordered_map<const llvm::StructType*, std::vector<const llvm::StructType*>> DirectBaseToSubTypesMap;
 
 	typedef std::unordered_map<const llvm::Type*, uint32_t> TypeToIndexMap;
-
-	typedef std::map<const llvm::Function*, const llvm::FunctionType*> ExpandedFunctionTypesMap;
 
 	// Used to get the right localId for an argument, where the argument's number
 	// can be used as an index in the vector to ge the right id 
@@ -346,8 +345,6 @@ public:
 	const std::vector<const llvm::FunctionType*> getFunctionTypes() const {
 		return functionTypes;
 	}
-
-	const llvm::FunctionType* getExpandedFunctionType(const llvm::Function* F) const;
 
 	uint32_t getArgumentLocalId(const llvm::Argument* arg, uint32_t elemIdx) const;
 
@@ -522,8 +519,7 @@ private:
 	std::unordered_map<const llvm::Function*, uint32_t> functionIds;
 	std::array<uint32_t, BuiltinInstr::numGenericBuiltins()> builtinIds;
 	std::unordered_set<const llvm::StructType*> superTypes;
-	const llvm::FunctionType* createExpandedFunctionType(const PointerAnalyzer* PA, const llvm::Function* F);
-	ExpandedFunctionTypesMap expandedFunctionTypes;
+	void cacheFunctionArgumentLocalIds(const PointerAnalyzer* PA, const llvm::Function* F);
 	ArgumentLocalIdMap localIdsForArguments;
 	TypeToIndexMap downcastFuncIds;
 	TypeToIndexMap downcastFuncTypeIndices;
