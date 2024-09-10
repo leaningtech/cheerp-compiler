@@ -678,9 +678,7 @@ int32_t LinearMemoryHelper::getGCTypeIndex(const llvm::Type* Ty, POINTER_KIND ki
 	}
 	else if (kind == REGULAR)
 	{
-		assert(Ty->isPointerTy() || Ty->isAggregateType());
 		return (regularObjectIdx);
-		// TODO: add regular objects for non GC type kinds
 	}
 	else
 		report_fatal_error("unexpected pointer kind", false);
