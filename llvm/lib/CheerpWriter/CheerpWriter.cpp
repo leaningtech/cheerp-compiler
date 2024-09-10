@@ -4974,7 +4974,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileCallInstruction(
 	// afterwards
 	bool asmjsCallee = calledFunc && calledFunc->getSection() == StringRef("asmjs");
 	uint32_t addrShift = 0;
-	if (!asmjs && asmjsCallee && kind == Registerize::OBJECT && PA.getPointerKindAssert(&ci) == SPLIT_REGULAR && !ci.use_empty())
+	if (!asmjs && asmjsCallee && kind == Registerize::OBJECT && retTy->isPointerTy() && PA.getPointerKindAssert(&ci) == SPLIT_REGULAR && !ci.use_empty())
 	{
 		addrShift = compileHeapForType(cast<PointerType>(ci.getType())->getPointerElementType());
 		stream << ';' << NewLine;
