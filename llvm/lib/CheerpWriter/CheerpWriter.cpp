@@ -7206,7 +7206,7 @@ void CheerpWriter::compileThreadingObject()
 
 void CheerpWriter::compileWorkerMainScript()
 {
-	StringRef shortestName = namegen.getShortestLocalName();
+	std::string shortestName = namegen.getShortestLocalName();
 	StringRef threadObject = namegen.getBuiltinName(NameGenerator::Builtin::THREADINGOBJECT);
 	stream << "}else{" << NewLine;
 	stream << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) << ".promise.then(" << shortestName << "=>{" << NewLine;
