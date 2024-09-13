@@ -7189,11 +7189,17 @@ void CheerpWriter::compileThreadingObject()
 		if (makeModule == MODULE_TYPE::ES6 || makeModule == MODULE_TYPE::COMMONJS)
 			stream << "globalThis.";
 		stream << threadObject << "==='undefined'){" << NewLine;
-		stream << "var script=(typeof window === 'undefined')?__filename:";
+		stream << "var script=";
 		if (makeModule == MODULE_TYPE::ES6)
 			stream << "import.meta.url;";
 		else
-			stream << "document.currentScript.src;";
+		{
+			stream << "null;";
+			stream << "try {throw new Error();}catch(e){";
+			stream << "const re = /((?:blob:)?(?:http|https|chrome-extension|file):\\/\\/.*):\\d+:\\d+$/;";
+			stream << "script=re.exec(e.stack.trim())[1]";
+			stream << "}";
+		}
 		stream << NewLine;
 		stream << "var " << threadObject << "={inWorker:false,module:null,script:script,memory:null,func:null,args:null,tls:null,tid:null,stack:null};" << NewLine;
 		if (makeModule == MODULE_TYPE::ES6 || makeModule == MODULE_TYPE::COMMONJS)
