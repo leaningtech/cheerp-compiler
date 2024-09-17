@@ -864,9 +864,6 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
   CmdArgs.push_back("-cheerp-argv-name=CHEERP_ARGV");
   CmdArgs.push_back("-cheerp-reserved-names=CHEERP_ARGV");
 
-  if (!Args.hasArg(options::OPT_pthread))
-    CmdArgs.push_back("-cheerp-lower-atomics");
-
   if(Arg* cheerpSecondaryOutputFile = Args.getLastArg(options::OPT_cheerp_secondary_output_file_EQ))
     cheerpSecondaryOutputFile->render(Args, CmdArgs);
   else if(

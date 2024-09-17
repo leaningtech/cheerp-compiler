@@ -5898,31 +5898,41 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
   if (getToolChain().getArch() == llvm::Triple::cheerp)
   {
-  // Forward cheerp-linear-output argument
-  if (Arg *CheerpLinearOutput = Args.getLastArg(options::OPT_cheerp_linear_output_EQ)) {
-    CheerpLinearOutput->render(Args, CmdArgs);
+    Arg *CheerpLinearOutput = Args.getLastArg(options::OPT_cheerp_linear_output_EQ);
 
-    Arg *Sanitizers = Args.getLastArg(options::OPT_fsanitize_EQ);
-    // AsmJS requires natural alignment, which ASan doesn't do by default
-    if (Sanitizers && Sanitizers->containsValue("address") &&
-        CheerpLinearOutput->containsValue("asmjs"))
-        CmdArgs.push_back("-fsanitize-address-aligned-poisoning");
-  }
-  // Forward cheerp-no-pointer-scev argument
-  if (Arg *CheerpNoPointerSCEV = Args.getLastArg(options::OPT_cheerp_no_pointer_scev)) {
-    CmdArgs.push_back("-mllvm");
-    CheerpNoPointerSCEV->render(Args, CmdArgs);
-  }
+    if (Args.hasArg(options::OPT_pthread) &&
+        (getToolChain().getTriple().getEnvironment() == llvm::Triple::GenericJs ||
+          (CheerpLinearOutput && CheerpLinearOutput->getValue() == StringRef("asmjs"))))
+    {
+      D.Diag(diag::err_drv_argument_not_allowed_with)
+        << "-pthread"
+        << "-target cheerp-genericjs";
+    }
+    // Forward cheerp-linear-output argument
+    if (CheerpLinearOutput) {
+      CheerpLinearOutput->render(Args, CmdArgs);
 
-  // Pass cheerp-wasm-externref if anyref feature enabled
-  auto wasmFeatures = cheerp::getWasmFeatures(D, Args);
-  if (std::binary_search(wasmFeatures.begin(), wasmFeatures.end(), cheerp::ANYREF)) {
-    CmdArgs.push_back("-cheerp-wasm-externref");
-  }
-  if (std::binary_search(wasmFeatures.begin(), wasmFeatures.end(), cheerp::SIMD)) {
-    CmdArgs.push_back("-target-feature");
-    CmdArgs.push_back("+simd128");
-  }
+      Arg *Sanitizers = Args.getLastArg(options::OPT_fsanitize_EQ);
+      // AsmJS requires natural alignment, which ASan doesn't do by default
+      if (Sanitizers && Sanitizers->containsValue("address") &&
+          CheerpLinearOutput->containsValue("asmjs"))
+          CmdArgs.push_back("-fsanitize-address-aligned-poisoning");
+    }
+    // Forward cheerp-no-pointer-scev argument
+    if (Arg *CheerpNoPointerSCEV = Args.getLastArg(options::OPT_cheerp_no_pointer_scev)) {
+      CmdArgs.push_back("-mllvm");
+      CheerpNoPointerSCEV->render(Args, CmdArgs);
+    }
+
+    // Pass cheerp-wasm-externref if anyref feature enabled
+    auto wasmFeatures = cheerp::getWasmFeatures(D, Args);
+    if (std::binary_search(wasmFeatures.begin(), wasmFeatures.end(), cheerp::ANYREF)) {
+      CmdArgs.push_back("-cheerp-wasm-externref");
+    }
+    if (std::binary_search(wasmFeatures.begin(), wasmFeatures.end(), cheerp::SIMD)) {
+      CmdArgs.push_back("-target-feature");
+      CmdArgs.push_back("+simd128");
+    }
     // Enable typed pointers
     CmdArgs.push_back("-no-opaque-pointers");
   }
