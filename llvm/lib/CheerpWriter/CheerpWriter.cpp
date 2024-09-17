@@ -7314,7 +7314,7 @@ void CheerpWriter::makeJS()
 	if (areExtraParenthesisOpen)
 		compileLoaderOrModuleEnd();
 
-	if (!LowerAtomics)
+	if (!LowerAtomics && needWasmLoader)
 	{
 		compileWorkerMainScript();
 		stream << "}" << NewLine;
