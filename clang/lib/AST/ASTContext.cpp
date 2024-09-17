@@ -7585,7 +7585,6 @@ LangAS ASTContext::getCheerpPointeeAddrSpace(const Type *PointeeType, Decl* D, L
   if (PointeeType->isPointerType() || PointeeType->isReferenceType() || PointeeType->isMemberPointerType()) {
     LangAS PointeePointeeAS = getCheerpPointeeAddrSpace(PointeeType->getPointeeType().getTypePtr(), D, Fallback);
     switch (PointeePointeeAS) {
-      case LangAS::cheerp_client:
       case LangAS::cheerp_bytelayout:
         return LangAS::cheerp_genericjs;
       default:
