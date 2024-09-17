@@ -1,5 +1,9 @@
 #include "llvm/Cheerp/CheerpLowerAtomic.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/Cheerp/CommandLine.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/InstrTypes.h"
+#include "llvm/IR/Intrinsics.h"
 #include "llvm/Transforms/Scalar/LowerAtomicPass.h"
 
 using namespace llvm;
@@ -21,6 +25,32 @@ PreservedAnalyses CheerpLowerAtomicPass::run(Module& M, ModuleAnalysisManager& M
 			continue;
 
 		FPM.run(F, FAM);
+	}
+
+	// Replace thread locals with actual globals
+	// NOTE: this could go in its own pass
+	for (GlobalVariable& G: M.globals())
+	{
+		if (!LowerAtomics && G.getSection() == "asmjs")
+			continue;
+
+		if (!G.isThreadLocal())
+		{
+			continue;
+		}
+		G.setThreadLocalMode(GlobalVariable::NotThreadLocal);
+		for (auto& U: make_early_inc_range(G.uses()))
+		{
+			if (auto* C = dyn_cast<CallBase>(U.getUser()))
+			{
+				if (!C->getCalledFunction() || C->getCalledFunction()->getIntrinsicID() != Intrinsic::threadlocal_address)
+				{
+					continue;
+				}
+				C->replaceAllUsesWith(&G);
+				C->eraseFromParent();
+			}
+		}
 	}
 
 	return PreservedAnalyses::none();
