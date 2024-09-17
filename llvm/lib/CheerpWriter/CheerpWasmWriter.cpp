@@ -2421,7 +2421,6 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						compileOperand(code, ci.getOperand(0));
 						compileOperand(code, ci.getOperand(1));
 						compileOperand(code, ci.getOperand(2));
-						encodeInst(WasmOpcode::I64_EXTEND_I32_U, code);
 						encodeInst(WasmThreadsU32U32Opcode::MEMORY_ATOMIC_WAIT32, 0x2, 0, code);
 						return false;
 					}
