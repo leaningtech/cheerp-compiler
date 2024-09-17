@@ -600,6 +600,9 @@ void cheerp::Link::ConstructJob(Compilation &C, const JobAction &JA,
       // it's own implementation of functions like memcpy and memset.
       CmdArgs.push_back(Args.MakeArgString(getToolChain().GetFilePath("libwasm.bc")));
     }
+    // Link thread library if -pthread was passed
+    if (Args.hasArg(options::OPT_pthread))
+      CmdArgs.push_back(Args.MakeArgString(getToolChain().GetFilePath("libthreads.bc")));
   }
  
   // Do not add the same library more than once
