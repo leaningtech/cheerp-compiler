@@ -7207,10 +7207,12 @@ void CheerpWriter::compileThreadingObject()
 		else
 		{
 			stream << "null;";
+			stream << "if(typeof self==='object')";
 			stream << "try {throw new Error();}catch(e){";
 			stream << "const re = /((?:blob:)?(?:http|https|chrome-extension|file):\\/\\/.*):\\d+:\\d+$/;";
 			stream << "script=re.exec(e.stack.trim())[1]";
 			stream << "}";
+			stream << "else script = __filename;";
 		}
 		stream << NewLine;
 		stream << "var " << threadObject << "={inWorker:false,module:null,script:script,memory:null,func:null,args:null,tls:null,tid:null,stack:null};" << NewLine;
