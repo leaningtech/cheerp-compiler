@@ -106,7 +106,7 @@ def int_cheerp_set_thread_pointer : Intrinsic<[],
                                       [llvm_i32_ty]>;
 
 def int_cheerp_atomic_wait : Intrinsic<[llvm_i32_ty],
-                              [llvm_ptr_ty, llvm_i32_ty, llvm_i32_ty]>,
+                              [llvm_ptr_ty, llvm_i32_ty, llvm_i64_ty]>,
                               ClangBuiltin<"__builtin_cheerp_atomic_wait">;
 
 def int_cheerp_atomic_notify : Intrinsic<[llvm_i32_ty],
