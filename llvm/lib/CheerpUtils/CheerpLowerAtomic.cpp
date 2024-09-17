@@ -52,6 +52,20 @@ PreservedAnalyses CheerpLowerAtomicPass::run(Module& M, ModuleAnalysisManager& M
 			}
 		}
 	}
+	// replace cheerp_get_thread_pointer() with a constant 0
+	if (LowerAtomics)
+	{
+		Function* F = Intrinsic::getDeclaration(&M, Intrinsic::cheerp_get_thread_pointer);
+		if (F)
+		{
+			for (auto& U: make_early_inc_range(F->uses()))
+			{
+				auto* C = cast<CallBase>(U.getUser());
+				C->replaceAllUsesWith(ConstantInt::get(IntegerType::get(M.getContext(), 32), 0));
+				C->eraseFromParent();
+			}
+		}
+	}
 
 	return PreservedAnalyses::none();
 }
