@@ -272,8 +272,8 @@ _LIBCPP_OVERRIDABLE_FUNC_VIS _LIBCPP_AVAILABILITY_SIZED_NEW_DELETE void  operato
 
 _LIBCPP_NODISCARD_AFTER_CXX17 inline _LIBCPP_INLINE_VISIBILITY __wasm void* operator new  (std::size_t, __wasm void* __p) _NOEXCEPT {return __p;}
 _LIBCPP_NODISCARD_AFTER_CXX17 inline _LIBCPP_INLINE_VISIBILITY __wasm void* operator new[](std::size_t, __wasm void* __p) _NOEXCEPT {return __p;}
-_LIBCPP_NODISCARD_AFTER_CXX17 inline _LIBCPP_INLINE_VISIBILITY __js void* operator new  (std::size_t, __js void* __p) _NOEXCEPT {return __p;}
-_LIBCPP_NODISCARD_AFTER_CXX17 inline _LIBCPP_INLINE_VISIBILITY __js void* operator new[](std::size_t, __js void* __p) _NOEXCEPT {return __p;}
+[[cheerp::genericjs]] _LIBCPP_NODISCARD_AFTER_CXX17 inline _LIBCPP_INLINE_VISIBILITY __js void* operator new  (std::size_t, __js void* __p) _NOEXCEPT {return __p;}
+[[cheerp::genericjs]] _LIBCPP_NODISCARD_AFTER_CXX17 inline _LIBCPP_INLINE_VISIBILITY __js void* operator new[](std::size_t, __js void* __p) _NOEXCEPT {return __p;}
 inline _LIBCPP_INLINE_VISIBILITY void  operator delete  (void*, void*) _NOEXCEPT {}
 inline _LIBCPP_INLINE_VISIBILITY void  operator delete[](void*, void*) _NOEXCEPT {}
 
