@@ -38,6 +38,7 @@
 #include "clang/Basic/BitmaskEnum.h"
 #include "clang/Basic/Builtins.h"
 #include "clang/Basic/DarwinSDKInfo.h"
+#include "clang/Basic/DiagnosticSema.h"
 #include "clang/Basic/ExpressionTraits.h"
 #include "clang/Basic/Module.h"
 #include "clang/Basic/OpenCLOptions.h"
@@ -13823,16 +13824,28 @@ public:
                                   ValueDecl *DeclToCheck);
 
   // CHEERP: Utility function for checking if a type can be used in the asmjs section
-  bool isAsmJSCompatible(QualType qt, bool allowAnyref) {
-    const Type* pt = qt.getNonReferenceType().getTypePtr();
-    while (pt->isAnyPointerType())
-      pt = pt->getPointeeType().getTypePtr();
-    if (pt->isArrayType())
-      pt = pt->getArrayElementTypeNoTypeQual();
-    TagDecl* pd = pt->getAsTagDecl();
-    if (!pd) return true;
-    bool client = pd->getDeclContext()->isClientNamespace();
-    return (client&&allowAnyref) || pd->isEnum() || pd->hasAttr<AsmJSAttr>();
+  bool isAsmJSCompatible(QualType qt) {
+    LangAS as = qt.getAddressSpace();
+    return
+      (as == LangAS::Default || as == LangAS::cheerp_wasm || (qt->isRecordType() && as == LangAS::cheerp_client && LangOpts.CheerpAnyref)) &&
+      (!qt->hasPointerRepresentation() || qt->isNullPtrType() || isAsmJSCompatible(qt->getPointeeType()));
+  }
+  template<class T>
+  void checkAsmJSCompatible(QualType qt, SourceLocation location, T value, StringRef valueKind, const NamedDecl *context, StringRef contextKind) {
+    if (!isAsmJSCompatible(qt)) {
+      Diag(location, diag::err_cheerp_incompatible_address_space)
+        << qt << valueKind << value
+        << LangAS::cheerp_wasm << contextKind << context;
+    }
+  }
+  void checkAsmJSCompatible(const ValueDecl *decl, StringRef declKind, const NamedDecl *context, StringRef contextKind) {
+    checkAsmJSCompatible(decl->getType(), decl->getLocation(), decl, declKind, context, contextKind);
+  }
+  void checkAsmJSCompatible(Expr *expr, StringRef exprKind, const NamedDecl *context, StringRef contextKind) {
+    checkAsmJSCompatible(expr->getType(), expr->getExprLoc(), expr, exprKind, context, contextKind);
+  }
+  void checkAsmJSCompatibleReturn(const FunctionDecl *decl) {
+    checkAsmJSCompatible(decl->getReturnType(), decl->getLocation(), "value", "return", decl, "function");
   }
   static AsmJSAttr* getAsmJSAttr(QualType qt) {
     const Type* pt = qt.getNonReferenceType().getTypePtr();
