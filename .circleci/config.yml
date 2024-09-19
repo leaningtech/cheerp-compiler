@@ -694,7 +694,7 @@ jobs:
             - cheerp-linux-*-proprietary.tar.bz2
   create-dmg:
     machine:
-      image: ubuntu-2004:202201-02
+      image: default
     resource_class: medium
     steps:
       - attach_workspace:
