@@ -916,12 +916,13 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
   bool noSIMD = true;
   bool noGlobalization = true;
   bool noUnalignedMem = true;
+  bool sharedMem = false;
   for (CheerpWasmOpt o: features)
   {
     switch(o)
     {
       case SHAREDMEM:
-        CmdArgs.push_back("-cheerp-wasm-shared-memory");
+        sharedMem = true;
         break;
       case GROWMEM:
         noGrowMem = false;
@@ -955,6 +956,12 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
         break;
     }
   }
+  // pthread implies shared memory
+  if (!Args.hasArg(options::OPT_pthread))
+    CmdArgs.push_back("-cheerp-lower-atomics");
+  else
+    sharedMem = true;
+
   if (noGrowMem)
     CmdArgs.push_back("-cheerp-wasm-no-grow-memory");
   if (noSIMD)
@@ -963,6 +970,8 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("-cheerp-wasm-no-globalization");
   if (noUnalignedMem)
     CmdArgs.push_back("-cheerp-wasm-no-unaligned-mem");
+  if (sharedMem)
+        CmdArgs.push_back("-cheerp-wasm-shared-memory");
 
   if(Arg* cheerpSourceMap = Args.getLastArg(options::OPT_cheerp_sourcemap_EQ))
     cheerpSourceMap->render(Args, CmdArgs);
