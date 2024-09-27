@@ -19,6 +19,7 @@
 
 __attribute__((cheerp_asmjs)) char *volatile _stackBottom = (char *)0xdeadbeef;
 __attribute__((cheerp_asmjs)) char *volatile _stackTop = (char *)0xdeadbeef;
+__attribute__((cheerp_asmjs)) char *volatile _globalsStart = (char *)0xdeadbeef;
 
 static __asan::atomic_sint32_t _collect_traces;
 

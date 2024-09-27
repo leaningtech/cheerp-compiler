@@ -22,6 +22,8 @@
 #  if SANITIZER_CHEERPWASM
 #    include "asan_poisoning.h"
 extern char* volatile _stackTop;
+extern char* volatile _stackBottom;
+extern char* volatile _globalsStart;
 #  endif
 
 namespace __asan {
@@ -107,6 +109,8 @@ void InitializeShadowMemory() {
     // CHEERP: Poison everything from 0x0 up to stack top to detect null
     // derefences
     FastPoisonShadow(0, reinterpret_cast<uptr>(_stackTop), 0xfe);
+    // CHEERP: Poison the space between the stack and the globals
+    PoisonShadow(reinterpret_cast<uptr>(_stackBottom), reinterpret_cast<uptr>(_globalsStart)-reinterpret_cast<uptr>(_stackBottom), 0xfe);
 #  endif
     CHECK_EQ(kShadowGapEnd, kHighShadowBeg - 1);
   } else if (kMidMemBeg &&

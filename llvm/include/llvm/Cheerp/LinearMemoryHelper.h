@@ -434,6 +434,8 @@ private:
 	uint32_t stackSize;
 	// Stack start (it grows downwards)
 	uint32_t stackStart;
+	// Globals start
+	uint32_t globalsStart;
 	// Offset from 0x0 to the stack top. Primarily used with Asan to reserve
 	// the lower addresses for null pointer checks
 	uint32_t stackOffset;
