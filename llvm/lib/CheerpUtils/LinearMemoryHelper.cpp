@@ -426,6 +426,7 @@ void LinearMemoryHelper::addGlobals()
 	// Also, for thread locals, calculate offsets to the image start, and the total size of the image.
 	threadLocalImageSize = 0;
 	threadLocalStart = 0;
+	int toPrint = 5;
 	for (const auto G: asmjsGlobals) {
 		//Globalized globals do not need an address
 		if (globalizedGlobalsUsage.count(G))
@@ -436,7 +437,12 @@ void LinearMemoryHelper::addGlobals()
 		// Ensure the right alignment for the type
 		uint32_t alignment = std::max<uint32_t>(TypeSupport::getAlignmentAsmJS(targetData, ty), G->getAlignment());
 		// The following is correct if alignment is a power of 2 (which it should be)
+		uint32_t preAlign = heapStart;
 		heapStart = (heapStart + alignment - 1) & ~(alignment - 1);
+		if (toPrint>0) {
+			toPrint--;
+			llvm::errs()<<"GLOBAL "<<G->getName()<<" size "<<size<<" align "<<alignment<<" start "<<heapStart<<" end "<<heapStart+size<<" extraPreAlign "<<heapStart-preAlign<<"\n";
+		}
 		globalAddresses.emplace(G, heapStart);
 		inverseGlobalAddresses.emplace(heapStart, G);
 		if (G->isThreadLocal())
