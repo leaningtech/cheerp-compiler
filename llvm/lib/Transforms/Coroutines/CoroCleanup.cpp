@@ -8,6 +8,7 @@
 
 #include "llvm/Transforms/Coroutines/CoroCleanup.h"
 #include "CoroInternal.h"
+#include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/PassManager.h"
@@ -33,14 +34,15 @@ static void lowerSubFn(IRBuilder<> &Builder, CoroSubFnInst *SubFn) {
   int Index = SubFn->getIndex();
 
   bool asmjs = SubFn->getFunction()->getSection() == "asmjs";
+  unsigned AS = (unsigned) (asmjs ? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
   auto *FrameTy = coro::getBaseFrameType(SubFn->getContext(), asmjs);
-  PointerType *FramePtrTy = FrameTy->getPointerTo();
+  PointerType *FramePtrTy = FrameTy->getPointerTo(AS);
 
   Builder.SetInsertPoint(SubFn);
   auto *FramePtr = Builder.CreateBitCast(FrameRaw, FramePtrTy);
   auto *Gep = Builder.CreateConstInBoundsGEP2_32(FrameTy, FramePtr, 0, Index);
   auto *Load = Builder.CreateLoad(FrameTy->getElementType(Index), Gep);
-  auto* Cast = Builder.CreateBitCast(Load, Builder.getInt8PtrTy());
+  auto* Cast = Builder.CreateBitCast(Load, Builder.getInt8PtrTy(AS));
 
   SubFn->replaceAllUsesWith(Cast);
 }
