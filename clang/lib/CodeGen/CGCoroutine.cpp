@@ -194,7 +194,7 @@ static LValueOrRValue emitSuspendExpression(CodeGenFunction &CGF, CGCoroData &Co
   CGF.EmitBlock(SuspendBlock);
 
   auto &Builder = CGF.Builder;
-  llvm::Function *CoroSave = CGF.CGM.getIntrinsic(llvm::Intrinsic::coro_save);
+  llvm::Function *CoroSave = CGF.CGM.getIntrinsic(llvm::Intrinsic::coro_save, {CGF.CGM.Int8PtrTy});
   auto *NullPtr = llvm::ConstantPointerNull::get(CGF.CGM.Int8PtrTy);
   auto *SaveCall = Builder.CreateCall(CoroSave, {NullPtr});
 
@@ -475,7 +475,7 @@ static void emitBodyAndFallthrough(CodeGenFunction &CGF,
 }
 
 void CodeGenFunction::EmitCoroutineBody(const CoroutineBodyStmt &S) {
-  auto *NullPtr = llvm::ConstantPointerNull::get(Builder.getInt8PtrTy());
+  auto *NullPtr = llvm::ConstantPointerNull::get(Int8PtrTy);
   auto &TI = CGM.getContext().getTargetInfo();
   unsigned NewAlign = TI.getNewAlign() / TI.getCharWidth();
 
@@ -486,7 +486,7 @@ void CodeGenFunction::EmitCoroutineBody(const CoroutineBodyStmt &S) {
   auto *RetBB = createBasicBlock("coro.ret");
 
   auto *CoroId = Builder.CreateCall(
-      CGM.getIntrinsic(llvm::Intrinsic::coro_id),
+      CGM.getIntrinsic(llvm::Intrinsic::coro_id, {Int8PtrTy, Int8PtrTy, Int8PtrTy}),
       {Builder.getInt32(NewAlign), NullPtr, NullPtr, NullPtr});
   createCoroData(*this, CurCoro, CoroId);
   CurCoro.Data->SuspendBB = RetBB;
@@ -509,7 +509,6 @@ void CodeGenFunction::EmitCoroutineBody(const CoroutineBodyStmt &S) {
     auto *RetOnFailureBB = createBasicBlock("coro.ret.on.failure");
 
     // See if allocation was successful.
-    auto *NullPtr = llvm::ConstantPointerNull::get(Int8PtrTy);
     auto *Cond = Builder.CreateICmpNE(AllocateCall, NullPtr);
     Builder.CreateCondBr(Cond, InitBB, RetOnFailureBB);
 
@@ -528,7 +527,7 @@ void CodeGenFunction::EmitCoroutineBody(const CoroutineBodyStmt &S) {
   Phi->addIncoming(NullPtr, EntryBB);
   Phi->addIncoming(AllocateCall, AllocOrInvokeContBB);
   auto *CoroBegin = Builder.CreateCall(
-      CGM.getIntrinsic(llvm::Intrinsic::coro_begin), {CoroId, Phi});
+      CGM.getIntrinsic(llvm::Intrinsic::coro_begin, {VoidPtrTy, VoidPtrTy}), {CoroId, Phi});
   CurCoro.Data->CoroBegin = CoroBegin;
 
   CurCoro.Data->CleanupJD = getJumpDestInCurrentScope(RetBB);
@@ -644,7 +643,7 @@ void CodeGenFunction::EmitCoroutineBody(const CoroutineBodyStmt &S) {
   EmitBlock(RetBB);
   // Emit coro.end before getReturnStmt (and parameter destructors), since
   // resume and destroy parts of the coroutine should not include them.
-  llvm::Function *CoroEnd = CGM.getIntrinsic(llvm::Intrinsic::coro_end);
+  llvm::Function *CoroEnd = CGM.getIntrinsic(llvm::Intrinsic::coro_end, {Int8PtrTy});
   Builder.CreateCall(CoroEnd, {NullPtr, Builder.getFalse()});
 
   if (Stmt *Ret = S.getReturnStmt()) {
@@ -714,7 +713,21 @@ RValue CodeGenFunction::EmitCoroutineIntrinsic(const CallExpr *E,
   for (const Expr *Arg : E->arguments())
     Args.push_back(EmitScalarExpr(Arg));
 
-  llvm::Function *F = CGM.getIntrinsic(IID);
+  llvm::Function *F;
+  switch (IID) {
+  default:
+    F = CGM.getIntrinsic(IID);
+    break;
+  case llvm::Intrinsic::coro_resume:
+  case llvm::Intrinsic::coro_destroy:
+  case llvm::Intrinsic::coro_done:
+    F = CGM.getIntrinsic(IID, {Int8PtrTy});
+    break;
+  case llvm::Intrinsic::coro_free:
+  case llvm::Intrinsic::coro_promise:
+    F = CGM.getIntrinsic(IID, {Int8PtrTy, Int8PtrTy});
+    break;
+  }
   llvm::CallInst *Call = Builder.CreateCall(F, Args);
 
   // Note: The following code is to enable to emit coro.id and coro.begin by
