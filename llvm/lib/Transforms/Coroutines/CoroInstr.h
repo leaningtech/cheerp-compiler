@@ -121,10 +121,10 @@ public:
                : cast<AllocaInst>(Arg->stripPointerCasts(true));
   }
 
-  void clearPromise() {
+  void clearPromise(unsigned AS) {
     Value *Arg = getArgOperand(PromiseArg);
     setArgOperand(PromiseArg,
-                  ConstantPointerNull::get(Type::getInt8PtrTy(getContext())));
+                  ConstantPointerNull::get(Type::getInt8PtrTy(getContext(), AS)));
     if (isa<AllocaInst>(Arg))
       return;
     assert((isa<BitCastInst>(Arg) || isa<GetElementPtrInst>(Arg)) &&
@@ -182,12 +182,12 @@ public:
   Function *getCoroutine() const {
     return cast<Function>(getArgOperand(CoroutineArg)->stripPointerCastsSafe());
   }
-  void setCoroutineSelf() {
+  void setCoroutineSelf(unsigned AS) {
     assert(isa<ConstantPointerNull>(getArgOperand(CoroutineArg)) &&
            "Coroutine argument is already assigned");
-    auto *const Int8PtrTy = Type::getInt8PtrTy(getContext());
+    auto *const Int8PtrTy = Type::getInt8PtrTy(getContext(), AS);
     setArgOperand(CoroutineArg,
-                  ConstantExpr::getBitCast(getFunction(), Int8PtrTy));
+                  ConstantExpr::getAddrSpaceCast(getFunction(), Int8PtrTy));
   }
 
   // Methods to support type inquiry through isa, cast, and dyn_cast:
