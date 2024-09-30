@@ -496,6 +496,10 @@ VarDecl *Sema::buildCoroutinePromise(SourceLocation Loc) {
   if (T.isNull())
     return nullptr;
 
+  // CHEERP: Add address space to promise type.
+  if (LangOpts.Cheerp)
+    T = Context.getAddrSpaceQualType(T, Context.getCheerpTypeAddressSpace(T));
+
   auto *VD = VarDecl::Create(Context, FD, FD->getLocation(), FD->getLocation(),
                              &PP.getIdentifierTable().get("__promise"), T,
                              Context.getTrivialTypeSourceInfo(T, Loc), SC_None);

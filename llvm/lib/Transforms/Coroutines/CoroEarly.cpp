@@ -46,7 +46,7 @@ void Lowerer::lowerResumeOrDestroy(CallBase &CB,
   CB.setCalledOperand(ResumeAddr);
   Triple triple = Triple(CB.getCaller()->getParent()->getTargetTriple());
   bool asmjs = triple.getArch() == Triple::cheerp && triple.getEnvironment() != Triple::GenericJs;
-  PointerType* Ty = coro::getBaseFrameType(CB.getContext(), asmjs)->getPointerTo();
+  PointerType* Ty = coro::getBaseFrameType(CB.getContext(), asmjs)->getPointerTo(AS);
   auto* Cast = BitCastInst::CreateBitOrPointerCast(CB.getArgOperand(0), Ty, "cast", &CB);
   CB.setArgOperand(0, Cast);
   CB.setCallingConv(CallingConv::Fast);
@@ -65,7 +65,7 @@ void Lowerer::lowerCoroPromise(CoroPromiseInst *Intrin) {
   Align Alignment = Intrin->getAlignment();
   Type *Int8Ty = Builder.getInt8Ty();
 
-  auto* AnyResumeFnPtrTy = ResumeFnType->getPointerTo();
+  auto* AnyResumeFnPtrTy = ResumeFnType->getPointerTo(AS);
   auto *SampleStruct =
       StructType::get(Context, {AnyResumeFnPtrTy, AnyResumeFnPtrTy, Int8Ty});
   const DataLayout &DL = TheModule.getDataLayout();
@@ -86,7 +86,7 @@ void Lowerer::lowerCoroPromise(CoroPromiseInst *Intrin) {
     // Since we don't know the concrete type of the Frame object yet,
     // we use i8* here. In CoroFrame we will do a no-op downcast with the
     // Frame type, to signal to the backend that it needs the downcast array.
-    Type* types[] = { Builder.getInt8PtrTy(), Builder.getInt8PtrTy() };
+    Type* types[] = { Int8Ptr, Int8Ptr };
     Function* intrinsic = Intrinsic::getDeclaration(&TheModule,
                             Intrinsic::cheerp_downcast, types);
 
@@ -114,13 +114,13 @@ void Lowerer::lowerCoroDone(IntrinsicInst *II) {
   static_assert(coro::Shape::SwitchFieldIndex::Resume == 0,
                 "resume function not at offset zero");
   auto* FrameTy = coro::getBaseFrameType(II->getContext(), II->getFunction()->getSection() == "asmjs");
-  PointerType *FramePtrTy = FrameTy->getPointerTo();
+  PointerType *FramePtrTy = FrameTy->getPointerTo(AS);
 
   Builder.SetInsertPoint(II);
   auto *BCI = Builder.CreateBitCast(Operand, FramePtrTy);
   auto *Fn = Builder.CreateConstInBoundsGEP2_32(FrameTy, BCI, 0, 0);
-  auto *Load = Builder.CreateLoad(ResumeFnType->getPointerTo(), Fn);
-  auto *Cond = Builder.CreateICmpEQ(Load, ConstantPointerNull::get(ResumeFnType->getPointerTo()));
+  auto *Load = Builder.CreateLoad(ResumeFnType->getPointerTo(AS), Fn);
+  auto *Cond = Builder.CreateICmpEQ(Load, ConstantPointerNull::get(ResumeFnType->getPointerTo(AS)));
 
   II->replaceAllUsesWith(Cond);
   II->eraseFromParent();
@@ -152,10 +152,10 @@ void Lowerer::lowerCoroNoop(IntrinsicInst *II) {
 
     // Create a noop.frame struct type.
     StructType *FrameTy = StructType::create(C, "NoopCoro.Frame");
-    auto *FramePtrTy = FrameTy->getPointerTo();
+    auto *FramePtrTy = FrameTy->getPointerTo(AS);
     auto *FnTy = FunctionType::get(Type::getVoidTy(C), FramePtrTy,
                                    /*isVarArg=*/false);
-    auto *FnPtrTy = FnTy->getPointerTo();
+    auto *FnPtrTy = FnTy->getPointerTo(AS);
     Triple triple = Triple(M.getTargetTriple());
     bool asmjs = triple.getArch() == Triple::cheerp && triple.getEnvironment() != Triple::GenericJs;
     FrameTy->setBody({FnPtrTy, FnPtrTy}, /*isPacked*/false, /*directBase*/nullptr, /*isByteLayout*/false, asmjs);
@@ -236,7 +236,7 @@ void Lowerer::lowerEarlyIntrinsics(Function &F) {
                    "The frontend uses Swtich-Resumed ABI should emit "
                    "\"coroutine.presplit\" attribute for the coroutine.");
             setCannotDuplicate(CII);
-            CII->setCoroutineSelf();
+            CII->setCoroutineSelf(AS);
             CoroId = cast<CoroIdInst>(&I);
           }
         }

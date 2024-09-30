@@ -515,7 +515,7 @@ static Function *createCloneDeclaration(Function &OrigF, coro::Shape &Shape,
 
   Function *NewF =
       Function::Create(FnTy, GlobalValue::LinkageTypes::InternalLinkage,
-                       OrigF.getName() + Suffix);
+                       Shape.AS, OrigF.getName() + Suffix);
   if (Shape.ABI != coro::ABI::Async)
     NewF->addParamAttr(0, Attribute::NonNull);
 
@@ -807,7 +807,7 @@ Value *CoroCloner::deriveNewFramePointer() {
     auto *ActiveAsyncSuspend = cast<CoroSuspendAsyncInst>(ActiveSuspend);
     auto ContextIdx = ActiveAsyncSuspend->getStorageArgumentIndex() & 0xff;
     auto *CalleeContext = NewF->getArg(ContextIdx);
-    auto *FramePtrTy = Shape.FrameTy->getPointerTo();
+    auto *FramePtrTy = Shape.FrameTy->getPointerTo(Shape.AS);
     auto *ProjectionFunc =
         ActiveAsyncSuspend->getAsyncContextProjectionFunction();
     auto DbgLoc =
@@ -833,7 +833,7 @@ Value *CoroCloner::deriveNewFramePointer() {
   case coro::ABI::Retcon:
   case coro::ABI::RetconOnce: {
     Argument *NewStorage = &*NewF->arg_begin();
-    auto FramePtrTy = Shape.FrameTy->getPointerTo();
+    auto FramePtrTy = Shape.FrameTy->getPointerTo(Shape.AS);
 
     // If the storage is inline, just bitcast to the storage to the frame type.
     if (Shape.RetconLowering.IsFrameInlineInStorage)
@@ -841,7 +841,7 @@ Value *CoroCloner::deriveNewFramePointer() {
 
     // Otherwise, load the real frame from the opaque storage.
     auto FramePtrPtr =
-      Builder.CreateBitCast(NewStorage, FramePtrTy->getPointerTo());
+      Builder.CreateBitCast(NewStorage, FramePtrTy->getPointerTo(Shape.AS));
     return Builder.CreateLoad(FramePtrTy, FramePtrPtr);
   }
   }
@@ -1036,7 +1036,7 @@ void CoroCloner::create() {
 
   // Remap vFrame pointer.
   auto *NewVFrame = Builder.CreateBitCast(
-      NewFramePtr, Type::getInt8PtrTy(Builder.getContext()), "vFrame");
+      NewFramePtr, Type::getInt8PtrTy(Builder.getContext(), Shape.AS), "vFrame");
   Value *OldVFrame = cast<Value>(VMap[Shape.CoroBegin]);
   if (OldVFrame != NewVFrame)
     OldVFrame->replaceAllUsesWith(NewVFrame);
@@ -1083,7 +1083,7 @@ void CoroCloner::create() {
   // to suppress deallocation code.
   if (Shape.ABI == coro::ABI::Switch)
     coro::replaceCoroFree(cast<CoroIdInst>(VMap[Shape.CoroBegin->getId()]),
-                          /*Elide=*/ FKind == CoroCloner::Kind::SwitchCleanup);
+                          /*Elide=*/ FKind == CoroCloner::Kind::SwitchCleanup, Shape.AS);
 }
 
 // Create a resume clone by cloning the body of the original function, setting
@@ -1163,11 +1163,12 @@ static void setCoroInfo(Function &F, coro::Shape &Shape,
   auto *ConstVal = ConstantArray::get(ArrTy, Args);
   auto *GV = new GlobalVariable(*M, ConstVal->getType(), /*isConstant=*/true,
                                 GlobalVariable::PrivateLinkage, ConstVal,
-                                F.getName() + Twine(".resumers"));
+                                F.getName() + Twine(".resumers"), nullptr,
+                                GlobalVariable::NotThreadLocal, Shape.AS);
 
   // Update coro.begin instruction to refer to this constant.
   LLVMContext &C = F.getContext();
-  auto *BC = ConstantExpr::getPointerCast(GV, Type::getInt8PtrTy(C));
+  auto *BC = ConstantExpr::getPointerCast(GV, Type::getInt8PtrTy(C, Shape.AS));
   Shape.getSwitchCoroId()->setInfo(BC);
 }
 
@@ -1408,12 +1409,12 @@ static void handleNoSuspendCoroutine(coro::Shape &Shape) {
   switch (Shape.ABI) {
   case coro::ABI::Switch: {
     auto SwitchId = cast<CoroIdInst>(CoroId);
-    coro::replaceCoroFree(SwitchId, /*Elide=*/AllocInst != nullptr);
+    coro::replaceCoroFree(SwitchId, /*Elide=*/AllocInst != nullptr, Shape.AS);
     if (AllocInst) {
       IRBuilder<> Builder(AllocInst);
-      auto *Frame = Builder.CreateAlloca(Shape.FrameTy);
+      auto *Frame = Builder.CreateAlloca(Shape.FrameTy, Shape.AS);
       Frame->setAlignment(Shape.FrameAlign);
-      auto *VFrame = Builder.CreateBitCast(Frame, Builder.getInt8PtrTy());
+      auto *VFrame = Builder.CreateBitCast(Frame, Builder.getInt8PtrTy(Shape.AS));
       AllocInst->replaceAllUsesWith(Builder.getFalse());
       AllocInst->eraseFromParent();
       CoroBegin->replaceAllUsesWith(VFrame);
@@ -1643,10 +1644,10 @@ static void splitSwitchCoroutine(Function &F, coro::Shape &Shape,
 }
 
 static void replaceAsyncResumeFunction(CoroSuspendAsyncInst *Suspend,
-                                       Value *Continuation) {
+                                       Value *Continuation, unsigned AS) {
   auto *ResumeIntrinsic = Suspend->getResumeFunction();
   auto &Context = Suspend->getParent()->getParent()->getContext();
-  auto *Int8PtrTy = Type::getInt8PtrTy(Context);
+  auto *Int8PtrTy = Type::getInt8PtrTy(Context, AS);
 
   IRBuilder<> Builder(ResumeIntrinsic);
   auto *Val = Builder.CreateBitOrPointerCast(Continuation, Int8PtrTy);
@@ -1699,7 +1700,7 @@ static void splitAsyncCoroutine(Function &F, coro::Shape &Shape,
   F.removeRetAttr(Attribute::NonNull);
 
   auto &Context = F.getContext();
-  auto *Int8PtrTy = Type::getInt8PtrTy(Context);
+  auto *Int8PtrTy = Type::getInt8PtrTy(Context, Shape.AS);
 
   auto *Id = cast<CoroIdAsyncInst>(Shape.CoroBegin->getId());
   IRBuilder<> Builder(Id);
@@ -1773,7 +1774,7 @@ static void splitAsyncCoroutine(Function &F, coro::Shape &Shape,
     (void)InlineRes;
 
     // Replace the lvm.coro.async.resume intrisic call.
-    replaceAsyncResumeFunction(Suspend, Continuation);
+    replaceAsyncResumeFunction(Suspend, Continuation, Shape.AS);
   }
 
   assert(Clones.size() == Shape.CoroSuspends.size());
@@ -1818,7 +1819,7 @@ static void splitRetconCoroutine(Function &F, coro::Shape &Shape,
 
     // Stash the allocated frame pointer in the continuation storage.
     auto Dest = Builder.CreateBitCast(Id->getStorage(),
-                                      RawFramePtr->getType()->getPointerTo());
+                                      RawFramePtr->getType()->getPointerTo(Shape.AS));
     Builder.CreateStore(RawFramePtr, Dest);
   }
 
