@@ -23,7 +23,7 @@ namespace coro {
 bool declaresAnyIntrinsic(const Module &M);
 bool declaresIntrinsics(const Module &M,
                         const std::initializer_list<StringRef>);
-void replaceCoroFree(CoroIdInst *CoroId, bool Elide);
+void replaceCoroFree(CoroIdInst *CoroId, bool Elide, unsigned AS);
 
 StructType *getBaseFrameType(LLVMContext& C, bool asmjs);
 
@@ -37,6 +37,10 @@ void salvageDebugInfo(
 struct LowererBase {
   Module &TheModule;
   LLVMContext &Context;
+
+  // CHEERP: The address space for this coroutine.
+  unsigned AS;
+
   PointerType *const Int8Ptr;
   FunctionType *const ResumeFnType;
   ConstantPointerNull *const NullPtr;
@@ -106,6 +110,9 @@ struct LLVM_LIBRARY_VISIBILITY Shape {
 
   /// This would only be true if optimization are enabled.
   bool OptimizeFrame;
+
+  // CHEERP: The address space for this coroutine.
+  unsigned AS;
 
   struct SwitchLoweringStorage {
     SwitchInst *ResumeSwitch;
@@ -186,7 +193,7 @@ struct LLVM_LIBRARY_VISIBILITY Shape {
     switch (ABI) {
     case coro::ABI::Switch:
       return FunctionType::get(Type::getVoidTy(FrameTy->getContext()),
-                               FrameTy->getPointerTo(), /*IsVarArg*/false);
+                               FrameTy->getPointerTo(AS), /*IsVarArg*/false);
     case coro::ABI::Retcon:
     case coro::ABI::RetconOnce:
       return RetconLowering.ResumePrototype->getFunctionType();
