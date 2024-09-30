@@ -37,6 +37,9 @@ def int_cheerp_cast_user  : Intrinsic<[llvm_anyptr_ty],
                              [llvm_anyptr_ty],
                              []>;
 
+// pointer to js address space
+def llvm_js_ptr_ty        : LLVMQualPointerType<llvm_i8_ty, 2>;
+
 // Type safe memory allocation
 def int_cheerp_allocate  : Intrinsic<[llvm_anyptr_ty],
                              [llvm_ptr_ty,llvm_i32_ty]>;
@@ -48,7 +51,7 @@ def int_cheerp_reallocate  : Intrinsic<[llvm_anyptr_ty],
                              [llvm_ptr_ty,llvm_anyptr_ty, llvm_i32_ty]>;
 def int_cheerp_deallocate  : Intrinsic<[],
                              [llvm_ptr_ty, llvm_anyptr_ty]>;
-def int_cheerp_coro_alloc  : Intrinsic<[llvm_ptr_ty],
+def int_cheerp_coro_alloc  : Intrinsic<[llvm_js_ptr_ty],
                              [llvm_i32_ty]>;
 
 // Access to pointer components
