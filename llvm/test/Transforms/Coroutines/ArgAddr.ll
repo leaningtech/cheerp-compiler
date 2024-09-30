@@ -5,11 +5,11 @@
 define nonnull i8* @f(i32 %n) presplitcoroutine {
 ; CHECK-LABEL: @f(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[ID:%.*]] = call token @llvm.coro.id(i32 0, i8* null, i8* null, i8* bitcast ([3 x void (%f.Frame*)*]* @f.resumers to i8*))
+; CHECK-NEXT:    [[ID:%.*]] = call token @llvm.coro.id.p0i8.p0i8.p0i8(i32 0, i8* null, i8* null, i8* bitcast ([3 x void (%f.Frame*)*]* @f.resumers to i8*))
 ; CHECK-NEXT:    [[N_ADDR:%.*]] = alloca i32, align 4
 ; CHECK-NEXT:    store i32 [[N:%.*]], i32* [[N_ADDR]], align 4
 ; CHECK-NEXT:    [[CALL:%.*]] = tail call i8* @malloc(i32 24)
-; CHECK-NEXT:    [[TMP0:%.*]] = tail call noalias nonnull i8* @llvm.coro.begin(token [[ID]], i8* [[CALL]])
+; CHECK-NEXT:    [[TMP0:%.*]] = tail call noalias nonnull i8* @llvm.coro.begin.p0i8.p0i8(token [[ID]], i8* [[CALL]])
 ; CHECK-NEXT:    [[FRAMEPTR:%.*]] = bitcast i8* [[TMP0]] to %f.Frame*
 ; CHECK-NEXT:    [[RESUME_ADDR:%.*]] = getelementptr inbounds [[F_FRAME:%.*]], %f.Frame* [[FRAMEPTR]], i32 0, i32 0
 ; CHECK-NEXT:    store void (%f.Frame*)* @f.resume, void (%f.Frame*)** [[RESUME_ADDR]], align 8

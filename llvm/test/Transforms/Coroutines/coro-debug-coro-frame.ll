@@ -4,7 +4,7 @@
 
 ; CHECK-LABEL: define void @f(
 ; CHECK:       coro.init:
-; CHECK:        %[[begin:.*]] = call noalias nonnull i8* @llvm.coro.begin(
+; CHECK:        %[[begin:.*]] = call noalias nonnull i8* @llvm.coro.begin.p0i8.p0i8(
 ; CHECK:        call void @llvm.dbg.declare(metadata i8* %[[begin]], metadata ![[CORO_FRAME:[0-9]+]], metadata !DIExpression())
 ; CHECK:        %[[FramePtr:.*]] = bitcast i8* %[[begin]] to
 ;
