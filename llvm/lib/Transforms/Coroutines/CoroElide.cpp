@@ -163,7 +163,7 @@ void Lowerer::elideHeapAllocations(Function *F, uint64_t FrameSize,
   auto *Frame = new AllocaInst(FrameTy, DL.getAllocaAddrSpace(), "", InsertPt);
   Frame->setAlignment(FrameAlign);
   auto *FrameVoidPtr =
-      new BitCastInst(Frame, Type::getInt8PtrTy(C), "vFrame", InsertPt);
+      new BitCastInst(Frame, Type::getInt8PtrTy(C, AS), "vFrame", InsertPt);
 
   for (auto *CB : CoroBegins) {
     CB->replaceAllUsesWith(FrameVoidPtr);
@@ -355,7 +355,7 @@ bool Lowerer::processCoroId(CoroIdInst *CoroId, AAResults &AA,
             getFrameLayout(cast<Function>(ResumeAddrConstant))) {
       elideHeapAllocations(CoroId->getFunction(), FrameSizeAndAlign->first,
                            FrameSizeAndAlign->second, AA);
-      coro::replaceCoroFree(CoroId, /*Elide=*/true);
+      coro::replaceCoroFree(CoroId, /*Elide=*/true, AS);
       NumOfCoroElided++;
 #ifndef NDEBUG
       if (!CoroElideInfoOutputFilename.empty())
