@@ -1149,10 +1149,10 @@ static StructType *buildFrameType(Function &F, coro::Shape &Shape,
   std::optional<FieldIDType> SwitchIndexFieldId;
 
   if (Shape.ABI == coro::ABI::Switch) {
-    auto *FramePtrTy = FrameTy->getPointerTo();
+    auto *FramePtrTy = FrameTy->getPointerTo(Shape.AS);
     auto *FnTy = FunctionType::get(Type::getVoidTy(C), FramePtrTy,
                                    /*IsVarArg=*/false);
-    auto *FnPtrTy = FnTy->getPointerTo();
+    auto *FnPtrTy = FnTy->getPointerTo(Shape.AS);
 
     // Add header fields for the resume and destroy functions.
     // We can rely on these being perfectly packed.
@@ -1531,7 +1531,7 @@ static void createFramePtr(coro::Shape &Shape) {
   auto *CB = Shape.CoroBegin;
   IRBuilder<> Builder(CB->getNextNode());
   StructType *FrameTy = Shape.FrameTy;
-  PointerType *FramePtrTy = FrameTy->getPointerTo();
+  PointerType *FramePtrTy = FrameTy->getPointerTo(Shape.AS);
   Shape.FramePtr =
       cast<Instruction>(Builder.CreateBitCast(CB, FramePtrTy, "FramePtr"));
 
@@ -1572,8 +1572,8 @@ static void createFramePtr(coro::Shape &Shape) {
         Malloc = cast<Constant>(M->getOrInsertFunction("malloc", Builder.getInt8PtrTy(), Builder.getInt32Ty()).getCallee());
       }
       Builder.SetInsertPoint(Shape.CheerpCoroAlloc);
-      CallBase* Alloc = cheerp::createCheerpAllocate(Builder, Malloc, FrameTy, Shape.CheerpCoroAlloc->getOperand(0));
-      Value* BC = Builder.CreateBitCast(Alloc, Builder.getInt8PtrTy());
+      CallBase* Alloc = cheerp::createCheerpAllocate(Builder, Malloc, FrameTy, Shape.CheerpCoroAlloc->getOperand(0), Shape.AS);
+      Value* BC = Builder.CreateBitCast(Alloc, Builder.getInt8PtrTy(Shape.AS));
       Shape.CheerpCoroAlloc->replaceAllUsesWith(BC);
       Shape.CheerpCoroAlloc->eraseFromParent();
     }
@@ -1860,7 +1860,7 @@ static void insertSpills(const FrameDataInfo &FrameData, coro::Shape &Shape) {
     for (const auto &Alias : A.Aliases) {
       auto *FramePtr = GetFramePointer(Alloca);
       auto *FramePtrRaw =
-          Builder.CreateBitCast(FramePtr, Type::getInt8PtrTy(C));
+          Builder.CreateBitCast(FramePtr, Type::getInt8PtrTy(C, Shape.AS));
       auto &Value = *Alias.second;
       auto ITy = IntegerType::get(C, Value.getBitWidth());
       auto *AliasPtr = Builder.CreateGEP(Type::getInt8Ty(C), FramePtrRaw,
@@ -2335,7 +2335,7 @@ static Value *emitGetSwiftErrorValue(IRBuilder<> &Builder, Type *ValueTy,
                                      coro::Shape &Shape) {
   // Make a fake function pointer as a sort of intrinsic.
   auto FnTy = FunctionType::get(ValueTy, {}, false);
-  auto Fn = ConstantPointerNull::get(FnTy->getPointerTo());
+  auto Fn = ConstantPointerNull::get(FnTy->getPointerTo(Shape.AS));
 
   auto Call = Builder.CreateCall(FnTy, Fn, {});
   Shape.SwiftErrorOps.push_back(Call);
@@ -2349,9 +2349,9 @@ static Value *emitGetSwiftErrorValue(IRBuilder<> &Builder, Type *ValueTy,
 static Value *emitSetSwiftErrorValue(IRBuilder<> &Builder, Value *V,
                                      coro::Shape &Shape) {
   // Make a fake function pointer as a sort of intrinsic.
-  auto FnTy = FunctionType::get(V->getType()->getPointerTo(),
+  auto FnTy = FunctionType::get(V->getType()->getPointerTo(Shape.AS),
                                 {V->getType()}, false);
-  auto Fn = ConstantPointerNull::get(FnTy->getPointerTo());
+  auto Fn = ConstantPointerNull::get(FnTy->getPointerTo(Shape.AS));
 
   auto Call = Builder.CreateCall(FnTy, Fn, { V });
   Shape.SwiftErrorOps.push_back(Call);
@@ -2606,7 +2606,7 @@ static void sinkLifetimeStartMarkers(Function &F, coro::Shape &Shape,
         auto *NewBitCast = [&](AllocaInst *AI) -> Value* {
           if (isa<AllocaInst>(Lifetimes[0]->getOperand(1)))
             return AI;
-          auto *Int8PtrTy = Type::getInt8PtrTy(F.getContext());
+          auto *Int8PtrTy = Type::getInt8PtrTy(F.getContext(), Shape.AS);
           return CastInst::Create(Instruction::BitCast, AI, Int8PtrTy, "",
                                   DomBB->getTerminator());
         }(AI);
@@ -2752,7 +2752,7 @@ void coro::buildCoroutineFrame(Function &F, Shape &Shape) {
 
   if (Shape.ABI == coro::ABI::Switch &&
       Shape.SwitchLowering.PromiseAlloca) {
-    Shape.getSwitchCoroId()->clearPromise();
+    Shape.getSwitchCoroId()->clearPromise(Shape.AS);
   }
 
   // Make sure that all coro.save, coro.suspend and the fallthrough coro.end
