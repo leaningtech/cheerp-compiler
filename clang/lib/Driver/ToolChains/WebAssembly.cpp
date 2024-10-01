@@ -645,6 +645,8 @@ void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
   };
 
   CmdArgs.push_back("-march=cheerp");
+  // This pass will remove atomics from genericjs functions
+  addPass("CheerpLowerAtomic");
   if(Args.hasArg(options::OPT_cheerp_preexecute))
     addPass("PreExecute");
   if(Args.hasArg(options::OPT_cheerp_preexecute_main))
@@ -706,8 +708,6 @@ void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
   addPass("function(CheerpLowerInvoke)");
   if (Args.hasArg(options::OPT_fexceptions))
     CmdArgs.push_back("-cheerp-keep-invokes");
-  // This pass will remove atomics from genericjs functions
-  addPass("CheerpLowerAtomic");
   addPass("function(simplifycfg)");
 
   addPass("CallConstructors");
