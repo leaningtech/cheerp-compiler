@@ -187,7 +187,7 @@ public:
            "Coroutine argument is already assigned");
     auto *const Int8PtrTy = Type::getInt8PtrTy(getContext(), AS);
     setArgOperand(CoroutineArg,
-                  ConstantExpr::getAddrSpaceCast(getFunction(), Int8PtrTy));
+                  ConstantExpr::getBitCast(getFunction(), Int8PtrTy));
   }
 
   // Methods to support type inquiry through isa, cast, and dyn_cast:

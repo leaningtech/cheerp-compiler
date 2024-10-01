@@ -80,6 +80,7 @@ struct CodeGenTypeCache {
   llvm::PointerType* WasmVoidPtrTy;
   llvm::PointerType* GenericJSVoidPtrTy;
   llvm::PointerType* ClientVoidPtrTy;
+  llvm::PointerType* FnVoidPtrTy;
   unsigned DefaultAS;
   llvm::PointerType* getVoidPtrTy(bool asmjs, bool forFunc = false) {
     if (DL.isByteAddressable())
