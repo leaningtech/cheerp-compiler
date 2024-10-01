@@ -515,7 +515,7 @@ static Function *createCloneDeclaration(Function &OrigF, coro::Shape &Shape,
 
   Function *NewF =
       Function::Create(FnTy, GlobalValue::LinkageTypes::InternalLinkage,
-                       Shape.AS, OrigF.getName() + Suffix);
+                       Shape.FnAS, OrigF.getName() + Suffix);
   if (Shape.ABI != coro::ABI::Async)
     NewF->addParamAttr(0, Attribute::NonNull);
 
@@ -1774,7 +1774,7 @@ static void splitAsyncCoroutine(Function &F, coro::Shape &Shape,
     (void)InlineRes;
 
     // Replace the lvm.coro.async.resume intrisic call.
-    replaceAsyncResumeFunction(Suspend, Continuation, Shape.AS);
+    replaceAsyncResumeFunction(Suspend, Continuation, Shape.FnAS);
   }
 
   assert(Clones.size() == Shape.CoroSuspends.size());
