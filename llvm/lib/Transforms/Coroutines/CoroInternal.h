@@ -40,6 +40,7 @@ struct LowererBase {
 
   // CHEERP: The address space for this coroutine.
   unsigned AS;
+  unsigned FnAS;
 
   PointerType *const Int8Ptr;
   FunctionType *const ResumeFnType;
@@ -113,6 +114,7 @@ struct LLVM_LIBRARY_VISIBILITY Shape {
 
   // CHEERP: The address space for this coroutine.
   unsigned AS;
+  unsigned FnAS;
 
   struct SwitchLoweringStorage {
     SwitchInst *ResumeSwitch;
