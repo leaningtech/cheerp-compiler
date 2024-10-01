@@ -157,6 +157,7 @@ CodeGenModule::CodeGenModule(ASTContext &C,
   WasmVoidPtrTy = Int8Ty->getPointerTo(unsigned(cheerp::CheerpAS::Wasm));
   GenericJSVoidPtrTy = Int8Ty->getPointerTo(unsigned(cheerp::CheerpAS::GenericJS));
   ClientVoidPtrTy = Int8Ty->getPointerTo(unsigned(cheerp::CheerpAS::Client));
+  FnVoidPtrTy = Int8Ty->getPointerTo(cheerp::getCheerpFunctionAS(DefaultAS));
 
   // Build C++20 Module initializers.
   // TODO: Add Microsoft here once we know the mangling required for the
