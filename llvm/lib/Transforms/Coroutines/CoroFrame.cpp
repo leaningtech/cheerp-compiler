@@ -1150,7 +1150,7 @@ static StructType *buildFrameType(Function &F, coro::Shape &Shape,
     auto *FramePtrTy = FrameTy->getPointerTo(Shape.AS);
     auto *FnTy = FunctionType::get(Type::getVoidTy(C), FramePtrTy,
                                    /*IsVarArg=*/false);
-    auto *FnPtrTy = FnTy->getPointerTo(Shape.AS);
+    auto *FnPtrTy = FnTy->getPointerTo(Shape.FnAS);
 
     // Add header fields for the resume and destroy functions.
     // We can rely on these being perfectly packed.
@@ -2334,7 +2334,7 @@ static Value *emitGetSwiftErrorValue(IRBuilder<> &Builder, Type *ValueTy,
                                      coro::Shape &Shape) {
   // Make a fake function pointer as a sort of intrinsic.
   auto FnTy = FunctionType::get(ValueTy, {}, false);
-  auto Fn = ConstantPointerNull::get(FnTy->getPointerTo(Shape.AS));
+  auto Fn = ConstantPointerNull::get(FnTy->getPointerTo(Shape.FnAS));
 
   auto Call = Builder.CreateCall(FnTy, Fn, {});
   Shape.SwiftErrorOps.push_back(Call);
@@ -2350,7 +2350,7 @@ static Value *emitSetSwiftErrorValue(IRBuilder<> &Builder, Value *V,
   // Make a fake function pointer as a sort of intrinsic.
   auto FnTy = FunctionType::get(V->getType()->getPointerTo(Shape.AS),
                                 {V->getType()}, false);
-  auto Fn = ConstantPointerNull::get(FnTy->getPointerTo(Shape.AS));
+  auto Fn = ConstantPointerNull::get(FnTy->getPointerTo(Shape.FnAS));
 
   auto Call = Builder.CreateCall(FnTy, Fn, { V });
   Shape.SwiftErrorOps.push_back(Call);
