@@ -22,6 +22,22 @@ enum class CheerpAS {
 	Wasm = 4,
 };
 
+inline CheerpAS getCheerpFunctionAS(CheerpAS AS) {
+	switch (AS) {
+	case CheerpAS::Default:
+		return AS;
+	case CheerpAS::GenericJS:
+		return CheerpAS::Client;
+	case CheerpAS::Wasm:
+		return AS;
+	default:
+		assert(false);
+	}
+}
+inline unsigned getCheerpFunctionAS(unsigned AS) {
+	return static_cast<unsigned>(getCheerpFunctionAS(static_cast<CheerpAS>(AS)));
+}
+
 } // namespace cheerp
 
 #endif // _CHEERP_ADDRESS_SPACES_H
