@@ -388,6 +388,19 @@ inline CheerpAS getCheerpAS(const llvm::PointerType* t) {
 inline CheerpAS getCheerpAS(const llvm::Value* v) {
 	return getCheerpAS(llvm::cast<llvm::PointerType>(v->getType()));
 }
+inline CheerpAS getCheerpFunctionAS(CheerpAS AS) {
+	switch (AS) {
+	case CheerpAS::GenericJS:
+		return CheerpAS::Client;
+	case CheerpAS::Wasm:
+		return AS;
+	default:
+		assert(false);
+	}
+}
+inline unsigned getCheerpFunctionAS(unsigned AS) {
+	return static_cast<unsigned>(getCheerpFunctionAS(static_cast<CheerpAS>(AS)));
+}
 
 class TypeSupport
 {

@@ -476,6 +476,7 @@ static void emitBodyAndFallthrough(CodeGenFunction &CGF,
 
 void CodeGenFunction::EmitCoroutineBody(const CoroutineBodyStmt &S) {
   auto *NullPtr = llvm::ConstantPointerNull::get(Int8PtrTy);
+  auto *FnNullPtr = llvm::ConstantPointerNull::get(FnVoidPtrTy);
   auto &TI = CGM.getContext().getTargetInfo();
   unsigned NewAlign = TI.getNewAlign() / TI.getCharWidth();
 
@@ -486,8 +487,8 @@ void CodeGenFunction::EmitCoroutineBody(const CoroutineBodyStmt &S) {
   auto *RetBB = createBasicBlock("coro.ret");
 
   auto *CoroId = Builder.CreateCall(
-      CGM.getIntrinsic(llvm::Intrinsic::coro_id, {Int8PtrTy, Int8PtrTy, Int8PtrTy}),
-      {Builder.getInt32(NewAlign), NullPtr, NullPtr, NullPtr});
+      CGM.getIntrinsic(llvm::Intrinsic::coro_id, {Int8PtrTy, FnVoidPtrTy, Int8PtrTy}),
+      {Builder.getInt32(NewAlign), NullPtr, FnNullPtr, NullPtr});
   createCoroData(*this, CurCoro, CoroId);
   CurCoro.Data->SuspendBB = RetBB;
   assert(ShouldEmitLifetimeMarkers &&

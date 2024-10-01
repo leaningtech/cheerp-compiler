@@ -65,7 +65,7 @@ void Lowerer::lowerCoroPromise(CoroPromiseInst *Intrin) {
   Align Alignment = Intrin->getAlignment();
   Type *Int8Ty = Builder.getInt8Ty();
 
-  auto* AnyResumeFnPtrTy = ResumeFnType->getPointerTo(AS);
+  auto* AnyResumeFnPtrTy = ResumeFnType->getPointerTo(FnAS);
   auto *SampleStruct =
       StructType::get(Context, {AnyResumeFnPtrTy, AnyResumeFnPtrTy, Int8Ty});
   const DataLayout &DL = TheModule.getDataLayout();
@@ -119,8 +119,8 @@ void Lowerer::lowerCoroDone(IntrinsicInst *II) {
   Builder.SetInsertPoint(II);
   auto *BCI = Builder.CreateBitCast(Operand, FramePtrTy);
   auto *Fn = Builder.CreateConstInBoundsGEP2_32(FrameTy, BCI, 0, 0);
-  auto *Load = Builder.CreateLoad(ResumeFnType->getPointerTo(AS), Fn);
-  auto *Cond = Builder.CreateICmpEQ(Load, ConstantPointerNull::get(ResumeFnType->getPointerTo(AS)));
+  auto *Load = Builder.CreateLoad(ResumeFnType->getPointerTo(FnAS), Fn);
+  auto *Cond = Builder.CreateICmpEQ(Load, ConstantPointerNull::get(ResumeFnType->getPointerTo(FnAS)));
 
   II->replaceAllUsesWith(Cond);
   II->eraseFromParent();
@@ -155,7 +155,7 @@ void Lowerer::lowerCoroNoop(IntrinsicInst *II) {
     auto *FramePtrTy = FrameTy->getPointerTo(AS);
     auto *FnTy = FunctionType::get(Type::getVoidTy(C), FramePtrTy,
                                    /*isVarArg=*/false);
-    auto *FnPtrTy = FnTy->getPointerTo(AS);
+    auto *FnPtrTy = FnTy->getPointerTo(FnAS);
     Triple triple = Triple(M.getTargetTriple());
     bool asmjs = triple.getArch() == Triple::cheerp && triple.getEnvironment() != Triple::GenericJs;
     FrameTy->setBody({FnPtrTy, FnPtrTy}, /*isPacked*/false, /*directBase*/nullptr, /*isByteLayout*/false, asmjs);
@@ -236,7 +236,7 @@ void Lowerer::lowerEarlyIntrinsics(Function &F) {
                    "The frontend uses Swtich-Resumed ABI should emit "
                    "\"coroutine.presplit\" attribute for the coroutine.");
             setCannotDuplicate(CII);
-            CII->setCoroutineSelf(AS);
+            CII->setCoroutineSelf(FnAS);
             CoroId = cast<CoroIdInst>(&I);
           }
         }
