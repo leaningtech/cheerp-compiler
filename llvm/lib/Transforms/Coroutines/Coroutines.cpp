@@ -41,9 +41,10 @@ StructType* coro::getBaseFrameType(LLVMContext& C, bool asmjs) {
   if (!FrameTy)
   {
     unsigned AS = (unsigned)(asmjs ? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+    unsigned FnAS = cheerp::getCheerpFunctionAS(AS);
     FrameTy = StructType::create(C, "coroFrameBase");
     auto* ResumeFnType = FunctionType::get(Type::getVoidTy(C), FrameTy->getPointerTo(AS), false);
-    FrameTy->setBody({ ResumeFnType->getPointerTo(AS), ResumeFnType->getPointerTo(AS)}, /*isPacked*/false, /*directBase*/nullptr, /*isByteLayout*/false, asmjs);
+    FrameTy->setBody({ ResumeFnType->getPointerTo(FnAS), ResumeFnType->getPointerTo(FnAS)}, /*isPacked*/false, /*directBase*/nullptr, /*isByteLayout*/false, asmjs);
   }
   return FrameTy;
 }
@@ -51,6 +52,7 @@ StructType* coro::getBaseFrameType(LLVMContext& C, bool asmjs) {
 coro::LowererBase::LowererBase(Module &M)
     : TheModule(M), Context(M.getContext()),
       AS((unsigned) (Triple(M.getTargetTriple()).getEnvironment() != Triple::GenericJs ? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS)),
+      FnAS(cheerp::getCheerpFunctionAS(AS)),
       Int8Ptr(Type::getInt8PtrTy(Context, AS)),
       ResumeFnType(FunctionType::get(Type::getVoidTy(Context), getBaseFrameType(Context, Triple(M.getTargetTriple()).getEnvironment() != Triple::GenericJs)->getPointerTo(AS),
                                      /*isVarArg=*/false)),
@@ -67,7 +69,7 @@ coro::LowererBase::LowererBase(Module &M)
 Value *coro::LowererBase::makeSubFnCall(Value *Arg, int Index,
                                         Instruction *InsertPt) {
   auto *IndexVal = ConstantInt::get(Type::getInt8Ty(Context), Index);
-  auto *Fn = Intrinsic::getDeclaration(&TheModule, Intrinsic::coro_subfn_addr, {Int8Ptr, Int8Ptr});
+  auto *Fn = Intrinsic::getDeclaration(&TheModule, Intrinsic::coro_subfn_addr, {Type::getInt8PtrTy(Context, FnAS), Int8Ptr});
 
   assert(Index >= CoroSubFnInst::IndexFirst &&
          Index < CoroSubFnInst::IndexLast &&
@@ -75,7 +77,7 @@ Value *coro::LowererBase::makeSubFnCall(Value *Arg, int Index,
   auto *Call = CallInst::Create(Fn, {Arg, IndexVal}, "", InsertPt);
 
   auto *Bitcast =
-      new BitCastInst(Call, ResumeFnType->getPointerTo(AS), "", InsertPt);
+      new BitCastInst(Call, ResumeFnType->getPointerTo(FnAS), "", InsertPt);
   return Bitcast;
 }
 
@@ -197,6 +199,7 @@ void coro::Shape::buildFrom(Function &F) {
 
   // CHEERP: Get the address space for this coroutine:
   AS = (unsigned) (F.getSection() == "asmjs" ? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+  FnAS = cheerp::getCheerpFunctionAS(AS);
 
   for (Instruction &I : instructions(F)) {
     if (auto II = dyn_cast<IntrinsicInst>(&I)) {
