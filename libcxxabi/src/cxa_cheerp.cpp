@@ -128,8 +128,6 @@ public:
 
 struct Exception
 {
-	static IdAllocator<Exception> allocator;
-
 	client::Object* jsObj;
 	// NOTE: we keep the exception object as a pair base/offset manually to prevent
 	// optimizations from converting it to COMPLETE_OBJECT
@@ -171,14 +169,23 @@ struct Exception
 	{
 		run_dest();
 	}
+	static IdAllocator<Exception>* allocator()
+	{
+		static IdAllocator<Exception>* result = nullptr;
+
+		if (!result)
+			result = new IdAllocator<Exception>;
+
+		return result;
+	}
 	template<typename... Args>
 	static Exception* allocate(Args&&... args) noexcept
 	{
-		return allocator.allocate(cheerp::forward<Args>(args)...);
+		return allocator()->allocate(cheerp::forward<Args>(args)...);
 	}
 	void deallocate() noexcept
 	{
-		allocator.deallocate(this);
+		allocator()->deallocate(this);
 	}
 	void set_jsObj(client::Object* o) noexcept
 	{
@@ -270,8 +277,6 @@ struct Exception
 		return primary != nullptr;
 	}
 };
-IdAllocator<Exception> Exception::allocator;
-
 
 // Global variable to store the currently thrown exception.
 // This is needed just by the personality, which will reset it to null immediately
@@ -289,7 +294,7 @@ static client::Object* curNonNativeException = nullptr;
 
 static Exception* find_exception_from_unwind_ptr(void* unwind)
 {
-	return Exception::allocator.get_object(unwind);
+	return Exception::allocator()->get_object(unwind);
 }
 
 extern "C" {
