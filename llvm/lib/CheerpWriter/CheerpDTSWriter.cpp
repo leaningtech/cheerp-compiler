@@ -250,6 +250,13 @@ class Visitor final
     });
   }
 
+  void handle(itanium_demangle::QualType* node)
+  {
+    node->match([this](const Node* type, Qualifiers quals) {
+      accept(type);
+    });
+  }
+
   void handle(Node* node)
   {
     assert(false && "unhandled itanium demangler node in dts generator");
