@@ -848,6 +848,9 @@ CodeGenModule::EmitCXXGlobalInitFunc() {
       llvm::Function *Fn = CreateGlobalInitOrCleanUpFunction(
           FTy, "_GLOBAL__I_" + getPrioritySuffix(Priority), FI);
 
+      if (Context.getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly)
+        Fn->setSection("asmjs");
+
       // Prepend the module inits to the highest priority set.
       if (!ModuleInits.empty()) {
         for (auto *F : ModuleInits)
