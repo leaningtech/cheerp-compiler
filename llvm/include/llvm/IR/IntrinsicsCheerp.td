@@ -17,6 +17,10 @@
 
 //===-------------------------- Cheerp Intrinsics --------------------------===//
 //
+
+// pointer to wasm address space
+def llvm_wasm_ptr_ty        : LLVMQualPointerType<llvm_i8_ty, 4>;
+
 // Casting helpers
 def int_cheerp_downcast  : Intrinsic<[llvm_anyptr_ty],
                              [llvm_anyptr_ty, llvm_i32_ty],
@@ -111,19 +115,16 @@ def int_cheerp_set_thread_pointer : Intrinsic<[],
                                       [llvm_i32_ty]>;
 
 def int_cheerp_atomic_wait : Intrinsic<[llvm_i32_ty],
-                              [llvm_ptr_ty, llvm_i32_ty, llvm_i64_ty]>,
+                              [llvm_wasm_ptr_ty, llvm_i32_ty, llvm_i64_ty]>,
                               ClangBuiltin<"__builtin_cheerp_atomic_wait">;
 
 def int_cheerp_atomic_notify : Intrinsic<[llvm_i32_ty],
-                                [llvm_ptr_ty, llvm_i32_ty]>,
+                                [llvm_wasm_ptr_ty, llvm_i32_ty]>,
                                 ClangBuiltin<"__builtin_cheerp_atomic_notify">;
 
 def int_cheerp_environ : Intrinsic<[llvm_anyptr_ty]>;
 
 def int_cheerp_argv : Intrinsic<[llvm_anyptr_ty]>;
-
-// pointer to wasm address space
-def llvm_wasm_ptr_ty        : LLVMQualPointerType<llvm_i8_ty, 4>;
 
 // cheerp version of stacksave, using the wasm address space
 def int_cheerp_stacksave     : DefaultAttrsIntrinsic<[llvm_wasm_ptr_ty]>;
