@@ -858,8 +858,22 @@ void CGRecordLowering::fillOutputFields() {
                 (Member->Kind == MemberInfo::Field && Member->FD && Member->FD->getType()->isStructureOrClassType() && !D->isUnion())))
     {
       assert(isa<llvm::StructType>(Member->Data));
+      llvm::DenseMap<unsigned, const CXXRecordDecl *> BaseNonVirtualBases;
+      unsigned BaseFieldIndex = 0;
       llvm::StructType* ST = cast<llvm::StructType>(Member->Data);
       CharUnits Offset = CharUnits::Zero();
+      DirectBase = ST;
+      if (Member->Kind == MemberInfo::Base)
+      {
+        DirectBaseLayout = &Types.getCGRecordLayout(Member->RD);
+        for (auto it = DirectBaseLayout->nvbases_begin(); it != DirectBaseLayout->nvbases_end(); ++it)
+          BaseNonVirtualBases.insert({it->second, it->first});
+      }
+      else
+      {
+        DirectBaseLayout = &Types.getCGRecordLayout(cast<RecordDecl>(Member->FD->getType()->getAsTagDecl()));
+        Fields[Member->FD->getCanonicalDecl()] = 0xffffffff;
+      }
       for (auto* el: ST->elements())
       {
         // Insert explicit padding where needed.
@@ -874,20 +888,16 @@ void CGRecordLowering::fillOutputFields() {
         }
         FieldTypes.push_back(el);
         Offset += getSize(el);
+        if (Member->Kind == MemberInfo::Base && BaseNonVirtualBases.count(BaseFieldIndex))
+          NonVirtualBases[BaseNonVirtualBases.lookup(BaseFieldIndex)] = FieldTypes.size() - 1;
+        BaseFieldIndex += 1;
       }
-      // For C-style inheritance, we cannot avoid padding after the "base"
-      if (Member->Kind != MemberInfo::Base && !ST->isPacked())
+      // We cannot avoid padding after the direct base
+      if (!ST->isPacked())
       {
           CharUnits Size = Offset.alignTo(getAlignment(ST));
           appendPaddingBytes(Size - Offset);
           Offset = Size;
-      }
-      DirectBase = ST;
-      if (Member->Kind == MemberInfo::Base)
-        DirectBaseLayout = &Types.getCGRecordLayout(Member->RD);
-      else {
-        DirectBaseLayout = &Types.getCGRecordLayout(cast<RecordDecl>(Member->FD->getType()->getAsTagDecl()));
-        Fields[Member->FD->getCanonicalDecl()] = 0xffffffff;
       }
       totalNumberOfNonVirtualBases = DirectBaseLayout->totalNumberOfNonVirtualBases;
       continue;

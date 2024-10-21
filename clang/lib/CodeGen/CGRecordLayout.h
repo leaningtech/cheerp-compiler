@@ -236,6 +236,13 @@ public:
 
   typedef  llvm::DenseMap<const CXXRecordDecl *, unsigned>::const_iterator const_base_iterator;
 
+  const_base_iterator nvbases_begin() const {
+        return NonVirtualBases.begin();
+  }
+  const_base_iterator nvbases_end() const {
+        return NonVirtualBases.end();
+  }
+
   const_base_iterator vbases_begin() const {
         return CompleteObjectVirtualBases.begin();
   }

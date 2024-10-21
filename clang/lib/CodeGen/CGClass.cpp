@@ -39,6 +39,7 @@ ComputeNonVirtualBaseClassGepPath(CodeGenModule& CGM,
                                   const CXXRecordDecl *DerivedClass,
                                   llvm::ArrayRef<const CXXRecordDecl*> BasePath) {
   const CXXRecordDecl *RD = DerivedClass;
+  const CXXRecordDecl *TopRD = DerivedClass;
   // Compute the expected type of the GEP expression
   llvm::Type* ret = nullptr;
 
@@ -47,11 +48,12 @@ ComputeNonVirtualBaseClassGepPath(CodeGenModule& CGM,
     if(!BaseDecl->isEmpty() && !ASTLayout.getBaseClassOffset(BaseDecl).isZero())
     {
       // Get the layout.
-      const CGRecordLayout &Layout = CGM.getTypes().getCGRecordLayout(RD);
+      const CGRecordLayout &Layout = CGM.getTypes().getCGRecordLayout(TopRD);
       uint32_t index=Layout.getNonVirtualBaseLLVMFieldNo(BaseDecl);
 
       GEPIndexes.push_back(llvm::ConstantInt::get(CGM.Int32Ty, index));
       ret = Layout.getLLVMType()->getElementType(index);
+      TopRD = BaseDecl;
     }
     RD = BaseDecl;
   }
