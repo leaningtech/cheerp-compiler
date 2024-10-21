@@ -32,7 +32,7 @@ using namespace llvm;
 static Function* getOrCreateGetStackWrapper(Module* M, cheerp::GlobalDepsAnalyzer& GDA)
 {
 	Type* i8Ty = IntegerType::getInt8Ty(M->getContext());
-	Type* i8PtrTy = PointerType::get(i8Ty, 0);
+	Type* i8PtrTy = PointerType::get(i8Ty, (unsigned)CheerpAS::Wasm);
 	FunctionType* fTy = FunctionType::get(i8PtrTy,{});
 	Function* wrapper = cast<Function>(M->getOrInsertFunction("__getStackPtr", fTy).getCallee());
 	if (!wrapper->empty())
@@ -50,7 +50,7 @@ static Function* getOrCreateGetStackWrapper(Module* M, cheerp::GlobalDepsAnalyze
 static Function* getOrCreateSetStackWrapper(Module* M, cheerp::GlobalDepsAnalyzer& GDA)
 {
 	Type* i8Ty = IntegerType::getInt8Ty(M->getContext());
-	Type* i8PtrTy = PointerType::get(i8Ty, 0);
+	Type* i8PtrTy = PointerType::get(i8Ty, (unsigned)CheerpAS::Wasm);
 	Type* argTy[] = {i8PtrTy};
 	FunctionType* fTy = FunctionType::get(Type::getVoidTy(M->getContext()),ArrayRef<Type*>(argTy,1), false);
 	Function* wrapper = cast<Function>(M->getOrInsertFunction("__setStackPtr", fTy).getCallee());

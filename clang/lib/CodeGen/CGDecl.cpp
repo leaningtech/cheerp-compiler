@@ -33,6 +33,7 @@
 #include "clang/CodeGen/CGFunctionInfo.h"
 #include "clang/Sema/Sema.h"
 #include "llvm/Analysis/ValueTracking.h"
+#include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/Intrinsics.h"
@@ -576,8 +577,7 @@ namespace {
     bool isRedundantBeforeReturn() override { return true; }
     void Emit(CodeGenFunction &CGF, Flags flags) override {
       llvm::Value *V = CGF.Builder.CreateLoad(Stack);
-      V = CGF.Builder.CreateAddrSpaceCast(V, CGF.Int8Ty->getPointerTo(0));
-      llvm::Function *F = CGF.CGM.getIntrinsic(llvm::Intrinsic::stackrestore);
+      llvm::Function *F = CGF.CGM.getIntrinsic(llvm::Intrinsic::cheerp_stackrestore);
       CGF.Builder.CreateCall(F, V);
     }
   };
@@ -1623,15 +1623,15 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
 
     uint32_t AS = getLangOpts().Cheerp? getContext().getTargetAddressSpace(Ty.getAddressSpace()) : CGM.getDataLayout().getAllocaAddrSpace();
 
+    assert(AS == (unsigned) cheerp::CheerpAS::Wasm);
+
     if (!DidCallStackSave) {
       // Save the stack.
       Address Stack =
         CreateTempAlloca(getVoidPtrTy(true), getPointerAlign(), "saved_stack", nullptr, nullptr, AS);
 
-      llvm::Function *F = CGM.getIntrinsic(llvm::Intrinsic::stacksave);
+      llvm::Function *F = CGM.getIntrinsic(llvm::Intrinsic::cheerp_stacksave);
       llvm::Value *V = Builder.CreateCall(F);
-      if (AS != 0)
-        V = Builder.CreateAddrSpaceCast(V, Int8Ty->getPointerTo(AS));
       Builder.CreateStore(V, Stack);
 
       DidCallStackSave = true;
