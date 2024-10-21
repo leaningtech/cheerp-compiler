@@ -84,6 +84,7 @@ public:
   using RoundingMode = llvm::RoundingMode;
 
   enum GCMode { NonGC, GCOnly, HybridGC };
+  enum CheerpDefaultEnvMode { None, GenericJS, Wasm };
   enum StackProtectorMode { SSPOff, SSPOn, SSPStrong, SSPReq };
 
   // Automatic variables live on the stack, and when trivial they're usually
