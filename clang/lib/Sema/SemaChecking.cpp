@@ -2692,13 +2692,6 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
   }
   }
 
-  bool asmjs = FDecl->hasAttr<AsmJSAttr>();
-  // Some builtins need special handling on generic Cheerp
-  if (!asmjs && Context.getTargetInfo().getTriple().getArch()==llvm::Triple::cheerp) {
-    if (CheckCheerpBuiltinFunctionCall(BuiltinID, TheCall))
-      return ExprError();
-  }
-
   // Since the target specific builtins for each arch overlap, only check those
   // of the arch we are compiling for.
   if (Context.BuiltinInfo.isTSBuiltin(BuiltinID)) {
@@ -5482,19 +5475,6 @@ bool Sema::CheckX86BuiltinFunctionCall(const TargetInfo &TI, unsigned BuiltinID,
   // range values. These need to code generate, but don't need to necessarily
   // make any sense. We use a warning that defaults to an error.
   return SemaBuiltinConstantArgRange(TheCall, i, l, u, /*RangeIsError*/ false);
-}
-
-bool Sema::CheckCheerpBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
-    if (BuiltinID == Builtin::BIrealloc) {
-      const CastExpr* argCE=dyn_cast<CastExpr>(TheCall->getArg(0));
-      if (!argCE || argCE->getSubExpr()->getType()->isVoidPointerType())
-      {
-        Diag(TheCall->getArg(0)->getBeginLoc(), diag::err_cheerp_memintrinsic_type_unknown);
-        return true;
-      }
-      // NOTE: It's not possible to analyze the return type here since we can't build the parent map
-    }
-    return false;
 }
 
 /// Given a FunctionDecl's FormatAttr, attempts to populate the FomatStringInfo
