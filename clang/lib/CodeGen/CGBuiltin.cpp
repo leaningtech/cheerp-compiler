@@ -12738,11 +12738,12 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
     // There must be an incoming cast, void* are not directly accepted
     const CastExpr* argCE=dyn_cast<CastExpr>(E->getArg(0));
 
-    if (asmjs && (!argCE || argCE->getSubExpr()->getType()->isVoidPointerType()))
+    if (!argCE || argCE->getSubExpr()->getType()->isVoidPointerType()) {
+      if (!asmjs)
+        CGM.getDiags().Report(E->getArg(0)->getBeginLoc(), diag::err_cheerp_memintrinsic_type_unknown);
       return 0;
+    }
 
-    // This condition is verified in Sema
-    assert(argCE && !argCE->getSubExpr()->getType()->isVoidPointerType());
     //TODO: realloc can be invoked with NULL, support that
     const Expr* existingMem=argCE->getSubExpr();
     // The type for the realloc is decided from the base type
