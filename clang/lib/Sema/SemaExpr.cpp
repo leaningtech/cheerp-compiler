@@ -6455,7 +6455,8 @@ static FunctionDecl *rewriteBuiltinFunctionDecl(Sema *Sema, ASTContext &Context,
   QualType DeclType = FDecl->getType();
   const FunctionProtoType *FT = dyn_cast<FunctionProtoType>(DeclType);
 
-  if (!Context.BuiltinInfo.hasPtrArgsOrResult(FDecl->getBuiltinID()) || !FT ||
+  if (!(Context.BuiltinInfo.hasPtrArgsOrResult(FDecl->getBuiltinID()) ||
+        Context.BuiltinInfo.hasReferenceArgsOrResult(FDecl->getBuiltinID())) || !FT ||
       ArgExprs.size() < FT->getNumParams())
     return nullptr;
 
@@ -6472,9 +6473,12 @@ static FunctionDecl *rewriteBuiltinFunctionDecl(Sema *Sema, ASTContext &Context,
       return nullptr;
     Expr *Arg = ArgRes.get();
     QualType ArgType = Arg->getType();
-    if (!ParamType->isPointerType() ||
+    auto isPointerOrRef = [](QualType Ty) {
+      return Ty->isPointerType() || Ty->isReferenceType();
+    };
+    if (!isPointerOrRef(ParamType) ||
         ParamType.hasAddressSpace() ||
-        !ArgType->isPointerType() ||
+        !isPointerOrRef(ArgType) ||
         !ArgType->getPointeeType().hasAddressSpace()) {
       OverloadParams.push_back(ParamType);
       continue;
@@ -6488,7 +6492,14 @@ static FunctionDecl *rewriteBuiltinFunctionDecl(Sema *Sema, ASTContext &Context,
     LangAS AS = ArgType->getPointeeType().getAddressSpace();
 
     PointeeType = Context.getAddrSpaceQualType(PointeeType, AS);
-    OverloadParams.push_back(Context.getPointerType(PointeeType));
+    QualType Type;
+    if (ParamType->isPointerType()) {
+      Type = Context.getPointerType(PointeeType);
+    } else {
+      assert(ParamType->isReferenceType());
+      Type = Context.getLValueReferenceType(PointeeType);
+    }
+    OverloadParams.push_back(Type);
   }
 
   if (!NeedsNewDecl)
@@ -16815,8 +16826,9 @@ ExprResult Sema::BuildVAArgExpr(SourceLocation BuiltinLoc,
     }
   }
 
+  QualType ETyNoAS = Context.removeAddrSpaceQualType(E->getType());
   if (!IsMS && !E->isTypeDependent() &&
-      !Context.hasSameType(VaListType, E->getType()))
+      !Context.hasSameType(VaListType, ETyNoAS))
     return ExprError(
         Diag(E->getBeginLoc(),
              diag::err_first_argument_to_va_arg_not_of_type_va_list)

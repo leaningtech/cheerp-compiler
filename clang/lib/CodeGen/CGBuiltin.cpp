@@ -739,13 +739,17 @@ EncompassingIntegerType(ArrayRef<struct WidthAndSignedness> Types) {
 }
 
 Value *CodeGenFunction::EmitVAStartEnd(Value *ArgValue, bool IsStart) {
-  llvm::Type *DestType = Int8PtrTy;
-  if (ArgValue->getType() != DestType)
+  llvm::PointerType *DestType = Int8PtrTy;
+  if (getLangOpts().Cheerp) {
+    DestType = llvm::PointerType::getWithSamePointeeType(DestType, ArgValue->getType()->getPointerAddressSpace());
+  }
+  if (ArgValue->getType() != DestType) {
     ArgValue =
         Builder.CreateBitCast(ArgValue, DestType, ArgValue->getName().data());
+  }
 
   Intrinsic::ID inst = IsStart ? Intrinsic::vastart : Intrinsic::vaend;
-  return Builder.CreateCall(CGM.getIntrinsic(inst), ArgValue);
+  return Builder.CreateCall(CGM.getIntrinsic(inst, {DestType}), ArgValue);
 }
 
 /// Checks if using the result of __builtin_object_size(p, @p From) in place of
@@ -2548,11 +2552,14 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
     Value *DstPtr = EmitVAListRef(E->getArg(0)).getPointer();
     Value *SrcPtr = EmitVAListRef(E->getArg(1)).getPointer();
 
-    llvm::Type *Type = Int8PtrTy;
+    llvm::PointerType *Type = Int8PtrTy;
 
+    if (getLangOpts().Cheerp) {
+      Type = llvm::PointerType::getWithSamePointeeType(Type, SrcPtr->getType()->getPointerAddressSpace());
+    }
     DstPtr = Builder.CreateBitCast(DstPtr, Type);
     SrcPtr = Builder.CreateBitCast(SrcPtr, Type);
-    Builder.CreateCall(CGM.getIntrinsic(Intrinsic::vacopy), {DstPtr, SrcPtr});
+    Builder.CreateCall(CGM.getIntrinsic(Intrinsic::vacopy, {Type, Type}), {DstPtr, SrcPtr});
     return RValue::get(nullptr);
   }
   case Builtin::BI__builtin_abs:
