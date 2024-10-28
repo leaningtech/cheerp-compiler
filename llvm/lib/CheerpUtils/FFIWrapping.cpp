@@ -20,9 +20,38 @@ namespace cheerp {
 
 using namespace llvm;
 
+static Type* wrapImportArgType(Type* Orig)
+{
+	if (TypeSupport::isGenericJSPointer(Orig))
+		return PointerType::getWithSamePointeeType(cast<PointerType>(Orig), (unsigned)CheerpAS::Wasm);
+	return Orig;
+}
+
+static FunctionType* wrapImportType(const FunctionType* Orig)
+{
+	llvm::SmallVector<Type*, 4> params;
+
+	for (Type* param: Orig->params())
+		params.push_back(wrapImportArgType(param));
+
+	return FunctionType::get(Orig->getReturnType(), params, Orig->isVarArg());
+}
+
+static Value* wrapImportArg(Module& M, IRBuilder<>& Builder, Value* Orig, Type* T)
+{
+	if (T != Orig->getType())
+	{
+		Function* F = Intrinsic::getDeclaration(&M, Intrinsic::cheerp_typed_ptrcast, {T, Orig->getType()});
+		return Builder.CreateCall(F->getFunctionType(), F, {Orig});
+	}
+
+	return Orig;
+}
+
 static Function* wrapImport(Module& M, const Function* Orig)
 {
-	FunctionType* Ty = Orig->getFunctionType();
+	FunctionType* OrigTy = Orig->getFunctionType();
+	FunctionType* Ty = wrapImportType(OrigTy);
 	Function* Wrapper = cast<Function>(M.getOrInsertFunction(Twine("__wrapper__",Orig->getName()).str(), Ty).getCallee());
 
 	setForceRawAttribute(M, Wrapper);
@@ -31,8 +60,8 @@ static Function* wrapImport(Module& M, const Function* Orig)
 	IRBuilder<> Builder(Entry);
 
 	llvm::SmallVector<Value*, 4> params;
-	for(auto& arg: Wrapper->args())
-		params.push_back(&arg);
+	for(unsigned i = 0; i < Ty->getNumParams(); i++)
+		params.push_back(wrapImportArg(M, Builder, Wrapper->getArg(i), OrigTy->getParamType(i)));
 	CallInst* ForwardCall = Builder.CreateCall(const_cast<Function*>(Orig), params);
 	Type* RetTy = ForwardCall->getType();
 	Value* Ret = RetTy->isVoidTy() ? nullptr : ForwardCall;
@@ -125,7 +154,33 @@ static void replaceAllUsesWithFiltered(Value* Old, T GetNew,
 				continue;
 			IRBuilder<> Builder(I);
 			Value* New = GetNew(Builder);
-			U.set(New);
+
+			if (CallInst* CI = dyn_cast<CallInst>(I))
+			{
+				llvm::SmallVector<Value*, 4> args;
+
+				for (Value* arg : CI->args())
+				{
+					if (CallInst* I = dyn_cast<CallInst>(arg))
+					{
+						if (TypeSupport::isGenericJSPointer(arg->getType()) && I->getIntrinsicID() == Intrinsic::cheerp_typed_ptrcast)
+						{
+							args.push_back(I->getArgOperand(0));
+							continue;
+						}
+					}
+
+					args.push_back(arg);
+				}
+
+				CallInst* Call = CallInst::Create(cast<Function>(New)->getFunctionType(), New, args, CI->getName());
+
+				Call->insertBefore(CI);
+				CI->replaceAllUsesWith(Call);
+				CI->eraseFromParent();
+			}
+			else
+				U.set(New);
 		}
 		else if (ConstantExpr* CE = dyn_cast<ConstantExpr>(U.getUser()))
 		{
