@@ -2965,7 +2965,10 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						unsigned intrinsic = calledFunc->getIntrinsicID();
 #ifndef NDEBUG
 						if (intrinsic != Intrinsic::not_intrinsic)
+						{
+							ci.getParent()->getParent()->dump();
 							ci.dump();
+						}
 #endif
 						assert(intrinsic == Intrinsic::not_intrinsic);
 					}
