@@ -21249,8 +21249,9 @@ void Sema::CheckCheerpFFICall(const FunctionDecl* Parent, const FunctionDecl* FD
           << FDecl->getAttr<GenericJSAttr>() << "constructor" << FDecl
           << Parent->getAttr<AsmJSAttr>() << "caller function" << Parent;
 
-    auto checkTypeCanCrossAsmJSToGenericJSBoundary = [this, &FDecl, &Parent, &Loc](const Type* pt, const NamedDecl* p, StringRef message) -> void
-    {
+    for(auto p: FDecl->parameters()) {
+      const Type* pt = p->getType().getTypePtr();
+
       if (pt->hasPointerRepresentation() && pt->getPointeeType()->isFunctionType()) {
         Diag(Loc,
              diag::err_cheerp_wrong_func_pointer_param)
@@ -21258,13 +21259,26 @@ void Sema::CheckCheerpFFICall(const FunctionDecl* Parent, const FunctionDecl* FD
           << Parent << Parent->getAttr<AsmJSAttr>()
           << p;
       }
-    };
-
-    for(auto p: FDecl->parameters()) {
-      const Type* pt = p->getType().getTypePtr();
-      checkTypeCanCrossAsmJSToGenericJSBoundary(pt, p, "function parameter");
     }
-    const Type* retType = FDecl->getReturnType().getTypePtr();
-    checkTypeCanCrossAsmJSToGenericJSBoundary(retType, FDecl, "function return");
+
+    const Type* rt = FDecl->getReturnType().getTypePtr();
+
+    if (rt->hasPointerRepresentation() && rt->getPointeeType()->isFundamentalType()) {
+      Diag(Loc,
+          diag::err_cheerp_wrong_basic_pointer_return)
+        << FDecl << FDecl->getAttr<GenericJSAttr>()
+        << Parent << Parent->getAttr<AsmJSAttr>()
+        << (rt->isReferenceType() ? "reference" : "pointer");
+    } else if (rt->hasPointerRepresentation() && rt->getPointeeType()->isFunctionType()) {
+      Diag(Loc,
+          diag::err_cheerp_wrong_func_pointer_return)
+        << FDecl << FDecl->getAttr<GenericJSAttr>()
+        << Parent << Parent->getAttr<AsmJSAttr>();
+    } else if (rt->hasPointerRepresentation() && rt->getPointeeType()->isPointerType()) {
+      Diag(Loc,
+          diag::err_cheerp_wrong_pointer_pointer_return)
+        << FDecl << FDecl->getAttr<GenericJSAttr>()
+        << Parent << Parent->getAttr<AsmJSAttr>();
+    }
   }
 }
