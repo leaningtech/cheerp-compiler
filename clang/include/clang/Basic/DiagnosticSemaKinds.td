@@ -11882,6 +11882,12 @@ def err_cheerp_wrong_func_pointer_param : Error<
   "Cheerp: Cannot call function %0  with attribute %1 from function %2 with attribute %3, because parameter %4 is a function pointer">;
 def err_cheerp_wrong_pointer_pointer_param : Error<
   "Cheerp: Cannot call function %0  with attribute %1 from function %2 with attribute %3, because parameter %4 is a pointer to pointer">;
+def err_cheerp_wrong_basic_pointer_return : Error<
+  "Cheerp: Cannot call function %0  with attribute %1 from function %2 with attribute %3, because the return type is a %4 to a basic type">;
+def err_cheerp_wrong_func_pointer_return : Error<
+  "Cheerp: Cannot call function %0  with attribute %1 from function %2 with attribute %3, because the return type is a function pointer">;
+def err_cheerp_wrong_pointer_pointer_return : Error<
+  "Cheerp: Cannot call function %0  with attribute %1 from function %2 with attribute %3, because the return type is a pointer to pointer">;
 def err_cheerp_wrong_64bit_param : Error<
   "Cheerp: Cannot call function %0  with attribute %1 from function %2 with attribute %3, because parameter %4 is a 64 bit integer">;
 def err_cheerp_wrong_vector_param : Error<
