@@ -581,7 +581,7 @@ static Function* getOrCreateGenericJSFree(Module& M, Function* Orig)
 	BasicBlock* Entry = BasicBlock::Create(M.getContext(),"entry", New);
 	IRBuilder<> Builder(Entry);
 
-	Type* VoidPtr = IntegerType::get(M.getContext(), 8)->getPointerTo();
+	Type* VoidPtr = IntegerType::get(M.getContext(), 8)->getPointerTo((unsigned) CheerpAS::Wasm);
 	Type* Tys[] = { VoidPtr };
 	Function *GetBase = Intrinsic::getDeclaration(&M, Intrinsic::cheerp_is_linear_heap, Tys);
 	Function *ElemSize = Intrinsic::getDeclaration(&M, Intrinsic::cheerp_pointer_elem_size, Tys);
