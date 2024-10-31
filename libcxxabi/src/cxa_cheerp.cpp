@@ -101,7 +101,7 @@ public:
 	T* allocate(Args&&... args)
 	{
 		int id = find_free_id();
-		T* ret = new(&store[id]) T(cheerp::forward<Args>(args)...);
+		T* ret = new(&store[id]) T(cheerp::utility::forward<Args>(args)...);
 		slots[id] = true;
 		return ret;
 	}
@@ -181,7 +181,7 @@ struct Exception
 	template<typename... Args>
 	static Exception* allocate(Args&&... args) noexcept
 	{
-		return allocator()->allocate(cheerp::forward<Args>(args)...);
+		return allocator()->allocate(cheerp::utility::forward<Args>(args)...);
 	}
 	void deallocate() noexcept
 	{
