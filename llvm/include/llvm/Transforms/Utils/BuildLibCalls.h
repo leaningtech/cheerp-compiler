@@ -242,11 +242,11 @@ namespace llvm {
                     const DataLayout &DL, const TargetLibraryInfo *TLI);
 
   /// Emit a call to the malloc function.
-  Value *emitMalloc(Value *Num, IRBuilderBase &B, const DataLayout &DL,
+  Value *emitMalloc(Type* RetTy, Value *Num, IRBuilderBase &B, const DataLayout &DL,
                     const TargetLibraryInfo *TLI);
 
   /// Emit a call to the calloc function.
-  Value *emitCalloc(Value *Num, Value *Size, IRBuilderBase &B,
+  Value *emitCalloc(Type* RetTy, Value *Num, Value *Size, IRBuilderBase &B,
                     const TargetLibraryInfo &TLI);
 }
 
