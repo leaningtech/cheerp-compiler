@@ -443,6 +443,15 @@ bool StructMemFuncLowering::runOnBlock(BasicBlock& BB, bool asmjs)
 		//In MEMSET mode src is the value to be written
 		Value* src=CI->getOperand(1);
 		Value* size=CI->getOperand(2);
+
+		// Remove address space casts to default address space
+		if (AddrSpaceCastInst* ASCI = dyn_cast<AddrSpaceCastInst>(dst))
+			if (ASCI->getDestAddressSpace() == 0)
+				dst = ASCI->getPointerOperand();
+		if (AddrSpaceCastInst* ASCI = dyn_cast<AddrSpaceCastInst>(src))
+			if (ASCI->getDestAddressSpace() == 0)
+				src = ASCI->getPointerOperand();
+
 		unsigned AS = dst->getType()->getPointerAddressSpace();
 		if (isByteLayout && AS != unsigned(cheerp::CheerpAS::ByteLayout))
 		{
