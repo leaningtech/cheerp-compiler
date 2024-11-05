@@ -1469,7 +1469,7 @@ GlobalVariable* getOrCreateSretSlot(Module& m)
 	auto AS = Triple(m.getTargetTriple()).isCheerpWasm()? CheerpAS::Wasm : CheerpAS::GenericJS;
 	Type* Int32Ty = IntegerType::get(m.getContext(), 32);
 	return cast<GlobalVariable>(m.getOrInsertGlobal("cheerpSretSlot", Int32Ty, [&] {
-		auto* ret = new GlobalVariable(m, Int32Ty, false, GlobalVariable::InternalLinkage,
+		auto* ret = new GlobalVariable(m, Int32Ty, false, GlobalVariable::ExternalLinkage,
 			nullptr, "cheerpSretSlot", nullptr, GlobalVariable::ThreadLocalMode::NotThreadLocal, unsigned(AS));
 		ret->setInitializer(ConstantInt::get(Int32Ty, 0));
 		return ret;
