@@ -31,14 +31,14 @@ public:
 
 }
 
-static Function* addCastWrapper(Module& M, Function& F, FunctionType* NewTy)
+static Function* addCastWrapper(Module& M, Function& F, FunctionType* NewTy, unsigned AS)
 {
 	auto TableName = cheerp::LinearMemoryHelper::getFunctionTableName(NewTy);
 	SmallVector<char, 16> NewNameBuf;
 	StringRef NewName = Twine(F.getName(), TableName.c_str()).toStringRef(NewNameBuf);
 	if (Function* NewF = M.getFunction(NewName))
 		return NewF;
-	Function* NewF = Function::Create(NewTy, Function::InternalLinkage, NewName, &M);
+	Function* NewF = Function::Create(NewTy, Function::InternalLinkage, AS, NewName, &M);
 	NewF->setSection(F.getSection());
 	NewF->copyAttributesFrom(&F);
 	// Fill the new function
@@ -94,7 +94,7 @@ bool FixFunctionCasts::runOnModule(Module& M)
 				FunctionType* New = FunctionType::get(Src->getReturnType(), Params, Src->isVarArg());
 				if (!cmp(Dst, New))
 					continue;
-				Function* Wrapper = addCastWrapper(M, F, New);
+				Function* Wrapper = addCastWrapper(M, F, New, BC->getType()->getPointerAddressSpace());
 				Constant* C = ConstantExpr::getBitCast(Wrapper, BC->getType());
 				U->replaceAllUsesWith(C);
 			}
