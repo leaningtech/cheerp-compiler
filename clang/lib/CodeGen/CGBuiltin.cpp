@@ -4070,7 +4070,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
     CharUnits StoreSize = getContext().getTypeSizeInChars(ElTy);
     llvm::Type *ITy = llvm::IntegerType::get(getLLVMContext(),
                                              StoreSize.getQuantity() * 8);
-    Ptr = Builder.CreateBitCast(Ptr, ITy->getPointerTo());
+    Ptr = Builder.CreateBitCast(Ptr, ITy->getPointerTo(Ptr->getType()->getPointerAddressSpace()));
     llvm::StoreInst *Store =
       Builder.CreateAlignedStore(llvm::Constant::getNullValue(ITy), Ptr,
                                  StoreSize);
