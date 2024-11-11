@@ -143,7 +143,7 @@ Function* CheerpNativeRewriterPass::getReturningConstructor(Module& M, Function*
 	FunctionType* initialType=called->getFunctionType();
 	SmallVector<Type*, 4> initialArgsTypes(initialType->param_begin()+1, initialType->param_end());
 	FunctionType* newFunctionType=FunctionType::get(*initialType->param_begin(), initialArgsTypes, false);
-	return cast<Function>(M.getOrInsertFunction(Twine("cheerpCreate",called->getName()).str(),newFunctionType).getCallee());
+	return cheerp::getOrCreateFunction(M, newFunctionType, Twine("cheerpCreate",called->getName()).str(), cheerp::CheerpAS::Client, /*isExtern=*/true);
 }
 
 static bool isClientTransparent(Function* called)
