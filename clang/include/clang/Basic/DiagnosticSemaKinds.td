@@ -11924,6 +11924,8 @@ def err_cheerp_catch_client : Error<
   "Cheerp: Pointer to type %0 declared in the client namespace cannot be caught directly. Use 'cheerp::JSException' to capture foreign exceptions.">;
 def err_cheerp_vector_from_genericjs : Error <
   "Cheerp: Cannot %0 %1 of vector type in function %2 with attribute %3">;
+def err_cheerp_wrong_main : Error<
+  "Cheerp: Main function may not have arguments when declared genericjs in wasm target">;
 } // end of cheerp issue category
 
 } // end of sema component.
