@@ -11992,6 +11992,12 @@ void Sema::CheckMain(FunctionDecl* FD, const DeclSpec& DS) {
     nparams = 3;
   }
 
+  if (FD->hasAttr<GenericJSAttr>() && CurCheerpFallbackAS == LangAS::cheerp_wasm && nparams > 0) {
+    Diag(FD->getLocation(), diag::err_cheerp_wrong_main);
+    FD->setInvalidDecl(true);
+    return;
+  }
+
   // FIXME: a lot of the following diagnostics would be improved
   // if we had some location information about types.
 
