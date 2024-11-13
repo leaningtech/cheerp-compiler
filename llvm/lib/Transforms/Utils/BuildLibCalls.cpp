@@ -1814,8 +1814,9 @@ Value *llvm::emitPutS(Value *Str, IRBuilderBase &B,
 
   Type *IntTy = getIntTy(B, TLI);
   StringRef PutsName = TLI->getName(LibFunc_puts);
+  unsigned AS = Str->getType()->getPointerAddressSpace();
   FunctionCallee PutS = getOrInsertLibFunc(M, *TLI, LibFunc_puts, IntTy,
-                                           B.getInt8PtrTy());
+                                           B.getInt8PtrTy(AS));
   inferNonMandatoryLibFuncAttrs(M, PutsName, *TLI);
   CallInst *CI = B.CreateCall(PutS, castToCStr(Str, B), PutsName);
   if (const Function *F =
