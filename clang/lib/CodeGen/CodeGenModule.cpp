@@ -5926,6 +5926,9 @@ GenerateStringLiteral(llvm::Constant *C, llvm::GlobalValue::LinkageTypes LT,
   unsigned AddrSpace = CGM.getContext().getTargetAddressSpace(
       CGM.GetGlobalConstantAddressSpace());
 
+  if (CGM.getTarget().getTriple().isCheerpWasm())
+    AddrSpace = unsigned(cheerp::CheerpAS::Wasm);
+
   llvm::Module &M = CGM.getModule();
   // Create a global variable for this string
   auto *GV = new llvm::GlobalVariable(
@@ -5940,7 +5943,7 @@ GenerateStringLiteral(llvm::Constant *C, llvm::GlobalValue::LinkageTypes LT,
   CGM.setDSOLocal(GV);
 
   // In the Wasm environment all the string literals are in the asmjs section
-  if (CGM.getContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly)
+  if (CGM.getTarget().getTriple().isCheerpWasm())
     GV->setSection("asmjs");
   return GV;
 }
