@@ -628,10 +628,11 @@ bool FreeAndDeleteRemoval::runOnModule(Module& M)
 				if (CallInst* call = dyn_cast<CallInst>(U.getUser()))
 				{
 					bool asmjs = call->getOperand(0)->getType()->getPointerAddressSpace() == unsigned(CheerpAS::Wasm);
+					bool client = call->getOperand(0)->getType()->getPointerAddressSpace() == unsigned(CheerpAS::Client);
 					if (asmjs)
 						continue;
 					Type* elemTy = call->getParamElementType(1);
-					if (!isWasmTarget || (elemTy && !cheerp::TypeSupport::isAsmJSPointed(elemTy) && elemTy->isAggregateType()))
+					if (!isWasmTarget || client || (elemTy && !cheerp::TypeSupport::isAsmJSPointed(elemTy) && elemTy->isAggregateType()))
 					{
 						deleteInstructionAndUnusedOperands(call);
 						Changed = true;
