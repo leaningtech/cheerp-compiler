@@ -676,13 +676,14 @@ bool FreeAndDeleteRemoval::runOnModule(Module& M)
 				if (CallInst* call = dyn_cast<CallInst>(U.getUser()))
 				{
 					bool asmjs = call->getOperand(0)->getType()->getPointerAddressSpace() == unsigned(CheerpAS::Wasm);
+					bool client = call->getOperand(0)->getType()->getPointerAddressSpace() == unsigned(CheerpAS::Client);
 					if (asmjs)
 						continue;
 					Type* ty = call->getOperand(0)->getType();
 					assert(isa<PointerType>(ty));
 					// TODO add the elementtype attribute to cheerp_deallocate calls and use the type
 					// to delete the call for genericjs structs
-					if (!isWasmTarget)
+					if (!isWasmTarget || client)
 					{
 						deleteInstructionAndUnusedOperands(call);
 						Changed = true;
