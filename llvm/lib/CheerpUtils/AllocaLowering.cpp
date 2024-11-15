@@ -227,7 +227,7 @@ bool AllocaLowering::runOnFunction(Function& F, DominatorTree& DT, cheerp::Globa
 		assert(alignment64 <= std::numeric_limits<uint32_t>::max());
 		Type* allocTy = a.first->getAllocatedType();
 		uint32_t asmjsAlignment = cheerp::TypeSupport::getAlignmentAsmJS(targetData, allocTy);
-		uint32_t alignment = std::max(static_cast<uint32_t>(alignment64), asmjsAlignment);
+		uint32_t alignment = std::max(std::max(static_cast<uint32_t>(alignment64), asmjsAlignment), 8u);
 
 		Value* stackPtr = Builder.CreateCall(getStack, {});
 		Value* addr = Builder.CreateIntToPtr(Builder.CreateAnd(Builder.CreateSub(Builder.CreatePtrToInt(stackPtr, int32Ty), size), ~(alignment - 1)), stackPtr->getType());
