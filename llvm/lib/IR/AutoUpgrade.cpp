@@ -900,11 +900,20 @@ static bool UpgradeIntrinsicFunction1(Function *F, Function *&NewFn) {
       Intrinsic::ID ID = IsLifetimeStart ?
         Intrinsic::lifetime_start : Intrinsic::invariant_start;
       auto Args = F->getFunctionType()->params();
-      Type* ObjectPtr[1] = {Args[1]};
-      if (F->getName() != Intrinsic::getName(ID, ObjectPtr, F->getParent())) {
-        rename(F);
-        NewFn = Intrinsic::getDeclaration(F->getParent(), ID, ObjectPtr);
-        return true;
+      if (IsLifetimeStart) {
+        Type* ObjectPtr[1] = {Args[1]};
+        if (F->getName() != Intrinsic::getName(ID, ObjectPtr, F->getParent())) {
+          rename(F);
+          NewFn = Intrinsic::getDeclaration(F->getParent(), ID, ObjectPtr);
+          return true;
+        }
+      } else {
+        Type* ObjectPtr[2] = {F->getReturnType(), Args[1]};
+        if (F->getName() != Intrinsic::getName(ID, ObjectPtr, F->getParent())) {
+          rename(F);
+          NewFn = Intrinsic::getDeclaration(F->getParent(), ID, ObjectPtr);
+          return true;
+        }
       }
     }
 
@@ -914,11 +923,20 @@ static bool UpgradeIntrinsicFunction1(Function *F, Function *&NewFn) {
         Intrinsic::lifetime_end : Intrinsic::invariant_end;
 
       auto Args = F->getFunctionType()->params();
-      Type* ObjectPtr[1] = {Args[IsLifetimeEnd ? 1 : 2]};
-      if (F->getName() != Intrinsic::getName(ID, ObjectPtr, F->getParent())) {
-        rename(F);
-        NewFn = Intrinsic::getDeclaration(F->getParent(), ID, ObjectPtr);
-        return true;
+      if (IsLifetimeEnd) {
+        Type* ObjectPtr[1] = {Args[1]};
+        if (F->getName() != Intrinsic::getName(ID, ObjectPtr, F->getParent())) {
+          rename(F);
+          NewFn = Intrinsic::getDeclaration(F->getParent(), ID, ObjectPtr);
+          return true;
+        }
+      } else {
+        Type* ObjectPtr[2] = {Args[0], Args[2]};
+        if (F->getName() != Intrinsic::getName(ID, ObjectPtr, F->getParent())) {
+          rename(F);
+          NewFn = Intrinsic::getDeclaration(F->getParent(), ID, ObjectPtr);
+          return true;
+        }
       }
     }
     if (Name.startswith("invariant.group.barrier")) {
