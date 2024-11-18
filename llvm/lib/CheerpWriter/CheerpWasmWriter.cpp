@@ -2653,29 +2653,6 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 							encodeInst(WasmOpcode::RETURN, code);
 						return true;
 					}
-					case Intrinsic::cheerp_allocate:
-					case Intrinsic::cheerp_allocate_array:
-					{
-						skipFirstParam = true;
-						calledFunc = module.getFunction("malloc");
-						if (!calledFunc)
-							llvm::report_fatal_error("missing malloc definition");
-						break;
-					}
-					case Intrinsic::cheerp_reallocate:
-					{
-						calledFunc = module.getFunction("realloc");
-						if (!calledFunc)
-							llvm::report_fatal_error("missing realloc definition");
-						break;
-					}
-					case Intrinsic::cheerp_deallocate:
-					{
-						calledFunc = module.getFunction("free");
-						if (!calledFunc)
-							llvm::report_fatal_error("missing free definition");
-						break;
-					}
 					case Intrinsic::eh_typeid_for:
 					{
 						auto& local = landingPadTable.getLocalTypeIdMap(currentFun);

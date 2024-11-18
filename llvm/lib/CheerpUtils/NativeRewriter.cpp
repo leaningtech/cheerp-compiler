@@ -441,11 +441,9 @@ bool CheerpNativeRewriterPass::rewriteNativeObjectsConstructors(Module& M, Funct
 				if(called->getIntrinsicID() != Intrinsic::cheerp_allocate &&
 				   called->getIntrinsicID() != Intrinsic::cheerp_allocate_array)
 					continue;
-				//This should be a typed new
-				Type* t=i.getParamElementType(0);
-				assert(t);
+				Type* t=i.getRetElementType();
 				std::string builtinTypeName;
-				if(!t->isStructTy() || !isBuiltinType(t->getStructName().data(), builtinTypeName))
+				if(!t || !t->isStructTy() || !isBuiltinType(t->getStructName().data(), builtinTypeName))
 					continue;
 				rewriteNativeAllocationUsers(M,toRemove,&i,t,builtinTypeName);
 				Changed = true;

@@ -1351,15 +1351,8 @@ void ItaniumCXXABI::emitRethrow(CodeGenFunction &CGF, bool isNoReturn) {
     CGF.EmitRuntimeCallOrInvoke(Fn);
 }
 
-static llvm::FunctionCallee getAllocateExceptionFn(CodeGenModule &CGM, llvm::Type* pointedTy) {
+static llvm::FunctionCallee getAllocateExceptionFn(CodeGenModule &CGM) {
   // void *__cxa_allocate_exception(size_t thrown_size);
-
-  if (!CGM.getTarget().isByteAddressable()) {
-    llvm::Type* Tys[2] = { pointedTy->getPointerTo(), pointedTy->getPointerTo() };
-    llvm::Function *F = CGM.getIntrinsic(llvm::Intrinsic::cheerp_allocate, Tys);
-    return llvm::FunctionCallee(F);
-  }
-
   llvm::FunctionType *FTy =
     llvm::FunctionType::get(CGM.Int8PtrTy, CGM.SizeTy, /*isVarArg=*/false);
 
@@ -1416,26 +1409,36 @@ void ItaniumCXXABI::emitThrow(CodeGenFunction &CGF, const CXXThrowExpr *E) {
       elemTy = CGM.VoidPtrTy;
   }
 
-  llvm::FunctionCallee AllocExceptionFn = getAllocateExceptionFn(CGM, elemTy);
+  llvm::CallInst* ExceptionPtr = nullptr;
+  llvm::Value* Size = llvm::ConstantInt::get(SizeTy, TypeSize);
+  if (CGM.getLangOpts().Cheerp) {
+    llvm::Function* origFunc = nullptr;
+    // We want to know if this exception is supposed to be allocated as a wasm
+    // or js object
+    // TODO: do it better when we have address spaces
+    bool asmjs = false;
+    bool genericjs = false;
+    if (const RecordType *RecordTy = ThrowType->getAs<RecordType>()) {
+      auto* D = RecordTy->getDecl();
+      asmjs = D->hasAttr<AsmJSAttr>();
+      genericjs = D->hasAttr<GenericJSAttr>();
+    }
+    if (!asmjs && !genericjs) {
+      asmjs = CGM.getTarget().getTriple().isCheerpWasm();
+    }
+    if (asmjs) {
+      llvm::FunctionType *MallocTy =
+        llvm::FunctionType::get(CGF.Int8PtrTy, CGF.Int32Ty, /*isVarArg=*/false);
 
-  llvm::FunctionType* FT = AllocExceptionFn.getFunctionType();
-  SmallVector<llvm::Value*> Ops(FT->getNumParams());
-  if (FT->getNumParams() == 2) {
-    // Cheerp specific logic
-    assert(!CGM.getTarget().isByteAddressable());
-    Ops[0] = llvm::Constant::getNullValue(FT->getParamType(0));
+      origFunc = cast<llvm::Function>(CGF.CGM.CreateRuntimeFunction(MallocTy, "malloc").getCallee());
+    }
+    ExceptionPtr = cheerp::createCheerpAllocate(CGF.Builder, origFunc, elemTy, Size);
+  } else {
+    llvm::FunctionCallee AllocExceptionFn = getAllocateExceptionFn(CGM);
+    ExceptionPtr = CGF.EmitNounwindRuntimeCall(
+        AllocExceptionFn, Size, "exception");
+
   }
-  Ops.back() = llvm::ConstantInt::get(SizeTy, TypeSize);
-
-  llvm::CallInst *ExceptionPtr = CGF.EmitNounwindRuntimeCall(
-      AllocExceptionFn, Ops, "exception");
-
-  if (FT->getNumParams() == 2) {
-    llvm::Type* paramType = AllocExceptionFn.getFunctionType()->getParamType(0);
-    assert(paramType->isOpaquePointerTy() || paramType->getNonOpaquePointerElementType() == elemTy);
-    ExceptionPtr->addParamAttr(0, llvm::Attribute::get(ExceptionPtr->getContext(), llvm::Attribute::ElementType, elemTy));
-  }
-
   CharUnits ExnAlign = CGF.getContext().getExnObjectAlignment();
   if(!CGM.getTarget().isByteAddressable() && ThrowType->isPointerType())
     CGF.EmitTypedPtrExprToExn(E->getSubExpr(), Address(ExceptionPtr, CGM.Int8PtrTy, ExnAlign));

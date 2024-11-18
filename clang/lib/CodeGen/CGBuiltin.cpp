@@ -3421,22 +3421,15 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
       llvm::Type *Tys[] = { VoidPtrTy, VoidPtrTy };
       const CastExpr* retCE=dyn_cast_or_null<CastExpr>(parent);
       llvm::Type *elementType = nullptr;
-      if (!retCE || retCE->getType()->isVoidPointerType())
+      if (!retCE || retCE->getType()->isVoidPointerType()) {
         CGM.getDiags().Report(E->getBeginLoc(), diag::err_cheerp_alloc_requires_cast);
-      else
-      {
-          QualType returnType=retCE->getType();
-          Tys[0] = Tys[1] = ConvertType(returnType);
-          elementType = ConvertType(returnType->getPointeeType());
+      } else {
+        QualType returnType=retCE->getType();
+        Tys[0] = ConvertType(returnType);
+        elementType = ConvertType(returnType->getPointeeType());
+        CallBase* CB = cheerp::createCheerpAllocate(Builder, nullptr, elementType, Size);
+        return RValue::get(CB);
       }
-      Function *F = CGM.getIntrinsic(Intrinsic::cheerp_allocate, Tys);
-      CallBase* CB = Builder.CreateCall(F, {llvm::Constant::getNullValue(Tys[0]),Size});
-
-      assert(elementType);
-      assert(Tys[0]->isOpaquePointerTy() || Tys[0]->getNonOpaquePointerElementType() == elementType);
-
-      CB->addParamAttr(0, llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, elementType));
-      return RValue::get(CB);
     }
     const TargetInfo &TI = getContext().getTargetInfo();
     // The alignment of the alloca should correspond to __BIGGEST_ALIGNMENT__.
@@ -12553,6 +12546,13 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
     Function *F = CGM.getIntrinsic(Intrinsic::cheerp_coro_alloc);
     return EmitCallOrInvoke(F, Ops);
   }
+  else if (BuiltinID == Cheerp::BI__builtin_cheerp_deallocate) {
+    // This is only used in SemaCoroutine, so we just care for the genericjs
+    // case, and for now only void* argument
+    llvm::Type *Tys[] = { VoidPtrTy, Ops[0]->getType() };
+    Function *F = CGM.getIntrinsic(Intrinsic::cheerp_deallocate, Tys);
+    return EmitCallOrInvoke(F, {ConstantPointerNull::get(VoidPtrTy), Ops[0]});
+  }
   else if (BuiltinID == Cheerp::BI__builtin_cheerp_throw) {
     llvm::Type *Tys[] = { Ops[0]->getType() };
     Function *F = CGM.getIntrinsic(Intrinsic::cheerp_throw, Tys);
@@ -12686,24 +12686,22 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
     // We need an explicit cast after the call, void* can't be used
     llvm::Type *Tys[] = { VoidPtrTy, VoidPtrTy };
     const CastExpr* retCE=dyn_cast_or_null<CastExpr>(parent);
-    if (!retCE || retCE->getType()->isVoidPointerType())
-    {
-        if (!asmjs)
-          CGM.getDiags().Report(E->getBeginLoc(), diag::err_cheerp_alloc_requires_cast);
+    llvm::Type* elementType = nullptr;
+    if (!retCE || retCE->getType()->isVoidPointerType()) {
+      if (!asmjs) {
+        CGM.getDiags().Report(E->getBeginLoc(), diag::err_cheerp_alloc_requires_cast);
         return 0;
+      }
+    } else {
+      elementType = ConvertTypeForMem(retCE->getType()->getPointeeType());
+      Tys[0] = ConvertType(retCE->getType());
     }
-    else
-    {
-        QualType returnType=retCE->getType();
-        Tys[0] = Tys[1] = ConvertType(returnType);
+    llvm::Function* Malloc = nullptr;
+    // in Wasm, we pass the original allocation function as argument 0
+    if (asmjs || (elementType->isStructTy() && cast<llvm::StructType>(elementType)->hasAsmJS())) {
+      Malloc = dyn_cast<Function>(CGM.getModule().getOrInsertFunction("malloc", Int8PtrTy, Int32Ty).getCallee());
     }
-    Function *F = CGM.getIntrinsic(Intrinsic::cheerp_allocate, Tys);
-    CallBase* CB = Builder.CreateCall(F, {llvm::Constant::getNullValue(Tys[0]), Ops[0]});
-
-    llvm::Type* elementType = ConvertTypeForMem(retCE->getType()->getPointeeType());
-    assert(Tys[0]->isOpaquePointerTy() || Tys[0]->getNonOpaquePointerElementType() == elementType);
-
-    CB->addParamAttr(0, llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, elementType));
+    llvm::CallBase* CB = cheerp::createCheerpAllocate(Builder, Malloc, elementType, Ops[0]);
     return CB;
   }
   else if (BuiltinID == Builtin::BIcalloc) {
@@ -12714,48 +12712,45 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
     ParentMap PM(FD ? FD->getBody() : const_cast<Expr*>(VD->getInit()));
     const Stmt* parent=PM.getParent(E);
     // We need an explicit cast after the call, void* can't be used
-    llvm::Type *Tys[] = { VoidPtrTy , VoidPtrTy};
     const CastExpr* retCE=dyn_cast_or_null<CastExpr>(parent);
-    if (!retCE || retCE->getType()->isVoidPointerType())
-    {
-        if (!asmjs)
-          CGM.getDiags().Report(E->getBeginLoc(), diag::err_cheerp_alloc_requires_cast);
+    llvm::Type* elementType = nullptr;
+    if (!retCE || retCE->getType()->isVoidPointerType()) {
+      if (!asmjs) {
+        CGM.getDiags().Report(E->getBeginLoc(), diag::err_cheerp_alloc_requires_cast);
         return 0;
+      }
+    } else {
+      elementType = ConvertTypeForMem(retCE->getType()->getPointeeType());
     }
-    else
-    {
-        QualType returnType=retCE->getType();
-        Tys[0] = Tys[1] = ConvertType(returnType);
+    llvm::Function* Malloc = nullptr;
+    // in Wasm, we pass the original allocation function as argument 0
+    // in this case malloc and not calloc since we explicitly memset after
+    if (asmjs || (elementType->isStructTy() && cast<llvm::StructType>(elementType)->hasAsmJS())) {
+      Malloc = dyn_cast<llvm::Function>(CGM.getModule().getOrInsertFunction("malloc", Int8PtrTy, Int32Ty).getCallee());
     }
-    Function *F = CGM.getIntrinsic(Intrinsic::cheerp_allocate, Tys);
     // Compute the size in bytes
     llvm::Value* sizeInBytes = Builder.CreateMul(Ops[0], Ops[1]);
-    llvm::Value* NewOp[2] = { llvm::Constant::getNullValue(Tys[0]), sizeInBytes };
-    llvm::CallBase* Ret = Builder.CreateCall(F, NewOp);
-
-    llvm::Type* elementType = ConvertTypeForMem(retCE->getType()->getPointeeType());
-    assert(Tys[0]->isOpaquePointerTy() || Tys[0]->getNonOpaquePointerElementType() == elementType);
-
-    Ret->addParamAttr(0, llvm::Attribute::get(Ret->getContext(), llvm::Attribute::ElementType, elementType));
-    Builder.CreateMemSet(Ret, ConstantInt::get(Int8Ty, 0), sizeInBytes, MaybeAlign(1), false, NULL, NULL, NULL,
-        CGBuilderTy::CheerpTypeInfo::get(getTarget().isByteAddressable(), ConvertType(retCE->getType()->getPointeeType())));
-    return Ret;
+    llvm::CallBase* CB = cheerp::createCheerpAllocate(Builder, Malloc, elementType, sizeInBytes);
+    Builder.CreateMemSet(CB, ConstantInt::get(Int8Ty, 0), sizeInBytes, MaybeAlign(1), false, NULL, NULL, NULL,
+        CGBuilderTy::CheerpTypeInfo::get(getTarget().isByteAddressable(), elementType));
+    return CB;
   }
   else if (BuiltinID == Builtin::BIrealloc) {
     // There must be an incoming cast, void* are not directly accepted
-    const CastExpr* argCE=dyn_cast<CastExpr>(E->getArg(0));
+    const Expr* existingMem = E->getArg(0);
+    const CastExpr* argCE=dyn_cast<CastExpr>(existingMem);
 
-    if (!argCE || argCE->getSubExpr()->getType()->isVoidPointerType()) {
-      if (!asmjs)
+    if ((!argCE || argCE->getSubExpr()->getType()->isVoidPointerType())) {
+      if (!asmjs) {
         CGM.getDiags().Report(E->getArg(0)->getBeginLoc(), diag::err_cheerp_memintrinsic_type_unknown);
-      return 0;
+        return 0;
+      }
+    } else {
+      existingMem = argCE->getSubExpr();
     }
 
-    //TODO: realloc can be invoked with NULL, support that
-    const Expr* existingMem=argCE->getSubExpr();
     // The type for the realloc is decided from the base type
     QualType reallocType=existingMem->getType();
-    llvm::Type *Tys[] = { VoidPtrTy, ConvertType(reallocType) };
     Ops[0]=EmitScalarExpr(existingMem);
     // Some additional checks that can't be done in Sema
     const FunctionDecl* FD=dyn_cast_if_present<FunctionDecl>(CurFuncDecl);
@@ -12766,29 +12761,32 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
     const Stmt* parent=PM.getParent(E);
     // We need an explicit cast after the call, void* can't be used
     const CastExpr* retCE=dyn_cast_or_null<CastExpr>(parent);
-    if (!retCE || retCE->getType()->isVoidPointerType())
+    llvm::Type* elementType = nullptr;
+    if ((!retCE || retCE->getType()->isVoidPointerType()))
     {
-        if (!asmjs)
+        if (!asmjs) {
           CGM.getDiags().Report(E->getBeginLoc(), diag::err_cheerp_alloc_requires_cast);
-        return 0;
+          return 0;
+        }
     }
     else if(retCE->getType().getCanonicalType()!=reallocType.getCanonicalType())
     {
-        if (asmjs) return 0;
-        CGM.getDiags().Report(E->getBeginLoc(), diag::err_cheerp_realloc_different_types);
+        if (!asmjs) {
+          CGM.getDiags().Report(E->getBeginLoc(), diag::err_cheerp_realloc_different_types);
+          return 0;
+        }
     }
     else {
       // The call is fully valid, so set the return type to the existing type
-      Tys[0]=Tys[1];
+      elementType = ConvertTypeForMem(reallocType->getPointeeType());
     }
 
-    llvm::Type* elementType = ConvertTypeForMem(reallocType->getPointeeType());
-    assert(Tys[0]->isOpaquePointerTy() || Tys[0]->getNonOpaquePointerElementType() == elementType);
-
-    Function *reallocFunc = CGM.getIntrinsic(Intrinsic::cheerp_reallocate, Tys);
     if(asmjs) {
-      CallBase* CB = Builder.CreateCall(reallocFunc, Ops);
-      CB->addParamAttr(0, llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, elementType));
+      llvm::Type *RetTy = Builder.getInt8PtrTy();
+      llvm::Type *Arg0Ty = Builder.getInt8PtrTy();
+      llvm::Type *Arg1Ty = Builder.getInt32Ty();
+      llvm::Function* origReallocFunc = dyn_cast<llvm::Function>(CGM.getModule().getOrInsertFunction("realloc", RetTy, Arg0Ty, Arg1Ty).getCallee());
+      CallBase* CB = cheerp::createCheerpReallocate(Builder, origReallocFunc, elementType, Ops[0], Ops[1]);
       return CB;
     } else {
       // realloc needs to behave like malloc if the operand is null
@@ -12799,32 +12797,37 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
       Builder.CreateCondBr(opIsNull, mallocBlock, reallocBlock);
       Builder.SetInsertPoint(mallocBlock);
 
-      Function *mallocFunc = CGM.getIntrinsic(Intrinsic::cheerp_allocate, Tys);
-      llvm::CallBase* mallocRet = Builder.CreateCall(mallocFunc, {llvm::Constant::getNullValue(Tys[0]), Ops[1]});
-      mallocRet->addParamAttr(0, llvm::Attribute::get(mallocRet->getContext(), llvm::Attribute::ElementType, elementType));
+      CallBase* mallocRet = cheerp::createCheerpAllocate(Builder, nullptr, elementType, Ops[1]);
       Builder.CreateBr(endBlock);
       Builder.SetInsertPoint(reallocBlock);
-      llvm::CallBase* reallocRet = cast<CallBase>(Builder.CreateCall(reallocFunc, Ops));
-      reallocRet->addParamAttr(0, llvm::Attribute::get(reallocRet->getContext(), llvm::Attribute::ElementType, elementType));
+      CallBase* reallocRet = cheerp::createCheerpReallocate(Builder, nullptr, elementType, Ops[0], Ops[1]);
       Builder.CreateBr(endBlock);
       Builder.SetInsertPoint(endBlock);
-      llvm::PHINode* Result = Builder.CreatePHI(Tys[0], 2);
+      llvm::PHINode* Result = Builder.CreatePHI(mallocRet->getType(), 2);
       Result->addIncoming(mallocRet, mallocBlock);
       Result->addIncoming(reallocRet, reallocBlock);
       return Result;
     }
   }
   else if (BuiltinID == Builtin::BIfree) {
-    llvm::Value* origArg = Ops[0];
-    llvm::Type* origType = origArg->getType();
-    if (CallInst* CI = dyn_cast<CallInst>(Ops[0])) {
-      if (auto* c = dyn_cast<CastExpr>(E->getArg(0))) {
-        origArg = CI->getOperand(0);
-        origType = origArg->getType();
+    const CastExpr* argCE=dyn_cast<CastExpr>(E->getArg(0));
+    llvm::Type* elementType = nullptr;
+    if (argCE) {
+      QualType ptrTy = argCE->getSubExpr()->getType();
+      if (ptrTy->isPointerType() && !ptrTy->isVoidPointerType()) {
+        elementType = ConvertType(ptrTy->getPointeeType());
+        Ops[0]=EmitScalarExpr(argCE->getSubExpr());
       }
     }
-    Function *F = CGM.getIntrinsic(Intrinsic::cheerp_deallocate, {origType});
-    return Builder.CreateCall(F, origArg);
+    llvm::Function* Free = nullptr;
+    // in Wasm, we pass the original deallocation function as argument 0
+    // For free, we always pass this argument unless the element type is a genericjs struct,
+    // because the pointer may have come from Wasm originally
+    if (asmjs || (elementType && elementType->isStructTy() && !cast<llvm::StructType>(elementType)->hasAsmJS())) {
+      Free = dyn_cast<llvm::Function>(CGM.getModule().getOrInsertFunction("free", VoidTy, Int8PtrTy).getCallee());
+    }
+    llvm::CallBase* CB = cheerp::createCheerpDeallocate(Builder, Free, elementType, Ops[0]);
+    return CB;
   }
   return 0;
 }

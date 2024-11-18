@@ -593,14 +593,11 @@ if (!functionTypeIndices.count(fTy)) { \
 #undef ADD_BUILTIN
 #undef ADD_FUNCTION_TYPE
 
-	// Check if the __genericjs__free function is present. If so, consider
-	// "free()" as if its address is taken
-	bool freeTaken = module->getFunction("__genericjs__free") != nullptr;
 	// Build the function tables first
 	for (const Function* F : asmjsFunctions_)
 	{
 		const FunctionType* fTy = F->getFunctionType();
-		if (F->hasAddressTaken() || F->getName() == StringRef(wasmNullptrName) || (freeTaken && F->getName() == StringRef("free"))) {
+		if (F->hasAddressTaken() || F->getName() == StringRef(wasmNullptrName)) {
 			auto it = functionTables.find(fTy);
 			if (it == functionTables.end())
 			{
@@ -815,23 +812,11 @@ int32_t LinearMemoryHelper::getThreadLocalOffset(const GlobalVariable* G) const
 
 uint32_t LinearMemoryHelper::getFunctionAddress(const llvm::Function* F) const
 {
-	if (F->getName() == StringRef("__genericjs__free"))
-	{
-		const Function* ffree = module->getFunction("free");
-		assert(ffree);
-		F = ffree;
-	}
 	assert(functionAddresses.count(F));
 	return functionAddresses.find(F)->second;
 }
 bool LinearMemoryHelper::functionHasAddress(const llvm::Function* F) const
 {
-	if (F->getName() == StringRef("__genericjs__free"))
-	{
-		const Function* ffree = module->getFunction("free");
-		assert(ffree);
-		F = ffree;
-	}
 	return functionAddresses.count(F);
 }
 uint32_t LinearMemoryHelper::getFunctionAddressMask(const llvm::FunctionType* Fty) const

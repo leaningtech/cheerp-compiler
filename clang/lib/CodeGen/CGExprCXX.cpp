@@ -1347,6 +1347,10 @@ static RValue EmitNewDeleteCall(CodeGenFunction &CGF,
   bool cheerp = !CGF.getTarget().isByteAddressable();
   bool asmjs = CGF.CurFn->getSection() == StringRef("asmjs");
   bool user_defined_new = false;
+  // CHEERP: in Wasm, we use cheerp_allocate/deallocate only for:
+  // new(size_t), new[](size_t), new(size_t, const std::nothrow_t&), new[](size_t, const std::nothrow_t&),
+  // delete(void*), delete(void*, const std::nothrow_t&), delete[](void*), delete[](void*, const std::nothrow_t&).
+  bool fancy_new = false;
   bool use_array = false;
   if (IsArray) {
     if (const CXXRecordDecl* RD = allocType->getAsCXXRecordDecl())
@@ -1360,35 +1364,37 @@ static RValue EmitNewDeleteCall(CodeGenFunction &CGF,
       break;
     }
   }
+  if (IsDelete && (Args.size() > 2 || (Args.size() == 2 && !Args[1].getType()->isReferenceType()))) {
+    fancy_new = true;
+  } else if (!IsDelete && (Args.size() > 2 || (Args.size() == 2 && !Args[1].getType()->isReferenceType()))) {
+    fancy_new = true;
+  }
   //CHEERP TODO: warning/error when `cheerp && !asmjs && user_defined_new`
-  if(!IsDelete && cheerp && !(asmjs && user_defined_new))
+  if(!IsDelete && cheerp && !(asmjs && (user_defined_new || fancy_new)))
   {
     // Forge a call to a special type safe allocator intrinsic
     QualType retType = CGF.getContext().getPointerType(allocType);
-    llvm::Type* types[] = { CGF.ConvertType(retType), CGF.ConvertType(retType) };
-
-    llvm::Function* CalleeAddr = llvm::Intrinsic::getDeclaration(&CGF.CGM.getModule(),
-                                use_array? llvm::Intrinsic::cheerp_allocate_array :
-                                         llvm::Intrinsic::cheerp_allocate,
-                                types);
-    llvm::Value* Arg[] = { llvm::Constant::getNullValue(types[0]), Args[0].getKnownRValue().getScalarVal() };
-    CallOrInvoke = CGF.Builder.CreateCall(cast<llvm::FunctionType>(CalleeAddr->getValueType()), CalleeAddr, Arg);
+    llvm::Function* origFunc = nullptr;
+    if (asmjs || (allocType->getAsTagDecl() && allocType->getAsTagDecl()->hasAttr<AsmJSAttr>())) {
+      origFunc = cast<llvm::Function>(CalleePtr);
+    }
     llvm::Type* elementType = CGF.ConvertTypeForMem(retType->getPointeeType());
-    assert(types[0]->isOpaquePointerTy() || types[0]->getNonOpaquePointerElementType() == elementType);
-    CallOrInvoke->addParamAttr(0, llvm::Attribute::get(CallOrInvoke->getContext(), llvm::Attribute::ElementType, elementType));
+    CallOrInvoke = cheerp::createCheerpAllocate(CGF.Builder, origFunc, elementType, Args[0].getKnownRValue().getScalarVal(), use_array);
     RV = RValue::get(CallOrInvoke);
   }
-  else if(IsDelete && cheerp && !(asmjs && user_defined_new))
+  else if(IsDelete && cheerp && !(asmjs && (user_defined_new || fancy_new)))
   {
-    QualType retType = CGF.getContext().getPointerType(allocType);
-    llvm::Type* types[] = { CGF.ConvertType(retType) };
-    llvm::Function* CalleeAddr = llvm::Intrinsic::getDeclaration(&CGF.CGM.getModule(),
-                                llvm::Intrinsic::cheerp_deallocate, types);
-    llvm::Value* Arg[] = { Args[0].getKnownRValue().getScalarVal() };
-    if (Arg[0]->getType() != types[0]) {
-      Arg[0] = CGF.Builder.CreateBitCast(Arg[0], types[0]);
+    llvm::Function* origFunc = nullptr;
+    if (asmjs || !(allocType->getAsTagDecl() && allocType->getAsTagDecl()->hasAttr<GenericJSAttr>())) {
+      origFunc = cast<llvm::Function>(CalleePtr);
     }
-    CallOrInvoke = CGF.Builder.CreateCall(cast<llvm::FunctionType>(CalleeAddr->getValueType()), CalleeAddr, Arg);
+    QualType argType = CGF.getContext().getPointerType(allocType);
+    llvm::Type* elementType = CGF.ConvertTypeForMem(argType->getPointeeType());
+    llvm::Value* ptrArg = Args[0].getKnownRValue().getScalarVal();
+    if (ptrArg->getType() != CGF.ConvertType(argType)) {
+      ptrArg = CGF.Builder.CreateBitCast(ptrArg, CGF.ConvertType(argType));
+    }
+    CallOrInvoke = cheerp::createCheerpDeallocate(CGF.Builder, origFunc, elementType, ptrArg);
     RV = RValue::get(CallOrInvoke);
   }
   else

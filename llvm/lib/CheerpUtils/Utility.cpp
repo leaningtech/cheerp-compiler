@@ -12,6 +12,7 @@
 #include <cxxabi.h>
 #include <sstream>
 #include "llvm/Cheerp/JsExport.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Cheerp/Demangler.h"
 #include "llvm/Cheerp/EdgeContext.h"
@@ -608,6 +609,62 @@ uint32_t getIntFromValue(const Value* v)
 	return i->getZExtValue();
 }
 
+
+CallInst* createCheerpAllocate(IRBuilderBase& Builder,
+	Function* origFunc,
+	Type* elementType,
+	Value* sizeArg,
+	bool use_array)
+{
+	unsigned AS = 0;
+	auto Intr = use_array? Intrinsic::cheerp_allocate_array : Intrinsic::cheerp_allocate;
+	PointerType* origFuncTy = origFunc? origFunc->getFunctionType()->getPointerTo(origFunc->getAddressSpace()) : Builder.getInt8PtrTy();
+	Type* retTy = elementType? elementType->getPointerTo(AS) : Builder.getInt8PtrTy(AS);
+	Type* Tys[] = { retTy, origFuncTy };
+	Constant* origFuncArg = origFunc? (Constant*)origFunc : (Constant*)ConstantPointerNull::get(origFuncTy);
+	CallInst* Call = Builder.CreateIntrinsic(Intr, Tys, {origFuncArg, sizeArg});
+	if (elementType)
+	{
+    	Call->addRetAttr(llvm::Attribute::get(Call->getContext(), llvm::Attribute::ElementType, elementType));
+	}
+	return Call;
+}
+llvm::CallInst* createCheerpReallocate(llvm::IRBuilderBase& Builder,
+	llvm::Function* origFunc,
+	llvm::Type* elementType,
+	llvm::Value* ptrArg,
+	llvm::Value* sizeArg)
+{
+	unsigned AS = 0;
+	PointerType* origFuncTy = origFunc? origFunc->getFunctionType()->getPointerTo(origFunc->getAddressSpace()) : Builder.getInt8PtrTy();
+	Type* retTy = elementType? elementType->getPointerTo(AS) : Builder.getInt8PtrTy(AS);
+	Type* Tys[] = { retTy, origFuncTy, ptrArg->getType() };
+	Constant* origFuncArg = origFunc? (Constant*)origFunc : (Constant*)ConstantPointerNull::get(origFuncTy);
+	CallInst* Call = Builder.CreateIntrinsic(Intrinsic::cheerp_reallocate, Tys, {origFuncArg, ptrArg, sizeArg});
+	if (elementType)
+	{
+		Call->addParamAttr(1, llvm::Attribute::get(Call->getContext(), llvm::Attribute::ElementType, elementType));
+		Call->addRetAttr(llvm::Attribute::get(Call->getContext(), llvm::Attribute::ElementType, elementType));
+	}
+	return Call;
+}
+
+llvm::CallInst* createCheerpDeallocate(llvm::IRBuilderBase& Builder,
+	llvm::Function* origFunc,
+	llvm::Type* elementType,
+	llvm::Value* ptrArg)
+{
+	PointerType* origFuncTy = origFunc? origFunc->getFunctionType()->getPointerTo(origFunc->getAddressSpace()) : Builder.getInt8PtrTy();
+	Type* Tys[] = { origFuncTy, ptrArg->getType() };
+	Constant* origFuncArg = origFunc? (Constant*)origFunc : (Constant*)ConstantPointerNull::get(origFuncTy);
+	CallInst* Call = Builder.CreateIntrinsic(Intrinsic::cheerp_deallocate, Tys, {origFuncArg, ptrArg});
+	if (elementType)
+	{
+		Call->addParamAttr(1, llvm::Attribute::get(Call->getContext(), llvm::Attribute::ElementType, elementType));
+	}
+	return Call;
+}
+
 std::string valueObjectName(const Value* v)
 {
 	std::ostringstream os;
@@ -853,114 +910,40 @@ DynamicAllocInfo::AllocType DynamicAllocInfo::getAllocType( const CallBase* call
 	{
 		if (const Function * f = callV->getCalledFunction() )
 		{
-			if (f->getName() == "malloc")
-				ret = malloc;
-			else if (f->getName() == "calloc")
-				ret = calloc;
-			else if (f->getIntrinsicID() == Intrinsic::cheerp_allocate ||
+			if (f->getIntrinsicID() == Intrinsic::cheerp_allocate ||
 			         f->getIntrinsicID() == Intrinsic::cheerp_allocate_array)
 				ret =  cheerp_allocate;
 			else if (f->getIntrinsicID() == Intrinsic::cheerp_reallocate)
 				ret = cheerp_reallocate;
-			else if (f->getName() == "_Znwj")
-				ret = opnew;
-			else if (f->getName() == "_Znaj")
-				ret = opnew_array;
 		}
 	}
-	// As above, allocations of asmjs types are considered not_an_alloc
-	if (ret != not_an_alloc && TypeSupport::isAsmJSPointer(callV->getType()))
-		return not_an_alloc;
 	return ret;
 }
 
 Type * DynamicAllocInfo::computeCastedElementType() const
 {
-	assert(isValidAlloc() );
-	
-	if ( type == cheerp_allocate || type == cheerp_reallocate )
+	switch(type)
 	{
-		assert( call->getType()->isPointerTy() );
-		assert( call->getParamElementType(0) );
-		return call->getParamElementType(0);
+	case cheerp_allocate:
+	case cheerp_reallocate:
+		assert( call->getRetElementType() );
+		return call->getRetElementType();
+	case not_an_alloc:
+		llvm_unreachable("not an alloc");
 	}
-	
-	auto getTypeForUse = [](const User * U) -> Type *
-	{
-		if ( isa<BitCastInst>(U) )
-			return U->getType()->getNonOpaquePointerElementType();
-		else if ( const IntrinsicInst * ci = dyn_cast<IntrinsicInst>(U) )
-			if ( ci->getIntrinsicID() == Intrinsic::cheerp_cast_user )
-				return ci->getParamElementType(0);
-		return nullptr;
-	};
-	
-	auto firstNonNull = std::find_if(
-		call->user_begin(),
-		call->user_end(),
-		getTypeForUse);
-	
-	// If there are no casts, use i8*
-	if ( call->user_end() == firstNonNull )
-	{
-		return Type::getInt8Ty(call->getContext());
-	}
-	
-	Type * pt = getTypeForUse(*firstNonNull);
-	assert(pt);
-	
-	// Check that all uses are the same
-	if (! std::all_of( 
-		std::next(firstNonNull),
-		call->user_end(),
-		[&]( const User * U ) { return getTypeForUse(U) == pt; }) )
-	{
-#ifndef NDEBUG
-		call->getParent()->getParent()->dump();
-		llvm::errs() << "Can not deduce valid type for allocation instruction: " << call->getName() << '\n';
-		llvm::errs() << "In function: " << call->getParent()->getParent()->getName() << "\n";
-		llvm::errs() << "Allocation instruction: "; call->dump();
-		llvm::errs() << "Pointer: "; pt->dump();
-		llvm::errs() << "Usage:\n";
-		for (auto u = call->user_begin(); u != call->user_end(); u++)
-		{
-			u->dump();
-		}
-#endif
-		llvm::report_fatal_error("Unsupported code found, please report a bug", false);
-	}
-	
-	return pt;
 }
 
 const Value * DynamicAllocInfo::getByteSizeArg() const
 {
-	assert( isValidAlloc() );
-	if ( calloc == type )
+	switch(type)
 	{
-		assert( call->arg_size() == 2 );
+	case cheerp_allocate:
 		return call->getOperand(1);
+	case cheerp_reallocate:
+		return call->getOperand(2);
+	case not_an_alloc:
+		llvm_unreachable("not an alloc");
 	}
-	else if ( cheerp_allocate == type || cheerp_reallocate == type )
-	{
-		assert( call->arg_size() == 2 );
-		return call->getOperand(1);
-	}
-
-	assert( call->arg_size() == 1 );
-	return call->getOperand(0);
-}
-
-const Value * DynamicAllocInfo::getNumberOfElementsArg() const
-{
-	assert( isValidAlloc() );
-	
-	if ( type == calloc )
-	{
-		assert( call->arg_size() == 2 );
-		return call->getOperand(0);
-	}
-	return nullptr;
 }
 
 const Value * DynamicAllocInfo::getMemoryArg() const
@@ -969,8 +952,8 @@ const Value * DynamicAllocInfo::getMemoryArg() const
 	
 	if ( type == cheerp_reallocate )
 	{
-		assert( call->arg_size() == 2 );
-		return call->getOperand(0);
+		assert( call->arg_size() == 3 );
+		return call->getOperand(1);
 	}
 	return nullptr;
 }
@@ -978,8 +961,6 @@ const Value * DynamicAllocInfo::getMemoryArg() const
 bool DynamicAllocInfo::sizeIsRuntime() const
 {
 	assert( isValidAlloc() );
-	if ( getAllocType() == calloc && !isa<ConstantInt> (getNumberOfElementsArg() ) )
-		return true;
 	if ( isa<ConstantInt>(getByteSizeArg()) )
 		return false;
 	return true;

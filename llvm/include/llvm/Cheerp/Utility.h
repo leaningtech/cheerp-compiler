@@ -23,6 +23,7 @@
 #include "llvm/IR/AbstractCallSite.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Dominators.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Operator.h"
@@ -278,6 +279,23 @@ inline bool isGEP(const llvm::Value* v)
 	return false;
 }
 
+llvm::CallInst* createCheerpAllocate(llvm::IRBuilderBase& Builder,
+	llvm::Function* origFunc,
+	llvm::Type* elementType,
+	llvm::Value* sizeArg,
+	bool use_array = false);
+
+llvm::CallInst* createCheerpReallocate(llvm::IRBuilderBase& Builder,
+	llvm::Function* origFunc,
+	llvm::Type* elementType,
+	llvm::Value* ptrArg,
+	llvm::Value* sizeArg);
+
+llvm::CallInst* createCheerpDeallocate(llvm::IRBuilderBase& Builder,
+	llvm::Function* origFunc,
+	llvm::Type* elementType,
+	llvm::Value* ptrArg);
+
 //Utility function that calculate the offset for Structs or Array at a given index of a GEP
 int32_t partialOffset(llvm::Type* & curType, llvm::Type* alternative, const llvm::DataLayout& DL, const int32_t index);
 
@@ -303,11 +321,6 @@ std::string valueObjectName(const llvm::Value * v);
 bool hasNonLoadStoreUses(const llvm::Value* v);
 
 llvm::Type* getGEPContainerType(const llvm::User* gep);
-
-inline bool isFreeFunctionName(llvm::StringRef name)
-{
-	return name=="free" || name=="_ZdlPv" || name=="_ZdaPv";
-}
 
 struct LoopWithDepth
 {
@@ -601,12 +614,8 @@ public:
 	enum AllocType
 	{
 		not_an_alloc,
-		malloc,
-		calloc,
 		cheerp_allocate,
 		cheerp_reallocate,
-		opnew, // operator new(unsigned int)
-		opnew_array // operator new[](unsigned int)
 	};
 	
 	/**
@@ -645,11 +654,6 @@ public:
 	 * This argument will never be null
 	 */
 	const llvm::Value * getByteSizeArg() const;
-	
-	/**
-	 * This can be null if getAllocType() == calloc
-	 */
-	const llvm::Value * getNumberOfElementsArg() const;
 
 	/**
 	 * This can be null if getAllocType() != cheerp_reallocate

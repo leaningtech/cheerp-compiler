@@ -503,52 +503,19 @@ uint32_t CheerpWriter::compileArraySize(const DynamicAllocInfo & info, bool shou
 	if(inBytes)
 		typeSize = 1;
 
-	bool closeMathImul = false;
-	uint32_t numElem = 1;
-	if(const Value* numberOfElements = info.getNumberOfElementsArg())
-	{
-		if(isa<ConstantInt>(numberOfElements))
-			numElem = getIntFromValue(numberOfElements);
-		else
-		{
-			assert(shouldPrint);
-			if(useMathImul)
-			{
-				stream << namegen.getBuiltinName(NameGenerator::Builtin::IMUL) << '(';
-				closeMathImul = true;
-			}
-			compileOperand(numberOfElements, LOWEST);
-			if(useMathImul)
-				stream << ',';
-			else
-				stream << '*';
-		}
-	}
 	if( !info.sizeIsRuntime() )
 	{
 		uint32_t allocatedSize = getIntFromValue( info.getByteSizeArg() );
-		numElem *= (allocatedSize+typeSize-1);
-		if(closeMathImul)
-		{
-			assert(shouldPrint);
-			// We need to multiply before we divide
-			stream << numElem;
-			stream << ")/" << typeSize << "|0";
-		}
+		uint32_t nElems = allocatedSize / typeSize;
+		if(shouldPrint)
+			stream << nElems;
 		else
-		{
-			if(shouldPrint)
-				stream << (numElem / typeSize);
-			else
-				return numElem / typeSize;
-		}
+			return nElems;
 	}
 	else
 	{
 		assert(shouldPrint);
-		compileOperand( info.getByteSizeArg(), closeMathImul?LOWEST:MUL_DIV );
-		if(closeMathImul)
-			stream << ')';
+		compileOperand( info.getByteSizeArg(), MUL_DIV);
 		stream << '/' << typeSize << "|0";
 	}
 	assert(shouldPrint);
@@ -709,33 +676,6 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 	{
 		stream << ",o:0}";
 	}
-}
-
-CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileFree(const Value* obj)
-{
-	// Only arrays of primitives can be backed by the linear heap
-	bool needsLinearCheck = TypeSupport::isTypedArrayType(obj->getType()->getPointerElementType(), /*forceTypedArray*/ true) && isWasmTarget;
-	if(const ConstantInt* CI = PA.getConstantOffsetForPointer(obj))
-	{
-		// 0 is clearly not a good address in the linear address space
-		if(CI->getZExtValue() == 0)
-			needsLinearCheck = false;
-	}
-	else if(isa<ConstantPointerNull>(obj))
-		needsLinearCheck = false;
-
-	if(!needsLinearCheck)
-		return COMPILE_EMPTY;
-
-	Function* Free = module.getFunction("free");
-	if (Free)
-		stream << getName(Free, 0) << '(';
-	else
-		stream << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY);
-	compilePointerAs(obj, RAW, PARENT_PRIORITY::LOWEST);
-	stream << ')';
-
-	return COMPILE_OK;
 }
 
 void CheerpWriter::compileEscapedString(raw_ostream& stream, StringRef str, bool forJSON)
@@ -1136,27 +1076,6 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(const
 		compileOperand(*it);
 		return COMPILE_OK;
 	}
-	else if(cheerp::isFreeFunctionName(ident) || intrinsicId==Intrinsic::cheerp_deallocate)
-	{
-		if (asmjs || TypeSupport::isAsmJSPointer((*it)->getType()))
-		{
-			Function* ffree = module.getFunction("free");
-			if (!ffree)
-				llvm::report_fatal_error("missing free definition");
-			if (ffree->empty() && asmjs)
-				stream << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY);
-			else
-				stream << getName(ffree, 0);
-			stream <<'(';
-			compileOperand(*it, PARENT_PRIORITY::BIT_OR);
-			stream << "|0)";
-			return COMPILE_OK;
-		}
-		else
-		{
-			return compileFree(*it);
-		}
-	}
 	else if(ident=="fmod")
 	{
 		// Handle this internally, C++ does not have float mod operation
@@ -1481,29 +1400,6 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(const
 		if(callV.use_empty())
 			return COMPILE_EMPTY;
 		compileAllocation(da);
-		return COMPILE_OK;
-	}
-	if ((func->getIntrinsicID()==Intrinsic::cheerp_allocate || func->getIntrinsicID()==Intrinsic::cheerp_allocate_array) &&
-	    (asmjs || TypeSupport::isAsmJSPointed(callV.getParamElementType(0))))
-	{
-		Function* fmalloc = module.getFunction("malloc");
-		if (!fmalloc)
-			llvm::report_fatal_error("missing malloc definition");
-		stream << getName(fmalloc, 0) << "(";
-		compileOperand(*(it+1), PARENT_PRIORITY::LOWEST);
-		stream << ")|0";
-		return COMPILE_OK;
-	}
-	else if (asmjs && func->getIntrinsicID()==Intrinsic::cheerp_reallocate && (asmjs || TypeSupport::isAsmJSPointed(callV.getParamElementType(0))))
-	{
-		Function* frealloc = module.getFunction("realloc");
-		if (!frealloc)
-			llvm::report_fatal_error("missing realloc definition");
-		stream << getName(frealloc, 0) <<'(';
-		compileOperand(*it);
-		stream << ',';
-		compileOperand(*(it+1));
-		stream << ")|0";
 		return COMPILE_OK;
 	}
 	else if(ident=="cheerpCreate_ZN6client6StringC2EPKc")

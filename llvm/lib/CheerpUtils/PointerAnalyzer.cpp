@@ -954,15 +954,6 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 			return ret |= pointerKindData.getConstraintPtr(IndirectPointerKindConstraint(INDIRECT_ARG_CONSTRAINT, typeAndIndex));
 		}
 
-		if (isFreeFunctionName(calledFunction->getName()))
-		{
-			if (TypeSupport::isTypedArrayType(U->get()->getType()->getPointerElementType(), true))
-			{
-				return ret |= PointerKindWrapper(SPLIT_REGULAR, p);
-			}
-			return ret |= COMPLETE_OBJECT;
-		}
-
 		unsigned argNo = cs->getArgOperandNo(U);
 
 		if ( argNo >= calledFunction->arg_size() )
@@ -1393,15 +1384,6 @@ PointerConstantOffsetWrapper& PointerConstantOffsetVisitor::visitValue(PointerCo
 		{
 			return CacheAndReturn(ret |= Zero);
 		}
-		if(F->getName() == "calloc" ||
-			F->getName() == "malloc" ||
-			F->getName() == "_Znwj" ||
-			F->getName() == "_Znaj" ||
-			F->getName() == "realloc")
-		{
-			return CacheAndReturn(ret |= Zero);
-		}
-		
 	}
 
 	// Handle global pointers

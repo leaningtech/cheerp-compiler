@@ -1588,10 +1588,15 @@ bool CoroutineStmtBuilder::makeNewAndDeleteExpr() {
           FrameAlignment->getType()))
     DeleteArgs.push_back(FrameAlignment);
 
-  ExprResult DeleteExpr =
-      S.BuildCallExpr(S.getCurScope(), DeleteRef.get(), Loc, DeleteArgs, Loc);
-  DeleteExpr =
-      S.ActOnFinishFullExpr(DeleteExpr.get(), /*DiscardedValue*/ false);
+  ExprResult DeleteExpr;
+  if (!asmjs && S.Context.getTargetInfo().getTriple().getArch() == llvm::Triple::cheerp) {
+    DeleteExpr = S.BuildBuiltinCallExpr(Loc, (Builtin::ID)Cheerp::BI__builtin_cheerp_deallocate, {CoroFree});
+  } else {
+    DeleteExpr =
+        S.BuildCallExpr(S.getCurScope(), DeleteRef.get(), Loc, DeleteArgs, Loc);
+    DeleteExpr =
+        S.ActOnFinishFullExpr(DeleteExpr.get(), /*DiscardedValue*/ false);
+  }
   if (DeleteExpr.isInvalid())
     return false;
 

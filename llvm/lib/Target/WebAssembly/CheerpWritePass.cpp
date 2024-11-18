@@ -232,11 +232,11 @@ bool CheerpWritePass::runOnModule(Module& M)
     FPM.addPass(cheerp::CheerpLowerSwitchPass(/*onlyLowerI64*/false));
     FPM.addPass(cheerp::LowerAndOrBranchesPass());
     FPM.addPass(cheerp::StructMemFuncLoweringPass());
+    FPM.addPass(cheerp::FreezeAndAssumeRemovalPass());
 
     MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
   }
 
-  MPM.addPass(cheerp::FreeAndDeleteRemovalPass());
   MPM.addPass(cheerp::GlobalDepsAnalyzerPass(mathMode, /*resolveAliases*/true));
   MPM.addPass(cheerp::InvokeWrappingPass());
   if (isWasmTarget)

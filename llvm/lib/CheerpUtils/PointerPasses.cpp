@@ -9,6 +9,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/IR/InstIterator.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/LoopInfo.h"
@@ -58,7 +59,6 @@ public:
 class FreeAndDeleteRemoval
 {
 private:
-	void deleteInstructionAndUnusedOperands(llvm::Instruction* I);
 	bool isWasmTarget;
 public:
 	explicit FreeAndDeleteRemoval(): isWasmTarget(false) { }
@@ -69,7 +69,7 @@ bool AllocaArrays::replaceAlloca(AllocaInst* ai, cheerp::GlobalDepsAnalyzer& gda
 {
 	const ConstantInt * ci = dyn_cast<ConstantInt>(ai->getArraySize());
 	
-	// Runtime alloca size, convert it to cheerp_allocate 
+	// Runtime alloca size, convert it to cheerp_allocate
 	if (!ci)
 	{
 		Module* M = ai->getParent()->getParent()->getParent();
@@ -77,13 +77,13 @@ bool AllocaArrays::replaceAlloca(AllocaInst* ai, cheerp::GlobalDepsAnalyzer& gda
 		Type* int32Ty = IntegerType::getInt32Ty(M->getContext());
 		Type* allocTy = ai->getAllocatedType();
 		gda.visitDynSizedAlloca(allocTy);
-		Function* cheerp_allocate = Intrinsic::getDeclaration(M, Intrinsic::cheerp_allocate, ai->getType());
+		Function* cheerp_allocate = Intrinsic::getDeclaration(M, Intrinsic::cheerp_allocate, {ai->getType(), ai->getType()});
 
 		IRBuilder<> Builder(ai);
 
 		uint32_t elemSize = targetData.getTypeAllocSize(allocTy);
 		Value* size = Builder.CreateMul(ai->getArraySize(), ConstantInt::get(int32Ty, elemSize, false)); 
-		Instruction* alloc = CallInst::Create(cheerp_allocate, size);
+		Instruction* alloc = CallInst::Create(cheerp_allocate, {ConstantPointerNull::get(ai->getType()), size});
 		BasicBlock::iterator ii(ai);
 		ReplaceInstWithInst(ai->getParent()->getInstList(), ii, alloc);
 		return true;
@@ -546,7 +546,7 @@ llvm::PreservedAnalyses PointerToImmutablePHIRemovalPass::run(Function& F, Funct
 	return PA;
 }
 
-void FreeAndDeleteRemoval::deleteInstructionAndUnusedOperands(Instruction* I)
+static void deleteInstructionAndUnusedOperands(Instruction* I)
 {
 	SmallVector<Instruction*, 4> operandsToErase;
 	for(Value* op: I->operands())
@@ -562,44 +562,41 @@ void FreeAndDeleteRemoval::deleteInstructionAndUnusedOperands(Instruction* I)
 		deleteInstructionAndUnusedOperands(I);
 }
 
-static Function* getOrCreateGenericJSFree(Module& M, bool isAllGenericJS)
+static Function* getOrCreateGenericJSFree(Module& M, Function* Orig)
 {
-	Function* Orig = M.getFunction("free");
-	assert(Orig);
 	FunctionType* Ty = Orig->getFunctionType();
-	Function* New = cast<Function>(M.getOrInsertFunction("__genericjs__free", Ty).getCallee());
+	std::string name = Twine("__genericjs__", Orig->getName()).str();
+	Function* New = cast<Function>(M.getOrInsertFunction(name, Ty).getCallee());
 	if (!New->empty())
 		return New;
 	New->addFnAttr(Attribute::NoInline);
 	BasicBlock* Entry = BasicBlock::Create(M.getContext(),"entry", New);
 	IRBuilder<> Builder(Entry);
 
-	if (!isAllGenericJS)
-	{
-		Type* VoidPtr = IntegerType::get(M.getContext(), 8)->getPointerTo();
-		Type* Tys[] = { VoidPtr };
-		Function *GetBase = Intrinsic::getDeclaration(&M, Intrinsic::cheerp_is_linear_heap, Tys);
-		Function *ElemSize = Intrinsic::getDeclaration(&M, Intrinsic::cheerp_pointer_elem_size, Tys);
+	Type* VoidPtr = IntegerType::get(M.getContext(), 8)->getPointerTo();
+	Type* Tys[] = { VoidPtr };
+	Function *GetBase = Intrinsic::getDeclaration(&M, Intrinsic::cheerp_is_linear_heap, Tys);
+	Function *ElemSize = Intrinsic::getDeclaration(&M, Intrinsic::cheerp_pointer_elem_size, Tys);
 
-		BasicBlock* ExitBlock = BasicBlock::Create(M.getContext(), "exitblk", New);
-		BasicBlock* ForwardBlock = BasicBlock::Create(M.getContext(), "fwdblk", New);
+	BasicBlock* ExitBlock = BasicBlock::Create(M.getContext(), "exitblk", New);
+	BasicBlock* ForwardBlock = BasicBlock::Create(M.getContext(), "fwdblk", New);
 
-		Value* Params[] = { &*New->arg_begin() };
-		CallInst* IntrCall = Builder.CreateCall(GetBase, Params);
-		Builder.CreateCondBr(IntrCall, ForwardBlock, ExitBlock);
+	Value* Params[] = { &*New->arg_begin() };
+	CallInst* IntrCall = Builder.CreateCall(GetBase, Params);
+	Builder.CreateCondBr(IntrCall, ForwardBlock, ExitBlock);
 
-		Builder.SetInsertPoint(ExitBlock);
-		Builder.CreateRetVoid();
+	Builder.SetInsertPoint(ExitBlock);
+	Builder.CreateRetVoid();
 
-		Builder.SetInsertPoint(ForwardBlock);
-		Function *PtrOffset = Intrinsic::getDeclaration(&M, Intrinsic::cheerp_pointer_offset, Tys);
-		CallInst* Offset = Builder.CreateCall(PtrOffset, Params);
-		CallInst* Size = Builder.CreateCall(ElemSize, Params);
-		Value* OffsetShifted = Builder.CreateMul(Offset, Size);
-		Value* OffsetP = Builder.CreateIntToPtr(OffsetShifted, VoidPtr);
-		Value* Params2[] = { OffsetP };
-		Builder.CreateCall(Orig, Params2);
-	}
+	Builder.SetInsertPoint(ForwardBlock);
+	Function *PtrOffset = Intrinsic::getDeclaration(&M, Intrinsic::cheerp_pointer_offset, Tys);
+	CallInst* Offset = Builder.CreateCall(PtrOffset, Params);
+	CallInst* Size = Builder.CreateCall(ElemSize, Params);
+	Value* OffsetShifted = Builder.CreateMul(Offset, Size);
+	Value* OffsetP = Builder.CreateIntToPtr(OffsetShifted, VoidPtr);
+	Value* Params2[] = { OffsetP };
+	Builder.CreateCall(Orig, Params2);
+
 	Builder.CreateRetVoid();
 
 	return New;
@@ -609,63 +606,9 @@ bool FreeAndDeleteRemoval::runOnModule(Module& M)
 	bool Changed = false;
 
 	isWasmTarget = Triple(M.getTargetTriple()).isCheerpWasm();
-	std::vector<Use*> usesToBeReplaced;
 	for (Function& f: M)
 	{
-		if (cheerp::isFreeFunctionName(f.getName()))
-		{
-			auto UI = f.use_begin(), E = f.use_end();
-			for (; UI != E;)
-			{
-				Use &U = *UI;
-				++UI;
-				User* Usr = U.getUser();
-				if (CallBase* call = dyn_cast<CallBase>(Usr))
-				{
-					if (!isWasmTarget)
-					{
-						deleteInstructionAndUnusedOperands(call);
-						Changed = true;
-						continue;
-					}
-				}
-
-				if (Instruction* inst = dyn_cast<Instruction>(Usr))
-				{
-					Function* Parent = inst->getParent()->getParent();
-					if (Parent->getSection() == StringRef("asmjs") || Parent->getName() == StringRef("__genericjs__free"))
-					{
-						continue;
-					}
-					U.set(getOrCreateGenericJSFree(M, !isWasmTarget));
-					Changed = true;
-				}
-				else if (GlobalValue* gv = dyn_cast<GlobalValue>(Usr))
-				{
-					if (gv->getSection() == StringRef("asmjs"))
-					{
-						continue;
-					}
-					U.set(getOrCreateGenericJSFree(M, !isWasmTarget));
-					Changed = true;
-				}
-				else if (Constant* c = dyn_cast<Constant>(Usr))
-				{
-					if (isa<Function>(U.get()) && cheerp::isFreeFunctionName(cast<Function>(U.get())->getName()))
-					{
-						usesToBeReplaced.push_back(&U);
-						Changed = true;
-					}
-				}
-				else
-				{
-					U.set(getOrCreateGenericJSFree(M, !isWasmTarget));
-					Changed = true;
-				}
-
-			}
-		}
-		else if (f.getIntrinsicID() == Intrinsic::cheerp_deallocate)
+		if (f.getIntrinsicID() == Intrinsic::cheerp_deallocate)
 		{
 			auto UI = f.use_begin(), E = f.use_end();
 			for (; UI != E;)
@@ -677,50 +620,20 @@ bool FreeAndDeleteRemoval::runOnModule(Module& M)
 					bool asmjs = call->getParent()->getParent()->getSection()==StringRef("asmjs");
 					if (asmjs)
 						continue;
-					Type* ty = call->getOperand(0)->getType();
-					assert(isa<PointerType>(ty));
-					Type* elemTy = cast<PointerType>(ty)->getPointerElementType();
-					if (!isWasmTarget || (!cheerp::TypeSupport::isAsmJSPointed(elemTy) && elemTy->isAggregateType()))
+					Type* elemTy = call->getParamElementType(1);
+					if (!isWasmTarget || (elemTy && !cheerp::TypeSupport::isAsmJSPointed(elemTy) && elemTy->isAggregateType()))
 					{
 						deleteInstructionAndUnusedOperands(call);
 						Changed = true;
 					}
-					else if (cheerp::TypeSupport::isAsmJSPointed(elemTy))
+					else if (!elemTy || !cheerp::TypeSupport::isAsmJSPointed(elemTy))
 					{
-						U.set(M.getFunction("free"));
-					}
-					else
-					{
-						U.set(getOrCreateGenericJSFree(M, false));
+						Function* origF = cast<Function>(call->getArgOperand(0));
+						call->setArgOperand(0, getOrCreateGenericJSFree(M, origF));
 					}
 				}
 			}
 		}
-
-		{
-			// TODO: Move to a proper pass
-			for(BasicBlock& BB: f)
-			{
-				for ( BasicBlock::iterator it = BB.begin(); it != BB.end(); )
-				{
-					Instruction * Inst = &*it++;
-					if(isa<FreezeInst>(Inst))
-					{
-						Inst->replaceAllUsesWith(Inst->getOperand(0));
-						Inst->eraseFromParent();
-					}
-					else if(isa<AssumeInst>(Inst))
-					{
-						deleteInstructionAndUnusedOperands(Inst);
-					}
-				}
-			}
-		}
-	}
-
-	if (!usesToBeReplaced.empty())
-	{
-		cheerp::replaceSomeUsesWith(usesToBeReplaced, getOrCreateGenericJSFree(M, !isWasmTarget));
 	}
 
 	return Changed;
@@ -732,6 +645,28 @@ PreservedAnalyses FreeAndDeleteRemovalPass::run(Module& M, ModuleAnalysisManager
 	if (!inner.runOnModule(M))
 		return PreservedAnalyses::all();
 	return PreservedAnalyses::none();
+}
+
+PreservedAnalyses FreezeAndAssumeRemovalPass::run(Function& F, FunctionAnalysisManager& FAM)
+{
+	bool Changed = false;
+	for (auto& I: make_early_inc_range(instructions(F)))
+	{
+		if(isa<FreezeInst>(I))
+		{
+			I.replaceAllUsesWith(I.getOperand(0));
+			I.eraseFromParent();
+			Changed = true;
+		}
+		else if(isa<AssumeInst>(I))
+		{
+			deleteInstructionAndUnusedOperands(&I);
+			Changed = true;
+		}
+	}
+	if (Changed)
+		return PreservedAnalyses::none();
+	return PreservedAnalyses::all();
 }
 
 uint32_t DelayInsts::countInputRegisters(const Instruction* I, cheerp::InlineableCache& cache) const

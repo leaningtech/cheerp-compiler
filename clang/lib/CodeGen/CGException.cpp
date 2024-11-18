@@ -22,6 +22,7 @@
 #include "clang/AST/StmtVisitor.h"
 #include "clang/Basic/DiagnosticSema.h"
 #include "clang/Basic/TargetBuiltins.h"
+#include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IntrinsicsWebAssembly.h"
@@ -30,21 +31,13 @@
 using namespace clang;
 using namespace CodeGen;
 
-static llvm::FunctionCallee getFreeExceptionFn(CodeGenModule &CGM, llvm::Type* t) {
+static llvm::FunctionCallee getFreeExceptionFn(CodeGenModule &CGM) {
   // void __cxa_free_exception(void *thrown_exception);
 
-  if(CGM.getTarget().isByteAddressable()) {
-    llvm::FunctionType *FTy =
-      llvm::FunctionType::get(CGM.VoidTy, CGM.Int8PtrTy, /*isVarArg=*/false);
+  llvm::FunctionType *FTy =
+    llvm::FunctionType::get(CGM.VoidTy, CGM.Int8PtrTy, /*isVarArg=*/false);
 
-    return CGM.CreateRuntimeFunction(FTy, "__cxa_free_exception");
-  }
-  else {
-    llvm::Type* types[] = { t };
-    llvm::Function* F = llvm::Intrinsic::getDeclaration(&CGM.getModule(),
-                                llvm::Intrinsic::cheerp_deallocate, types);
-    return llvm::FunctionCallee(F->getFunctionType(), F);
-  }
+  return CGM.CreateRuntimeFunction(FTy, "__cxa_free_exception");
 }
 
 static llvm::FunctionCallee getSehTryBeginFn(CodeGenModule &CGM) {
@@ -391,7 +384,18 @@ namespace {
     llvm::Value *exn;
     FreeException(llvm::Value *exn) : exn(exn) {}
     void Emit(CodeGenFunction &CGF, Flags flags) override {
-      CGF.EmitNounwindRuntimeCall(getFreeExceptionFn(CGF.CGM, exn->getType()), exn);
+      if (CGF.getLangOpts().Cheerp) {
+        llvm::Function* origFunc = nullptr;
+        if (CGF.getTarget().getTriple().isCheerpWasm()) {
+          llvm::FunctionType *FreeTy =
+            llvm::FunctionType::get(CGF.VoidTy, CGF.VoidPtrTy, /*isVarArg=*/false);
+
+          origFunc = cast<llvm::Function>(CGF.CGM.CreateRuntimeFunction(FreeTy, "free").getCallee());
+        }
+        cheerp::createCheerpDeallocate(CGF.Builder, origFunc, nullptr, exn);
+      } else {
+        CGF.EmitNounwindRuntimeCall(getFreeExceptionFn(CGF.CGM), exn);
+      }
     }
   };
 } // end anonymous namespace
