@@ -568,7 +568,10 @@ CallInst *IRBuilderBase::CreateInvariantStart(Value *Ptr, ConstantInt *Size) {
 
   Value *Ops[] = {Size, Ptr};
   // Fill in the single overloaded type: memory object type.
-  Type *ObjectPtr[1] = {Ptr->getType()};
+  Triple Triple(BB->getParent()->getParent()->getTargetTriple());
+  bool asmjs = Triple.isCheerpWasm();
+  Type *VoidPtrTy = getInt8PtrTy(unsigned(asmjs ? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS));
+  Type *ObjectPtr[2] = {VoidPtrTy, Ptr->getType()};
   Module *M = BB->getParent()->getParent();
   Function *TheFn =
       Intrinsic::getDeclaration(M, Intrinsic::invariant_start, ObjectPtr);
