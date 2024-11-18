@@ -30,12 +30,17 @@ namespace cheerp
 PreservedAnalyses CallConstructorsPass::run(llvm::Module &M, llvm::ModuleAnalysisManager &MPA)
 {
 	FunctionType* Ty = FunctionType::get(Type::getVoidTy(M.getContext()), false);
-	Function* Ctors = cast<Function>(M.getOrInsertFunction("_start", Ty).getCallee());
-	if (!Ctors->empty())
+	Function* StartFunction = cast<Function>(M.getOrInsertFunction("_start", Ty).getCallee());
+	if (!StartFunction->empty())
 		return PreservedAnalyses::all();
 
-	BasicBlock* Entry = BasicBlock::Create(M.getContext(),"entry", Ctors);
-	IRBuilder<> Builder(Entry);
+	BasicBlock* StartEntry = BasicBlock::Create(M.getContext(),"entry", StartFunction);
+	IRBuilder<> Builder(StartEntry);
+
+	Function* StartPreThread = cast<Function>(M.getOrInsertFunction("_startPreThread", Ty).getCallee());
+	BasicBlock* StartPreThreadEntry = BasicBlock::Create(M.getContext(),"entry", StartPreThread);
+	if (!LowerAtomics)
+		Builder.SetInsertPoint(StartPreThreadEntry);
 
 	if (LinearOutput == LinearOutputTy::Wasm)
 	{
@@ -47,6 +52,14 @@ PreservedAnalyses CallConstructorsPass::run(llvm::Module &M, llvm::ModuleAnalysi
 	// Add a call to initialise the tls to _start.
 	Function* cheerpInitTls = cast<Function>(M.getOrInsertFunction("__cheerp_init_tls", Ty).getCallee());
 	Builder.CreateCall(Ty, cheerpInitTls);
+	if (!LowerAtomics)
+	{
+		// If -pthread is passed, add a call to spawnUtility to setup the utility thread.
+		Function* spawnUtility = cast<Function>(M.getOrInsertFunction("spawnUtility", Ty).getCallee());
+		Builder.CreateCall(Ty, spawnUtility);
+		Builder.CreateRetVoid();
+		Builder.SetInsertPoint(StartEntry);
+	}
 
 	Function* GetEnviron = M.getFunction("__syscall_main_environ");
 	if (GetEnviron)
@@ -59,7 +72,11 @@ PreservedAnalyses CallConstructorsPass::run(llvm::Module &M, llvm::ModuleAnalysi
 	Function* Main = getMainFunction(M);
 	bool Wasi = Triple(M.getTargetTriple()).getOS() == Triple::WASI;
 	if (Wasi || (Main && Main->getSection() == "asmjs"))
-		Ctors->setSection("asmjs");
+	{
+		StartFunction->setSection("asmjs");
+		if (!LowerAtomics)
+			StartPreThread->setSection("asmjs");
+	}
 	if (Main)
 	{
 		Value* ExitCode = nullptr;
@@ -124,7 +141,6 @@ PreservedAnalyses CallConstructorsPass::run(llvm::Module &M, llvm::ModuleAnalysi
 			Builder.CreateCall(Exit->getFunctionType(), Exit, ExitCode);
 		}
 	}
-
 	Builder.CreateRetVoid();
 
 	PreservedAnalyses PA = PreservedAnalyses::none();
