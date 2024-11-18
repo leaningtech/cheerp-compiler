@@ -978,7 +978,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(const
 		stream << threadingObject << "=e.data;";
 		stream << threadingObject << ".inWorker=true;";
 		if (makeModule == MODULE_TYPE::ES6)
-			stream << "import(" << threadingObject << ".script).then(m=>{m.default();});";
+			stream << "import(" << threadingObject << ".script).then(m=>m.default()).catch(e=>{if(e!=='LeakUtilityThread')throw e;});";
 		else
 			stream << "importScripts(" << threadingObject << ".script);";
 		stream << "}" << '"' << "])";
