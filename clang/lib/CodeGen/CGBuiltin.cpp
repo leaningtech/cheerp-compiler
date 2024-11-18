@@ -12713,10 +12713,9 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
     // We need an explicit cast after the call, void* can't be used
     llvm::Type *Tys[] = { VoidPtrTy, VoidPtrTy };
     const CastExpr* retCE=dyn_cast_or_null<CastExpr>(parent);
-    if (!retCE || retCE->getType()->isVoidPointerType())
+    if ((!retCE || retCE->getType()->isVoidPointerType()) && !asmjs)
     {
-        if (!asmjs)
-          CGM.getDiags().Report(E->getBeginLoc(), diag::err_cheerp_alloc_requires_cast);
+        CGM.getDiags().Report(E->getBeginLoc(), diag::err_cheerp_alloc_requires_cast);
         return 0;
     }
     else
@@ -12743,10 +12742,9 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
     // We need an explicit cast after the call, void* can't be used
     llvm::Type *Tys[] = { VoidPtrTy , VoidPtrTy};
     const CastExpr* retCE=dyn_cast_or_null<CastExpr>(parent);
-    if (!retCE || retCE->getType()->isVoidPointerType())
+    if ((!retCE || retCE->getType()->isVoidPointerType()) && !asmjs)
     {
-        if (!asmjs)
-          CGM.getDiags().Report(E->getBeginLoc(), diag::err_cheerp_alloc_requires_cast);
+        CGM.getDiags().Report(E->getBeginLoc(), diag::err_cheerp_alloc_requires_cast);
         return 0;
     }
     else
@@ -12775,9 +12773,8 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
       argCE = dyn_cast<CastExpr>(argCE->getSubExpr());
     }
 
-    if (!argCE || argCE->getSubExpr()->getType()->isVoidPointerType()) {
-      if (!asmjs)
-        CGM.getDiags().Report(E->getArg(0)->getBeginLoc(), diag::err_cheerp_memintrinsic_type_unknown);
+    if ((!argCE || argCE->getSubExpr()->getType()->isVoidPointerType()) && !asmjs) {
+      CGM.getDiags().Report(E->getArg(0)->getBeginLoc(), diag::err_cheerp_memintrinsic_type_unknown);
       return 0;
     }
 
@@ -12796,16 +12793,15 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
     const Stmt* parent=PM.getParent(E);
     // We need an explicit cast after the call, void* can't be used
     const CastExpr* retCE=dyn_cast_or_null<CastExpr>(parent);
-    if (!retCE || retCE->getType()->isVoidPointerType())
+    if ((!retCE || retCE->getType()->isVoidPointerType()) && !asmjs)
     {
-        if (!asmjs)
-          CGM.getDiags().Report(E->getBeginLoc(), diag::err_cheerp_alloc_requires_cast);
+        CGM.getDiags().Report(E->getBeginLoc(), diag::err_cheerp_alloc_requires_cast);
         return 0;
     }
-    else if(retCE->getType().getCanonicalType()!=reallocType.getCanonicalType())
+    else if(retCE->getType().getCanonicalType()!=reallocType.getCanonicalType() && !asmjs)
     {
-        if (asmjs) return 0;
         CGM.getDiags().Report(E->getBeginLoc(), diag::err_cheerp_realloc_different_types);
+        return 0;
     }
     else {
       // The call is fully valid, so set the return type to the existing type
