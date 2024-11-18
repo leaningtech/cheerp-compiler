@@ -700,7 +700,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 		extendLifetime(startFunc);
 		if (startFunc->getSection() == "asmjs")
 			asmJSExportedFunctions.insert(startFunc);
-		else if (LinearOutput == LinearOutputTy::Wasm)
+		else if (LinearOutput == LinearOutputTy::Wasm && LowerAtomics)
 		{
 			// Because memory_init is empty, it will not be automatically tagged as asmjs
 			// when the _start function is not, but it should. So we do it manually.
@@ -714,7 +714,27 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 		llvm::errs() << "warning: _start function point not found\n";
 	}
 	entryPoint = startFunc;
-	
+
+	// If -pthread is linked in, keep the _startPreThread function alive.
+	if (!LowerAtomics)
+	{
+		llvm::Function* startPreThread = module.getFunction("_startPreThread");
+		if (startPreThread)
+		{
+			extendLifetime(startPreThread);
+			if (startPreThread->getSection() == "asmjs")
+				asmJSExportedFunctions.insert(startPreThread);
+			else if (LinearOutput == LinearOutputTy::Wasm)
+			{
+				llvm::Function* initFunc = module.getFunction("__memory_init");
+				assert(initFunc);
+				asmJSExportedFunctions.insert(initFunc);
+			}
+		}
+		else
+			llvm::errs() << "warning: _startPtrThread function point not found, and -pthread is linked\n";
+	}
+
 	processEnqueuedFunctions();
 
 	// Flush out all functions

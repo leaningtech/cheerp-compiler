@@ -7114,7 +7114,9 @@ void CheerpWriter::compileCommonJSExports()
 
 void CheerpWriter::compileEntryPoint()
 {
-	const Function * entryPoint = module.getFunction("_start");
+	// Compile call to _startPreThread instead if -pthread is linked.
+	StringRef entryName = LowerAtomics ? "_start" : "_startPreThread";
+	const Function * entryPoint = module.getFunction(entryName);
 	if (entryPoint)
 	{
 		if (entryPoint->getSection() == "asmjs")
