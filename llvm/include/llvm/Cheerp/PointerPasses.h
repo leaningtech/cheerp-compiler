@@ -81,7 +81,9 @@ public:
 };
 
 /**
- * This pass removes all free/delete/delete[] calls as their are no-op in Cheerp
+ * This pass removes calls to cheerp_deallocate[_array] if the deallocated type
+ * is provably allocated in genericjs memory, and creates a wrapper deallocation
+ * function when the memory could be either genericjs or linear.
  */
 
 //===----------------------------------------------------------------------===//
@@ -91,6 +93,20 @@ public:
 class FreeAndDeleteRemovalPass : public llvm::PassInfoMixin<FreeAndDeleteRemovalPass> {
 public:
 	llvm::PreservedAnalyses run(llvm::Module& M, llvm::ModuleAnalysisManager& MAM);
+	static bool isRequired() { return true;}
+};
+
+/**
+ * This pass removes freeze and assume instructions.
+ */
+
+//===----------------------------------------------------------------------===//
+//
+// FreezeAndAssumeRemoval
+//
+class FreezeAndAssumeRemovalPass : public llvm::PassInfoMixin<FreezeAndAssumeRemovalPass> {
+public:
+	llvm::PreservedAnalyses run(llvm::Function& F, llvm::FunctionAnalysisManager& FAM);
 	static bool isRequired() { return true;}
 };
 

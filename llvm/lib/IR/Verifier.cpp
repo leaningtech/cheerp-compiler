@@ -3273,10 +3273,16 @@ void Verifier::visitCallBase(CallBase &Call) {
         case Intrinsic::cheerp_upcast_collapsed:
         case Intrinsic::cheerp_virtualcast:
         case Intrinsic::cheerp_downcast:
+          Check(Attrs.hasParamAttr(0, Attribute::ElementType), "Cheerp Intrinsic should specify element type", Call);
+          break;
         case Intrinsic::cheerp_allocate:
         case Intrinsic::cheerp_allocate_array:
+          Check(!isa<ConstantPointerNull>(II->getOperand(0)) || Attrs.hasRetAttr(Attribute::ElementType), "Cheerp Intrinsic should specify element type", Call);
+          break;
         case Intrinsic::cheerp_reallocate:
-          Check(Attrs.hasParamAttr(0, Attribute::ElementType), "Cheerp Intrinsic should specify element type", Call);
+          Check(!isa<ConstantPointerNull>(II->getOperand(0)) || Attrs.hasParamAttr(1, Attribute::ElementType), "Cheerp Intrinsic should specify element type", Call);
+          Check(!isa<ConstantPointerNull>(II->getOperand(0)) || Attrs.hasRetAttr(Attribute::ElementType), "Cheerp Intrinsic should specify element type", Call);
+          break;
 	  break;
       default:
 	  break;

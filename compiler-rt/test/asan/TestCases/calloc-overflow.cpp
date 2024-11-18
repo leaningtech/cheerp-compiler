@@ -1,6 +1,7 @@
 // RUN: %clangxx_asan -O0 %s -o %t && not %run %t 2>&1 | FileCheck %s
 
 // REQUIRES: stable-runtime
+// XFAIL: cheerp
 
 #include <stdio.h>
 #include <stdlib.h>

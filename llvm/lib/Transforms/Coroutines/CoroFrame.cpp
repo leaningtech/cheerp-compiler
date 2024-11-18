@@ -20,6 +20,7 @@
 #include "llvm/ADT/SmallString.h"
 #include "llvm/Analysis/PtrUseVisitor.h"
 #include "llvm/Analysis/StackLifetime.h"
+#include "llvm/Cheerp/Utility.h"
 #include "llvm/Config/llvm-config.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/DIBuilder.h"
@@ -1564,13 +1565,12 @@ static void createFramePtr(coro::Shape &Shape) {
     if (Shape.CheerpCoroAlloc) {
       // CHEERP: Replace cheerp_coro_alloc with cheerp_allocate, now that we know the
       // final frame type
-      Type* allocate_types[] = { FramePtrTy, FramePtrTy };
-      Function* allocate = Intrinsic::getDeclaration(M,
-                              Intrinsic::cheerp_allocate, allocate_types);
-
+      Function* Malloc = nullptr;
+      if (FrameTy->hasAsmJS()) {
+        Malloc = cast<Function>(M->getOrInsertFunction("malloc", Builder.getInt8PtrTy(), Builder.getInt32Ty()).getCallee());
+      }
       Builder.SetInsertPoint(Shape.CheerpCoroAlloc);
-      CallBase* Alloc = Builder.CreateCall(allocate, { ConstantPointerNull::get(FramePtrTy), Shape.CheerpCoroAlloc->getOperand(0)});
-      Alloc->addParamAttr(0, llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, FrameTy));
+      CallBase* Alloc = cheerp::createCheerpAllocate(Builder, Malloc, FrameTy, Shape.CheerpCoroAlloc->getOperand(0));
       Value* BC = Builder.CreateBitCast(Alloc, Builder.getInt8PtrTy());
       Shape.CheerpCoroAlloc->replaceAllUsesWith(BC);
       Shape.CheerpCoroAlloc->eraseFromParent();

@@ -93,7 +93,7 @@ static GenericValue pre_execute_allocate_array(FunctionType *FT,
   ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
   size_t size=(size_t)(Args[1].IntVal.getLimitedValue());
 
-  llvm::Type *type = currentEE->getCurrentCallSite()->getParamElementType(0);
+  llvm::Type *type = currentEE->getCurrentCallSite()->getRetElementType();
   bool asmjs = currentEE->getCurrentCaller()->getSection() == StringRef("asmjs") ||
                 TypeSupport::isAsmJSPointed(type);
   const DataLayout *DL = &PreExecute::currentPreExecutePass->currentModule->getDataLayout();
@@ -134,7 +134,7 @@ static GenericValue pre_execute_allocate(FunctionType *FT,
 #endif
 
   // Register this allocations in the pass
-  llvm::Type *type = currentEE->getCurrentCallSite()->getParamElementType(0);
+  llvm::Type *type = currentEE->getCurrentCallSite()->getRetElementType();
   bool asmjs = currentEE->getCurrentCaller()->getSection() == StringRef("asmjs") ||
                 TypeSupport::isAsmJSPointed(type);
   PreExecute::currentPreExecutePass->recordTypedAllocation(type, size, (char*)ret, /*hasCookie*/ false, asmjs);
@@ -145,8 +145,8 @@ static GenericValue pre_execute_allocate(FunctionType *FT,
 static GenericValue pre_execute_reallocate(FunctionType *FT,
                                          ArrayRef<GenericValue> Args, AttributeList Attrs) {
   ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
-  void *p = (void *)(currentEE->GVTORP(Args[0]));
-  size_t size=(size_t)(Args[1].IntVal.getLimitedValue());
+  void *p = (void *)(currentEE->GVTORP(Args[1]));
+  size_t size=(size_t)(Args[2].IntVal.getLimitedValue());
   void* ret = PreExecute::currentPreExecutePass->allocator->allocate(size);
   memset(ret, 0, size);
   if(p != nullptr)
@@ -172,7 +172,7 @@ static GenericValue pre_execute_reallocate(FunctionType *FT,
 #endif
 
   // Register this allocations in the pass
-  llvm::Type *type = currentEE->getCurrentCallSite()->getParamElementType(0);
+  llvm::Type *type = currentEE->getCurrentCallSite()->getRetElementType();
   bool asmjs = currentEE->getCurrentCaller()->getSection() == StringRef("asmjs") ||
                 TypeSupport::isAsmJSPointer(type);
   PreExecute::currentPreExecutePass->recordTypedAllocation(type, size, (char*)ret, /*hasCookie*/ false, asmjs);

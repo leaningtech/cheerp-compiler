@@ -259,63 +259,40 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 						continue;
 					}
 
-					if(asmjs)
+					if((II == Intrinsic::cheerp_allocate         ||
+						II == Intrinsic::cheerp_allocate_array   ||
+						II == Intrinsic::cheerp_reallocate       ||
+						II == Intrinsic::cheerp_deallocate       ) &&
+						!isa<ConstantPointerNull>(ci->getArgOperand(0)))
 					{
-						if(II == Intrinsic::cheerp_allocate)
+						Function* OrigFunc = dyn_cast<Function>(ci->getOperand(0));
+						assert(OrigFunc);
+						if (llcPass)
 						{
-							//cheerp_allocate(nullptr, N) -> malloc(N), so we need to move argument(1) to argument(0)
+							// cheerp_*allocate functions have the form
+							// cheerp_func(orig_func, args...).
+							// If orig_func is not null, convert to orig_func(args...)
+							// and add appropriate bitcasts
 							IRBuilder<> Builder(ci);
-							FunctionAnalysisManager& FAM = MAM->getResult<FunctionAnalysisManagerModuleProxy>(module).getManager();
-							const llvm::TargetLibraryInfo* TLI = &FAM.getResult<TargetLibraryAnalysis>(F);
-							assert(TLI);
-							Value* newCall = emitMalloc(ci->getOperand(1), Builder, *DL, TLI);
-							Type* oldType = ci->getType();
-							if(oldType != newCall->getType())
-							{
-								Instruction* newCast = new BitCastInst(UndefValue::get(newCall->getType()), oldType, "", ci->getNextNode());
-								ci->replaceAllUsesWith(newCast);
-								ci->mutateType(newCall->getType());
-								newCast->setOperand(0, ci);
+							SmallVector<Value*, 2> newOps;
+							for (uint32_t i = 0; i < OrigFunc->getFunctionType()->getNumParams(); i++) {
+								Type* expectedTy = OrigFunc->getFunctionType()->getParamType(i);
+								// HACK: the nothrow version of new has std::nothrow_t as last parameter
+								// we pass a constant null to it
+								Value* op = i+1 >= ci->arg_size()? ConstantPointerNull::get(cast<PointerType>(expectedTy)) : ci->getArgOperand(i+1);
+								newOps.push_back(Builder.CreateBitCast(op, expectedTy));
 							}
-							ci->replaceAllUsesWith(newCall);
-
-							//Set up loop variable, so the next loop will check and possibly expand newCall
-							--instructionIterator;
-							advance = false;
-							assert(&*instructionIterator == newCall);
-
+							CallBase* NewCall = Builder.CreateCall(OrigFunc, newOps);
+							Value* replacement = Builder.CreateBitCast(NewCall, ci->getType());
+							ci->replaceAllUsesWith(replacement);
 							ci->eraseFromParent();
+							instructionIterator = NewCall->getIterator();
+							advance = false;
 							continue;
 						}
-						else if(II == Intrinsic::cheerp_reallocate)
+						else
 						{
-							Function* F = module.getFunction("realloc");
-							assert(F);
-							Type* oldType = ci->getType();
-							if(oldType != F->getReturnType())
-							{
-								Instruction* newParamCast = new BitCastInst(ci->getOperand(0), F->getReturnType(), "", ci);
-								ci->setOperand(0, newParamCast);
-								Instruction* newCast = new BitCastInst(UndefValue::get(F->getReturnType()), oldType, "", ci->getNextNode());
-								ci->replaceAllUsesWith(newCast);
-								ci->mutateType(F->getReturnType());
-								newCast->setOperand(0, ci);
-							}
-							ci->removeParamAttr(0, llvm::Attribute::ElementType);
-							ci->setCalledFunction(F);
-						}
-						else if(II == Intrinsic::cheerp_deallocate)
-						{
-							Function* F = module.getFunction("free");
-							assert(F);
-							ci->setCalledFunction(F);
-							Type* oldType = ci->getOperand(0)->getType();
-							Type* newType = F->arg_begin()->getType();
-							if(oldType != newType)
-							{
-								Instruction* newCast = new BitCastInst(ci->getOperand(0), newType, "", ci);
-								ci->setOperand(0, newCast);
-							}
+							extendLifetime(OrigFunc);
 						}
 					}
 
@@ -1256,6 +1233,16 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 		visitConstant(F->getPersonalityFn(), visited, Newsubexpr);
 	}
 	const Module* module = F->getParent();
+	if (F->getName() == "malloc")
+	{
+		// If we are in opt, there is a chance that a following
+		// pass will convert malloc into a calloc, so keep that if we keep malloc
+		Function* fcalloc = module->getFunction("calloc");
+		if (fcalloc && !llcPass)
+		{
+			extendLifetime(fcalloc);
+		}
+	}
 	bool isAsmJS = F->getSection() == StringRef("asmjs");
 	for ( const BasicBlock & bb : *F )
 		for (const Instruction & I : bb)
@@ -1279,9 +1266,8 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 			else if ( const CallBase* CB = dyn_cast<CallBase>(&I) )
 			{
 				DynamicAllocInfo ai (CB, DL, forceTypedArrays);
-				if ( !isAsmJS && ai.isValidAlloc() )
+				if ( !isAsmJS && ai.isValidAlloc() && !TypeSupport::isAsmJSPointed(ai.getCastedPointedType()))
 				{
-					assert(!TypeSupport::isAsmJSPointed(ai.getCastedPointedType()));
 					if ( ai.useCreatePointerArrayFunc() )
 						hasPointerArrays = true;
 					else if ( ai.useCreateArrayFunc() )
@@ -1327,66 +1313,6 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 					// normal function called from asm.js
 					else if (!calleeIsAsmJS && isAsmJS)
 						asmJSImportedFuncions.insert(calledFunc);
-
-					if (!llcPass && calledFunc->getName() == "malloc")
-					{
-						// If we are in opt, there is a chance that a following
-						// pass will convert malloc into a calloc, so keep that if we keep malloc
-						Function* fcalloc = module->getFunction("calloc");
-						if (fcalloc)
-						{
-							extendLifetime(fcalloc);
-						}
-					}
-				}
-				// if this is an allocation intrinsic and we are in asmjs,
-				// visit the corresponding libc function. The same applies if the allocated type is asmjs.
-				else if (calledFunc->getIntrinsicID() == Intrinsic::cheerp_allocate ||
-				    calledFunc->getIntrinsicID() == Intrinsic::cheerp_allocate_array)
-				{
-					if (isAsmJS || TypeSupport::isAsmJSPointed(ci.getParamElementType(0)))
-					{
-						Function* fmalloc = module->getFunction("malloc");
-						if (fmalloc)
-						{
-							if(!isAsmJS)
-								asmJSExportedFuncions.insert(fmalloc);
-							extendLifetime(fmalloc);
-						}
-						// If we are in opt, there is a chance that a following
-						// pass will convert malloc into a calloc, so keep that if we keep malloc
-						Function* fcalloc = module->getFunction("calloc");
-						if (fcalloc && !llcPass)
-						{
-							extendLifetime(fcalloc);
-						}
-					}
-				}
-				else if (calledFunc->getIntrinsicID() == Intrinsic::cheerp_reallocate)
-				{
-					if (isAsmJS || TypeSupport::isAsmJSPointed(ci.getParamElementType(0)))
-					{
-						Function* frealloc = module->getFunction("realloc");
-						if (frealloc)
-						{
-							if(!isAsmJS)
-								asmJSExportedFuncions.insert(frealloc);
-							extendLifetime(frealloc);
-						}
-					}
-				}
-				else if (calledFunc->getIntrinsicID() == Intrinsic::cheerp_deallocate)
-				{
-					Type* ty = ci.getOperand(0)->getType();
-					bool basicType = !ty->isAggregateType();
-					bool asmjsPtr = TypeSupport::isAsmJSPointer(ty);
-					Function* ffree = module->getFunction("free");
-					if (ffree)
-					{
-						if(!isAsmJS && (basicType || asmjsPtr))
-							asmJSExportedFuncions.insert(ffree);
-						extendLifetime(ffree);
-					}
 				}
 				else if (calledFunc->getIntrinsicID() == Intrinsic::memset)
 					extendLifetime(module->getFunction("memset"));
