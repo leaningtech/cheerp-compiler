@@ -799,8 +799,8 @@ bool IdenticalCodeFolding::equivalentType(const llvm::Type* A, const llvm::Type*
 		return true;
 	}
 
-	if ((A->isPointerTy() || A->isIntegerTy(32)) &&
-			(B->isPointerTy() || B->isIntegerTy(32)))
+	if ((A->isPointerTy() && B->isPointerTy() && A->getPointerAddressSpace() == B->getPointerAddressSpace()) &&
+			(A->isIntegerTy(32) || B->isIntegerTy(32)))
 	{
 		return true;
 	}
