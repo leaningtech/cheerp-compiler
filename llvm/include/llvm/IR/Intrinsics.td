@@ -262,7 +262,7 @@ def llvm_ptr_ty        : LLVMPointerType<llvm_i8_ty>;             // i8*
 def llvm_ptrptr_ty     : LLVMPointerType<llvm_ptr_ty>;            // i8**
 def llvm_anyptr_ty     : LLVMAnyPointerType<llvm_i8_ty>;          // (space)i8*
 def llvm_empty_ty      : LLVMType<OtherVT>;                       // { }
-def llvm_descriptor_ty : LLVMPointerType<llvm_empty_ty>;          // { }*
+def llvm_descriptor_ty : LLVMAnyPointerType<llvm_i8_ty>;          // (space)i8*
 def llvm_metadata_ty   : LLVMType<MetadataVT>;                    // !{...}
 def llvm_token_ty      : LLVMType<token>;                         // token
 
