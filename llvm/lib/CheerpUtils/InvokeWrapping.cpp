@@ -56,7 +56,7 @@ static GlobalVariable* getOrInsertLPHelperGlobal(Module& M)
 	assert(Ty);
 	GlobalVariable* G = cast<GlobalVariable>(M.getOrInsertGlobal("__cheerpLandingPadHelperGlobal", Ty, [&M, Ty]()
 	{
-		unsigned AS = 0;
+		unsigned AS = unsigned(Ty->hasAsmJS()? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
 		auto* g = new GlobalVariable(M, Ty, false, GlobalVariable::ExternalLinkage, UndefValue::get(Ty), "__cheerpLandingPadHelperGlobal", nullptr, GlobalVariable::NotThreadLocal, AS);
 		if (Ty->hasAsmJS())
 			g->setSection("asmjs");
@@ -186,9 +186,7 @@ void LandingPadTable::populate(Module& M, GlobalDepsAnalyzer& GDA)
 	if(elemTy == nullptr)
 		return;
 
-	Triple Triple(M.getTargetTriple());
-	bool asmjs = Triple.isCheerpWasm();
-	unsigned AS = unsigned(asmjs? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+	unsigned AS = unsigned(cheerp::CheerpAS::GenericJS);
 
 	Type* oldElementType = table->getValueType();
 
