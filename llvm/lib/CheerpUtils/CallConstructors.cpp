@@ -54,11 +54,6 @@ PreservedAnalyses CallConstructorsPass::run(llvm::Module &M, llvm::ModuleAnalysi
 		// If -pthread is passed, add a call to initialise the tls to _startPreThread.
 		Function* cheerpInitTls = cast<Function>(M.getOrInsertFunction("__cheerp_init_tls", Ty).getCallee());
 		Builder.CreateCall(Ty, cheerpInitTls);
-		// Then add a call to spawnUtility to setup the utility thread.
-		Function* spawnUtility = cast<Function>(M.getOrInsertFunction("spawnUtility", Ty).getCallee());
-		Builder.CreateCall(Ty, spawnUtility);
-		Builder.CreateRetVoid();
-		Builder.SetInsertPoint(StartEntry);
 	}
 
 	Function* GetEnviron = M.getFunction("__syscall_main_environ");
@@ -69,6 +64,16 @@ PreservedAnalyses CallConstructorsPass::run(llvm::Module &M, llvm::ModuleAnalysi
 	{
 		Builder.CreateCall(Ty, cast<Function>(C->getAggregateElement(1)->stripPointerCastsSafe()));
 	}
+
+	if (!LowerAtomics)
+	{
+		// If -pthread is passed, add a call to spawnUtility to setup the utility thread.
+		Function* spawnUtility = cast<Function>(M.getOrInsertFunction("spawnUtility", Ty).getCallee());
+		Builder.CreateCall(Ty, spawnUtility);
+		Builder.CreateRetVoid();
+		Builder.SetInsertPoint(StartEntry);
+	}
+
 	Function* Main = getMainFunction(M);
 	bool Wasi = Triple(M.getTargetTriple()).getOS() == Triple::WASI;
 	if (Wasi || (Main && Main->getSection() == "asmjs"))
