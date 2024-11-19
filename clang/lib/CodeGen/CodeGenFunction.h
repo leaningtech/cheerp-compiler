@@ -2010,7 +2010,7 @@ public:
 
   /// Get the named landingpad/resume type (Cheerp)
   llvm::StructType* GetLandingPadTy() {
-    if (getTarget().isByteAddressable()) {
+    if(!getLangOpts().Cheerp) {
       return llvm::StructType::get(Int8PtrTy, Int32Ty);
     }
     auto* Ret = llvm::StructType::getTypeByName(CGM.getLLVMContext(), "struct._ZN10__cxxabiv119__cheerp_landingpadE");

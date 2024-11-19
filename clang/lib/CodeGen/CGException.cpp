@@ -62,8 +62,12 @@ static llvm::FunctionCallee getSehTryEndFn(CodeGenModule &CGM) {
 static llvm::FunctionCallee getUnexpectedFn(CodeGenModule &CGM) {
   // void __cxa_call_unexpected(void *thrown_exception);
 
+  llvm::Type* ArgTy = CGM.Int8PtrTy;
+  if (CGM.getLangOpts().Cheerp) {
+    ArgTy = CGM.Int32Ty;
+  }
   llvm::FunctionType *FTy =
-    llvm::FunctionType::get(CGM.VoidTy, CGM.Int8PtrTy, /*isVarArg=*/false);
+    llvm::FunctionType::get(CGM.VoidTy, ArgTy, /*isVarArg=*/false);
 
   return CGM.CreateRuntimeFunction(FTy, "__cxa_call_unexpected");
 }
@@ -96,8 +100,12 @@ llvm::FunctionCallee CodeGenModule::getTerminateFn() {
 
 static llvm::FunctionCallee getCatchallRethrowFn(CodeGenModule &CGM,
                                                  StringRef Name) {
+  llvm::Type* ArgTy = CGM.Int8PtrTy;
+  if (CGM.getLangOpts().Cheerp) {
+    ArgTy = CGM.Int32Ty;
+  }
   llvm::FunctionType *FTy =
-    llvm::FunctionType::get(CGM.VoidTy, CGM.Int8PtrTy, /*isVarArg=*/false);
+    llvm::FunctionType::get(CGM.VoidTy, ArgTy, /*isVarArg=*/false);
 
   return CGM.CreateRuntimeFunction(FTy, Name);
 }
@@ -460,9 +468,13 @@ void CodeGenFunction::EmitTypedPtrExprToExn(const Expr *e, Address addr) {
 
 
 Address CodeGenFunction::getExceptionSlot() {
+  llvm::Type* Ty = Int8PtrTy;
+  if(CGM.getLangOpts().Cheerp) {
+    Ty = Int32Ty;
+  }
   if (!ExceptionSlot)
-    ExceptionSlot = CreateTempAlloca(Int8PtrTy, "exn.slot");
-  return Address(ExceptionSlot, Int8PtrTy, getPointerAlign());
+    ExceptionSlot = CreateTempAlloca(Ty, "exn.slot");
+  return Address(ExceptionSlot, Ty, getPointerAlign());
 }
 
 Address CodeGenFunction::getEHSelectorSlot() {
@@ -878,14 +890,6 @@ llvm::BasicBlock *CodeGenFunction::EmitLandingPad() {
   LPadInst = Builder.CreateLandingPad(LPadTy, 0);
 
   llvm::Value *LPadExn = Builder.CreateExtractValue(LPadInst, 0);
-  if(!CGM.getTarget().isByteAddressable()) {
-    if (CGM.getTarget().getTriple().isCheerpWasm()) {
-      LPadExn = Builder.CreateIntToPtr(LPadExn, Int8PtrTy);
-    } else {
-      llvm::Function *MakeReg = CGM.getIntrinsic(llvm::Intrinsic::cheerp_make_regular, {Int8PtrTy, Int8PtrTy});
-      LPadExn = Builder.CreateCall(MakeReg, {llvm::ConstantPointerNull::get(Int8PtrTy), LPadExn});
-    }
-  }
   Builder.CreateStore(LPadExn, getExceptionSlot());
   llvm::Value *LPadSel = Builder.CreateExtractValue(LPadInst, 1);
   Builder.CreateStore(LPadSel, getEHSelectorSlot());
@@ -1538,6 +1542,11 @@ void CodeGenFunction::FinallyInfo::exit(CodeGenFunction &CGF) {
     // If there's a begin-catch function, call it.
     if (BeginCatchFn) {
       exn = CGF.getExceptionFromSlot();
+      // In Cheerp Exn has type int, but the ObjC runtime expects void*.
+      // Just add an inttoptr here, we are doing it just to pass tests
+      if (CGF.getLangOpts().Cheerp && CGF.getLangOpts().ObjC) {
+        exn = CGF.Builder.CreateIntToPtr(exn, CGF.VoidPtrTy);
+      }
       CGF.EmitNounwindRuntimeCall(BeginCatchFn, exn);
     }
 
@@ -1584,14 +1593,6 @@ llvm::BasicBlock *CodeGenFunction::getTerminateLandingPad() {
   llvm::Value *Exn = nullptr;
   if (getLangOpts().CPlusPlus) {
     Exn = Builder.CreateExtractValue(LPadInst, 0);
-    if(!CGM.getTarget().isByteAddressable()) {
-      if (CGM.getTarget().getTriple().isCheerpWasm()) {
-        Exn = Builder.CreateIntToPtr(Exn, Int8PtrTy);
-      } else {
-        llvm::Function *MakeReg = CGM.getIntrinsic(llvm::Intrinsic::cheerp_make_regular, {Int8PtrTy, Int8PtrTy});
-        Exn = Builder.CreateCall(MakeReg, {llvm::ConstantPointerNull::get(Int8PtrTy), Exn});
-      }
-    }
   }
   llvm::CallInst *terminateCall =
       CGM.getCXXABI().emitTerminateForUnexpectedException(*this, Exn);
@@ -1692,14 +1693,6 @@ llvm::BasicBlock *CodeGenFunction::getEHResumeBlock(bool isCleanup) {
 
   llvm::Type *LPadType = GetLandingPadTy();
   llvm::Value *LPadVal = llvm::UndefValue::get(LPadType);
-  if (!CGM.getTarget().isByteAddressable()) {
-    if (CGM.getTarget().getTriple().isCheerpWasm()) {
-      Exn = Builder.CreatePtrToInt(Exn, Int32Ty);
-    } else {
-      llvm::Function *PtrOffset = CGM.getIntrinsic(llvm::Intrinsic::cheerp_pointer_offset, {Int8PtrTy});
-      Exn = Builder.CreateCall(PtrOffset, Exn);
-    }
-  }
   LPadVal = Builder.CreateInsertValue(LPadVal, Exn, 0, "lpad.val");
   LPadVal = Builder.CreateInsertValue(LPadVal, Sel, 1, "lpad.val");
   Builder.CreateResume(LPadVal);

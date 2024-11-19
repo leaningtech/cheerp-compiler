@@ -146,15 +146,21 @@ extern _LIBCXXABI_FUNC_VIS char *__cxa_demangle(const char *mangled_name,
                                                 char *output_buffer,
                                                 size_t *length, int *status);
 
+#ifdef __CHEERP__
+#define UNWIND_TY int
+#else
+#define UNWIND_TY void*
+#endif
+
 // Apple additions to support C++ 0x exception_ptr class
 // These are primitives to wrap a smart pointer around an exception object
-extern _LIBCXXABI_FUNC_VIS void *__cxa_current_primary_exception() throw();
+extern _LIBCXXABI_FUNC_VIS UNWIND_TY __cxa_current_primary_exception() throw();
 extern _LIBCXXABI_FUNC_VIS void
-__cxa_rethrow_primary_exception(void *primary_exception);
+__cxa_rethrow_primary_exception(UNWIND_TY primary_exception);
 extern _LIBCXXABI_FUNC_VIS void
-__cxa_increment_exception_refcount(void *primary_exception) throw();
+__cxa_increment_exception_refcount(UNWIND_TY primary_exception) throw();
 extern _LIBCXXABI_FUNC_VIS void
-__cxa_decrement_exception_refcount(void *primary_exception) throw();
+__cxa_decrement_exception_refcount(UNWIND_TY primary_exception) throw();
 
 // Apple extension to support std::uncaught_exception()
 extern _LIBCXXABI_FUNC_VIS bool __cxa_uncaught_exception() throw();
