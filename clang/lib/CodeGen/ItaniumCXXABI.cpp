@@ -4919,7 +4919,10 @@ static llvm::FunctionCallee getGetExceptionPtrFn(CodeGenModule &CGM, bool asmjs)
   llvm::Type* RetTy = CGM.Int8PtrTy;
   llvm::Type* ArgTy = CGM.Int8PtrTy;
   const char* name = "__cxa_get_exception_ptr";
+  unsigned AS = 0;
   if (CGM.getLangOpts().Cheerp) {
+    AS = unsigned(asmjs? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+    RetTy = CGM.Int8Ty->getPointerTo(AS);
     ArgTy = CGM.Int32Ty;
     if (asmjs)
       name = "__cxa_get_exception_ptr_wasm";
@@ -5119,7 +5122,7 @@ static void InitCatchParam(CodeGenFunction &CGF,
     return;
   }
 
-  bool asmjs = CGF.CurFn->getSection() == "asmjs";
+  bool asmjs = CGF.CurFn->getAddressSpace() == unsigned(cheerp::CheerpAS::Wasm);
   // We have to call __cxa_get_exception_ptr to get the adjusted
   // pointer before copying.
   llvm::CallInst *rawAdjustedExn =
