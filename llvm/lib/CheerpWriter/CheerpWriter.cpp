@@ -7160,7 +7160,11 @@ void CheerpWriter::compileWorkerMainScript()
 	std::string shortestName = namegen.getShortestLocalName();
 	StringRef threadObject = namegen.getBuiltinName(NameGenerator::Builtin::THREADINGOBJECT);
 	stream << "}else{" << NewLine;
-	stream << "return " << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) << ".promise.then(" << shortestName << "=>{" << NewLine;
+	if (makeModule == MODULE_TYPE::COMMONJS)
+		stream << "module.exports=" << NewLine;
+	else if (makeModule == MODULE_TYPE::ES6)
+		stream << "return ";
+	stream << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) << ".promise.then(" << shortestName << "=>{" << NewLine;
 	stream << "__asm=" << shortestName << ".exports;" << NewLine;
 	compileDefineExports();
 	stream << "__asm._workerEntry(" << threadObject << ".tls, " << threadObject << ".func, ";
