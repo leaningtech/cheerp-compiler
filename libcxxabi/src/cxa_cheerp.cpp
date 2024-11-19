@@ -397,17 +397,12 @@ __cxa_begin_catch(int unwind_arg) noexcept
 }
 
 #ifdef __ASMJS__
-int
-__cxa_begin_catch_wasm_adapter(int unwind_arg) noexcept
-{
-	return __builtin_cheerp_pointer_offset(__cxa_begin_catch(unwind_arg));
-}
-[[cheerp::wasm]]
 __attribute((noinline))
-void*
+__wasm void*
 __cxa_begin_catch_wasm(int unwind_arg) noexcept
 {
-	return reinterpret_cast<void*>(__cxa_begin_catch_wasm_adapter(unwind_arg));
+	uintptr_t ptr = __builtin_cheerp_pointer_offset(__cxa_begin_catch(unwind_arg));
+	return reinterpret_cast<__wasm void*>(ptr);
 }
 #endif
 
@@ -419,18 +414,13 @@ __cxa_get_exception_ptr(int unwind_arg) noexcept
 }
 
 #ifdef __ASMJS__
-int
-__cxa_get_exception_ptr_wasm_adapter(int unwind_arg) noexcept
-{
-	Exception* ex = find_exception_from_unwind_ptr(unwind_arg);
-	return __builtin_cheerp_pointer_offset(ex->adjustedPtr);
-}
-[[cheerp::wasm]]
 __attribute((noinline))
-void*
+__wasm void*
 __cxa_get_exception_ptr_wasm(int unwind_arg) noexcept
 {
-	return reinterpret_cast<void*>(__cxa_get_exception_ptr_wasm_adapter(unwind_arg));
+	Exception* ex = find_exception_from_unwind_ptr(unwind_arg);
+	uintptr_t ptr = __builtin_cheerp_pointer_offset(ex->adjustedPtr);
+	return reinterpret_cast<__wasm void*>(ptr);
 }
 #endif
 
