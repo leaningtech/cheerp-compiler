@@ -4893,18 +4893,20 @@ void ItaniumCXXABI::emitCXXStructor(GlobalDecl GD) {
 }
 
 static llvm::FunctionCallee getBeginCatchFn(CodeGenModule &CGM, bool asmjs) {
-  llvm::Type* Int8PtrTy = CGM.Int8PtrTy;
+  llvm::Type* RetTy = CGM.Int8PtrTy;
+  llvm::Type* ArgTy = CGM.Int8PtrTy;
   const char* name = "__cxa_begin_catch";
   unsigned AS = 0;
   if (CGM.getLangOpts().Cheerp) {
     AS = unsigned(asmjs? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
-    Int8PtrTy = CGM.Int8Ty->getPointerTo(AS);
+    RetTy = CGM.Int8Ty->getPointerTo(AS);
+    ArgTy = CGM.Int32Ty;
     if (asmjs)
       name = "__cxa_begin_catch_wasm";
   }
   // void *__cxa_begin_catch(void*);
   llvm::FunctionType *FTy = llvm::FunctionType::get(
-      Int8PtrTy, Int8PtrTy, /*isVarArg=*/false);
+      RetTy, ArgTy, /*isVarArg=*/false);
 
   return CGM.CreateRuntimeFunction(FTy, name, llvm::AttributeList(), false, false , AS);
 }
@@ -4917,12 +4919,23 @@ static llvm::FunctionCallee getEndCatchFn(CodeGenModule &CGM) {
   return CGM.CreateRuntimeFunction(FTy, "__cxa_end_catch");
 }
 
-static llvm::FunctionCallee getGetExceptionPtrFn(CodeGenModule &CGM) {
+static llvm::FunctionCallee getGetExceptionPtrFn(CodeGenModule &CGM, bool asmjs) {
+  llvm::Type* RetTy = CGM.Int8PtrTy;
+  llvm::Type* ArgTy = CGM.Int8PtrTy;
+  const char* name = "__cxa_get_exception_ptr";
+  unsigned AS = 0;
+  if (CGM.getLangOpts().Cheerp) {
+    AS = unsigned(asmjs? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+    RetTy = CGM.Int8Ty->getPointerTo(AS);
+    ArgTy = CGM.Int32Ty;
+    if (asmjs)
+      name = "__cxa_get_exception_ptr_wasm";
+  }
   // void *__cxa_get_exception_ptr(void*);
   llvm::FunctionType *FTy = llvm::FunctionType::get(
-      CGM.Int8PtrTy, CGM.Int8PtrTy, /*isVarArg=*/false);
+      RetTy, ArgTy, /*isVarArg=*/false);
 
-  return CGM.CreateRuntimeFunction(FTy, "__cxa_get_exception_ptr");
+  return CGM.CreateRuntimeFunction(FTy, name);
 }
 
 namespace {
@@ -5113,10 +5126,11 @@ static void InitCatchParam(CodeGenFunction &CGF,
     return;
   }
 
+  bool asmjs = CGF.CurFn->getAddressSpace() == unsigned(cheerp::CheerpAS::Wasm);
   // We have to call __cxa_get_exception_ptr to get the adjusted
   // pointer before copying.
   llvm::CallInst *rawAdjustedExn =
-    CGF.EmitNounwindRuntimeCall(getGetExceptionPtrFn(CGF.CGM), Exn);
+    CGF.EmitNounwindRuntimeCall(getGetExceptionPtrFn(CGF.CGM, asmjs), Exn);
 
   llvm::Type *PtrTy = LLVMCatchTy->getPointerTo(rawAdjustedExn->getType()->getPointerAddressSpace());
 

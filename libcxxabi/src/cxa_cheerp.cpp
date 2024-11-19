@@ -292,25 +292,25 @@ static int uncaughtExceptions = 0;
 // current in-flight non-native (e.g. from js) exception
 static client::Object* curNonNativeException = nullptr;
 
-static Exception* find_exception_from_unwind_ptr(void* unwind)
+static Exception* find_exception_from_unwind_ptr(int unwind)
 {
 	return Exception::allocator()->get_object(unwind);
 }
 
 extern "C" {
 
-void __cxa_decrement_exception_refcount(void* obj) noexcept
+void __cxa_decrement_exception_refcount(int obj) noexcept
 {
-	if(obj != nullptr)
+	if(obj != 0)
 	{
 		Exception* ex = find_exception_from_unwind_ptr(obj);
 		if(ex->decRef() == 0)
 			ex->deallocate();
 	}
 }
-void __cxa_increment_exception_refcount(void* obj) noexcept
+void __cxa_increment_exception_refcount(int obj) noexcept
 {
-	if(obj != nullptr)
+	if(obj != 0)
 	{
 		find_exception_from_unwind_ptr(obj)->incRef();
 	}
@@ -357,7 +357,7 @@ __cxa_throw_wasm(void *thrown_object, std::type_info *tinfo, void (*dest)(void *
 
 __attribute((noinline))
 void*
-__cxa_begin_catch(void* unwind_arg) noexcept
+__cxa_begin_catch(int unwind_arg) noexcept
 {
 	Exception* ex = find_exception_from_unwind_ptr(unwind_arg);
 	// Increment the handler count, removing the flag about being rethrown
@@ -377,7 +377,7 @@ __cxa_begin_catch(void* unwind_arg) noexcept
 #ifdef __ASMJS__
 __attribute((noinline))
 __wasm void*
-__cxa_begin_catch_wasm(__wasm void* unwind_arg) noexcept
+__cxa_begin_catch_wasm(int unwind_arg) noexcept
 {
 	return addrspace_cast<__wasm void*>(__cxa_begin_catch(unwind_arg));
 }
@@ -385,10 +385,21 @@ __cxa_begin_catch_wasm(__wasm void* unwind_arg) noexcept
 
 __attribute((noinline))
 void*
-__cxa_get_exception_ptr(void* unwind_arg) noexcept
+__cxa_get_exception_ptr(int unwind_arg) noexcept
 {
 	return find_exception_from_unwind_ptr(unwind_arg)->adjustedPtr;
 }
+
+#ifdef __ASMJS__
+__attribute((noinline))
+__wasm void*
+__cxa_get_exception_ptr_wasm(int unwind_arg) noexcept
+{
+	Exception* ex = find_exception_from_unwind_ptr(unwind_arg);
+	uintptr_t ptr = __builtin_cheerp_pointer_offset(ex->adjustedPtr);
+	return reinterpret_cast<__wasm void*>(ptr);
+}
+#endif
 
 __attribute((noinline))
 void __cxa_end_catch() noexcept {
@@ -424,7 +435,8 @@ void __cxa_end_catch() noexcept {
 				dep->deallocate();
 			}
 			// Destroy the primary exception only if its refCount goes to 0
-			__cxa_decrement_exception_refcount(ex);
+			if(ex->decRef() == 0)
+				ex->deallocate();
 		}
 	}
 }
@@ -439,8 +451,8 @@ void __cxa_rethrow() {
 
 [[noreturn]]
 __attribute((noinline))
-void __cxa_resume(void* val) {
-	if (reinterpret_cast<int>(val) == 0)
+void __cxa_resume(int val) {
+	if (val == 0)
 	{
 		auto* e = curNonNativeException;
 		curNonNativeException = nullptr;
@@ -450,23 +462,23 @@ void __cxa_resume(void* val) {
 	__builtin_cheerp_throw(ex->jsObj);
 }
 
-void* __cxa_current_primary_exception() noexcept
+int __cxa_current_primary_exception() noexcept
 {
 	Exception* ex = thrown_exceptions;
 	if(ex == nullptr)
-		return ex;
+		return 0;
 	if(ex->primary != nullptr)
 		ex = ex->primary;
-	__cxa_increment_exception_refcount(ex);
-	return ex;
+	ex->incRef();
+	return __builtin_cheerp_pointer_offset(ex);
 }
 
 
-[[noreturn]] 
-void ____cxa_rethrow_primary_exception(void* obj)
+[[noreturn]]
+void ____cxa_rethrow_primary_exception(int obj)
 {
 	Exception* ex = find_exception_from_unwind_ptr(obj);
-	__cxa_increment_exception_refcount(ex);
+	ex->incRef();
 	Exception* dep = Exception::allocate(ex->objBase, ex->objOffset, ex->tinfo, nullptr, ex);
 	do_throw(dep);
 }
