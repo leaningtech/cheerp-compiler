@@ -241,6 +241,11 @@ void CGObjCRuntime::EmitTryCatchStmt(CodeGenFunction &CGF,
     }
 
     llvm::Value *RawExn = CGF.getExceptionFromSlot();
+    // In Cheerp Exn has type int, but the ObjC runtime expects void*.
+    // Just add an inttoptr here, we are doing it just to pass tests
+    if (CGM.getLangOpts().Cheerp) {
+      RawExn = CGF.Builder.CreateIntToPtr(RawExn, CGM.VoidPtrTy);
+    }
 
     // Enter the catch.
     llvm::Value *Exn = RawExn;

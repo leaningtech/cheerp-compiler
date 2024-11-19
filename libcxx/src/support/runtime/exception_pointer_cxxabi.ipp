@@ -47,7 +47,7 @@ _LIBCPP_NORETURN
 void
 nested_exception::rethrow_nested() const
 {
-    if (__ptr_ == nullptr)
+    if (__ptr_ == 0)
         terminate();
     rethrow_exception(__ptr_);
 }

@@ -56,9 +56,8 @@ static GlobalVariable* getOrInsertLPHelperGlobal(Module& M)
 	assert(Ty);
 	GlobalVariable* G = cast<GlobalVariable>(M.getOrInsertGlobal("__cheerpLandingPadHelperGlobal", Ty, [&M, Ty]()
 	{
-		auto* g = new GlobalVariable(M, Ty, false, GlobalVariable::ExternalLinkage, UndefValue::get(Ty));
-		g->setName("__cheerpLandingPadHelperGlobal");
-		g->setLinkage(GlobalVariable::ExternalLinkage);
+		unsigned AS = 0;
+		auto* g = new GlobalVariable(M, Ty, false, GlobalVariable::ExternalLinkage, UndefValue::get(Ty), "__cheerpLandingPadHelperGlobal", nullptr, GlobalVariable::NotThreadLocal, AS);
 		if (Ty->hasAsmJS())
 			g->setSection("asmjs");
 		return g;
@@ -71,10 +70,8 @@ static GlobalVariable* getOrInsertCondHelperGlobal(Module& M)
     auto* Ty = IntegerType::get(M.getContext(), 32);
 	GlobalVariable* G = cast<GlobalVariable>(M.getOrInsertGlobal("__cheerpInvokeHelperGlobal", Ty, [&M, Ty]()
 	{
-		auto* g = new GlobalVariable(M, Ty, false, GlobalVariable::ExternalLinkage, UndefValue::get(Ty));
-		g->setName("__cheerpInvokeHelperGlobal");
-		g->setLinkage(GlobalVariable::ExternalLinkage);
 		GlobalVariable* LPHelper = getOrInsertLPHelperGlobal(M);
+		auto* g = new GlobalVariable(M, Ty, false, GlobalVariable::ExternalLinkage, UndefValue::get(Ty), "__cheerpInvokeHelperGlobal", nullptr, GlobalVariable::NotThreadLocal, LPHelper->getAddressSpace());
 		g->setSection(LPHelper->getSection());
 		return g;
 	}));
@@ -363,18 +360,11 @@ static Function* wrapInvoke(Module& M, InvokeInst& IV, DenseSet<Instruction*>& T
 
 static Function* wrapResume(Module& M, ResumeInst* RS)
 {
-	PointerType* Int8PtrTy = Type::getInt8Ty(M.getContext())->getPointerTo(0);
 	Function* CxaResume = M.getFunction("__cxa_resume");
 	assert(CxaResume);
 	IRBuilder<> Builder(RS);
 	Value* LP = RS->getOperand(0);
 	Value* Val = Builder.CreateExtractValue(LP, {0});
-    if (Triple(M.getTargetTriple()).isCheerpWasm()) {
-      Val = Builder.CreateIntToPtr(Val, Int8PtrTy);
-    } else {
-		llvm::Function *MakeReg = Intrinsic::getDeclaration(&M, Intrinsic::cheerp_make_regular, {Int8PtrTy, Int8PtrTy});
-		Val = Builder.CreateCall(MakeReg, {ConstantPointerNull::get(Int8PtrTy), Val});
-	}
 	Value* Call = Builder.CreateCall(CxaResume->getFunctionType(), CxaResume, Val);
 	RS->replaceAllUsesWith(Call);
 	Builder.CreateUnreachable();

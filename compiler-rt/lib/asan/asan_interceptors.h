@@ -172,7 +172,7 @@ DECLARE_REAL(size_t, mbstowcs, wchar_t *dest, const char *src, size_t len);
 DECLARE_REAL(size_t, mbsrtowcs, wchar_t *dest, const char **src, size_t len, void *ps);
 
 extern "C" void __cheerp___cxa_throw(void *, void *, void *);
-extern "C" void __cheerp___cxa_rethrow_primary_exception(void*);
+extern "C" void __cheerp___cxa_rethrow_primary_exception(int);
 #endif // SANITIZER_CHEERPWASM
 
 #  if !SANITIZER_APPLE

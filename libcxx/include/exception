@@ -187,7 +187,12 @@ _LIBCPP_NORETURN _LIBCPP_FUNC_VIS void rethrow_exception(exception_ptr);
 
 class _LIBCPP_TYPE_VIS exception_ptr
 {
-    void* __ptr_;
+#ifdef __CHEERP__
+    unsigned
+#else
+    void*
+#endif
+    __ptr_;
 public:
     _LIBCPP_INLINE_VISIBILITY exception_ptr() _NOEXCEPT : __ptr_() {}
     _LIBCPP_INLINE_VISIBILITY exception_ptr(nullptr_t) _NOEXCEPT : __ptr_() {}
@@ -197,7 +202,7 @@ public:
     ~exception_ptr() _NOEXCEPT;
 
     _LIBCPP_INLINE_VISIBILITY explicit operator bool() const _NOEXCEPT
-    {return __ptr_ != nullptr;}
+    {return __ptr_ != 0;}
 
     friend _LIBCPP_INLINE_VISIBILITY
     bool operator==(const exception_ptr& __x, const exception_ptr& __y) _NOEXCEPT

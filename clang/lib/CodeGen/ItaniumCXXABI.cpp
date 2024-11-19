@@ -4823,12 +4823,20 @@ void ItaniumCXXABI::emitCXXStructor(GlobalDecl GD) {
   }
 }
 
-static llvm::FunctionCallee getBeginCatchFn(CodeGenModule &CGM) {
+static llvm::FunctionCallee getBeginCatchFn(CodeGenModule &CGM, bool asmjs) {
+  llvm::Type* RetTy = CGM.Int8PtrTy;
+  llvm::Type* ArgTy = CGM.Int8PtrTy;
+  const char* name = "__cxa_begin_catch";
+  if (CGM.getLangOpts().Cheerp) {
+    ArgTy = CGM.Int32Ty;
+    if (asmjs)
+      name = "__cxa_begin_catch_wasm";
+  }
   // void *__cxa_begin_catch(void*);
   llvm::FunctionType *FTy = llvm::FunctionType::get(
-      CGM.Int8PtrTy, CGM.Int8PtrTy, /*isVarArg=*/false);
+      RetTy, ArgTy, /*isVarArg=*/false);
 
-  return CGM.CreateRuntimeFunction(FTy, "__cxa_begin_catch");
+  return CGM.CreateRuntimeFunction(FTy, name);
 }
 
 static llvm::FunctionCallee getEndCatchFn(CodeGenModule &CGM) {
@@ -4839,12 +4847,20 @@ static llvm::FunctionCallee getEndCatchFn(CodeGenModule &CGM) {
   return CGM.CreateRuntimeFunction(FTy, "__cxa_end_catch");
 }
 
-static llvm::FunctionCallee getGetExceptionPtrFn(CodeGenModule &CGM) {
+static llvm::FunctionCallee getGetExceptionPtrFn(CodeGenModule &CGM, bool asmjs) {
+  llvm::Type* RetTy = CGM.Int8PtrTy;
+  llvm::Type* ArgTy = CGM.Int8PtrTy;
+  const char* name = "__cxa_get_exception_ptr";
+  if (CGM.getLangOpts().Cheerp) {
+    ArgTy = CGM.Int32Ty;
+    if (asmjs)
+      name = "__cxa_get_exception_ptr_wasm";
+  }
   // void *__cxa_get_exception_ptr(void*);
   llvm::FunctionType *FTy = llvm::FunctionType::get(
-      CGM.Int8PtrTy, CGM.Int8PtrTy, /*isVarArg=*/false);
+      RetTy, ArgTy, /*isVarArg=*/false);
 
-  return CGM.CreateRuntimeFunction(FTy, "__cxa_get_exception_ptr");
+  return CGM.CreateRuntimeFunction(FTy, name);
 }
 
 namespace {
@@ -4882,8 +4898,9 @@ namespace {
 static llvm::Value *CallBeginCatch(CodeGenFunction &CGF,
                                    llvm::Value *Exn,
                                    bool EndMightThrow) {
+  bool asmjs = CGF.CurFn->getSection() == "asmjs";
   llvm::CallInst *call =
-    CGF.EmitNounwindRuntimeCall(getBeginCatchFn(CGF.CGM), Exn);
+    CGF.EmitNounwindRuntimeCall(getBeginCatchFn(CGF.CGM, asmjs), Exn);
 
   CGF.EHStack.pushCleanup<CallEndCatch>(NormalAndEHCleanup, EndMightThrow);
 
@@ -5035,10 +5052,11 @@ static void InitCatchParam(CodeGenFunction &CGF,
     return;
   }
 
+  bool asmjs = CGF.CurFn->getSection() == "asmjs";
   // We have to call __cxa_get_exception_ptr to get the adjusted
   // pointer before copying.
   llvm::CallInst *rawAdjustedExn =
-    CGF.EmitNounwindRuntimeCall(getGetExceptionPtrFn(CGF.CGM), Exn);
+    CGF.EmitNounwindRuntimeCall(getGetExceptionPtrFn(CGF.CGM, asmjs), Exn);
 
   // Cast that to the appropriate type.
   Address adjustedExn(CGF.Builder.CreateBitCast(rawAdjustedExn, PtrTy),
@@ -5116,8 +5134,13 @@ void ItaniumCXXABI::emitBeginCatch(CodeGenFunction &CGF,
 /// This code is used only in C++.
 static llvm::FunctionCallee getClangCallTerminateFn(CodeGenModule &CGM) {
   ASTContext &C = CGM.getContext();
+  bool asmjs = CGM.getTriple().isCheerpWasm();
+  CanQualType ArgTy = C.getPointerType(C.CharTy);
+  if (CGM.getLangOpts().Cheerp) {
+    ArgTy = C.IntTy;
+  }
   const CGFunctionInfo &FI = CGM.getTypes().arrangeBuiltinFunctionDeclaration(
-      C.VoidTy, {C.getPointerType(C.CharTy)});
+      C.VoidTy, {ArgTy});
   llvm::FunctionType *fnTy = CGM.getTypes().GetFunctionType(FI);
   llvm::FunctionCallee fnRef = CGM.CreateRuntimeFunction(
       fnTy, "__clang_call_terminate", llvm::AttributeList(), /*Local=*/true);
@@ -5149,7 +5172,7 @@ static llvm::FunctionCallee getClangCallTerminateFn(CodeGenModule &CGM) {
     llvm::Value *exn = &*fn->arg_begin();
 
     // Call __cxa_begin_catch(exn).
-    llvm::CallInst *catchCall = builder.CreateCall(getBeginCatchFn(CGM), exn);
+    llvm::CallInst *catchCall = builder.CreateCall(getBeginCatchFn(CGM, asmjs), exn);
     catchCall->setDoesNotThrow();
     catchCall->setCallingConv(CGM.getRuntimeCC());
 
