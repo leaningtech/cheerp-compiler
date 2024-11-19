@@ -908,7 +908,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	if (!llcPass)
 	{
 		Type* SlotType = ArrayType::get(IntegerType::get(module.getContext(), 8), 8);
-		GlobalVariable* BitCastSlot = cast<GlobalVariable>(module.getOrInsertGlobal("cheerpBitCastSlot", SlotType));
+		GlobalVariable* BitCastSlot = cast<GlobalVariable>(module.getOrInsertGlobal("cheerpBitCastSlot", SlotType, unsigned(cheerp::CheerpAS::Wasm)));
 		assert(!BitCastSlot->hasInitializer() && "cheerpBitCastSlot already defined");
 		BitCastSlot->setSection("asmjs");
 		BitCastSlot->setInitializer(ConstantAggregateZero::get(BitCastSlot->getValueType()));
