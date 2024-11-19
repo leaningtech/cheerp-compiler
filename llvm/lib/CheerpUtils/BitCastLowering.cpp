@@ -39,9 +39,10 @@ PreservedAnalyses BitCastLoweringPass::run(Function& F, FunctionAnalysisManager&
 
 			IRBuilder<> Builder(&I);
 
-			Value* CastSrc = Builder.CreateBitCast(BitCastSlot, ArgTy->getPointerTo());
+			unsigned AS = unsigned(cheerp::CheerpAS::Wasm);
+			Value* CastSrc = Builder.CreateBitCast(BitCastSlot, ArgTy->getPointerTo(AS));
 			Builder.CreateStore(Arg, CastSrc);
-			Value* CastDst = Builder.CreateBitCast(BitCastSlot, RetTy->getPointerTo());
+			Value* CastDst = Builder.CreateBitCast(BitCastSlot, RetTy->getPointerTo(AS));
 			Value* Ret = Builder.CreateLoad(RetTy, CastDst);
 
 			I.replaceAllUsesWith(Ret);
