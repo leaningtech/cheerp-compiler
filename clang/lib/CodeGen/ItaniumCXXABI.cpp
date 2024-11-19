@@ -3952,12 +3952,7 @@ void ItaniumRTTIBuilder::BuildVTablePointer(const Type *Ty) {
   }
 
   if(!CGM.getTarget().isByteAddressable()) {
-    bool asmjs = false;
-    if (Ty->isRecordType()){
-      asmjs = cast<CXXRecordDecl>(cast<RecordType>(Ty)->getDecl())->hasAttr<AsmJSAttr>();
-    } else {
-      asmjs = CGM.getContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly;
-    }
+    bool asmjs = CGM.getContext().getTargetInfo().getTriple().isCheerpWasm();
     llvm::Type* WrapperTypes[] = {CGM.getTypes().GetBasicVTableType(8, asmjs)};
     llvm::Type* VTableType = llvm::StructType::get(CGM.getLLVMContext(), WrapperTypes, false, NULL, /*bytelayout*/false, asmjs);
     llvm::Constant *VTable = CGM.getModule().getOrInsertGlobal(VTableName, VTableType);
