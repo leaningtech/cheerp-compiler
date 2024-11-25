@@ -2194,15 +2194,15 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
     }
 
     bool asmjs = CGF.CurFn && CGF.CurFn->getSection() == StringRef("asmjs");
+    bool srcIsFunc = E->getType()->isFunctionPointerType();
+    bool dstIsFunc = DestTy->isFunctionPointerType();
     //We don't care about casts to functions types
     if (SrcTy->isVectorTy() || DstTy->isVectorTy() || CGF.getTarget().isByteAddressable() || isa<llvm::ConstantPointerNull>(Src) ||
-        (isa<llvm::FunctionType>(SrcTy->getPointerElementType()) && isa<llvm::FunctionType>(DstTy->getPointerElementType())) ||
-        DstTy == SrcTy || asmjs)
+        (srcIsFunc && dstIsFunc) || DstTy == SrcTy || asmjs)
     {
       // See below
     }
-    else if (isa<llvm::FunctionType>(SrcTy->getPointerElementType()) &&
-		!isa<llvm::FunctionType>(DstTy->getPointerElementType()))
+    else if (srcIsFunc && !dstIsFunc)
     {
       if (!asmjs)
       {
@@ -2214,7 +2214,8 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
     {
       llvm::Function* intrinsic = CGF.CGM.GetUserCastIntrinsic(CE, E->getType(), DestTy, asmjs);
       llvm::CallBase* CB = Builder.CreateCall(intrinsic, Src);
-      CB->addParamAttr(0, llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, Src->getType()->getPointerElementType()));
+      llvm::Type* SrcPointeeTy = ConvertType(E->getType()->getPointeeType());
+      CB->addParamAttr(0, llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, SrcPointeeTy));
       return CB;
     }
     return Builder.CreateBitCast(Src, DstTy);
