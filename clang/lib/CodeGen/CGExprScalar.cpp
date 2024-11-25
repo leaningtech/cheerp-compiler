@@ -2232,6 +2232,16 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
       return CGF.CGM.getNullPointer(cast<llvm::PointerType>(
           ConvertType(DestTy)), DestTy);
     }
+
+    bool asmjs = CGF.CurFn && CGF.CurFn->getSection() == StringRef("asmjs");
+    bool srcIsFunc = E->getType()->isFunctionPointerType();
+    bool dstIsFunc = DestTy->isFunctionPointerType();
+    if (srcIsFunc && !dstIsFunc && !asmjs)
+    {
+      // On Cheerp in generic code we can't allow any function pointer to become any other pointer
+      CGF.CGM.getDiags().Report(CE->getBeginLoc(), diag::err_cheerp_bad_function_to_non_function_cast);
+    }
+
     // Since target may map different address spaces in AST to the same address
     // space, an address space conversion may end up as a bitcast.
     return CGF.CGM.getTargetCodeGenInfo().performAddrSpaceCast(
