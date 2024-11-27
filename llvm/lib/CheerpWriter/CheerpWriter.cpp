@@ -981,6 +981,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(const
 			stream << "import(" << threadingObject << ".script).then(m=>m.default()).catch(e=>{if(e!=='LeakUtilityThread')throw e;});";
 		else
 			stream << "importScripts(" << threadingObject << ".script);";
+		stream << "postMessage(null);";
 		stream << "}" << '"' << "])";
 		return COMPILE_OK;
 	}
