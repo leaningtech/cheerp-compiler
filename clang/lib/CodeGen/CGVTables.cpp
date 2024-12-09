@@ -267,7 +267,7 @@ CodeGenFunction::GenerateVarArgsThunk(llvm::Function *Fn,
 
 void CodeGenFunction::StartThunk(llvm::Function *Fn, GlobalDecl GD,
                                  const CGFunctionInfo &FnInfo,
-                                 bool IsUnprototyped, const CXXMethodDecl* OriginalMethod) {
+                                 bool IsUnprototyped) {
   assert(!CurGD.getDecl() && "CurGD was already set!");
   CurGD = GD;
   CurFuncIsThunk = true;
@@ -283,11 +283,11 @@ void CodeGenFunction::StartThunk(llvm::Function *Fn, GlobalDecl GD,
   else if (CGM.getCXXABI().hasMostDerivedReturn(GD))
     ResultType = CGM.getContext().VoidPtrTy;
   else
-    ResultType = OriginalMethod->getType()->castAs<FunctionProtoType>()->getReturnType();
+    ResultType = MD->getType()->castAs<FunctionProtoType>()->getReturnType();
   FunctionArgList FunctionArgs;
 
   // Create the implicit 'this' parameter declaration.
-  CGM.getCXXABI().buildThisParam(*this, FunctionArgs, OriginalMethod);
+  CGM.getCXXABI().buildThisParam(*this, FunctionArgs);
 
   // Add the rest of the parameters, if we have a prototype to work with.
   if (!IsUnprototyped) {
@@ -309,7 +309,7 @@ void CodeGenFunction::StartThunk(llvm::Function *Fn, GlobalDecl GD,
   CGM.getCXXABI().EmitInstanceFunctionProlog(*this);
   CXXThisValue = CXXABIThisValue;
   CurCodeDecl = MD;
-  CurFuncDecl = OriginalMethod;
+  CurFuncDecl = MD;
 }
 
 void CodeGenFunction::FinishThunk() {
@@ -477,10 +477,7 @@ void CodeGenFunction::generateThunk(llvm::Function *Fn,
                                     const CGFunctionInfo &FnInfo, GlobalDecl GD,
                                     const ThunkInfo &Thunk,
                                     bool IsUnprototyped) {
-  const CXXMethodDecl* OriginalMethod = getTarget().isByteAddressable() ? cast<CXXMethodDecl>(GD.getDecl()) :
-                                                                          Thunk.Method;
-  const CGFunctionInfo &ThunkFnInfo = CGM.getTypes().arrangeGlobalDeclaration(GD);
-  StartThunk(Fn, GD, ThunkFnInfo, IsUnprototyped, OriginalMethod);
+  StartThunk(Fn, GD, FnInfo, IsUnprototyped);
   // Create a scope with an artificial location for the body of this function.
   auto AL = ApplyDebugLocation::CreateArtificial(*this);
 
@@ -489,13 +486,12 @@ void CodeGenFunction::generateThunk(llvm::Function *Fn,
   llvm::Type *Ty;
   if (IsUnprototyped)
     Ty = llvm::StructType::get(getLLVMContext());
-  else {
-    Ty = CGM.getTypes().GetFunctionType(ThunkFnInfo);
-  }
+  else
+    Ty = CGM.getTypes().GetFunctionType(FnInfo);
 
   llvm::Value *Callee = nullptr;
-  if(Thunk.isMemberPointerThunk && OriginalMethod->isVirtual())
-    Callee = CGM.getCXXABI().getVirtualFunctionPointer(*this, OriginalMethod, LoadCXXThisAddress(), Ty, SourceLocation()).getFunctionPointer();
+  if(Thunk.isMemberPointerThunk && Thunk.Method->isVirtual())
+    Callee = CGM.getCXXABI().getVirtualFunctionPointer(*this, Thunk.Method, LoadCXXThisAddress(), Ty, SourceLocation()).getFunctionPointer();
   else
   {
     llvm::Constant* CalleeConst = CGM.GetAddrOfFunction(GD, Ty, /*ForVTable=*/true);
@@ -506,7 +502,7 @@ void CodeGenFunction::generateThunk(llvm::Function *Fn,
   }
 
   // Make the call and return the result.
-  EmitCallAndReturnForThunk(llvm::FunctionCallee(cast<llvm::FunctionType>(Ty), Callee),
+  EmitCallAndReturnForThunk(llvm::FunctionCallee(Fn->getFunctionType(), Callee),
                             &Thunk, IsUnprototyped);
 }
 
@@ -555,8 +551,7 @@ llvm::Constant *CodeGenVTables::maybeEmitThunk(GlobalDecl GD,
     MCtx.mangleCXXDtorThunk(DD, GD.getDtorType(), TI.This, Out);
   else
     MCtx.mangleThunk(MD, TI, Out);
-  llvm::Type *ThunkVTableTy = CGM.getTypes().GetFunctionTypeForVTable(
-                                  byteAddressable?GD:GD.getWithDecl(OriginalMethod));
+  llvm::Type *ThunkVTableTy = CGM.getTypes().GetFunctionTypeForVTable(GD);
   llvm::Constant *Thunk = CGM.GetAddrOfThunk(Name, ThunkVTableTy, GD);
 
   // If we don't need to emit a definition, return this declaration as is.
@@ -569,46 +564,18 @@ llvm::Constant *CodeGenVTables::maybeEmitThunk(GlobalDecl GD,
   // cases in the MS ABI, we may need to build an unprototyped musttail thunk.
   const CGFunctionInfo &FnInfo =
       IsUnprototyped ? CGM.getTypes().arrangeUnprototypedMustTailThunk(MD)
-                     : CGM.getTypes().arrangeGlobalDeclaration(
-                     +                byteAddressable?GD:GD.getWithDecl(OriginalMethod));
+                     : CGM.getTypes().arrangeGlobalDeclaration(GD);
   llvm::FunctionType *ThunkFnTy = CGM.getTypes().GetFunctionType(FnInfo);
 
   llvm::Function *ThunkFn = cast<llvm::Function>(Thunk->stripPointerCastsSafe());
 
   // If the type of the underlying GlobalValue is wrong, we'll have to replace
   // it. It should be a declaration.
-  // CHEERP: If there are virtual bases it is possible that the type of `this` mismatches
-  // between the existing and new think, but one is directbase of the other.
-  // We keep the thunk with the most basic `this` type
-  bool NewIsDirectBase = false;
-  bool CurrentIsDirectBase = false;
-  llvm::FunctionType* NewThunkFnTy = ThunkFn->getFunctionType();
-  if (!CGM.getTarget().isByteAddressable()) {
-    // Geth the `this` type. It can be the first or second parameter (if there is a
-    // struct return pointer)
-    bool sret = ThunkFn->hasStructRetAttr();
-    llvm::StructType* NewThisTy = cast<llvm::StructType>(NewThunkFnTy->getParamType(sret? 1 : 0)->getPointerElementType());
-    llvm::StructType* CurrentThisTy = cast<llvm::StructType>(ThunkFnTy->getParamType(sret? 1: 0)->getPointerElementType());
-    // Check if one of the types is directbase of the other (check all the directbase hierarchy)
-    for (llvm::StructType* I = NewThisTy; I != nullptr; I = I->getDirectBase()) {
-      if (I == CurrentThisTy) {
-        NewIsDirectBase = true;
-        break;
-      }
-    }
-    for (llvm::StructType* I = CurrentThisTy; I != nullptr; I = I->getDirectBase()) {
-      if (I == NewThisTy) {
-        CurrentIsDirectBase = true;
-        break;
-      }
-    }
-  }
-  if (ThunkFn->getFunctionType() != ThunkFnTy && !NewIsDirectBase) {
+  if (ThunkFn->getFunctionType() != ThunkFnTy) {
     llvm::GlobalValue *OldThunkFn = ThunkFn;
 
     // If the types mismatch then we have to rewrite the definition.
-    assert((OldThunkFn->isDeclaration() || CurrentIsDirectBase) &&
-           "Shouldn't replace non-declaration");
+    assert(OldThunkFn->isDeclaration() && "Shouldn't replace non-declaration");
 
     // Remove the name from the old thunk function and get a new thunk.
     OldThunkFn->setName(StringRef());
