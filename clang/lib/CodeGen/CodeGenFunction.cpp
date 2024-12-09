@@ -1301,7 +1301,7 @@ QualType CodeGenFunction::BuildFunctionArgList(GlobalDecl GD,
       ResTy = MD->getThisType();
     else if (CGM.getCXXABI().hasMostDerivedReturn(GD))
       ResTy = CGM.getContext().VoidPtrTy;
-    CGM.getCXXABI().buildThisParam(*this, Args, MD);
+    CGM.getCXXABI().buildThisParam(*this, Args);
   }
 
   // The base version of an inheriting constructor whose constructed base is a

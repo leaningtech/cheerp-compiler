@@ -2370,10 +2370,6 @@ static llvm::Value *performTypeAdjustment(CodeGenFunction &CGF,
     Address Ptr = InitialPtr;
     if(IsReturnAdjustment)
     {
-      // Ptr has the wrong type here, as the signature comes from the overridden function
-      QualType SourceTy = CGF.getContext().getCanonicalType(CGF.getContext().getTagDeclType(AdjustmentSource));
-      llvm::Type *SourcePtrTy = CGF.ConvertType(SourceTy);
-      Ptr = CGF.Builder.CreateElementBitCast(Ptr, SourcePtrTy);
       // Do a reverse downcast with a negative offset
       if (!asmjs)
         NonVirtualAdjustment = -NonVirtualAdjustment;
@@ -2391,6 +2387,11 @@ static llvm::Value *performTypeAdjustment(CodeGenFunction &CGF,
     }
     else
     {
+      // Ptr has the wrong type here, as the signature comes from the overriding function
+      QualType SourceTy = CGF.getContext().getCanonicalType(CGF.getContext().getTagDeclType(AdjustmentSource));
+      llvm::Type *SourcePtrTy = CGF.ConvertType(SourceTy);
+      Ptr = CGF.Builder.CreateElementBitCast(Ptr, SourcePtrTy);
+
       const CXXRecordDecl* DowncastTarget = VirtualBase ? VirtualBase : AdjustmentTarget;
       Ptr = CGF.GenerateDowncast(Ptr, DowncastTarget, NonVirtualAdjustment);
       if (VirtualAdjustment) {
@@ -2402,7 +2403,7 @@ static llvm::Value *performTypeAdjustment(CodeGenFunction &CGF,
         Ptr = CGF.GenerateVirtualcast(Ptr, AdjustmentTarget, VCallOffset);
       }
     }
-    return Ptr.getPointer();
+    return CGF.Builder.CreateBitCast(Ptr.getPointer(), InitialPtr.getType());
   }
 
   Address V = CGF.Builder.CreateElementBitCast(InitialPtr, CGF.Int8Ty);
