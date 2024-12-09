@@ -2260,7 +2260,7 @@ public:
   void FinishFunction(SourceLocation EndLoc=SourceLocation());
 
   void StartThunk(llvm::Function *Fn, GlobalDecl GD,
-                  const CGFunctionInfo &FnInfo, bool IsUnprototyped, const CXXMethodDecl* OriginalMethod);
+                  const CGFunctionInfo &FnInfo, bool IsUnprototyped);
 
   void EmitCallAndReturnForThunk(llvm::FunctionCallee Callee,
                                  const ThunkInfo *Thunk, bool IsUnprototyped);
