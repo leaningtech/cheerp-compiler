@@ -1117,16 +1117,11 @@ Function* TypeOptimizer::rewriteIntrinsic(Function* F, FunctionType* FT)
 	SmallVector<Type*, 3> newTys;
 	switch(F->getIntrinsicID())
 	{
-		case Intrinsic::cheerp_reallocate:
+		case Intrinsic::cheerp_allocate:
+		case Intrinsic::cheerp_allocate_array:
 		{
-			Type* localTys[] = { FT->getReturnType(), FT->getParamType(0), FT->getParamType(1)};
-			newTys.insert(newTys.end(),localTys,localTys+3);
-			break;
-		}
-		case Intrinsic::cheerp_deallocate:
-		{
-			Type* localTys[] = { FT->getParamType(0), FT->getParamType(1)};
-			newTys.insert(newTys.end(),localTys,localTys+2);
+			Type* localTys[] = { FT->getReturnType()};
+			newTys.insert(newTys.end(),localTys,localTys+1);
 			break;
 		}
 		case Intrinsic::cheerp_upcast_collapsed:
@@ -1135,10 +1130,14 @@ Function* TypeOptimizer::rewriteIntrinsic(Function* F, FunctionType* FT)
 		case Intrinsic::cheerp_virtualcast:
 		case Intrinsic::cheerp_make_complete_object:
 		case Intrinsic::cheerp_make_regular:
-		case Intrinsic::cheerp_allocate:
-		case Intrinsic::cheerp_allocate_array:
 		{
 			Type* localTys[] = { FT->getReturnType(), FT->getParamType(0)};
+			newTys.insert(newTys.end(),localTys,localTys+2);
+			break;
+		}
+		case Intrinsic::cheerp_reallocate:
+		{
+			Type* localTys[] = { FT->getReturnType(), FT->getParamType(1)};
 			newTys.insert(newTys.end(),localTys,localTys+2);
 			break;
 		}
@@ -1154,6 +1153,7 @@ Function* TypeOptimizer::rewriteIntrinsic(Function* F, FunctionType* FT)
 		}
 		case Intrinsic::invariant_start:
 		case Intrinsic::invariant_end:
+		case Intrinsic::cheerp_deallocate:
 		{
 			Type* localTys[] = { FT->getParamType(1) };
 			newTys.insert(newTys.end(),localTys,localTys+1);

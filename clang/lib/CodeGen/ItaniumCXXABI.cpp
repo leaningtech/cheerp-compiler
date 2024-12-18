@@ -1412,7 +1412,7 @@ void ItaniumCXXABI::emitThrow(CodeGenFunction &CGF, const CXXThrowExpr *E) {
   llvm::CallInst* ExceptionPtr = nullptr;
   llvm::Value* Size = llvm::ConstantInt::get(SizeTy, TypeSize);
   if (CGM.getLangOpts().Cheerp) {
-    llvm::Function* origFunc = nullptr;
+    llvm::Constant* origFunc = nullptr;
     // We want to know if this exception is supposed to be allocated as a wasm
     // or js object
     // TODO: do it better when we have address spaces
@@ -1430,7 +1430,7 @@ void ItaniumCXXABI::emitThrow(CodeGenFunction &CGF, const CXXThrowExpr *E) {
       llvm::FunctionType *MallocTy =
         llvm::FunctionType::get(CGF.Int8PtrTy, CGF.Int32Ty, /*isVarArg=*/false);
 
-      origFunc = cast<llvm::Function>(CGF.CGM.CreateRuntimeFunction(MallocTy, "malloc").getCallee());
+      origFunc = cast<llvm::Constant>(CGF.CGM.CreateRuntimeFunction(MallocTy, "malloc").getCallee());
     }
     ExceptionPtr = cheerp::createCheerpAllocate(CGF.Builder, origFunc, elemTy, Size);
   } else {

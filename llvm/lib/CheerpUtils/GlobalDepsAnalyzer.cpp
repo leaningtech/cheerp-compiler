@@ -265,7 +265,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 						II == Intrinsic::cheerp_deallocate       ) &&
 						!isa<ConstantPointerNull>(ci->getArgOperand(0)))
 					{
-						Function* OrigFunc = dyn_cast<Function>(ci->getOperand(0));
+						Function* OrigFunc = dyn_cast<Function>(ci->getOperand(0)->stripPointerCastsSafe());
 						assert(OrigFunc);
 						if (llcPass)
 						{
