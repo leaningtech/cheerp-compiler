@@ -1374,19 +1374,19 @@ static RValue EmitNewDeleteCall(CodeGenFunction &CGF,
   {
     // Forge a call to a special type safe allocator intrinsic
     QualType retType = CGF.getContext().getPointerType(allocType);
-    llvm::Function* origFunc = nullptr;
+    llvm::Constant* origFunc = nullptr;
     if (asmjs || (allocType->getAsTagDecl() && allocType->getAsTagDecl()->hasAttr<AsmJSAttr>())) {
-      origFunc = cast<llvm::Function>(CalleePtr);
+      origFunc = CalleePtr;
     }
     llvm::Type* elementType = CGF.ConvertTypeForMem(retType->getPointeeType());
-    CallOrInvoke = cheerp::createCheerpAllocate(CGF.Builder, origFunc, elementType, Args[0].getKnownRValue().getScalarVal(), use_array);
+    CallOrInvoke = cheerp::createCheerpAllocate(CGF.Builder, origFunc, elementType, Args[0].getKnownRValue().getScalarVal(), 0, use_array);
     RV = RValue::get(CallOrInvoke);
   }
   else if(IsDelete && cheerp && !(asmjs && (user_defined_new || fancy_new)))
   {
-    llvm::Function* origFunc = nullptr;
+    llvm::Constant* origFunc = nullptr;
     if (asmjs || !(allocType->getAsTagDecl() && allocType->getAsTagDecl()->hasAttr<GenericJSAttr>())) {
-      origFunc = cast<llvm::Function>(CalleePtr);
+      origFunc = CalleePtr;
     }
     QualType argType = CGF.getContext().getPointerType(allocType);
     llvm::Type* elementType = CGF.ConvertTypeForMem(argType->getPointeeType());

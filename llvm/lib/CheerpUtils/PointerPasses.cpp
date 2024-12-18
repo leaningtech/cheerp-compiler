@@ -628,7 +628,7 @@ bool FreeAndDeleteRemoval::runOnModule(Module& M)
 					}
 					else if (!elemTy || !cheerp::TypeSupport::isAsmJSPointed(elemTy))
 					{
-						Function* origF = cast<Function>(call->getArgOperand(0));
+						Function* origF = cast<Function>(call->getArgOperand(0)->stripPointerCastsSafe());
 						call->setArgOperand(0, getOrCreateGenericJSFree(M, origF));
 					}
 				}

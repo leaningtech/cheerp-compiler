@@ -1565,9 +1565,9 @@ static void createFramePtr(coro::Shape &Shape) {
     if (Shape.CheerpCoroAlloc) {
       // CHEERP: Replace cheerp_coro_alloc with cheerp_allocate, now that we know the
       // final frame type
-      Function* Malloc = nullptr;
+      Constant* Malloc = nullptr;
       if (FrameTy->hasAsmJS()) {
-        Malloc = cast<Function>(M->getOrInsertFunction("malloc", Builder.getInt8PtrTy(), Builder.getInt32Ty()).getCallee());
+        Malloc = cast<Constant>(M->getOrInsertFunction("malloc", Builder.getInt8PtrTy(), Builder.getInt32Ty()).getCallee());
       }
       Builder.SetInsertPoint(Shape.CheerpCoroAlloc);
       CallBase* Alloc = cheerp::createCheerpAllocate(Builder, Malloc, FrameTy, Shape.CheerpCoroAlloc->getOperand(0));

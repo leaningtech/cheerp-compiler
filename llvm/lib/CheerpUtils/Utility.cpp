@@ -611,17 +611,19 @@ uint32_t getIntFromValue(const Value* v)
 
 
 CallInst* createCheerpAllocate(IRBuilderBase& Builder,
-	Function* origFunc,
+	Constant* origFunc,
 	Type* elementType,
 	Value* sizeArg,
+	unsigned AS,
 	bool use_array)
 {
-	unsigned AS = 0;
+	PointerType* PtrTy = Builder.getInt8PtrTy();
 	auto Intr = use_array? Intrinsic::cheerp_allocate_array : Intrinsic::cheerp_allocate;
-	PointerType* origFuncTy = origFunc? origFunc->getFunctionType()->getPointerTo(origFunc->getAddressSpace()) : Builder.getInt8PtrTy();
 	Type* retTy = elementType? elementType->getPointerTo(AS) : Builder.getInt8PtrTy(AS);
-	Type* Tys[] = { retTy, origFuncTy };
-	Constant* origFuncArg = origFunc? (Constant*)origFunc : (Constant*)ConstantPointerNull::get(origFuncTy);
+	Type* Tys[] = { retTy };
+	Constant* origFuncArg = origFunc?
+		(Constant*)Builder.CreatePointerBitCastOrAddrSpaceCast(origFunc, PtrTy) :
+		(Constant*)ConstantPointerNull::get(PtrTy);
 	CallInst* Call = Builder.CreateIntrinsic(Intr, Tys, {origFuncArg, sizeArg});
 	if (elementType)
 	{
@@ -630,16 +632,18 @@ CallInst* createCheerpAllocate(IRBuilderBase& Builder,
 	return Call;
 }
 llvm::CallInst* createCheerpReallocate(llvm::IRBuilderBase& Builder,
-	llvm::Function* origFunc,
+	llvm::Constant* origFunc,
 	llvm::Type* elementType,
 	llvm::Value* ptrArg,
 	llvm::Value* sizeArg)
 {
-	unsigned AS = 0;
-	PointerType* origFuncTy = origFunc? origFunc->getFunctionType()->getPointerTo(origFunc->getAddressSpace()) : Builder.getInt8PtrTy();
+	PointerType* PtrTy = Builder.getInt8PtrTy();
+	unsigned AS = cast<PointerType>(ptrArg->getType())->getAddressSpace();
 	Type* retTy = elementType? elementType->getPointerTo(AS) : Builder.getInt8PtrTy(AS);
-	Type* Tys[] = { retTy, origFuncTy, ptrArg->getType() };
-	Constant* origFuncArg = origFunc? (Constant*)origFunc : (Constant*)ConstantPointerNull::get(origFuncTy);
+	Type* Tys[] = { retTy, ptrArg->getType() };
+	Constant* origFuncArg = origFunc?
+		(Constant*)Builder.CreatePointerBitCastOrAddrSpaceCast(origFunc, PtrTy) :
+		(Constant*)ConstantPointerNull::get(PtrTy);
 	CallInst* Call = Builder.CreateIntrinsic(Intrinsic::cheerp_reallocate, Tys, {origFuncArg, ptrArg, sizeArg});
 	if (elementType)
 	{
@@ -650,13 +654,15 @@ llvm::CallInst* createCheerpReallocate(llvm::IRBuilderBase& Builder,
 }
 
 llvm::CallInst* createCheerpDeallocate(llvm::IRBuilderBase& Builder,
-	llvm::Function* origFunc,
+	llvm::Constant* origFunc,
 	llvm::Type* elementType,
 	llvm::Value* ptrArg)
 {
-	PointerType* origFuncTy = origFunc? origFunc->getFunctionType()->getPointerTo(origFunc->getAddressSpace()) : Builder.getInt8PtrTy();
-	Type* Tys[] = { origFuncTy, ptrArg->getType() };
-	Constant* origFuncArg = origFunc? (Constant*)origFunc : (Constant*)ConstantPointerNull::get(origFuncTy);
+	PointerType* PtrTy = Builder.getInt8PtrTy();
+	Type* Tys[] = { ptrArg->getType() };
+	Constant* origFuncArg = origFunc?
+		(Constant*)Builder.CreatePointerBitCastOrAddrSpaceCast(origFunc, PtrTy) :
+		(Constant*)ConstantPointerNull::get(PtrTy);
 	CallInst* Call = Builder.CreateIntrinsic(Intrinsic::cheerp_deallocate, Tys, {origFuncArg, ptrArg});
 	if (elementType)
 	{

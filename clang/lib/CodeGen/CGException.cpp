@@ -393,12 +393,12 @@ namespace {
     FreeException(llvm::Value *exn) : exn(exn) {}
     void Emit(CodeGenFunction &CGF, Flags flags) override {
       if (CGF.getLangOpts().Cheerp) {
-        llvm::Function* origFunc = nullptr;
+        llvm::Constant* origFunc = nullptr;
         if (CGF.getTarget().getTriple().isCheerpWasm()) {
           llvm::FunctionType *FreeTy =
             llvm::FunctionType::get(CGF.VoidTy, CGF.VoidPtrTy, /*isVarArg=*/false);
 
-          origFunc = cast<llvm::Function>(CGF.CGM.CreateRuntimeFunction(FreeTy, "free").getCallee());
+          origFunc = cast<llvm::Constant>(CGF.CGM.CreateRuntimeFunction(FreeTy, "free").getCallee());
         }
         cheerp::createCheerpDeallocate(CGF.Builder, origFunc, nullptr, exn);
       } else {

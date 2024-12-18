@@ -280,19 +280,20 @@ inline bool isGEP(const llvm::Value* v)
 }
 
 llvm::CallInst* createCheerpAllocate(llvm::IRBuilderBase& Builder,
-	llvm::Function* origFunc,
+	llvm::Constant* origFunc,
 	llvm::Type* elementType,
 	llvm::Value* sizeArg,
+	unsigned AS = 0,
 	bool use_array = false);
 
 llvm::CallInst* createCheerpReallocate(llvm::IRBuilderBase& Builder,
-	llvm::Function* origFunc,
+	llvm::Constant* origFunc,
 	llvm::Type* elementType,
 	llvm::Value* ptrArg,
 	llvm::Value* sizeArg);
 
 llvm::CallInst* createCheerpDeallocate(llvm::IRBuilderBase& Builder,
-	llvm::Function* origFunc,
+	llvm::Constant* origFunc,
 	llvm::Type* elementType,
 	llvm::Value* ptrArg);
 
