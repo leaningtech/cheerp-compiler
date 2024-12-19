@@ -572,12 +572,13 @@ static void deleteInstructionAndUnusedOperands(Instruction* I)
 
 static Function* getOrCreateGenericJSFree(Module& M, Function* Orig)
 {
-	FunctionType* Ty = Orig->getFunctionType();
+	Type* VoidPtrJs = IntegerType::get(M.getContext(), 8)->getPointerTo((unsigned) CheerpAS::GenericJS);
+	Type* VoidPtrWasm = IntegerType::get(M.getContext(), 8)->getPointerTo((unsigned) CheerpAS::Wasm);
+
+	FunctionType* Ty = FunctionType::get(Orig->getReturnType(), {VoidPtrJs}, false);
 	std::string name = Twine("__genericjs__", Orig->getName()).str();
 	Function* New = getOrCreateFunction(M, Ty, name, CheerpAS::Client, /*isExternal*/true);
 
-	Type* VoidPtrJs = IntegerType::get(M.getContext(), 8)->getPointerTo((unsigned) CheerpAS::GenericJS);
-	Type* VoidPtrWasm = IntegerType::get(M.getContext(), 8)->getPointerTo((unsigned) CheerpAS::Wasm);
 	if (!New->empty())
 		return New;
 	New->addFnAttr(Attribute::NoInline);
@@ -616,6 +617,7 @@ bool FreeAndDeleteRemoval::runOnModule(Module& M)
 	bool Changed = false;
 
 	isWasmTarget = Triple(M.getTargetTriple()).isCheerpWasm();
+	Type* VoidPtrWasm = IntegerType::get(M.getContext(), 8)->getPointerTo((unsigned) CheerpAS::Wasm);
 	for (Function& f: M)
 	{
 		if (f.getIntrinsicID() == Intrinsic::cheerp_deallocate)
@@ -627,7 +629,7 @@ bool FreeAndDeleteRemoval::runOnModule(Module& M)
 				++UI;
 				if (CallInst* call = dyn_cast<CallInst>(U.getUser()))
 				{
-					bool asmjs = call->getOperand(0)->getType()->getPointerAddressSpace() == unsigned(CheerpAS::Wasm);
+					bool asmjs = call->getArgOperand(1)->getType()->getPointerAddressSpace() == unsigned(CheerpAS::Wasm);
 					if (asmjs)
 						continue;
 					Type* elemTy = call->getParamElementType(1);
@@ -639,7 +641,8 @@ bool FreeAndDeleteRemoval::runOnModule(Module& M)
 					else if (!elemTy || !cheerp::TypeSupport::isAsmJSPointed(elemTy))
 					{
 						Function* origF = cast<Function>(call->getArgOperand(0)->stripPointerCastsSafe());
-						call->setArgOperand(0, getOrCreateGenericJSFree(M, origF));
+						Constant* funcArg = ConstantExpr::getPointerBitCastOrAddrSpaceCast(getOrCreateGenericJSFree(M, origF), VoidPtrWasm);
+						call->setArgOperand(0, funcArg);
 					}
 				}
 			}
