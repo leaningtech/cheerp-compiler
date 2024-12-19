@@ -12740,7 +12740,7 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
     const Expr* existingMem = E->getArg(0);
     const CastExpr* argCE=dyn_cast<CastExpr>(existingMem);
 
-    if ((!argCE || argCE->getSubExpr()->getType()->isVoidPointerType())) {
+    if ((!argCE || argCE->getSubExpr()->getType()->isVoidPointerType() || !argCE->getSubExpr()->getType()->isPointerType())) {
       if (!asmjs) {
         CGM.getDiags().Report(E->getArg(0)->getBeginLoc(), diag::err_cheerp_memintrinsic_type_unknown);
         return 0;
