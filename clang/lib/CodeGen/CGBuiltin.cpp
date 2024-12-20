@@ -12732,7 +12732,7 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
         CGM.getDiags().Report(E->getBeginLoc(), diag::err_cheerp_alloc_requires_cast);
         return 0;
       }
-      AS = getContext().getTargetAddressSpace(E->getType()->getPointeeType().getAddressSpace());
+      AS = (unsigned)cheerp::CheerpAS::Wasm;
     } else {
       elementType = ConvertTypeForMem(retCE->getType()->getPointeeType());
       AS = getContext().getTargetAddressSpace(retCE->getType()->getPointeeType().getAddressSpace());
@@ -12761,7 +12761,7 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
         CGM.getDiags().Report(E->getBeginLoc(), diag::err_cheerp_alloc_requires_cast);
         return 0;
       }
-      AS = getContext().getTargetAddressSpace(E->getType()->getPointeeType().getAddressSpace());
+      AS = (unsigned)cheerp::CheerpAS::Wasm;
     } else {
       elementType = ConvertTypeForMem(retCE->getType()->getPointeeType());
       AS = getContext().getTargetAddressSpace(retCE->getType()->getPointeeType().getAddressSpace());
