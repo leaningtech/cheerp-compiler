@@ -750,8 +750,7 @@ bool LinearMemoryHelper::VectorWriter::splitChunk(bool force, bool hasAsmjsMem)
 	uint32_t address = startAddress + startOfChunk;
 	uint32_t startPosition = hasAsmjsMem ? 0 : startOfChunk;
 	uint32_t length = hasAsmjsMem ? rawData.size() : lastNonZero - startPosition + 1;
-	GlobalDataChunk globalChunk(address, rawData, startPosition, length, std::move(relocations));
-	chunks.push_back(globalChunk);
+	chunks.emplace_back(address, curGlobal, rawData, startPosition, length, std::move(relocations));
 	return true;
 }
 
