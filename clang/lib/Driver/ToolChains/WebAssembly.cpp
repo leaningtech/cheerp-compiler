@@ -566,19 +566,28 @@ void cheerp::Link::ConstructJob(Compilation &C, const JobAction &JA,
   if(std::find(features.begin(), features.end(), UNALIGNEDMEM) == features.end())
     hasUnalignedMemory = false;
 
+  // Do not add the same library more than once
+  std::set<std::string> usedLibs;
+
+  auto AddStdLib = [&](const char* libName) {
+    std::string aLibName = getToolChain().GetFilePath(libName);
+    usedLibs.insert(aLibName);
+    CmdArgs.push_back(Args.MakeArgString(aLibName));
+  };
+
   // Add standard libraries
   if (!Args.hasArg(options::OPT_nostdlib) &&
       !Args.hasArg(options::OPT_nodefaultlibs)) {
     if (C.getDriver().CCCIsCXX()) {
-      CmdArgs.push_back(Args.MakeArgString(getToolChain().GetFilePath("libstdlibs.bc")));
+      AddStdLib("libstdlibs.bc");
     } else {
-      CmdArgs.push_back(Args.MakeArgString(getToolChain().GetFilePath("libc.bc")));
-      CmdArgs.push_back(Args.MakeArgString(getToolChain().GetFilePath("crt1.bc")));
+      AddStdLib("libc.bc");
+      AddStdLib("crt1.bc");
     }
     if (getToolChain().getTriple().getOS() == llvm::Triple::WASI)
-      CmdArgs.push_back(Args.MakeArgString(getToolChain().GetFilePath("libwasi.bc")));
+      AddStdLib("libwasi.bc");
     else
-      CmdArgs.push_back(Args.MakeArgString(getToolChain().GetFilePath("libsystem.bc")));
+      AddStdLib("libsystem.bc");
 
     // Add wasm helper if needed
     Arg *CheerpLinearOutput = Args.getLastArg(options::OPT_cheerp_linear_output_EQ);
@@ -587,8 +596,7 @@ void cheerp::Link::ConstructJob(Compilation &C, const JobAction &JA,
     if (Sanitizers && Sanitizers->containsValue("address")) {
       CmdArgs.push_back(Args.MakeArgString(getToolChain().GetFilePath("asmjs/libclang_rt.asan-Cheerp.bc")));
       if (D.CCCIsCXX())
-        CmdArgs.push_back(
-            Args.MakeArgString(getToolChain().GetFilePath("libdemangle.bc")));
+        AddStdLib("libdemangle.bc");
     }
 
     llvm::Triple::EnvironmentType env = getToolChain().getTriple().getEnvironment();
@@ -598,15 +606,13 @@ void cheerp::Link::ConstructJob(Compilation &C, const JobAction &JA,
     {
       // We omit libwasm when building with AddressSanitizer, since it defines
       // it's own implementation of functions like memcpy and memset.
-      CmdArgs.push_back(Args.MakeArgString(getToolChain().GetFilePath("libwasm.bc")));
+      AddStdLib("libwasm.bc");
     }
     // Link thread library if -pthread was passed
     if (Args.hasArg(options::OPT_pthread))
-      CmdArgs.push_back(Args.MakeArgString(getToolChain().GetFilePath("libthreads.bc")));
+      AddStdLib("libthreads.bc");
   }
  
-  // Do not add the same library more than once
-  std::set<std::string> usedLibs;
   for (auto& it: Args.filtered(options::OPT_l)) {
     std::string libName("lib");
     libName += it->getValue();
