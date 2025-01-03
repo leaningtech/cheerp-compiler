@@ -12770,6 +12770,7 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
     const Expr* existingMem = E->getArg(0);
     const CastExpr* argCE=dyn_cast<CastExpr>(existingMem);
     if (argCE && argCE->getCastKind() == CK_AddressSpaceConversion) {
+      existingMem = argCE->getSubExpr();
       argCE = dyn_cast<CastExpr>(argCE->getSubExpr());
     }
 
@@ -12846,6 +12847,7 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
   else if (BuiltinID == Builtin::BIfree) {
     const CastExpr* argCE=dyn_cast<CastExpr>(E->getArg(0));
     if (argCE && argCE->getCastKind() == CK_AddressSpaceConversion) {
+      Ops[0]=EmitScalarExpr(argCE->getSubExpr());
       argCE = dyn_cast<CastExpr>(argCE->getSubExpr());
     }
     llvm::Type* elementType = nullptr;
