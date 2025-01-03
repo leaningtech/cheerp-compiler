@@ -19,6 +19,7 @@
 #include "clang/AST/Attr.h"
 #include "clang/Basic/LangOptions.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/MDBuilder.h"
 #include "llvm/Support/Path.h"
@@ -428,7 +429,16 @@ void CodeGenFunction::EmitCXXGuardedInitBranch(llvm::Value *NeedsInit,
 llvm::Function *CodeGenModule::CreateGlobalInitOrCleanUpFunction(
     llvm::FunctionType *FTy, const Twine &Name, const CGFunctionInfo &FI,
     SourceLocation Loc, bool TLS, llvm::GlobalVariable::LinkageTypes Linkage) {
-  llvm::Function *Fn = llvm::Function::Create(FTy, Linkage, Name, &getModule());
+
+  unsigned AS = 0;
+  if (getLangOpts().Cheerp) {
+    if (Context.getTargetInfo().getTriple().isCheerpWasm()) {
+      AS = (unsigned)cheerp::CheerpAS::Wasm;
+    } else {
+      AS = (unsigned)cheerp::CheerpAS::Client;
+    }
+  }
+  llvm::Function *Fn = llvm::Function::Create(FTy, Linkage, AS, Name, &getModule());
 
   if (!getLangOpts().AppleKext && !TLS) {
     // Set the section if needed.
