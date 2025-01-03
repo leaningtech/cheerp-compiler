@@ -1631,6 +1631,11 @@ void CheerpWasmWriter::compileConstant(WasmBuffer& code, const Constant* c, bool
 				llvm::errs() << "function name: " << c->getName() << '\n';
 			assert(addr && "function address is zero (aka nullptr conflict)");
 			encodeInst(WasmS32Opcode::I32_CONST, addr, code);
+			if(WasmSharedModule)
+			{
+				encodeInst(WasmU32Opcode::GET_GLOBAL, TABLE_BASE_GLOBAL, code);
+				encodeInst(WasmOpcode::I32_ADD, code);
+			}
 		}
 		else
 		{
@@ -2063,6 +2068,10 @@ uint32_t CheerpWasmWriter::compileLoadStorePointer(WasmBuffer& code, const Value
 				{
 					addr |= b << off;
 					off += 8;
+				}
+				void addRelocation(const llvm::GlobalVariable* GV, uint32_t offset) override
+				{
+					llvm_unreachable("Relocations unsupported in addrListener");
 				}
 			};
 			AddrListener addrListener;
@@ -2538,13 +2547,28 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 					}
 					case Intrinsic::cheerp_memory_init:
 					{
+						llvm::ConstantInt *constInt = cast<llvm::ConstantInt>(ci.getOperand(0));
+						uint32_t chunkId = constInt->getZExtValue();
+						const auto& chunk = linearHelper.getGlobalDataChunk(chunkId);
 						compileOperand(code, ci.getOperand(1));
 						compileOperand(code, ci.getOperand(2));
 						compileOperand(code, ci.getOperand(3));
-						llvm::ConstantInt *constInt = cast<llvm::ConstantInt>(ci.getOperand(0));
 						// The second immediate for MEMORY_INIT is the memory index.
 						// As there is currently no support for multiple memories, this has to be 0.
-						encodeInst(WasmFCU32U32Opcode::MEMORY_INIT, constInt->getZExtValue(), 0, code);
+						encodeInst(WasmFCU32U32Opcode::MEMORY_INIT, chunkId, 0, code);
+						if(WasmSharedModule)
+						{
+							for(const auto& reloc: chunk.relocations)
+							{
+								assert(reloc.usedGlobal == nullptr);
+								uint32_t baseAddress = linearHelper.getGlobalVariableAddress(reloc.containerGlobal);
+								encodeInst(WasmS32Opcode::I32_CONST, 0, code);
+								encodeInst(WasmU32Opcode::GET_GLOBAL, TABLE_BASE_GLOBAL, code);
+								encodeInst(WasmS32Opcode::I32_CONST, reloc.usedOffset, code);
+								encodeInst(WasmOpcode::I32_ADD, code);
+								encodeInst(WasmU32U32Opcode::I32_STORE, 0x2, baseAddress + reloc.containerOffset, code);
+							}
+						}
 						return true;
 					}
 					case Intrinsic::cheerp_data_drop:
@@ -4658,7 +4682,7 @@ void CheerpWasmWriter::compileImportSection()
 
 	// Add imported thread locals if needed
 	if(WasmSharedModule)
-		importedTotal += FIRST_USER_GLOBAL;
+		importedTotal += FIRST_USER_GLOBAL_SHARED_BUILD;
 
 	if (!useWasmLoader && importedTotal == 0)
 		return;
@@ -4714,6 +4738,7 @@ void CheerpWasmWriter::compileImportSection()
 	{
 		compileImportGlobal(section, "stackTop", /*mutableGlobal*/true);
 		compileImportGlobal(section, "tls", /*mutableGlobal*/true);
+		compileImportGlobal(section, "tableBase", /*mutableGlobal*/false);
 	}
 
 	section.encode();
@@ -4946,7 +4971,9 @@ void CheerpWasmWriter::compileGlobalSection()
 	std::sort(orderedConstants.begin(), orderedConstants.end());
 
 	// Assign global ids
-	uint32_t globalId = FIRST_USER_GLOBAL;
+	uint32_t globalId = FIRST_USER_GLOBAL_STATIC_BUILD;
+	if(WasmSharedModule)
+		globalId = FIRST_USER_GLOBAL_SHARED_BUILD;
 	for(uint32_t i=0;i<orderedConstants.size();i++)
 	{
 		GlobalConstant& GC = orderedConstants[i];
@@ -4985,7 +5012,7 @@ void CheerpWasmWriter::compileGlobalSection()
 		// Define globals for thread local state, unless they are imported
 		if(!WasmSharedModule)
 		{
-			globalsCount += FIRST_USER_GLOBAL;
+			globalsCount += FIRST_USER_GLOBAL_STATIC_BUILD;
 		}
 		encodeULEB128(globalsCount, section);
 		if(!WasmSharedModule)

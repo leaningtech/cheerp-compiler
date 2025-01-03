@@ -104,6 +104,9 @@ void LinearMemoryHelper::compileConstantAsBytes(const Constant* c, bool asmjs, B
 			}
 			for(uint32_t i=0;i<32;i+=8)
 				listener->addByte((addr>>i)&255);
+			// Encode the offset in the table as the offset, treating the table section as a single global
+			if(WasmSharedModule)
+				listener->addRelocation(nullptr, addr);
 		}
 		else if(isa<ConstantExpr>(c))
 		{
@@ -732,6 +735,12 @@ void LinearMemoryHelper::VectorWriter::addByte(uint8_t b)
 	currentZeroStreak = 0;
 }
 
+void LinearMemoryHelper::VectorWriter::addRelocation(const llvm::GlobalVariable* GV, uint32_t offset)
+{
+	// NOTE: The relocation is added after the value, The -4 offset compensate for that.
+	relocations.emplace_back(curGlobal, startAddress + address - curGlobalAddress - 4, GV, offset);
+}
+
 bool LinearMemoryHelper::VectorWriter::splitChunk(bool force, bool hasAsmjsMem)
 {
 	if (force && !isDataAvailable)
@@ -741,7 +750,7 @@ bool LinearMemoryHelper::VectorWriter::splitChunk(bool force, bool hasAsmjsMem)
 	uint32_t address = startAddress + startOfChunk;
 	uint32_t startPosition = hasAsmjsMem ? 0 : startOfChunk;
 	uint32_t length = hasAsmjsMem ? rawData.size() : lastNonZero - startPosition + 1;
-	GlobalDataChunk globalChunk(address, rawData, startPosition, length);
+	GlobalDataChunk globalChunk(address, rawData, startPosition, length, std::move(relocations));
 	chunks.push_back(globalChunk);
 	return true;
 }
@@ -766,11 +775,12 @@ void LinearMemoryHelper::populateGlobalData()
 	// Now loop over all the globals and compile them into the vector.
 	for (const GlobalVariable *GV : globals())
 	{
-		if (GV->hasInitializer() && globalAddresses.count(GV))
+		auto it = globalAddresses.find(GV);
+		if (GV->hasInitializer() && it != globalAddresses.end())
 		{
 			const Constant* init = GV->getInitializer();
-			uint32_t curAddress = getGlobalVariableAddress(GV);
-			vectorWriter.setAddress(curAddress);
+			uint32_t curAddress = it->second;
+			vectorWriter.setAddress(GV, curAddress);
 			compileConstantAsBytes(init,/* asmjs */ true, &vectorWriter);
 		}
 	}

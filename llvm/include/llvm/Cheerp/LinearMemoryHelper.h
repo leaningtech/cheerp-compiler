@@ -122,11 +122,25 @@ public:
 	struct GlobalDataChunk
 	{
 	public:
-		GlobalDataChunk(uint32_t address, std::vector<uint8_t> &rawData, uint32_t start, uint32_t length) : address(address), view(&rawData[start], length)
+		struct Relocation
+		{
+			const llvm::GlobalVariable* containerGlobal;
+			uint32_t containerOffset;
+			const llvm::GlobalVariable* usedGlobal;
+			uint32_t usedOffset;
+			Relocation(const llvm::GlobalVariable* containerGlobal, uint32_t containerOffset, const llvm::GlobalVariable* usedGlobal, uint32_t usedOffset) :
+				containerGlobal(containerGlobal), containerOffset(containerOffset), usedGlobal(usedGlobal), usedOffset(usedOffset)
+			{
+			}
+		};
+		GlobalDataChunk(uint32_t address, std::vector<uint8_t> &rawData,
+				uint32_t start, uint32_t length,
+				std::vector<Relocation>&& relocations) : address(address), view(&rawData[start], length), relocations(std::move(relocations))
 		{
 		}
 		uint32_t address;
 		llvm::ArrayRef<uint8_t> view;
+		std::vector<Relocation> relocations;
 	};
 	const GlobalDataChunk &getGlobalDataChunk(uint32_t number) const;
 
@@ -285,6 +299,9 @@ public:
 	struct ByteListener
 	{
 		virtual void addByte(uint8_t b) = 0;
+		// Mark the 32-bit value that was just written as the address of a GlobalVariable or table index for a function,
+		// they might require a relocation
+		virtual void addRelocation(const llvm::GlobalVariable* GV, uint32_t offset) = 0;
 		virtual ~ByteListener()
 		{
 		}
@@ -369,6 +386,8 @@ private:
 	// The VectorWriter struct is used while populating the global data.
 	struct VectorWriter : public ByteListener
 	{
+		const llvm::GlobalVariable* curGlobal;
+		uint32_t curGlobalAddress;
 		uint32_t address;
 		uint32_t currentZeroStreak;
 		uint32_t splitThreshold;
@@ -379,14 +398,20 @@ private:
 		bool isDataAvailable;
 		std::vector<uint8_t> &rawData;
 		std::vector<GlobalDataChunk> &chunks;
-		VectorWriter(std::vector<uint8_t> &rawGlobalData, std::vector<GlobalDataChunk> &chunks, uint32_t splitThreshold, uint32_t maxChunks, uint32_t startAddress) : address(0), currentZeroStreak(0), splitThreshold(splitThreshold), maxChunks(maxChunks), startOfChunk(0), lastNonZero(0), startAddress(startAddress), isDataAvailable(false), rawData(rawGlobalData), chunks(chunks)
+		std::vector<GlobalDataChunk::Relocation> relocations;
+		VectorWriter(std::vector<uint8_t> &rawGlobalData, std::vector<GlobalDataChunk> &chunks, uint32_t splitThreshold, uint32_t maxChunks, uint32_t startAddress) :
+			curGlobal(nullptr), curGlobalAddress(0), address(0), currentZeroStreak(0), splitThreshold(splitThreshold), maxChunks(maxChunks), startOfChunk(0),
+			lastNonZero(0), startAddress(startAddress), isDataAvailable(false), rawData(rawGlobalData), chunks(chunks)
 		{
 		}
 		void addByte(uint8_t b) override;
-		void setAddress(uint32_t newAddress)
+		void addRelocation(const llvm::GlobalVariable* GV, uint32_t offset) override;
+		void setAddress(const llvm::GlobalVariable* newGlobal, uint32_t newAddress)
 		{
 			uint32_t offsetAddress = newAddress - startAddress;
 			currentZeroStreak += (offsetAddress - address);
+			curGlobal = newGlobal;
+			curGlobalAddress = newAddress;
 			address = offsetAddress;
 		}
 		bool splitChunk(bool force = false, bool hasAsmjsMem = false);

@@ -603,6 +603,10 @@ private:
 		{
 		}
 		void addByte(uint8_t b) override;
+		void addRelocation(const llvm::GlobalVariable* GV, uint32_t offset) override
+		{
+			llvm_unreachable("Relocations unsupported in JSBytesWriter");
+		}
 	};
 
 	struct AsmJSGepWriter: public LinearMemoryHelper::LinearGepListener
