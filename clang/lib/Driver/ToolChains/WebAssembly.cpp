@@ -705,6 +705,13 @@ void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
   if(std::find(features.begin(), features.end(), UNALIGNEDMEM) == features.end())
     CmdArgs.push_back("-cheerp-wasm-no-unaligned-mem");
 
+  // Add internal options for loadable modules support
+  if(Args.hasArg(options::OPT_shared)) {
+    // TODO: Should we consider fPIC too?
+    // TODO: This should only be supported for WASI
+    CmdArgs.push_back("-cheerp-wasm-shared-module");
+  }
+
   if (Args.hasArg(options::OPT_cheerp_no_icf))
     CmdArgs.push_back("-cheerp-no-icf");
 
@@ -978,6 +985,13 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("-cheerp-wasm-no-unaligned-mem");
   if (sharedMem)
         CmdArgs.push_back("-cheerp-wasm-shared-memory");
+
+  // Add internal options for loadable modules support
+  if(Args.hasArg(options::OPT_shared)) {
+    // TODO: Should we consider fPIC too?
+    // TODO: This should only be supported for WASI
+    CmdArgs.push_back("-cheerp-wasm-shared-module");
+  }
 
   if(Arg* cheerpSourceMap = Args.getLastArg(options::OPT_cheerp_sourcemap_EQ))
     cheerpSourceMap->render(Args, CmdArgs);

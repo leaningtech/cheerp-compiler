@@ -4584,6 +4584,28 @@ void CheerpWasmWriter::compileImport(WasmBuffer& code, StringRef funcName, Funct
 	encodeULEB128(found->second, code);
 }
 
+void CheerpWasmWriter::compileImportGlobal(WasmBuffer& code, StringRef globalName, bool mutableGlobal)
+{
+	StringRef fieldName = globalName;
+	StringRef moduleName = "i";
+
+	// Encode the module name.
+	encodeULEB128(moduleName.size(), code);
+	code.write(moduleName.data(), moduleName.size());
+
+	// Encode the field name.
+	encodeULEB128(fieldName.size(), code);
+	code.write(fieldName.data(), fieldName.size());
+
+	// Encode kind as 'Global' (= 3).
+	encodeULEB128(0x03, code);
+
+	// The type is always an i32, it's a pointer
+	encodeULEB128(0x7f, code);
+	// Thread-locals, namely the stack pointer and the TLS pointer are mutable, everything ele is immutable
+	encodeULEB128(mutableGlobal ? 0x01 : 0x00, code);
+}
+
 void CheerpWasmWriter::compileImportMemory(WasmBuffer& code)
 {
 	// Define the memory for the module in WasmPage units. The heap size is
@@ -4634,6 +4656,10 @@ void CheerpWasmWriter::compileImportSection()
 
 	numberOfImportedFunctions = importedTotal;
 
+	// Add imported thread locals if needed
+	if(WasmSharedModule)
+		importedTotal += FIRST_USER_GLOBAL;
+
 	if (!useWasmLoader && importedTotal == 0)
 		return;
 
@@ -4683,6 +4709,12 @@ void CheerpWasmWriter::compileImportSection()
 		compileImport(section, namegen.getBuiltinName(NameGenerator::TAN), f64_f64_1);
 	if(globalDeps.needsBuiltin(BuiltinInstr::BUILTIN::GROW_MEM))
 		compileImport(section, namegen.getBuiltinName(NameGenerator::GROW_MEM), i32_i32_1);
+
+	if(WasmSharedModule)
+	{
+		compileImportGlobal(section, "stackTop", /*mutableGlobal*/true);
+		compileImportGlobal(section, "tls", /*mutableGlobal*/true);
+	}
 
 	section.encode();
 }
@@ -4948,26 +4980,32 @@ void CheerpWasmWriter::compileGlobalSection()
 	{
 		Section section(0x06, "Global", this);
 
-		// Start the stack from the end of default memory
-		int32_t stackTop = linearHelper.getStackStart();
+		// Globalized constants and global variables are always added
+		uint32_t globalsCount = globalizedConstantsTmp.size() + globalizedGlobalsIDs.size();
+		// Define globals for thread local state, unless they are imported
+		if(!WasmSharedModule)
+		{
+			globalsCount += FIRST_USER_GLOBAL;
+		}
+		encodeULEB128(globalsCount, section);
+		if(!WasmSharedModule)
+		{
+			// The stack pointer has type i32 (0x7f) and is mutable (0x01).
+			encodeULEB128(0x7f, section);
+			encodeULEB128(0x01, section);
+			// The global value is a 'i32.const' literal.
+			encodeLiteralType(Type::getInt32Ty(Ctx), section);
+			encodeSLEB128(linearHelper.getStackStart(), section);
+			// Encode the end of the instruction sequence.
+			encodeULEB128(0x0b, section);
+			// Next is the thread pointer, also a mutable i32.
+			encodeULEB128(0x7f, section);
+			encodeULEB128(0x01, section);
+			encodeLiteralType(Type::getInt32Ty(Ctx), section);
+			encodeSLEB128(0, section);
+			encodeULEB128(0x0b, section);
+		}
 
-		// There are the reserved globals and the globalized constants
-		encodeULEB128(FIRST_USER_GLOBAL + globalizedConstantsTmp.size() + globalizedGlobalsIDs.size(), section);
-		// The global has type i32 (0x7f) and is mutable (0x01).
-		encodeULEB128(0x7f, section);
-		encodeULEB128(0x01, section);
-		// The global value is a 'i32.const' literal.
-		encodeLiteralType(Type::getInt32Ty(Ctx), section);
-		encodeSLEB128(stackTop, section);
-		// Encode the end of the instruction sequence.
-		encodeULEB128(0x0b, section);
-
-		// Next is the thread pointer, also a mutable i32.
-		encodeULEB128(0x7f, section);
-		encodeULEB128(0x01, section);
-		encodeLiteralType(Type::getInt32Ty(Ctx), section);
-		encodeSLEB128(0, section);
-		encodeULEB128(0x0b, section);
 
 		// Render globals in reverse order
 		for(auto it = orderedConstants.begin(); it != orderedConstants.end(); ++it)
