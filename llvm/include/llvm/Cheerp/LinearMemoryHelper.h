@@ -286,10 +286,6 @@ public:
 		return asmjsGlobals;
 	}
 
-	const std::vector<const llvm::GlobalVariable*> & addressableGlobals() const {
-		return asmjsAddressableGlobals;
-	}
-
 	typedef llvm::DenseMap<const llvm::GlobalVariable*, uint32_t> GlobalUsageMap;
 	const GlobalUsageMap& getGlobalizedGlobalUsage() const
 	{
@@ -439,7 +435,6 @@ private:
 	uint32_t maxFunctionId;
 
 	std::vector<const llvm::GlobalVariable*> asmjsGlobals;
-	std::vector<const llvm::GlobalVariable*> asmjsAddressableGlobals;
 	GlobalUsageMap globalizedGlobalsUsage;
 	void generateGlobalizedGlobalsUsage();
 	std::vector<uint8_t> rawGlobalData;

@@ -434,7 +434,6 @@ void LinearMemoryHelper::addGlobals()
 		//Globalized globals do not need an address
 		if (globalizedGlobalsUsage.count(G))
 			continue;
-		asmjsAddressableGlobals.push_back(G);
 		Type* ty = G->getValueType();
 		uint32_t size = targetData.getTypeAllocSize(ty);
 		// Ensure the right alignment for the type
