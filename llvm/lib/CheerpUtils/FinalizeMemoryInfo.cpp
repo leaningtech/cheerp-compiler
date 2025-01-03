@@ -55,7 +55,7 @@ PreservedAnalyses FinalizeMemoryInfoPass::run(Module& M, ModuleAnalysisManager& 
 		uint32_t amountOfChunks = linearHelper.getAmountChunks();
 		for (uint32_t i = 0; i < amountOfChunks; i++)
 		{
-			auto chunk = linearHelper.getGlobalDataChunk(i);
+			const auto& chunk = linearHelper.getGlobalDataChunk(i);
 			Builder.CreateCall(memoryInit, {Builder.getInt32(i), Builder.getInt32(chunk.address), Builder.getInt32(0), Builder.getInt32(chunk.view.size())});
 			Builder.CreateCall(dataDrop, {Builder.getInt32(i)});
 		}
