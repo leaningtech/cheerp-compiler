@@ -108,6 +108,7 @@ private:
 		THREAD_POINTER_GLOBAL,
 		FIRST_USER_GLOBAL_STATIC_BUILD,
 		TABLE_BASE_GLOBAL = FIRST_USER_GLOBAL_STATIC_BUILD,
+		GLOBAL_MEMORY_BASE_GLOBAL,
 		FIRST_USER_GLOBAL_SHARED_BUILD
 	};
 
@@ -454,6 +455,7 @@ private:
 		//if positiveOffsetAllowed == false, the result will be always 0
 		uint32_t compileValues(bool positiveOffsetAllowed) const;
 	};
+	std::unordered_map<const llvm::GlobalVariable*, uint32_t> exportedGlobalsIds;
 	std::unordered_map<const llvm::Constant*, std::pair<uint32_t, GLOBAL_CONSTANT_ENCODING>> globalizedConstants;
 	LinearMemoryHelper::GlobalUsageMap globalizedGlobalsIDs;
 	mutable InlineableCache inlineableCache;

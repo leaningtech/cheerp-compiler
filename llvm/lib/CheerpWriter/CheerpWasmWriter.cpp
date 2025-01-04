@@ -1360,7 +1360,12 @@ void CheerpWasmWriter::compileGEP(WasmBuffer& code, const llvm::User* gep_inst, 
 	WasmGepWriter gepWriter(*this, code);
 	const llvm::Value *p = linearHelper.compileGEP(gep_inst, &gepWriter, &PA);
 	if(const GlobalVariable* GV = dyn_cast<GlobalVariable>(p))
-		gepWriter.addConst(linearHelper.getGlobalVariableAddress(GV));
+	{
+		if(WasmSharedModule)
+			gepWriter.addValue(p, 1);
+		else
+			gepWriter.addConst(linearHelper.getGlobalVariableAddress(GV));
+	}
 	else if(!isa<ConstantPointerNull>(p))
 		gepWriter.addValue(p, 1);
 
@@ -1614,8 +1619,18 @@ void CheerpWasmWriter::compileConstant(WasmBuffer& code, const Constant* c, bool
 		encodeConstantVector(code, cv);
 	else if(const GlobalVariable* GV = dyn_cast<GlobalVariable>(c))
 	{
-		uint32_t address = linearHelper.getGlobalVariableAddress(GV);
-		encodeInst(WasmS32Opcode::I32_CONST, address, code);
+		if(WasmSharedModule)
+		{
+			// Other variables have a slot assigned to each of them
+			auto it = exportedGlobalsIds.find(GV);
+			assert(it != exportedGlobalsIds.end());
+			encodeInst(WasmU32Opcode::GET_GLOBAL, it->second, code);
+		}
+		else
+		{
+			uint32_t address = linearHelper.getGlobalVariableAddress(GV);
+			encodeInst(WasmS32Opcode::I32_CONST, address, code);
+		}
 	}
 	else if(isa<ConstantPointerNull>(c))
 	{
@@ -2045,7 +2060,12 @@ uint32_t CheerpWasmWriter::compileLoadStorePointer(WasmBuffer& code, const Value
 		WasmGepWriter gepWriter(*this, code);
 		auto p = linearHelper.compileGEP(ptrOp, &gepWriter, &PA);
 		if(const GlobalVariable* GV = dyn_cast<GlobalVariable>(p))
-			gepWriter.addConst(linearHelper.getGlobalVariableAddress(GV));
+		{
+			if(WasmSharedModule)
+				gepWriter.addValue(p, 1);
+			else
+				gepWriter.addConst(linearHelper.getGlobalVariableAddress(GV));
+		}
 		else if(isa<IntToPtrInst>(p) && isa<ConstantInt>(cast<IntToPtrInst>(p)->getOperand(0)) && isInlineable(*cast<Instruction>(p)))
 			gepWriter.addConst(cast<ConstantInt>(cast<IntToPtrInst>(p)->getOperand(0))->getSExtValue());
 		else
@@ -2055,7 +2075,7 @@ uint32_t CheerpWasmWriter::compileLoadStorePointer(WasmBuffer& code, const Value
 		offset = gepWriter.compileValues(/*positiveOffsetAllowed*/true);
 	} else {
 		const Constant* C = dyn_cast<Constant>(ptrOp);
-		if (C && !globalizedConstants.count(C))
+		if (!WasmSharedModule && C && !globalizedConstants.count(C))
 		{
 			struct AddrListener: public LinearMemoryHelper::ByteListener
 			{
@@ -2550,7 +2570,30 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						llvm::ConstantInt *constInt = cast<llvm::ConstantInt>(ci.getOperand(0));
 						uint32_t chunkId = constInt->getZExtValue();
 						const auto& chunk = linearHelper.getGlobalDataChunk(chunkId);
-						compileOperand(code, ci.getOperand(1));
+						const llvm::GlobalVariable* GV = chunk.globalVar;
+						assert(GV);
+						uint32_t baseAddress = linearHelper.getGlobalVariableAddress(GV);
+						auto it = exportedGlobalsIds.find(GV);
+						if(WasmSharedModule)
+						{
+							encodeInst(WasmU32Opcode::GET_GLOBAL, it->second, code);
+							// Only initialize globals after the current heapStart mark, stored in an imported global
+							encodeInst(WasmU32Opcode::GET_GLOBAL, GLOBAL_MEMORY_BASE_GLOBAL, code);
+							encodeInst(WasmOpcode::I32_GE_U, code);
+							encodeInst(WasmU32Opcode::IF, 0x40, code);
+							assert(it != exportedGlobalsIds.end());
+							encodeInst(WasmU32Opcode::GET_GLOBAL, it->second, code);
+							uint32_t chunkOffset = chunk.address - baseAddress;
+							if(chunkOffset)
+							{
+								encodeInst(WasmS32Opcode::I32_CONST, chunkOffset, code);
+								encodeInst(WasmOpcode::I32_ADD, code);
+							}
+						}
+						else
+						{
+							compileOperand(code, ci.getOperand(1));
+						}
 						compileOperand(code, ci.getOperand(2));
 						compileOperand(code, ci.getOperand(3));
 						// The second immediate for MEMORY_INIT is the memory index.
@@ -2560,14 +2603,29 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						{
 							for(const auto& reloc: chunk.relocations)
 							{
-								assert(reloc.usedGlobal == nullptr);
-								uint32_t baseAddress = linearHelper.getGlobalVariableAddress(reloc.containerGlobal);
-								encodeInst(WasmS32Opcode::I32_CONST, 0, code);
-								encodeInst(WasmU32Opcode::GET_GLOBAL, TABLE_BASE_GLOBAL, code);
-								encodeInst(WasmS32Opcode::I32_CONST, reloc.usedOffset, code);
-								encodeInst(WasmOpcode::I32_ADD, code);
-								encodeInst(WasmU32U32Opcode::I32_STORE, 0x2, baseAddress + reloc.containerOffset, code);
+								// If relocations are used then a chunk should never span different containers
+								assert(GV == reloc.containerGlobal);
+								uint32_t containerOffset = reloc.containerOffset;
+								encodeInst(WasmU32Opcode::GET_GLOBAL, it->second, code);
+								uint32_t usedOffset = reloc.usedOffset;
+								if(reloc.usedGlobal == nullptr)
+								{
+									encodeInst(WasmU32Opcode::GET_GLOBAL, TABLE_BASE_GLOBAL, code);
+								}
+								else
+								{
+									auto usedIt = exportedGlobalsIds.find(reloc.usedGlobal);
+									assert(usedIt != exportedGlobalsIds.end());
+									encodeInst(WasmU32Opcode::GET_GLOBAL, usedIt->second, code);
+								}
+								if(usedOffset)
+								{
+									encodeInst(WasmS32Opcode::I32_CONST, usedOffset, code);
+									encodeInst(WasmOpcode::I32_ADD, code);
+								}
+								encodeInst(WasmU32U32Opcode::I32_STORE, 0x2, containerOffset, code);
 							}
+							encodeInst(WasmOpcode::END, code);
 						}
 						return true;
 					}
@@ -4739,6 +4797,7 @@ void CheerpWasmWriter::compileImportSection()
 		compileImportGlobal(section, "stackTop", /*mutableGlobal*/true);
 		compileImportGlobal(section, "tls", /*mutableGlobal*/true);
 		compileImportGlobal(section, "tableBase", /*mutableGlobal*/false);
+		compileImportGlobal(section, "globalBase", /*mutableGlobal*/false);
 	}
 
 	section.encode();
@@ -4972,8 +5031,9 @@ void CheerpWasmWriter::compileGlobalSection()
 
 	// Assign global ids
 	uint32_t globalId = FIRST_USER_GLOBAL_STATIC_BUILD;
+	uint32_t linearMemoryGlobals = linearHelper.globals().size();
 	if(WasmSharedModule)
-		globalId = FIRST_USER_GLOBAL_SHARED_BUILD;
+		globalId = FIRST_USER_GLOBAL_SHARED_BUILD + linearMemoryGlobals;
 	for(uint32_t i=0;i<orderedConstants.size();i++)
 	{
 		GlobalConstant& GC = orderedConstants[i];
@@ -5009,13 +5069,41 @@ void CheerpWasmWriter::compileGlobalSection()
 
 		// Globalized constants and global variables are always added
 		uint32_t globalsCount = globalizedConstantsTmp.size() + globalizedGlobalsIDs.size();
-		// Define globals for thread local state, unless they are imported
-		if(!WasmSharedModule)
+		if(WasmSharedModule)
 		{
+			// We need a Wasm global to store the address of each linear memory global variable
+			globalsCount += linearMemoryGlobals;
+		}
+		else
+		{
+			// Define globals for thread local state, unless they are imported
 			globalsCount += FIRST_USER_GLOBAL_STATIC_BUILD;
 		}
 		encodeULEB128(globalsCount, section);
-		if(!WasmSharedModule)
+		if(WasmSharedModule)
+		{
+			uint32_t exportedGlobalId = FIRST_USER_GLOBAL_SHARED_BUILD;
+			auto EncodeExportedGlobalAddress = [](Section& section, uint32_t size)
+			{
+				encodeULEB128(0x7f, section);
+				// Mark them as mutable, they need to be set from outside
+				// TODO: They are only mutable once, but we cannot express this
+				encodeULEB128(0x01, section);
+				// The global value is a 'i32.const' literal.
+				// Encode the size, the host will allocate the memory and replace it with a location in the global area
+				encodeInst(WasmS32Opcode::I32_CONST, size, section);
+				// Encode the end of the instruction sequence.
+				encodeULEB128(0x0b, section);
+			};
+			for(const GlobalVariable* GV: linearHelper.globals())
+			{
+				Type* ty = GV->getValueType();
+				uint32_t size = targetData.getTypeAllocSize(ty);
+				EncodeExportedGlobalAddress(section, size);
+				exportedGlobalsIds.insert(std::make_pair(GV, exportedGlobalId++));
+			}
+		}
+		else
 		{
 			// The stack pointer has type i32 (0x7f) and is mutable (0x01).
 			encodeULEB128(0x7f, section);
@@ -5077,6 +5165,10 @@ void CheerpWasmWriter::compileExportSection()
 	// We may need to export the table and/or the memory.
 	bool exportMemory = WasmExportedMemory || !useWasmLoader;
 	uint32_t extraExports = uint32_t(exportedTable) + uint32_t(exportMemory);
+	if(WasmSharedModule)
+	{
+		extraExports += exportedGlobalsIds.size();
+	}
 	encodeULEB128(exports.size() + extraExports, section);
 
 	if (exportMemory)
@@ -5110,6 +5202,25 @@ void CheerpWasmWriter::compileExportSection()
 		// function).
 		encodeULEB128(0x00, section);
 		encodeULEB128(linearHelper.getFunctionIds().find(F)->second, section);
+	}
+
+	if(WasmSharedModule)
+	{
+		auto ExportGlobal = [](Section& section, StringRef name, uint32_t globalIndex)
+		{
+			// Encode the global name.
+			encodeULEB128(name.size(), section);
+			section.write(name.data(), name.size());
+			// Encode the global index
+			encodeULEB128(0x03, section);
+			encodeULEB128(globalIndex, section);
+		};
+		for(const GlobalVariable* GV: linearHelper.globals())
+		{
+			auto it = exportedGlobalsIds.find(GV);
+			assert(it != exportedGlobalsIds.end());
+			ExportGlobal(section, GV->getName(), it->second);
+		}
 	}
 
 	section.encode();

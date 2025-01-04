@@ -167,6 +167,8 @@ void LinearMemoryHelper::compileConstantAsBytes(const Constant* c, bool asmjs, B
 			uint32_t val = globalAddresses.at(g)+offset;
 			for(uint32_t i=0;i<32;i+=8)
 				listener->addByte((val>>i)&255);
+			if(WasmSharedModule)
+				listener->addRelocation(g, offset);
 		}
 		else
 		{
@@ -750,6 +752,8 @@ bool LinearMemoryHelper::VectorWriter::splitChunk(bool force, bool hasAsmjsMem)
 	uint32_t startPosition = hasAsmjsMem ? 0 : startOfChunk;
 	uint32_t length = hasAsmjsMem ? rawData.size() : lastNonZero - startPosition + 1;
 	chunks.emplace_back(address, curGlobal, rawData, startPosition, length, std::move(relocations));
+	if(force)
+		isDataAvailable = false;
 	return true;
 }
 
@@ -781,8 +785,14 @@ void LinearMemoryHelper::populateGlobalData()
 			vectorWriter.setAddress(GV, curAddress);
 			compileConstantAsBytes(init,/* asmjs */ true, &vectorWriter);
 		}
+		// If we need to link globals we need to make sure the
+		// initialization data is in different chunks
+		if(WasmSharedModule)
+			vectorWriter.splitChunk(true, hasAsmjsMem);
 	}
-	vectorWriter.splitChunk(true, hasAsmjsMem);
+	// Flush any pending data
+	if(!WasmSharedModule)
+		vectorWriter.splitChunk(true, hasAsmjsMem);
 }
 
 const LinearMemoryHelper::GlobalDataChunk &LinearMemoryHelper::getGlobalDataChunk(uint32_t number) const

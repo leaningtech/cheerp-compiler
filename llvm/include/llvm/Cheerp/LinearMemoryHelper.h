@@ -133,12 +133,13 @@ public:
 			{
 			}
 		};
-		GlobalDataChunk(uint32_t address, std::vector<uint8_t> &rawData,
+		GlobalDataChunk(uint32_t address, const llvm::GlobalVariable* globalVar, std::vector<uint8_t> &rawData,
 				uint32_t start, uint32_t length,
-				std::vector<Relocation>&& relocations) : address(address), view(&rawData[start], length), relocations(std::move(relocations))
+				std::vector<Relocation>&& relocations) : address(address), globalVar(globalVar), view(&rawData[start], length), relocations(std::move(relocations))
 		{
 		}
 		uint32_t address;
+		const llvm::GlobalVariable* globalVar;
 		llvm::ArrayRef<uint8_t> view;
 		std::vector<Relocation> relocations;
 	};
