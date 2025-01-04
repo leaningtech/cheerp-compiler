@@ -264,6 +264,9 @@ public:
 	uint32_t getStackStart() const {
 		return stackStart;
 	}
+	uint32_t getGlobalsStart() const {
+		return globalsStart;
+	}
 	uint32_t getHeapStart() const {
 		return heapStart;
 	}

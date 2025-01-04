@@ -411,6 +411,15 @@ void LinearMemoryHelper::addGlobals()
 			uint32_t isThreadLocalB = b->isThreadLocal();
 			if (isThreadLocalA != isThreadLocalB)
 				return isThreadLocalA < isThreadLocalB;
+			// Encode all constant globals at the start when building shared modules,
+			// we don't need to assign names to them and can batch them as a single block.
+			if(WasmSharedModule)
+			{
+				uint32_t isConstantA = a->isConstant();
+				uint32_t isConstantB = b->isConstant();
+				if(isConstantA != isConstantB)
+					return isConstantA > isConstantB;
+			}
 			// Encode zero-initialized globals after all the others
 			uint32_t nonZeroInitializedA = hasNonZeroInitialiser(a);
 			uint32_t nonZeroInitializedB = hasNonZeroInitialiser(b);
@@ -787,6 +796,7 @@ void LinearMemoryHelper::populateGlobalData()
 		}
 		// If we need to link globals we need to make sure the
 		// initialization data is in different chunks
+		// TODO: We could avoid splitting for constants
 		if(WasmSharedModule)
 			vectorWriter.splitChunk(true, hasAsmjsMem);
 	}
