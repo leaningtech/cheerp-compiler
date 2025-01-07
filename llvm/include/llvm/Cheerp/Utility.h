@@ -34,6 +34,7 @@
 #include "llvm/Cheerp/CommandLine.h"
 #include "llvm/Cheerp/DeterministicUnorderedSet.h"
 #include "llvm/Cheerp/ForbiddenIdentifiers.h"
+#include "llvm/Cheerp/AddressSpaces.h"
 
 namespace cheerp
 {
