@@ -92,12 +92,12 @@ public:
 	/**
 	 * Get a list of the asm.js functions called from genericjs
 	 */
-	const DeterministicFunctionSet & asmJSExports() const { return asmJSExportedFuncions; }
+	const DeterministicFunctionSet & asmJSExports() const { return asmJSExportedFunctions; }
 
 	/**
 	 * Get a list of the genericjs functions called from asm.js
 	 */
-	const DeterministicFunctionSet & asmJSImports() const { return asmJSImportedFuncions; }
+	const DeterministicFunctionSet & asmJSImports() const { return asmJSImportedFunctions; }
 
 	/**
 	 * Get the entry point of the program, might be webMain or main
@@ -243,8 +243,8 @@ private:
 	std::unordered_set<llvm::StructType* > classesNeeded;
 	std::unordered_set<llvm::Type* > arraysNeeded;
 	std::unordered_set<llvm::Type* > arrayResizesNeeded;
-	DeterministicFunctionSet asmJSExportedFuncions;
-	DeterministicFunctionSet asmJSImportedFuncions;
+	DeterministicFunctionSet asmJSExportedFunctions;
+	DeterministicFunctionSet asmJSImportedFunctions;
 
 	std::vector< const llvm::GlobalVariable * > varsOrder;
 	std::vector< llvm::GlobalValue * > externals;

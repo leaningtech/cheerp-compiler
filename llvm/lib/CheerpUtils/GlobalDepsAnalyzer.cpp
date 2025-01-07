@@ -636,7 +636,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	{
 		extendLifetime(function.getFunction());
 		if (function.getFunction()->getSection() == "asmjs")
-			asmJSExportedFuncions.insert(function.getFunction());
+			asmJSExportedFunctions.insert(function.getFunction());
 	}
 	for (NamedMDNode & namedNode : module.named_metadata() )
 	{
@@ -658,14 +658,14 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 		// Webmain entry point
 		extendLifetime(startFunc);
 		if (startFunc->getSection() == "asmjs")
-			asmJSExportedFuncions.insert(startFunc);
+			asmJSExportedFunctions.insert(startFunc);
 		else if (LinearOutput == LinearOutputTy::Wasm)
 		{
 			// Because memory_init is empty, it will not be automatically tagged as asmjs
 			// when the _start function is not, but it should. So we do it manually.
 			llvm::Function* initFunc = module.getFunction("__memory_init");
 			assert(initFunc);
-			asmJSExportedFuncions.insert(initFunc);
+			asmJSExportedFunctions.insert(initFunc);
 		}
 	}
 	else
@@ -1309,10 +1309,10 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 					bool calleeIsAsmJS = calledFunc->getSection() == StringRef("asmjs");
 					// asm.js function called from outside
 					if (calleeIsAsmJS && !isAsmJS && !calledFunc->empty())
-						asmJSExportedFuncions.insert(calledFunc);
+						asmJSExportedFunctions.insert(calledFunc);
 					// normal function called from asm.js
 					else if (!calleeIsAsmJS && isAsmJS)
-						asmJSImportedFuncions.insert(calledFunc);
+						asmJSImportedFunctions.insert(calledFunc);
 				}
 				else if (calledFunc->getIntrinsicID() == Intrinsic::memset)
 					extendLifetime(module->getFunction("memset"));
@@ -1612,15 +1612,15 @@ void GlobalDepsAnalyzer::processEnqueuedFunctions() {
 }
 
 void GlobalDepsAnalyzer::insertAsmJSExport(const llvm::Function* F) {
-	asmJSExportedFuncions.insert(F);
+	asmJSExportedFunctions.insert(F);
 }
 
 void GlobalDepsAnalyzer::insertAsmJSImport(const llvm::Function* F) {
-	asmJSImportedFuncions.insert(F);
+	asmJSImportedFunctions.insert(F);
 }
 
 void GlobalDepsAnalyzer::removeAsmJSImport(const llvm::Function* F) {
-	asmJSImportedFuncions.erase(F);
+	asmJSImportedFunctions.erase(F);
 }
 
 void GlobalDepsAnalyzer::insertDynAllocArray(Type* t) {
@@ -1630,8 +1630,8 @@ void GlobalDepsAnalyzer::insertDynAllocArray(Type* t) {
 void GlobalDepsAnalyzer::eraseFunction(llvm::Function* F) {
 	assert(F && F != entryPoint && "Cound not erase entry point!");
 
-	asmJSExportedFuncions.erase(F);
-	asmJSImportedFuncions.erase(F);
+	asmJSExportedFunctions.erase(F);
+	asmJSImportedFunctions.erase(F);
 	reachableGlobals.erase(F);
 }
 
