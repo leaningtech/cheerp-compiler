@@ -2232,6 +2232,14 @@ std::string Qualifiers::getAddrSpaceAsString(LangAS AS) {
     return "__ptr64";
   case LangAS::hlsl_groupshared:
     return "groupshared";
+  case LangAS::cheerp_client:
+    return "__client";
+  case LangAS::cheerp_genericjs:
+    return "__js";
+  case LangAS::cheerp_bytelayout:
+    return "__bl";
+  case LangAS::cheerp_wasm:
+    return "__wasm";
   default:
     return std::to_string(toTargetAddressSpace(AS));
   }

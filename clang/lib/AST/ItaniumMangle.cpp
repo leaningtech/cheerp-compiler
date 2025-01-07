@@ -1717,6 +1717,11 @@ void CXXNameMangler::mangleNestedName(GlobalDecl GD,
     // We do not consider restrict a distinguishing attribute for overloading
     // purposes so we must not mangle it.
     MethodQuals.removeRestrict();
+    // CHEERP: c++filt does not like an AS on methods. We also don't really need it
+    // since we don't overload based on AS.
+    if (Context.getASTContext().getLangOpts().Cheerp) {
+      MethodQuals.removeAddressSpace();
+    }
     mangleQualifiers(MethodQuals);
     mangleRefQualifier(Method->getRefQualifier());
   }
@@ -2688,6 +2693,18 @@ void CXXNameMangler::mangleQualifiers(Qualifiers Quals, const DependentAddressSp
       case LangAS::ptr64:
         ASString = "ptr64";
         break;
+      case LangAS::cheerp_client:
+        ASString = "client";
+        break;
+      case LangAS::cheerp_genericjs:
+        ASString = "js";
+        break;
+      case LangAS::cheerp_bytelayout:
+        ASString = "bl";
+        break;
+      case LangAS::cheerp_wasm:
+        ASString = "wasm";
+        break;
       }
     }
     if (!ASString.empty())
@@ -3244,7 +3261,13 @@ void CXXNameMangler::mangleType(const FunctionProtoType *T) {
 
   // Mangle CV-qualifiers, if present.  These are 'this' qualifiers,
   // e.g. "const" in "int (A::*)() const".
-  mangleQualifiers(T->getMethodQuals());
+  Qualifiers Quals = T->getMethodQuals();
+  // CHEERP: c++filt does not like an AS on methods. We also don't really need it
+  // since we don't overload based on AS.
+  if (Context.getASTContext().getLangOpts().Cheerp) {
+    Quals.removeAddressSpace();
+  }
+  mangleQualifiers(Quals);
 
   // Mangle instantiation-dependent exception-specification, if present,
   // per cxx-abi-dev proposal on 2016-10-11.
