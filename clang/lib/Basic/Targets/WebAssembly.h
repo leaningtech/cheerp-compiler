@@ -17,6 +17,7 @@
 #include "clang/Basic/TargetOptions.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/Support/Compiler.h"
+#include "llvm/Cheerp/AddressSpaces.h"
 
 namespace clang {
 namespace targets {
@@ -209,10 +210,10 @@ static const unsigned CheerpAddrSpaceMap[] = {
     0, // ptr32_uptr
     0, // ptr64
     0,   // hlsl_groupshared
-    0,  // cheerp_client
-    0,  // cheerp_genericjs
-    0,  // cheerp_bl
-    0,  // cheerp_wasm
+    (unsigned)cheerp::CheerpAS::Client,  // cheerp_client
+    (unsigned)cheerp::CheerpAS::GenericJS,  // cheerp_genericjs
+    (unsigned)cheerp::CheerpAS::ByteLayout,  // cheerp_bl
+    (unsigned)cheerp::CheerpAS::Wasm,  // cheerp_wasm
 };
 
 // Cheerp base class
