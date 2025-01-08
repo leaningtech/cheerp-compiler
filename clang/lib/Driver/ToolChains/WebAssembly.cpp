@@ -553,11 +553,12 @@ void cheerp::Link::ConstructJob(Compilation &C, const JobAction &JA,
   CmdArgs.push_back("-o");
   CmdArgs.push_back(Output.getFilename());
 
+  std::vector<std::string> inputFiles;
   for (InputInfoList::const_iterator
          it = Inputs.begin(), ie = Inputs.end(); it != ie; ++it) {
     const InputInfo &II = *it;
     if(II.isFilename())
-      CmdArgs.push_back(II.getFilename());
+      inputFiles.push_back(II.getFilename());
   }
 
   const Driver &D = getToolChain().getDriver();
@@ -568,11 +569,17 @@ void cheerp::Link::ConstructJob(Compilation &C, const JobAction &JA,
 
   // Do not add the same library more than once
   std::set<std::string> usedLibs;
+  // Make sure ASAN is added last, the order matter for weak function overriding
+  std::set<std::string> lateLibs;
 
   auto AddStdLib = [&](const char* libName) {
     std::string aLibName = getToolChain().GetFilePath(libName);
     usedLibs.insert(aLibName);
-    CmdArgs.push_back(Args.MakeArgString(aLibName));
+  };
+
+  auto AddLateLib = [&](const char* libName) {
+    std::string aLibName = getToolChain().GetFilePath(libName);
+    lateLibs.insert(aLibName);
   };
 
   // Add standard libraries
@@ -594,7 +601,7 @@ void cheerp::Link::ConstructJob(Compilation &C, const JobAction &JA,
 
     Arg *Sanitizers = Args.getLastArg(options::OPT_fsanitize_EQ);
     if (Sanitizers && Sanitizers->containsValue("address")) {
-      CmdArgs.push_back(Args.MakeArgString(getToolChain().GetFilePath("asmjs/libclang_rt.asan-Cheerp.bc")));
+      AddLateLib("asmjs/libclang_rt.asan-Cheerp.bc");
       if (D.CCCIsCXX())
         AddStdLib("libdemangle.bc");
     }
@@ -625,13 +632,45 @@ void cheerp::Link::ConstructJob(Compilation &C, const JobAction &JA,
       if(foundLib == aLibName)
         foundLib = bcLibName;
     }
-    if (usedLibs.count(foundLib))
-      continue;
     usedLibs.insert(foundLib);
-    CmdArgs.push_back(Args.MakeArgString(foundLib));
   }
 
   const char *Exec = Args.MakeArgString((getToolChain().GetProgramPath("llvm-link")));
+  if(Args.hasArg(options::OPT_shared)) {
+    // Link an intermediate BC for all the input file, we will use an llvm-link option to internalize everything linked _into_ the main file
+    const char* StaticLinkedBc = C.addTempFile(Args.MakeArgString(C.getDriver().GetTemporaryPath("static", "bc")));
+    ArgStringList LinkCmdArgs;
+    LinkCmdArgs.push_back("-o");
+    LinkCmdArgs.push_back(StaticLinkedBc);
+    for(const auto& input: inputFiles) {
+      LinkCmdArgs.push_back(Args.MakeArgString(input));
+    }
+    C.addCommand(std::make_unique<Command>(JA, *this, ResponseFileSupport::None(), Exec, LinkCmdArgs, Inputs));
+    const char* StaticLibsBc = C.addTempFile(Args.MakeArgString(C.getDriver().GetTemporaryPath("static", "bc")));
+    ArgStringList LibsCmdArgs;
+    LibsCmdArgs.push_back("-o");
+    LibsCmdArgs.push_back(StaticLibsBc);
+    for(const auto& lib: usedLibs) {
+      LibsCmdArgs.push_back(Args.MakeArgString(lib));
+    }
+    for(const auto& lib: lateLibs) {
+      LibsCmdArgs.push_back(Args.MakeArgString(lib));
+    }
+    C.addCommand(std::make_unique<Command>(JA, *this, ResponseFileSupport::None(), Exec, LibsCmdArgs, Inputs));
+    CmdArgs.push_back("-internalize");
+    CmdArgs.push_back(StaticLinkedBc);
+    CmdArgs.push_back(StaticLibsBc);
+  } else {
+    for(const auto& input: inputFiles) {
+      CmdArgs.push_back(Args.MakeArgString(input));
+    }
+    for(const auto& lib: usedLibs) {
+      CmdArgs.push_back(Args.MakeArgString(lib));
+    }
+    for(const auto& lib: lateLibs) {
+      CmdArgs.push_back(Args.MakeArgString(lib));
+    }
+  }
   C.addCommand(std::make_unique<Command>(JA, *this, ResponseFileSupport::None(), Exec, CmdArgs, Inputs));
 }
 
