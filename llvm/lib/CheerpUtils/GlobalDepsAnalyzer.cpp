@@ -638,6 +638,23 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 		if (function.getFunction()->getSection() == "asmjs")
 			asmJSExportedFunctions.insert(function.getFunction());
 	}
+	if (WasmSharedModule)
+	{
+		auto ShouldBeExported = [](const GlobalValue& GV)
+		{
+			return GV.hasDefaultVisibility() && GV.hasExternalLinkage();
+		};
+		for(Function& f: module)
+		{
+			if(!ShouldBeExported(f))
+				continue;
+			if(f.empty())
+				continue;
+			assert(f.getSection() == "asmjs");
+			extendLifetime(&f);
+			asmJSExportedFunctions.insert(&f);
+		}
+	}
 	for (NamedMDNode & namedNode : module.named_metadata() )
 	{
 		StringRef name = namedNode.getName();
@@ -1543,7 +1560,10 @@ int GlobalDepsAnalyzer::filterModule( const DenseSet<const Function*>& droppedMa
 			f->removeFnAttr(Attribute::OptimizeNone);
 			// Never internalize functions that may have a better native implementation
 			if(TypedBuiltinInstr::isWasmIntrinsic(f) || isMathIntrinsic(f))
+			{
 				f->setLinkage(GlobalValue::WeakAnyLinkage);
+				f->setVisibility(GlobalValue::HiddenVisibility);
+			}
 			else
 				f->setLinkage(GlobalValue::InternalLinkage);
 		}
