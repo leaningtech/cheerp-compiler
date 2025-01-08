@@ -28,8 +28,9 @@
 namespace cheerp
 {
 
-// Handy alias for a deterministic set of const llvm::Function* with no erasures
+// Handy aliases for deterministic sets with no erasures
 using DeterministicFunctionSet = cheerp::DeterministicUnorderedSet<const llvm::Function*, RestrictionsLifted::NoPointerStability>;
+using DeterministicAliasSet = cheerp::DeterministicUnorderedSet<const llvm::GlobalAlias*, RestrictionsLifted::NoPointerStability>;
 
 extern const char* wasmNullptrName;
 
@@ -93,6 +94,11 @@ public:
 	 * Get a list of the asm.js functions called from genericjs
 	 */
 	const DeterministicFunctionSet & asmJSExports() const { return asmJSExportedFunctions; }
+
+	/**
+	 * Get a list of the asm.js aliases, they define additional names for functions.
+	 */
+	const DeterministicAliasSet & asmJSAliases() const { return asmJSExportedAliases; }
 
 	/**
 	 * Get a list of the genericjs functions called from asm.js
@@ -244,6 +250,7 @@ private:
 	std::unordered_set<llvm::Type* > arraysNeeded;
 	std::unordered_set<llvm::Type* > arrayResizesNeeded;
 	DeterministicFunctionSet asmJSExportedFunctions;
+	DeterministicAliasSet asmJSExportedAliases;
 	DeterministicFunctionSet asmJSImportedFunctions;
 
 	std::vector< const llvm::GlobalVariable * > varsOrder;

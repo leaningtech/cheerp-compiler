@@ -5230,6 +5230,7 @@ void CheerpWasmWriter::compileExportSection()
 {
 	Section section(0x07, "Export", this);
 	const auto& exportedFunctions = globalDeps.asmJSExports();
+	const auto& exportedAliases = globalDeps.asmJSAliases();
 
 	// We may need to export the table and/or the memory.
 	bool exportMemory = WasmExportedMemory || !useWasmLoader;
@@ -5239,7 +5240,7 @@ void CheerpWasmWriter::compileExportSection()
 		// Add an extra entry for the constant data
 		extraExports += exportedGlobalsIds.size() + 1;
 	}
-	encodeULEB128(exportedFunctions.size() + extraExports, section);
+	encodeULEB128(exportedFunctions.size() + exportedAliases.size() + extraExports, section);
 
 	if (exportMemory)
 	{
@@ -5271,6 +5272,20 @@ void CheerpWasmWriter::compileExportSection()
 		// Encode the function index (where '0x00' means that this export is a
 		// function).
 		encodeULEB128(0x00, section);
+		encodeULEB128(linearHelper.getFunctionIds().find(F)->second, section);
+	}
+
+	for (const llvm::GlobalAlias* A : exportedAliases) {
+		// Encode the method name.
+		StringRef name = useWasmLoader? namegen.getName(A, 0) : A->getName();
+
+		encodeULEB128(name.size(), section);
+		section.write(name.data(), name.size());
+
+		// Encode the function index (where '0x00' means that this export is a
+		// function).
+		encodeULEB128(0x00, section);
+		const llvm::Function* F = cast<llvm::Function>(A->getAliasee()->stripPointerCastsSafe());
 		encodeULEB128(linearHelper.getFunctionIds().find(F)->second, section);
 	}
 

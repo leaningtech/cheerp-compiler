@@ -181,7 +181,9 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	for (auto& a: make_early_inc_range(module.aliases()))
 	{
 		a.replaceAllUsesWith( a.getAliasee() );
-		a.eraseFromParent();
+		// When generating shared modules the aliases might provide additional exported names for functions
+		if(!WasmSharedModule)
+			a.eraseFromParent();
 	}
 
 	simplifyCalls(module);
@@ -653,6 +655,28 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 			assert(f.getSection() == "asmjs");
 			extendLifetime(&f);
 			asmJSExportedFunctions.insert(&f);
+		}
+		for(GlobalAlias& a: make_early_inc_range(module.aliases()))
+		{
+			// Cleanup aliases that are not exported along the way, or we
+			// might leave around uses of functions which are otherwise deleted.
+			if(!ShouldBeExported(a))
+			{
+				a.eraseFromParent();
+				continue;
+			}
+			GlobalValue* aliasee = cast<GlobalValue>(a.getAliasee()->stripPointerCastsSafe());
+			if(Function* f = dyn_cast<Function>(aliasee))
+			{
+				if(f->empty())
+				{
+					a.eraseFromParent();
+					continue;
+				}
+				assert(f->getSection() == "asmjs");
+				extendLifetime(f);
+				asmJSExportedAliases.insert(&a);
+			}
 		}
 	}
 	for (NamedMDNode & namedNode : module.named_metadata() )
