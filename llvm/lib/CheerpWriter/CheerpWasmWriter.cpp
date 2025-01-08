@@ -5229,11 +5229,7 @@ void CheerpWasmWriter::compileGlobalSection()
 void CheerpWasmWriter::compileExportSection()
 {
 	Section section(0x07, "Export", this);
-	std::vector<const llvm::Function*> exports;
-
-	// Add the list of asmjs-exported functions.
-	exports.insert(exports.end(), globalDeps.asmJSExports().begin(),
-			globalDeps.asmJSExports().end());
+	const auto& exportedFunctions = globalDeps.asmJSExports();
 
 	// We may need to export the table and/or the memory.
 	bool exportMemory = WasmExportedMemory || !useWasmLoader;
@@ -5243,7 +5239,7 @@ void CheerpWasmWriter::compileExportSection()
 		// Add an extra entry for the constant data
 		extraExports += exportedGlobalsIds.size() + 1;
 	}
-	encodeULEB128(exports.size() + extraExports, section);
+	encodeULEB128(exportedFunctions.size() + extraExports, section);
 
 	if (exportMemory)
 	{
@@ -5265,7 +5261,7 @@ void CheerpWasmWriter::compileExportSection()
 		encodeULEB128(0, section);
 	}
 
-	for (const llvm::Function* F : exports) {
+	for (const llvm::Function* F : exportedFunctions) {
 		// Encode the method name.
 		StringRef name = useWasmLoader? namegen.getName(F, 0) : F->getName();
 
