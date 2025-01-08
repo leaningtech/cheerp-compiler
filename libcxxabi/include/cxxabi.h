@@ -88,6 +88,7 @@ extern _LIBCXXABI_FUNC_VIS _LIBCXXABI_ALWAYS_COLD void __cxa_guard_release(uint6
 extern _LIBCXXABI_FUNC_VIS _LIBCXXABI_ALWAYS_COLD void __cxa_guard_abort(uint64_t *);
 #endif
 
+#ifndef __CHEERP__
 // 3.3.3 Array Construction and Destruction API
 extern _LIBCXXABI_FUNC_VIS void *
 __cxa_vec_new(size_t element_count, size_t element_size, size_t padding_size,
@@ -135,6 +136,8 @@ extern _LIBCXXABI_FUNC_VIS void
 __cxa_vec_cctor(void *dest_array, void *src_array, size_t element_count,
                 size_t element_size, void (*constructor)(void *, void *),
                 void (*destructor)(void *));
+
+#endif // __CHEERP__
 
 // 3.3.5.3 Runtime API
 // These functions are part of the C++ ABI, but they are not defined in libc++abi:
