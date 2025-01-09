@@ -1443,7 +1443,8 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
   QualType Ty = D.getType();
   assert(
       Ty.getAddressSpace() == LangAS::Default ||
-      (Ty.getAddressSpace() == LangAS::opencl_private && getLangOpts().OpenCL));
+      (Ty.getAddressSpace() == LangAS::opencl_private && getLangOpts().OpenCL) ||
+      (Qualifiers::isCheerpAddressSpace(Ty.getAddressSpace()) && getLangOpts().Cheerp));
 
   AutoVarEmission emission(D);
 
