@@ -629,6 +629,38 @@ if (!functionTypeIndices.count(fTy)) { \
 			functionTypes.push_back(fTy);
 			assert(idx < functionTypes.size());
 		}
+
+		// When building shared modules new functions can be used from outside the module,
+		// so we should assume any called type is a valid
+		if (WasmSharedModule)
+		{
+			for (const BasicBlock& bb : *F)
+			{
+				for (const Instruction& I : bb)
+				{
+					const CallBase* ci = dyn_cast<CallBase>(&I);
+					if (!ci || ci->isInlineAsm())
+						continue;
+					Value* calledValue = ci->getCalledOperand();
+					if (isa<Function>(calledValue))
+						continue;
+					const FunctionType* fTy = ci->getFunctionType();
+					auto it = functionTables.find(fTy);
+					if (it == functionTables.end())
+					{
+						functionTableOrder.push_back(fTy);
+						functionTables.emplace(fTy, FunctionTableInfo());
+					}
+					const auto& found = functionTypeIndices.find(fTy);
+					if (found == functionTypeIndices.end()) {
+						uint32_t idx = functionTypeIndices.size();
+						functionTypeIndices[fTy] = idx;
+						functionTypes.push_back(fTy);
+						assert(idx < functionTypes.size());
+					}
+				}
+			}
+		}
 	}
 
 	// Then assign addresses in the order that the function tables are created.
