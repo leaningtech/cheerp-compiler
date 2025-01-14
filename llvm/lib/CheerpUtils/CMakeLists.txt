@@ -35,6 +35,7 @@ add_llvm_component_library(LLVMCheerpUtils
   FinalizeMemoryInfo.cpp
   CheerpLowerAtomic.cpp
   JsExport.cpp
+  ThreadLocalLowering.cpp
   )
 
 add_dependencies(LLVMCheerpUtils intrinsics_gen)

@@ -241,6 +241,7 @@ bool CheerpWritePass::runOnModule(Module& M)
   MPM.addPass(cheerp::InvokeWrappingPass());
   if (isWasmTarget)
     MPM.addPass(cheerp::AllocaLoweringPass());
+  MPM.addPass(cheerp::ThreadLocalLoweringPass());
   MPM.addPass(cheerp::FFIWrappingPass());
   MPM.addPass(createModuleToFunctionPassAdaptor(cheerp::FixIrreducibleControlFlowPass()));
   MPM.addPass(createModuleToFunctionPassAdaptor(cheerp::PointerArithmeticToArrayIndexingPass()));
