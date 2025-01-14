@@ -1088,6 +1088,17 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(const
 		compileOperand(*it);
 		return COMPILE_OK;
 	}
+	else if(intrinsicId==Intrinsic::threadlocal_address)
+	{
+		llvm::report_fatal_error("Encountered threadlocal_address in writer");
+	}
+	else if(intrinsicId==Intrinsic::cheerp_get_threadlocal_offset)
+	{
+		const GlobalVariable* GV = dyn_cast<GlobalVariable>(callV.getOperand(0));
+		int32_t offset = linearHelper.getThreadLocalOffset(GV);
+		stream << offset;
+		return COMPILE_OK;
+	}
 	else if(ident=="fmod")
 	{
 		// Handle this internally, C++ does not have float mod operation
