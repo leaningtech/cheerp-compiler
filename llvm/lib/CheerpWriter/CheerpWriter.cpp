@@ -973,16 +973,8 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(const
 	else if(intrinsicId==Intrinsic::cheerp_get_threading_blob)
 	{
 		StringRef threadingObject = namegen.getBuiltinName(NameGenerator::Builtin::THREADINGOBJECT);
-		stream << "new Blob([" << '"';
-		stream << "onmessage=(e)=>{";
-		stream << threadingObject << "=e.data;";
-		stream << threadingObject << ".inWorker=true;";
-		if (makeModule == MODULE_TYPE::ES6)
-			stream << "import(" << threadingObject << ".script).then(m=>m.default()).catch(e=>{if(e!=='LeakUtilityThread')throw e;});";
-		else
-			stream << "importScripts(" << threadingObject << ".script);";
-		stream << "postMessage(null);";
-		stream << "}" << '"' << "])";
+		StringRef blobText = namegen.getBuiltinName(NameGenerator::Builtin::BLOBNAME);
+		stream << "new Blob([" << threadingObject << "." << blobText << "])";
 		return COMPILE_OK;
 	}
 	else if(intrinsicId==Intrinsic::abs)
@@ -7129,6 +7121,7 @@ void CheerpWriter::compileEntryPoint()
 void CheerpWriter::compileThreadingObject()
 {
 		StringRef threadObject = namegen.getBuiltinName(NameGenerator::Builtin::THREADINGOBJECT);
+		StringRef blobName = namegen.getBuiltinName(NameGenerator::Builtin::BLOBNAME);
 		stream << "if(typeof ";
 		if (makeModule == MODULE_TYPE::ES6 || makeModule == MODULE_TYPE::COMMONJS)
 			stream << "globalThis.";
@@ -7147,7 +7140,17 @@ void CheerpWriter::compileThreadingObject()
 			stream << "else script = __filename;";
 		}
 		stream << NewLine;
-		stream << "var " << threadObject << "={inWorker:false,module:null,script:script,memory:null,func:null,args:null,tls:null,tid:null,stack:null};" << NewLine;
+		stream << "var " << blobName << "=" << '"';
+		stream << "onmessage=(e)=>{";
+		stream << threadObject << "=e.data;";
+		stream << threadObject << ".inWorker=true;";
+		if (makeModule == MODULE_TYPE::ES6)
+			stream << "import(" << threadObject << ".script).then(m=>m.default()).catch(e=>{if(e!=='LeakUtilityThread')throw e;});";
+		else
+			stream << "importScripts(" << threadObject << ".script);";
+		stream << "postMessage(null);";
+		stream << "}" << '"' << ";" << NewLine;
+		stream << "var " << threadObject << "={inWorker:false,module:null,script:script,memory:null,func:null,args:null,tls:null,tid:null,stack:null," << blobName << ":" << blobName << "};" << NewLine;
 		if (makeModule == MODULE_TYPE::ES6 || makeModule == MODULE_TYPE::COMMONJS)
 		{
 			stream << "}else{" << NewLine;
