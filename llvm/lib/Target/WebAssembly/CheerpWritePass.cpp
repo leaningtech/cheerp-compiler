@@ -210,7 +210,7 @@ bool CheerpWritePass::runOnModule(Module& M)
                  functionAddressMode == cheerp::LinearMemoryHelperInitializer::FunctionAddressMode::Wasm &&
                  // NOTE: this is not actually required by the spec, but for now chrome
                  // doesn't like growing shared memory
-                 !WasmSharedMemory;
+                 (!WasmSharedMemory || WasmSharedModule);
   bool hasAsmjsMem = functionAddressMode == cheerp::LinearMemoryHelperInitializer::FunctionAddressMode::AsmJS &&
                      (!SecondaryOutputFile.empty() || !SecondaryOutputPath.empty());
 
