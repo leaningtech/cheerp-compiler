@@ -1062,8 +1062,33 @@ CodeGenFunction::GenerateCXXGlobalInitFunc(llvm::Function *Fn,
     }
 
     for (unsigned i = 0, e = Decls.size(); i != e; ++i)
-      if (Decls[i])
-        EmitRuntimeCall(Decls[i]);
+      if (Decls[i]) {
+        if (getContext().getTargetInfo().getTriple().isCheerpWasm()) {
+          llvm::GlobalVariable *GuardGV = new llvm::GlobalVariable(CGM.getModule(), Int8Ty, /*isConstant=*/false,
+                                     llvm::GlobalVariable::InternalLinkage,
+                                     llvm::ConstantInt::get(Int8Ty, 0),
+                                     Decls[i]->getName() + "__in_chrg");
+          GuardGV->setSection("asmjs");
+          CharUnits GuardAlign = CharUnits::One();
+          GuardGV->setAlignment(GuardAlign.getAsAlign());
+          ConstantAddress Guard = ConstantAddress(GuardGV, Int8Ty, GuardAlign);
+          llvm::Value *GuardVal = Builder.CreateLoad(Guard);
+          llvm::Value *Uninit = Builder.CreateIsNull(GuardVal,
+                                                 "guard.uninitialized");
+          llvm::BasicBlock *InitBlock = createBasicBlock("init");
+          llvm::BasicBlock* NextBlock = createBasicBlock("nextinit");
+          // NOTE: TlsGuard is used here to make the code flexible about having an actual GV to guard
+          EmitCXXGuardedInitBranch(Uninit, InitBlock, NextBlock,
+                               GuardKind::TlsGuard, nullptr);
+          EmitBlock(InitBlock);
+          Builder.CreateStore(llvm::ConstantInt::get(GuardVal->getType(),1), Guard);
+          EmitRuntimeCall(Decls[i]);
+          Builder.CreateBr(NextBlock);
+          EmitBlock(NextBlock);
+        } else {
+          EmitRuntimeCall(Decls[i]);
+        }
+      }
 
     Scope.ForceCleanup();
 
