@@ -6441,6 +6441,17 @@ void ItaniumMangleContextImpl::mangleStaticGuardVariable(const VarDecl *D,
 
 void ItaniumMangleContextImpl::mangleDynamicInitializer(const VarDecl *MD,
                                                         raw_ostream &Out) {
+  if (getASTContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly) {
+    // CHEERP: Use unique mangling for each constructors, so that we can allocated unique guards
+    //         and support the shared module case without running constructors multiple times
+    CXXNameMangler Mangler(*this, Out);
+    Mangler.getStream() << "__ctor_";
+    if (shouldMangleDeclName(MD))
+      Mangler.mangle(MD);
+    else
+      Mangler.getStream() << MD->getName();
+    return;
+  }
   // These symbols are internal in the Itanium ABI, so the names don't matter.
   // Clang has traditionally used this symbol and allowed LLVM to adjust it to
   // avoid duplicate symbols.
