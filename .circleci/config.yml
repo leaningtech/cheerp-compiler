@@ -519,8 +519,8 @@ jobs:
             cd ..
             make -C cheerp-utils-build
             cp cheerp-utils-build/CheerpCommon.cmake ~/project/Applications/cheerp/share/cmake/Modules/
-            cp cheerp-utils-build/CheerpToolchain.cmake ~/project/Applications/cheerp/share/cmake/Modules/
-            cp cheerp-utils-build/CheerpWasmToolchain.cmake ~/project/Applications/cheerp/share/cmake/Modules/
+            cp ~/project/cheerp-utils/tools/CheerpToolchain.cmake ~/project/Applications/cheerp/share/cmake/Modules/
+            cp ~/project/cheerp-utils/tools/CheerpWasmToolchain.cmake ~/project/Applications/cheerp/share/cmake/Modules/
             cp cheerp-utils-build/cheerpwrap ~/project/Applications/cheerp/bin/
             tar -cvjf ~/project/packages/cheerp-macosx-${VERSION_NO}.tar.bz2 -C ~/project/Applications/ cheerp
       - persist_to_workspace:
@@ -609,12 +609,10 @@ jobs:
           name: Override cheerp-utils files
           working_directory: ~/project/cheerp-compiler/build
           command: |
-            sed -i "s@/@\\\\\\\\@g" cheerp-utils-build/CheerpToolchain.cmake
             sed -i "s@/@\\\\\\\\@g" cheerp-utils-build/CheerpCommon.cmake
-            sed -i "s@/@\\\\\\\\@g" cheerp-utils-build/CheerpWasmToolchain.cmake
             cp cheerp-utils-build/CheerpCommon.cmake "c:/cheerp/share/cmake/Modules/"
-            cp cheerp-utils-build/CheerpToolchain.cmake "c:/cheerp/share/cmake/Modules/"
-            cp cheerp-utils-build/CheerpWasmToolchain.cmake "c:/cheerp/share/cmake/Modules/"
+            cp ~/project/cheerp-utils/tools/CheerpToolchain.cmake "c:/cheerp/share/cmake/Modules/"
+            cp ~/projects/cheerp-utils/tools/CheerpWasmToolchain.cmake "c:/cheerp/share/cmake/Modules/"
       - run:
           name: Manually patch executable paths
           working_directory: ~/project/cheerp-compiler/build
