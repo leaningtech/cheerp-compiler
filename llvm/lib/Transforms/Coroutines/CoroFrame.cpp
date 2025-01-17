@@ -751,7 +751,9 @@ void FrameTypeBuilder::finish(StructType *Ty, bool asmjs) {
       if (!isAligned(F.TyAlignment, LayoutField.Offset))
         return true;
     }
-    return false;
+    // CHEERP: all genericjs structs are packed
+    // TODO: figure out how to not add padding in this case
+    return !DL.isByteAddressable() && !asmjs;
   }();
 
   // Build the struct body.
