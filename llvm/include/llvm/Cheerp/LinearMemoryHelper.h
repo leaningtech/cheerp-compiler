@@ -418,6 +418,7 @@ private:
 	};
 
 	void setGlobalPtrIfPresent(llvm::StringRef name, uint32_t ptr);
+	void setGlobalUInt32IfPresent(llvm::StringRef name, uint32_t value);
 	void addGlobals();
 	void addStack();
 	void addMemoryInfo();
