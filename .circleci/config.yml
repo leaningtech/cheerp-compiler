@@ -612,7 +612,7 @@ jobs:
             sed -i "s@/@\\\\\\\\@g" cheerp-utils-build/CheerpCommon.cmake
             cp cheerp-utils-build/CheerpCommon.cmake "c:/cheerp/share/cmake/Modules/"
             cp ~/project/cheerp-utils/tools/CheerpToolchain.cmake "c:/cheerp/share/cmake/Modules/"
-            cp ~/projects/cheerp-utils/tools/CheerpWasmToolchain.cmake "c:/cheerp/share/cmake/Modules/"
+            cp ~/project/cheerp-utils/tools/CheerpWasmToolchain.cmake "c:/cheerp/share/cmake/Modules/"
       - run:
           name: Manually patch executable paths
           working_directory: ~/project/cheerp-compiler/build
