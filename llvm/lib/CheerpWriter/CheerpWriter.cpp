@@ -1899,15 +1899,14 @@ void CheerpWriter::compileHeapAccess(const Value* p, Type* t, uint32_t offset)
 		llvm::report_fatal_error("please report a bug");
 		return;
 	}
-	PointerType* pt=cast<PointerType>(p->getType());
-	Type* et = (t==nullptr) ? pt->getPointerElementType() : t;
-	uint32_t shift = compileHeapForType(et);
+	assert(t != nullptr);
+	uint32_t shift = compileHeapForType(t);
 	stream << '[';
 	PARENT_PRIORITY prio = PARENT_PRIORITY::SHIFT;
 	if(checkBounds)
 	{
 		stream << '(';
-		compileCheckBoundsAsmJS(targetData.getTypeAllocSize(et)-1);
+		compileCheckBoundsAsmJS(targetData.getTypeAllocSize(t)-1);
 		prio = pointerCoercionPrio();
 	}
 	bool needsShift = true;
@@ -4321,16 +4320,17 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				else if (vi.getType()->isIntegerTy() || vi.getType()->isPointerTy())
 					stream << getHeapName(HEAP32);
 				stream << '[';
-				compileHeapAccess(vi.getPointerOperand());
+				Type* type = Type::getInt8PtrTy(module.getContext());
+				compileHeapAccess(vi.getPointerOperand(), type);
 				if (vi.getType()->isIntegerTy() || vi.getType()->isPointerTy() || vi.getType()->isFloatTy())
 					stream << pointerShiftOperator() << "2]|0";
 				else
 					stream << pointerShiftOperator() << "3]";
 				stream << ';' << NewLine;
 
-				compileHeapAccess(vi.getPointerOperand());
+				compileHeapAccess(vi.getPointerOperand(), type);
 				stream << "=((";
-				compileHeapAccess(vi.getPointerOperand());
+				compileHeapAccess(vi.getPointerOperand(), type);
 				stream << "|0)+8)|0";
 			}
 			else
