@@ -1059,6 +1059,25 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(const
 		compileOperand(*it, LOWEST);
 		return COMPILE_OK;
 	}
+	else if(intrinsicId==Intrinsic::cheerp_get_thread_pointer)
+	{
+		// For genericjs, this call should not be in the code.
+		assert(currentFun->getSection() == StringRef("asmjs"));
+		// For wasm, this call should be in WASM code instead.
+		assert(LinearOutput == AsmJs);
+		stream << namegen.getBuiltinName(NameGenerator::Builtin::THREADPTR);
+		return COMPILE_OK;
+	}
+	else if(intrinsicId==Intrinsic::cheerp_set_thread_pointer)
+	{
+		// For genericjs this call should not be in the code.
+		assert(currentFun->getSection() == StringRef("asmjs"));
+		// For wasm, this call should be in WASM code instead.
+		assert(LinearOutput == AsmJs);
+		stream << namegen.getBuiltinName(NameGenerator::Builtin::THREADPTR) << "=";
+		compileOperand(*it, LOWEST);
+		return COMPILE_OK;
+	}
 	else if (intrinsicId==Intrinsic::get_dynamic_area_offset)
 	{
 		// The stack pointer is the same as the address of the most recent alloca, so 0 offset
@@ -6531,6 +6550,7 @@ void CheerpWriter::compileAsmJSClosure()
 	}
 
 	stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::STACKPTR) << "=ffi.stackStart|0;" << NewLine;
+	stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::THREADPTR) << "=0;" << NewLine;
 
 	compileMathDeclAsmJS();
 	compileBuiltins(true);

@@ -729,6 +729,15 @@ void LinearMemoryHelper::setGlobalPtrIfPresent(llvm::StringRef name, uint32_t pt
 	}
 }
 
+void LinearMemoryHelper::setGlobalUInt32IfPresent(llvm::StringRef name, uint32_t value)
+{
+	if (GlobalVariable* G = module->getNamedGlobal(name))
+	{
+		ConstantInt* initializer = ConstantInt::get(IntegerType::getInt32Ty(module->getContext()), value, false);
+		G->setInitializer(initializer);
+	}
+}
+
 void LinearMemoryHelper::addMemoryInfo()
 {
 	setGlobalPtrIfPresent("_stackBottom", stackStart);
@@ -745,8 +754,8 @@ void LinearMemoryHelper::addMemoryInfo()
 	setGlobalPtrIfPresent("_heapEnd", heapEnd);
 
 	// Set the values for the thread local storage.
-	setGlobalPtrIfPresent("__tlsImage", threadLocalStart);
-	setGlobalPtrIfPresent("__tlsImageSize", threadLocalImageSize);
+	setGlobalUInt32IfPresent("__tlsImage", threadLocalStart);
+	setGlobalUInt32IfPresent("__tlsImageSize", threadLocalImageSize);
 }
 
 void LinearMemoryHelper::VectorWriter::addByte(uint8_t b)

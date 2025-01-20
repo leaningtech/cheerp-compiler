@@ -682,6 +682,7 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 	builtins[EXCEPTION] = "$except";
 	builtins[FETCHBUFFER] = "fetchBuffer";
 	builtins[STACKPTR] = "__stackPtr";
+	builtins[THREADPTR] = "__threadPtr";
 	builtins[ATOMICLOAD] = "__atomicload";
 	builtins[ATOMICSTORE] = "__atomicstore";
 	builtins[ATOMICADD] = "__atomicadd";
