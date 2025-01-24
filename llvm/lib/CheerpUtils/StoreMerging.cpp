@@ -314,8 +314,13 @@ bool StoreMerging::processBlockOfStores(const std::unordered_map<const llvm::Val
 				auto lowBaseAndOffset = findBasePointerAndOffset(lowLoad->getPointerOperand());
 				auto highBaseAndOffset = findBasePointerAndOffset(highLoad->getPointerOperand());
 				auto it = loadedValuesAlignment.find(lowBaseAndOffset.first);
-				if(it != loadedValuesAlignment.end() && it->second > lowLoadAlignment)
-					lowLoadAlignment = it->second;
+				if(it != loadedValuesAlignment.end())
+				{
+					uint32_t baseAlignment = it->second;
+					uint32_t betterAlignmentCandidate = APIntOps::GreatestCommonDivisor({32, baseAlignment}, {32, lowBaseAndOffset.second}).getZExtValue();
+					if(betterAlignmentCandidate > lowLoadAlignment)
+						lowLoadAlignment = betterAlignmentCandidate;
+				}
 				if(lowLoadAlignment >= dim * 2 &&
 					lowBaseAndOffset.first == highBaseAndOffset.first &&
 					lowBaseAndOffset.second + dim == highBaseAndOffset.second)
