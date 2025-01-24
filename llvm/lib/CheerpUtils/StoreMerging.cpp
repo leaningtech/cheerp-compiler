@@ -317,7 +317,7 @@ bool StoreMerging::processBlockOfStores(const std::unordered_map<const llvm::Val
 				if(it != loadedValuesAlignment.end())
 				{
 					uint32_t baseAlignment = it->second;
-					uint32_t betterAlignmentCandidate = APIntOps::GreatestCommonDivisor({32, baseAlignment}, {32, lowBaseAndOffset.second}).getZExtValue();
+					uint32_t betterAlignmentCandidate = APIntOps::GreatestCommonDivisor({32, baseAlignment}, {32, uint32_t(lowBaseAndOffset.second)}).getZExtValue();
 					if(betterAlignmentCandidate > lowLoadAlignment)
 						lowLoadAlignment = betterAlignmentCandidate;
 				}
