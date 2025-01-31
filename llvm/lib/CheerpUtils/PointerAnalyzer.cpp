@@ -672,6 +672,7 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 		case Intrinsic::invariant_start:
 			return CacheAndReturn(visitValue(ret, intrinsic->getArgOperand(1), /*first*/ false));
 		case Intrinsic::stacksave:
+		case Intrinsic::threadlocal_address:
 			return CacheAndReturn(ret = PointerKindWrapper(RAW));
 		case Intrinsic::invariant_end:
 		case Intrinsic::vastart:

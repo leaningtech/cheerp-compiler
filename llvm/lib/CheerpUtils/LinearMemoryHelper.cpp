@@ -438,7 +438,6 @@ void LinearMemoryHelper::addGlobals()
 
 	// Compute the global variable addresses.
 	// Also, for thread locals, calculate offsets to the image start, and the total size of the image.
-	threadLocalImageSize = 0;
 	threadLocalStart = 0;
 	globalsStart = 0;
 	for (const auto G: asmjsGlobals) {
@@ -460,10 +459,12 @@ void LinearMemoryHelper::addGlobals()
 			asmjsThreadLocals.push_back(G);
 			if (threadLocalStart == 0)
 				threadLocalStart = heapStart;
-			threadLocalImageSize += size;
 		}
 		heapStart += size;
 	}
+	heapStart = (heapStart + 7) & ~7;
+	threadLocalImageSize = heapStart - threadLocalStart;
+	// Align the thread local storage to 8 bytes.
 }
 
 void LinearMemoryHelper::generateGlobalizedGlobalsUsage()
