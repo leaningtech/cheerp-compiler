@@ -7580,7 +7580,7 @@ LangAS ASTContext::getCheerpPointeeAddrSpace(const Type *PointeeType, Decl* D, L
     }
   }
   if (auto* TagTy = PointeeType->getAsTagDecl()) {
-    return getCheerpTypeAddressSpace(TagTy);
+    return getCheerpTypeAddressSpace(TagTy, Fallback);
   }
   if (PointeeType->isPointerType() || PointeeType->isReferenceType() || PointeeType->isMemberPointerType()) {
     LangAS PointeePointeeAS = getCheerpPointeeAddrSpace(PointeeType->getPointeeType().getTypePtr(), D, Fallback);
@@ -7598,6 +7598,9 @@ LangAS ASTContext::getCheerpPointeeAddrSpace(const Type *PointeeType, Decl* D, L
     return getCheerpPointeeAddrSpace(ATy->getElementType().getTypePtr(), D, Fallback);
   }
   LangAS Ret = Fallback;
+  if (D && isa<EnumDecl>(D)) {
+    D = nullptr;
+  }
   while (D) {
     if (D->hasAttr<clang::ByteLayoutAttr>()) {
       Ret = LangAS::cheerp_bytelayout;
@@ -13307,12 +13310,15 @@ LangAS ASTContext::getCheerpTypeAddressSpace(QualType Ty, LangAS fallback) const
   if (Ty.hasAddressSpace())
     return Ty.getAddressSpace();
   if (Ty->isArrayType() && Ty->getBaseElementTypeUnsafe()->getAsTagDecl())
-    return getCheerpTypeAddressSpace(Ty->getBaseElementTypeUnsafe()->getAsTagDecl());
+    return getCheerpTypeAddressSpace(Ty->getBaseElementTypeUnsafe()->getAsTagDecl(), fallback);
   if (Ty->getAsTagDecl())
-    return getCheerpTypeAddressSpace(Ty->getAsTagDecl());
+    return getCheerpTypeAddressSpace(Ty->getAsTagDecl(), fallback);
   return fallback;
 }
 LangAS ASTContext::getCheerpTypeAddressSpace(const Decl* D, LangAS fallback) const {
+  if (isa<EnumDecl>(D)) {
+    return fallback;
+  }
   LangAS AS = fallback;
   if (D->hasAttr<ByteLayoutAttr>()) {
     AS = LangAS::cheerp_bytelayout;
