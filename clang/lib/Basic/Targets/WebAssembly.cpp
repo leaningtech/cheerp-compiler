@@ -308,6 +308,9 @@ void CheerpTargetInfo::getTargetDefines(const LangOptions &Opts,
       Builder.defineMacro("__WASM__");
     }
   }
+  if (getTriple().getOS() != llvm::Triple::WASI) {
+    Builder.defineMacro("__GENERICJS__");
+  }
 
   if (Opts.CPlusPlus)
     Builder.defineMacro("_GNU_SOURCE");
