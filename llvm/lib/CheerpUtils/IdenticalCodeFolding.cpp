@@ -530,6 +530,23 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 				equivalentOperand(A->getOperand(0), B->getOperand(0)) &&
 				equivalentOperand(A->getOperand(1), B->getOperand(1)));
 		}
+		case Instruction::InsertValue:
+		{
+			const InsertValueInst* a = cast<InsertValueInst>(A);
+			const InsertValueInst* b = cast<InsertValueInst>(B);
+			return CacheAndReturn(equivalentType(a->getType(), b->getType()) &&
+				equivalentOperand(a->getAggregateOperand(), b->getAggregateOperand()) &&
+				equivalentOperand(a->getInsertedValueOperand(), b->getInsertedValueOperand()) &&
+				a->getIndices() == b->getIndices());
+		}
+		case Instruction::ExtractValue:
+		{
+			const ExtractValueInst* a = cast<ExtractValueInst>(A);
+			const ExtractValueInst* b = cast<ExtractValueInst>(B);
+			return CacheAndReturn(equivalentType(a->getType(), b->getType()) &&
+				equivalentOperand(a->getAggregateOperand(), b->getAggregateOperand()) &&
+				a->getIndices() == b->getIndices());
+		}
 		case Instruction::AtomicRMW:
 		{
 			const AtomicRMWInst* a = cast<AtomicRMWInst>(A);
@@ -538,6 +555,17 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 				a->getOperation() == b->getOperation() &&
 				equivalentOperand(a->getPointerOperand(), b->getPointerOperand()) &&
 				equivalentOperand(a->getValOperand(), b->getValOperand()));
+		}
+		case Instruction::AtomicCmpXchg:
+		{
+			const AtomicCmpXchgInst* a = cast<AtomicCmpXchgInst>(A);
+			const AtomicCmpXchgInst* b = cast<AtomicCmpXchgInst>(B);
+			return CacheAndReturn(equivalentType(a->getType(), b->getType()) &&
+				a->getSuccessOrdering() == b->getSuccessOrdering() &&
+				a->getFailureOrdering() == b->getFailureOrdering() &&
+				equivalentOperand(a->getPointerOperand(), b->getPointerOperand()) &&
+				equivalentOperand(a->getCompareOperand(), b->getCompareOperand()) &&
+				equivalentOperand(a->getNewValOperand(), b->getNewValOperand()));
 		}
 		default:
 		{
