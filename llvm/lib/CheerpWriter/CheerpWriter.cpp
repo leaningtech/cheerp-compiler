@@ -1979,12 +1979,11 @@ void CheerpWriter::compilePointerBaseTyped(const Value* p, Type* elementType, bo
 
 	if(kind == CONSTANT)
 	{
-		Type* ty = llvm::cast<PointerType>(p->getType())->getPointerElementType();
 		if (isa<ConstantPointerNull>(p))
 			stream << "nullArray";
-		else if (isWasmTarget && !ty->isStructTy())
+		else if (isWasmTarget && !elementType->isStructTy())
 		{
-			compileHeapForType(ty);
+			compileHeapForType(elementType);
 		}
 		else
 			stream << "nullArray";
@@ -2420,14 +2419,14 @@ void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio
 					if(dependOnUndefined)
 						stream << "undefined";
 					else
-						compilePointerBaseTyped(d->getOperand(i), elementType);
+						compilePointerBase(d->getOperand(i));
 				}
 				else if(k == SPLIT_REGULAR)
 				{
 					if(dependOnUndefined)
 						stream << "undefined";
 					else
-						compilePointerBaseTyped(d->getOperand(i), elementType);
+						compilePointerBase(d->getOperand(i));
 					stream << ',';
 					stream << types.getPrefixCharForMember(PA, d->getType(), i) << i << 'o';
 					stream << ':';
@@ -5913,7 +5912,7 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 			{
 				POINTER_KIND storedKind = PA.getPointerKindForStoredType(C->getType());
 				if(storedKind == REGULAR && PA.getConstantOffsetForPointer(&G))
-					compilePointerBaseTyped(C, G.getValueType());
+					compilePointerBase(C);
 				else
 					compilePointerAs(C, storedKind);
 			}
