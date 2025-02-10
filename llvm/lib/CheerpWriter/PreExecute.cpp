@@ -786,9 +786,8 @@ Constant* PreExecute::computeInitializerFromMemory(const DataLayout* DL,
             return ConstantPointerNull::get(PT);
         }
 
-        if(PT->getPointerElementType()->isFunctionTy())
+        if(Value* castedVal = currentEE->FunctionAddresses->getFunctionOrNull(StoredAddr))
         {
-            Value* castedVal = currentEE->FunctionAddresses->getFunction(StoredAddr);
             assert(isa<Function>(castedVal));
             // Potentially also cast the function to the expected type
             if(castedVal->getType() != PT)
