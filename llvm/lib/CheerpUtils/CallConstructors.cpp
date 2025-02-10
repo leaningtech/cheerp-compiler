@@ -124,7 +124,7 @@ PreservedAnalyses CallConstructorsPass::run(llvm::Module &M, llvm::ModuleAnalysi
 				else
 				{
 					Env = Builder.CreateAlloca(Builder.getInt8Ty()->getPointerTo(0));
-					Builder.CreateStore(ConstantPointerNull::get(cast<PointerType>(EnvTy->getPointerElementType())), Env);
+					Builder.CreateStore(ConstantPointerNull::get(Builder.getInt8Ty()->getPointerTo(0)), Env);
 				}
 
 
