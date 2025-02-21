@@ -1229,9 +1229,11 @@ void TokenListOptimizer::removeUnnededNesting()
 void TokenListOptimizer::adjustLoopEnds()
 {
 	passStart();
-	for_each_kind<Token::TK_Loop>([&](Token* Loop)
+	for_each_kind<Token::TK_End>([&](Token* End)
 	{
-		Token* End = Loop->getMatch();
+		Token* Loop = End->getMatch();
+		if (Loop->getKind() != Token::TK_If)
+			return;
 		Token* Cur = End->getPrevNode();
 		Token* LastDepth0 = nullptr;
 		int Depth = 0;
