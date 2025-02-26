@@ -116,6 +116,10 @@ def int_cheerp_atomic_notify : Intrinsic<[llvm_i32_ty],
                                 [llvm_ptr_ty, llvm_i32_ty]>,
                                 ClangBuiltin<"__builtin_cheerp_atomic_notify">;
 
+def int_cheerp_thread_setup_resolve : Intrinsic<[],
+                                      []>,
+                                      ClangBuiltin<"__builtin_cheerp_thread_setup_resolve">;
+
 def int_cheerp_environ : Intrinsic<[llvm_anyptr_ty]>;
 
 def int_cheerp_argv : Intrinsic<[llvm_anyptr_ty]>;

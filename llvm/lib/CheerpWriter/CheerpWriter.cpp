@@ -977,6 +977,12 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(const
 		stream << "new Blob([" << threadingObject << "." << blobText << "])";
 		return COMPILE_OK;
 	}
+	else if(intrinsicId==Intrinsic::cheerp_thread_setup_resolve)
+	{
+		StringRef threadSetupResolve = namegen.getBuiltinName(NameGenerator::Builtin::THREADSETUPRESOLVE);
+		stream << threadSetupResolve << "();" << NewLine;
+		return COMPILE_OK;
+	}
 	else if(intrinsicId==Intrinsic::abs)
 	{
 		//Implementing ( X >= 0 ) ? X : -X
@@ -6848,7 +6854,7 @@ void CheerpWriter::compileWasmLoader()
 			stream << "module.exports=" << NewLine;
 		else if (makeModule == MODULE_TYPE::ES6)
 			stream << "return ";
-		stream << dummyName << ".promise.then(" << shortestName << "=>{" << NewLine;
+		stream << dummyName << ".promise=" << dummyName << ".promise.then(" << shortestName << "=>{" << NewLine;
 		stream << threadObject << ".module=" << shortestName << ".module;" << NewLine;
 		stream << "__asm=" << shortestName << ".instance.exports;" << NewLine;
 	}
@@ -7131,6 +7137,13 @@ void CheerpWriter::compileEntryPoint()
 
 void CheerpWriter::compileThreadingObject()
 {
+		// First create the promise and resolve variables for threading setup.
+		StringRef threadPromise = namegen.getBuiltinName(NameGenerator::Builtin::THREADSETUPPROMISE);
+		StringRef threadResolve = namegen.getBuiltinName(NameGenerator::Builtin::THREADSETUPRESOLVE);
+		stream << "var " << threadResolve << "=null;" << NewLine;
+		stream << "var " << threadPromise << "=new Promise((r)=>{" << threadResolve << "=r;});" << NewLine;
+
+		// Then create the rest of the threading variables.
 		StringRef threadObject = namegen.getBuiltinName(NameGenerator::Builtin::THREADINGOBJECT);
 		StringRef workerThreadObject = namegen.getBuiltinName(NameGenerator::Builtin::THREADINGOBJECTWORKER);
 		StringRef blobName = namegen.getBuiltinName(NameGenerator::Builtin::BLOBNAME);
@@ -7266,6 +7279,16 @@ void CheerpWriter::makeJS()
 
 	compileDefineExports();
 	compileEntryPoint();
+
+	// If -pthread is linked in, we want to return the thread setup promise here.
+	if (!LowerAtomics)
+	{
+		stream << "return " << namegen.getBuiltinName(NameGenerator::Builtin::THREADSETUPPROMISE) << ";" << NewLine;
+		// If we are in ES6 or CommonJS module mode, chain the thread setup promise here.
+		if (makeModule == MODULE_TYPE::ES6 || makeModule == MODULE_TYPE::COMMONJS)
+			stream << "}).then(()=>{" << NewLine;
+	}
+
 	if (makeModule == MODULE_TYPE::COMMONJS || makeModule == MODULE_TYPE::ES6)
 		compileCommonJSExports();
 
