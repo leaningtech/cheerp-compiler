@@ -7132,11 +7132,12 @@ void CheerpWriter::compileEntryPoint()
 void CheerpWriter::compileThreadingObject()
 {
 		StringRef threadObject = namegen.getBuiltinName(NameGenerator::Builtin::THREADINGOBJECT);
+		StringRef workerThreadObject = namegen.getBuiltinName(NameGenerator::Builtin::THREADINGOBJECTWORKER);
 		StringRef blobName = namegen.getBuiltinName(NameGenerator::Builtin::BLOBNAME);
 		stream << "if(typeof ";
 		if (makeModule == MODULE_TYPE::ES6 || makeModule == MODULE_TYPE::COMMONJS)
 			stream << "globalThis.";
-		stream << threadObject << "==='undefined'){" << NewLine;
+		stream << workerThreadObject << "==='undefined'){" << NewLine;
 		stream << "var script=";
 		if (makeModule == MODULE_TYPE::ES6)
 			stream << "import.meta.url;";
@@ -7153,19 +7154,24 @@ void CheerpWriter::compileThreadingObject()
 		stream << NewLine;
 		stream << "var " << blobName << "=" << '"';
 		stream << "onmessage=(e)=>{";
-		stream << threadObject << "=e.data;";
-		stream << threadObject << ".inWorker=true;";
+		stream << workerThreadObject << "=e.data;";
+		stream << workerThreadObject << ".inWorker=true;";
 		if (makeModule == MODULE_TYPE::ES6)
-			stream << "import(" << threadObject << ".script).then(m=>m.default()).catch(e=>{if(e!=='LeakUtilityThread')throw e;});";
+			stream << "import(" << workerThreadObject << ".script).then(m=>m.default()).catch(e=>{if(e!=='LeakUtilityThread')throw e;});";
 		else
-			stream << "importScripts(" << threadObject << ".script);";
+			stream << "importScripts(" << workerThreadObject << ".script);";
 		stream << "postMessage(null);";
 		stream << "}" << '"' << ";" << NewLine;
 		stream << "var " << threadObject << "={inWorker:false,module:null,script:script,memory:null,func:null,args:null,tls:null,tid:null,stack:null," << blobName << ":" << blobName << "};" << NewLine;
 		if (makeModule == MODULE_TYPE::ES6 || makeModule == MODULE_TYPE::COMMONJS)
 		{
 			stream << "}else{" << NewLine;
-			stream << "var " << threadObject << "=globalThis." << threadObject << ";" << NewLine;
+			stream << "var " << threadObject << "=globalThis." << workerThreadObject << ";" << NewLine;
+		}
+		else
+		{
+			stream << "}else{" << NewLine;
+			stream << "var " << threadObject << "=" << workerThreadObject << ";" << NewLine;
 		}
 		stream << "}" << NewLine;
 }

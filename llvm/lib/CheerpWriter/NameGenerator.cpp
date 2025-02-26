@@ -693,6 +693,7 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 	builtins[ATOMICXCHG] = "__atomicexchange";
 	builtins[ATOMICCMPXCHG] = "__atomiccompareExchange";
 	builtins[THREADINGOBJECT] = "threadingObject";
+	builtins[THREADINGOBJECTWORKER] = "threadingObjectWorker";
 	builtins[BLOBNAME] = "blobText";
 	builtins[HEAP8] = "HEAP8";
 	builtins[HEAP16] = "HEAP16";
