@@ -1446,6 +1446,8 @@ Parser::isCXXDeclarationSpecifier(ImplicitTypenameContext AllowImplicitTypename,
     // Cheerp address space qualifiers
   case tok::kw___js:
   case tok::kw___wasm:
+  case tok::kw___bl:
+  case tok::kw___client:
 
     // GNU
   case tok::kw_restrict:

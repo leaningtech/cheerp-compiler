@@ -729,6 +729,10 @@ public:
       return LangAS::cheerp_genericjs;
     case ParsedAttr::AT_WasmAddressSpace:
       return LangAS::cheerp_wasm;
+    case ParsedAttr::AT_ClientAddressSpace:
+      return LangAS::cheerp_client;
+    case ParsedAttr::AT_ByteLayoutAddressSpace:
+      return LangAS::cheerp_bytelayout;
     default:
       return LangAS::Default;
     }
