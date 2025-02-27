@@ -616,7 +616,7 @@ void cheerp::Link::ConstructJob(Compilation &C, const JobAction &JA,
       AddStdLib("libwasm.bc");
     }
     // Link thread library if -pthread was passed
-    if (Args.hasArg(options::OPT_pthread))
+    if (Args.hasArg(options::OPT_pthread) && getToolChain().getTriple().getOS() != llvm::Triple::WASI)
       AddStdLib("libthreads.bc");
   }
  
@@ -754,7 +754,7 @@ void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
   if (Args.hasArg(options::OPT_cheerp_no_icf))
     CmdArgs.push_back("-cheerp-no-icf");
 
-  if (!Args.hasArg(options::OPT_pthread))
+  if (!Args.hasArg(options::OPT_pthread) || getToolChain().getTriple().getOS() == llvm::Triple::WASI)
     CmdArgs.push_back("-cheerp-lower-atomics");
 
   addPass("function(CheerpLowerInvoke)");
@@ -1009,7 +1009,7 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
     }
   }
   // pthread implies shared memory
-  if (!Args.hasArg(options::OPT_pthread))
+  if (!Args.hasArg(options::OPT_pthread) || os == llvm::Triple::WASI)
     CmdArgs.push_back("-cheerp-lower-atomics");
   else
     sharedMem = true;
