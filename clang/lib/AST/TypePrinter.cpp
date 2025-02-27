@@ -1737,6 +1737,8 @@ void TypePrinter::printAttributedAfter(const AttributedType *T,
   case attr::HLSLGroupSharedAddressSpace:
   case attr::GenericJSAddressSpace:
   case attr::WasmAddressSpace:
+  case attr::ClientAddressSpace:
+  case attr::ByteLayoutAddressSpace:
     // FIXME: Update printAttributedBefore to print these once we generate
     // AttributedType nodes for them.
     break;
