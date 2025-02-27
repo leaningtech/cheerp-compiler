@@ -1418,7 +1418,7 @@ ExprResult Parser::ParseLambdaExpressionAfterIntroducer(
           ConsumeToken();
         }
         // Parse Cheerp addr space attribute.
-        if (Tok.isOneOf(tok::kw___js, tok::kw___wasm)) {
+        if (Tok.isOneOf(tok::kw___js, tok::kw___wasm, tok::kw___bl, tok::kw___client)) {
           ParseCheerpQualifiers(DS.getAttributes());
           ConsumeToken();
         }
@@ -1493,7 +1493,7 @@ ExprResult Parser::ParseLambdaExpressionAfterIntroducer(
                          tok::kw_constexpr, tok::kw_consteval, tok::kw_static,
                          tok::kw___private, tok::kw___global, tok::kw___local,
                          tok::kw___constant, tok::kw___generic,
-                         tok::kw___js, tok::kw___wasm,
+                         tok::kw___js, tok::kw___wasm, tok::kw___bl, tok::kw___client,
                          tok::kw_groupshared, tok::kw_requires,
                          tok::kw_noexcept) ||
              (Tok.is(tok::l_square) && NextToken().is(tok::l_square))) {
