@@ -47,7 +47,7 @@ public:
                        _InputIteratorW __f_w);
 #ifndef _LIBCPP_CXX03_LANG
         template<class _UnaryOperation>
-            param_type(initializer_list<result_type> __bl, _UnaryOperation __fw);
+            param_type(initializer_list<result_type> __bl_, _UnaryOperation __fw);
 #endif // _LIBCPP_CXX03_LANG
         template<class _UnaryOperation>
             param_type(size_t __nw, result_type __xmin, result_type __xmax,
@@ -102,9 +102,9 @@ public:
 #ifndef _LIBCPP_CXX03_LANG
     template<class _UnaryOperation>
         _LIBCPP_INLINE_VISIBILITY
-        piecewise_linear_distribution(initializer_list<result_type> __bl,
+        piecewise_linear_distribution(initializer_list<result_type> __bl_,
                                       _UnaryOperation __fw)
-        : __p_(__bl, __fw) {}
+        : __p_(__bl_, __fw) {}
 #endif // _LIBCPP_CXX03_LANG
 
     template<class _UnaryOperation>
@@ -244,8 +244,8 @@ piecewise_linear_distribution<_RealType>::param_type::param_type(
 template<class _RealType>
 template<class _UnaryOperation>
 piecewise_linear_distribution<_RealType>::param_type::param_type(
-        initializer_list<result_type> __bl, _UnaryOperation __fw)
-    : __b_(__bl.begin(), __bl.end())
+        initializer_list<result_type> __bl_, _UnaryOperation __fw)
+    : __b_(__bl_.begin(), __bl_.end())
 {
     if (__b_.size() < 2)
     {
