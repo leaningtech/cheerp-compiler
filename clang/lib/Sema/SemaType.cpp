@@ -8408,6 +8408,8 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
     case ParsedAttr::AT_HLSLGroupSharedAddressSpace:
     case ParsedAttr::AT_GenericJSAddressSpace:
     case ParsedAttr::AT_WasmAddressSpace:
+    case ParsedAttr::AT_ClientAddressSpace:
+    case ParsedAttr::AT_ByteLayoutAddressSpace:
     case ParsedAttr::AT_AddressSpace:
       HandleAddressSpaceTypeAttribute(type, attr, state);
       attr.setUsedAsTypeAttr();

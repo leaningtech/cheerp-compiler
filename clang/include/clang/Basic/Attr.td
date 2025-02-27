@@ -2171,6 +2171,14 @@ def WasmAddressSpace : TypeAttr {
   let Spellings = [Keyword<"__wasm">, CXX11<"cheerp", "wasm_as">];
   let Documentation = [Undocumented];
 }
+def ClientAddressSpace : TypeAttr {
+  let Spellings = [Keyword<"__client">, CXX11<"cheerp", "client_as">];
+  let Documentation = [Undocumented];
+}
+def ByteLayoutAddressSpace : TypeAttr {
+  let Spellings = [Keyword<"__bl">, CXX11<"cheerp", "bl_as">];
+  let Documentation = [Undocumented];
+}
 
 
 def ByteLayout : InheritableAttr {
