@@ -622,6 +622,8 @@ KEYWORD(groupshared                 , KEYHLSL)
 // Cheerp address space qualifiers
 KEYWORD(__js                        , KEYCHEERP)
 KEYWORD(__wasm                      , KEYCHEERP)
+KEYWORD(__client                    , KEYCHEERP)
+KEYWORD(__bl                        , KEYCHEERP)
 
 // OpenMP Type Traits
 UNARY_EXPR_OR_TYPE_TRAIT(__builtin_omp_required_simd_align, OpenMPRequiredSimdAlign, KEYALL)
