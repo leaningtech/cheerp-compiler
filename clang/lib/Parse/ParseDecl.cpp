@@ -4353,6 +4353,8 @@ void Parser::ParseDeclarationSpecifiers(
     // Cheerp address space qualifiers
     case tok::kw___js:
     case tok::kw___wasm:
+    case tok::kw___bl:
+    case tok::kw___client:
       ParseCheerpQualifiers(DS.getAttributes());
       break;
 
@@ -5386,6 +5388,11 @@ bool Parser::isTypeSpecifierQualifier() {
   case tok::kw___write_only:
 
   case tok::kw_groupshared:
+
+  case tok::kw___js:
+  case tok::kw___wasm:
+  case tok::kw___bl:
+  case tok::kw___client:
     return true;
 
   case tok::kw_private:
@@ -5629,6 +5636,11 @@ bool Parser::isDeclarationSpecifier(
 #include "clang/Basic/OpenCLImageTypes.def"
 
   case tok::kw_groupshared:
+
+  case tok::kw___js:
+  case tok::kw___wasm:
+  case tok::kw___bl:
+  case tok::kw___client:
     return true;
 
   case tok::kw_private:
@@ -5858,6 +5870,8 @@ void Parser::ParseTypeQualifierListOpt(
     // Cheerp qualifiers
     case tok::kw___js:
     case tok::kw___wasm:
+    case tok::kw___bl:
+    case tok::kw___client:
       ParseCheerpQualifiers(DS.getAttributes());
       break;
 
