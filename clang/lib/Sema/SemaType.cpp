@@ -4614,7 +4614,9 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
         D.getDeclSpec().getAttributes().hasAttribute(A);
       };
       if (DeclType.getAttrs().hasAttribute(ParsedAttr::AT_GenericJSAddressSpace) ||
-          DeclType.getAttrs().hasAttribute(ParsedAttr::AT_WasmAddressSpace)) {
+          DeclType.getAttrs().hasAttribute(ParsedAttr::AT_WasmAddressSpace) ||
+          DeclType.getAttrs().hasAttribute(ParsedAttr::AT_ClientAddressSpace) ||
+          DeclType.getAttrs().hasAttribute(ParsedAttr::AT_ByteLayoutAddressSpace)) {
         // Do nothing, the address space is naturally added
       } else {
         LangAS DefaultAS = S.CurCheerpFallbackAS;
@@ -8498,6 +8500,8 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
     case ParsedAttr::AT_HLSLGroupSharedAddressSpace:
     case ParsedAttr::AT_GenericJSAddressSpace:
     case ParsedAttr::AT_WasmAddressSpace:
+    case ParsedAttr::AT_ClientAddressSpace:
+    case ParsedAttr::AT_ByteLayoutAddressSpace:
     case ParsedAttr::AT_AddressSpace:
       HandleAddressSpaceTypeAttribute(type, attr, state);
       attr.setUsedAsTypeAttr();
