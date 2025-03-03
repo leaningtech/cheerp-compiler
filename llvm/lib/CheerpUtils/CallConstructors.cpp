@@ -29,6 +29,8 @@ namespace cheerp
 
 PreservedAnalyses CallConstructorsPass::run(llvm::Module &M, llvm::ModuleAnalysisManager &MPA)
 {
+	bool Wasi = Triple(M.getTargetTriple()).getOS() == Triple::WASI;
+	bool useUtilityThread = !LowerAtomics && !Wasi;
 	FunctionType* Ty = FunctionType::get(Type::getVoidTy(M.getContext()), false);
 	Function* StartFunction = cast<Function>(M.getOrInsertFunction("_start", Ty).getCallee());
 	if (!StartFunction->empty())
@@ -37,10 +39,13 @@ PreservedAnalyses CallConstructorsPass::run(llvm::Module &M, llvm::ModuleAnalysi
 	BasicBlock* StartEntry = BasicBlock::Create(M.getContext(),"entry", StartFunction);
 	IRBuilder<> Builder(StartEntry);
 
-	Function* StartPreThread = cast<Function>(M.getOrInsertFunction("_startPreThread", Ty).getCallee());
-	BasicBlock* StartPreThreadEntry = BasicBlock::Create(M.getContext(),"entry", StartPreThread);
-	if (!LowerAtomics)
+	Function* StartPreThread = nullptr;
+	if (useUtilityThread)
+	{
+		StartPreThread = cast<Function>(M.getOrInsertFunction("_startPreThread", Ty).getCallee());
+		BasicBlock* StartPreThreadEntry = BasicBlock::Create(M.getContext(),"entry", StartPreThread);
 		Builder.SetInsertPoint(StartPreThreadEntry);
+	}
 
 	if (LinearOutput == LinearOutputTy::Wasm)
 	{
@@ -62,7 +67,7 @@ PreservedAnalyses CallConstructorsPass::run(llvm::Module &M, llvm::ModuleAnalysi
 		Builder.CreateCall(Ty, cast<Function>(C->getAggregateElement(1)->stripPointerCastsSafe()));
 	}
 
-	if (!LowerAtomics)
+	if (useUtilityThread)
 	{
 		// If -pthread is passed, add a call to spawnUtility to setup the utility thread.
 		Function* spawnUtility = cast<Function>(M.getOrInsertFunction("spawnUtility", Ty).getCallee());
@@ -72,11 +77,10 @@ PreservedAnalyses CallConstructorsPass::run(llvm::Module &M, llvm::ModuleAnalysi
 	}
 
 	Function* Main = getMainFunction(M);
-	bool Wasi = Triple(M.getTargetTriple()).getOS() == Triple::WASI;
 	if (Wasi || (Main && Main->getSection() == "asmjs"))
 	{
 		StartFunction->setSection("asmjs");
-		if (!LowerAtomics)
+		if (useUtilityThread)
 			StartPreThread->setSection("asmjs");
 	}
 	if (Main)

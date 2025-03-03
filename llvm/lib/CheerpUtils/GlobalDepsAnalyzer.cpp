@@ -715,8 +715,10 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	}
 	entryPoint = startFunc;
 
-	// If -pthread is linked in, keep the _startPreThread function alive.
-	if (!LowerAtomics)
+	bool isWasi = Triple(module.getTargetTriple()).getOS() == Triple::WASI;
+
+	// If -pthread is linked in, and this is not WASI mode, keep the _startPreThread function alive.
+	if (!LowerAtomics && !isWasi)
 	{
 		llvm::Function* startPreThread = module.getFunction("_startPreThread");
 		if (startPreThread)
@@ -732,7 +734,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 			}
 		}
 		else
-			llvm::errs() << "warning: _startPtrThread function point not found, and -pthread is linked\n";
+			llvm::errs() << "warning: _startPreThread function point not found, and -pthread is linked\n";
 	}
 
 	processEnqueuedFunctions();
@@ -818,7 +820,6 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 			hasBuiltin[BuiltinInstr::SIN_F] = false;
 		}
 	}
-	bool isWasi = Triple(module.getTargetTriple()).getOS() == Triple::WASI;
 	// Detect all used non-math builtins
 	for(const Function& F: module)
 	{
