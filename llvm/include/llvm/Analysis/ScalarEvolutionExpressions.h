@@ -258,14 +258,21 @@ public:
 class SCEVGEPPointer : public SCEVNAryExpr {
   friend class ScalarEvolution;
 
+  Type* SourceElementType;
+
   SCEVGEPPointer(const FoldingSetNodeIDRef ID,
-              const SCEV *const *O, size_t N)
-    : SCEVNAryExpr(ID, scGEPPointer, O, N) {
+              const SCEV *const *O, size_t N, Type* SourceElementType)
+    : SCEVNAryExpr(ID, scGEPPointer, O, N),
+      SourceElementType(SourceElementType) {
   }
 
 public:
   Type *getType() const {
     return getOperand(0)->getType();
+  }
+
+  Type *getSourceElementType() const {
+    return SourceElementType;
   }
 
   /// Methods for support type inquiry through isa, cast, and dyn_cast:
@@ -843,7 +850,7 @@ public:
     SmallVector<const SCEV *, 2> Operands;
     for (int i = 0, e = Expr->getNumOperands(); i < e; ++i)
       Operands.push_back(((SC*)this)->visit(Expr->getOperand(i)));
-    return SE.getGEPPointer(Operands[0], ArrayRef<const SCEV*>(Operands).slice(1));
+    return SE.getGEPPointer(Operands[0], ArrayRef<const SCEV*>(Operands).slice(1), Expr->getSourceElementType());
   }
 
   const SCEV *visitTruncateExpr(const SCEVTruncateExpr *Expr) {

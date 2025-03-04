@@ -217,28 +217,32 @@ public:
 	{
 	}
 	bool visitPHI(PHINode* phi);
-	Value* findBase(Instruction* I);
-	Value* rewrite(Instruction* I, Value* base);
+	Value* findBase(Instruction* I, Type** T);
+	Value* rewrite(Instruction* I, Value* base, Type* baseType);
 private:
 	std::set<Value*> visited;
 	PHIMap& mappedPHIs;
 	RemoveQueue& toRemove;
 };
 
-Value* PHIVisitor::findBase(Instruction* I)
+Value* PHIVisitor::findBase(Instruction* I, Type** T)
 {
 	if (GetElementPtrInst* gep = dyn_cast<GetElementPtrInst>(I))
 	{
 		if (gep->getNumIndices() == 1)
 		{
 			Value* ptr=gep->getPointerOperand();
+			*T = gep->getSourceElementType();
 			if (Instruction* ptrI=dyn_cast<Instruction>(ptr))
 			{
-				Value* base = findBase(ptrI);
+				Value* base = findBase(ptrI, T);
 				if(base)
 					return base;
 				else
+				{
+					*T = gep->getResultElementType();
 					return gep;
+				}
 			}
 			else
 				return ptr;
@@ -258,7 +262,7 @@ Value* PHIVisitor::findBase(Instruction* I)
 		{
 			Value* incomingValue=phi->getIncomingValue(i);
 			Instruction* incomingInst=dyn_cast<Instruction>(incomingValue);
-			Value* baseCandidate = incomingInst ? findBase(incomingInst) : incomingValue;
+			Value* baseCandidate = incomingInst ? findBase(incomingInst, T) : incomingValue;
 			if(visited.count(baseCandidate))
 				continue;
 			if (baseCandidate == NULL)
@@ -280,7 +284,7 @@ Value* PHIVisitor::findBase(Instruction* I)
 	return I;
 }
 
-Value* PHIVisitor::rewrite(Instruction* I, Value* base)
+Value* PHIVisitor::rewrite(Instruction* I, Value* base, Type* baseType)
 {
 	if (I==base)
 		return NULL;
@@ -290,7 +294,7 @@ Value* PHIVisitor::rewrite(Instruction* I, Value* base)
 		{
 			Value* ptr=gep->getPointerOperand();
 			Instruction* ptrI=dyn_cast<Instruction>(ptr);
-			Value* parentOffset = ptrI ? rewrite(ptrI, base) : NULL;
+			Value* parentOffset = ptrI ? rewrite(ptrI, base, baseType) : NULL;
 			Value* thisOffset = *gep->idx_begin();
 			if (parentOffset == NULL)
 				return thisOffset;
@@ -320,7 +324,7 @@ Value* PHIVisitor::rewrite(Instruction* I, Value* base)
 			Value* incomingValue=phi->getIncomingValue(i);
 			phi->setIncomingValue(i, UndefValue::get(phi->getType()));
 			Instruction* incomingInst=dyn_cast<Instruction>(incomingValue);
-			Value* index = incomingInst ? rewrite(incomingInst, base) : NULL;
+			Value* index = incomingInst ? rewrite(incomingInst, base, baseType) : NULL;
 			if (index == NULL)
 				index = ConstantInt::get(newPHI->getType(), 0);
 			newPHI->addIncoming(index, phi->getIncomingBlock(i));
@@ -336,7 +340,10 @@ Value* PHIVisitor::rewrite(Instruction* I, Value* base)
 		if(isa<ConstantInt>(newOffset) && cast<ConstantInt>(newOffset)->getZExtValue()==0)
 			newGep=base;
 		else
-			newGep=GetElementPtrInst::Create(base->getType()->getPointerElementType(), base, newOffset, "geptoindex",&*phi->getParent()->getFirstInsertionPt());
+		{
+			assert(baseType != NULL);
+			newGep=GetElementPtrInst::Create(baseType, base, newOffset, "geptoindex",&*phi->getParent()->getFirstInsertionPt());
+		}
 		phi->replaceAllUsesWith(newGep);
 		return newOffset;
 	}
@@ -345,12 +352,13 @@ Value* PHIVisitor::rewrite(Instruction* I, Value* base)
 
 bool PHIVisitor::visitPHI(PHINode* phi)
 {
-	Value* base = findBase(phi);
+	Type* baseType = NULL;
+	Value* base = findBase(phi, &baseType);
 	if (base == NULL)
 		return false;
 	// We have found a common base for all incoming values.
 	// Now we want to build an integer PHI
-	rewrite(phi, base);
+	rewrite(phi, base, baseType);
 	return true;
 }
 

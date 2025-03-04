@@ -575,6 +575,7 @@ static unsigned getJumpThreadDuplicationCost(const TargetTransformInfo *TTI,
     // On Cheerp do not ever duplicate a block which contains a pointer to an immutable type used outside of the block
     if (!DL.isByteAddressable())
     {
+      // NOTE: with address spaces, this should pretend all genericjs pointers are single value types
       if (I->getType()->isPointerTy() && I->getType()->getPointerElementType()->isSingleValueType())
       {
         for (const User* U: I->users())

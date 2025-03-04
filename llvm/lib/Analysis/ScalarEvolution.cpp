@@ -3079,7 +3079,7 @@ ScalarEvolution::getOrCreateAddRecExpr(ArrayRef<const SCEV *> Ops,
   return S;
 }
 
-const SCEV *ScalarEvolution::getGEPPointer(const SCEV* ptr, const ArrayRef<const SCEV *> &Ops) {
+const SCEV *ScalarEvolution::getGEPPointer(const SCEV* ptr, const ArrayRef<const SCEV *> &Ops, Type *SourceElementType) {
   if (Ops.empty()) return ptr;
 
   if (const SCEVGEPPointer* gepPtr = dyn_cast<SCEVGEPPointer>(ptr)) {
@@ -3088,7 +3088,7 @@ const SCEV *ScalarEvolution::getGEPPointer(const SCEV* ptr, const ArrayRef<const
     for(uint32_t i=1;i<gepPtr->getNumOperands();i++)
       NewOps.push_back(gepPtr->getOperand(i));
     NewOps.insert(NewOps.end(), Ops.begin(), Ops.end());
-    return getGEPPointer(gepPtr->getOperand(0), NewOps);
+    return getGEPPointer(gepPtr->getOperand(0), NewOps, SourceElementType);
   }
 
   FoldingSetNodeID ID;
@@ -3104,7 +3104,7 @@ const SCEV *ScalarEvolution::getGEPPointer(const SCEV* ptr, const ArrayRef<const
     O[0] = ptr;
     std::uninitialized_copy(Ops.begin(), Ops.end(), O+1);
     S = new (SCEVAllocator) SCEVGEPPointer(ID.Intern(SCEVAllocator),
-                                        O, Ops.size()+1);
+                                        O, Ops.size()+1, SourceElementType);
     UniqueSCEVs.InsertNode(S, IP);
   }
   return S;
@@ -3898,7 +3898,7 @@ ScalarEvolution::getGEPExpr(GEPOperator *GEP,
     BaseExpr = getAddExpr(BaseExpr, FirstOffset);
   }
   if (!nonByteAddressableIdxs.empty()) {
-    BaseExpr = getGEPPointer(BaseExpr, nonByteAddressableIdxs);
+    BaseExpr = getGEPPointer(BaseExpr, nonByteAddressableIdxs, GEP->getSourceElementType());
   }
 
   if(LastOffset) {
@@ -10059,7 +10059,7 @@ const SCEV *ScalarEvolution::computeSCEVAtScope(const SCEV *V, const Loop *L) {
           OpAtScope = getSCEVAtScope(GEP->getOperand(i), L);
           NewOps.push_back(OpAtScope);
         }
-        return getGEPPointer(NewOps[0], ArrayRef<const SCEV*>(NewOps).slice(1));
+        return getGEPPointer(NewOps[0], ArrayRef<const SCEV*>(NewOps).slice(1), GEP->getSourceElementType());
       }
     }
     return GEP;
