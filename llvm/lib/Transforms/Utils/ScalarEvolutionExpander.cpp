@@ -1674,7 +1674,6 @@ Value *SCEVExpander::visitPtrToIntExpr(const SCEVPtrToIntExpr *S) {
 
 Value *SCEVExpander::visitGEPPointer(const SCEVGEPPointer *S) {
   llvm::Value* ptrVal = expand(S->getOperand(0));
-  llvm::Type* ptrType = S->getOperand(0)->getType();
   SmallVector<Value *, 4> GepIndices;
   // The pointer is implicitly dereferenced
   GepIndices.push_back(ConstantInt::get(Type::getInt32Ty(SE.getContext()), 0));
@@ -1682,7 +1681,7 @@ Value *SCEVExpander::visitGEPPointer(const SCEVGEPPointer *S) {
     llvm::Value* indexVal = expand(S->getOperand(i));
     GepIndices.push_back(indexVal);
   }
-  Type* gepType = ptrType->getPointerElementType();
+  Type* gepType = S->getSourceElementType();
   if(StructType* sTy = dyn_cast<StructType>(gepType)) {
     // With a struct a constant index is expected
     ConstantInt* firstIndex = cast<ConstantInt>(GepIndices[1]);

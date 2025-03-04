@@ -2864,6 +2864,7 @@ bool GVNPass::performScalarPRE(Instruction *CurInst) {
   // Avoid moving pointer which will be heavy on Cheerp
   const DataLayout &DL = CurInst->getModule()->getDataLayout();
   if (!DL.isByteAddressable() && CurInst->getType()->isPointerTy()) {
+    // NOTE: with address spaces, this should return false for genericjs pointers
     Type *elementType = CurInst->getType()->getPointerElementType();
     if(elementType->isPointerTy() || elementType->isIntegerTy() || elementType->isFloatTy() || elementType->isDoubleTy())
       return false;
