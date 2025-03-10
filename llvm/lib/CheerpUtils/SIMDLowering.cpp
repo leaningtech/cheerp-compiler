@@ -66,6 +66,7 @@ struct SIMDLoweringVisitor: public InstVisitor<SIMDLoweringVisitor, VectorParts>
 			return false;
 		if (vecType->getScalarSizeInBits() == 1 && !lowerAll)
 			return false;
+		llvm::errs() << "Lowering this type: [" << *type << "]\n";
 		return true;
 	}
 
@@ -1101,7 +1102,8 @@ PreservedAnalyses SIMDLoweringPass::run(Function& F, FunctionAnalysisManager& FA
 		for (auto it = F.arg_begin(); it != F.arg_end(); it++)
 			assert(!it->getType()->isVectorTy());
 	}
-	bool lowerAll = WasmNoSIMD || LinearOutput == LinearOutputTy::AsmJs;
+//	bool lowerAll = WasmNoSIMD || LinearOutput == LinearOutputTy::AsmJs;
+	bool lowerAll = true;
 	if (lowerAll)
 		removeSIMDAttribute(&F);
 

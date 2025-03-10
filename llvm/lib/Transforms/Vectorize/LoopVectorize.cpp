@@ -10610,6 +10610,8 @@ LoopVectorizeResult LoopVectorizePass::runImpl(
   }
 
   // Process each loop nest in the function.
+  if (Changed)
+    llvm::errs() << "LoopVectorizer changed [" << F.getName() << "]\n";
   return LoopVectorizeResult(Changed, CFGChanged);
 }
 

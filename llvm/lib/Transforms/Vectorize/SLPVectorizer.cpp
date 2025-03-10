@@ -10662,6 +10662,8 @@ bool SLPVectorizerPass::runImpl(Function &F, ScalarEvolution *SE_,
     R.optimizeGatherSequence();
     LLVM_DEBUG(dbgs() << "SLP: vectorized \"" << F.getName() << "\"\n");
   }
+  if (Changed)
+    llvm::errs() << "SLPVectorizer changed [" << F.getName() << "]\n";
   return Changed;
 }
 
