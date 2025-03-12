@@ -13348,6 +13348,9 @@ QualType ASTContext::adjustCheerpFunctionAddressSpace(QualType T, LangAS AS) con
 
   EPI.TypeQuals.setAddressSpace(AS);
   QualType NewType = getFunctionType(FnTy->getReturnType(), FnTy->getParamTypes(), EPI);
+  if (T.hasAddressSpace()) {
+    NewType = getAddrSpaceQualType(NewType, T.getAddressSpace());
+  }
   return getAdjustedType(T, NewType);
 }
 
