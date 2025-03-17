@@ -3426,7 +3426,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
       } else {
         QualType returnType=retCE->getType();
         Tys[0] = ConvertType(returnType);
-        elementType = ConvertType(returnType->getPointeeType());
+        elementType = ConvertTypeForMem(returnType->getPointeeType());
         unsigned AS = getContext().getTargetAddressSpace(returnType->getPointeeType().getAddressSpace());
         CallBase* CB = cheerp::createCheerpAllocate(Builder, nullptr, elementType, Size, AS);
         return RValue::get(CB);
@@ -12854,7 +12854,7 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
     if (argCE) {
       QualType ptrTy = argCE->getSubExpr()->getType();
       if (ptrTy->isPointerType() && !ptrTy->isVoidPointerType()) {
-        elementType = ConvertType(ptrTy->getPointeeType());
+        elementType = ConvertTypeForMem(ptrTy->getPointeeType());
         Ops[0]=EmitScalarExpr(argCE->getSubExpr());
       }
     }
