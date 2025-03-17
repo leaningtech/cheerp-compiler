@@ -64,7 +64,10 @@ struct PrintingPolicy {
         ConstantArraySizeAsWritten(false), AnonymousTagLocations(true),
         SuppressStrongLifetime(false), SuppressLifetimeQualifiers(false),
         SuppressTemplateArgsInCXXConstructors(false),
-        SuppressDefaultTemplateArgs(true), Bool(LO.Bool),
+        SuppressDefaultTemplateArgs(true),
+        SuppressWasmAS(LO.Cheerp && LO.getCheerpDefaultEnv()==LangOptions::CheerpDefaultEnvMode::Wasm),
+        SuppressJSAS(LO.Cheerp && LO.getCheerpDefaultEnv()==LangOptions::CheerpDefaultEnvMode::GenericJS),
+        Bool(LO.Bool),
         Nullptr(LO.CPlusPlus11 || LO.C2x), NullptrTypeInNamespace(LO.CPlusPlus),
         Restrict(LO.C99), Alignof(LO.CPlusPlus11),
         UnderscoreAlignof(LO.C11), UseVoidForZeroParams(!LO.CPlusPlus),
@@ -188,6 +191,12 @@ struct PrintingPolicy {
   /// When true, attempt to suppress template arguments that match the default
   /// argument for the parameter.
   unsigned SuppressDefaultTemplateArgs : 1;
+
+  /// When true, suppress printing of the __wasm address space in Cheerp.
+  unsigned SuppressWasmAS : 1;
+
+  /// When true, suppress printing of the __js address space in Cheerp.
+  unsigned SuppressJSAS : 1;
 
   /// Whether we can use 'bool' rather than '_Bool' (even if the language
   /// doesn't actually have 'bool', because, e.g., it is defined as a macro).

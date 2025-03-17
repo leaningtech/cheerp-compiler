@@ -2186,8 +2186,12 @@ bool Qualifiers::isEmptyWhenPrinted(const PrintingPolicy &Policy) const {
   if (getCVRQualifiers())
     return false;
 
-  if (getAddressSpace() != LangAS::Default)
-    return false;
+  if (getAddressSpace() != LangAS::Default) {
+    bool suppressAS = (getAddressSpace() == LangAS::cheerp_wasm && Policy.SuppressWasmAS) ||
+      (getAddressSpace() == LangAS::cheerp_genericjs && Policy.SuppressJSAS);
+    if (!suppressAS)
+      return false;
+  }
 
   if (getObjCGCAttr())
     return false;
@@ -2268,7 +2272,9 @@ void Qualifiers::print(raw_ostream &OS, const PrintingPolicy& Policy,
     addSpace = true;
   }
   auto ASStr = getAddrSpaceAsString(getAddressSpace());
-  if (!ASStr.empty()) {
+  bool suppressAS = (getAddressSpace() == LangAS::cheerp_wasm && Policy.SuppressWasmAS) ||
+    (getAddressSpace() == LangAS::cheerp_genericjs && Policy.SuppressJSAS);
+  if (!ASStr.empty() && !suppressAS) {
     if (addSpace)
       OS << ' ';
     addSpace = true;
