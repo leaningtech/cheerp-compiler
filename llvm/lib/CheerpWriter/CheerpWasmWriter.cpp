@@ -1022,7 +1022,6 @@ void CheerpWasmWriter::encodePredicate(const llvm::Type* ty, const llvm::CmpInst
 void CheerpWasmWriter::encodeLoad(llvm::Type* ty, uint32_t offset,
 		Align align, WasmBuffer& code, bool signExtend, bool atomic)
 {
-	assert(!(atomic && signExtend));
 	uint32_t alignBytes = Log2(std::min(align, targetData.getABITypeAlign(ty)));
 	if(ty->isIntegerTy())
 	{
@@ -1034,7 +1033,10 @@ void CheerpWasmWriter::encodeLoad(llvm::Type* ty, uint32_t offset,
 			// this be looking at a following sext or zext instruction.
 			case 8:
 				if (atomic)
+				{
+					assert(!signExtend);
 					encodeInst(WasmThreadsU32U32Opcode::I32_ATOMIC_LOAD8_U, alignBytes, offset, code);
+				}
 				else if (signExtend)
 					encodeInst(WasmU32U32Opcode::I32_LOAD8_S, alignBytes, offset, code);
 				else
@@ -1042,7 +1044,10 @@ void CheerpWasmWriter::encodeLoad(llvm::Type* ty, uint32_t offset,
 				break;
 			case 16:
 				if (atomic)
+				{
+					assert(!signExtend);
 					encodeInst(WasmThreadsU32U32Opcode::I32_ATOMIC_LOAD16_U, alignBytes, offset, code);
+				}
 				else if (signExtend)
 					encodeInst(WasmU32U32Opcode::I32_LOAD16_S, alignBytes, offset, code);
 				else
