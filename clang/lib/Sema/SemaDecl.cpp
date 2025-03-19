@@ -4301,6 +4301,8 @@ bool Sema::MergeFunctionDecl(FunctionDecl *New, NamedDecl *&OldD, Scope *S,
   // declaration, then at the very least we should use a specialized note.
   unsigned BuiltinID;
   if (Old->isImplicit() && (BuiltinID = Old->getBuiltinID())) {
+    if (LangOpts.Cheerp)
+      return false;
     // If it's actually a library-defined builtin function like 'malloc'
     // or 'printf', just warn about the incompatible redeclaration.
     if (Context.BuiltinInfo.isPredefinedLibFunction(BuiltinID)) {
