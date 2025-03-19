@@ -1201,6 +1201,13 @@ bool Sema::isSameOrCompatibleFunctionType(QualType P, QualType A) {
   if (!PF || !AF)
     return Context.hasSameType(P, A);
 
+  //CHEERP: Accept a difference in address space if one of the two is default
+  if (LangOpts.Cheerp && P.hasAddressSpace() && !A.hasAddressSpace()) {
+    P = Context.removeAddrSpaceQualType(P);
+  }
+  if (LangOpts.Cheerp && !P.hasAddressSpace() && A.hasAddressSpace()) {
+    A = Context.removeAddrSpaceQualType(A);
+  }
   // Noreturn and noexcept adjustment.
   QualType AdjustedParam;
   if (IsFunctionConversion(P, A, AdjustedParam))
