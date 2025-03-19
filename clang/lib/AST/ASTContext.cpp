@@ -5730,6 +5730,12 @@ QualType ASTContext::getTypeOfExprType(Expr *tofExpr, TypeOfKind Kind) const {
     }
   } else {
     QualType Canonical = getCanonicalType(tofExpr->getType());
+    if (getLangOpts().Cheerp && Canonical.hasAddressSpace()) {
+      Qualifiers Quals;
+      QualType Unqual = const_cast<ASTContext*>(this)->getUnqualifiedArrayType(Canonical, Quals);
+      Quals.removeAddressSpace();
+      Canonical = getQualifiedType(Unqual, Quals);
+    }
     toe = new (*this, TypeAlignment) TypeOfExprType(tofExpr, Kind, Canonical);
   }
   Types.push_back(toe);
