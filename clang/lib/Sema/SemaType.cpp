@@ -9305,7 +9305,8 @@ QualType Sema::BuildTypeofExprType(Expr *E, TypeOfKind Kind) {
     if (const TagType *TT = T->getAs<TagType>())
       DiagnoseUseOfDecl(TT->getDecl(), E->getExprLoc());
   }
-  return Context.getTypeOfExprType(E, Kind);
+  QualType Ret = Context.getTypeOfExprType(E, Kind);
+  return Ret;
 }
 
 /// getDecltypeForExpr - Given an expr, will return the decltype for
