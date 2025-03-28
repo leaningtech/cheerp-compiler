@@ -106,7 +106,7 @@ protected:
     std::string Code = ("#include \"header.h\"\n" + Input).str();
     auto Factory = newFrontendActionFactory(&MatchFinder);
     if (!runToolOnCodeWithArgs(
-            Factory->create(), Code, std::vector<std::string>(), "input.cc",
+            Factory->create(), Code, {"-target", "x86_64"}, "input.cc",
             "clang-tool", std::make_shared<PCHContainerOperations>(),
             FileContents)) {
       llvm::errs() << "Running tool failed.\n";

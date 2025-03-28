@@ -87,6 +87,8 @@ MatchVerifier<NodeType>::match(const std::string &Code,
       tooling::newFrontendActionFactory(&Finder));
 
   StringRef FileName;
+  Args.push_back("-target");
+  Args.push_back("x86_64");
   switch (L) {
   case Lang_C89:
     Args.push_back("-std=c89");
