@@ -1393,7 +1393,7 @@ void ItaniumRecordLayoutBuilder::InitializeLayout(const Decl *D) {
   bool isByteLayout = false;
   if (const RecordDecl *RD = dyn_cast<RecordDecl>(D)) {
     IsUnion = RD->isUnion();
-    isByteLayout = !Context.getTargetInfo().isByteAddressable() && RD->isByteLayout();
+    isByteLayout = Context.getLangOpts().Cheerp && RD->isByteLayout();
     if (isByteLayout)
     {
       //Check that the union can be supported
