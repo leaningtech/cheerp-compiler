@@ -63,7 +63,7 @@ protected:
         tooling::newFrontendActionFactory(&FindingAction);
 
     if (!tooling::runToolOnCodeWithArgs(
-            USRFindingActionFactory->create(), NewCode, {"-std=c++11"}, CCName,
+            USRFindingActionFactory->create(), NewCode, {"-std=c++11", "-target", "x86_64"}, CCName,
             "clang-rename", std::make_shared<PCHContainerOperations>(),
             FileContents))
       return "";
@@ -76,7 +76,7 @@ protected:
                                                   FileToReplacements);
     auto RenameActionFactory = tooling::newFrontendActionFactory(&RenameAction);
     if (!tooling::runToolOnCodeWithArgs(
-            RenameActionFactory->create(), NewCode, {"-std=c++11"}, CCName,
+            RenameActionFactory->create(), NewCode, {"-std=c++11", "-target", "x86_64"}, CCName,
             "clang-rename", std::make_shared<PCHContainerOperations>(),
             FileContents))
       return "";

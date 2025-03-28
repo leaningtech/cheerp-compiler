@@ -16,31 +16,31 @@ std::vector<std::string> getCommandLineArgsForTesting(TestLanguage Lang) {
   // Test with basic arguments.
   switch (Lang) {
   case Lang_C89:
-    Args = {"-x", "c", "-std=c89"};
+    Args = {"-x", "c", "-std=c89", "-target", "x86_64"};
     break;
   case Lang_C99:
-    Args = {"-x", "c", "-std=c99"};
+    Args = {"-x", "c", "-std=c99", "-target", "x86_64"};
     break;
   case Lang_CXX03:
-    Args = {"-std=c++03", "-frtti"};
+    Args = {"-std=c++03", "-frtti", "-target", "x86_64"};
     break;
   case Lang_CXX11:
-    Args = {"-std=c++11", "-frtti"};
+    Args = {"-std=c++11", "-frtti", "-target", "x86_64"};
     break;
   case Lang_CXX14:
-    Args = {"-std=c++14", "-frtti"};
+    Args = {"-std=c++14", "-frtti", "-target", "x86_64"};
     break;
   case Lang_CXX17:
-    Args = {"-std=c++17", "-frtti"};
+    Args = {"-std=c++17", "-frtti", "-target", "x86_64"};
     break;
   case Lang_CXX20:
-    Args = {"-std=c++20", "-frtti"};
+    Args = {"-std=c++20", "-frtti", "-target", "x86_64"};
     break;
   case Lang_OBJC:
-    Args = {"-x", "objective-c", "-frtti", "-fobjc-nonfragile-abi"};
+    Args = {"-x", "objective-c", "-frtti", "-fobjc-nonfragile-abi", "-target", "x86_64"};
     break;
   case Lang_OBJCXX:
-    Args = {"-x", "objective-c++", "-frtti"};
+    Args = {"-x", "objective-c++", "-frtti", "-target", "x86_64"};
     break;
   case Lang_OpenCL:
     llvm_unreachable("Not implemented yet!");

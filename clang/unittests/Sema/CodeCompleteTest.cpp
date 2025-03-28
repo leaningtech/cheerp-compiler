@@ -151,7 +151,7 @@ CompletionContext runCompletion(StringRef Code, size_t Offset) {
   clang::tooling::runToolOnCodeWithArgs(
       std::make_unique<CodeCompleteAction>(offsetToPosition(Code, Offset),
                                            new VisitedContextFinder(ResultCtx)),
-      Code, {"-std=c++11"}, TestCCName);
+      Code, {"-std=c++11", "-target", "x86_64"}, TestCCName);
   return ResultCtx;
 }
 

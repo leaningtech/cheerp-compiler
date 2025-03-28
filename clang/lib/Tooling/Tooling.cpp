@@ -659,6 +659,9 @@ std::unique_ptr<ASTUnit> buildASTFromCodeWithArgs(
     StringRef ToolName, std::shared_ptr<PCHContainerOperations> PCHContainerOps,
     ArgumentsAdjuster Adjuster, const FileContentMappings &VirtualMappedFiles,
     DiagnosticConsumer *DiagConsumer) {
+  std::vector<std::string> args(Args.begin(), Args.end());
+  args.push_back("-target");
+  args.push_back("x86_64");
   std::vector<std::unique_ptr<ASTUnit>> ASTs;
   ASTBuilderAction Action(ASTs);
   llvm::IntrusiveRefCntPtr<llvm::vfs::OverlayFileSystem> OverlayFileSystem(
@@ -670,7 +673,7 @@ std::unique_ptr<ASTUnit> buildASTFromCodeWithArgs(
       new FileManager(FileSystemOptions(), OverlayFileSystem));
 
   ToolInvocation Invocation(
-      getSyntaxOnlyToolArgs(ToolName, Adjuster(Args, FileName), FileName),
+      getSyntaxOnlyToolArgs(ToolName, Adjuster(args, FileName), FileName),
       &Action, Files.get(), std::move(PCHContainerOps));
   Invocation.setDiagnosticConsumer(DiagConsumer);
 
