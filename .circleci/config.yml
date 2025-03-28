@@ -198,6 +198,7 @@ jobs:
           name: Add known hosts
           command: |
             echo $RPM_HOST >> ~/.ssh/known_hosts
+            echo $HAVANA_HOST >> ~/.ssh/known_hosts
             echo $GH_HOST >> ~/.ssh/known_hosts
       - run:
           name: Set up environment
@@ -255,8 +256,9 @@ jobs:
           name: Deploy rpm package
           command: |
             cp ~/rpmbuild/RPMS/x86_64/cheerp-core-$VERSION_NO-1.el9.x86_64.rpm "$REPO_DIR/$CHAN"
-            . ~/project/cheerp-internal/tools/releasing/rpm_utils.sh
-            repo_update
+            createrepo --database ${REPO_DIR}/${CHAN}
+            rsync -a --delete-after -e 'ssh -p 2223' ${REPO_DIR}/${CHAN} leaningtech@136.243.170.209:/srv/web/rpm/
+            rsync -a --delete-after ${REPO_DIR}/${CHAN} circleci@havana.leaningtech.com:rpm/
       - when:
           condition:
             equal: [ master, << pipeline.parameters.release-tag >> ]
@@ -268,7 +270,8 @@ jobs:
                   if [ ${CHAN} == 'nightly' ]; then
                     . ~/project/cheerp-internal/tools/releasing/rpm_utils.sh
                     repo_remove_old core
-                    repo_update
+                    createrepo --database ${REPO_DIR}/${CHAN}
+                    rsync -a --delete-after ${REPO_DIR}/${CHAN} circleci@havana.leaningtech.com:rpm/
                   fi
       - persist_to_workspace:
           root: ~/
@@ -381,6 +384,7 @@ jobs:
           command: |
             mkdir -p ~/.ssh
             echo $RPM_HOST >> ~/.ssh/known_hosts
+            echo $HAVANA_HOST >> ~/.ssh/known_hosts
             echo $GH_HOST >> ~/.ssh/known_hosts
       - run:
           name: Clone dependencies
