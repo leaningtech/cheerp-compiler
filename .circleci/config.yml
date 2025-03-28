@@ -1066,7 +1066,9 @@ workflows:
             - llvm-check
           filters:
             branches:
-              only: master
+              only:
+                - master
+                - ci_deploy
       - PPA:
           requires:
             - define-version-no
