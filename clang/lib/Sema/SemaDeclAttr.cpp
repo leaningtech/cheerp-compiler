@@ -9603,7 +9603,7 @@ void Sema::ProcessPragmaWeak(Scope *S, Decl *D) {
 
 void Sema::MaybeInjectCheerpModeAttr(Decl* D, const Decl* inheritFrom) {
   // We inject the attributes only for the cheerp target
-  if (Context.getTargetInfo().isByteAddressable())
+  if (!Context.getLangOpts().Cheerp)
     return;
   // We inject the attributes only on these types of declaration
   if (!isa<FunctionDecl>(D) && !isa<TagDecl>(D) && !isa<VarDecl>(D) && !isa<TypedefDecl>(D) && !isa<FieldDecl>(D))
