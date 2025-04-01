@@ -257,8 +257,7 @@ jobs:
           command: |
             cp ~/rpmbuild/RPMS/x86_64/cheerp-core-$VERSION_NO-1.el9.x86_64.rpm "$REPO_DIR/$CHAN"
             createrepo --database ${REPO_DIR}/${CHAN}
-            rsync -a --delete-after -e 'ssh -p 2223' ${REPO_DIR}/${CHAN} leaningtech@136.243.170.209:/srv/web/rpm/
-            rsync -a --delete-after ${REPO_DIR}/${CHAN} circleci@havana.leaningtech.com:rpm/
+            rsync -a --chown circleci:runtimes --delete-after ${REPO_DIR}/${CHAN} circleci@havana.leaningtech.com:rpm/
       - when:
           condition:
             equal: [ master, << pipeline.parameters.release-tag >> ]
@@ -271,7 +270,7 @@ jobs:
                     . ~/project/cheerp-internal/tools/releasing/rpm_utils.sh
                     repo_remove_old core
                     createrepo --database ${REPO_DIR}/${CHAN}
-                    rsync -a --delete-after ${REPO_DIR}/${CHAN} circleci@havana.leaningtech.com:rpm/
+                    rsync -a --chown circleci:runtimes --delete-after ${REPO_DIR}/${CHAN} circleci@havana.leaningtech.com:rpm/
                   fi
       - persist_to_workspace:
           root: ~/
@@ -436,7 +435,7 @@ jobs:
             - run:
                 name: Upload memprofui.js
                 working_directory: ~/project/cheerp-libs-addon/
-                command: scp -P 2223 build_asmjs/memprofui.js leaningtech@136.243.170.209:/srv/web/cheerp/
+                command: rsync -a --chown circleci:runtimes --delete-after build_asmjs/memprofui.js circleci@havana.leaningtech.com:cheerp/
       - run:
           name: Generate libs packages
           working_directory: ~/project
@@ -953,7 +952,7 @@ commands:
      - run:
           working_directory: ~/
           command: |
-              rsync -a --delete-after -e 'ssh -p 2223' leaningtech@136.243.170.209:/srv/web/rpm/$CHAN ${REPO_DIR}/
+              rsync -a --delete-after circleci@havana.leaningtech.com:rpm/$CHAN ${REPO_DIR}/
   build-tblgen:
     steps:
       - run:
