@@ -553,7 +553,7 @@ static void deleteInstructionAndUnusedOperands(Instruction* I)
 	{
 		if(Instruction* opI = dyn_cast<Instruction>(op))
 		{
-			if(opI->hasOneUse())
+			if(opI->hasOneUse() && opI->isSafeToRemove())
 				operandsToErase.push_back(opI);
 		}
 	}
