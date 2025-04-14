@@ -11,7 +11,7 @@
 #if !defined(_LIBCPP_HAS_NO_THREADS) || defined(__CHEERP__)
 
 #include <condition_variable>
-#ifdef __CHEERP__
+#if defined(__CHEERP__) && !defined(__ASMJS__)
 #include <cheerp/client.h>
 #else
 #include <thread>
@@ -32,7 +32,7 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 void
 condition_variable::notify_one() noexcept
 {
-#ifndef __CHEERP__
+#if !(defined(__CHEERP__) && !defined(__ASMJS__))
     __libcpp_condvar_signal(&__cv_);
 #endif
 }
@@ -40,7 +40,7 @@ condition_variable::notify_one() noexcept
 void
 condition_variable::notify_all() noexcept
 {
-#ifndef __CHEERP__
+#if !(defined(__CHEERP__) && !defined(__ASMJS__))
     __libcpp_condvar_broadcast(&__cv_);
 #endif
 }
@@ -51,7 +51,7 @@ condition_variable::wait(unique_lock<mutex>& lk) noexcept
     if (!lk.owns_lock())
         __throw_system_error(EPERM,
                                   "condition_variable::wait: mutex not locked");
-#ifdef __CHEERP__
+#if defined(__CHEERP__) && !defined(__ASMJS__)
     cheerp::console_log("Cheerp: condition_variable::wait can't block");
 #else
     int ec = __libcpp_condvar_wait(&__cv_, lk.mutex()->native_handle());
@@ -68,7 +68,7 @@ condition_variable::__do_timed_wait(unique_lock<mutex>& lk,
     if (!lk.owns_lock())
         __throw_system_error(EPERM,
                             "condition_variable::timed wait: mutex not locked");
-#ifdef __CHEERP__
+#if defined(__CHEERP__) && !defined(__ASMJS__)
     cheerp::console_log("Cheerp: condition_variable::timed_wait can't block");
 #else
     nanoseconds d = tp.time_since_epoch();
@@ -97,7 +97,7 @@ condition_variable::__do_timed_wait(unique_lock<mutex>& lk,
 void
 notify_all_at_thread_exit(condition_variable& cond, unique_lock<mutex> lk)
 {
-#ifndef __CHEERP__
+#if !(defined(__CHEERP__) && !defined(__ASMJS__))
     auto& tl_ptr = __thread_local_data();
     // If this thread was not created using std::thread then it will not have
     // previously allocated.

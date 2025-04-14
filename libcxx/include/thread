@@ -250,7 +250,7 @@ public:
 
     _LIBCPP_INLINE_VISIBILITY
     thread& operator=(thread&& __t) _NOEXCEPT {
-#ifndef __CHEERP__
+#if !(defined(__CHEERP__) && !defined(__ASMJS__))
         if (!__libcpp_thread_isnull(&__t_))
             terminate();
 #endif
@@ -404,7 +404,7 @@ sleep_until(const chrono::time_point<chrono::steady_clock, _Duration>& __t)
 }
 
 inline _LIBCPP_INLINE_VISIBILITY
-#ifdef __CHEERP__
+#if defined(__CHEERP__) && !defined(__ASMJS__)
 void yield() _NOEXCEPT {}
 #else
 void yield() _NOEXCEPT {__libcpp_thread_yield();}

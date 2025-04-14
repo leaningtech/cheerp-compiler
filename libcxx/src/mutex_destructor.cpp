@@ -43,7 +43,7 @@ public:
 
 mutex::~mutex() noexcept
 {
-#ifndef __CHEERP__
+#if !(defined(__CHEERP__) && !defined(__ASMJS__))
     __libcpp_mutex_destroy(&__m_);
 #endif
 }
