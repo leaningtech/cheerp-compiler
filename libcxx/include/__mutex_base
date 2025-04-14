@@ -34,7 +34,7 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 
 class _LIBCPP_TYPE_VIS _LIBCPP_THREAD_SAFETY_ANNOTATION(capability("mutex")) mutex
 {
-#ifdef __CHEERP__
+#if defined(__CHEERP__) && !defined(__ASMJS__)
     int __m_ = 0;
 #else
     __libcpp_mutex_t __m_ = _LIBCPP_MUTEX_INITIALIZER;
@@ -57,7 +57,7 @@ public:
     bool try_lock() _NOEXCEPT _LIBCPP_THREAD_SAFETY_ANNOTATION(try_acquire_capability(true));
     void unlock() _NOEXCEPT _LIBCPP_THREAD_SAFETY_ANNOTATION(release_capability());
 
-#ifdef __CHEERP__
+#if defined(__CHEERP__) && !defined(__ASMJS__)
     typedef int* native_handle_type;
 #else
     typedef __libcpp_mutex_t* native_handle_type;
@@ -282,7 +282,7 @@ _LIBCPP_DECLARE_STRONG_ENUM_EPILOG(cv_status)
 
 class _LIBCPP_TYPE_VIS condition_variable
 {
-#ifndef __CHEERP__
+#if !(defined(__CHEERP__) && !defined(__ASMJS__))
     __libcpp_condvar_t __cv_ = _LIBCPP_CONDVAR_INITIALIZER;
 #endif
 public:
@@ -332,7 +332,7 @@ public:
                  const chrono::duration<_Rep, _Period>& __d,
                  _Predicate __pred);
 
-#ifndef __CHEERP__
+#if !(defined(__CHEERP__) && !defined(__ASMJS__))
     typedef __libcpp_condvar_t* native_handle_type;
     _LIBCPP_INLINE_VISIBILITY native_handle_type native_handle() {return &__cv_;}
 #endif

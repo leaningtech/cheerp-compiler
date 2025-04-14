@@ -1457,7 +1457,7 @@ struct __libcpp_atomic_wait_backoff_impl {
                 return true;
             __libcpp_atomic_wait(__a, __monitor);
         }
-#ifndef __CHEERP__
+#if !(defined(__CHEERP__) && !defined(__ASMJS__))
         else if(__elapsed > chrono::microseconds(4))
             __libcpp_thread_yield();
 #endif
@@ -1467,7 +1467,7 @@ struct __libcpp_atomic_wait_backoff_impl {
     }
 };
 
-#ifndef __CHEERP__
+#if !(defined(__CHEERP__) && !defined(__ASMJS__))
 template <class _Atp, class _Fn>
 _LIBCPP_AVAILABILITY_SYNC
 _LIBCPP_INLINE_VISIBILITY bool __cxx_atomic_wait(_Atp* __a, _Fn && __test_fn)
@@ -1502,7 +1502,7 @@ struct __cxx_atomic_wait_test_fn_impl {
     }
 };
 
-#ifndef __CHEERP__
+#if !(defined(__CHEERP__) && !defined(__ASMJS__))
 template <class _Atp, class _Tp>
 _LIBCPP_AVAILABILITY_SYNC
 _LIBCPP_INLINE_VISIBILITY bool __cxx_atomic_wait(_Atp* __a, _Tp const __val, memory_order __order)
@@ -2368,7 +2368,7 @@ typedef struct atomic_flag
     void clear(memory_order __m = memory_order_seq_cst) _NOEXCEPT
         {__cxx_atomic_store(&__a_, _LIBCPP_ATOMIC_FLAG_TYPE(false), __m);}
 
-#ifndef __CHEERP__
+#if !(defined(__CHEERP__) && !defined(__ASMJS__))
     _LIBCPP_AVAILABILITY_SYNC _LIBCPP_INLINE_VISIBILITY
     void wait(bool __v, memory_order __m = memory_order_seq_cst) const volatile _NOEXCEPT
         {__cxx_atomic_wait(&__a_, _LIBCPP_ATOMIC_FLAG_TYPE(__v), __m);}
@@ -2491,7 +2491,7 @@ atomic_flag_clear_explicit(atomic_flag* __o, memory_order __m) _NOEXCEPT
     __o->clear(__m);
 }
 
-#ifndef __CHEERP__
+#if !(defined(__CHEERP__) && !defined(__ASMJS__))
 inline _LIBCPP_INLINE_VISIBILITY _LIBCPP_AVAILABILITY_SYNC
 void
 atomic_flag_wait(const volatile atomic_flag* __o, bool __v) _NOEXCEPT
@@ -2596,7 +2596,7 @@ typedef atomic<int_least16_t>  atomic_int_least16_t;
 typedef atomic<uint_least16_t> atomic_uint_least16_t;
 typedef atomic<int_least32_t>  atomic_int_least32_t;
 typedef atomic<uint_least32_t> atomic_uint_least32_t;
-#ifndef __CHEERP__
+#if !(defined(__CHEERP__) && !defined(__ASMJS__))
 typedef atomic<int_least64_t>  atomic_int_least64_t;
 typedef atomic<uint_least64_t> atomic_uint_least64_t;
 #endif
@@ -2607,7 +2607,7 @@ typedef atomic<int_fast16_t>  atomic_int_fast16_t;
 typedef atomic<uint_fast16_t> atomic_uint_fast16_t;
 typedef atomic<int_fast32_t>  atomic_int_fast32_t;
 typedef atomic<uint_fast32_t> atomic_uint_fast32_t;
-#ifndef __CHEERP__
+#if !(defined(__CHEERP__) && !defined(__ASMJS__))
 typedef atomic<int_fast64_t>  atomic_int_fast64_t;
 typedef atomic<uint_fast64_t> atomic_uint_fast64_t;
 #endif
@@ -2653,7 +2653,7 @@ typedef __conditional_t<_LIBCPP_CONTENTION_LOCK_FREE, __cxx_contention_t, unsign
 #define _LIBCPP_NO_LOCK_FREE_TYPES
 #endif
 
-#ifndef __CHEERP__
+#if !(defined(__CHEERP__) && !defined(__ASMJS__))
 #if !defined(_LIBCPP_NO_LOCK_FREE_TYPES)
 typedef atomic<__libcpp_signed_lock_free> atomic_signed_lock_free;
 typedef atomic<__libcpp_unsigned_lock_free> atomic_unsigned_lock_free;

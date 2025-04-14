@@ -35,7 +35,7 @@ const adopt_lock_t  adopt_lock{};
 void
 mutex::lock()
 {
-#ifdef __CHEERP__
+#if defined(__CHEERP__) && !defined(__ASMJS__)
     if(__m_)
       cheerp::console_log("Cheerp: mutex::lock can't block");
     else
@@ -50,7 +50,7 @@ mutex::lock()
 bool
 mutex::try_lock() noexcept
 {
-#ifdef __CHEERP__
+#if defined(__CHEERP__) && !defined(__ASMJS__)
     if(__m_)
       return false;
     else
@@ -66,7 +66,7 @@ mutex::try_lock() noexcept
 void
 mutex::unlock() noexcept
 {
-#ifdef __CHEERP__
+#if defined(__CHEERP__) && !defined(__ASMJS__)
     __m_--;
 #else
     int ec = __libcpp_mutex_unlock(&__m_);
@@ -79,7 +79,7 @@ mutex::unlock() noexcept
 
 recursive_mutex::recursive_mutex()
 {
-#ifdef __CHEERP__
+#if defined(__CHEERP__) && !defined(__ASMJS__)
     __m_ = 0;
 #else
     int ec = __libcpp_recursive_mutex_init(&__m_);
@@ -90,7 +90,8 @@ recursive_mutex::recursive_mutex()
 
 recursive_mutex::~recursive_mutex()
 {
-#ifndef __CHEERP__
+
+#if !(defined(__CHEERP__) && !defined(__ASMJS__))
     int e = __libcpp_recursive_mutex_destroy(&__m_);
     (void)e;
     _LIBCPP_ASSERT(e == 0, "call to ~recursive_mutex() failed");
@@ -100,7 +101,7 @@ recursive_mutex::~recursive_mutex()
 void
 recursive_mutex::lock()
 {
-#ifdef __CHEERP__
+#if defined(__CHEERP__) && !defined(__ASMJS__)
     __m_++;
 #else
     int ec = __libcpp_recursive_mutex_lock(&__m_);
@@ -112,7 +113,7 @@ recursive_mutex::lock()
 void
 recursive_mutex::unlock() noexcept
 {
-#ifdef __CHEERP__
+#if defined(__CHEERP__) && !defined(__ASMJS__)
     __m_--;
 #else
     int e = __libcpp_recursive_mutex_unlock(&__m_);
@@ -124,7 +125,7 @@ recursive_mutex::unlock() noexcept
 bool
 recursive_mutex::try_lock() noexcept
 {
-#ifdef __CHEERP__
+#if defined(__CHEERP__) && !defined(__ASMJS__)
     __m_++;
     return true;
 #else
@@ -148,7 +149,7 @@ void
 timed_mutex::lock()
 {
     unique_lock<mutex> lk(__m_);
-#ifdef __CHEERP__
+#if defined(__CHEERP__) && !defined(__ASMJS__)
     if (__locked_)
         cheerp::console_log("Cheerp: timed_mutex::lock can't block");
 #else
@@ -175,7 +176,7 @@ timed_mutex::unlock() noexcept
 {
     lock_guard<mutex> _(__m_);
     __locked_ = false;
-#ifndef __CHEERP__
+#if !(defined(__CHEERP__) && !defined(__ASMJS__))
     __cv_.notify_one();
 #endif
 }
@@ -184,7 +185,7 @@ timed_mutex::unlock() noexcept
 
 recursive_timed_mutex::recursive_timed_mutex()
     : __count_(0)
-#ifndef __CHEERP__
+#if !(defined(__CHEERP__) && !defined(__ASMJS__))
       ,__id_{}
 #endif
 {
@@ -198,11 +199,11 @@ recursive_timed_mutex::~recursive_timed_mutex()
 void
 recursive_timed_mutex::lock()
 {
-#ifndef __CHEERP__
+#if !(defined(__CHEERP__) && !defined(__ASMJS__))
     __thread_id id = this_thread::get_id();
 #endif
     unique_lock<mutex> lk(__m_);
-#ifndef __CHEERP__
+#if !(defined(__CHEERP__) && !defined(__ASMJS__))
     if (id ==__id_)
 #endif
     {
@@ -211,7 +212,7 @@ recursive_timed_mutex::lock()
         ++__count_;
         return;
     }
-#ifndef __CHEERP__
+#if !(defined(__CHEERP__) && !defined(__ASMJS__))
     while (__count_ != 0)
         __cv_.wait(lk);
     __count_ = 1;
@@ -222,11 +223,11 @@ recursive_timed_mutex::lock()
 bool
 recursive_timed_mutex::try_lock() noexcept
 {
-#ifndef __CHEERP__
+#if !(defined(__CHEERP__) && !defined(__ASMJS__))
     __thread_id id = this_thread::get_id();
 #endif
     unique_lock<mutex> lk(__m_, try_to_lock);
-#ifdef __CHEERP__
+#if defined(__CHEERP__) && !defined(__ASMJS__)
     return true;
 #else
     if (lk.owns_lock() && (__count_ == 0 || id == __id_))
@@ -247,11 +248,11 @@ recursive_timed_mutex::unlock() noexcept
     unique_lock<mutex> lk(__m_);
     if (--__count_ == 0)
     {
-#ifndef __CHEERP__
+#if !(defined(__CHEERP__) && !defined(__ASMJS__))
         __id_.__reset();
 #endif
         lk.unlock();
-#ifndef __CHEERP__
+#if !(defined(__CHEERP__) && !defined(__ASMJS__))
         __cv_.notify_one();
 #endif
     }

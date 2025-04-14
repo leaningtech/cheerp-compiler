@@ -39,7 +39,7 @@ public:
 
 condition_variable::~condition_variable()
 {
-#ifndef __CHEERP__
+#if !(defined(__CHEERP__) && !defined(__ASMJS__))
     __libcpp_condvar_destroy(&__cv_);
 #endif
 }
