@@ -898,7 +898,7 @@ TargetCXXABI::Kind ASTContext::getCXXABIKind() const {
 }
 
 CXXABI *ASTContext::createCXXABI(const TargetInfo &T) {
-  if (!LangOpts.CPlusPlus && T.isByteAddressable()) return nullptr;
+  if (!LangOpts.CPlusPlus && !LangOpts.Cheerp) return nullptr;
 
   switch (getCXXABIKind()) {
   case TargetCXXABI::AppleARM64:

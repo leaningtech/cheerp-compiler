@@ -7036,7 +7036,7 @@ ExprResult Sema::BuildResolvedCallExpr(Expr *Fn, NamedDecl *NDecl,
   }
 
   bool asmjs = FDecl && FDecl->hasAttr<AsmJSAttr>();
-  if (!Context.getTargetInfo().isByteAddressable() && !asmjs) {
+  if (getLangOpts().Cheerp && !asmjs) {
     // Cheerp: Disable some type-unsafe C functions
     switch (BuiltinID) {
       case Builtin::BIbsearch:
@@ -8429,7 +8429,7 @@ static QualType checkConditionalPointerCompatibility(Sema &S, ExprResult &LHS,
   // which is a superset of address spaces of both the 2nd and the 3rd
   // operands of the conditional operator.
   QualType ResultTy = [&, ResultAddrSpace]() {
-    if (S.getLangOpts().OpenCL || !S.Context.getTargetInfo().isByteAddressable()) {
+    if (S.getLangOpts().OpenCL || S.getLangOpts().Cheerp) {
       Qualifiers CompositeQuals = CompositeTy.getQualifiers();
       CompositeQuals.setAddressSpace(ResultAddrSpace);
       return S.Context

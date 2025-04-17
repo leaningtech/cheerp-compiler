@@ -17755,7 +17755,7 @@ void Sema::ActOnTagFinishDefinition(Scope *S, Decl *TagD,
     }
   }
 
-  if (!Context.getTargetInfo().isByteAddressable() &&
+  if (getLangOpts().Cheerp &&
       isa<CXXRecordDecl>(Tag) && Tag->getDeclContext()->isClientNamespace()) {
     CXXRecordDecl* RD = cast<CXXRecordDecl>(Tag);
     if (!hasClientLayout(RD)) {
