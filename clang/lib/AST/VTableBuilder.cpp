@@ -265,7 +265,7 @@ static BaseOffset ComputeBaseOffset(const ASTContext &Context,
   // FIXME: This should probably use CharUnits or something. Maybe we should
   // even change the base offsets in ASTRecordLayout to be specified in
   // CharUnits.
-  return BaseOffset(Context.getTargetInfo().isByteAddressable(),
+  return BaseOffset(!Context.getLangOpts().Cheerp,
                  DerivedRD, BaseClass, VirtualBase, NonVirtualOffset);
   
 }
@@ -1493,7 +1493,7 @@ void ItaniumVTableBuilder::ComputeThisAdjustments(uint32_t VCallStartIndex) {
 
 ReturnAdjustment
 ItaniumVTableBuilder::ComputeReturnAdjustment(BaseOffset Offset) {
-  ReturnAdjustment Adjustment(Context.getTargetInfo().isByteAddressable(),
+  ReturnAdjustment Adjustment(!Context.getLangOpts().Cheerp,
                            Offset.BaseClass, Offset.DerivedClass);
   
   if (!Offset.isEmpty()) {
@@ -1595,7 +1595,7 @@ ThisAdjustment ItaniumVTableBuilder::ComputeThisAdjustment(
     if (VCallOffsets.empty()) {
       // We don't have vcall offsets for this virtual base, go ahead and
       // build them.
-      if (Context.getTargetInfo().isByteAddressable()) {
+      if (!Context.getLangOpts().Cheerp) {
         VCallAndVBaseOffsetBuilder Builder(
           VTables, MostDerivedClass, MostDerivedClass,
           /*Overriders=*/nullptr,
@@ -1933,7 +1933,7 @@ uint32_t ItaniumVTableBuilder::AddMethods(
     AddMethod(Overrider.Method, MD, ReturnAdjustment);
     methodCount += Components.size() - componentsPrev;
   }
-  if (!Context.getTargetInfo().isByteAddressable()) {
+  if (Context.getLangOpts().Cheerp) {
     uint32_t VBaseStartIndex = Components.size() - StartIndex + 1 + RD->hasAttr<AsmJSAttr>();
     VBaseOffsetBuilder Builder(LayoutClass, Base.getBase(), VBaseStartIndex, VisitedVirtualBases, FirstBaseOffsetInLayoutClass);
     Components.append(Builder.components_begin(), Builder.components_end());
@@ -1979,13 +1979,13 @@ void ItaniumVTableBuilder::LayoutPrimaryAndSecondaryVTables(
       BaseIsVirtualInLayoutClass, OffsetInLayoutClass);
 
   uint64_t AddressPoint = 0;
-  bool isByteAddressable = Context.getTargetInfo().isByteAddressable();
-  if(isByteAddressable) {
+  bool Cheerp = Context.getLangOpts().Cheerp;
+  if(!Cheerp) {
     Components.append(Builder.components_begin(), Builder.components_end());
   }
   
   // Check if we need to add these vcall offsets.
-  if (isByteAddressable && BaseIsVirtualInLayoutClass && !Builder.getVCallOffsets().empty()) {
+  if (!Cheerp && BaseIsVirtualInLayoutClass && !Builder.getVCallOffsets().empty()) {
     VCallOffsetMap &VCallOffsets = VCallOffsetsForVBases[Base.getBase()];
 
     if (VCallOffsets.empty())
@@ -1994,16 +1994,16 @@ void ItaniumVTableBuilder::LayoutPrimaryAndSecondaryVTables(
 
   // If we're laying out the most derived class we want to keep track of the
   // virtual base class offset offsets.
-  if (Base.getBase() == MostDerivedClass && isByteAddressable)
+  if (Base.getBase() == MostDerivedClass && !Cheerp)
     VBaseOffsetOffsets = Builder.getVBaseOffsetOffsets();
 
   bool asmjs = Base.getBase()->hasAttr<AsmJSAttr>();
   // On Cheerp we want the vtable pointer to start from 0 when possible
-  if(!isByteAddressable) {
+  if(Cheerp) {
     AddressPoint = Components.size();
   }
   // Add the offset to top.
-  if(isByteAddressable || asmjs) {
+  if(!Cheerp || asmjs) {
     CharUnits OffsetToTop = MostDerivedClassOffset - OffsetInLayoutClass;
     Components.push_back(VTableComponent::MakeOffsetToTop(OffsetToTop));
   }
@@ -2011,7 +2011,7 @@ void ItaniumVTableBuilder::LayoutPrimaryAndSecondaryVTables(
   // Next, add the RTTI.
   Components.push_back(VTableComponent::MakeRTTI(MostDerivedClass));
 
-  if(isByteAddressable) {
+  if(!Cheerp) {
     AddressPoint = Components.size();
   }
 
@@ -2043,7 +2043,7 @@ void ItaniumVTableBuilder::LayoutPrimaryAndSecondaryVTables(
     }
   }
   uint32_t VCallStartIndex = Components.size()-AddressPoint;
-  if(!isByteAddressable)
+  if(Cheerp)
   {
     VCallOffsetBuilder Builder(MostDerivedClass, LayoutClass, &Overriders,
                                        Base, BaseIsVirtualInLayoutClass, 
@@ -3456,7 +3456,7 @@ void VFTableBuilder::AddMethods(BaseSubobject Base, unsigned BaseDepth,
     // Check if this overrider needs a return adjustment.
     // We don't want to do this for pure virtual member functions.
     BaseOffset ReturnAdjustmentOffset;
-    ReturnAdjustment ReturnAdjustment(Context.getTargetInfo().isByteAddressable(),
+    ReturnAdjustment ReturnAdjustment(!Context.getLangOpts().Cheerp,
                                    ReturnAdjustmentOffset.DerivedClass,
                                    ReturnAdjustmentOffset.BaseClass);
     if (!FinalOverriderMD->isPure()) {

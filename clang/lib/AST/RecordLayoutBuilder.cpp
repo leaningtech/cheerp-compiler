@@ -891,7 +891,7 @@ void ItaniumRecordLayoutBuilder::DeterminePrimaryBase(const CXXRecordDecl *RD) {
   // CHEERP: Unlike in the true Itanium ABI, we cannot share the vtable with a
   // virtual base because they don't have compatible layouts
   // So virtual bases can never be primary bases.
-  if (!Context.getTargetInfo().isByteAddressable())
+  if (Context.getLangOpts().Cheerp)
     return;
   // Under the Itanium ABI, if there is no non-virtual primary base class,
   // try to compute the primary virtual base.  The primary virtual base is
@@ -2296,7 +2296,7 @@ void ItaniumRecordLayoutBuilder::FinishLayout(const NamedDecl *D) {
   // Set the size to the final size.
   setSize(RoundedSize);
   // On non-byte addressable architecture we can't reuse the eventual spare bits, so skip them
-  if (!Context.getTargetInfo().isByteAddressable())
+  if (Context.getLangOpts().Cheerp)
     setDataSize(llvm::alignTo(getDataSizeInBits(), Context.toBits(Alignment)));
 
   unsigned CharBitNum = Context.getTargetInfo().getCharWidth();
