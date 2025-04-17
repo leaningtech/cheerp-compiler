@@ -997,7 +997,7 @@ bool Sema::CheckCXXThrowOperand(SourceLocation ThrowLoc,
     return false;
 
   // Cheerp: disallow throwing pointers to client objects
-  if (!Context.getTargetInfo().isByteAddressable() && isPointer && RD->isClientNamespace()) {
+  if (getLangOpts().Cheerp && isPointer && RD->isClientNamespace()) {
     Diag(ThrowLoc, diag::err_cheerp_throw_client) << Ty;
   }
 
@@ -2126,7 +2126,7 @@ Sema::BuildCXXNew(SourceRange Range, bool UseGlobal,
     }
   }
 
-  if (!Context.getTargetInfo().isByteAddressable()) {
+  if (getLangOpts().Cheerp) {
     AllocType = deduceCheerpPointeeAddrSpace(AllocType);
   }
 
@@ -2523,7 +2523,7 @@ bool Sema::CheckAllocatedType(QualType AllocType, SourceLocation Loc,
     return Diag(Loc, diag::err_variably_modified_new_type)
              << AllocType;
   else if (AllocType.getAddressSpace() != LangAS::Default &&
-           Context.getTargetInfo().isByteAddressable() &&
+           !getLangOpts().Cheerp &&
            !getLangOpts().OpenCLCPlusPlus)
     return Diag(Loc, diag::err_address_space_qualified_new)
       << AllocType.getUnqualifiedType()
@@ -3245,7 +3245,7 @@ void Sema::DeclareGlobalAllocationFunction(DeclarationName Name,
                      ? VisibilityAttr::Hidden
                      : VisibilityAttr::Default));
 
-    if(!Context.getTargetInfo().isByteAddressable())
+    if(getLangOpts().Cheerp)
       Alloc->addAttr(DefaultNewAttr::CreateImplicit(Context, SourceLocation(), AttributeCommonInfo::AS_GNU, DefaultNewAttr::GNU_cheerp_default_new));
 
     bool IsNew = (Name.getCXXOverloadedOperator() == OO_New ||
@@ -3765,7 +3765,7 @@ Sema::ActOnCXXDelete(SourceLocation StartLoc, bool UseGlobal,
         if (const RecordType *RT = PointeeElem->getAs<RecordType>()) {
           PointeeRD = cast<CXXRecordDecl>(RT->getDecl());
           DeclContext* Owner = PointeeRD->getDeclContext();
-          if(!Context.getTargetInfo().isByteAddressable() && isa<NamespaceDecl>(Owner) && cast<NamespaceDecl>(Owner)->getDeclName().getAsString() == "client") {
+          if(getLangOpts().Cheerp && isa<NamespaceDecl>(Owner) && cast<NamespaceDecl>(Owner)->getDeclName().getAsString() == "client") {
             return ExprError(Diag(StartLoc, diag::err_cheerp_delete_client) << Ex.get()->getSourceRange());
           }
         }

@@ -5321,7 +5321,7 @@ bool Sema::SetCtorInitializers(CXXConstructorDecl *Constructor, bool AnyErrors,
           = Info.AllBaseFields.lookup(Base.getType()->getAs<RecordType>())) {
       Info.AllToInit.push_back(Value);
     } else if (!AnyErrors) {
-      if (!Context.getTargetInfo().isByteAddressable() &&
+      if (getLangOpts().Cheerp &&
           ClassDecl->getDeclContext()->isClientNamespace() &&
           &Base == ClassDecl->bases_begin() &&
           Base.getType()->isRecordType() &&
@@ -5352,7 +5352,7 @@ bool Sema::SetCtorInitializers(CXXConstructorDecl *Constructor, bool AnyErrors,
       Info.AllToInit.push_back(CXXBaseInit);
     }
   }
-  if (!Context.getTargetInfo().isByteAddressable() &&
+  if (getLangOpts().Cheerp &&
       ClassDecl->getDeclContext()->isClientNamespace() &&
       ClassDecl->bases_begin() == ClassDecl->bases_end() &&
       !Constructor->isDelegatingConstructor())
@@ -11540,7 +11540,7 @@ void Sema::ActOnFinishNamespaceDef(Decl *Dcl, SourceLocation RBrace) {
     Dcl->setModuleOwnershipKind(Decl::ModuleOwnershipKind::VisibleWhenImported);
 
   // CHEERP: Check namespace client is either implicitly or explicitly tagged genericjs
-  if (!Context.getTargetInfo().isByteAddressable() && Namespc->isActualClientNamespace()) {
+  if (getLangOpts().Cheerp && Namespc->isActualClientNamespace()) {
     if (Namespc->hasAttr<AsmJSAttr>())
       Diag(Namespc->getBeginLoc(), diag::err_cheerp_client_with_explicit_asmjs)
         << Namespc->getAttr<AsmJSAttr>();
@@ -16315,7 +16315,7 @@ CheckOperatorNewDeleteTypes(Sema &SemaRef, const FunctionDecl *FnDecl,
   QualType ResultType =
       FnDecl->getType()->castAs<FunctionType>()->getReturnType();
 
-  if (SemaRef.getLangOpts().OpenCLCPlusPlus || !SemaRef.Context.getTargetInfo().isByteAddressable()) {
+  if (SemaRef.getLangOpts().OpenCLCPlusPlus || SemaRef.getLangOpts().Cheerp) {
     // The operator is valid on any address space for OpenCL.
     // Drop address space from actual and expected result types.
     if (const auto *PtrTy = ResultType->getAs<PointerType>())
@@ -16350,7 +16350,7 @@ CheckOperatorNewDeleteTypes(Sema &SemaRef, const FunctionDecl *FnDecl,
       << FnDecl->getDeclName();
 
   QualType FirstParamType = FnDecl->getParamDecl(0)->getType();
-  if (SemaRef.getLangOpts().OpenCLCPlusPlus || !SemaRef.Context.getTargetInfo().isByteAddressable()) {
+  if (SemaRef.getLangOpts().OpenCLCPlusPlus || SemaRef.getLangOpts().Cheerp) {
     // The operator is valid on any address space for OpenCL.
     // Drop address space from actual and expected first parameter types.
     if (const auto *PtrTy =
@@ -17111,7 +17111,7 @@ Decl *Sema::ActOnExceptionDeclarator(Scope *S, Declarator &D) {
   }
 
   // Cheerp: disallow catching pointers to client objects
-  if (!Context.getTargetInfo().isByteAddressable()) {
+  if (getLangOpts().Cheerp) {
 
 	QualType Ty = TInfo->getType();
 	bool isPointer = false;

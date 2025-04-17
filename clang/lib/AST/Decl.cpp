@@ -4310,7 +4310,7 @@ unsigned FieldDecl::getBitWidthValue(const ASTContext &Ctx) const {
   if (getType()->isDependentType())
     return FieldSize;
   unsigned TypeSize = Ctx.getTypeInfo(getType()).Width;
-  if (!Ctx.getTargetInfo().isByteAddressable() && FieldSize > TypeSize)
+  if (Ctx.getLangOpts().Cheerp && FieldSize > TypeSize)
   {
     //On NBA targets bitfield padding is useless, remove it
     FieldSize = TypeSize;

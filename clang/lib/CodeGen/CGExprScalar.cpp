@@ -2042,7 +2042,7 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
     Address Addr = EmitLValue(E).getAddress(CGF);
     llvm::Type* DestType = ConvertType(CGF.getContext().getPointerType(DestTy));
     bool asmjs = CGF.CurFn && CGF.CurFn->getSection()==StringRef("asmjs");
-    if (CGF.getTarget().isByteAddressable() || DestType==Addr.getType() || asmjs)
+    if (!CGF.getLangOpts().Cheerp || DestType==Addr.getType() || asmjs)
     {
       Addr = Builder.CreateElementBitCast(Addr, CGF.ConvertTypeForMem(DestTy));
     }
@@ -2197,7 +2197,7 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
     bool srcIsFunc = E->getType()->isFunctionPointerType();
     bool dstIsFunc = DestTy->isFunctionPointerType();
     //We don't care about casts to functions types
-    if (SrcTy->isVectorTy() || DstTy->isVectorTy() || CGF.getTarget().isByteAddressable() || isa<llvm::ConstantPointerNull>(Src) ||
+    if (SrcTy->isVectorTy() || DstTy->isVectorTy() || !CGF.getLangOpts().Cheerp || isa<llvm::ConstantPointerNull>(Src) ||
         (srcIsFunc && dstIsFunc) || DstTy == SrcTy || asmjs)
     {
       // See below
