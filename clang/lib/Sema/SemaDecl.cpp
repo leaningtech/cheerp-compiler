@@ -6934,6 +6934,8 @@ void Sema::deduceOpenCLAddressSpace(ValueDecl *Decl) {
 }
 
 void Sema::deduceCheerpAddressSpace(ValueDecl *Decl) {
+  if (isa<FieldDecl>(Decl))
+    return;
   if (Decl->getType().hasAddressSpace())
     return;
   QualType Type = Decl->getType();
