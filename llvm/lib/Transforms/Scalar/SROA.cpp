@@ -1477,7 +1477,7 @@ static void speculateSelectInstLoads(IRBuilderTy &IRB, SelectInst &SI) {
 ///
 /// This will return the BasePtr if that is valid, or build a new GEP
 /// instruction using the IRBuilder if GEP-ing is needed.
-static Value *buildGEP(IRBuilderTy &IRB, Value *BasePtr,
+static Value *buildGEP(IRBuilderTy &IRB, Value *BasePtr, Type *Ty,
                        SmallVectorImpl<Value *> &Indices,
                        const Twine &NamePrefix) {
   if (Indices.empty())
@@ -1488,9 +1488,8 @@ static Value *buildGEP(IRBuilderTy &IRB, Value *BasePtr,
   if (Indices.size() == 1 && cast<ConstantInt>(Indices.back())->isZero())
     return BasePtr;
 
-  // buildGEP() is only called for non-opaque pointers.
   return IRB.CreateInBoundsGEP(
-      BasePtr->getType()->getNonOpaquePointerElementType(), BasePtr, Indices,
+      Ty, BasePtr, Indices,
       NamePrefix + "sroa_idx");
 }
 
@@ -1504,11 +1503,12 @@ static Value *buildGEP(IRBuilderTy &IRB, Value *BasePtr,
 /// one with the same size. If none of that works, we just produce the GEP as
 /// indicated by Indices to have the correct offset.
 static Value *getNaturalGEPWithType(IRBuilderTy &IRB, const DataLayout &DL,
-                                    Value *BasePtr, Type *Ty, Type *TargetTy,
+                                    Value *BasePtr, Type *BaseElementTy, Type *Ty, Type *TargetTy,
                                     SmallVectorImpl<Value *> &Indices,
                                     const Twine &NamePrefix) {
+
   if (Ty == TargetTy)
-    return buildGEP(IRB, BasePtr, Indices, NamePrefix);
+    return buildGEP(IRB, BasePtr, BaseElementTy, Indices, NamePrefix);
 
   // Offset size to use for the indices.
   unsigned OffsetSize = DL.getIndexTypeSizeInBits(BasePtr->getType());
@@ -1540,7 +1540,7 @@ static Value *getNaturalGEPWithType(IRBuilderTy &IRB, const DataLayout &DL,
   if (ElementTy != TargetTy)
     Indices.erase(Indices.end() - NumLayers, Indices.end());
 
-  return buildGEP(IRB, BasePtr, Indices, NamePrefix);
+  return buildGEP(IRB, BasePtr, BaseElementTy, Indices, NamePrefix);
 }
 
 /// Get a natural GEP from a base pointer to a particular offset and
@@ -1554,28 +1554,32 @@ static Value *getNaturalGEPWithType(IRBuilderTy &IRB, const DataLayout &DL,
 ///
 /// If no natural GEP can be constructed, this function returns null.
 static Value *getNaturalGEPWithOffset(IRBuilderTy &IRB, const DataLayout &DL,
-                                      Value *Ptr, APInt Offset, Type *TargetTy,
+                                      Value *Ptr, Type *ElementTy, APInt Offset, Type *TargetTy,
                                       SmallVectorImpl<Value *> &Indices,
                                       const Twine &NamePrefix) {
-  PointerType *Ty = cast<PointerType>(Ptr->getType());
-
   // Don't consider any GEPs through an i8* as natural unless the TargetTy is
   // an i8.
-  if (Ty == IRB.getInt8PtrTy(Ty->getAddressSpace()) && TargetTy->isIntegerTy(8))
+  if (ElementTy->isIntegerTy(8) && TargetTy->isIntegerTy(8))
     return nullptr;
 
-  Type *ElementTy = Ty->getNonOpaquePointerElementType();
   if (!ElementTy->isSized())
     return nullptr; // We can't GEP through an unsized element.
 
+  Type *Ty = ElementTy;
   SmallVector<APInt> IntIndices = DL.getGEPIndicesForOffset(ElementTy, Offset);
   if (Offset != 0)
     return nullptr;
 
   for (const APInt &Index : IntIndices)
     Indices.push_back(IRB.getInt(Index));
-  return getNaturalGEPWithType(IRB, DL, Ptr, ElementTy, TargetTy, Indices,
+  return getNaturalGEPWithType(IRB, DL, Ptr, Ty, ElementTy, TargetTy, Indices,
                                NamePrefix);
+}
+
+static Type *getElementTypeAtOffset(const DataLayout &DL, Type *Ty, uint64_t Offset) {
+  APInt APOffset(DL.getPointerSizeInBits(), Offset);
+  DL.getGEPIndicesForOffset(Ty, APOffset);
+  return Ty;
 }
 
 /// Compute an adjusted pointer from Ptr by Offset bytes where the
@@ -1594,15 +1598,20 @@ static Value *getNaturalGEPWithOffset(IRBuilderTy &IRB, const DataLayout &DL,
 /// a single GEP as possible, thus making each GEP more independent of the
 /// surrounding code.
 static Value *getAdjustedPtr(IRBuilderTy &IRB, const DataLayout &DL, Value *Ptr,
-                             APInt Offset, Type *PointerTy,
-                             const Twine &NamePrefix) {
-  // Create i8 GEP for opaque pointers.
-  if (Ptr->getType()->isOpaquePointerTy()) {
-    if (Offset != 0)
-      Ptr = IRB.CreateInBoundsGEP(IRB.getInt8Ty(), Ptr, IRB.getInt(Offset),
-                                  NamePrefix + "sroa_idx");
-    return IRB.CreatePointerBitCastOrAddrSpaceCast(Ptr, PointerTy,
-                                                   NamePrefix + "sroa_cast");
+                             Type *ElementTy, APInt Offset, Type *PointerTy,
+                             Type *TargetTy, const Twine &NamePrefix) {
+  if (DL.isByteAddressable() || IRB.GetInsertBlock()->getParent()->getSection() == StringRef("asmjs")) {
+    // Create i8 GEP for opaque pointers.
+    if (Ptr->getType()->isOpaquePointerTy()) {
+      if (Offset != 0)
+        Ptr = IRB.CreateInBoundsGEP(IRB.getInt8Ty(), Ptr, IRB.getInt(Offset),
+                                    NamePrefix + "sroa_idx");
+      return IRB.CreatePointerBitCastOrAddrSpaceCast(Ptr, PointerTy,
+                                                     NamePrefix + "sroa_cast");
+    }
+    
+    ElementTy = Ptr->getType()->getNonOpaquePointerElementType();
+    TargetTy = PointerTy->getNonOpaquePointerElementType();
   }
 
   // Even though we don't look through PHI nodes, we could be called on an
@@ -1615,6 +1624,7 @@ static Value *getAdjustedPtr(IRBuilderTy &IRB, const DataLayout &DL, Value *Ptr,
   // never are able to compute one directly that has the correct type, we'll
   // fall back to it, so keep it and the base it was computed from around here.
   Value *OffsetPtr = nullptr;
+  Type *OffsetElementTy;
   Value *OffsetBasePtr;
 
   // Remember any i8 pointer we come across to re-use if we need to do a raw
@@ -1623,7 +1633,6 @@ static Value *getAdjustedPtr(IRBuilderTy &IRB, const DataLayout &DL, Value *Ptr,
   APInt Int8PtrOffset(Offset.getBitWidth(), 0);
 
   PointerType *TargetPtrTy = cast<PointerType>(PointerTy);
-  Type *TargetTy = TargetPtrTy->getNonOpaquePointerElementType();
 
   // As `addrspacecast` is , `Ptr` (the storage pointer) may have different
   // address space from the expected `PointerTy` (the pointer to be used).
@@ -1641,13 +1650,14 @@ static Value *getAdjustedPtr(IRBuilderTy &IRB, const DataLayout &DL, Value *Ptr,
         break;
       Offset += GEPOffset;
       Ptr = GEP->getPointerOperand();
+      ElementTy = GEP->getSourceElementType();
       if (!Visited.insert(Ptr).second)
         break;
     }
 
     // See if we can perform a natural GEP here.
     Indices.clear();
-    if (Value *P = getNaturalGEPWithOffset(IRB, DL, Ptr, Offset, TargetTy,
+    if (Value *P = getNaturalGEPWithOffset(IRB, DL, Ptr, ElementTy, Offset, TargetTy,
                                            Indices, NamePrefix)) {
       // If we have a new natural pointer at the offset, clear out any old
       // offset pointer we computed. Unless it is the base pointer or
@@ -1658,6 +1668,12 @@ static Value *getAdjustedPtr(IRBuilderTy &IRB, const DataLayout &DL, Value *Ptr,
           I->eraseFromParent();
         }
       OffsetPtr = P;
+      if (GetElementPtrInst *I = dyn_cast<GetElementPtrInst>(P))
+        OffsetElementTy = I->getResultElementType();
+      else if (GEPOperator *I = dyn_cast<GEPOperator>(P))
+        OffsetElementTy = I->getResultElementType();
+      else
+        OffsetElementTy = ElementTy;
       OffsetBasePtr = Ptr;
       // If we also found a pointer of the right type, we're done.
       if (P->getType() == PointerTy)
@@ -1673,10 +1689,13 @@ static Value *getAdjustedPtr(IRBuilderTy &IRB, const DataLayout &DL, Value *Ptr,
     // Peel off a layer of the pointer and update the offset appropriately.
     if (Operator::getOpcode(Ptr) == Instruction::BitCast) {
       Ptr = cast<Operator>(Ptr)->getOperand(0);
+      // There should not be any bit casts between opaque pointers
+      ElementTy = Ptr->getType()->getNonOpaquePointerElementType();
     } else if (GlobalAlias *GA = dyn_cast<GlobalAlias>(Ptr)) {
       if (GA->isInterposable())
         break;
       Ptr = GA->getAliasee();
+      ElementTy = GA->getValueType();
     } else {
       break;
     }
@@ -1696,14 +1715,16 @@ static Value *getAdjustedPtr(IRBuilderTy &IRB, const DataLayout &DL, Value *Ptr,
                     : IRB.CreateInBoundsGEP(IRB.getInt8Ty(), Int8Ptr,
                                             IRB.getInt(Int8PtrOffset),
                                             NamePrefix + "sroa_raw_idx");
+    OffsetElementTy = IRB.getInt8Ty();
   }
   Ptr = OffsetPtr;
+  ElementTy = OffsetElementTy;
 
   // On the off chance we were targeting i8*, guard the bitcast here.
-  if (cast<PointerType>(Ptr->getType()) != TargetPtrTy) {
+  if (ElementTy != TargetTy || cast<PointerType>(Ptr->getType())->getAddressSpace() != TargetPtrTy->getAddressSpace()) {
     assert(PointerTy->isOpaquePointerTy() || PointerTy->getNonOpaquePointerElementType() == TargetTy);
     // Cheerp: Only allow safe casts to direct bases, unless we are in asm.js mode
-    if(StructType* StTy = dyn_cast<StructType>(Ptr->getType()->getPointerElementType())) {
+    if(StructType* StTy = dyn_cast<StructType>(ElementTy)) {
       while(StructType* directBase = StTy->getDirectBase()) {
         if(directBase == TargetTy) {
           // The target type is a directbase of the current one, we can create a bitcast
@@ -2509,7 +2530,7 @@ private:
     return true;
   }
 
-  Value *getNewAllocaSlicePtr(IRBuilderTy &IRB, Type *PointerTy) {
+  Value *getNewAllocaSlicePtr(IRBuilderTy &IRB, Type *PointerTy, Type *ElementTy) {
     // Note that the offset computation can use BeginOffset or NewBeginOffset
     // interchangeably for unsplit slices.
     assert(IsSplit || BeginOffset == NewBeginOffset);
@@ -2536,9 +2557,9 @@ private:
     OldName = OldName.substr(0, OldName.find(".sroa_"));
 #endif
 
-    return getAdjustedPtr(IRB, DL, &NewAI,
+    return getAdjustedPtr(IRB, DL, &NewAI, NewAI.getAllocatedType(),
                           APInt(DL.getIndexTypeSizeInBits(PointerTy), Offset),
-                          PointerTy,
+                          PointerTy, ElementTy,
 #ifndef NDEBUG
                           Twine(OldName) + "."
 #else
@@ -2547,11 +2568,11 @@ private:
                           );
   }
 
-  Value *getAllocaCompatiblePtr(IRBuilderTy &IRB, Value* BasePtr, const APInt& BaseOffset, Type *TargetTy) {
+  Value *getAllocaCompatiblePtr(IRBuilderTy &IRB, Value* BasePtr, Type *Ty, const APInt& BaseOffset, Type *TargetTy) {
     assert(NewBeginOffset==NewAllocaBeginOffset);
     while(1)
     {
-      Value *RetPtr = getAdjustedPtr(IRB, DL, BasePtr, BaseOffset, TargetTy->getPointerTo(),
+      Value *RetPtr = getAdjustedPtr(IRB, DL, BasePtr, Ty, BaseOffset, TargetTy->getPointerTo(), TargetTy,
                                 BasePtr->getName() + ".");
       if (RetPtr)
         return RetPtr;
@@ -2692,7 +2713,7 @@ private:
     } else {
       Type *LTy = TargetTy->getPointerTo(AS);
       LoadInst *NewLI =
-          IRB.CreateAlignedLoad(TargetTy, getNewAllocaSlicePtr(IRB, LTy),
+          IRB.CreateAlignedLoad(TargetTy, getNewAllocaSlicePtr(IRB, LTy, TargetTy),
                                 getSliceAlign(), LI.isVolatile(), LI.getName());
       if (AATags)
         NewLI->setAAMetadata(AATags.shift(NewBeginOffset - BeginOffset));
@@ -2847,7 +2868,7 @@ private:
           IRB.CreateAlignedStore(V, &NewAI, NewAI.getAlign(), SI.isVolatile());
     } else {
       unsigned AS = SI.getPointerAddressSpace();
-      Value *NewPtr = getNewAllocaSlicePtr(IRB, V->getType()->getPointerTo(AS));
+      Value *NewPtr = getNewAllocaSlicePtr(IRB, V->getType()->getPointerTo(AS), V->getType());
       NewSI =
           IRB.CreateAlignedStore(V, NewPtr, getSliceAlign(), SI.isVolatile());
     }
@@ -2905,6 +2926,7 @@ private:
     LLVM_DEBUG(dbgs() << "    original: " << II << "\n");
     assert(II.getRawDest() == OldPtr);
     Type *RealPtrTy = OldPtr->getType();
+    Type *elementType = II.getParamElementType(0);
 
     AAMDNodes AATags = II.getAAMetadata();
 
@@ -2913,7 +2935,7 @@ private:
     if (!isa<ConstantInt>(II.getLength())) {
       assert(!IsSplit);
       assert(NewBeginOffset == BeginOffset);
-      Value *AdjustedPtr = getNewAllocaSlicePtr(IRB, RealPtrTy);
+      Value *AdjustedPtr = getNewAllocaSlicePtr(IRB, RealPtrTy, elementType);
       if (AdjustedPtr->getType() != IRB.getInt8PtrTy(cast<PointerType>(AdjustedPtr->getType())->getAddressSpace()))
         AdjustedPtr = IRB.CreateBitCast(AdjustedPtr, IRB.getInt8PtrTy());
       II.setDest(AdjustedPtr);
@@ -2951,9 +2973,8 @@ private:
     if (!CanContinue) {
       Type *SizeTy = II.getLength()->getType();
       Constant *Size = ConstantInt::get(SizeTy, NewEndOffset - NewBeginOffset);
-      Value* OurPtr = getNewAllocaSlicePtr(IRB, RealPtrTy);
+      Value* OurPtr = getNewAllocaSlicePtr(IRB, RealPtrTy, elementType);
 
-      llvm::Type *elementType = II.getParamElementType(0);
       if (!OurPtr) {
         OurPtr = &NewAI;
         elementType = NewAI.getAllocatedType();
@@ -3058,11 +3079,13 @@ private:
     assert((IsDest && II.getRawDest() == OldPtr) ||
            (!IsDest && II.getRawSource() == OldPtr));
     Type *RealPtrTy = OldPtr->getType();
+    Type *elementType = II.getParamElementType(0);
 
     Align SliceAlign = getSliceAlign();
 
     Value *OtherPtr = IsDest ? II.getRawSource() : II.getRawDest();
     Type *OtherPtrTy = OtherPtr->getType();
+    Type *otherElementType = II.getParamElementType(0);
     unsigned OtherAS = OtherPtrTy->getPointerAddressSpace();
     unsigned OffsetWidth = DL.getIndexSizeInBits(OtherAS);
     APInt OtherOffset(OffsetWidth, NewBeginOffset - BeginOffset);
@@ -3075,16 +3098,16 @@ private:
     // memcpy, and so simply updating the pointers is the necessary for us to
     // update both source and dest of a single call.
     if (!IsSplittable) {
-      Value *AdjustedPtr = getNewAllocaSlicePtr(IRB, RealPtrTy);
+      Value *AdjustedPtr = getNewAllocaSlicePtr(IRB, RealPtrTy, elementType);
       if (!AdjustedPtr) {
         // It's not possible to get the right type from the alloca.
         // This means that we need to look the other way around.
-        OtherPtr = getAllocaCompatiblePtr(IRB, OtherPtr, OtherOffset, NewAI.getAllocatedType());
-        AdjustedPtr = getNewAllocaSlicePtr(IRB, OtherPtr->getType());
+        OtherPtr = getAllocaCompatiblePtr(IRB, OtherPtr, otherElementType, OtherOffset, NewAI.getAllocatedType());
+        AdjustedPtr = getNewAllocaSlicePtr(IRB, OtherPtr->getType(), otherElementType);
         assert(AdjustedPtr);
       } else {
-        OtherPtr = getAdjustedPtr(IRB, DL, OtherPtr, OtherOffset, OtherPtrTy,
-                                  OtherPtr->getName() + ".");
+        OtherPtr = getAdjustedPtr(IRB, DL, OtherPtr, otherElementType, OtherOffset, OtherPtrTy,
+                                  otherElementType, OtherPtr->getName() + ".");
       }
       if (AdjustedPtr->getType() != RealPtrTy)
         AdjustedPtr = IRB.CreateBitCast(AdjustedPtr, RealPtrTy);
@@ -3154,15 +3177,15 @@ private:
       // Compute the other pointer, folding as much as possible to produce
       // a single, simple GEP in most cases.
 
-      Value *OurPtr = getNewAllocaSlicePtr(IRB, RealPtrTy);
+      Value *OurPtr = getNewAllocaSlicePtr(IRB, RealPtrTy, elementType);
       if (!OurPtr) {
         // It's not possible to get the right type from the alloca.
         // This means that we need to look the other way around.
-        OtherPtr = getAllocaCompatiblePtr(IRB, OtherPtr, OtherOffset, NewAI.getAllocatedType());
-        OurPtr = getNewAllocaSlicePtr(IRB, OtherPtr->getType());
+        OtherPtr = getAllocaCompatiblePtr(IRB, OtherPtr, otherElementType, OtherOffset, NewAI.getAllocatedType());
+        OurPtr = getNewAllocaSlicePtr(IRB, OtherPtr->getType(), otherElementType);
       } else {
-        OtherPtr = getAdjustedPtr(IRB, DL, OtherPtr, OtherOffset, OtherPtrTy,
-                                  OtherPtr->getName() + ".");
+        OtherPtr = getAdjustedPtr(IRB, DL, OtherPtr, otherElementType, OtherOffset, OtherPtrTy,
+                                  otherElementType, OtherPtr->getName() + ".");
       }
 
       Type *SizeTy = II.getLength()->getType();
@@ -3230,8 +3253,8 @@ private:
     }
     OtherPtrTy = OtherTy->getPointerTo(OtherAS);
 
-    Value *SrcPtr = getAdjustedPtr(IRB, DL, OtherPtr, OtherOffset, OtherPtrTy,
-                                   OtherPtr->getName() + ".");
+    Value *SrcPtr = getAdjustedPtr(IRB, DL, OtherPtr, otherElementType, OtherOffset, OtherPtrTy,
+                                   OtherTy, OtherPtr->getName() + ".");
     MaybeAlign SrcAlign = OtherAlign;
     Value *DstPtr = &NewAI;
     MaybeAlign DstAlign = SliceAlign;
@@ -3378,7 +3401,8 @@ private:
     // fully-rewritten alloca.
     bool inserted=PHIUsers.insert(&PN);
 
-    Value *NewPtr = getNewAllocaSlicePtr(IRB, OldPtr->getType());
+    Type *Ty = getElementTypeAtOffset(DL, OldAI.getAllocatedType(), BeginOffset);
+    Value *NewPtr = getNewAllocaSlicePtr(IRB, OldPtr->getType(), Ty);
     if(NewPtr) {
       // Replace the operands which were using the old pointer.
       std::replace(PN.op_begin(), PN.op_end(), cast<Value>(OldPtr), NewPtr);
@@ -3392,8 +3416,8 @@ private:
           oldValue = &NewAI;
         BasicBlock* incomingBB = PN.getIncomingBlock(i);
         IRB.SetInsertPoint(incomingBB, BasicBlock::iterator(incomingBB->getTerminator()));
-        Value* newValue = getAdjustedPtr(IRB, DL, oldValue,
-                                         APInt(DL.getPointerSizeInBits(), Offset), NewAI.getType(), Twine());
+        Value* newValue = getAdjustedPtr(IRB, DL, oldValue, Ty,
+                                         APInt(DL.getPointerSizeInBits(), Offset), NewAI.getType(), NewAI.getAllocatedType(), Twine());
         PN.setOperand(i, newValue);
       }
       PN.mutateType(NewAI.getType());
@@ -3418,7 +3442,8 @@ private:
     assert(BeginOffset >= NewAllocaBeginOffset && "Selects are unsplittable");
     assert(EndOffset <= NewAllocaEndOffset && "Selects are unsplittable");
 
-    Value *NewPtr = getNewAllocaSlicePtr(IRB, OldPtr->getType());
+    Type *Ty = getElementTypeAtOffset(DL, OldAI.getAllocatedType(), BeginOffset);
+    Value *NewPtr = getNewAllocaSlicePtr(IRB, OldPtr->getType(), Ty);
     if(NewPtr) {
       // Replace the operands which were using the old pointer.
       if (SI.getOperand(1) == OldPtr)
@@ -3434,8 +3459,8 @@ private:
         Value* oldValue = SI.getOperand(i);
         if (oldValue == OldPtr)
           oldValue = &NewAI;
-        Value* newValue = getAdjustedPtr(IRB, DL, oldValue, 
-                                         APInt(DL.getPointerSizeInBits(), Offset), NewAI.getType(), Twine());
+        Value* newValue = getAdjustedPtr(IRB, DL, oldValue, Ty,
+                                         APInt(DL.getPointerSizeInBits(), Offset), NewAI.getType(), NewAI.getAllocatedType(), Twine());
         SI.setOperand(i, newValue);
       }
       SI.mutateType(NewAI.getType());
@@ -4237,9 +4262,9 @@ bool SROAPass::presplitLoadsAndStores(AllocaInst &AI, AllocaSlices &AS) {
       auto *PartPtrTy = PartTy->getPointerTo(AS);
       LoadInst *PLoad = IRB.CreateAlignedLoad(
           PartTy,
-          getAdjustedPtr(IRB, DL, BasePtr,
+          getAdjustedPtr(IRB, DL, BasePtr, LI->getType(),
                          APInt(DL.getIndexSizeInBits(AS), PartOffset),
-                         PartPtrTy, BasePtr->getName() + "."),
+                         PartPtrTy, PartTy, BasePtr->getName() + "."),
           getAdjustedAlignment(LI, PartOffset),
           /*IsVolatile*/ false, LI->getName());
       PLoad->copyMetadata(*LI, {LLVMContext::MD_mem_parallel_loop_access,
@@ -4295,9 +4320,9 @@ bool SROAPass::presplitLoadsAndStores(AllocaInst &AI, AllocaSlices &AS) {
         auto AS = SI->getPointerAddressSpace();
         StoreInst *PStore = IRB.CreateAlignedStore(
             PLoad,
-            getAdjustedPtr(IRB, DL, StoreBasePtr,
+            getAdjustedPtr(IRB, DL, StoreBasePtr, SI->getValueOperand()->getType(),
                            APInt(DL.getIndexSizeInBits(AS), PartOffset),
-                           PartPtrTy, StoreBasePtr->getName() + "."),
+                           PartPtrTy, PLoad->getType(), StoreBasePtr->getName() + "."),
             getAdjustedAlignment(SI, PartOffset),
             /*IsVolatile*/ false);
         PStore->copyMetadata(*SI, {LLVMContext::MD_mem_parallel_loop_access,
@@ -4381,9 +4406,9 @@ bool SROAPass::presplitLoadsAndStores(AllocaInst &AI, AllocaSlices &AS) {
         auto AS = LI->getPointerAddressSpace();
         PLoad = IRB.CreateAlignedLoad(
             PartTy,
-            getAdjustedPtr(IRB, DL, LoadBasePtr,
+            getAdjustedPtr(IRB, DL, LoadBasePtr, LI->getType(),
                            APInt(DL.getIndexSizeInBits(AS), PartOffset),
-                           LoadPartPtrTy, LoadBasePtr->getName() + "."),
+                           LoadPartPtrTy, PartTy, LoadBasePtr->getName() + "."),
             getAdjustedAlignment(LI, PartOffset),
             /*IsVolatile*/ false, LI->getName());
         PLoad->copyMetadata(*LI, {LLVMContext::MD_mem_parallel_loop_access,
@@ -4395,9 +4420,9 @@ bool SROAPass::presplitLoadsAndStores(AllocaInst &AI, AllocaSlices &AS) {
       auto AS = SI->getPointerAddressSpace();
       StoreInst *PStore = IRB.CreateAlignedStore(
           PLoad,
-          getAdjustedPtr(IRB, DL, StoreBasePtr,
+          getAdjustedPtr(IRB, DL, StoreBasePtr, SI->getValueOperand()->getType(),
                          APInt(DL.getIndexSizeInBits(AS), PartOffset),
-                         StorePartPtrTy, StoreBasePtr->getName() + "."),
+                         StorePartPtrTy, PartTy, StoreBasePtr->getName() + "."),
           getAdjustedAlignment(SI, PartOffset),
           /*IsVolatile*/ false);
       PStore->copyMetadata(*SI, {LLVMContext::MD_mem_parallel_loop_access,
