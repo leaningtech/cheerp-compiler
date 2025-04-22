@@ -18070,7 +18070,7 @@ FieldDecl *Sema::CheckFieldDecl(DeclarationName Name, QualType T,
   if (T.hasAddressSpace() || T->isDependentAddressSpaceType() ||
       T->getBaseElementTypeUnsafe()->isDependentAddressSpaceType()) {
     // CHEERP: We allow fields to have the bytelayout address space
-    if (!LangOpts.Cheerp || T.getAddressSpace() != LangAS::cheerp_wasm) {
+    if (!LangOpts.Cheerp || T.getAddressSpace() != LangAS::cheerp_bytelayout) {
       Diag(Loc, diag::err_field_with_address_space);
       Record->setInvalidDecl();
       InvalidDecl = true;
