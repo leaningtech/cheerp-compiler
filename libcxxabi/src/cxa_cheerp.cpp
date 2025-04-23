@@ -17,6 +17,7 @@
 #include <utility>
 #include <cheerpintrin.h>
 #include <cheerp/client.h>
+#include "include/atomic_support.h"
 
 namespace [[cheerp::genericjs]] client {
 	class CheerpException: public Error {
@@ -47,6 +48,27 @@ terminate() noexcept
 {
 	__terminate_impl();
 }
+
+#ifdef __ASMJS__
+// These handlers were sourced from cxa_default_handlers.cpp and cxa_handlers.cpp
+[[cheerp::wasm]]
+_LIBCXXABI_DATA_VIS
+constinit new_handler __cxa_new_handler = nullptr;
+
+[[cheerp::wasm]]
+new_handler
+get_new_handler() noexcept
+{
+    return __libcpp_atomic_load(&__cxa_new_handler, _AO_Acquire);
+}
+
+[[cheerp::wasm]]
+new_handler
+set_new_handler(new_handler handler) noexcept
+{
+    return __libcpp_atomic_exchange(&__cxa_new_handler, handler, _AO_Acq_Rel);
+}
+#endif
 
 }
 
