@@ -21932,6 +21932,9 @@ QualType Sema::ActOnOpenMPDeclareReductionType(SourceLocation TyLoc,
     Diag(TyLoc, diag::err_omp_reduction_wrong_type) << 3;
     return QualType();
   }
+  if (LangOpts.Cheerp) {
+    ReductionType = deduceCheerpPointeeAddrSpace(ReductionType);
+  }
   return ReductionType;
 }
 
@@ -22186,6 +22189,9 @@ QualType Sema::ActOnOpenMPDeclareMapperType(SourceLocation TyLoc,
   if (!MapperType->isStructureOrClassType() && !MapperType->isUnionType()) {
     Diag(TyLoc, diag::err_omp_mapper_wrong_type);
     return QualType();
+  }
+  if (LangOpts.Cheerp) {
+    MapperType = deduceCheerpPointeeAddrSpace(MapperType);
   }
   return MapperType;
 }
