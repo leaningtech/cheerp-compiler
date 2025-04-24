@@ -3721,8 +3721,14 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
     // is not in device or host mode.
     Opts.setSYCLVersion(LangOptions::SYCL_Default);
   }
+  if (Opts.getSYCLVersion() != LangOptions::SYCL_None) {
+    // CHEERP: we don't support SYCL
+    Opts.Cheerp = false;
+  }
 
   if (Opts.ObjC) {
+    // CHEERP: we don't support ObjC
+    Opts.Cheerp = false;
     if (Arg *arg = Args.getLastArg(OPT_fobjc_runtime_EQ)) {
       StringRef value = arg->getValue();
       if (Opts.ObjCRuntime.tryParse(value))
@@ -3878,6 +3884,8 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
             Args, OPT_fopenmp_version_EQ,
             (IsSimdSpecified || IsTargetSpecified) ? 50 : Opts.OpenMP, Diags))
       Opts.OpenMP = Version;
+    // CHEERP: we don't support openmp currently
+    Opts.Cheerp = false;
     // Provide diagnostic when a given target is not expected to be an OpenMP
     // device or host.
     if (!Opts.OpenMPIsDevice) {
