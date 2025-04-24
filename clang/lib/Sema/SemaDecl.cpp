@@ -15982,7 +15982,7 @@ NamedDecl *Sema::ImplicitlyDefineFunction(SourceLocation Loc,
     if (!isa<FunctionDecl>(ExternCPrev) ||
         !Context.typesAreCompatible(
             cast<FunctionDecl>(ExternCPrev)->getType(),
-            Context.getFunctionNoProtoType(Context.IntTy))) {
+            Context.getFunctionNoProtoType(Context.IntTy), /*CompareUnqualified=*/LangOpts.Cheerp)) {
       Diag(Loc, diag::ext_use_out_of_scope_declaration)
           << ExternCPrev << !getLangOpts().C99;
       Diag(ExternCPrev->getLocation(), diag::note_previous_declaration);
