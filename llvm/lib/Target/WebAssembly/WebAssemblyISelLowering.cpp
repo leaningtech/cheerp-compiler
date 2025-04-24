@@ -782,6 +782,10 @@ bool WebAssemblyTargetLowering::isLegalAddressingMode(const DataLayout &DL,
 bool WebAssemblyTargetLowering::allowsMisalignedMemoryAccesses(
     EVT /*VT*/, unsigned /*AddrSpace*/, Align /*Align*/,
     MachineMemOperand::Flags /*Flags*/, unsigned *Fast) const {
+  // CHEERP: This should be conditional on the address space
+  if(Subtarget->getTargetTriple().isCheerp()) {
+    return false;
+  }
   // WebAssembly supports unaligned accesses, though it should be declared
   // with the p2align attribute on loads and stores which do so, and there
   // may be a performance impact. We tell LLVM they're "fast" because
