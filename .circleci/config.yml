@@ -72,7 +72,7 @@ jobs:
             - cheerp-build.tar.bz2
             - cheerp-core_*.deb
   build-clangd:
-    executor: cheerp-medium
+    executor: cheerp-large
     environment:
       - NINJA_STATUS: "[%u/%r/%f] "
       - THREADS: 6
@@ -106,7 +106,7 @@ jobs:
     parameters:
       rule:
         type: string
-    executor: cheerp-medium
+    executor: cheerp-large
     environment:
       - NINJA_STATUS: "[%u/%r/%f] "
       - THREADS: 6
@@ -151,7 +151,7 @@ jobs:
     parameters:
       linear-output:
         type: string
-    executor: cheerp-medium
+    executor: cheerp-large
     environment:
       - VERBOSE: 1
     steps:
@@ -698,7 +698,7 @@ jobs:
   create-dmg:
     machine:
       image: default
-    resource_class: small
+    resource_class: medium
     steps:
       - attach_workspace:
           at: ~/project/packages
