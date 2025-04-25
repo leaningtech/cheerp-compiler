@@ -18,6 +18,7 @@
 #include "ConstantEmitter.h"
 #include "TargetInfo.h"
 #include "clang/AST/Attr.h"
+#include "clang/AST/ParentMap.h"
 #include "clang/Basic/CodeGenOptions.h"
 #include "clang/CodeGen/CGFunctionInfo.h"
 #include "clang/Sema/SemaDiagnostic.h"
@@ -1432,8 +1433,30 @@ RValue CodeGenFunction::EmitBuiltinNewDeleteCall(const FunctionProtoType *Type,
   for (auto *Decl : Ctx.getTranslationUnitDecl()->lookup(Name))
     if (auto *FD = dyn_cast<FunctionDecl>(Decl))
       if (Ctx.hasSameType(FD->getType(), QualType(Type, 0))) {
-        // CHEERP: TODO last parameter is a placeholder for now. Not sure what to put here
-        return EmitNewDeleteCall(*this, FD, Type, Args, IsDelete, false, QualType());
+        QualType Ty = Ctx.CharTy;
+        // CHEERP: For new, try to get the type of the allocation from a
+        // surrounding cast. This is required for genericjs
+        if (getLangOpts().Cheerp && !IsDelete) {
+          bool asmjs = CurFn->getSection() == StringRef("asmjs");
+          const FunctionDecl* CFD=dyn_cast_if_present<FunctionDecl>(CurFuncDecl);
+          const VarDecl* VD=dyn_cast_if_present<VarDecl>(CurCodeDecl);
+          // Malloc might be used as a global initializer, thus CurFuncDecl being null
+          assert(CFD || VD);
+          // This const_cast below probably is completely safe. When taking a brief
+          // look at ParentMap, it doesn't seem to ever modify what's passed to it
+          ParentMap PM(CFD ? CFD->getBody() : const_cast<Expr*>(VD->getInit()));
+          const Stmt* parent=PM.getParent(TheCall);
+          // For genericjs we need an explicit cast after the call, void* can't be used
+          const CastExpr* retCE=dyn_cast_or_null<CastExpr>(parent);
+          if (!retCE || retCE->getType()->isVoidPointerType()) {
+            if (!asmjs) {
+              CGM.getDiags().Report(TheCall->getBeginLoc(), diag::err_cheerp_alloc_requires_cast);
+            }
+          } else {
+            Ty = retCE->getType()->getPointeeType();
+          }
+        }
+        return EmitNewDeleteCall(*this, FD, Type, Args, IsDelete, false, Ty);
       }
   llvm_unreachable("predeclared global operator new/delete is missing");
 }
