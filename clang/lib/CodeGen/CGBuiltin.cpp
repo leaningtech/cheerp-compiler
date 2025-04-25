@@ -4630,13 +4630,27 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
   case Builtin::BI__builtin_function_start:
     return RValue::get(CGM.GetFunctionStart(
         E->getArg(0)->getAsBuiltinConstantDeclRef(CGM.getContext())));
-  case Builtin::BI__builtin_operator_new:
+  case Builtin::BI__builtin_operator_new: {
+    const Expr* CalleeE = E->getCallee();
+    QualType FTy = CalleeE->getType();
+    if (!FTy->isFunctionProtoType()) {
+      CalleeE = cast<CastExpr>(CalleeE)->getSubExpr();
+      FTy = CalleeE->getType();
+    }
     return EmitBuiltinNewDeleteCall(
-        E->getCallee()->getType()->castAs<FunctionProtoType>(), E, false);
-  case Builtin::BI__builtin_operator_delete:
+        FTy->castAs<FunctionProtoType>(), E, false);
+  }
+  case Builtin::BI__builtin_operator_delete: {
+    const Expr* CalleeE = E->getCallee();
+    QualType FTy = CalleeE->getType();
+    if (!FTy->isFunctionProtoType()) {
+      CalleeE = cast<CastExpr>(CalleeE)->getSubExpr();
+      FTy = CalleeE->getType();
+    }
     EmitBuiltinNewDeleteCall(
-        E->getCallee()->getType()->castAs<FunctionProtoType>(), E, true);
+        FTy->castAs<FunctionProtoType>(), E, true);
     return RValue::get(nullptr);
+  }
 
   case Builtin::BI__builtin_is_aligned:
     return EmitBuiltinIsAligned(E);
