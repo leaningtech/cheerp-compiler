@@ -9151,8 +9151,8 @@ TypedefDecl *ASTContext::getBuiltinMSVaListDecl() const {
 }
 
 bool ASTContext::canBuiltinBeRedeclared(const FunctionDecl *FD) const {
-  // Allow redecl custom type checking builtin for HLSL.
-  if (LangOpts.HLSL && FD->getBuiltinID() != Builtin::NotBuiltin &&
+  // Allow redecl custom type checking builtin for HLSL and Cheerp.
+  if ((LangOpts.HLSL || LangOpts.Cheerp) && FD->getBuiltinID() != Builtin::NotBuiltin &&
       BuiltinInfo.hasCustomTypechecking(FD->getBuiltinID()))
     return true;
   return BuiltinInfo.canBeRedeclared(FD->getBuiltinID());

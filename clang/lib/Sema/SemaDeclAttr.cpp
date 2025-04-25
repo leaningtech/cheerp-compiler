@@ -5626,17 +5626,19 @@ static void handleBuiltinAliasAttr(Sema &S, Decl *D,
 
   IdentifierInfo *Ident = AL.getArgAsIdent(0)->Ident;
   unsigned BuiltinID = Ident->getBuiltinID();
-  StringRef AliasName = cast<FunctionDecl>(D)->getIdentifier()->getName();
+  FunctionDecl *FD = cast<FunctionDecl>(D);
+  StringRef AliasName = FD->getIdentifier()? FD->getIdentifier()->getName() : "";
 
   bool IsAArch64 = S.Context.getTargetInfo().getTriple().isAArch64();
   bool IsARM = S.Context.getTargetInfo().getTriple().isARM();
   bool IsRISCV = S.Context.getTargetInfo().getTriple().isRISCV();
   bool IsHLSL = S.Context.getLangOpts().HLSL;
+  bool IsCheerp = S.Context.getLangOpts().Cheerp;
   if ((IsAArch64 && !ArmSveAliasValid(S.Context, BuiltinID, AliasName)) ||
       (IsARM && !ArmMveAliasValid(BuiltinID, AliasName) &&
        !ArmCdeAliasValid(BuiltinID, AliasName)) ||
       (IsRISCV && !RISCVAliasValid(BuiltinID, AliasName)) ||
-      (!IsAArch64 && !IsARM && !IsRISCV && !IsHLSL)) {
+      (!IsAArch64 && !IsARM && !IsRISCV && !IsHLSL && !IsCheerp)) {
     S.Diag(AL.getLoc(), diag::err_attribute_builtin_alias) << AL;
     return;
   }
