@@ -5077,7 +5077,13 @@ static CGCallee EmitDirectCallee(CodeGenFunction &CGF, GlobalDecl GD) {
   const FunctionDecl *FD = cast<FunctionDecl>(GD.getDecl());
 
   if (auto builtinID = FD->getBuiltinID()) {
-    std::string NoBuiltinFD = ("no-builtin-" + FD->getName()).str();
+    IdentifierInfo* Info = FD->getIdentifier();
+    if (!Info && CGF.getLangOpts().Cheerp) {
+      auto* Alias = FD->getAttr<BuiltinAliasAttr>();
+      Info = Alias->getBuiltinName();
+    }
+    assert(Info);
+    std::string NoBuiltinFD = ("no-builtin-" + Info->getName()).str();
     std::string NoBuiltins = "no-builtins";
 
     StringRef Ident = CGF.CGM.getMangledName(GD);
