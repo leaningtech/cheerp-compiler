@@ -3239,6 +3239,14 @@ void Sema::DeclareGlobalAllocationFunction(DeclarationName Name,
     if(!Context.getTargetInfo().isByteAddressable())
       Alloc->addAttr(DefaultNewAttr::CreateImplicit(Context, SourceLocation(), AttributeCommonInfo::AS_GNU, DefaultNewAttr::GNU_cheerp_default_new));
 
+    bool IsNew = (Name.getCXXOverloadedOperator() == OO_New ||
+       Name.getCXXOverloadedOperator() == OO_Array_New);
+    IdentifierInfo* BInfo = PP.getIdentifierInfo(IsNew? "__builtin_operator_new" : "__builtin_operator_delete");
+    // CHEERP: mark global new/delete as builtins, so we can handle them specially
+    if (BInfo && getLangOpts().Cheerp) {
+      Alloc->addAttr(LateBindBuiltinAliasAttr::CreateImplicit(Context, BInfo));
+    }
+
     llvm::SmallVector<ParmVarDecl *, 3> ParamDecls;
     for (QualType T : Params) {
       ParamDecls.push_back(ParmVarDecl::Create(
