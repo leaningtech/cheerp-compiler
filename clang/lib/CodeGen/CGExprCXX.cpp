@@ -1353,6 +1353,11 @@ static RValue EmitNewDeleteCall(CodeGenFunction &CGF,
   // delete(void*), delete(void*, const std::nothrow_t&), delete[](void*), delete[](void*, const std::nothrow_t&).
   bool fancy_new = false;
   bool use_array = false;
+  // NOTE: genericjs will emit an error if this is true, but we have to be careful not to crash
+  bool unsafe_new = allocType.isNull();
+  if (unsafe_new) {
+    allocType = CGF.getContext().CharTy;
+  }
   if (IsArray) {
     if (const CXXRecordDecl* RD = allocType->getAsCXXRecordDecl())
       use_array = !RD->hasTrivialDestructor();
@@ -1371,7 +1376,7 @@ static RValue EmitNewDeleteCall(CodeGenFunction &CGF,
     fancy_new = true;
   }
   //CHEERP TODO: warning/error when `cheerp && !asmjs && user_defined_new`
-  if(!IsDelete && cheerp && !(asmjs && (user_defined_new || fancy_new)))
+  if(!IsDelete && cheerp && !(asmjs && (user_defined_new || fancy_new || unsafe_new)))
   {
     // Forge a call to a special type safe allocator intrinsic
     QualType retType = CGF.getContext().getPointerType(allocType);
@@ -1390,7 +1395,7 @@ static RValue EmitNewDeleteCall(CodeGenFunction &CGF,
       origFunc = CalleePtr;
     }
     QualType argType = CGF.getContext().getPointerType(allocType);
-    llvm::Type* elementType = CGF.ConvertTypeForMem(argType->getPointeeType());
+    llvm::Type* elementType = unsafe_new? nullptr : CGF.ConvertTypeForMem(argType->getPointeeType());
     llvm::Value* ptrArg = Args[0].getKnownRValue().getScalarVal();
     if (ptrArg->getType() != CGF.ConvertType(argType)) {
       ptrArg = CGF.Builder.CreateBitCast(ptrArg, CGF.ConvertType(argType));
@@ -1433,7 +1438,7 @@ RValue CodeGenFunction::EmitBuiltinNewDeleteCall(const FunctionProtoType *Type,
   for (auto *Decl : Ctx.getTranslationUnitDecl()->lookup(Name))
     if (auto *FD = dyn_cast<FunctionDecl>(Decl))
       if (Ctx.hasSameType(FD->getType(), QualType(Type, 0))) {
-        QualType Ty = Ctx.CharTy;
+        QualType Ty;
         // CHEERP: For new, try to get the type of the allocation from a
         // surrounding cast. This is required for genericjs
         if (getLangOpts().Cheerp && !IsDelete) {
