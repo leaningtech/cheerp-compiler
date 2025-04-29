@@ -701,6 +701,16 @@ def ArmBuiltinAlias : InheritableAttr, TargetSpecificAttr<TargetAnyArm> {
   let Documentation = [ArmBuiltinAliasDocs];
 }
 
+def LateBindBuiltinAlias : Attr {
+  let Spellings = [CXX11<"clang", "late_bind_builtin_alias">,
+                   C2x<"clang", "late_bind_builtin_alias">,
+                   GNU<"clang_late_bind_builtin_alias">];
+  let Args = [IdentifierArgument<"BuiltinName">];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let PragmaAttributeSupport = 0;
+  let Documentation = [Undocumented];
+}
+
 def Aligned : InheritableAttr {
   let Spellings = [GCC<"aligned">, Declspec<"align">, Keyword<"alignas">,
                    Keyword<"_Alignas">];

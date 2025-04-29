@@ -5076,8 +5076,15 @@ static bool OnlyHasInlineBuiltinDeclaration(const FunctionDecl *FD) {
 static CGCallee EmitDirectCallee(CodeGenFunction &CGF, GlobalDecl GD) {
   const FunctionDecl *FD = cast<FunctionDecl>(GD.getDecl());
 
-  if (auto builtinID = FD->getBuiltinID()) {
-    std::string NoBuiltinFD = ("no-builtin-" + FD->getName()).str();
+  auto builtinID = FD->getBuiltinID();
+  IdentifierInfo *IdentInfo = FD->getIdentifier();
+  if (FD->hasAttr<LateBindBuiltinAliasAttr>()) {
+    IdentInfo = FD->getAttr<LateBindBuiltinAliasAttr>()->getBuiltinName();
+    builtinID = IdentInfo->getBuiltinID();
+  }
+  if (builtinID) {
+    assert(IdentInfo);
+    std::string NoBuiltinFD = ("no-builtin-" + IdentInfo->getName()).str();
     std::string NoBuiltins = "no-builtins";
 
     StringRef Ident = CGF.CGM.getMangledName(GD);
