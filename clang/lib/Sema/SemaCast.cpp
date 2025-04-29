@@ -131,8 +131,10 @@ namespace {
           {
             // Casting a value returned from malloc it's ok
             if (builtin == Builtin::BImalloc ||
-                builtin == Builtin::BIcalloc)
+                builtin == Builtin::BIcalloc ||
+                builtin == Builtin::BI__builtin_operator_new) {
               castExpr->setCheerpSafe(true);
+            }
           }
         }
       }
