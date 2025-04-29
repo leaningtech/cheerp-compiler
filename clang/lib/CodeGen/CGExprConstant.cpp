@@ -1914,14 +1914,20 @@ namespace {
 /// that normally happen during l-value emission.
 struct ConstantLValue {
   llvm::Constant *Value;
+  llvm::Type *ElementTy;
   bool HasOffsetApplied;
 
   /*implicit*/ ConstantLValue(llvm::Constant *value,
                               bool hasOffsetApplied = false)
-    : Value(value), HasOffsetApplied(hasOffsetApplied) {}
+    : Value(value), ElementTy(nullptr), HasOffsetApplied(hasOffsetApplied) {}
+
+  /*implicit*/ ConstantLValue(llvm::Constant *value,
+                              llvm::Type *elementTy,
+                              bool hasOffsetApplied = false)
+    : Value(value), ElementTy(elementTy), HasOffsetApplied(hasOffsetApplied) {}
 
   /*implicit*/ ConstantLValue(ConstantAddress address)
-    : ConstantLValue(address.getPointer()) {}
+    : ConstantLValue(address.getPointer(), address.getElementType()) {}
 };
 
 /// A helper class for emitting constant l-values.
@@ -1961,6 +1967,12 @@ private:
   ConstantLValue VisitMaterializeTemporaryExpr(
                                          const MaterializeTemporaryExpr *E);
 
+  llvm::Type *ConvertBlockType(QualType Ty) {
+    if (CGM.getLangOpts().OpenCL)
+      return CGM.getGenericBlockLiteralType();
+    return CGM.getTypes().ConvertType(Ty);
+  }
+
   bool hasNonZeroOffset() const {
     return !Value.getLValueOffset().isZero();
   }
@@ -1972,14 +1984,16 @@ private:
   }
 
   /// Apply the value offset to the given constant.
-  llvm::Constant *applyOffset(llvm::Constant *C) {
+  llvm::Constant *applyOffset(llvm::Constant *C, llvm::Type *BaseElementTy) {
     uint64_t OffsetVal = Value.getLValueOffset().getQuantity();
 
     llvm::SmallVector<llvm::Constant*, 4> Indexes;
     Indexes.push_back(llvm::ConstantInt::get(CGM.Int32Ty, 0));
     llvm::Type* DestTy = CGM.getTypes().ConvertTypeForMem(DestType);
     llvm::Type* DestElemTy = nullptr;
-    if (DestTy->isPointerTy())
+    if (isa<BlockPointerType>(DestType.getCanonicalType().getTypePtr()))
+      DestElemTy = ConvertBlockType(DestType->getPointeeType());
+    else if (DestTy->isPointerTy())
       DestElemTy = CGM.getTypes().ConvertTypeForMem(DestType->getPointeeType());
     QualType CurType;
     const APValue::LValueBase &base = Value.getLValueBase();
@@ -1990,13 +2004,19 @@ private:
     else
       CurType = base.getTypeInfoType();
 
-    llvm::Type* CurrentType = CGM.getTypes().ConvertTypeForMem(CurType);
-    llvm::Type* CElementType = CurrentType;
+    llvm::Type* CurrentType = BaseElementTy;
 
-    if (!C->getType()->isOpaquePointerTy())
+    if (!CurrentType)
+      CurrentType = CGM.getTypes().ConvertTypeForMem(CurType);
+
+    if (C->getType()->isOpaquePointerTy())
+      CurrentType = nullptr;
+    else
       assert(CurrentType == C->getType()->getNonOpaquePointerElementType());
 
-    if(Value.hasLValuePath()) {
+    llvm::Type* CElementType = CurrentType;
+
+    if(Value.hasLValuePath() && CGM.getTypes().ConvertTypeForMem(CurType) == CurrentType) {
       ArrayRef<APValue::LValuePathEntry> Path = Value.getLValuePath();
       for (unsigned I = 0; I != Path.size(); ++I) {
         if (const RecordType* CurClass = CurType->getAs<RecordType>()) {
@@ -2043,7 +2063,7 @@ private:
         Indexes.back() = llvm::ConstantInt::get(CGM.Int32Ty, cast<llvm::ConstantInt>(Indexes.back())->getZExtValue()+1);
       }
       OffsetVal = 0;
-    } else {
+    } else if (CurrentType) {
       // Try to build a naturally looking GEP from the returned expression to the
       // required type
       while(DestTy->isPointerTy() && (OffsetVal || CurrentType!=DestElemTy))
@@ -2132,7 +2152,7 @@ llvm::Constant *ConstantLValueEmitter::tryEmit() {
 
   // Apply the offset if necessary and not already done.
   if (!result.HasOffsetApplied) {
-    value = applyOffset(value);
+    value = applyOffset(value, result.ElementTy);
   }
 
   // Convert to the appropriate type; this could be an lvalue for
@@ -2279,7 +2299,7 @@ ConstantLValueEmitter::VisitAddrLabelExpr(const AddrLabelExpr *E) {
   llvm::Constant *Ptr = Emitter.CGF->GetAddrOfLabel(E->getLabel());
   Ptr = llvm::ConstantExpr::getBitCast(Ptr,
                                    CGM.getTypes().ConvertType(E->getType()));
-  return Ptr;
+  return ConstantLValue(Ptr, CGM.getTypes().ConvertTypeForMem(E->getType()->getPointeeType()));
 }
 
 ConstantLValue
@@ -2309,7 +2329,7 @@ ConstantLValueEmitter::VisitBlockExpr(const BlockExpr *E) {
   else
     functionName = "global";
 
-  return CGM.GetAddrOfGlobalBlock(E, functionName);
+  return ConstantLValue(CGM.GetAddrOfGlobalBlock(E, functionName), ConvertBlockType(E->getType()->getPointeeType()));
 }
 
 ConstantLValue
