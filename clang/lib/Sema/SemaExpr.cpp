@@ -6167,7 +6167,7 @@ Sema::ConvertArgumentsForCall(CallExpr *Call, Expr *Fn,
   //Cheerp: Mark cast as safe for some builtins
   if (unsigned builtin = FDecl ? FDecl->getBuiltinID() : 0)
   {
-    if (builtin == Builtin::BIfree)
+    if (builtin == Builtin::BIfree || builtin == Builtin::BI__builtin_operator_delete)
     {
       if (CastExpr* CE=dyn_cast<CastExpr>(AllArgs[0]))
         CE->setCheerpSafe(true);
