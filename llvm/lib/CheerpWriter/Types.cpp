@@ -422,8 +422,14 @@ uint32_t CheerpWriter::compileClassTypeRecursive(const std::string& baseName, St
 
 	for(uint32_t i=firstBase;i<(firstBase+localBaseCount);i++)
 	{
+		// If a base was collapsed, fill its index in the array with null.
+		// It won't be accessed but we need to keep the indexing consistent.
 		if(!currentType->getElementType(i)->isStructTy())
+		{
+			stream << "a[" << baseCount << "]=null;" << NewLine;
+			baseCount++;
 			continue;
+		}
 		SmallString<16> buf;
 		llvm::raw_svector_ostream bufStream(buf);
 		bufStream << ".a" << i;
