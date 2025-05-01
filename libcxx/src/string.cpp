@@ -322,7 +322,7 @@ struct initial_string;
 template <>
 struct initial_string<string> {
     string operator()() const {
-        string s;
+        string s(20, char());
         s.resize(s.capacity());
         return s;
     }
