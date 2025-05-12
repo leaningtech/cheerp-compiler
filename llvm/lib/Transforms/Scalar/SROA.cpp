@@ -3103,7 +3103,7 @@ private:
         // It's not possible to get the right type from the alloca.
         // This means that we need to look the other way around.
         OtherPtr = getAllocaCompatiblePtr(IRB, OtherPtr, otherElementType, OtherOffset, NewAI.getAllocatedType());
-        AdjustedPtr = getNewAllocaSlicePtr(IRB, OtherPtr->getType(), otherElementType);
+        AdjustedPtr = getNewAllocaSlicePtr(IRB, OtherPtr->getType(), NewAI.getAllocatedType());
         assert(AdjustedPtr);
       } else {
         OtherPtr = getAdjustedPtr(IRB, DL, OtherPtr, otherElementType, OtherOffset, OtherPtrTy,
@@ -3182,7 +3182,7 @@ private:
         // It's not possible to get the right type from the alloca.
         // This means that we need to look the other way around.
         OtherPtr = getAllocaCompatiblePtr(IRB, OtherPtr, otherElementType, OtherOffset, NewAI.getAllocatedType());
-        OurPtr = getNewAllocaSlicePtr(IRB, OtherPtr->getType(), otherElementType);
+        OurPtr = getNewAllocaSlicePtr(IRB, OtherPtr->getType(), NewAI.getAllocatedType());
       } else {
         OtherPtr = getAdjustedPtr(IRB, DL, OtherPtr, otherElementType, OtherOffset, OtherPtrTy,
                                   otherElementType, OtherPtr->getName() + ".");
