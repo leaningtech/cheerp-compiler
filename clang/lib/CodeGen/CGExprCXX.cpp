@@ -1437,7 +1437,7 @@ RValue CodeGenFunction::EmitBuiltinNewDeleteCall(const FunctionProtoType *Type,
 
   for (auto *Decl : Ctx.getTranslationUnitDecl()->lookup(Name))
     if (auto *FD = dyn_cast<FunctionDecl>(Decl))
-      if (Ctx.hasSameType(FD->getType(), QualType(Type, 0))) {
+      if (Ctx.hasSameType(FD->getType().getUnqualifiedType(), QualType(Type, 0))) {
         QualType Ty;
         // CHEERP: For new, try to get the type of the allocation from a
         // surrounding cast. This is required for genericjs
