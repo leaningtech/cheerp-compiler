@@ -64,10 +64,15 @@ public:
 		real_to_virt.erase(it);
 	}
 
-	VirtualAddressMap() {
+	VirtualAddressMap(uintptr_t num_functions) {
 		virt_to_real.emplace(0,Page(0,8));
 		real_to_virt.emplace(0,Page(0,8));
-		next_virt = 8;
+
+		constexpr uintptr_t MB = 1024*1024;
+		uintptr_t func_end = MB + num_functions;
+		// Align to the next MB, to ensure we are far away from the range of function
+		// addresses (which has a fixed start at 1MB)
+		next_virt = (func_end+MB-1) & ~(MB-1);
 	}
 private:
 	static std::map<uintptr_t, Page>::const_iterator find_start(const std::map<uintptr_t, Page>& mapping,  uintptr_t addr) {

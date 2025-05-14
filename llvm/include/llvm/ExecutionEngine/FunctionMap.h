@@ -43,7 +43,8 @@ public:
 private:
 	std::map<llvm::Function*, uint32_t> map;
 	std::map<uint32_t, llvm::Function*> rev_map;
-	uint32_t next_addr = 1;
+	// start from 1MB to make clashes with integers less likely
+	uint32_t next_addr = 1024*1024;
 
 };
 class DirectFunctionMap: public FunctionMapBase {
