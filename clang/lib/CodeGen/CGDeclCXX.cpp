@@ -1077,7 +1077,10 @@ CodeGenFunction::GenerateCXXGlobalInitFunc(llvm::Function *Fn,
           llvm::GlobalVariable *GuardGV = new llvm::GlobalVariable(CGM.getModule(), Int8Ty, /*isConstant=*/false,
                                      llvm::GlobalVariable::InternalLinkage,
                                      llvm::ConstantInt::get(Int8Ty, 0),
-                                     Decls[i]->getName() + "__in_chrg");
+                                     Decls[i]->getName() + "__in_chrg",
+                                     nullptr,
+                                     llvm::GlobalValue::NotThreadLocal,
+                                     unsigned(cheerp::CheerpAS::Wasm));
           GuardGV->setSection("asmjs");
           CharUnits GuardAlign = CharUnits::One();
           GuardGV->setAlignment(GuardAlign.getAsAlign());
