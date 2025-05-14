@@ -57,7 +57,7 @@ Interpreter::Interpreter(std::unique_ptr<Module> M, bool preExecute)
 
   if (preExecute) {
     ForPreExecute = true;
-    ValueAddresses = std::unique_ptr<AddressMapBase>(new VirtualAddressMap());
+    ValueAddresses = std::unique_ptr<AddressMapBase>(new VirtualAddressMap(Modules[0]->getFunctionList().size()));
     FunctionAddresses = std::unique_ptr<FunctionMapBase>(new VirtualFunctionMap());
   }
   memset(&ExitValue.Untyped, 0, sizeof(ExitValue.Untyped));
