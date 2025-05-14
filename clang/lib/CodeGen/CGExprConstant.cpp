@@ -1997,9 +1997,14 @@ private:
       DestElemTy = CGM.getTypes().ConvertTypeForMem(DestType->getPointeeType());
     QualType CurType;
     const APValue::LValueBase &base = Value.getLValueBase();
-    if (const ValueDecl *D = base.dyn_cast<const ValueDecl*>())
+    if (const ValueDecl *D = base.dyn_cast<const ValueDecl*>()) {
+      if (const VarDecl *VD = dyn_cast<VarDecl>(D)) {
+        VD = VD->getInitializingDeclaration();
+        if (VD != nullptr)
+          D = VD;
+      }
       CurType = D->getType();
-    else if (const Expr *E = base.dyn_cast<const Expr*>())
+    } else if (const Expr *E = base.dyn_cast<const Expr*>())
       CurType = E->getType();
     else
       CurType = base.getTypeInfoType();
