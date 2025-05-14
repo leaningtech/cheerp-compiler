@@ -7169,7 +7169,7 @@ void CheerpWriter::compileThreadingObject()
 		stream << workerThreadObject << "=e.data;";
 		stream << workerThreadObject << ".inWorker=true;";
 		if (makeModule == MODULE_TYPE::ES6)
-			stream << "import(" << workerThreadObject << ".script).then(m=>m.default()).catch(e=>{if(e!=='LeakUtilityThread')throw e;});";
+			stream << "import(" << workerThreadObject << ".script).then(m=>{m.default();});";
 		else
 			stream << "importScripts(" << workerThreadObject << ".script);";
 		stream << "postMessage(null);";
@@ -7203,6 +7203,10 @@ void CheerpWriter::compileWorkerMainScript()
 	stream << "__asm._workerEntry(" << threadObject << ".tls, " << threadObject << ".func, ";
 	stream << threadObject << ".args, " << threadObject << ".tid, " << threadObject << ".stack, ";
 	stream << threadObject << ".ctid);" << NewLine;
+	stream << "}).catch(e=>{;" << NewLine;
+	stream << "if(e!=='LeakUtilityThread'&&e!=='ThreadExit'){" << NewLine;
+	stream << "throw(e);" << NewLine;
+	stream << "}" << NewLine;
 	stream << "});" << NewLine;
 }
 
