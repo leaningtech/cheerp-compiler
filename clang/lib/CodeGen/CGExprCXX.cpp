@@ -1360,7 +1360,7 @@ static RValue EmitNewDeleteCall(CodeGenFunction &CGF,
   // NOTE: genericjs will emit an error if this is true, but we have to be careful not to crash
   bool unsafe_new = allocType.isNull();
   if (unsafe_new) {
-    allocType = CGF.getContext().CharTy;
+    allocType = CGF.getContext().getAddrSpaceQualType(CGF.getContext().CharTy, LangAS::cheerp_wasm);
   }
   if (IsArray) {
     if (const CXXRecordDecl* RD = allocType->getAsCXXRecordDecl())
