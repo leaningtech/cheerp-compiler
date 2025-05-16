@@ -1814,8 +1814,9 @@ Value *llvm::emitPutS(Value *Str, IRBuilderBase &B,
 
   Type *IntTy = getIntTy(B, TLI);
   StringRef PutsName = TLI->getName(LibFunc_puts);
+  unsigned AS = Str->getType()->getPointerAddressSpace();
   FunctionCallee PutS = getOrInsertLibFunc(M, *TLI, LibFunc_puts, IntTy,
-                                           B.getInt8PtrTy());
+                                           B.getInt8PtrTy(AS));
   inferNonMandatoryLibFuncAttrs(M, PutsName, *TLI);
   CallInst *CI = B.CreateCall(PutS, castToCStr(Str, B), PutsName);
   if (const Function *F =
@@ -1888,7 +1889,7 @@ Value *llvm::emitFWrite(Value *Ptr, Value *Size, Value *File, IRBuilderBase &B,
   return CI;
 }
 
-Value *llvm::emitMalloc(Value *Num, IRBuilderBase &B, const DataLayout &DL,
+Value *llvm::emitMalloc(Type* RetTy, Value *Num, IRBuilderBase &B, const DataLayout &DL,
                         const TargetLibraryInfo *TLI) {
   Module *M = B.GetInsertBlock()->getModule();
   if (!isLibFuncEmittable(M, TLI, LibFunc_malloc))
@@ -1897,7 +1898,7 @@ Value *llvm::emitMalloc(Value *Num, IRBuilderBase &B, const DataLayout &DL,
   StringRef MallocName = TLI->getName(LibFunc_malloc);
   Type *SizeTTy = getSizeTTy(B, TLI);
   FunctionCallee Malloc = getOrInsertLibFunc(M, *TLI, LibFunc_malloc,
-                                             B.getInt8PtrTy(), SizeTTy);
+                                             RetTy, SizeTTy);
   inferNonMandatoryLibFuncAttrs(M, MallocName, *TLI);
   CallInst *CI = B.CreateCall(Malloc, Num, MallocName);
 
@@ -1908,7 +1909,7 @@ Value *llvm::emitMalloc(Value *Num, IRBuilderBase &B, const DataLayout &DL,
   return CI;
 }
 
-Value *llvm::emitCalloc(Value *Num, Value *Size, IRBuilderBase &B,
+Value *llvm::emitCalloc(Type* RetTy, Value *Num, Value *Size, IRBuilderBase &B,
                         const TargetLibraryInfo &TLI) {
   Module *M = B.GetInsertBlock()->getModule();
   if (!isLibFuncEmittable(M, &TLI, LibFunc_calloc))
@@ -1917,7 +1918,7 @@ Value *llvm::emitCalloc(Value *Num, Value *Size, IRBuilderBase &B,
   StringRef CallocName = TLI.getName(LibFunc_calloc);
   Type *SizeTTy = getSizeTTy(B, &TLI);
   FunctionCallee Calloc = getOrInsertLibFunc(M, TLI, LibFunc_calloc,
-                                             B.getInt8PtrTy(), SizeTTy, SizeTTy);
+                                             RetTy, SizeTTy, SizeTTy);
   inferNonMandatoryLibFuncAttrs(M, CallocName, TLI);
   CallInst *CI = B.CreateCall(Calloc, {Num, Size}, CallocName);
 

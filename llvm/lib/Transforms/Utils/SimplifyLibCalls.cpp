@@ -1646,7 +1646,7 @@ Value *LibCallSimplifier::optimizeMemSet(CallInst *CI, IRBuilderBase &B) {
 
 Value *LibCallSimplifier::optimizeRealloc(CallInst *CI, IRBuilderBase &B) {
   if (isa<ConstantPointerNull>(CI->getArgOperand(0)))
-    return copyFlags(*CI, emitMalloc(CI->getArgOperand(1), B, DL, TLI));
+    return copyFlags(*CI, emitMalloc(CI->getType(), CI->getArgOperand(1), B, DL, TLI));
 
   return nullptr;
 }
