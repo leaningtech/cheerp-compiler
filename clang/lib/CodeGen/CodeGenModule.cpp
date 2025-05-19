@@ -4088,8 +4088,14 @@ llvm::Constant *CodeGenModule::GetOrCreateLLVMFunction(
     IsIncompleteFunction = true;
   }
 
-  if (const FunctionDecl *FD = cast_or_null<FunctionDecl>(D)) {
-    AS =  Context.getTargetAddressSpace(FD->getType().getAddressSpace());
+  if (getLangOpts().Cheerp && !getLangOpts().OpenCL) {
+    if (const FunctionDecl *FD = cast_or_null<FunctionDecl>(D)) {
+      bool asmjs = FD->hasAttr<AsmJSAttr>();
+      LangAS DefaultAS = asmjs? LangAS::cheerp_wasm : LangAS::cheerp_client;
+      AS =  Context.getTargetAddressSpace(Context.getCheerpTypeAddressSpace(FD->getType(), DefaultAS));
+    }
+  } else if (AS == std::numeric_limits<unsigned>::max()) {
+    AS = getDataLayout().getProgramAddressSpace();
   }
   llvm::Function *F =
       llvm::Function::Create(FTy, llvm::Function::ExternalLinkage, AS,
@@ -4716,8 +4722,8 @@ LangAS CodeGenModule::GetGlobalVarAddressSpace(const VarDecl *D) {
     if (!D) {
       return getTriple().isCheerpWasm()? LangAS::cheerp_wasm : LangAS::cheerp_genericjs;
     }
-    assert(D->getType().getAddressSpace() != LangAS::Default);
-    return D->getType().getAddressSpace();
+    LangAS DefaultAS = D->hasAttr<AsmJSAttr>() ? LangAS::cheerp_wasm : LangAS::cheerp_genericjs;
+    return Context.getCheerpTypeAddressSpace(D->getType(), DefaultAS);
   }
   return getTargetCodeGenInfo().getGlobalVarAddressSpace(*this, D);
 }
@@ -5513,8 +5519,9 @@ void CodeGenModule::EmitAliasDefinition(GlobalDecl GD) {
                                       /*ForVTable=*/false);
     LT = getFunctionLinkage(GD);
   } else {
-    Aliasee = GetOrCreateLLVMGlobal(AA->getAliasee(), DeclTy, D->getType().getAddressSpace(),
-                                    /*D=*/nullptr);
+    LangAS DefaultAS = D->hasAttr<AsmJSAttr>() ? LangAS::cheerp_wasm : LangAS::cheerp_genericjs;
+    LangAS AS = Context.getCheerpTypeAddressSpace(D->getType(), DefaultAS);
+    Aliasee = GetOrCreateLLVMGlobal(AA->getAliasee(), DeclTy, AS, /*D=*/nullptr);
     if (const auto *VD = dyn_cast<VarDecl>(GD.getDecl()))
       LT = getLLVMLinkageVarDefinition(VD, D->getType().isConstQualified());
     else

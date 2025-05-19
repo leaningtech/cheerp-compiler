@@ -10245,8 +10245,10 @@ private:
       LangAS AS = getContext().getCheerpTypeAddressSpace(FI.getReturnType(), DefaultAS);
       FI.getReturnInfo().setIndirectAddrSpace(getContext().getTargetAddressSpace(AS));
     }
-    for (auto &Arg : FI.arguments())
+    for (auto &Arg : FI.arguments()) {
       Arg.info = classifyArgumentType(Arg.type);
+      //TODO add AS
+    }
   }
 };
 
