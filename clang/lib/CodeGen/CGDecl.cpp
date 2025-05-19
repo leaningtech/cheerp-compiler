@@ -1555,9 +1555,10 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
         allocaAlignment = alignment;
       }
 
-      uint32_t AS = getLangOpts().Cheerp
-        ? getContext().getTargetAddressSpace(Ty.getAddressSpace())
-        : CGM.getDataLayout().getAllocaAddrSpace();
+      uint32_t AS = CGM.getDataLayout().getAllocaAddrSpace();
+      if (getLangOpts().Cheerp) {
+        AS = getContext().getCheerpTypeTargetAddressSpace(Ty, D);
+      }
 
       // Create the alloca.  Note that we set the name separately from
       // building the instruction so that it's there even in no-asserts
@@ -1608,7 +1609,7 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
     uint64_t size = CGM.getDataLayout().getTypeAllocSize(llvmTy);
     llvm::Constant* typeSize = llvm::ConstantInt::get(elementCount->getType(), size);
 
-    uint32_t AS = getContext().getTargetAddressSpace(Ty.getAddressSpace());
+    uint32_t AS = getContext().getCheerpTypeTargetAddressSpace(Ty, D);
     // Compute the size in bytes
     llvm::Value* sizeInBytes = Builder.CreateMul(elementCount, typeSize);
     llvm::Value* Ret = cheerp::createCheerpAllocate(Builder, nullptr, llvmTy, sizeInBytes, AS);
@@ -1616,7 +1617,7 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
   } else {
     EnsureInsertPoint();
 
-    uint32_t AS = getLangOpts().Cheerp? getContext().getTargetAddressSpace(Ty.getAddressSpace()) : CGM.getDataLayout().getAllocaAddrSpace();
+    uint32_t AS = getLangOpts().Cheerp? getContext().getCheerpTypeTargetAddressSpace(Ty, true) : CGM.getDataLayout().getAllocaAddrSpace();
 
     assert(AS == (unsigned) cheerp::CheerpAS::Wasm);
 
