@@ -2818,6 +2818,8 @@ public:
 
   LangAS getCheerpTypeAddressSpace(QualType Ty, LangAS fallback = LangAS::Default) const;
   LangAS getCheerpTypeAddressSpace(const Decl* D, LangAS fallback = LangAS::Default) const;
+  unsigned getCheerpTypeTargetAddressSpace(QualType Ty, bool asmjs) const;
+  unsigned getCheerpTypeTargetAddressSpace(QualType Ty, const Decl& D) const;
 
   /// Get target-dependent integer value for null pointer which is used for
   /// constant folding.

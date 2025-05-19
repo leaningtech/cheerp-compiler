@@ -405,12 +405,12 @@ public:
   }
 
   unsigned getIndirectAddrSpace() const {
-    assert(isIndirectAliased() && "Invalid kind!");
+    assert((isIndirectAliased() || isIndirect()) && "Invalid kind!");
     return IndirectAttr.AddrSpace;
   }
 
   void setIndirectAddrSpace(unsigned AddrSpace) {
-    assert(isIndirectAliased() && "Invalid kind!");
+    assert((isIndirectAliased() || isIndirect()) && "Invalid kind!");
     IndirectAttr.AddrSpace = AddrSpace;
   }
 

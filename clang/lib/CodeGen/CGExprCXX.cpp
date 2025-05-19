@@ -1394,7 +1394,7 @@ static RValue EmitNewDeleteCall(CodeGenFunction &CGF,
       origFunc = CalleePtr;
     }
     llvm::Type* elementType = CGF.ConvertTypeForMem(retType->getPointeeType());
-    unsigned AS = CGF.getContext().getTargetAddressSpace(allocType.getAddressSpace());
+    unsigned AS = CGF.getContext().getCheerpTypeTargetAddressSpace(allocType, asmjs);
     CallOrInvoke = cheerp::createCheerpAllocate(CGF.Builder, origFunc, elementType, Args[0].getKnownRValue().getScalarVal(), AS, use_array);
     RV = RValue::get(CallOrInvoke);
   }

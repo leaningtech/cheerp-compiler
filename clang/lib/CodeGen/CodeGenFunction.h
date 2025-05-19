@@ -2587,16 +2587,16 @@ public:
   /// more efficient if the caller knows that the address will not be exposed.
   llvm::AllocaInst *CreateTempAlloca(llvm::Type *Ty, const Twine &Name = "tmp",
                                      llvm::Value *ArraySize = nullptr,
-                                     uint32_t AS = 0);
+                                     uint32_t AS = std::numeric_limits<uint32_t>::max());
   Address CreateTempAlloca(llvm::Type *Ty, CharUnits align,
                            const Twine &Name = "tmp",
                            llvm::Value *ArraySize = nullptr,
                            Address *Alloca = nullptr,
-                           uint32_t AS = 0);
+                           uint32_t AS = std::numeric_limits<uint32_t>::max());
   Address CreateTempAllocaWithoutCast(llvm::Type *Ty, CharUnits align,
                                       const Twine &Name = "tmp",
                                       llvm::Value *ArraySize = nullptr,
-                                      uint32_t AS = 0);
+                                      uint32_t AS = std::numeric_limits<uint32_t>::max());
 
   /// CreateDefaultAlignedTempAlloca - This creates an alloca with the
   /// default ABI alignment of the given LLVM type.
