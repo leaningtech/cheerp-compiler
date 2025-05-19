@@ -13,6 +13,7 @@
 #include "clang/AST/ASTContext.h"
 #include "CXXABI.h"
 #include "Interp/Context.h"
+#include "clang/Analysis/AnalysisDeclContext.h"
 #include "clang/AST/APValue.h"
 #include "clang/AST/ASTConcept.h"
 #include "clang/AST/ASTMutationListener.h"
@@ -13171,6 +13172,32 @@ LangAS ASTContext::getLangASForBuiltinAddressSpace(unsigned AS) const {
     return getTargetInfo().getCUDABuiltinAddressSpace(AS);
 
   return getLangASFromTargetAS(AS);
+}
+
+LangAS ASTContext::getCheerpTypeAddressSpace(QualType Ty, LangAS fallback) const {
+  if (Ty.hasAddressSpace())
+    return Ty.getAddressSpace();
+  if (Ty->isArrayType() && Ty->getBaseElementTypeUnsafe()->getAsTagDecl())
+    return getCheerpTypeAddressSpace(Ty->getBaseElementTypeUnsafe()->getAsTagDecl(), fallback);
+  if (Ty->getAsTagDecl())
+    return getCheerpTypeAddressSpace(Ty->getAsTagDecl(), fallback);
+  return fallback;
+}
+LangAS ASTContext::getCheerpTypeAddressSpace(const Decl* D, LangAS fallback) const {
+  if (isa<EnumDecl>(D)) {
+    return fallback;
+  }
+  LangAS AS = fallback;
+  if (D->hasAttr<ByteLayoutAttr>()) {
+    AS = LangAS::cheerp_bytelayout;
+  } else if (AnalysisDeclContext::isInClientNamespace(D)) {
+    AS = clang::LangAS::cheerp_client;
+  } else if (D->hasAttr<GenericJSAttr>()) {
+    AS = LangAS::cheerp_genericjs;
+  } else if (D->hasAttr<AsmJSAttr>()) {
+    AS = LangAS::cheerp_wasm;
+  }
+  return AS;
 }
 
 // Explicitly instantiate this in case a Redeclarable<T> is used from a TU that
