@@ -13199,6 +13199,17 @@ LangAS ASTContext::getCheerpTypeAddressSpace(const Decl* D, LangAS fallback) con
   }
   return AS;
 }
+unsigned ASTContext::getCheerpTypeTargetAddressSpace(QualType Ty, bool asmjs) const {
+  if (!LangOpts.Cheerp) {
+    return getTargetAddressSpace(Ty);
+  }
+  LangAS DefaultAS = asmjs? LangAS::cheerp_wasm : LangAS::cheerp_genericjs;
+  LangAS LAS = getCheerpTypeAddressSpace(Ty, DefaultAS);
+  return getTargetAddressSpace(LAS);
+}
+unsigned ASTContext::getCheerpTypeTargetAddressSpace(QualType Ty, const Decl& D) const {
+  return getCheerpTypeTargetAddressSpace(Ty, D.hasAttr<AsmJSAttr>());
+}
 
 // Explicitly instantiate this in case a Redeclarable<T> is used from a TU that
 // doesn't include ASTContext.h

@@ -3427,7 +3427,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
         QualType returnType=retCE->getType();
         Tys[0] = ConvertType(returnType);
         elementType = ConvertTypeForMem(returnType->getPointeeType());
-        unsigned AS = getContext().getTargetAddressSpace(returnType->getPointeeType().getAddressSpace());
+        unsigned AS = getContext().getCheerpTypeTargetAddressSpace(returnType->getPointeeType(), asmjs);
         CallBase* CB = cheerp::createCheerpAllocate(Builder, nullptr, elementType, Size, AS);
         return RValue::get(CB);
       }
@@ -12745,7 +12745,7 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
       AS = (unsigned)cheerp::CheerpAS::Wasm;
     } else {
       elementType = ConvertTypeForMem(retCE->getType()->getPointeeType());
-      AS = getContext().getTargetAddressSpace(retCE->getType()->getPointeeType().getAddressSpace());
+      AS = getContext().getCheerpTypeTargetAddressSpace(retCE->getType()->getPointeeType(), asmjs);
     }
     llvm::Constant* Malloc = nullptr;
     // in Wasm, we pass the original allocation function as argument 0
@@ -12774,7 +12774,7 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
       AS = (unsigned)cheerp::CheerpAS::Wasm;
     } else {
       elementType = ConvertTypeForMem(retCE->getType()->getPointeeType());
-      AS = getContext().getTargetAddressSpace(retCE->getType()->getPointeeType().getAddressSpace());
+      AS = getContext().getCheerpTypeTargetAddressSpace(retCE->getType()->getPointeeType(), asmjs);
     }
     llvm::Constant* Malloc = nullptr;
     // in Wasm, we pass the original allocation function as argument 0
@@ -12855,7 +12855,7 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
       Builder.CreateCondBr(opIsNull, mallocBlock, reallocBlock);
       Builder.SetInsertPoint(mallocBlock);
 
-      unsigned AS = getContext().getTargetAddressSpace(reallocType->getPointeeType().getAddressSpace());
+      unsigned AS = getContext().getCheerpTypeTargetAddressSpace(reallocType->getPointeeType(), asmjs);
       CallBase* mallocRet = cheerp::createCheerpAllocate(Builder, nullptr, elementType, Ops[1], AS);
       Builder.CreateBr(endBlock);
       Builder.SetInsertPoint(reallocBlock);
