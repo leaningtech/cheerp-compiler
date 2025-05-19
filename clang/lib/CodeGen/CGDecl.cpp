@@ -1515,6 +1515,12 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
       emission.IsConstantAggregate = true;
     }
 
+    uint32_t AS = CGM.getDataLayout().getAllocaAddrSpace();
+    if (getLangOpts().Cheerp) {
+      bool asmjs = CurFn->getSection() == "asmjs";
+      AS = getContext().getCheerpTypeTargetAddressSpace(Ty, asmjs);
+    }
+
     // A normal fixed sized variable becomes an alloca in the entry block,
     // unless:
     // - it's an NRVO variable.
@@ -1537,7 +1543,7 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
           llvm::Value *Zero = Builder.getFalse();
           Address NRVOFlag =
               CreateTempAlloca(Zero->getType(), CharUnits::One(), "nrvo",
-                               /*ArraySize=*/nullptr, &AllocaAddr);
+                               /*ArraySize=*/nullptr, &AllocaAddr, AS);
           EnsureInsertPoint();
           Builder.CreateStore(Zero, NRVOFlag);
 
@@ -1557,10 +1563,6 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
         allocaTy = ConvertTypeForMem(Ty);
         allocaAlignment = alignment;
       }
-
-      uint32_t AS = getLangOpts().Cheerp
-        ? getContext().getTargetAddressSpace(Ty.getAddressSpace())
-        : CGM.getDataLayout().getAllocaAddrSpace();
 
       // Create the alloca.  Note that we set the name separately from
       // building the instruction so that it's there even in no-asserts
@@ -1611,7 +1613,7 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
     uint64_t size = CGM.getDataLayout().getTypeAllocSize(llvmTy);
     llvm::Constant* typeSize = llvm::ConstantInt::get(elementCount->getType(), size);
 
-    uint32_t AS = getContext().getTargetAddressSpace(Ty.getAddressSpace());
+    uint32_t AS = getContext().getCheerpTypeTargetAddressSpace(Ty, D);
     // Compute the size in bytes
     llvm::Value* sizeInBytes = Builder.CreateMul(elementCount, typeSize);
     llvm::Value* Ret = cheerp::createCheerpAllocate(Builder, nullptr, llvmTy, sizeInBytes, AS);
@@ -1619,7 +1621,7 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
   } else {
     EnsureInsertPoint();
 
-    uint32_t AS = getLangOpts().Cheerp? getContext().getTargetAddressSpace(Ty.getAddressSpace()) : CGM.getDataLayout().getAllocaAddrSpace();
+    uint32_t AS = getLangOpts().Cheerp? getContext().getCheerpTypeTargetAddressSpace(Ty, true) : CGM.getDataLayout().getAllocaAddrSpace();
 
     if (!DidCallStackSave) {
       // Save the stack.

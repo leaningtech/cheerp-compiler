@@ -113,6 +113,7 @@ llvm::AllocaInst *CodeGenFunction::CreateTempAlloca(llvm::Type *Ty,
                                                     const Twine &Name,
                                                     llvm::Value *ArraySize,
                                                     uint32_t AS) {
+  AS = AS == std::numeric_limits<uint32_t>::max()? CGM.getDataLayout().getAllocaAddrSpace() : AS;
   if (ArraySize)
     return Builder.CreateAlloca(Ty, AS, ArraySize, Name);
   return new llvm::AllocaInst(Ty, AS, ArraySize, Name, AllocaInsertPt);
@@ -131,10 +132,10 @@ Address CodeGenFunction::CreateDefaultAlignTempAlloca(llvm::Type *Ty,
 
 Address CodeGenFunction::CreateIRTemp(QualType Ty, const Twine &Name) {
   CharUnits Align = getContext().getTypeAlignInChars(Ty);
-  LangAS DefaultAS = CurFn->getSection() == "asmjs"? LangAS::cheerp_wasm : LangAS::cheerp_genericjs;
-  LangAS AS = getContext().getCheerpTypeAddressSpace(Ty, DefaultAS);
-  unsigned TAS = getContext().getTargetAddressSpace(AS);
-  return CreateTempAlloca(ConvertType(Ty), Align, Name, nullptr, nullptr, TAS);
+  unsigned AS = CGM.getDataLayout().getAllocaAddrSpace();
+  if (getLangOpts().Cheerp)
+    AS = getContext().getCheerpTypeTargetAddressSpace(Ty, CurFn->getSection() == "asmjs");
+  return CreateTempAlloca(ConvertType(Ty), Align, Name, nullptr, nullptr, AS);
 }
 
 Address CodeGenFunction::CreateMemTemp(QualType Ty, const Twine &Name,
@@ -145,11 +146,11 @@ Address CodeGenFunction::CreateMemTemp(QualType Ty, const Twine &Name,
 
 Address CodeGenFunction::CreateMemTemp(QualType Ty, CharUnits Align,
                                        const Twine &Name, Address *Alloca) {
-  LangAS DefaultAS = CurFn->getSection() == "asmjs"? LangAS::cheerp_wasm : LangAS::cheerp_genericjs;
-  LangAS AS = getContext().getCheerpTypeAddressSpace(Ty, DefaultAS);
-  unsigned ASN = getContext().getTargetInfo().getTargetAddressSpace(AS);
+  unsigned AS = CGM.getDataLayout().getAllocaAddrSpace();
+  if (getLangOpts().Cheerp)
+    AS = getContext().getCheerpTypeTargetAddressSpace(Ty, CurFn->getSection() == "asmjs");
   Address Result = CreateTempAlloca(ConvertTypeForMem(Ty), Align, Name,
-                                    /*ArraySize=*/nullptr, Alloca, ASN);
+                                    /*ArraySize=*/nullptr, Alloca, AS);
 
   if (Ty->isConstantMatrixType()) {
     auto *ArrayTy = cast<llvm::ArrayType>(Result.getElementType());
@@ -157,7 +158,7 @@ Address CodeGenFunction::CreateMemTemp(QualType Ty, CharUnits Align,
                                                 ArrayTy->getNumElements());
 
     Result = Address(
-        Builder.CreateBitCast(Result.getPointer(), VectorTy->getPointerTo(ASN)),
+        Builder.CreateBitCast(Result.getPointer(), VectorTy->getPointerTo(AS)),
         VectorTy, Result.getAlignment());
   }
   return Result;
@@ -165,10 +166,10 @@ Address CodeGenFunction::CreateMemTemp(QualType Ty, CharUnits Align,
 
 Address CodeGenFunction::CreateMemTempWithoutCast(QualType Ty, CharUnits Align,
                                                   const Twine &Name) {
-  LangAS DefaultAS = CurFn->getSection() == "asmjs"? LangAS::cheerp_wasm : LangAS::cheerp_genericjs;
-  LangAS AS = getContext().getCheerpTypeAddressSpace(Ty, DefaultAS);
-  unsigned ASN = getContext().getTargetInfo().getTargetAddressSpace(AS);
-  return CreateTempAllocaWithoutCast(ConvertTypeForMem(Ty), Align, Name, nullptr, ASN);
+  unsigned AS = CGM.getDataLayout().getAllocaAddrSpace();
+  if (getLangOpts().Cheerp)
+    AS = getContext().getCheerpTypeTargetAddressSpace(Ty, CurFn->getSection() == "asmjs");
+  return CreateTempAllocaWithoutCast(ConvertTypeForMem(Ty), Align, Name, nullptr, AS);
 }
 
 Address CodeGenFunction::CreateMemTempWithoutCast(QualType Ty,
