@@ -1229,7 +1229,7 @@ RValue CodeGenFunction::EmitBlockCallExpr(const CallExpr *E,
 
   const FunctionType *FuncTy = FnType->castAs<FunctionType>();
   const CGFunctionInfo &FnInfo =
-    CGM.getTypes().arrangeBlockFunctionCall(Args, FuncTy);
+    CGM.getTypes().arrangeBlockFunctionCall(Args, FuncTy, CurFn->getSection() == "asmjs");
 
   // Cast the function pointer to the right type.
   llvm::Type *BlockFTy = CGM.getTypes().GetFunctionType(FnInfo);
@@ -1490,7 +1490,7 @@ llvm::Function *CodeGenFunction::GenerateBlockFunction(
   // Create the function declaration.
   const FunctionProtoType *fnType = blockInfo.getBlockExpr()->getFunctionType();
   const CGFunctionInfo &fnInfo =
-    CGM.getTypes().arrangeBlockFunctionDeclaration(fnType, args);
+    CGM.getTypes().arrangeBlockFunctionDeclaration(fnType, args, GD.getDecl()->hasAttr<AsmJSAttr>());
   if (CGM.ReturnSlotInterferesWithArgs(fnInfo))
     blockInfo.UsesStret = true;
 
