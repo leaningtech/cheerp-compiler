@@ -89,7 +89,7 @@ RValue CodeGenFunction::EmitCXXMemberOrOperatorCall(
   MemberCallInfo CallInfo = commonEmitCXXMemberOrOperatorCall(
       *this, MD, This, ImplicitParam, ImplicitParamTy, CE, Args, RtlArgs);
   auto &FnInfo = CGM.getTypes().arrangeCXXMethodCall(
-      Args, FPT, CallInfo.ReqArgs, CallInfo.PrefixSize);
+      Args, FPT, CallInfo.ReqArgs, CallInfo.PrefixSize, MD->hasAttr<AsmJSAttr>());
   return EmitCall(FnInfo, Callee, ReturnValue, Args, nullptr,
                   CE && CE == MustTailCall,
                   CE ? CE->getExprLoc() : SourceLocation());
@@ -480,7 +480,7 @@ CodeGenFunction::EmitCXXMemberPointerCallExpr(const CXXMemberCallExpr *E,
   // And the rest of the call args
   EmitCallArgs(Args, FPT, E->arguments());
   return EmitCall(CGM.getTypes().arrangeCXXMethodCall(Args, FPT, required,
-                                                      /*PrefixSize=*/0),
+                                                      /*PrefixSize=*/0, RD->hasAttr<AsmJSAttr>()),
                   Callee, ReturnValue, Args, nullptr, E == MustTailCall,
                   E->getExprLoc());
 }
@@ -1379,11 +1379,6 @@ static RValue EmitNewDeleteCall(CodeGenFunction &CGF,
   } else if (!IsDelete && (Args.size() > 2 || (Args.size() == 2 && !Args[1].getType()->isReferenceType()))) {
     fancy_new = true;
   }
-  if (cheerp && !allocType.hasAddressSpace()) {
-    LangAS AS = CGF.getContext().getCheerpTypeAddressSpace(allocType);
-    assert(AS != LangAS::Default);
-    allocType = CGF.getContext().getAddrSpaceQualType(allocType, AS);
-  }
   //CHEERP TODO: warning/error when `cheerp && !asmjs && user_defined_new`
   if(!IsDelete && cheerp && !(asmjs && (user_defined_new || fancy_new || unsafe_new)))
   {
@@ -1417,7 +1412,7 @@ static RValue EmitNewDeleteCall(CodeGenFunction &CGF,
   {
     RV =
       CGF.EmitCall(CGF.CGM.getTypes().arrangeFreeFunctionCall(
-                       Args, CalleeType, /*ChainCall=*/false),
+                       Args, CalleeType, /*ChainCall=*/false, asmjs),
                    Callee, ReturnValueSlot(), Args, &CallOrInvoke);
   }
 

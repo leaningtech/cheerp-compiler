@@ -259,7 +259,7 @@ llvm::Constant *CodeGenModule::getOrCreateStaticVarDecl(
   else
     Name = getStaticDeclName(*this, D);
 
-  llvm::Type *LTy = getTypes().ConvertTypeForMem(Ty);
+  llvm::Type *LTy = getTypes().ConvertTypeForMem(Ty, false, D.hasAttr<AsmJSAttr>());
   LangAS AS = GetGlobalVarAddressSpace(&D);
   unsigned TargetAS = getContext().getTargetAddressSpace(AS);
 
@@ -291,7 +291,7 @@ llvm::Constant *CodeGenModule::getOrCreateStaticVarDecl(
   // Make sure the result is of the correct type.
   LangAS ExpectedAS = Ty.getAddressSpace();
   llvm::Constant *Addr = GV;
-  if (AS != ExpectedAS) {
+  if (AS != ExpectedAS && !getContext().getLangOpts().Cheerp) {
     Addr = getTargetCodeGenInfo().performAddrSpaceCast(
         *this, GV, AS, ExpectedAS,
         LTy->getPointerTo(getContext().getTargetAddressSpace(ExpectedAS)));

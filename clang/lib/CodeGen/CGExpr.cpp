@@ -2606,7 +2606,7 @@ static LValue EmitGlobalVarDeclLValue(CodeGenFunction &CGF,
   if (VD->getTLSKind() != VarDecl::TLS_None)
     V = CGF.Builder.CreateThreadLocalAddress(V);
 
-  llvm::Type *RealVarTy = CGF.getTypes().ConvertTypeForMem(VD->getType());
+  llvm::Type *RealVarTy = CGF.getTypes().ConvertTypeForMem(VD->getType(), false, VD->hasAttr<AsmJSAttr>());
   V = EmitBitCastOfLValueToProperType(CGF, V, RealVarTy);
   CharUnits Alignment = CGF.getContext().getDeclAlign(VD);
   Address Addr(V, RealVarTy, Alignment);
@@ -2644,7 +2644,7 @@ static llvm::Constant *EmitFunctionDeclPointer(CodeGenModule &CGM,
           CGM.getContext().getFunctionNoProtoType(Proto->getReturnType());
       NoProtoType = CGM.getContext().getPointerType(NoProtoType);
       V = llvm::ConstantExpr::getBitCast(V,
-                                      CGM.getTypes().ConvertType(NoProtoType));
+                                      CGM.getTypes().ConvertType(NoProtoType, FD->hasAttr<AsmJSAttr>()));
     }
   }
   return V;
@@ -4485,6 +4485,8 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
     }
   }
 
+  bool asmjs = field->getParent()->hasAttr<AsmJSAttr>();
+
   unsigned RecordCVR = base.getVRQualifiers();
   if (rec->isUnion()) {
     // For unions, there is no pointer adjustment.
@@ -4507,10 +4509,10 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
 
     if (FieldType->isReferenceType())
       addr = Builder.CreateElementBitCast(
-          addr, CGM.getTypes().ConvertTypeForMem(FieldType), field->getName());
+          addr, CGM.getTypes().ConvertTypeForMem(FieldType, false, asmjs), field->getName());
   } else if (!CGM.getTarget().isByteAddressable() && CGM.getTypes().getCGRecordLayout(rec).getLLVMFieldNo(field) == 0xffffffff) {
     // Cheerp: If the first member is a struct we want to collapse it into the parent, and we use upcast_collapsed to access it
-    addr = GenerateUpcastCollapsed(addr, CGM.getTypes().ConvertTypeForMem(FieldType), addr.getAddressSpace());
+    addr = GenerateUpcastCollapsed(addr, CGM.getTypes().ConvertTypeForMem(FieldType, false, asmjs), addr.getAddressSpace());
   } else {
     if (!IsInPreservedAIRegion &&
         (!getDebugInfo() || !rec->hasAttr<BPFPreserveAccessIndexAttr>()))
@@ -4539,7 +4541,7 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
   // will need a bitcast if the LLVM type laid out doesn't match the desired
   // type.
   addr = Builder.CreateElementBitCast(
-      addr, CGM.getTypes().ConvertTypeForMem(FieldType), field->getName());
+      addr, CGM.getTypes().ConvertTypeForMem(FieldType, false, asmjs), field->getName());
 
   if (field->hasAttr<AnnotateAttr>())
     addr = EmitFieldAnnotations(field, addr);
@@ -5508,8 +5510,20 @@ RValue CodeGenFunction::EmitCall(QualType CalleeType, const CGCallee &OrigCallee
   EmitCallArgs(Args, dyn_cast<FunctionProtoType>(FnType), E->arguments(),
                E->getDirectCallee(), /*ParamsToSkip*/ 0, Order);
 
+  bool asmjs = false;
+  // TODO maybe use the LLVM AS of the callee Value
+  if (getContext().getLangOpts().Cheerp) {
+    LangAS CalleeAS = PointeeType.getAddressSpace();
+    if (CalleeAS != LangAS::Default) {
+      asmjs = CalleeAS == LangAS::cheerp_wasm;
+    } else if (auto *CalleeDecl = dyn_cast_or_null<FunctionDecl>(TargetDecl)) {
+      asmjs = CalleeDecl->hasAttr<AsmJSAttr>();
+    } else {
+      asmjs = CurFn->getSection() == "asmjs";
+    }
+  }
   const CGFunctionInfo &FnInfo = CGM.getTypes().arrangeFreeFunctionCall(
-      Args, FnType, /*ChainCall=*/Chain);
+      Args, FnType, /*ChainCall=*/Chain, asmjs);
 
   // C99 6.5.2.2p6:
   //   If the expression that denotes the called function has a type
