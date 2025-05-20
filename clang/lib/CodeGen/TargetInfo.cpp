@@ -10240,14 +10240,15 @@ private:
       FI.getReturnInfo() = classifyReturnType(FI.getReturnType());
     // Adjust address space of sret argument
     if (FI.getReturnInfo().isIndirect()) {
-      LangAS DefaultAS = CGT.getTarget().getTriple().getEnvironment() == llvm::Triple::GenericJs?
-          LangAS::cheerp_genericjs : LangAS::cheerp_wasm;
-      LangAS AS = getContext().getCheerpTypeAddressSpace(FI.getReturnType(), DefaultAS);
-      FI.getReturnInfo().setIndirectAddrSpace(getContext().getTargetAddressSpace(AS));
+      unsigned AS = getContext().getCheerpTypeTargetAddressSpace(FI.getReturnType(), FI.isAsmJS());
+      FI.getReturnInfo().setIndirectAddrSpace(AS);
     }
     for (auto &Arg : FI.arguments()) {
       Arg.info = classifyArgumentType(Arg.type);
-      //TODO add AS
+      if (Arg.info.isIndirect()) {
+        unsigned AS = getContext().getCheerpTypeTargetAddressSpace(Arg.type, FI.isAsmJS());
+        FI.getReturnInfo().setIndirectAddrSpace(AS);
+      }
     }
   }
 };

@@ -5508,8 +5508,20 @@ RValue CodeGenFunction::EmitCall(QualType CalleeType, const CGCallee &OrigCallee
   EmitCallArgs(Args, dyn_cast<FunctionProtoType>(FnType), E->arguments(),
                E->getDirectCallee(), /*ParamsToSkip*/ 0, Order);
 
+  bool asmjs = false;
+  // TODO maybe use the LLVM AS of the callee Value
+  if (getContext().getLangOpts().Cheerp) {
+    LangAS CalleeAS = PointeeType.getAddressSpace();
+    if (CalleeAS != LangAS::Default) {
+      asmjs = CalleeAS == LangAS::cheerp_wasm;
+    } else if (auto *CalleeDecl = dyn_cast_or_null<FunctionDecl>(TargetDecl)) {
+      asmjs = CalleeDecl->hasAttr<AsmJSAttr>();
+    } else {
+      asmjs = CurFn->getSection() == "asmjs";
+    }
+  }
   const CGFunctionInfo &FnInfo = CGM.getTypes().arrangeFreeFunctionCall(
-      Args, FnType, /*ChainCall=*/Chain);
+      Args, FnType, /*ChainCall=*/Chain, asmjs);
 
   // C99 6.5.2.2p6:
   //   If the expression that denotes the called function has a type

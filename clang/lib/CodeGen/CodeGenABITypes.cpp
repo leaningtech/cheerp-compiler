@@ -41,14 +41,16 @@ CodeGen::arrangeObjCMessageSendSignature(CodeGenModule &CGM,
 
 const CGFunctionInfo &
 CodeGen::arrangeFreeFunctionType(CodeGenModule &CGM,
-                                 CanQual<FunctionProtoType> Ty) {
-  return CGM.getTypes().arrangeFreeFunctionType(Ty);
+                                 CanQual<FunctionProtoType> Ty,
+                                 bool asmjs) {
+  return CGM.getTypes().arrangeFreeFunctionType(Ty, asmjs);
 }
 
 const CGFunctionInfo &
 CodeGen::arrangeFreeFunctionType(CodeGenModule &CGM,
-                                 CanQual<FunctionNoProtoType> Ty) {
-  return CGM.getTypes().arrangeFreeFunctionType(Ty);
+                                 CanQual<FunctionNoProtoType> Ty,
+                                 bool asmjs) {
+  return CGM.getTypes().arrangeFreeFunctionType(Ty, asmjs);
 }
 
 const CGFunctionInfo &
@@ -64,10 +66,11 @@ CodeGen::arrangeFreeFunctionCall(CodeGenModule &CGM,
                                  CanQualType returnType,
                                  ArrayRef<CanQualType> argTypes,
                                  FunctionType::ExtInfo info,
-                                 RequiredArgs args) {
+                                 RequiredArgs args,
+                                 bool asmjs) {
   return CGM.getTypes().arrangeLLVMFunctionInfo(
       returnType, /*instanceMethod=*/false, /*chainCall=*/false, argTypes,
-      info, {}, args);
+      info, {}, args, asmjs);
 }
 
 ImplicitCXXConstructorArgs
@@ -97,7 +100,7 @@ CodeGen::getImplicitCXXConstructorArgs(CodeGenModule &CGM,
 llvm::FunctionType *
 CodeGen::convertFreeFunctionType(CodeGenModule &CGM, const FunctionDecl *FD) {
   assert(FD != nullptr && "Expected a non-null function declaration!");
-  llvm::Type *T = CGM.getTypes().ConvertType(FD->getType());
+  llvm::Type *T = CGM.getTypes().ConvertType(FD->getType(), FD->hasAttr<AsmJSAttr>());
 
   if (auto FT = dyn_cast<llvm::FunctionType>(T))
     return FT;
@@ -106,8 +109,8 @@ CodeGen::convertFreeFunctionType(CodeGenModule &CGM, const FunctionDecl *FD) {
 }
 
 llvm::Type *
-CodeGen::convertTypeForMemory(CodeGenModule &CGM, QualType T) {
-  return CGM.getTypes().ConvertTypeForMem(T);
+CodeGen::convertTypeForMemory(CodeGenModule &CGM, QualType T, bool asmjs) {
+  return CGM.getTypes().ConvertTypeForMem(T, asmjs);
 }
 
 unsigned CodeGen::getLLVMFieldNumber(CodeGenModule &CGM,

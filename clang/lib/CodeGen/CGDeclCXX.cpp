@@ -279,9 +279,10 @@ llvm::Function *CodeGenFunction::createTLSAtExitStub(
     CGM.getCXXABI().getMangleContext().mangleDynamicAtExitDestructor(&D, Out);
   }
 
+  bool asmjs = getTarget().getTriple().isCheerpWasm();
   const CGFunctionInfo &FI = CGM.getTypes().arrangeLLVMFunctionInfo(
       getContext().IntTy, /*instanceMethod=*/false, /*chainCall=*/false,
-      {getContext().IntTy}, FunctionType::ExtInfo(), {}, RequiredArgs::All);
+      {getContext().IntTy}, FunctionType::ExtInfo(), {}, RequiredArgs::All, asmjs);
 
   // Get the stub function type, int(*)(int,...).
   llvm::FunctionType *StubTy =

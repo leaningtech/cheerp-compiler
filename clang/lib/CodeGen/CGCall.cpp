@@ -109,13 +109,13 @@ static CanQualType GetReturnType(QualType RetTy) {
 /// Arrange the argument and result information for a value of the given
 /// unprototyped freestanding function type.
 const CGFunctionInfo &
-CodeGenTypes::arrangeFreeFunctionType(CanQual<FunctionNoProtoType> FTNP) {
+CodeGenTypes::arrangeFreeFunctionType(CanQual<FunctionNoProtoType> FTNP, bool asmjs) {
   // When translating an unprototyped function type, always use a
   // variadic type.
   return arrangeLLVMFunctionInfo(FTNP->getReturnType().getUnqualifiedType(),
                                  /*instanceMethod=*/false,
                                  /*chainCall=*/false, None,
-                                 FTNP->getExtInfo(), {}, RequiredArgs(0));
+                                 FTNP->getExtInfo(), {}, RequiredArgs(0), asmjs);
 }
 
 static void addExtParameterInfosForCall(
@@ -183,7 +183,7 @@ static void appendParameterTypes(const CodeGenTypes &CGT,
 static const CGFunctionInfo &
 arrangeLLVMFunctionInfo(CodeGenTypes &CGT, bool instanceMethod,
                         SmallVectorImpl<CanQualType> &prefix,
-                        CanQual<FunctionProtoType> FTP) {
+                        CanQual<FunctionProtoType> FTP, bool asmjs) {
   SmallVector<FunctionProtoType::ExtParameterInfo, 16> paramInfos;
   RequiredArgs Required = RequiredArgs::forPrototypePlus(FTP, prefix.size());
   // FIXME: Kill copy.
@@ -193,16 +193,16 @@ arrangeLLVMFunctionInfo(CodeGenTypes &CGT, bool instanceMethod,
   return CGT.arrangeLLVMFunctionInfo(resultType, instanceMethod,
                                      /*chainCall=*/false, prefix,
                                      FTP->getExtInfo(), paramInfos,
-                                     Required);
+                                     Required, asmjs);
 }
 
 /// Arrange the argument and result information for a value of the
 /// given freestanding function type.
 const CGFunctionInfo &
-CodeGenTypes::arrangeFreeFunctionType(CanQual<FunctionProtoType> FTP) {
+CodeGenTypes::arrangeFreeFunctionType(CanQual<FunctionProtoType> FTP, bool asmjs) {
   SmallVector<CanQualType, 16> argTypes;
   return ::arrangeLLVMFunctionInfo(*this, /*instanceMethod=*/false, argTypes,
-                                   FTP);
+                                   FTP, asmjs);
 }
 
 static CallingConv getCallingConventionForDecl(const ObjCMethodDecl *D,
@@ -271,9 +271,10 @@ CodeGenTypes::arrangeCXXMethodType(const CXXRecordDecl *RD,
   // Add the 'this' pointer.
   argTypes.push_back(DeriveThisType(RD, MD));
 
+  bool asmjs = MD? MD->hasAttr<AsmJSAttr>() : RD->hasAttr<AsmJSAttr>();
   return ::arrangeLLVMFunctionInfo(
       *this, true, argTypes,
-      FTP->getCanonicalTypeUnqualified().getAs<FunctionProtoType>());
+      FTP->getCanonicalTypeUnqualified().getAs<FunctionProtoType>(), asmjs);
 }
 
 /// Set calling convention for CUDA/HIP kernel.
@@ -305,7 +306,7 @@ CodeGenTypes::arrangeCXXMethodDeclaration(const CXXMethodDecl *MD) {
     return arrangeCXXMethodType(ThisType, prototype.getTypePtr(), MD);
   }
 
-  return arrangeFreeFunctionType(prototype);
+  return arrangeFreeFunctionType(prototype, MD->hasAttr<AsmJSAttr>());
 }
 
 bool CodeGenTypes::inheritingCtorHasParams(
@@ -364,7 +365,7 @@ CodeGenTypes::arrangeCXXStructorDeclaration(GlobalDecl GD) {
                                      : Context.VoidTy;
   return arrangeLLVMFunctionInfo(resultType, /*instanceMethod=*/true,
                                  /*chainCall=*/false, argTypes, extInfo,
-                                 paramInfos, required);
+                                 paramInfos, required, MD->hasAttr<AsmJSAttr>());
 }
 
 static SmallVector<CanQualType, 16>
@@ -440,7 +441,7 @@ CodeGenTypes::arrangeCXXConstructorCall(const CallArgList &args,
   }
   return arrangeLLVMFunctionInfo(ResultType, /*instanceMethod=*/true,
                                  /*chainCall=*/false, ArgTypes, Info,
-                                 ParamInfos, Required);
+                                 ParamInfos, Required, D->hasAttr<AsmJSAttr>());
 }
 
 /// Arrange the argument and result information for the declaration or
@@ -468,10 +469,11 @@ CodeGenTypes::arrangeFunctionDeclaration(const FunctionDecl *FD) {
   if (CanQual<FunctionNoProtoType> noProto = FTy.getAs<FunctionNoProtoType>()) {
     return arrangeLLVMFunctionInfo(
         noProto->getReturnType(), /*instanceMethod=*/false,
-        /*chainCall=*/false, None, noProto->getExtInfo(), {},RequiredArgs::All);
+        /*chainCall=*/false, None, noProto->getExtInfo(), {},RequiredArgs::All,
+        FD->hasAttr<AsmJSAttr>());
   }
 
-  return arrangeFreeFunctionType(FTy.castAs<FunctionProtoType>());
+  return arrangeFreeFunctionType(FTy.castAs<FunctionProtoType>(), FD->hasAttr<AsmJSAttr>());
 }
 
 /// Arrange the argument and result information for the declaration or
@@ -519,7 +521,7 @@ CodeGenTypes::arrangeObjCMessageSendSignature(const ObjCMethodDecl *MD,
 
   return arrangeLLVMFunctionInfo(
       GetReturnType(MD->getReturnType()), /*instanceMethod=*/false,
-      /*chainCall=*/false, argTys, einfo, extParamInfos, required);
+      /*chainCall=*/false, argTys, einfo, extParamInfos, required, false);
 }
 
 const CGFunctionInfo &
@@ -530,7 +532,7 @@ CodeGenTypes::arrangeUnprototypedObjCMessageSend(QualType returnType,
 
   return arrangeLLVMFunctionInfo(
       GetReturnType(returnType), /*instanceMethod=*/false,
-      /*chainCall=*/false, argTypes, einfo, {}, RequiredArgs::All);
+      /*chainCall=*/false, argTypes, einfo, {}, RequiredArgs::All, false);
 }
 
 const CGFunctionInfo &
@@ -557,7 +559,7 @@ CodeGenTypes::arrangeUnprototypedMustTailThunk(const CXXMethodDecl *MD) {
   CanQualType ArgTys[] = {DeriveThisType(MD->getParent(), MD)};
   return arrangeLLVMFunctionInfo(Context.VoidTy, /*instanceMethod=*/false,
                                  /*chainCall=*/false, ArgTys,
-                                 FTP->getExtInfo(), {}, RequiredArgs(1));
+                                 FTP->getExtInfo(), {}, RequiredArgs(1), MD->hasAttr<AsmJSAttr>());
 }
 
 const CGFunctionInfo &
@@ -578,7 +580,7 @@ CodeGenTypes::arrangeMSCtorClosure(const CXXConstructorDecl *CD,
   return arrangeLLVMFunctionInfo(Context.VoidTy, /*instanceMethod=*/true,
                                  /*chainCall=*/false, ArgTys,
                                  FunctionType::ExtInfo(CC), {},
-                                 RequiredArgs::All);
+                                 RequiredArgs::All, CD->hasAttr<AsmJSAttr>());
 }
 
 /// Arrange a call as unto a free function, except possibly with an
@@ -589,7 +591,7 @@ arrangeFreeFunctionLikeCall(CodeGenTypes &CGT,
                             const CallArgList &args,
                             const FunctionType *fnType,
                             unsigned numExtraRequiredArgs,
-                            bool chainCall) {
+                            bool chainCall, bool asmjs) {
   assert(args.size() >= numExtraRequiredArgs);
 
   llvm::SmallVector<FunctionProtoType::ExtParameterInfo, 16> paramInfos;
@@ -624,7 +626,7 @@ arrangeFreeFunctionLikeCall(CodeGenTypes &CGT,
   return CGT.arrangeLLVMFunctionInfo(GetReturnType(fnType->getReturnType()),
                                      /*instanceMethod=*/false, chainCall,
                                      argTypes, fnType->getExtInfo(), paramInfos,
-                                     required);
+                                     required, asmjs);
 }
 
 /// Figure out the rules for calling a function with the given formal
@@ -634,30 +636,31 @@ arrangeFreeFunctionLikeCall(CodeGenTypes &CGT,
 const CGFunctionInfo &
 CodeGenTypes::arrangeFreeFunctionCall(const CallArgList &args,
                                       const FunctionType *fnType,
-                                      bool chainCall) {
+                                      bool chainCall, bool asmjs) {
   return arrangeFreeFunctionLikeCall(*this, CGM, args, fnType,
-                                     chainCall ? 1 : 0, chainCall);
+                                     chainCall ? 1 : 0, chainCall, asmjs);
 }
 
 /// A block function is essentially a free function with an
 /// extra implicit argument.
 const CGFunctionInfo &
 CodeGenTypes::arrangeBlockFunctionCall(const CallArgList &args,
-                                       const FunctionType *fnType) {
+                                       const FunctionType *fnType, bool asmjs) {
   return arrangeFreeFunctionLikeCall(*this, CGM, args, fnType, 1,
-                                     /*chainCall=*/false);
+                                     /*chainCall=*/false, asmjs);
 }
 
 const CGFunctionInfo &
 CodeGenTypes::arrangeBlockFunctionDeclaration(const FunctionProtoType *proto,
-                                              const FunctionArgList &params) {
+                                              const FunctionArgList &params,
+                                              bool asmjs) {
   auto paramInfos = getExtParameterInfosForCall(proto, 1, params.size());
   auto argTypes = getArgTypesForDeclaration(Context, params);
 
   return arrangeLLVMFunctionInfo(GetReturnType(proto->getReturnType()),
                                  /*instanceMethod*/ false, /*chainCall*/ false,
                                  argTypes, proto->getExtInfo(), paramInfos,
-                                 RequiredArgs::forPrototypePlus(proto, 1));
+                                 RequiredArgs::forPrototypePlus(proto, 1), asmjs);
 }
 
 const CGFunctionInfo &
@@ -670,7 +673,7 @@ CodeGenTypes::arrangeBuiltinFunctionCall(QualType resultType,
   return arrangeLLVMFunctionInfo(
       GetReturnType(resultType), /*instanceMethod=*/false,
       /*chainCall=*/false, argTypes, FunctionType::ExtInfo(),
-      /*paramInfos=*/ {}, RequiredArgs::All);
+      /*paramInfos=*/ {}, RequiredArgs::All, /*TODO*/false);
 }
 
 const CGFunctionInfo &
@@ -680,7 +683,7 @@ CodeGenTypes::arrangeBuiltinFunctionDeclaration(QualType resultType,
 
   return arrangeLLVMFunctionInfo(
       GetReturnType(resultType), /*instanceMethod=*/false, /*chainCall=*/false,
-      argTypes, FunctionType::ExtInfo(), {}, RequiredArgs::All);
+      argTypes, FunctionType::ExtInfo(), {}, RequiredArgs::All, /*TODO*/false);
 }
 
 const CGFunctionInfo &
@@ -688,7 +691,7 @@ CodeGenTypes::arrangeBuiltinFunctionDeclaration(CanQualType resultType,
                                               ArrayRef<CanQualType> argTypes) {
   return arrangeLLVMFunctionInfo(
       resultType, /*instanceMethod=*/false, /*chainCall=*/false,
-      argTypes, FunctionType::ExtInfo(), {}, RequiredArgs::All);
+      argTypes, FunctionType::ExtInfo(), {}, RequiredArgs::All, /*TODO*/false);
 }
 
 /// Arrange a call to a C++ method, passing the given arguments.
@@ -699,7 +702,8 @@ const CGFunctionInfo &
 CodeGenTypes::arrangeCXXMethodCall(const CallArgList &args,
                                    const FunctionProtoType *proto,
                                    RequiredArgs required,
-                                   unsigned numPrefixArgs) {
+                                   unsigned numPrefixArgs,
+                                   bool asmjs) {
   assert(numPrefixArgs + 1 <= args.size() &&
          "Emitting a call with less args than the required prefix?");
   // Add one to account for `this`. It's a bit awkward here, but we don't count
@@ -713,13 +717,13 @@ CodeGenTypes::arrangeCXXMethodCall(const CallArgList &args,
   FunctionType::ExtInfo info = proto->getExtInfo();
   return arrangeLLVMFunctionInfo(
       GetReturnType(proto->getReturnType()), /*instanceMethod=*/true,
-      /*chainCall=*/false, argTypes, info, paramInfos, required);
+      /*chainCall=*/false, argTypes, info, paramInfos, required, asmjs);
 }
 
 const CGFunctionInfo &CodeGenTypes::arrangeNullaryFunction() {
   return arrangeLLVMFunctionInfo(
       getContext().VoidTy, /*instanceMethod=*/false, /*chainCall=*/false,
-      None, FunctionType::ExtInfo(), {}, RequiredArgs::All);
+      None, FunctionType::ExtInfo(), {}, RequiredArgs::All, false);
 }
 
 const CGFunctionInfo &
@@ -745,7 +749,8 @@ CodeGenTypes::arrangeCall(const CGFunctionInfo &signature,
                                  argTypes,
                                  signature.getExtInfo(),
                                  paramInfos,
-                                 signature.getRequiredArgs());
+                                 signature.getRequiredArgs(),
+                                 signature.isAsmJS());
 }
 
 namespace clang {
@@ -764,7 +769,8 @@ CodeGenTypes::arrangeLLVMFunctionInfo(CanQualType resultType,
                                       ArrayRef<CanQualType> argTypes,
                                       FunctionType::ExtInfo info,
                      ArrayRef<FunctionProtoType::ExtParameterInfo> paramInfos,
-                                      RequiredArgs required) {
+                                      RequiredArgs required,
+                                      bool asmjs) {
   assert(llvm::all_of(argTypes,
                       [](CanQualType T) { return T.isCanonicalAsParam(); }));
 
@@ -782,7 +788,7 @@ CodeGenTypes::arrangeLLVMFunctionInfo(CanQualType resultType,
 
   // Construct the function info.  We co-allocate the ArgInfos.
   FI = CGFunctionInfo::create(CC, instanceMethod, chainCall, info,
-                              paramInfos, resultType, argTypes, required);
+                              paramInfos, resultType, argTypes, required, asmjs);
   FunctionInfos.InsertNode(FI, insertPos);
 
   bool inserted = FunctionsBeingProcessed.insert(FI).second;
@@ -824,7 +830,8 @@ CGFunctionInfo *CGFunctionInfo::create(unsigned llvmCC,
                                        ArrayRef<ExtParameterInfo> paramInfos,
                                        CanQualType resultType,
                                        ArrayRef<CanQualType> argTypes,
-                                       RequiredArgs required) {
+                                       RequiredArgs required,
+                                       bool asmjs) {
   assert(paramInfos.empty() || paramInfos.size() == argTypes.size());
   assert(!required.allowsOptionalArgs() ||
          required.getNumRequiredArgs() <= argTypes.size());
@@ -853,6 +860,7 @@ CGFunctionInfo *CGFunctionInfo::create(unsigned llvmCC,
   FI->HasExtParameterInfos = !paramInfos.empty();
   FI->getArgsBuffer()[0].type = resultType;
   FI->MaxVectorWidth = 0;
+  FI->AsmJS = asmjs;
   for (unsigned i = 0, e = argTypes.size(); i != e; ++i)
     FI->getArgsBuffer()[i + 1].type = argTypes[i];
   for (unsigned i = 0, e = paramInfos.size(); i != e; ++i)
