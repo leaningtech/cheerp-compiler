@@ -14,17 +14,6 @@ define void @type_mismatch2() {
   ret void
 }
 
-; CHECK: Attribute 'elementtype' can only be applied to intrinsics and inline asm.
-define void @not_intrinsic() {
-  call void @some_function(i32* elementtype(i32) null)
-  ret void
-}
-
-; CHECK: Attribute 'elementtype' can only be applied to a callsite.
-define void @llvm.not_call(i32* elementtype(i32)) {
-  ret void
-}
-
 define void @elementtype_required() {
 ; CHECK: Intrinsic requires elementtype attribute on first argument.
   call i32* @llvm.preserve.array.access.index.p0i32.p0i32(i32* null, i32 0, i32 0)

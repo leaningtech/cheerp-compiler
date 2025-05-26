@@ -1463,6 +1463,13 @@ Function* TypeOptimizer::rewriteFunctionSignature(Function* F)
 				Type* rewrittenType = rewriteType(type);
 				PAL = PAL.addParamAttribute(F->getContext(), i, Attribute::get(F->getContext(), Attribute::JsExportType, rewrittenType));
 			}
+			if (CurAttrs.hasAttribute(Attribute::ElementType))
+			{
+				Type* type = CurAttrs.getAttribute(Attribute::ElementType).getValueAsType();
+				PAL = PAL.removeParamAttribute(F->getContext(), i, Attribute::ElementType);
+				Type* rewrittenType = rewriteType(type);
+				PAL = PAL.addParamAttribute(F->getContext(), i, Attribute::get(F->getContext(), Attribute::ElementType, rewrittenType));
+			}
 			ArgAttrVec.push_back(PAL.getParamAttrs(i));
 		}
 	}
