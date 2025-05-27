@@ -10,6 +10,8 @@
 //RUN: %clang_cc1 -no-opaque-pointers %s -emit-llvm -o - -triple=aarch64-unknown-linux-gnu -fctor-dtor-return-this | FileCheck --check-prefix=CHECKAARCH64RET %s
 // FIXME: these tests crash on the bots when run with -triple=x86_64-pc-win32
 
+// UNSUPPORTED: cheerp-leaningtech-webbrowser-wasm
+
 // Make sure we attach the 'returned' attribute to the 'this' parameter of
 // constructors and destructors which return this (and only these cases)
 

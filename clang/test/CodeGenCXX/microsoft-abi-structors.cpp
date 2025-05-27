@@ -9,6 +9,8 @@
 //
 // RUN: %clang_cc1 -no-opaque-pointers -emit-llvm %s -o - -mconstructor-aliases -triple=x86_64-pc-win32 -fno-rtti -std=c++11 | FileCheck --check-prefix DTORS-X64 %s
 
+// UNSUPPORTED: cheerp-leaningtech-webbrowser-wasm
+
 namespace basic {
 
 class A {

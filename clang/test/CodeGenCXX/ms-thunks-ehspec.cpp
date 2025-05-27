@@ -1,5 +1,7 @@
 // RUN: %clang_cc1 -fexceptions -fcxx-exceptions %s -triple=i686-windows-msvc -emit-llvm -o - | FileCheck %s
 
+// UNSUPPORTED: cheerp-leaningtech-webbrowser-wasm
+
 // When generating thunks using musttail due to inalloca parameters, don't push
 // and pop terminate scopes. PR44987
 

@@ -4,6 +4,8 @@
 // RUN: FileCheck --check-prefix=CODEGEN %s < %t
 // RUN: %clang_cc1 -no-opaque-pointers -fno-rtti -emit-llvm %s -o - -triple=x86_64-pc-win32 2>&1 | FileCheck --check-prefix=MANGLING-X64 %s
 
+// UNSUPPORTED: cheerp-leaningtech-webbrowser-wasm
+
 void foo(void *);
 
 struct A {

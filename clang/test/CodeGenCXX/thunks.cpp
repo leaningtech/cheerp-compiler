@@ -15,6 +15,8 @@
 // RUN: %clang_cc1 %s -triple=x86_64-windows-msvc -funwind-tables=2 -emit-llvm -o - -O1 -disable-llvm-passes \
 // RUN:     | FileCheck --check-prefixes=WIN64 %s
 
+// UNSUPPORTED: cheerp-leaningtech-webbrowser-wasm
+
 
 namespace Test1 {
 

@@ -575,6 +575,12 @@ llvm::Constant *CodeGenVTables::maybeEmitThunk(GlobalDecl GD,
 
   llvm::Function *ThunkFn = cast<llvm::Function>(Thunk->stripPointerCastsSafe());
 
+  int thisIndex = ThunkFn->hasStructRetAttr() && !FnInfo.getReturnInfo().isSRetAfterThis() ? 1 : 0;
+  llvm::Type* CurrentThisTy = CGM.getTypes().ConvertTypeForMem(cast<PointerType>(FnInfo.arg_begin()->type)->getPointeeType());
+
+  if (!ThunkFn->hasParamAttribute(thisIndex, llvm::Attribute::ElementType))
+    ThunkFn->addParamAttr(thisIndex, llvm::Attribute::get(CGM.getLLVMContext(), llvm::Attribute::ElementType, CurrentThisTy));
+
   // If the type of the underlying GlobalValue is wrong, we'll have to replace
   // it. It should be a declaration.
   // CHEERP: If there are virtual bases it is possible that the type of `this` mismatches
@@ -582,13 +588,12 @@ llvm::Constant *CodeGenVTables::maybeEmitThunk(GlobalDecl GD,
   // We keep the thunk with the most basic `this` type
   bool NewIsDirectBase = false;
   bool CurrentIsDirectBase = false;
-  llvm::FunctionType* NewThunkFnTy = ThunkFn->getFunctionType();
   if (!CGM.getTarget().isByteAddressable()) {
     // Geth the `this` type. It can be the first or second parameter (if there is a
     // struct return pointer)
-    bool sret = ThunkFn->hasStructRetAttr();
-    llvm::StructType* NewThisTy = cast<llvm::StructType>(NewThunkFnTy->getParamType(sret? 1 : 0)->getPointerElementType());
-    llvm::StructType* CurrentThisTy = cast<llvm::StructType>(ThunkFnTy->getParamType(sret? 1: 0)->getPointerElementType());
+    llvm::StructType* CurrentThisStructTy = cast<llvm::StructType>(CurrentThisTy);
+    llvm::StructType* NewThisTy = cast<llvm::StructType>(ThunkFn->getParamAttribute(thisIndex, llvm::Attribute::ElementType).getValueAsType());
+
     // Check if one of the types is directbase of the other (check all the directbase hierarchy)
     for (llvm::StructType* I = NewThisTy; I != nullptr; I = I->getDirectBase()) {
       if (I == CurrentThisTy) {
@@ -596,7 +601,7 @@ llvm::Constant *CodeGenVTables::maybeEmitThunk(GlobalDecl GD,
         break;
       }
     }
-    for (llvm::StructType* I = CurrentThisTy; I != nullptr; I = I->getDirectBase()) {
+    for (llvm::StructType* I = CurrentThisStructTy; I != nullptr; I = I->getDirectBase()) {
       if (I == NewThisTy) {
         CurrentIsDirectBase = true;
         break;
@@ -615,6 +620,8 @@ llvm::Constant *CodeGenVTables::maybeEmitThunk(GlobalDecl GD,
     ThunkFn = llvm::Function::Create(ThunkFnTy, llvm::Function::ExternalLinkage,
                                      Name.str(), &CGM.getModule());
     CGM.SetLLVMFunctionAttributes(GD, FnInfo, ThunkFn, /*IsThunk=*/false);
+
+    ThunkFn->addParamAttr(thisIndex, llvm::Attribute::get(CGM.getLLVMContext(), llvm::Attribute::ElementType, CurrentThisTy));
 
     // If needed, replace the old thunk with a bitcast.
     if (!OldThunkFn->use_empty()) {
