@@ -6092,9 +6092,11 @@ void CheerpWriter::compileHandleVAArg()
 
 void CheerpWriter::compileCheerpException()
 {
-	stream << "function CheerpException(m){" << NewLine;
+	stream << "function CheerpException(m,e,c){" << NewLine;
 	stream << "var instance=new Error('Uncaught C++ exception: '+m);" << NewLine;
 	stream << "instance.name='CheerpException';" << NewLine;
+	stream << "instance.isExit=e;" << NewLine;
+	stream << "instance.code=c;" << NewLine;
 	stream << "Object.setPrototypeOf(instance,Object.getPrototypeOf(this));" << NewLine;
 	stream << "if(Error.captureStackTrace){" << NewLine;
 	stream << "Error.captureStackTrace(instance, CheerpException);" << NewLine;
@@ -7128,9 +7130,26 @@ void CheerpWriter::compileEntryPoint()
 	const Function * entryPoint = module.getFunction(entryName);
 	if (entryPoint)
 	{
+		// The entrypoint goes into a try/catch block to filter out the exit exception.
+		// NOTE: for threading, this code is duplicated in cheerp-libs in threads.cpp.
+		// If this is changed, it should be changed there aswell!
+		if (LowerAtomics)
+			stream << "try{" << NewLine;
 		if (entryPoint->getSection() == "asmjs")
 			stream << "__asm.";
 		stream << getName(entryPoint, 0) << "();" << NewLine;
+		if (LowerAtomics)
+		{
+			stream << "}catch(e){" << NewLine;
+			stream << "if(e instanceof CheerpException&&e.isExit){" << NewLine;
+			stream << "if(e.code != 0){" << NewLine;
+			stream << "console.log('Program failed. Exit code:', e.code);" << NewLine;
+			stream << "}" << NewLine;
+			stream << "}else{" << NewLine;
+			stream << "throw(e);" << NewLine;
+			stream << "}" << NewLine;
+			stream << "}" << NewLine;
+		}
 	}
 }
 
@@ -7203,7 +7222,7 @@ void CheerpWriter::compileWorkerMainScript()
 	stream << "__asm._workerEntry(" << threadObject << ".tls, " << threadObject << ".func, ";
 	stream << threadObject << ".args, " << threadObject << ".tid, " << threadObject << ".stack, ";
 	stream << threadObject << ".ctid);" << NewLine;
-	stream << "}).catch(e=>{;" << NewLine;
+	stream << "}).catch(e=>{" << NewLine;
 	stream << "if(e!=='LeakUtilityThread'&&e!=='ThreadExit'){" << NewLine;
 	stream << "throw(e);" << NewLine;
 	stream << "}" << NewLine;

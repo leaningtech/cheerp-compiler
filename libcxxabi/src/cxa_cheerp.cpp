@@ -22,7 +22,7 @@
 namespace [[cheerp::genericjs]] client {
 	class CheerpException: public Error {
 	public:
-		CheerpException(const String& msg) noexcept;
+		CheerpException(const String& msg, bool isExit, int code) noexcept;
 	};
 }
 
@@ -345,7 +345,7 @@ static void do_throw(Exception* ex)
 	current_exception = ex;
 	uncaughtExceptions += 1;
 
-	client::CheerpException* wrapper = new client::CheerpException(ex->tinfo->name());
+	client::CheerpException* wrapper = new client::CheerpException(ex->tinfo->name(), false, 0);
 	ex->set_jsObj(wrapper);
 	__builtin_cheerp_throw(wrapper);
 }
@@ -566,7 +566,10 @@ public:
 	ReentGuard() noexcept
 	{
 		if (active || aborting)
-			__terminate_impl();
+		{
+			asm("throw %0" :: "r"(curNonNativeException));
+			__builtin_unreachable();
+		}
 		active = true;
 	}
 	~ReentGuard() noexcept
@@ -586,6 +589,8 @@ __gxx_personality_v0
 
 	bool native;
 	asm("%1 instanceof CheerpException" : "=r"(native) : "r"(obj));
+	bool exitException;
+	asm("%1 instanceof CheerpException&&%1.isExit" : "=r"(exitException) : "r"(obj));
 
 	if(!native)
 	{
@@ -607,9 +612,14 @@ __gxx_personality_v0
 		}
 	}
 	__cheerp_landingpad lp{0, 0};
-	if(!native)
+	if(!native || exitException)
 	{
 		curNonNativeException = obj;
+		if (exitException)
+		{
+			asm("throw %0" :: "r"(obj));
+			__builtin_unreachable();
+		}
 		return lp;
 	}
 
