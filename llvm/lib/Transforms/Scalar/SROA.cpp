@@ -2568,7 +2568,7 @@ private:
                           );
   }
 
-  Value *getAllocaCompatiblePtr(IRBuilderTy &IRB, Value* BasePtr, Type *Ty, const APInt& BaseOffset, Type *TargetTy) {
+  Value *getAllocaCompatiblePtr(IRBuilderTy &IRB, Value* BasePtr, Type *Ty, const APInt& BaseOffset, Type *&TargetTy) {
     assert(NewBeginOffset==NewAllocaBeginOffset);
     while(1)
     {
@@ -3102,8 +3102,9 @@ private:
       if (!AdjustedPtr) {
         // It's not possible to get the right type from the alloca.
         // This means that we need to look the other way around.
-        OtherPtr = getAllocaCompatiblePtr(IRB, OtherPtr, otherElementType, OtherOffset, NewAI.getAllocatedType());
-        AdjustedPtr = getNewAllocaSlicePtr(IRB, OtherPtr->getType(), NewAI.getAllocatedType());
+        Type *TargetTy = NewAI.getAllocatedType();
+        OtherPtr = getAllocaCompatiblePtr(IRB, OtherPtr, otherElementType, OtherOffset, TargetTy);
+        AdjustedPtr = getNewAllocaSlicePtr(IRB, OtherPtr->getType(), TargetTy);
         assert(AdjustedPtr);
       } else {
         OtherPtr = getAdjustedPtr(IRB, DL, OtherPtr, otherElementType, OtherOffset, OtherPtrTy,
@@ -3181,8 +3182,9 @@ private:
       if (!OurPtr) {
         // It's not possible to get the right type from the alloca.
         // This means that we need to look the other way around.
-        OtherPtr = getAllocaCompatiblePtr(IRB, OtherPtr, otherElementType, OtherOffset, NewAI.getAllocatedType());
-        OurPtr = getNewAllocaSlicePtr(IRB, OtherPtr->getType(), NewAI.getAllocatedType());
+        Type *TargetTy = NewAI.getAllocatedType();
+        OtherPtr = getAllocaCompatiblePtr(IRB, OtherPtr, otherElementType, OtherOffset, TargetTy);
+        OurPtr = getNewAllocaSlicePtr(IRB, OtherPtr->getType(), TargetTy);
       } else {
         OtherPtr = getAdjustedPtr(IRB, DL, OtherPtr, otherElementType, OtherOffset, OtherPtrTy,
                                   otherElementType, OtherPtr->getName() + ".");
