@@ -95,6 +95,10 @@ bool IdenticalCodeFolding::equivalentFunction(const llvm::Function* A, const llv
 	// Clear up equivalent allocas of previous function
 	allocaPairs.clear();
 
+	// Reset the instruction equivalence map, we can never match against instructions
+	// from other function pairs
+	equivalenceCache.clear();
+
 	// Do not fold wasm/asmjs with generic JS functions.
 	if (A->getSection() != StringRef("asmjs") || B->getSection() != StringRef("asmjs"))
 		return false;
