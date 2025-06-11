@@ -147,7 +147,7 @@ struct CGRecordLowering {
   /// Gets the storage type for a field decl and handles storage
   /// for itanium bitfields that are smaller than their declared type.
   llvm::Type *getStorageType(const FieldDecl *FD) {
-    llvm::Type *Type = Types.ConvertTypeForMem(FD->getType());
+    llvm::Type *Type = Types.ConvertTypeForMem(FD->getType(), false, D->hasAttr<AsmJSAttr>());
     if (!FD->isBitField()) return Type;
     if (isDiscreteBitFieldABI()) return Type;
     return getIntNType(std::min(FD->getBitWidthValue(Context),
@@ -425,7 +425,7 @@ CGRecordLowering::accumulateBitFields(RecordDecl::field_iterator Field,
         continue;
       }
       llvm::Type *Type =
-          Types.ConvertTypeForMem(Field->getType(), /*ForBitField=*/true);
+          Types.ConvertTypeForMem(Field->getType(), /*ForBitField=*/true, D->hasAttr<AsmJSAttr>());
       // If we don't have a run yet, or don't live within the previous run's
       // allocated storage then we allocate some storage and start a new run.
       if (Run == FieldEnd || BitOffset >= Tail) {
@@ -562,7 +562,7 @@ void CGRecordLowering::computeVolatileBitfields() {
   for (auto &I : BitFields) {
     const FieldDecl *Field = I.first;
     CGBitFieldInfo &Info = I.second;
-    llvm::Type *ResLTy = Types.ConvertTypeForMem(Field->getType());
+    llvm::Type *ResLTy = Types.ConvertTypeForMem(Field->getType(), false, D->hasAttr<AsmJSAttr>());
     // If the record alignment is less than the type width, we can't enforce a
     // aligned load, bail out.
     if ((uint64_t)(Context.toBits(Layout.getAlignment())) <
@@ -636,7 +636,7 @@ void CGRecordLowering::computeVolatileBitfields() {
       const CharUnits FEnd =
           FOffset +
           Context.toCharUnitsFromBits(
-              Types.ConvertTypeForMem(F->getType())->getPrimitiveSizeInBits()) -
+              Types.ConvertTypeForMem(F->getType(), false, D->hasAttr<AsmJSAttr>())->getPrimitiveSizeInBits()) -
           CharUnits::One();
       // If no overlap, continue.
       if (End < FOffset || FEnd < StorageOffset)
@@ -663,7 +663,7 @@ void CGRecordLowering::accumulateVPtrs() {
   if (Layout.hasOwnVFPtr()) {
     llvm::Type* VFPtrTy = nullptr;
     if (Types.getContext().getLangOpts().Cheerp) {
-      bool asmjs = RD->hasAttr<AsmJSAttr>();
+      bool asmjs = D->hasAttr<AsmJSAttr>();
       unsigned AS = unsigned(asmjs? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
       VFPtrTy = Types.GetVTableBaseType(asmjs)->getPointerTo(AS);
     } else {
