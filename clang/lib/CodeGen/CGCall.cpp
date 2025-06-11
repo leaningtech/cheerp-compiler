@@ -4981,7 +4981,7 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
 
         assert((FirstIRArg >= IRFuncTy->getNumParams() ||
                 IRFuncTy->getParamType(FirstIRArg)->getPointerAddressSpace() ==
-                    TD->getAllocaAddrSpace()) &&
+                    TD->getAllocaAddrSpace() || getContext().getLangOpts().Cheerp) &&
                "indirect argument must be in alloca address space");
 
         bool NeedCopy = false;
@@ -5000,6 +5000,7 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
           }
           if (!getLangOpts().OpenCL) {
             if ((ArgInfo.getIndirectByVal() &&
+                !getLangOpts().Cheerp &&
                 (AS != LangAS::Default &&
                  AS != CGM.getASTAllocaAddressSpace()))) {
               NeedCopy = true;

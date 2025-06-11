@@ -10247,7 +10247,7 @@ private:
       Arg.info = classifyArgumentType(Arg.type);
       if (Arg.info.isIndirect()) {
         unsigned AS = getContext().getCheerpTypeTargetAddressSpace(Arg.type, FI.isAsmJS());
-        FI.getReturnInfo().setIndirectAddrSpace(AS);
+        Arg.info.setIndirectAddrSpace(AS);
       }
     }
   }
