@@ -4356,6 +4356,10 @@ CodeGenModule::GetOrCreateLLVMGlobal(StringRef MangledName, llvm::Type *Ty,
   // Lookup the entry, lazily creating it if necessary.
   llvm::GlobalValue *Entry = GetGlobalValue(MangledName);
   unsigned TargetAS = getContext().getTargetAddressSpace(AddrSpace);
+  if (getLangOpts().Cheerp && TargetAS == 0) {
+    assert(D);
+    TargetAS = getContext().getCheerpTypeTargetAddressSpace(D->getType(), *D);
+  }
   if (Entry) {
     if (WeakRefReferences.erase(Entry)) {
       if (D && !D->hasAttr<WeakAttr>())
