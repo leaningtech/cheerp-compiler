@@ -455,6 +455,7 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T, bool asmjs) {
     if (CachedType) {
       if (CachedType->isPointerTy() && Context.getLangOpts().Cheerp && CachedType->getPointerAddressSpace() == 0) {
         unsigned AS = Context.getCheerpTypeTargetAddressSpace(T, asmjs);
+        assert(AS == unsigned(cheerp::CheerpAS::Wasm));
         return llvm::PointerType::getWithSamePointeeType(cast<llvm::PointerType>(CachedType), AS);
       }
       return CachedType;
@@ -717,6 +718,7 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T, bool asmjs) {
     }
 
     unsigned AS = Context.getCheerpTypeTargetAddressSpace(ETy, asmjs);
+    assert(AS == unsigned(cheerp::CheerpAS::Wasm));
 
     ResultType = llvm::PointerType::get(PointeeType, AS);
     break;
