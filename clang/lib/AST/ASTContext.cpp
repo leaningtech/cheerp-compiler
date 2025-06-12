@@ -13181,6 +13181,9 @@ LangAS ASTContext::getCheerpTypeAddressSpace(QualType Ty, LangAS fallback) const
     return getCheerpTypeAddressSpace(Ty->getBaseElementTypeUnsafe()->getAsTagDecl(), fallback);
   if (Ty->getAsTagDecl())
     return getCheerpTypeAddressSpace(Ty->getAsTagDecl(), fallback);
+  if (fallback == LangAS::cheerp_genericjs && Ty->isFunctionType()) {
+    fallback = LangAS::cheerp_client;
+  }
   return fallback;
 }
 LangAS ASTContext::getCheerpTypeAddressSpace(const Decl* D, LangAS fallback) const {
