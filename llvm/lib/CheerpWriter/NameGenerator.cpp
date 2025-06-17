@@ -697,6 +697,7 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 	builtins[BLOBNAME] = "blobText";
 	builtins[THREADSETUPPROMISE] = "__threadSetupPromise";
 	builtins[THREADSETUPRESOLVE] = "__threadSetupResolve";
+	builtins[THREADSETUPREJECT] = "__threadSetupReject";
 	builtins[HEAP8] = "HEAP8";
 	builtins[HEAP16] = "HEAP16";
 	builtins[HEAP32] = "HEAP32";
