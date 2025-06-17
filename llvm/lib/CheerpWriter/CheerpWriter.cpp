@@ -977,10 +977,16 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(const
 		stream << "new Blob([" << threadingObject << "." << blobText << "])";
 		return COMPILE_OK;
 	}
-	else if(intrinsicId==Intrinsic::cheerp_thread_setup_resolve)
+	else if(intrinsicId==Intrinsic::cheerp_get_thread_setup_resolve)
 	{
 		StringRef threadSetupResolve = namegen.getBuiltinName(NameGenerator::Builtin::THREADSETUPRESOLVE);
-		stream << threadSetupResolve << "();" << NewLine;
+		stream << threadSetupResolve;
+		return COMPILE_OK;
+	}
+	else if(intrinsicId==Intrinsic::cheerp_get_thread_setup_reject)
+	{
+		StringRef threadSetupReject = namegen.getBuiltinName(NameGenerator::Builtin::THREADSETUPREJECT);
+		stream << threadSetupReject;
 		return COMPILE_OK;
 	}
 	else if(intrinsicId==Intrinsic::abs)
@@ -7153,8 +7159,10 @@ void CheerpWriter::compileThreadingObject()
 		// First create the promise and resolve variables for threading setup.
 		StringRef threadPromise = namegen.getBuiltinName(NameGenerator::Builtin::THREADSETUPPROMISE);
 		StringRef threadResolve = namegen.getBuiltinName(NameGenerator::Builtin::THREADSETUPRESOLVE);
+		StringRef threadReject = namegen.getBuiltinName(NameGenerator::Builtin::THREADSETUPREJECT);
 		stream << "var " << threadResolve << "=null;" << NewLine;
-		stream << "var " << threadPromise << "=new Promise((r)=>{" << threadResolve << "=r;});" << NewLine;
+		stream << "var " << threadReject << "=null;" << NewLine;
+		stream << "var " << threadPromise << "=new Promise((f,r)=>{" << threadResolve << "=f;" << threadReject << "=r});" << NewLine;
 
 		// Then create the rest of the threading variables.
 		StringRef threadObject = namegen.getBuiltinName(NameGenerator::Builtin::THREADINGOBJECT);

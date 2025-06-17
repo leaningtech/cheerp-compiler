@@ -12568,6 +12568,16 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
     Function *F = CGM.getIntrinsic(Intrinsic::cheerp_get_threading_blob, Tys);
     return Builder.CreateCall(F, Ops);
   }
+  else if (BuiltinID == Cheerp::BI__builtin_cheerp_get_thread_setup_resolve) {
+    llvm::Type *Tys[] = { ConvertType(E->getType()) };
+    Function *F = CGM.getIntrinsic(Intrinsic::cheerp_get_thread_setup_resolve, Tys);
+    return Builder.CreateCall(F, Ops);
+  }
+  else if (BuiltinID == Cheerp::BI__builtin_cheerp_get_thread_setup_reject) {
+    llvm::Type *Tys[] = { ConvertType(E->getType()) };
+    Function *F = CGM.getIntrinsic(Intrinsic::cheerp_get_thread_setup_reject, Tys);
+    return Builder.CreateCall(F, Ops);
+  }
   else if (BuiltinID == Cheerp::BI__builtin_cheerp_stack_save) {
     Function *F = CGM.getIntrinsic(Intrinsic::stacksave);
     return Builder.CreateCall(F, Ops);
