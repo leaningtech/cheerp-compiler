@@ -4485,6 +4485,8 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
     }
   }
 
+  bool asmjs = field->getParent()->hasAttr<AsmJSAttr>();
+
   unsigned RecordCVR = base.getVRQualifiers();
   if (rec->isUnion()) {
     // For unions, there is no pointer adjustment.
@@ -4507,10 +4509,10 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
 
     if (FieldType->isReferenceType())
       addr = Builder.CreateElementBitCast(
-          addr, CGM.getTypes().ConvertTypeForMem(FieldType), field->getName());
+          addr, CGM.getTypes().ConvertTypeForMem(FieldType, false, asmjs), field->getName());
   } else if (!CGM.getTarget().isByteAddressable() && CGM.getTypes().getCGRecordLayout(rec).getLLVMFieldNo(field) == 0xffffffff) {
     // Cheerp: If the first member is a struct we want to collapse it into the parent, and we use upcast_collapsed to access it
-    addr = GenerateUpcastCollapsed(addr, CGM.getTypes().ConvertTypeForMem(FieldType), addr.getAddressSpace());
+    addr = GenerateUpcastCollapsed(addr, CGM.getTypes().ConvertTypeForMem(FieldType, false, asmjs), addr.getAddressSpace());
   } else {
     if (!IsInPreservedAIRegion &&
         (!getDebugInfo() || !rec->hasAttr<BPFPreserveAccessIndexAttr>()))
@@ -4539,7 +4541,7 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
   // will need a bitcast if the LLVM type laid out doesn't match the desired
   // type.
   addr = Builder.CreateElementBitCast(
-      addr, CGM.getTypes().ConvertTypeForMem(FieldType), field->getName());
+      addr, CGM.getTypes().ConvertTypeForMem(FieldType, false, asmjs), field->getName());
 
   if (field->hasAttr<AnnotateAttr>())
     addr = EmitFieldAnnotations(field, addr);

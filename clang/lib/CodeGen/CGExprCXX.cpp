@@ -1379,11 +1379,6 @@ static RValue EmitNewDeleteCall(CodeGenFunction &CGF,
   } else if (!IsDelete && (Args.size() > 2 || (Args.size() == 2 && !Args[1].getType()->isReferenceType()))) {
     fancy_new = true;
   }
-  if (cheerp && !allocType.hasAddressSpace()) {
-    LangAS AS = CGF.getContext().getCheerpTypeAddressSpace(allocType);
-    assert(AS != LangAS::Default);
-    allocType = CGF.getContext().getAddrSpaceQualType(allocType, AS);
-  }
   //CHEERP TODO: warning/error when `cheerp && !asmjs && user_defined_new`
   if(!IsDelete && cheerp && !(asmjs && (user_defined_new || fancy_new || unsafe_new)))
   {
