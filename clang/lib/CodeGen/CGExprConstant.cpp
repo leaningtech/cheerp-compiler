@@ -978,20 +978,25 @@ bool ConstStructBuilder::UpdateStruct(ConstantEmitter &Emitter,
 //                             ConstExprEmitter
 //===----------------------------------------------------------------------===//
 
+static bool isAsmJSContext(CodeGenModule &CGM, CodeGenFunction *CGF, const Expr *E) {
+  if (CGF && CGF->CurFn) {
+    return CGF->CurFn->getSection() == StringRef("asmjs");
+  } else if (CGM.getInitializedGlobalDecl()->getDecl()) {
+    return CGM.getInitializedGlobalDecl()->getDecl()->hasAttr<AsmJSAttr>();
+  } else {
+    llvm::errs() << "This constant expression does not come from a global nor a function: ";
+    if (E)
+      E->dump();
+    llvm::report_fatal_error("please report a bug");
+  }
+}
 static void applyAsmJSAttributeFromContext(CodeGenModule &CGM, CodeGenFunction *CGF, const Expr *E, llvm::GlobalVariable* GV)
 {
   // CHEERP: if the current global declaration has the asmjs attribute,
   // all the additional globals produced should be in the asmjs section too
-  if (CGF && CGF->CurFn) {
-    if (CGF->CurFn->getSection() == StringRef("asmjs"))
+  bool asmjs = isAsmJSContext(CGM, CGF, E);
+  if (asmjs) {
       GV->setSection("asmjs");
-  } else if (CGM.getInitializedGlobalDecl()->getDecl()) {
-    if (CGM.getInitializedGlobalDecl()->getDecl()->hasAttr<AsmJSAttr>())
-      GV->setSection("asmjs");
-  } else {
-    llvm::errs() << "This string literal does not come from a global nor a function: ";
-    E->dump();
-    llvm::report_fatal_error("please report a bug");
   }
 }
 
@@ -2145,7 +2150,8 @@ llvm::Constant *ConstantLValueEmitter::tryEmit() {
   // We need this in order to correctly handle things like a ptrtoint of a
   // non-zero null pointer and addrspace casts that aren't trivially
   // represented in LLVM IR.
-  auto destTy = CGM.getTypes().ConvertTypeForMem(DestType);
+  bool asmjs = isAsmJSContext(CGM, Emitter.CGF, nullptr);
+  auto destTy = CGM.getTypes().ConvertTypeForMem(DestType, false, asmjs);
   assert(isa<llvm::IntegerType>(destTy) || isa<llvm::PointerType>(destTy));
 
   // If there's no base at all, this is a null or absolute pointer,
@@ -2391,7 +2397,8 @@ llvm::Constant *ConstantEmitter::tryEmitPrivate(const APValue &Value,
                                         Value.getComplexIntImag());
 
     // FIXME: the target may want to specify that this is packed.
-    llvm::StructType *STy = cast<llvm::StructType>(CGM.getTypes().ConvertTypeForMem(DestType));
+    bool asmjs = CGM.getContext().getTargetInfo().getTriple().isCheerpWasm();
+    llvm::StructType *STy = cast<llvm::StructType>(CGM.getTypes().ConvertTypeForMem(DestType, asmjs));
     return llvm::ConstantStruct::get(STy, Complex);
   }
   case APValue::Float: {
@@ -2413,7 +2420,8 @@ llvm::Constant *ConstantEmitter::tryEmitPrivate(const APValue &Value,
                                        Value.getComplexFloatImag());
 
     // FIXME: the target may want to specify that this is packed.
-    llvm::StructType *STy = cast<llvm::StructType>(CGM.getTypes().ConvertTypeForMem(DestType));
+    bool asmjs = CGM.getContext().getTargetInfo().getTriple().isCheerpWasm();
+    llvm::StructType *STy = cast<llvm::StructType>(CGM.getTypes().ConvertTypeForMem(DestType, asmjs));
     return llvm::ConstantStruct::get(STy, Complex);
   }
   case APValue::Vector: {

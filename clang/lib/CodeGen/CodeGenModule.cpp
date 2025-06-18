@@ -4203,7 +4203,7 @@ llvm::Constant *CodeGenModule::GetAddrOfFunction(GlobalDecl GD,
   // If there was no specific requested type, just convert it now.
   if (!Ty) {
     const auto *FD = cast<FunctionDecl>(GD.getDecl());
-    Ty = getTypes().ConvertType(FD->getType());
+    Ty = getTypes().ConvertType(FD->getType(), FD->hasAttr<AsmJSAttr>());
   }
 
   // Devirtualized destructor calls may come through here instead of via
@@ -4637,7 +4637,7 @@ llvm::Constant *CodeGenModule::GetAddrOfGlobalVar(const VarDecl *D,
   assert(D->hasGlobalStorage() && "Not a global variable");
   QualType ASTTy = D->getType();
   if (!Ty)
-    Ty = getTypes().ConvertTypeForMem(ASTTy);
+    Ty = getTypes().ConvertTypeForMem(ASTTy, false, D->hasAttr<AsmJSAttr>());
 
   StringRef MangledName = getMangledName(D);
   return GetOrCreateLLVMGlobal(MangledName, Ty, ASTTy.getAddressSpace(), D,
@@ -5486,7 +5486,7 @@ llvm::Function* CodeGenModule::GetUserCastIntrinsic(const CastExpr* CE, QualType
   if(!CE->isCheerpSafe() && !isFunctionCast && !isVoidPtrCast && !asmjs && !isByteLayoutCast)
     getDiags().Report(CE->getBeginLoc(), diag::warn_cheerp_unsafe_cast);
 
-  llvm::Type* types[] = { getTypes().ConvertType(DestTy), getTypes().ConvertType(SrcTy) };
+  llvm::Type* types[] = { getTypes().ConvertType(DestTy, asmjs), getTypes().ConvertType(SrcTy, asmjs) };
 
   return llvm::Intrinsic::getDeclaration(&getModule(),
                                      llvm::Intrinsic::cheerp_cast_user, types);
@@ -5512,7 +5512,7 @@ void CodeGenModule::EmitAliasDefinition(GlobalDecl GD) {
 
   Aliases.push_back(GD);
 
-  llvm::Type *DeclTy = getTypes().ConvertTypeForMem(D->getType());
+  llvm::Type *DeclTy = getTypes().ConvertTypeForMem(D->getType(), false, D->hasAttr<AsmJSAttr>());
 
   // Create a reference to the named value.  This ensures that it is emitted
   // if a deferred decl.
