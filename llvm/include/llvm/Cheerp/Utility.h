@@ -308,6 +308,7 @@ struct GlobalConstructor
 };
 
 std::vector<llvm::Constant*> getGlobalConstructors(llvm::Module& M);
+void removeGlobalConstructorsGlobal(llvm::Module& M);
 
 uint32_t getIntFromValue(const llvm::Value* v);
 

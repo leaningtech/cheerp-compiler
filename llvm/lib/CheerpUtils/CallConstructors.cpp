@@ -63,9 +63,8 @@ PreservedAnalyses CallConstructorsPass::run(llvm::Module &M, llvm::ModuleAnalysi
 		Builder.CreateCall(GetEnviron->getFunctionType(), GetEnviron);
 
 	for (Constant* C: cheerp::getGlobalConstructors(M))
-	{
 		Builder.CreateCall(Ty, cast<Function>(C->getAggregateElement(1)->stripPointerCastsSafe()));
-	}
+	removeGlobalConstructorsGlobal(M);
 
 	if (useUtilityThread)
 	{
