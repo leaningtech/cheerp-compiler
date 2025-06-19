@@ -730,11 +730,13 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T, bool asmjs) {
     unsigned AS = Context.getCheerpTypeTargetAddressSpace(ETy, asmjs);
     if (getContext().getTargetInfo().getTriple().isCheerpWasm()) {
       if(AS != unsigned(cheerp::CheerpAS::Wasm)) {
+        llvm::errs()<<"asmjs="<<asmjs<<" AS="<<(int)AS<<"\n";
         T.dump();
         assert(false);
       }
     } else {
-      if(AS == unsigned(cheerp::CheerpAS::Wasm) || AS == 0) {
+      if(AS == 0) {
+        llvm::errs()<<"asmjs="<<asmjs<<" AS="<<(int)AS<<"\n";
         T.dump();
         assert(false);
       }
