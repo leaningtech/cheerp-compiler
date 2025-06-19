@@ -1582,7 +1582,7 @@ int GlobalDepsAnalyzer::filterModule( const DenseSet<const Function*>& droppedMa
 			bool isClient = TypeSupport::isClientGlobal(var);
 			if( var->hasInitializer() )
 			{
-				if( !WasmSharedModule && !isClient && var->getName()!="llvm.global_ctors" )
+				if( !WasmSharedModule && !isClient)
 					var->setLinkage(GlobalValue::InternalLinkage);
 			}
 			else if( !isClient  && var->getName() != "__cxa_cheerp_clause_table")

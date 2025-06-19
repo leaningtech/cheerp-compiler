@@ -6719,9 +6719,6 @@ void CheerpWriter::compileGenericJS()
 	}
 	for ( const GlobalVariable & GV : module.getGlobalList() )
 	{
-		// Skip global ctors array
-		if (GV.getName() == "llvm.global_ctors")
-			continue;
 		if (GV.getSection() != StringRef("asmjs"))
 			compileGlobal(GV);
 	}
