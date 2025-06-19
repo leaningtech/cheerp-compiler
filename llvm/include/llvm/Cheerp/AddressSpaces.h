@@ -18,7 +18,7 @@ enum class CheerpAS {
 	Default = 0,
 	Client = 1,
 	GenericJS = 2,
-	ByteLayout = 3,
+	ByteLayout = 2,
 	Wasm = 4,
 };
 
