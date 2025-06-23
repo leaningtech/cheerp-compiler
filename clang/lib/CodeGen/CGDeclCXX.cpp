@@ -143,8 +143,8 @@ static void EmitDeclDestroy(CodeGenFunction &CGF, const VarDecl &D,
                                   CGF.needsEHCleanup(DtorKind), &D);
     Argument = llvm::Constant::getNullValue(CGF.Int8PtrTy);
   }
-
-  if(CGM.getTarget().isByteAddressable())
+  // We do not register global destructors if they are genericjs.
+  if (CGM.getTarget().isByteAddressable() || D.hasAttr<AsmJSAttr>())
     CGM.getCXXABI().registerGlobalDtor(CGF, D, Func, Argument);
 }
 
@@ -1154,6 +1154,8 @@ llvm::Function *CodeGenFunction::generateDestroyHelper(
   llvm::FunctionType *FTy = CGM.getTypes().GetFunctionType(FI);
   llvm::Function *fn = CGM.CreateGlobalInitOrCleanUpFunction(
       FTy, "__cxx_global_array_dtor", FI, VD->getLocation());
+  if (getContext().getTargetInfo().getTriple().isCheerpWasm())
+    fn->setSection("asmjs");
 
   CurEHLocation = VD->getBeginLoc();
 

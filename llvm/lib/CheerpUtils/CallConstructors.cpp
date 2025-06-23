@@ -138,9 +138,11 @@ PreservedAnalyses CallConstructorsPass::run(llvm::Module &M, llvm::ModuleAnalysi
 		{
 			ExitCode = Builder.CreateCall(Main->getFunctionType(), Main);
 		}
-		if (Wasi)
+		if (!LowerAtomics || Wasi)
 		{
-			Function* Exit = M.getFunction("__syscall_exit");
+			// In WASI mode, or if -pthread has been passed, we call exit after main, which will run global destructors
+			Function* Exit = M.getFunction("exit");
+			assert(Exit != nullptr);
 			if (ExitCode->getType() != Builder.getInt32Ty())
 				ExitCode = ConstantInt::get(Builder.getInt32Ty(), 0);
 			Builder.CreateCall(Exit->getFunctionType(), Exit, ExitCode);

@@ -796,6 +796,11 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 		markAsReachableIfPresent(module.getFunction("__udivti3"));
 	}
 
+	// If libc exit isn't called, remove global destructors.
+	Function* exitFunction = module.getFunction("exit");
+	if (!llcPass && (exitFunction == nullptr || !isReachable(module.getFunction("exit"))))
+		removeGlobalDestructors(module);
+
 	NumRemovedGlobals = filterModule(droppedMathBuiltins, module);
 
 	if(hasUndefinedSymbolErrors)
@@ -1564,6 +1569,23 @@ bool GlobalDepsAnalyzer::isMathIntrinsic(const llvm::Function* F)
 	const auto builtinID = cheerp::BuiltinInstr::getMathBuiltin(*F);
 	return cheerp::BuiltinInstr::isValidJSMathBuiltin(builtinID) ||
 		(builtinID == BuiltinInstr::MOD_F);
+}
+
+void GlobalDepsAnalyzer::removeGlobalDestructors(llvm::Module& M)
+{
+	// The goal is to empty the function cxa_atexit, and let optimization do the rest.
+	Function* cxaAtexit = M.getFunction("__cxa_atexit");
+	if (cxaAtexit == nullptr)
+		return;
+
+	GlobalValue::LinkageTypes linkage = cxaAtexit->getLinkage();
+	cxaAtexit->deleteBody();
+	BasicBlock* block = BasicBlock::Create(M.getContext(), "entry", cxaAtexit);
+	ConstantInt* ret = ConstantInt::get(Type::getInt32Ty(M.getContext()), 0);
+	IRBuilder<> Builder(M.getContext());
+	Builder.SetInsertPoint(block);
+	Builder.CreateRet(ret);
+	cxaAtexit->setLinkage(linkage);
 }
 
 int GlobalDepsAnalyzer::filterModule( const DenseSet<const Function*>& droppedMathBuiltins, Module & module )

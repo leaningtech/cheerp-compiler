@@ -762,6 +762,7 @@ void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("-cheerp-keep-invokes");
   addPass("function(simplifycfg)");
 
+  addPass("LowerGlobalDestructors");
   addPass("CallConstructors");
   addPass("GlobalDepsAnalyzer");
   addPass("TypeOptimizer");
