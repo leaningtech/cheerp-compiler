@@ -1728,21 +1728,12 @@ void CodeGenFunction::EmitDestructorBody(FunctionArgList &Args) {
   // possible to delegate the destructor body to the complete
   // destructor.  Do so.
   if (DtorType == Dtor_Deleting) {
-    if(getTarget().isByteAddressable() || Dtor->getParent()->hasAttr<AsmJSAttr>()) {
     RunCleanupsScope DtorEpilogue(*this);
     EnterDtorCleanups(Dtor, Dtor_Deleting);
     if (HaveInsertPoint()) {
       QualType ThisTy = Dtor->getThisObjectType();
       EmitCXXDestructorCall(Dtor, Dtor_Complete, /*ForVirtualBase=*/false,
                             /*Delegating=*/false, LoadCXXThisAddress(), ThisTy);
-    }
-    } else {
-    // NOTE: Code is duplicated to avoid RAII cleanup
-    if (HaveInsertPoint()) {
-      QualType ThisTy = Dtor->getThisObjectType();
-      EmitCXXDestructorCall(Dtor, Dtor_Complete, /*ForVirtualBase=*/false,
-                            /*Delegating=*/false, LoadCXXThisAddress(), ThisTy);
-    }
     }
     return;
   }
