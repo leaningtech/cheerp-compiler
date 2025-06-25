@@ -2028,7 +2028,7 @@ static void addNoBuiltinAttributes(llvm::AttrBuilder &FuncAttrs,
 static bool DetermineNoUndef(QualType QTy, CodeGenTypes &Types,
                              const llvm::DataLayout &DL, const ABIArgInfo &AI,
                              bool CheckCoerce = true) {
-  llvm::Type *Ty = Types.ConvertTypeForMem(QTy);
+  llvm::Type *Ty = Types.ConvertTypeForMem(QTy, false, true);
   if (AI.getKind() == ABIArgInfo::Indirect)
     return true;
   if (AI.getKind() == ABIArgInfo::Extend)

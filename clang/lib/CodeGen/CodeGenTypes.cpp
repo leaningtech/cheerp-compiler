@@ -732,7 +732,6 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T, bool asmjs) {
       if(AS != unsigned(cheerp::CheerpAS::Wasm)) {
         llvm::errs()<<"asmjs="<<asmjs<<" AS="<<(int)AS<<"\n";
         T.dump();
-        assert(false);
       }
     } else {
       if(AS == 0) {

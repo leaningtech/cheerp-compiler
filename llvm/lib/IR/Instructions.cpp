@@ -1595,6 +1595,10 @@ void StoreInst::AssertOK() {
   assert(getOperand(0) && getOperand(1) && "Both operands must be non-null!");
   assert(getOperand(1)->getType()->isPointerTy() &&
          "Ptr must have pointer type!");
+  if(!(cast<PointerType>(getOperand(1)->getType())
+             ->isOpaqueOrPointeeTypeMatches(getOperand(0)->getType()))) {
+    dump();
+  }
   assert(cast<PointerType>(getOperand(1)->getType())
              ->isOpaqueOrPointeeTypeMatches(getOperand(0)->getType()) &&
          "Ptr must be a pointer to Val type!");

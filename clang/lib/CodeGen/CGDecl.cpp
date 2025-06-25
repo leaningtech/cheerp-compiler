@@ -1557,7 +1557,8 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
 
       uint32_t AS = CGM.getDataLayout().getAllocaAddrSpace();
       if (getLangOpts().Cheerp) {
-        AS = getContext().getCheerpTypeTargetAddressSpace(Ty, D);
+        bool asmjs = CurFn->getSection() == "asmjs";
+        AS = getContext().getCheerpTypeTargetAddressSpace(Ty, asmjs);
       }
 
       // Create the alloca.  Note that we set the name separately from
