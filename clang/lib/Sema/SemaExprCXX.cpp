@@ -3246,6 +3246,7 @@ void Sema::DeclareGlobalAllocationFunction(DeclarationName Name,
     if (BInfo && getLangOpts().Cheerp) {
       Alloc->addAttr(LateBindBuiltinAliasAttr::CreateImplicit(Context, BInfo));
     }
+    MaybeInjectCheerpModeAttr(Alloc);
 
     llvm::SmallVector<ParmVarDecl *, 3> ParamDecls;
     for (QualType T : Params) {

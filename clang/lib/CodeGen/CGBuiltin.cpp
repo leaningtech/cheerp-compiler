@@ -141,7 +141,7 @@ llvm::Constant *CodeGenModule::getBuiltinLibFunction(const FunctionDecl *FD,
   }
 
   llvm::FunctionType *Ty =
-    cast<llvm::FunctionType>(getTypes().ConvertType(FD->getType()));
+    cast<llvm::FunctionType>(getTypes().ConvertType(FD->getType(), FD->hasAttr<AsmJSAttr>()));
 
   return GetOrCreateLLVMFunction(Name, Ty, D, /*ForVTable=*/false);
 }
