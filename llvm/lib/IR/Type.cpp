@@ -798,7 +798,6 @@ PointerType *PointerType::get(LLVMContext &C, unsigned AddressSpace) {
 
 PointerType::PointerType(Type *E, unsigned AddrSpace)
   : Type(E->getContext(), PointerTyID), PointeeTy(E) {
-  assert(AddrSpace!=2);
   ContainedTys = &PointeeTy;
   NumContainedTys = 1;
   setSubclassData(AddrSpace);
@@ -810,7 +809,6 @@ PointerType::PointerType(LLVMContext &C, unsigned AddrSpace)
 }
 
 PointerType *Type::getPointerTo(unsigned AddrSpace) const {
-  assert(AddrSpace!=2);
   return PointerType::get(const_cast<Type*>(this), AddrSpace);
 }
 
