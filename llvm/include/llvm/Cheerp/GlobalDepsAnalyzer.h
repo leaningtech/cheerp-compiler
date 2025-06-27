@@ -219,6 +219,8 @@ private:
 	 * \warning Even if this returns 0, it does *not* mean that the module has 
 	 * not been modified. This function also *reorders* the variables inside the module.
 	 */
+	void removeGlobalDestructors(llvm::Module& M);
+
 	int filterModule( const llvm::DenseSet<const llvm::Function*>&, llvm::Module & );
 
 	static bool isMathIntrinsic(const llvm::Function* F);

@@ -1038,6 +1038,14 @@ std::vector<Constant*> getGlobalConstructors(Module& module)
 	return ret;
 }
 
+void removeGlobalConstructorsGlobal(Module& M)
+{
+	GlobalVariable* var = M.getGlobalVariable("llvm.global_ctors");
+	if (!var)
+		return;
+	var->eraseFromParent();
+}
+
 const llvm::Loop* findCommonLoop(const llvm::LoopInfo* LI, const llvm::BasicBlock* first, const llvm::BasicBlock* second)
 {
 	//Find the innermost common loop between two BB.

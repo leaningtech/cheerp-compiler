@@ -140,6 +140,7 @@ MODULE_PASS("PreExecute", cheerp::PreExecutePass())
 MODULE_PASS("FreeAndDeleteRemoval", cheerp::FreeAndDeleteRemovalPass())
 MODULE_PASS("CallConstructors", cheerp::CallConstructorsPass())
 MODULE_PASS("CheerpLowerAtomic", cheerp::CheerpLowerAtomicPass())
+MODULE_PASS("LowerGlobalDestructors", cheerp::LowerGlobalDestructorsPass())
 #undef MODULE_PASS
 
 #ifndef MODULE_PASS_WITH_PARAMS
