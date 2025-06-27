@@ -197,7 +197,6 @@ bool WriteToFile(fd_t, const void *, uptr, uptr *, error_t *) {
 bool FileExists(const char *) { UNIMPLEMENTED(); }
 bool IsAbsolutePath(const char *) { UNIMPLEMENTED(); }
 bool ReadFromFile(fd_t, void *, uptr, uptr *, error_t *) { UNIMPLEMENTED(); }
-void UnsetAlternateSignalStack() { UNIMPLEMENTED(); }
 bool DontDumpShadowMemory(uptr addr, uptr length) { UNIMPLEMENTED(); }
 bool IsPathSeparator(const char) { UNIMPLEMENTED(); }
 bool DirExists(const char *) { UNIMPLEMENTED(); }
@@ -213,6 +212,7 @@ void GetThreadStackAndTls(bool main, uptr *stk_addr, uptr *stk_size,
 }
 
 void SetAlternateSignalStack() {}
+void UnsetAlternateSignalStack() {}
 
 void internal__exit(int exitcode) { exit(exitcode); }
 
