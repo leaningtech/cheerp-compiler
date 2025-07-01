@@ -1184,6 +1184,15 @@ void Interpreter::visitIntrinsicInst(IntrinsicInst &I) {
 
   if (ForPreExecute && strncmp(I.getCalledFunction()->getName().str().c_str(), "llvm.cheerp", strlen("llvm.cheerp")) == 0)
   {
+    if (I.getCalledFunction()->getName() == "llvm.cheerp.get.thread.pointer")
+    {
+      // We return a value of zero. The code in musl will instead assign it the address of the __dummy_thread variable.
+      IntegerType* Ty = cast<IntegerType>(I.getType());
+      GenericValue Result;
+      Result.IntVal = APInt(Ty->getBitWidth(), 0);
+      SetValue(&I, Result, SF);
+      return;
+    }
     errs() << "Tried to execute cheerp intrinsic: " << I.getCalledFunction()->getName() << "\n";
     printCallTrace();
     CleanAbort = true;
