@@ -34,6 +34,7 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Analysis/ValueTracking.h"
+#include "llvm/Cheerp/AddressSpaces.h"
 #include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/InlineAsm.h"
@@ -12887,7 +12888,8 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
     // For free, we always pass this argument unless the element type is a genericjs struct,
     // because the pointer may have come from Wasm originally
     if (asmjs || (elementType && elementType->isStructTy() && !cast<llvm::StructType>(elementType)->hasAsmJS())) {
-      Free = cast<llvm::Constant>(CGM.getModule().getOrInsertFunction("free", VoidTy, Int8PtrTy).getCallee());
+
+      Free = cheerp::getOrCreateFunction(CGM.getModule(), llvm::FunctionType::get(VoidTy, {Int8PtrTy}, false), "free", cheerp::CheerpAS::Wasm, true);
     }
     llvm::CallBase* CB = cheerp::createCheerpDeallocate(Builder, Free, elementType, Ops[0]);
     return CB;
