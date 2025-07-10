@@ -275,11 +275,13 @@ void CodeGenTypes::UpdateCompletedType(const TagDecl *TD) {
   // from the enum to be recomputed.
   if (const EnumDecl *ED = dyn_cast<EnumDecl>(TD)) {
     // Only flush the cache if we've actually already converted this type.
-    if (TypeCache.count(ED->getTypeForDecl())) {
+    if (TypeCache.count(std::make_pair(ED->getTypeForDecl(), /*asmjs*/true)) ||
+        TypeCache.count(std::make_pair(ED->getTypeForDecl(), /*asmjs*/false))) {
       // Okay, we formed some types based on this.  We speculated that the enum
       // would be lowered to i32, so we only need to flush the cache if this
       // didn't happen.
-      if (!ConvertType(ED->getIntegerType())->isIntegerTy(32))
+      if (!ConvertType(ED->getIntegerType(), /*asmjs*/true)->isIntegerTy(32) ||
+          !ConvertType(ED->getIntegerType(), /*asmjs*/false)->isIntegerTy(32))
         TypeCache.clear();
     }
     // If necessary, provide the full definition of a type only used with a
@@ -445,29 +447,14 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T, bool asmjs) {
       Ty->isBuiltinType() ||
       (noRecordsBeingLaidOut() && FunctionsBeingProcessed.empty());
   if (ShouldUseCache) {
-    llvm::DenseMap<const Type *, llvm::Type *>::iterator TCI =
-        TypeCache.find(Ty);
+    auto TCI =
+        TypeCache.find({Ty, asmjs});
     if (TCI != TypeCache.end())
       CachedType = TCI->second;
       // With expensive checks, check that the type we compute matches the
       // cached type.
 #ifndef EXPENSIVE_CHECKS
     if (CachedType) {
-      if (CachedType->isPointerTy() && Context.getLangOpts().Cheerp && CachedType->getPointerAddressSpace() == 0) {
-        unsigned AS = Context.getCheerpTypeTargetAddressSpace(T, asmjs);
-        if (getContext().getTargetInfo().getTriple().isCheerpWasm()) {
-          if(AS != unsigned(cheerp::CheerpAS::Wasm)) {
-            T.dump();
-            assert(false);
-          }
-        } else {
-          if(AS == unsigned(cheerp::CheerpAS::Wasm) || AS == 0) {
-            T.dump();
-            assert(false);
-          }
-        }
-        return llvm::PointerType::getWithSamePointeeType(cast<llvm::PointerType>(CachedType), AS);
-      }
       return CachedType;
     }
 #endif
@@ -892,7 +879,7 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T, bool asmjs) {
          "Cached type doesn't match computed type");
 
   if (ShouldUseCache)
-    TypeCache[Ty] = ResultType;
+    TypeCache[std::make_pair(Ty, asmjs)] = ResultType;
   return ResultType;
 }
 
