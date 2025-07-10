@@ -5663,8 +5663,12 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
           // If the argument doesn't match, perform a bitcast to coerce it.  This
           // can happen due to trivial type mismatches.
           llvm::Value *V = CI;
-          if (V->getType() != RetIRTy)
+          if(V->getType()->isPointerTy() && V->getType()->getPointerAddressSpace() != RetIRTy->getPointerAddressSpace()) {
+            V = Builder.CreateAddrSpaceCast(V, RetIRTy);
+          } else if (V->getType() != RetIRTy) {
             V = Builder.CreateBitCast(V, RetIRTy);
+          }
+
           return RValue::get(V);
         }
         }
