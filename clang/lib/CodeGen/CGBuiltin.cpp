@@ -5403,7 +5403,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
   case Builtin::BI__builtin_get_device_side_mangled_name: {
     auto Name = CGM.getCUDARuntime().getDeviceSideName(
         cast<DeclRefExpr>(E->getArg(0)->IgnoreImpCasts())->getDecl());
-    auto Str = CGM.GetAddrOfConstantCString(Name, "");
+    auto Str = CGM.GetAddrOfConstantCString(Name, /*asmjs*/false, "");
     llvm::Constant *Zeros[] = {llvm::ConstantInt::get(SizeTy, 0),
                                llvm::ConstantInt::get(SizeTy, 0)};
     auto *Ptr = llvm::ConstantExpr::getGetElementPtr(Str.getElementType(),

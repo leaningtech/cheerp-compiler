@@ -1019,7 +1019,7 @@ public:
 
   /// Return a pointer to a constant array for the given string literal.
   ConstantAddress
-  GetAddrOfConstantStringFromLiteral(const StringLiteral *S,
+  GetAddrOfConstantStringFromLiteral(const StringLiteral *S, bool asmjs,
                                      StringRef Name = ".str");
 
   /// Return a pointer to a constant array for the given ObjCEncodeExpr node.
@@ -1032,7 +1032,7 @@ public:
   /// \param GlobalName If provided, the name to use for the global (if one is
   /// created).
   ConstantAddress
-  GetAddrOfConstantCString(const std::string &Str,
+  GetAddrOfConstantCString(const std::string &Str, bool asmjs,
                            const char *GlobalName = nullptr);
 
   /// Returns a pointer to a constant global variable for the given file-scope

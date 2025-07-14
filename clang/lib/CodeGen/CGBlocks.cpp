@@ -227,7 +227,7 @@ static llvm::Constant *buildBlockDescriptor(CodeGenModule &CGM,
   std::string typeAtEncoding =
     CGM.getContext().getObjCEncodingForBlock(blockInfo.getBlockExpr());
   elements.add(llvm::ConstantExpr::getBitCast(
-    CGM.GetAddrOfConstantCString(typeAtEncoding).getPointer(), i8p));
+    CGM.GetAddrOfConstantCString(typeAtEncoding, /*asmjs*/false).getPointer(), i8p));
 
   // GC layout.
   if (C.getLangOpts().ObjC) {

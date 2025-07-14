@@ -198,7 +198,7 @@ protected:
   /// where the C code specifies const char*.
   llvm::Constant *MakeConstantString(StringRef Str, const char *Name = "") {
     ConstantAddress Array =
-        CGM.GetAddrOfConstantCString(std::string(Str), Name);
+        CGM.GetAddrOfConstantCString(std::string(Str), /*asmjs*/false, Name);
     return llvm::ConstantExpr::getGetElementPtr(Array.getElementType(),
                                                 Array.getPointer(), Zeros);
   }

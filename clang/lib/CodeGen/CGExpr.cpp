@@ -3025,12 +3025,9 @@ LValue CodeGenFunction::EmitUnaryOpLValue(const UnaryOperator *E) {
 }
 
 LValue CodeGenFunction::EmitStringLiteralLValue(const StringLiteral *E) {
-  auto S = CGM.GetAddrOfConstantStringFromLiteral(E);
+  bool asmjs = CurFn && CurFn->getSection() == StringRef("asmjs");
+  auto S = CGM.GetAddrOfConstantStringFromLiteral(E, asmjs);
 
-  // CHEERP: if the parent function is in the asmjs section, so is the string
-  // literal
-  if (CurFn && CurFn->getSection() == StringRef("asmjs"))
-    cast<llvm::GlobalVariable>(S.getPointer())->setSection("asmjs");
   return MakeAddrLValue(S,
                         E->getType(), AlignmentSource::Decl);
 }
@@ -3056,20 +3053,16 @@ LValue CodeGenFunction::EmitPredefinedLValue(const PredefinedExpr *E) {
           CGM.getCXXABI().getMangleContext().getBlockId(BD, true);
       if (Discriminator)
         Name += "_" + Twine(Discriminator + 1).str();
-      auto C = CGM.GetAddrOfConstantCString(Name, GVName.c_str());
+      auto C = CGM.GetAddrOfConstantCString(Name, isAsmJSContext(), GVName.c_str());
       return MakeAddrLValue(C, E->getType(), AlignmentSource::Decl);
     } else {
       auto C =
-          CGM.GetAddrOfConstantCString(std::string(FnName), GVName.c_str());
+          CGM.GetAddrOfConstantCString(std::string(FnName), isAsmJSContext(), GVName.c_str());
       return MakeAddrLValue(C, E->getType(), AlignmentSource::Decl);
     }
   }
-  auto C = CGM.GetAddrOfConstantStringFromLiteral(SL, GVName);
-  // CHEERP: if the parent function is in the asmjs section, so is the string
-  // literal
-  assert(CurFn);
-  if (CurFn->getSection() == StringRef("asmjs"))
-    cast<llvm::GlobalVariable>(C.getPointer())->setSection("asmjs");
+  bool asmjs = CurFn && CurFn->getSection() == StringRef("asmjs");
+  auto C = CGM.GetAddrOfConstantStringFromLiteral(SL, asmjs, GVName);
   return MakeAddrLValue(C, E->getType(), AlignmentSource::Decl);
 }
 
@@ -3196,7 +3189,7 @@ llvm::Constant *CodeGenFunction::EmitCheckSourceLocation(SourceLocation Loc) {
     }
 
     auto FilenameGV =
-        CGM.GetAddrOfConstantCString(std::string(FilenameString), ".src");
+        CGM.GetAddrOfConstantCString(std::string(FilenameString), isAsmJSContext(), ".src");
     CGM.getSanitizerMetadata()->disableSanitizerForGlobal(
         cast<llvm::GlobalVariable>(
             FilenameGV.getPointer()->stripPointerCasts()));
