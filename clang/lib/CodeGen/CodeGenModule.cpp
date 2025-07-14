@@ -4761,9 +4761,20 @@ LangAS CodeGenModule::GetGlobalConstantAddressSpace() const {
 // they should not be casted to default address space.
 static llvm::Constant *
 castStringLiteralToDefaultAddressSpace(CodeGenModule &CGM,
-                                       llvm::GlobalVariable *GV) {
+                                       llvm::GlobalVariable *GV, bool asmjs) {
   llvm::Constant *Cast = GV;
-  if (!CGM.getLangOpts().OpenCL && !CGM.getLangOpts().Cheerp) {
+  if (CGM.getLangOpts().Cheerp) {
+    auto StringAS = CGM.getTarget().getTriple().isCheerpWasm()?
+      LangAS::cheerp_wasm :
+      LangAS::cheerp_genericjs;
+    auto DestAS = asmjs? LangAS::cheerp_wasm : LangAS::cheerp_genericjs;
+    if (StringAS != DestAS) {
+      Cast = CGM.getTargetCodeGenInfo().performAddrSpaceCast(
+          CGM, GV, StringAS, DestAS,
+          GV->getValueType()->getPointerTo(
+              CGM.getContext().getTargetAddressSpace(DestAS)));
+    }
+  } else if (!CGM.getLangOpts().OpenCL) {
     auto AS = CGM.GetGlobalConstantAddressSpace();
     if (AS != LangAS::Default)
       Cast = CGM.getTargetCodeGenInfo().performAddrSpaceCast(
@@ -5959,8 +5970,12 @@ GenerateStringLiteral(llvm::Constant *C, llvm::GlobalValue::LinkageTypes LT,
   unsigned AddrSpace = CGM.getContext().getTargetAddressSpace(
       CGM.GetGlobalConstantAddressSpace());
 
-  if (CGM.getTarget().getTriple().isCheerpWasm())
-    AddrSpace = unsigned(cheerp::CheerpAS::Wasm);
+  if (CGM.getContext().getLangOpts().Cheerp) {
+    if (CGM.getTarget().getTriple().isCheerpWasm())
+      AddrSpace = unsigned(CGM.getTarget().getTriple().isCheerpWasm()?
+                           cheerp::CheerpAS::Wasm :
+                           cheerp::CheerpAS::GenericJS);
+  }
 
   llvm::Module &M = CGM.getModule();
   // Create a global variable for this string
@@ -5984,7 +5999,7 @@ GenerateStringLiteral(llvm::Constant *C, llvm::GlobalValue::LinkageTypes LT,
 /// GetAddrOfConstantStringFromLiteral - Return a pointer to a
 /// constant array for the given string literal.
 ConstantAddress
-CodeGenModule::GetAddrOfConstantStringFromLiteral(const StringLiteral *S,
+CodeGenModule::GetAddrOfConstantStringFromLiteral(const StringLiteral *S, bool asmjs,
                                                   StringRef Name) {
   CharUnits Alignment = getContext().getAlignOfGlobalVarInChars(S->getType());
 
@@ -5995,7 +6010,7 @@ CodeGenModule::GetAddrOfConstantStringFromLiteral(const StringLiteral *S,
     if (auto GV = *Entry) {
       if (uint64_t(Alignment.getQuantity()) > GV->getAlignment())
         GV->setAlignment(Alignment.getAsAlign());
-      return ConstantAddress(castStringLiteralToDefaultAddressSpace(*this, GV),
+      return ConstantAddress(castStringLiteralToDefaultAddressSpace(*this, GV, asmjs),
                              GV->getValueType(), Alignment);
     }
   }
@@ -6029,7 +6044,7 @@ CodeGenModule::GetAddrOfConstantStringFromLiteral(const StringLiteral *S,
 
   SanitizerMD->reportGlobal(GV, S->getStrTokenLoc(0), "<string literal>");
 
-  return ConstantAddress(castStringLiteralToDefaultAddressSpace(*this, GV),
+  return ConstantAddress(castStringLiteralToDefaultAddressSpace(*this, GV, asmjs),
                          GV->getValueType(), Alignment);
 }
 
@@ -6040,14 +6055,14 @@ CodeGenModule::GetAddrOfConstantStringFromObjCEncode(const ObjCEncodeExpr *E) {
   std::string Str;
   getContext().getObjCEncodingForType(E->getEncodedType(), Str);
 
-  return GetAddrOfConstantCString(Str);
+  return GetAddrOfConstantCString(Str, /*asmjs*/false);
 }
 
 /// GetAddrOfConstantCString - Returns a pointer to a character array containing
 /// the literal and a terminating '\0' character.
 /// The result has pointer to array type.
 ConstantAddress CodeGenModule::GetAddrOfConstantCString(
-    const std::string &Str, const char *GlobalName) {
+    const std::string &Str, bool asmjs, const char *GlobalName) {
   StringRef StrWithNull(Str.c_str(), Str.size() + 1);
   CharUnits Alignment =
     getContext().getAlignOfGlobalVarInChars(getContext().CharTy);
@@ -6062,7 +6077,7 @@ ConstantAddress CodeGenModule::GetAddrOfConstantCString(
     if (auto GV = *Entry) {
       if (uint64_t(Alignment.getQuantity()) > GV->getAlignment())
         GV->setAlignment(Alignment.getAsAlign());
-      return ConstantAddress(castStringLiteralToDefaultAddressSpace(*this, GV),
+      return ConstantAddress(castStringLiteralToDefaultAddressSpace(*this, GV, asmjs),
                              GV->getValueType(), Alignment);
     }
   }
@@ -6076,7 +6091,7 @@ ConstantAddress CodeGenModule::GetAddrOfConstantCString(
   if (Entry)
     *Entry = GV;
 
-  return ConstantAddress(castStringLiteralToDefaultAddressSpace(*this, GV),
+  return ConstantAddress(castStringLiteralToDefaultAddressSpace(*this, GV, asmjs),
                          GV->getValueType(), Alignment);
 }
 
