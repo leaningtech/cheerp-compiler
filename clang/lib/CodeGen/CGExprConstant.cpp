@@ -2276,11 +2276,7 @@ ConstantLValueEmitter::VisitCompoundLiteralExpr(const CompoundLiteralExpr *E) {
 
 ConstantLValue
 ConstantLValueEmitter::VisitStringLiteral(const StringLiteral *E) {
-  ConstantAddress V =  CGM.GetAddrOfConstantStringFromLiteral(E);
-  if (CGM.getTarget().isByteAddressable())
-    return V;
-  llvm::GlobalVariable* GV = llvm::cast<llvm::GlobalVariable>(V.getPointer());
-  applyAsmJSAttributeFromContext(CGM, Emitter.CGF, E, GV);
+  ConstantAddress V =  CGM.GetAddrOfConstantStringFromLiteral(E, isAsmJSContext(CGM, Emitter.CGF, E));
   return V;
 }
 
@@ -2311,7 +2307,7 @@ ConstantLValueEmitter::VisitObjCBoxedExpr(const ObjCBoxedExpr *E) {
 
 ConstantLValue
 ConstantLValueEmitter::VisitPredefinedExpr(const PredefinedExpr *E) {
-  return CGM.GetAddrOfConstantStringFromLiteral(E->getFunctionName());
+  return CGM.GetAddrOfConstantStringFromLiteral(E->getFunctionName(), isAsmJSContext(CGM, Emitter.CGF, E));
 }
 
 ConstantLValue
