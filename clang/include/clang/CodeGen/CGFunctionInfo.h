@@ -763,6 +763,7 @@ public:
     ID.AddInteger(RegParm);
     ID.AddBoolean(NoCfCheck);
     ID.AddBoolean(CmseNSCall);
+    ID.AddBoolean(isAsmJS());
     ID.AddInteger(Required.getOpaqueData());
     ID.AddBoolean(HasExtParameterInfos);
     if (HasExtParameterInfos) {
@@ -780,7 +781,8 @@ public:
                       ArrayRef<ExtParameterInfo> paramInfos,
                       RequiredArgs required,
                       CanQualType resultType,
-                      ArrayRef<CanQualType> argTypes) {
+                      ArrayRef<CanQualType> argTypes,
+                      bool asmjs) {
     ID.AddInteger(info.getCC());
     ID.AddBoolean(InstanceMethod);
     ID.AddBoolean(ChainCall);
@@ -791,6 +793,7 @@ public:
     ID.AddInteger(info.getRegParm());
     ID.AddBoolean(info.getNoCfCheck());
     ID.AddBoolean(info.getCmseNSCall());
+    ID.AddBoolean(asmjs);
     ID.AddInteger(required.getOpaqueData());
     ID.AddBoolean(!paramInfos.empty());
     if (!paramInfos.empty()) {
