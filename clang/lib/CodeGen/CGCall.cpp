@@ -777,7 +777,7 @@ CodeGenTypes::arrangeLLVMFunctionInfo(CanQualType resultType,
   // Lookup or create unique function info.
   llvm::FoldingSetNodeID ID;
   CGFunctionInfo::Profile(ID, instanceMethod, chainCall, info, paramInfos,
-                          required, resultType, argTypes);
+                          required, resultType, argTypes, asmjs);
 
   void *insertPos = nullptr;
   CGFunctionInfo *FI = FunctionInfos.FindNodeOrInsertPos(ID, insertPos);
