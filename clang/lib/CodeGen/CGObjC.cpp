@@ -101,7 +101,7 @@ CodeGenFunction::EmitObjCBoxedExpr(const ObjCBoxedExpr *E) {
     // Create char array to store type encoding
     std::string Str;
     getContext().getObjCEncodingForType(ValueType, Str);
-    llvm::Constant *GV = CGM.GetAddrOfConstantCString(Str).getPointer();
+    llvm::Constant *GV = CGM.GetAddrOfConstantCString(Str, /*asmjs*/false).getPointer();
 
     // Cast type encoding to correct type
     const ParmVarDecl *EncodingDecl = BoxingMethod->parameters()[1];

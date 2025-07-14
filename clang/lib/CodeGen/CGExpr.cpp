@@ -3025,12 +3025,9 @@ LValue CodeGenFunction::EmitUnaryOpLValue(const UnaryOperator *E) {
 }
 
 LValue CodeGenFunction::EmitStringLiteralLValue(const StringLiteral *E) {
-  auto S = CGM.GetAddrOfConstantStringFromLiteral(E);
+  bool asmjs = CurFn && CurFn->getSection() == StringRef("asmjs");
+  auto S = CGM.GetAddrOfConstantStringFromLiteral(E, asmjs);
 
-  // CHEERP: if the parent function is in the asmjs section, so is the string
-  // literal
-  if (CurFn && CurFn->getSection() == StringRef("asmjs"))
-    cast<llvm::GlobalVariable>(S.getPointer())->setSection("asmjs");
   return MakeAddrLValue(S,
                         E->getType(), AlignmentSource::Decl);
 }
@@ -3064,12 +3061,8 @@ LValue CodeGenFunction::EmitPredefinedLValue(const PredefinedExpr *E) {
       return MakeAddrLValue(C, E->getType(), AlignmentSource::Decl);
     }
   }
-  auto C = CGM.GetAddrOfConstantStringFromLiteral(SL, GVName);
-  // CHEERP: if the parent function is in the asmjs section, so is the string
-  // literal
-  assert(CurFn);
-  if (CurFn->getSection() == StringRef("asmjs"))
-    cast<llvm::GlobalVariable>(C.getPointer())->setSection("asmjs");
+  bool asmjs = CurFn && CurFn->getSection() == StringRef("asmjs");
+  auto C = CGM.GetAddrOfConstantStringFromLiteral(SL, asmjs, GVName);
   return MakeAddrLValue(C, E->getType(), AlignmentSource::Decl);
 }
 

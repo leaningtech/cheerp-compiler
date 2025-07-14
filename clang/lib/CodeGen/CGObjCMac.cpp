@@ -3000,7 +3000,7 @@ llvm::Value *CGObjCCommonMac::EmitClassRefViaRuntime(
 
   llvm::Value *className = CGF.CGM
                                .GetAddrOfConstantCString(std::string(
-                                   ID->getObjCRuntimeNameAsString()))
+                                   ID->getObjCRuntimeNameAsString()), /*asmjs*/false)
                                .getPointer();
   ASTContext &ctx = CGF.CGM.getContext();
   className =
