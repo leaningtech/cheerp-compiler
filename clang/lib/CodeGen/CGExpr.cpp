@@ -2606,7 +2606,7 @@ static LValue EmitGlobalVarDeclLValue(CodeGenFunction &CGF,
   if (VD->getTLSKind() != VarDecl::TLS_None)
     V = CGF.Builder.CreateThreadLocalAddress(V);
 
-  llvm::Type *RealVarTy = CGF.getTypes().ConvertTypeForMem(VD->getType());
+  llvm::Type *RealVarTy = CGF.getTypes().ConvertTypeForMem(VD->getType(), false, VD->hasAttr<AsmJSAttr>());
   V = EmitBitCastOfLValueToProperType(CGF, V, RealVarTy);
   CharUnits Alignment = CGF.getContext().getDeclAlign(VD);
   Address Addr(V, RealVarTy, Alignment);
