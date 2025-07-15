@@ -450,6 +450,8 @@ LValue CodeGenFunction::
 EmitMaterializeTemporaryExpr(const MaterializeTemporaryExpr *M) {
   const Expr *E = M->getSubExpr();
 
+  // NOTE: this is just a guess, not sure what feature uses this
+  bool asmjs = CurFn->getSection() == "asmjs";
   assert((!M->getExtendingDecl() || !isa<VarDecl>(M->getExtendingDecl()) ||
           !cast<VarDecl>(M->getExtendingDecl())->isARCPseudoStrong()) &&
          "Reference should never be pseudo-strong!");
@@ -475,7 +477,7 @@ EmitMaterializeTemporaryExpr(const MaterializeTemporaryExpr *M) {
       if (Var->hasInitializer())
         return MakeAddrLValue(Object, M->getType(), AlignmentSource::Decl);
 
-      Var->setInitializer(CGM.EmitNullConstant(E->getType()));
+      Var->setInitializer(CGM.EmitNullConstant(E->getType(), asmjs));
     }
     LValue RefTempDst = MakeAddrLValue(Object, M->getType(),
                                        AlignmentSource::Decl);
@@ -529,7 +531,7 @@ EmitMaterializeTemporaryExpr(const MaterializeTemporaryExpr *M) {
     // constant temporary that we promoted to a global, we may have already
     // initialized it.
     if (!Var->hasInitializer()) {
-      Var->setInitializer(CGM.EmitNullConstant(E->getType()));
+      Var->setInitializer(CGM.EmitNullConstant(E->getType(), asmjs));
       EmitAnyExprToMem(E, Object, Qualifiers(), /*IsInit*/true);
     }
   } else {

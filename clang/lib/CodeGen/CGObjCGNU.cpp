@@ -2841,7 +2841,7 @@ CGObjCGNU::GenerateMessageSend(CodeGenFunction &CGF,
       if (llvm::Value *v = msgRet.getScalarVal()) {
         llvm::PHINode *phi = Builder.CreatePHI(v->getType(), 2);
         phi->addIncoming(v, nonNilPathBB);
-        phi->addIncoming(CGM.EmitNullConstant(ResultType), nilPathBB);
+        phi->addIncoming(CGM.EmitNullConstant(ResultType, /*asmjs=*/false), nilPathBB);
         msgRet = RValue::get(phi);
       }
     } else if (msgRet.isAggregate()) {
