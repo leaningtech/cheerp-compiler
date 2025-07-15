@@ -641,7 +641,7 @@ static void emitInitWithReductionInitializer(CodeGenFunction &CGF,
     CodeGenFunction::OpaqueValueMapping Map(CGF, OVE, Func);
     CGF.EmitIgnoredExpr(InitOp);
   } else {
-    llvm::Constant *Init = CGF.CGM.EmitNullConstant(Ty);
+    llvm::Constant *Init = CGF.CGM.EmitNullConstant(Ty, CGF.CurFn->getSection() == "asmjs");
     std::string Name = CGF.CGM.getOpenMPRuntime().getName({"init"});
     auto *GV = new llvm::GlobalVariable(
         CGF.CGM.getModule(), Init->getType(), /*isConstant=*/true,

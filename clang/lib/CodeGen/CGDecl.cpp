@@ -270,7 +270,7 @@ llvm::Constant *CodeGenModule::getOrCreateStaticVarDecl(
       D.hasAttr<CUDASharedAttr>() || D.hasAttr<LoaderUninitializedAttr>())
     Init = llvm::UndefValue::get(LTy);
   else
-    Init = EmitNullConstant(Ty);
+    Init = EmitNullConstant(Ty, D.hasAttr<AsmJSAttr>());
 
   llvm::GlobalVariable *GV = new llvm::GlobalVariable(
       getModule(), LTy, Ty.isConstant(getContext()), Linkage, Init, Name,
@@ -2604,7 +2604,7 @@ void CodeGenFunction::EmitParmDecl(const VarDecl &D, ParamValue Arg,
             // use objc_storeStrong(&dest, value) for retaining the
             // object. But first, store a null into 'dest' because
             // objc_storeStrong attempts to release its old value.
-            llvm::Value *Null = CGM.EmitNullConstant(D.getType());
+            llvm::Value *Null = CGM.EmitNullConstant(D.getType(), /*asmjs=*/false);
             EmitStoreOfScalar(Null, lv, /* isInitialization */ true);
             EmitARCStoreStrongCall(lv.getAddress(*this), ArgVal, true);
             DoStore = false;
