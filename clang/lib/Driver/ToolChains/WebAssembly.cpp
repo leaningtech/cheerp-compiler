@@ -616,7 +616,7 @@ void cheerp::Link::ConstructJob(Compilation &C, const JobAction &JA,
       AddStdLib("libwasm.bc");
     }
     // Link thread library if -pthread was passed
-    if (Args.hasArg(options::OPT_pthread) && !(getToolChain().getTriple().getOS() == llvm::Triple::WASI))
+    if (Args.hasArg(options::OPT_pthread))
       AddStdLib("libthreads.bc");
   }
  
