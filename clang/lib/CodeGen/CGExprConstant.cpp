@@ -784,7 +784,7 @@ bool ConstStructBuilder::Build(InitListExpr *ILE, const RecordDecl *RD, bool All
 
     llvm::Constant *EltInit =
         Init ? Emitter.tryEmitPrivateForMemory(Init, Field->getType())
-             : Emitter.emitNullForMemory(Field->getType());
+             : Emitter.emitNullForMemory(Field->getType(), RD->hasAttr<AsmJSAttr>());
     if (!EltInit)
       return false;
 
@@ -1365,7 +1365,8 @@ public:
 
   llvm::Constant *VisitImplicitValueInitExpr(ImplicitValueInitExpr* E,
                                              QualType T) {
-    return CGM.EmitNullConstant(T);
+    // TODO: derive asmjs properly
+    return CGM.EmitNullConstant(T, /*asmjs=*/false);
   }
 
   llvm::Constant *VisitInitListExpr(InitListExpr *ILE, QualType T) {
@@ -1484,7 +1485,7 @@ public:
       return Visit(Arg, Ty);
     }
 
-    return CGM.EmitNullConstant(Ty);
+    return CGM.EmitNullConstant(Ty, E->getConstructor()->getParent()->hasAttr<AsmJSAttr>());
   }
 
   llvm::Constant *VisitStringLiteral(StringLiteral *E, QualType T) {
@@ -1570,7 +1571,7 @@ ConstantEmitter::emitAbstract(const Expr *E, QualType destType) {
   if (!C) {
     CGM.Error(E->getExprLoc(),
               "internal error: could not emit constant value \"abstractly\"");
-    C = CGM.EmitNullConstant(destType);
+    C = CGM.EmitNullConstant(destType, /*asmjs*/false);
   }
   return C;
 }
@@ -1584,7 +1585,7 @@ ConstantEmitter::emitAbstract(SourceLocation loc, const APValue &value,
   if (!C) {
     CGM.Error(loc,
               "internal error: could not emit constant value \"abstractly\"");
-    C = CGM.EmitNullConstant(destType);
+    C = CGM.EmitNullConstant(destType, /*asmjs=*/false);
   }
   return C;
 }
@@ -1806,7 +1807,7 @@ llvm::Constant *ConstantEmitter::tryEmitPrivateForVarInit(const VarDecl &D) {
           dyn_cast_or_null<CXXConstructExpr>(D.getInit())) {
         const CXXConstructorDecl *CD = E->getConstructor();
         if (CD->isTrivial() && CD->isDefaultConstructor())
-          return CGM.EmitNullConstant(D.getType());
+          return CGM.EmitNullConstant(D.getType(), D.hasAttr<AsmJSAttr>());
       }
   }
   InConstantContext = D.hasConstantInitialization();
@@ -2000,15 +2001,16 @@ private:
   /// Apply the value offset to the given constant.
   llvm::Constant *applyOffset(llvm::Constant *C, llvm::Type *BaseElementTy) {
     uint64_t OffsetVal = Value.getLValueOffset().getQuantity();
+    bool asmjs = isAsmJSContext(CGM, Emitter.CGF, nullptr);
 
     llvm::SmallVector<llvm::Constant*, 4> Indexes;
     Indexes.push_back(llvm::ConstantInt::get(CGM.Int32Ty, 0));
-    llvm::Type* DestTy = CGM.getTypes().ConvertTypeForMem(DestType);
+    llvm::Type* DestTy = CGM.getTypes().ConvertTypeForMem(DestType, false, asmjs);
     llvm::Type* DestElemTy = nullptr;
     if (isa<BlockPointerType>(DestType.getCanonicalType().getTypePtr()))
       DestElemTy = ConvertBlockType(DestType->getPointeeType());
     else if (DestTy->isPointerTy())
-      DestElemTy = CGM.getTypes().ConvertTypeForMem(DestType->getPointeeType());
+      DestElemTy = CGM.getTypes().ConvertTypeForMem(DestType->getPointeeType(), false, asmjs);
     QualType CurType;
     const APValue::LValueBase &base = Value.getLValueBase();
     if (const ValueDecl *D = base.dyn_cast<const ValueDecl*>()) {
@@ -2026,7 +2028,7 @@ private:
     llvm::Type* CurrentType = BaseElementTy;
 
     if (!CurrentType)
-      CurrentType = CGM.getTypes().ConvertTypeForMem(CurType);
+      CurrentType = CGM.getTypes().ConvertTypeForMem(CurType, false, asmjs);
 
     if (C->getType()->isOpaquePointerTy())
       CurrentType = nullptr;
@@ -2035,7 +2037,7 @@ private:
 
     llvm::Type* CElementType = CurrentType;
 
-    if(Value.hasLValuePath() && CGM.getTypes().ConvertTypeForMem(CurType) == CurrentType) {
+    if(Value.hasLValuePath() && CGM.getTypes().ConvertTypeForMem(CurType, false, asmjs) == CurrentType) {
       ArrayRef<APValue::LValuePathEntry> Path = Value.getLValuePath();
       for (unsigned I = 0; I != Path.size(); ++I) {
         if (const RecordType* CurClass = CurType->getAs<RecordType>()) {
@@ -2055,7 +2057,7 @@ private:
               // Apply a bitcast, on unions it is safe
               C = llvm::ConstantExpr::getGetElementPtr(CElementType, C, Indexes);
               unsigned AS = C->getType()->getPointerAddressSpace();
-              CElementType = CGM.getTypes().ConvertTypeForMem(CurType);
+              CElementType = CGM.getTypes().ConvertTypeForMem(CurType, false, asmjs);
               C = llvm::ConstantExpr::getBitCast(C, CElementType->getPointerTo(AS));
               Indexes.resize(1);
               continue;
@@ -2069,7 +2071,7 @@ private:
               // Collapsed struct
               C = llvm::ConstantExpr::getGetElementPtr(CElementType, C, Indexes);
               unsigned AS = C->getType()->getPointerAddressSpace();
-              CElementType = CGM.getTypes().ConvertTypeForMem(CurType);
+              CElementType = CGM.getTypes().ConvertTypeForMem(CurType, false, asmjs);
               C = llvm::ConstantExpr::getBitCast(C, CElementType->getPointerTo(AS));
               Indexes.resize(1);
               continue;
@@ -2614,7 +2616,7 @@ static llvm::Constant *EmitNullConstant(CodeGenModule &CGM,
     // will fill in later.)
     if (!Field->isBitField() && !Field->isZeroSize(CGM.getContext())) {
       unsigned fieldIndex = layout.getLLVMFieldNo(Field);
-      elements[fieldIndex] = CGM.EmitNullConstant(Field->getType());
+      elements[fieldIndex] = CGM.EmitNullConstant(Field->getType(), record->hasAttr<AsmJSAttr>());
     }
 
     // For unions, stop after the first named field.
@@ -2671,28 +2673,28 @@ static llvm::Constant *EmitNullConstantForBase(CodeGenModule &CGM,
 }
 
 llvm::Constant *ConstantEmitter::emitNullForMemory(CodeGenModule &CGM,
-                                                   QualType T) {
-  return emitForMemory(CGM, CGM.EmitNullConstant(T), T);
+                                                   QualType T, bool asmjs) {
+  return emitForMemory(CGM, CGM.EmitNullConstant(T, asmjs), T);
 }
 
-llvm::Constant *CodeGenModule::EmitNullConstant(QualType T) {
+llvm::Constant *CodeGenModule::EmitNullConstant(QualType T, bool asmjs) {
   if (T->getAs<PointerType>())
     return getNullPointer(
-        cast<llvm::PointerType>(getTypes().ConvertTypeForMem(T)), T);
+        cast<llvm::PointerType>(getTypes().ConvertTypeForMem(T, false, asmjs)), T);
 
   if (getTypes().isZeroInitializable(T))
   {
-    return llvm::Constant::getNullValue(getTypes().ConvertTypeForMem(T));
+    return llvm::Constant::getNullValue(getTypes().ConvertTypeForMem(T, false, asmjs));
   }
     
   if (const ConstantArrayType *CAT = Context.getAsConstantArrayType(T)) {
     llvm::ArrayType *ATy =
-      cast<llvm::ArrayType>(getTypes().ConvertTypeForMem(T));
+      cast<llvm::ArrayType>(getTypes().ConvertTypeForMem(T, false, asmjs));
 
     QualType ElementTy = CAT->getElementType();
 
     llvm::Constant *Element =
-      ConstantEmitter::emitNullForMemory(*this, ElementTy);
+      ConstantEmitter::emitNullForMemory(*this, ElementTy, asmjs);
     unsigned NumElements = CAT->getSize().getZExtValue();
     SmallVector<llvm::Constant *, 8> Array(NumElements, Element);
     return llvm::ConstantArray::get(ATy, Array);

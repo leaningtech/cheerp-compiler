@@ -1565,7 +1565,7 @@ Value *ScalarExprEmitter::EmitComplexToScalarConversion(
 }
 
 Value *ScalarExprEmitter::EmitNullValue(QualType Ty) {
-  return CGF.EmitFromMemory(CGF.CGM.EmitNullConstant(Ty), Ty);
+  return CGF.EmitFromMemory(CGF.CGM.EmitNullConstant(Ty, CGF.CurFn->getSection()=="asmjs"), Ty);
 }
 
 /// Emit a sanitization check for the given "binary" operation (which
