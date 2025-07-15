@@ -1576,7 +1576,7 @@ void AggExprEmitter::EmitNullInitializationToLValue(LValue lv) {
 
   if (CGF.hasScalarEvaluationKind(type)) {
     // For non-aggregates, we can store the appropriate null constant.
-    llvm::Value *null = CGF.CGM.EmitNullConstant(type);
+    llvm::Value *null = CGF.CGM.EmitNullConstant(type, CGF.CurFn->getSection() == "asmjs");
     // Note that the following is not equivalent to
     // EmitStoreThroughBitfieldLValue for ARC types.
     if (lv.isBitField()) {
