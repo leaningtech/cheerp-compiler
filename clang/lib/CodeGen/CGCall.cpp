@@ -2028,8 +2028,9 @@ static void addNoBuiltinAttributes(llvm::AttrBuilder &FuncAttrs,
 
 static bool DetermineNoUndef(QualType QTy, CodeGenTypes &Types,
                              const llvm::DataLayout &DL, const ABIArgInfo &AI,
+                             bool asmjs,
                              bool CheckCoerce = true) {
-  llvm::Type *Ty = Types.ConvertTypeForMem(QTy);
+  llvm::Type *Ty = Types.ConvertTypeForMem(QTy, false, asmjs);
   if (AI.getKind() == ABIArgInfo::Indirect)
     return true;
   if (AI.getKind() == ABIArgInfo::Extend)
@@ -2061,15 +2062,15 @@ static bool DetermineNoUndef(QualType QTy, CodeGenTypes &Types,
     return false;
   if (QTy->isScalarType()) {
     if (const ComplexType *Complex = dyn_cast<ComplexType>(QTy))
-      return DetermineNoUndef(Complex->getElementType(), Types, DL, AI, false);
+      return DetermineNoUndef(Complex->getElementType(), Types, DL, AI, asmjs, false);
     return true;
   }
   if (const VectorType *Vector = dyn_cast<VectorType>(QTy))
-    return DetermineNoUndef(Vector->getElementType(), Types, DL, AI, false);
+    return DetermineNoUndef(Vector->getElementType(), Types, DL, AI, asmjs, false);
   if (const MatrixType *Matrix = dyn_cast<MatrixType>(QTy))
-    return DetermineNoUndef(Matrix->getElementType(), Types, DL, AI, false);
+    return DetermineNoUndef(Matrix->getElementType(), Types, DL, AI, asmjs, false);
   if (const ArrayType *Array = dyn_cast<ArrayType>(QTy))
-    return DetermineNoUndef(Array->getElementType(), Types, DL, AI, false);
+    return DetermineNoUndef(Array->getElementType(), Types, DL, AI, asmjs, false);
 
   // TODO: Some structs may be `noundef`, in specific situations.
   return false;
@@ -2367,7 +2368,7 @@ void CodeGenModule::ConstructAttributeList(StringRef Name,
   // Determine if the return type could be partially undef
   if (CodeGenOpts.EnableNoundefAttrs && HasStrictReturn) {
     if (!RetTy->isVoidType() && RetAI.getKind() != ABIArgInfo::Indirect &&
-        DetermineNoUndef(RetTy, getTypes(), DL, RetAI))
+        DetermineNoUndef(RetTy, getTypes(), DL, RetAI, FI.isAsmJS()))
       RetAttrs.addAttribute(llvm::Attribute::NoUndef);
   }
 
@@ -2499,7 +2500,7 @@ void CodeGenModule::ConstructAttributeList(StringRef Name,
 
     // Decide whether the argument we're handling could be partially undef
     if (CodeGenOpts.EnableNoundefAttrs &&
-        DetermineNoUndef(ParamType, getTypes(), DL, AI)) {
+        DetermineNoUndef(ParamType, getTypes(), DL, AI, FI.isAsmJS())) {
       Attrs.addAttribute(llvm::Attribute::NoUndef);
     }
 
