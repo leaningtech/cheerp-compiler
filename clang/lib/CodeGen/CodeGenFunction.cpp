@@ -2030,7 +2030,7 @@ CodeGenFunction::EmitNullInitialization(Address DestPtr, QualType Ty) {
     // For a VLA, emit a single element, then splat that over the VLA.
     if (vla) Ty = getContext().getBaseElementType(vla);
 
-    llvm::Constant *NullConstant = CGM.EmitNullConstant(Ty);
+    llvm::Constant *NullConstant = CGM.EmitNullConstant(Ty, CurFn->getSection()=="asmjs");
 
     llvm::GlobalVariable *NullVariable =
       new llvm::GlobalVariable(CGM.getModule(), NullConstant->getType(),

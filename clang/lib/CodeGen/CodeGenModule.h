@@ -1186,7 +1186,7 @@ public:
   /// Return the result of value-initializing the given type, i.e. a null
   /// expression of the given type.  This is usually, but not always, an LLVM
   /// null constant.
-  llvm::Constant *EmitNullConstant(QualType T);
+  llvm::Constant *EmitNullConstant(QualType T, bool asmjs);
 
   /// Return a null constant appropriate for zero-initializing a base class with
   /// the given type. This is usually, but not always, an LLVM null constant.

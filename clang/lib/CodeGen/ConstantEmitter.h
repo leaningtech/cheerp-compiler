@@ -115,14 +115,14 @@ public:
 
   llvm::Constant *tryEmitConstantExpr(const ConstantExpr *CE);
 
-  llvm::Constant *emitNullForMemory(QualType T) {
-    return emitNullForMemory(CGM, T);
+  llvm::Constant *emitNullForMemory(QualType T, bool asmjs) {
+    return emitNullForMemory(CGM, T, asmjs);
   }
   llvm::Constant *emitForMemory(llvm::Constant *C, QualType T) {
     return emitForMemory(CGM, C, T);
   }
 
-  static llvm::Constant *emitNullForMemory(CodeGenModule &CGM, QualType T);
+  static llvm::Constant *emitNullForMemory(CodeGenModule &CGM, QualType T, bool asmjs);
   static llvm::Constant *emitForMemory(CodeGenModule &CGM, llvm::Constant *C,
                                        QualType T);
 
