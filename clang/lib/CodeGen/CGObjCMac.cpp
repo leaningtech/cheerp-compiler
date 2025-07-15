@@ -1777,7 +1777,7 @@ struct NullReturnState {
     if (result.isScalar()) {
       // Derive the null-initialization value.
       llvm::Value *null =
-          CGF.EmitFromMemory(CGF.CGM.EmitNullConstant(resultType), resultType);
+          CGF.EmitFromMemory(CGF.CGM.EmitNullConstant(resultType, /*asmjs=*/false), resultType);
 
       // If no join is necessary, just flow out.
       if (!contBB) return RValue::get(null);
