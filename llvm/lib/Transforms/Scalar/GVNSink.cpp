@@ -242,7 +242,7 @@ public:
     SmallVector<std::pair<int, std::pair<BasicBlock *, Value *>>, 4> Ops;
     for (unsigned I = 0, E = PN->getNumIncomingValues(); I != E; ++I) {
       BasicBlock* incomingBlock = PN->getIncomingBlock(I);
-      Ops.push_back({BasicBlockOrder->operator[](incomingBlock), {incomingBlock, PN->getIncomingValue(I)}});
+      Ops.push_back({static_cast<int>(BasicBlockOrder->operator[](incomingBlock)), {incomingBlock, PN->getIncomingValue(I)}});
     }
 
     llvm::sort(Ops);
