@@ -29,6 +29,7 @@
 #include "clang/AST/StmtCXX.h"
 #include "clang/AST/Type.h"
 #include "clang/CodeGen/ConstantInitBuilder.h"
+#include "llvm/Cheerp/AddressSpaces.h"
 #include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/GlobalValue.h"
@@ -2959,11 +2960,16 @@ static void emitGlobalDtorWithCXAAtExit(CodeGenFunction &CGF,
     Name = T.isOSDarwin() ?  "_tlv_atexit" : "__cxa_thread_atexit";
   }
 
+  unsigned AS = 0;
+  if (CGF.getLangOpts().Cheerp) {
+    AS = unsigned(CGF.getTarget().getTriple().isCheerpWasm()? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::Client);
+  }
+
   // We're assuming that the destructor function is something we can
   // reasonably call with the default CC.  Go ahead and cast it to the
   // right prototype.
   llvm::Type *dtorTy =
-    llvm::FunctionType::get(CGF.VoidTy, CGF.Int8PtrTy, false)->getPointerTo();
+    llvm::FunctionType::get(CGF.VoidTy, CGF.Int8PtrTy, false)->getPointerTo(AS);
 
   // Preserve address space of addr.
   auto AddrAS = addr ? addr->getType()->getPointerAddressSpace() : 0;
@@ -2982,7 +2988,9 @@ static void emitGlobalDtorWithCXAAtExit(CodeGenFunction &CGF,
     llvm::FunctionType::get(CGF.IntTy, paramTys, false);
 
   // Fetch the actual function.
-  llvm::FunctionCallee atexit = CGF.CGM.CreateRuntimeFunction(atexitTy, Name);
+  llvm::FunctionCallee atexit = CGF.CGM.CreateRuntimeFunction(atexitTy, Name, llvm::AttributeList(),
+                                                              false, false, AS);
+
   if (llvm::Function *fn = dyn_cast<llvm::Function>(atexit.getCallee()))
     fn->setDoesNotThrow();
 
