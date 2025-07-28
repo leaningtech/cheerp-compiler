@@ -10273,6 +10273,11 @@ public:
     return nullptr;
   }
 
+  LangAS getAddrSpaceOfCxaAtexitPtrParam() const override {
+    return this->getABIInfo().getTarget().getTriple().isCheerpWasm()?
+      LangAS::cheerp_wasm : LangAS::cheerp_genericjs;
+  }
+
 };
 
 } // End anonymous namespace.
