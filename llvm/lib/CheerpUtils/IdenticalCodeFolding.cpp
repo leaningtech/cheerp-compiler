@@ -614,6 +614,9 @@ bool IdenticalCodeFolding::equivalentOperand(const llvm::Value* A, const llvm::V
 		    return false;
 		return a->getArgNo() == b->getArgNo();
 	}
+	if (isa<MetadataAsValue>(A) || isa<MetadataAsValue>(B)) {
+		return A == B;
+	}
 
 #ifndef NDEBUG
 	A->dump();
