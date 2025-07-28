@@ -4651,6 +4651,10 @@ CodeGenModule::CreateRuntimeVariable(llvm::Type *Ty,
                                      StringRef Name) {
   LangAS AddrSpace = getContext().getLangOpts().OpenCL ? LangAS::opencl_global
                                                        : LangAS::Default;
+  if (getContext().getLangOpts().Cheerp) {
+    AddrSpace = getContext().getTargetInfo().getTriple().isCheerpWasm()?
+      LangAS::cheerp_wasm : LangAS::cheerp_genericjs;
+  }
   auto *Ret = GetOrCreateLLVMGlobal(Name, Ty, AddrSpace, nullptr);
   setDSOLocal(cast<llvm::GlobalValue>(Ret->stripPointerCasts()));
   return Ret;
