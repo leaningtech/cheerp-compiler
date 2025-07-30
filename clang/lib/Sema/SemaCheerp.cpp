@@ -789,7 +789,7 @@ cheerp::CheerpAttributeToAdd cheerp::getCheerpAttributeToAdd(clang::Sema& S, con
 	// If already present, return the current decl's attribute
 	if (decl->hasAttr<clang::AsmJSAttr>())
 		return CheerpAttributeToAdd::AsmJSLike;
-	else if (decl->hasAttr<clang::GenericJSAttr>())
+	else if (decl->hasAttr<clang::GenericJSAttr>() || decl->hasAttr<clang::ByteLayoutAttr>())
 		return CheerpAttributeToAdd::GenericJS;
 
 	// Inherit from context (possibly walking up in the tree until a DeclContext is tagged or no DeclContext exists)
