@@ -212,9 +212,8 @@ void LandingPadTable::populate(Module& M, GlobalDepsAnalyzer& GDA)
 			if (GEP->getSourceElementType() == oldElementType)
 			{
 				GEP->setSourceElementType(newElementType);
+				GEP->mutateType(PointerType::getWithSamePointeeType(cast<PointerType>(GEP->getType()), AS));
 			}
-
-			assert(oldTy == GEP->getType());
 		}
 		else
 		{
