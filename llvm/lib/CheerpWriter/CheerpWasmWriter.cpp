@@ -1501,6 +1501,7 @@ void CheerpWasmWriter::compileConstantExpr(WasmBuffer& code, const ConstantExpr*
 			break;
 		}
 		case Instruction::BitCast:
+		case Instruction::AddrSpaceCast:
 		{
 			assert(ce->getOperand(0)->getType()->isPointerTy());
 			compileOperand(code, ce->getOperand(0));
@@ -2388,6 +2389,11 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 				assert(operand->getType()->isIntegerTy(64));
 				encodeInst(WasmOpcode::F64_REINTERPRET_I64, code);
 			}
+			break;
+		}
+		case Instruction::AddrSpaceCast:
+		{
+			compileOperand(code, I.getOperand(0));
 			break;
 		}
 		case Instruction::Br:
