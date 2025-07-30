@@ -4575,7 +4575,7 @@ void CheerpWriter::compileLoadElem(const LoadInst& li, Type* Ty, StructType* STy
 		assert(!STy);
 		//Optimize loads of single values from unions
 		compilePointerBase(ptrOp);
-		assert(ptrOp->getType()== Ty->getPointerTo());
+		assert(cast<PointerType>(ptrOp->getType())->isOpaqueOrPointeeTypeMatches(Ty));
 		if(Ty->isIntegerTy(8))
 			stream << ".getUint8(";
 		else if(Ty->isIntegerTy(16))
