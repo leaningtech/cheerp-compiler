@@ -5068,7 +5068,7 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
     case ABIArgInfo::Extend:
     case ABIArgInfo::Direct: {
       if (!isa<llvm::StructType>(ArgInfo.getCoerceToType()) &&
-          ArgInfo.getCoerceToType() == ConvertType(info_it->type) &&
+          ArgInfo.getCoerceToType() == CGM.getTypes().ConvertType(info_it->type, CallInfo.isAsmJS()) &&
           ArgInfo.getDirectOffset() == 0) {
         assert(NumIRArgs == 1);
         llvm::Value *V;
