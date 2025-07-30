@@ -1899,6 +1899,10 @@ void CodeGenFunction::EmitStoreOfScalar(llvm::Value *Value, Address Addr,
 
   Value = EmitToMemory(Value, Ty);
 
+  if (getLangOpts().Cheerp && Value->getType() != Addr.getElementType()) {
+    Value =  Builder.CreateAddrSpaceCast(Value, Addr.getElementType(), Twine(Value->getName(), ".as_decay"));
+  }
+
   LValue AtomicLValue =
       LValue::MakeAddr(Addr, Ty, getContext(), BaseInfo, TBAAInfo);
   if (Ty->isAtomicType() ||
