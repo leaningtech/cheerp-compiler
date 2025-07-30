@@ -1528,11 +1528,11 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 						asmJSImportedFunctions.insert(calledFunc);
 				}
 				else if (calledFunc->getIntrinsicID() == Intrinsic::memset)
-					extendLifetime(module->getFunction("memset"));
+					extendLifetimeIfPresent(module->getFunction("memset"));
 				else if (calledFunc->getIntrinsicID() == Intrinsic::memcpy)
-					extendLifetime(module->getFunction("memcpy"));
+					extendLifetimeIfPresent(module->getFunction("memcpy"));
 				else if (calledFunc->getIntrinsicID() == Intrinsic::memmove)
-					extendLifetime(module->getFunction("memmove"));
+					extendLifetimeIfPresent(module->getFunction("memmove"));
 			}
 		}
 	
