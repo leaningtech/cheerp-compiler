@@ -980,7 +980,7 @@ public:
   unsigned ComputeVirtualBaseIdOffset(const CXXRecordDecl *Derived,
                                const CXXRecordDecl *VBase);
 
-  llvm::Function* GetUserCastIntrinsic(const CastExpr* CE, QualType SrcTy, QualType DestTy, bool asmjs);
+  llvm::Function* GetUserCastIntrinsic(const CastExpr* CE, QualType SrcTy, QualType DestTy, llvm::Type* llvmSrcTy, bool asmjs);
 
   llvm::FoldingSet<BlockByrefHelpers> ByrefHelpersCache;
 

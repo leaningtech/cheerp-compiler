@@ -1098,6 +1098,7 @@ Address CodeGenFunction::EmitPointerWithAlignment(const Expr *E,
             llvm::Function* intrinsic = CGM.GetUserCastIntrinsic(ECE,
               ECE->getSubExpr()->getType(),
               ECE->getTypeAsWritten(),
+              Addr.getPointer()->getType(),
               asmjs);
             llvm::CallBase* CB = Builder.CreateCall(intrinsic, Addr.getPointer());
             CB->addParamAttr(0, llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, Addr.getElementType()));
@@ -1898,6 +1899,10 @@ void CodeGenFunction::EmitStoreOfScalar(llvm::Value *Value, Address Addr,
   }
 
   Value = EmitToMemory(Value, Ty);
+
+  if (getLangOpts().Cheerp && Value->getType() != Addr.getElementType()) {
+    Value =  Builder.CreateAddrSpaceCast(Value, Addr.getElementType(), Twine(Value->getName(), ".as_decay"));
+  }
 
   LValue AtomicLValue =
       LValue::MakeAddr(Addr, Ty, getContext(), BaseInfo, TBAAInfo);
@@ -4934,9 +4939,10 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
     {
       bool asmjs = CurFn->getSection()==StringRef("asmjs");
       llvm::Function* intrinsic = CGM.GetUserCastIntrinsic(CE,
-		      getContext().getPointerType(E->getSubExpr()->getType()),
-		      CE->getTypeAsWritten(),
-		      asmjs);
+        getContext().getPointerType(E->getSubExpr()->getType()),
+        CE->getTypeAsWritten(),
+        V.getPointer()->getType(),
+        asmjs);
       llvm::CallBase* CB = Builder.CreateCall(intrinsic, V.getPointer());
       CB->addParamAttr(0, llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, V.getElementType()));
       V = Address(CB,
