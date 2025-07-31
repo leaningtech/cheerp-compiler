@@ -210,27 +210,11 @@ CodeGenFunction::MakeNaturalAlignPointeeAddrLValue(llvm::Value *V, QualType T) {
 
 
 llvm::Type *CodeGenFunction::ConvertTypeForMem(QualType T) {
-  bool asmjs = false;
-  if (CurFn) {
-    asmjs = CurFn->getSection() == "asmjs";
-  } else if (auto* CurGlobal = CGM.getInitializedGlobalDecl()->getDecl()) {
-    asmjs = CurGlobal->hasAttr<AsmJSAttr>();
-  } else {
-    asmjs = getContext().getTargetInfo().getTriple().isCheerpWasm();
-  }
-  return CGM.getTypes().ConvertTypeForMem(T, false, asmjs);
+  return CGM.getTypes().ConvertTypeForMem(T, false, isAsmJSContext());
 }
 
 llvm::Type *CodeGenFunction::ConvertType(QualType T) {
-  bool asmjs = false;
-  if (CurFn) {
-    asmjs = CurFn->getSection() == "asmjs";
-  } else if (auto* CurGlobal = CGM.getInitializedGlobalDecl()->getDecl()) {
-    asmjs = CurGlobal->hasAttr<AsmJSAttr>();
-  } else {
-    asmjs = getContext().getTargetInfo().getTriple().isCheerpWasm();
-  }
-  return CGM.getTypes().ConvertType(T, asmjs);
+  return CGM.getTypes().ConvertType(T, isAsmJSContext());
 }
 
 TypeEvaluationKind CodeGenFunction::getEvaluationKind(QualType type) {
