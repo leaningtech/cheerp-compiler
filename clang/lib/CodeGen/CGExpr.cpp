@@ -1098,6 +1098,7 @@ Address CodeGenFunction::EmitPointerWithAlignment(const Expr *E,
             llvm::Function* intrinsic = CGM.GetUserCastIntrinsic(ECE,
               ECE->getSubExpr()->getType(),
               ECE->getTypeAsWritten(),
+              Addr.getPointer()->getType(),
               asmjs);
             llvm::CallBase* CB = Builder.CreateCall(intrinsic, Addr.getPointer());
             CB->addParamAttr(0, llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, Addr.getElementType()));
@@ -4938,9 +4939,10 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
     {
       bool asmjs = CurFn->getSection()==StringRef("asmjs");
       llvm::Function* intrinsic = CGM.GetUserCastIntrinsic(CE,
-		      getContext().getPointerType(E->getSubExpr()->getType()),
-		      CE->getTypeAsWritten(),
-		      asmjs);
+        getContext().getPointerType(E->getSubExpr()->getType()),
+        CE->getTypeAsWritten(),
+        V.getPointer()->getType(),
+        asmjs);
       llvm::CallBase* CB = Builder.CreateCall(intrinsic, V.getPointer());
       CB->addParamAttr(0, llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, V.getElementType()));
       V = Address(CB,

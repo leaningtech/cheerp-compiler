@@ -2061,9 +2061,10 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
     {
 	
       llvm::Function* intrinsic = CGF.CGM.GetUserCastIntrinsic(CE,
-		      CGF.getContext().getPointerType(E->getType()),
-		      CGF.getContext().getPointerType(DestTy),
-		      asmjs);
+        CGF.getContext().getPointerType(E->getType()),
+        CGF.getContext().getPointerType(DestTy),
+        Addr.getPointer()->getType(),
+        asmjs);
       llvm::CallBase* CB = Builder.CreateCall(intrinsic, Addr.getPointer());
       CB->addParamAttr(0, llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, Addr.getElementType()));
       Addr = Address(CB, CGF.ConvertTypeForMem(DestTy), Addr.getAlignment());
@@ -2221,6 +2222,14 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
         // On Cheerp in generic code we can't allow any function pointer to become any other pointer
         CGF.CGM.getDiags().Report(CE->getBeginLoc(), diag::err_cheerp_bad_function_to_non_function_cast);
       }
+    }
+    else
+    {
+      llvm::Function* intrinsic = CGF.CGM.GetUserCastIntrinsic(CE, E->getType(), DestTy, Src->getType(), asmjs);
+      llvm::CallBase* CB = Builder.CreateCall(intrinsic, Src);
+      llvm::Type* SrcPointeeTy = ConvertType(E->getType()->getPointeeType());
+      CB->addParamAttr(0, llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, SrcPointeeTy));
+      return CB;
     }
     if (CGF.getLangOpts().Cheerp) {
       return Builder.CreatePointerBitCastOrAddrSpaceCast(Src, DstTy);
