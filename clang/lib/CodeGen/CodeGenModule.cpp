@@ -5488,7 +5488,7 @@ void CodeGenModule::EmitGlobalFunctionDefinition(GlobalDecl GD,
     AddGlobalAnnotations(D, Fn);
 }
 
-llvm::Function* CodeGenModule::GetUserCastIntrinsic(const CastExpr* CE, QualType SrcTy, QualType DestTy, bool asmjs)
+llvm::Function* CodeGenModule::GetUserCastIntrinsic(const CastExpr* CE, QualType SrcTy, QualType DestTy, llvm::Type* llvmSrcTy, bool asmjs)
 {
   bool isFunctionCast = SrcTy->isFunctionPointerType() || DestTy->isFunctionPointerType();
   bool isVoidPtrCast = DestTy->isVoidPointerType();
@@ -5499,7 +5499,7 @@ llvm::Function* CodeGenModule::GetUserCastIntrinsic(const CastExpr* CE, QualType
   if(!CE->isCheerpSafe() && !isFunctionCast && !isVoidPtrCast && !asmjs && !isByteLayoutCast)
     getDiags().Report(CE->getBeginLoc(), diag::warn_cheerp_unsafe_cast);
 
-  llvm::Type* types[] = { getTypes().ConvertType(DestTy, asmjs), getTypes().ConvertType(SrcTy, asmjs) };
+  llvm::Type* types[] = { getTypes().ConvertType(DestTy, asmjs), llvmSrcTy };
 
   return llvm::Intrinsic::getDeclaration(&getModule(),
                                      llvm::Intrinsic::cheerp_cast_user, types);
