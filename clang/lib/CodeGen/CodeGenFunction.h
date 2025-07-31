@@ -2429,6 +2429,17 @@ public:
   llvm::Type *ConvertType(const TypeDecl *T) {
     return ConvertType(getContext().getTypeDeclType(T));
   }
+  bool isAsmJSContext() {
+    bool asmjs = false;
+    if (CurFn) {
+      asmjs = CurFn->getSection() == "asmjs";
+    } else if (auto* CurGlobal = CGM.getInitializedGlobalDecl()->getDecl()) {
+      asmjs = CurGlobal->hasAttr<AsmJSAttr>();
+    } else {
+      asmjs = getContext().getTargetInfo().getTriple().isCheerpWasm();
+    }
+    return asmjs;
+  }
 
   /// LoadObjCSelf - Load the value of self. This function is only valid while
   /// generating code for an Objective-C method.

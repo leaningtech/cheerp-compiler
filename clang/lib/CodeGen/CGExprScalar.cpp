@@ -2206,7 +2206,7 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
       return EmitLoadOfLValue(DestLV, CE->getExprLoc());
     }
 
-    bool asmjs = CGF.CurFn && CGF.CurFn->getSection() == StringRef("asmjs");
+    bool asmjs = CGF.isAsmJSContext();
     bool srcIsFunc = E->getType()->isFunctionPointerType();
     bool dstIsFunc = DestTy->isFunctionPointerType();
     //We don't care about casts to functions types
