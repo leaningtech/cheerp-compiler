@@ -194,7 +194,7 @@ static void test_codegen_fns(MyASTConsumer *my) {
         QualType qType = clangTy->getCanonicalTypeInternal();
 
         // Check convertTypeForMemory
-        llvm::Type *llvmTy = CodeGen::convertTypeForMemory(CGM, qType);
+        llvm::Type *llvmTy = CodeGen::convertTypeForMemory(CGM, qType, rd->hasAttr<AsmJSAttr>());
         ASSERT_TRUE(llvmTy != NULL);
         if (DebugThisTest) {
           llvmTy->print(dbgs(), true);
