@@ -165,7 +165,7 @@ void CodeGenFunction::EmitInvariantStart(llvm::Constant *Addr, CharUnits Size) {
   // Grab the llvm.invariant.start intrinsic.
   llvm::Intrinsic::ID InvStartID = llvm::Intrinsic::invariant_start;
   // Overloaded address space type.
-  llvm::Type *ObjectPtr[2] = {VoidPtrTy, Int8PtrTy};
+  llvm::Type *ObjectPtr[1] = {Int8PtrTy};
   llvm::Function *InvariantStart = CGM.getIntrinsic(InvStartID, ObjectPtr);
 
   // Emit a call with the size in bytes of the object.
