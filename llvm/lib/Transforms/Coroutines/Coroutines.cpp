@@ -36,28 +36,31 @@
 
 using namespace llvm;
 
-StructType* coro::getBaseFrameType(LLVMContext& C, bool asmjs) {
+StructType* coro::getBaseFrameType(LLVMContext& C, unsigned AS) {
   auto* FrameTy = StructType::getTypeByName(C, "coroFrameBase");
   if (!FrameTy)
   {
-    unsigned AS = (unsigned)(asmjs ? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
     unsigned FnAS = cheerp::getCheerpFunctionAS(AS);
     FrameTy = StructType::create(C, "coroFrameBase");
     auto* ResumeFnType = FunctionType::get(Type::getVoidTy(C), FrameTy->getPointerTo(AS), false);
-    FrameTy->setBody({ ResumeFnType->getPointerTo(FnAS), ResumeFnType->getPointerTo(FnAS)}, /*isPacked*/false, /*directBase*/nullptr, /*isByteLayout*/false, asmjs);
+    FrameTy->setBody({ ResumeFnType->getPointerTo(FnAS), ResumeFnType->getPointerTo(FnAS)}, /*isPacked*/false, /*directBase*/nullptr, /*isByteLayout*/false, AS == unsigned(cheerp::CheerpAS::Wasm));
   }
   return FrameTy;
 }
 // Construct the lowerer base class and initialize its members.
 coro::LowererBase::LowererBase(Module &M)
-    : TheModule(M), Context(M.getContext()),
-      AS((unsigned) (Triple(M.getTargetTriple()).isCheerpWasm() ? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS)),
-      FnAS(cheerp::getCheerpFunctionAS(AS)),
-      Int8Ptr(Type::getInt8PtrTy(Context, AS)),
-      ResumeFnType(FunctionType::get(Type::getVoidTy(Context), getBaseFrameType(Context, Triple(M.getTargetTriple()).isCheerpWasm())->getPointerTo(AS),
-                                     /*isVarArg=*/false)),
-      NullPtr(ConstantPointerNull::get(Int8Ptr))
-{
+    : TheModule(M), Context(M.getContext()) {
+  setTypes(0);
+}
+
+void coro::LowererBase::setTypes(unsigned AS) {
+  this->AS = AS;
+  FnAS = cheerp::getCheerpFunctionAS(AS);
+  Int8Ptr = Type::getInt8PtrTy(Context, AS);
+  ResumeFnType = FunctionType::get(Type::getVoidTy(Context),
+                                   getBaseFrameType(Context, AS)->getPointerTo(AS),
+                                   /*isVarArg=*/false);
+  NullPtr = ConstantPointerNull::get(Int8Ptr);
 }
 
 // Creates a sequence of instructions to obtain a resume function address using
@@ -179,8 +182,9 @@ static void clear(coro::Shape &Shape) {
 
 static CoroSaveInst *createCoroSave(CoroBeginInst *CoroBegin,
                                     CoroSuspendInst *SuspendInst) {
+  Type* MemTy = CoroBegin->getMem()->getType();
   Module *M = SuspendInst->getModule();
-  auto *Fn = Intrinsic::getDeclaration(M, Intrinsic::coro_save);
+  auto *Fn = Intrinsic::getDeclaration(M, Intrinsic::coro_save, {MemTy});
   auto *SaveInst =
       cast<CoroSaveInst>(CallInst::Create(Fn, CoroBegin, "", SuspendInst));
   assert(!SuspendInst->getCoroSave());
@@ -198,8 +202,11 @@ void coro::Shape::buildFrom(Function &F) {
   SmallVector<CoroSaveInst *, 2> UnusedCoroSaves;
 
   // CHEERP: Get the address space for this coroutine:
-  AS = (unsigned) (F.getSection() == "asmjs" ? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
-  FnAS = cheerp::getCheerpFunctionAS(AS);
+  FnAS = F.getAddressSpace();
+  AS = FnAS;
+  if (AS == unsigned(cheerp::CheerpAS::Client)) {
+    AS = unsigned(cheerp::CheerpAS::GenericJS);
+  }
 
   for (Instruction &I : instructions(F)) {
     if (auto II = dyn_cast<IntrinsicInst>(&I)) {
