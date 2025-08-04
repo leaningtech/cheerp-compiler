@@ -9,13 +9,13 @@ entry:
 ; CHECK-NEXT: %1 = bitcast i8* %0 to void (%coroFrameBase*)*
 ; CHECK-NEXT: %cast = bitcast i8* %hdl to %coroFrameBase*
 ; CHECK-NEXT: call fastcc void %1(%coroFrameBase* %cast)
-  call void @llvm.coro.resume(i8* %hdl)
+  call void @llvm.coro.resume.p0i8(i8* %hdl)
 
 ; CHECK-NEXT: %2 = call i8* @llvm.coro.subfn.addr(i8* %hdl, i8 1)
 ; CHECK-NEXT: %3 = bitcast i8* %2 to void (%coroFrameBase*)*
 ; CHECK-NEXT: %cast1 = bitcast i8* %hdl to %coroFrameBase*
 ; CHECK-NEXT: call fastcc void %3(%coroFrameBase* %cast1)
-  call void @llvm.coro.destroy(i8* %hdl)
+  call void @llvm.coro.destroy.p0i8(i8* %hdl)
 
   ret void
 ; CHECK-NEXT: ret void
@@ -29,7 +29,7 @@ entry:
 ;  CHECK-NEXT: %1 = bitcast i8* %0 to void (%coroFrameBase*)*
 ;  CHECK-NEXT: %cast = bitcast i8* %hdl to %coroFrameBase*
 ;  CHECK-NEXT: invoke fastcc void %1(%coroFrameBase* %cast)
-  invoke void @llvm.coro.resume(i8* %hdl)
+  invoke void @llvm.coro.resume.p0i8(i8* %hdl)
           to label %cont unwind label %ehcleanup
 cont:
   ret void
@@ -40,5 +40,5 @@ ehcleanup:
 }
 
 
-declare void @llvm.coro.resume(i8*)
-declare void @llvm.coro.destroy(i8*)
+declare void @llvm.coro.resume.p0i8(i8*)
+declare void @llvm.coro.destroy.p0i8(i8*)
