@@ -25,7 +25,7 @@ bool declaresIntrinsics(const Module &M,
                         const std::initializer_list<StringRef>);
 void replaceCoroFree(CoroIdInst *CoroId, bool Elide, unsigned AS);
 
-StructType *getBaseFrameType(LLVMContext& C, bool asmjs);
+StructType *getBaseFrameType(LLVMContext& C, unsigned AS);
 
 /// Recover a dbg.declare prepared by the frontend and emit an alloca
 /// holding a pointer to the coroutine frame.
@@ -42,11 +42,12 @@ struct LowererBase {
   unsigned AS;
   unsigned FnAS;
 
-  PointerType *const Int8Ptr;
-  FunctionType *const ResumeFnType;
-  ConstantPointerNull *const NullPtr;
+  PointerType *Int8Ptr;
+  FunctionType *ResumeFnType;
+  ConstantPointerNull *NullPtr;
 
   LowererBase(Module &M);
+  void setTypes(unsigned AS);
   Value *makeSubFnCall(Value *Arg, int Index, Instruction *InsertPt);
 };
 

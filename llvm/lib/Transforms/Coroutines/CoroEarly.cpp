@@ -8,6 +8,7 @@
 
 #include "llvm/Transforms/Coroutines/CoroEarly.h"
 #include "CoroInternal.h"
+#include "llvm/Cheerp/AddressSpaces.h"
 #include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
@@ -44,9 +45,7 @@ void Lowerer::lowerResumeOrDestroy(CallBase &CB,
                                    CoroSubFnInst::ResumeKind Index) {
   Value *ResumeAddr = makeSubFnCall(CB.getArgOperand(0), Index, &CB);
   CB.setCalledOperand(ResumeAddr);
-  Triple triple = Triple(CB.getCaller()->getParent()->getTargetTriple());
-  bool asmjs = triple.isCheerpWasm();
-  PointerType* Ty = coro::getBaseFrameType(CB.getContext(), asmjs)->getPointerTo(AS);
+  PointerType* Ty = coro::getBaseFrameType(CB.getContext(), AS)->getPointerTo(AS);
   auto* Cast = BitCastInst::CreateBitOrPointerCast(CB.getArgOperand(0), Ty, "cast", &CB);
   CB.setArgOperand(0, Cast);
   CB.setCallingConv(CallingConv::Fast);
@@ -113,7 +112,7 @@ void Lowerer::lowerCoroDone(IntrinsicInst *II) {
   // ResumeFnAddr is the first pointer sized element of the coroutine frame.
   static_assert(coro::Shape::SwitchFieldIndex::Resume == 0,
                 "resume function not at offset zero");
-  auto* FrameTy = coro::getBaseFrameType(II->getContext(), II->getFunction()->getSection() == "asmjs");
+  auto* FrameTy = coro::getBaseFrameType(II->getContext(), AS);
   PointerType *FramePtrTy = FrameTy->getPointerTo(AS);
 
   Builder.SetInsertPoint(II);
@@ -198,6 +197,7 @@ static void setCannotDuplicate(CoroIdInst *CoroId) {
 }
 
 void Lowerer::lowerEarlyIntrinsics(Function &F) {
+  setTypes(F.getAddressSpace());
   CoroIdInst *CoroId = nullptr;
   SmallVector<CoroFreeInst *, 4> CoroFrees;
   bool HasCoroSuspend = false;

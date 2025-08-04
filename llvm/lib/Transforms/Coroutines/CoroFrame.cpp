@@ -550,7 +550,7 @@ public:
   }
 
   /// Finish the layout and set the body on the given type.
-  void finish(StructType *Ty, bool asmjs);
+  void finish(StructType *Ty, unsigned AS);
 
   uint64_t getStructSize() const {
     assert(IsFinished && "not yet finished!");
@@ -722,7 +722,7 @@ void FrameTypeBuilder::addFieldForAllocas(const Function &F,
   });
 }
 
-void FrameTypeBuilder::finish(StructType *Ty, bool asmjs) {
+void FrameTypeBuilder::finish(StructType *Ty, unsigned AS) {
   assert(!IsFinished && "already finished!");
 
   // Prepare the optimal-layout field array.
@@ -753,7 +753,7 @@ void FrameTypeBuilder::finish(StructType *Ty, bool asmjs) {
     }
     // CHEERP: all genericjs structs are packed
     // TODO: figure out how to not add padding in this case
-    return !DL.isByteAddressable() && !asmjs;
+    return !DL.isByteAddressable() && AS == unsigned(cheerp::CheerpAS::GenericJS);
   }();
 
   // Build the struct body.
@@ -786,10 +786,11 @@ void FrameTypeBuilder::finish(StructType *Ty, bool asmjs) {
     LastOffset = Offset + F.Size;
   }
 
+  bool asmjs = AS == unsigned(cheerp::CheerpAS::Wasm);
   if (FieldTypes.empty()) {
     Ty->setBody(FieldTypes, Packed, /*directBase*/nullptr, /*isByteLayout*/false, asmjs);
   } else {
-    Ty->setBody(FieldTypes, Packed, coro::getBaseFrameType(Context, asmjs), /*isByteLayout*/false, asmjs);
+    Ty->setBody(FieldTypes, Packed, coro::getBaseFrameType(Context, AS), /*isByteLayout*/false, asmjs);
   }
 
 #ifndef NDEBUG
@@ -1201,7 +1202,11 @@ static StructType *buildFrameType(Function &F, coro::Shape &Shape,
     FrameData.setFieldIndex(S.first, Id);
   }
 
-  B.finish(FrameTy, F.getSection() == "asmjs");
+  unsigned AS = F.getAddressSpace();
+  if (AS == unsigned(cheerp::CheerpAS::Client)) {
+    AS = unsigned(cheerp::CheerpAS::GenericJS);
+  }
+  B.finish(FrameTy, AS);
 
   FrameData.updateLayoutIndex(B);
   Shape.FrameAlign = B.getStructAlign();

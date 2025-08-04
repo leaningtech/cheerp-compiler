@@ -275,6 +275,7 @@ bool Lowerer::shouldElide(Function *F, DominatorTree &DT) const {
 }
 
 void Lowerer::collectPostSplitCoroIds(Function *F) {
+  setTypes(F->getAddressSpace());
   CoroIds.clear();
   CoroSuspendSwitches.clear();
   for (auto &I : instructions(F)) {
