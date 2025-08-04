@@ -33,21 +33,25 @@ static void lowerSubFn(IRBuilder<> &Builder, CoroSubFnInst *SubFn) {
   Value *FrameRaw = SubFn->getFrame();
   int Index = SubFn->getIndex();
 
-  bool asmjs = SubFn->getFunction()->getSection() == "asmjs";
-  unsigned AS = (unsigned) (asmjs ? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
-  auto *FrameTy = coro::getBaseFrameType(SubFn->getContext(), asmjs);
+  unsigned FnAS = SubFn->getFunction()->getAddressSpace();
+  unsigned AS = FnAS;
+  if (AS == unsigned(cheerp::CheerpAS::Client)) {
+    AS = unsigned(cheerp::CheerpAS::GenericJS);
+  }
+  auto *FrameTy = coro::getBaseFrameType(SubFn->getContext(), AS);
   PointerType *FramePtrTy = FrameTy->getPointerTo(AS);
 
   Builder.SetInsertPoint(SubFn);
   auto *FramePtr = Builder.CreateBitCast(FrameRaw, FramePtrTy);
   auto *Gep = Builder.CreateConstInBoundsGEP2_32(FrameTy, FramePtr, 0, Index);
   auto *Load = Builder.CreateLoad(FrameTy->getElementType(Index), Gep);
-  auto* Cast = Builder.CreateBitCast(Load, Builder.getInt8PtrTy(cheerp::getCheerpFunctionAS(AS)));
+  auto* Cast = Builder.CreateBitCast(Load, Builder.getInt8PtrTy(FnAS));
 
   SubFn->replaceAllUsesWith(Cast);
 }
 
 bool Lowerer::lower(Function &F) {
+  setTypes(F.getAddressSpace());
   bool IsPrivateAndUnprocessed = F.isPresplitCoroutine() && F.hasLocalLinkage();
   bool Changed = false;
 
