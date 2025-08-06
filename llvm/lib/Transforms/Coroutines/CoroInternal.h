@@ -22,7 +22,7 @@ namespace coro {
 
 bool declaresAnyIntrinsic(const Module &M);
 bool declaresIntrinsics(const Module &M,
-                        const std::initializer_list<StringRef>);
+                        ArrayRef<const char*>);
 void replaceCoroFree(CoroIdInst *CoroId, bool Elide, unsigned AS);
 
 StructType *getBaseFrameType(LLVMContext& C, unsigned AS);

@@ -20,7 +20,7 @@ define i64 @licm(i64 %n) #0 {
 ; CHECK-NEXT:    [[T6:%.*]] = icmp ult i64 [[T5]], [[N:%.*]]
 ; CHECK-NEXT:    br i1 [[T6]], label [[LOOP]], label [[BB2]]
 ; CHECK:       bb2:
-; CHECK-NEXT:    [[RES:%.*]] = call i1 @llvm.coro.end(ptr null, i1 false)
+; CHECK-NEXT:    [[RES:%.*]] = call i1 @llvm.coro.end.p0(ptr null, i1 false)
 ; CHECK-NEXT:    ret i64 0
 ;
 entry:
