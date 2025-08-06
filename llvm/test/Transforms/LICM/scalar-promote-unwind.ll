@@ -304,7 +304,7 @@ define void @loop_within_tryblock() personality ptr @__gxx_personality_v0 {
 ; CHECK-NEXT:    [[TMP2:%.*]] = extractvalue { ptr, i32 } [[TMP0]], 1
 ; CHECK-NEXT:    br label [[CATCH_DISPATCH:%.*]]
 ; CHECK:       catch.dispatch:
-; CHECK-NEXT:    [[TMP3:%.*]] = call i32 @llvm.eh.typeid.for(ptr @_ZTIi)
+; CHECK-NEXT:    [[TMP3:%.*]] = call i32 @llvm.eh.typeid.for.p0(ptr @_ZTIi)
 ; CHECK-NEXT:    [[MATCHES:%.*]] = icmp eq i32 [[TMP2]], [[TMP3]]
 ; CHECK-NEXT:    br i1 [[MATCHES]], label [[CATCH:%.*]], label [[EH_RESUME:%.*]]
 ; CHECK:       catch:
