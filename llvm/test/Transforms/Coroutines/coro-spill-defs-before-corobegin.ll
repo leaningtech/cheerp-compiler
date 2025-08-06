@@ -53,7 +53,7 @@ lpad:
 ; CHECK-NEXT:  %flag = call i1 @check(i8* %alloc)
 ; CHECK-NEXT:  %spec.select = select i1 %flag, i32 0, i32 1
 ; CHECK-NEXT:  %value_invoke = call i32 @calc()
-; CHECK-NEXT:  %hdl = call noalias nonnull i8* @llvm.coro.begin(token %id, i8* %alloc)
+; CHECK-NEXT:  %hdl = call noalias nonnull i8* @llvm.coro.begin.p0i8.p0i8(token %id, i8* %alloc)
 
 ; CHECK:       store void (%f.Frame*)* @f.destroy, void (%f.Frame*)** %destroy.addr
 ; CHECK-NEXT:  %value_invoke.spill.addr = getelementptr inbounds %f.Frame, %f.Frame* %FramePtr, i32 0, i32 3

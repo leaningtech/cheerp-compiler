@@ -34,7 +34,7 @@ suspend:
 ; CHECK:        %f.Frame = type directbase %coroFrameBase { void (%f.Frame*)*, void (%f.Frame*)*, i64, i64, i1 }
 ; CHECK-LABEL:  define i8* @f()
 ; CHECK:          %[[ALLOC:.+]] = call i8* @aligned_alloc(i32 16, i32 40)
-; CHECK-NEXT:     call noalias nonnull i8* @llvm.coro.begin(token %id, i8* %[[ALLOC]])
+; CHECK-NEXT:     call noalias nonnull i8* @llvm.coro.begin.p0i8.p0i8(token %id, i8* %[[ALLOC]])
 
 declare i8* @llvm.coro.free(token, i8*)
 declare i32 @llvm.coro.size.i32()

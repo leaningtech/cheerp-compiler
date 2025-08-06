@@ -23,7 +23,7 @@ define internal fastcc void @foo.resume_musttail(%"foo.Frame"* %FramePtr) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[TMP0:%.*]] = alloca [24 x i8], align 8
 ; CHECK-NEXT:    [[VFRAME:%.*]] = bitcast [24 x i8]* [[TMP0]] to i8*
-; CHECK-NEXT:    [[TMP1:%.*]] = tail call token @llvm.coro.id(i32 16, i8* null, i8* bitcast (void ()* @bar to i8*), i8* bitcast ([3 x void (%bar.Frame*)*]* @bar.resumers to i8*))
+; CHECK-NEXT:    [[TMP1:%.*]] = tail call token @llvm.coro.id.p0i8.p0i8.p0i8(i32 16, i8* null, i8* bitcast (void ()* @bar to i8*), i8* bitcast ([3 x void (%bar.Frame*)*]* @bar.resumers to i8*))
 ; CHECK-NEXT:    [[CALL34:%.*]] = call i8* undef()
 ; CHECK-NEXT:    musttail call fastcc void undef(i8* [[CALL34]])
 ; CHECK-NEXT:    ret void
@@ -32,7 +32,7 @@ define internal fastcc void @foo.resume_musttail(%"foo.Frame"* %FramePtr) {
 ; NOAA-NEXT:  entry:
 ; NOAA-NEXT:    [[TMP0:%.*]] = alloca [24 x i8], align 8
 ; NOAA-NEXT:    [[VFRAME:%.*]] = bitcast [24 x i8]* [[TMP0]] to i8*
-; NOAA-NEXT:    [[TMP1:%.*]] = call token @llvm.coro.id(i32 16, i8* null, i8* bitcast (void ()* @bar to i8*), i8* bitcast ([3 x void (%bar.Frame*)*]* @bar.resumers to i8*))
+; NOAA-NEXT:    [[TMP1:%.*]] = call token @llvm.coro.id.p0i8.p0i8.p0i8(i32 16, i8* null, i8* bitcast (void ()* @bar to i8*), i8* bitcast ([3 x void (%bar.Frame*)*]* @bar.resumers to i8*))
 ; NOAA-NEXT:    [[CALL34:%.*]] = call i8* undef()
 ; NOAA-NEXT:    musttail call fastcc void undef(i8* [[CALL34]])
 ; NOAA-NEXT:    ret void
