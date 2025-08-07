@@ -490,6 +490,10 @@ static GenericValue pre_execute_upcast(FunctionType *FT,
     return Args[0]; 
 }
 
+static GenericValue pre_execute_typed_ptrcast(FunctionType* FT, ArrayRef<GenericValue> Args, AttributeList Attrs) {
+    return Args[0];
+}
+
 static GenericValue assertEqualImpl(FunctionType *FT,
         ArrayRef<GenericValue> Args, AttributeList Attrs)
 {
@@ -524,6 +528,8 @@ static void* LazyFunctionCreator(const std::string& funcName)
         return (void*)(void(*)())pre_execute_virtualcast;
     if (strncmp(funcName.c_str(), "llvm.cheerp.upcast.", strlen("llvm.cheerp.upcast."))==0)
         return (void*)(void(*)())pre_execute_upcast;
+    if (strncmp(funcName.c_str(), "llvm.cheerp.typed.ptrcast.", strlen("llvm.cheerp.typed.ptrcast."))==0)
+        return (void*)(void(*)())pre_execute_typed_ptrcast;
     if (strncmp(funcName.c_str(), "llvm.cheerp.allocate.array.", strlen("llvm.cheerp.allocate.array."))==0)
         return (void*)(void(*)())pre_execute_allocate_array;
     if (strncmp(funcName.c_str(), "llvm.cheerp.allocate.", strlen("llvm.cheerp.allocate."))==0)

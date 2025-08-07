@@ -642,7 +642,10 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 		case Intrinsic::cheerp_downcast:
 		case Intrinsic::cheerp_upcast_collapsed:
 		case Intrinsic::cheerp_cast_user:
+			break;
 		case Intrinsic::cheerp_typed_ptrcast:
+			if (isa<IntToPtrInst>(intrinsic->getArgOperand(0)))
+				return CacheAndReturn(visitValue(ret, intrinsic->getArgOperand(0), false));
 			break;
 		case Intrinsic::cheerp_allocate:
 		case Intrinsic::cheerp_allocate_array:
@@ -855,7 +858,7 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 		if ( !I->isEquality() )
 			return ret |= PointerKindWrapper(SPLIT_REGULAR, p);
 		Value* Other = I->getOperand(0) == U->get() ? I->getOperand(1) : I->getOperand(0);
-		if ( visitRawChain(Other) || isa<IntToPtrInst>(Other))
+		if ( visitRawChain(Other) || getAsIntToPtrInst(Other))
 			return ret |= PointerKindWrapper(SPLIT_REGULAR, p);
 		else
 			return ret |= COMPLETE_OBJECT;
