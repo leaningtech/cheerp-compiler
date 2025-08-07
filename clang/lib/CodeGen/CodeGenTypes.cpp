@@ -675,7 +675,7 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
     llvm::Type *elts[] = {
       EltTy, EltTy
     };
-    bool asmjs = CGM.getTriple().getEnvironment() == llvm::Triple::WebAssembly;
+    bool asmjs = CGM.getTriple().isCheerpWasm();
     ResultType = llvm::StructType::create(llvm::makeArrayRef(elts), OS.str(), false, nullptr, false, asmjs);
     break;
   }

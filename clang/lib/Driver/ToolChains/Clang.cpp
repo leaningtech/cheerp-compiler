@@ -449,7 +449,7 @@ static bool addExceptionArgs(const ArgList &Args, types::ID InputType,
 
   if (types::isCXX(InputType)) {
     // Disable C++ EH by default on XCore and PS4/PS5.
-    bool CXXExceptionsEnabled = Triple.getArch() != llvm::Triple::xcore && Triple.getArch() != llvm::Triple::cheerp &&
+    bool CXXExceptionsEnabled = Triple.getArch() != llvm::Triple::xcore && !Triple.isCheerp() &&
                                 !Triple.isPS() && !Triple.isDriverKit();
     Arg *ExceptionArg = Args.getLastArg(
         options::OPT_fcxx_exceptions, options::OPT_fno_cxx_exceptions,
@@ -5896,12 +5896,12 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                     options::OPT_fno_trigraphs);
   }
 
-  if (getToolChain().getArch() == llvm::Triple::cheerp)
+  if (getToolChain().getTriple().isCheerp())
   {
     Arg *CheerpLinearOutput = Args.getLastArg(options::OPT_cheerp_linear_output_EQ);
 
     if (Args.hasArg(options::OPT_pthread) &&
-        (getToolChain().getTriple().getEnvironment() == llvm::Triple::GenericJs ||
+        (getToolChain().getTriple().isCheerpGenericJS() ||
           (CheerpLinearOutput && CheerpLinearOutput->getValue() == StringRef("asmjs"))))
     {
       D.Diag(diag::err_drv_argument_not_allowed_with)
@@ -6702,7 +6702,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (!Args.hasFlag(options::OPT_fthreadsafe_statics,
                     options::OPT_fno_threadsafe_statics,
                     !types::isOpenCL(InputType) &&
-                        (!IsWindowsMSVC || IsMSVC2015Compatible) && getToolChain().getArch() != llvm::Triple::cheerp))
+                        (!IsWindowsMSVC || IsMSVC2015Compatible) && !getToolChain().getTriple().isCheerp()))
     CmdArgs.push_back("-fno-threadsafe-statics");
 
   // -fno-delayed-template-parsing is default, except when targeting MSVC.

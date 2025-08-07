@@ -606,9 +606,8 @@ void cheerp::Link::ConstructJob(Compilation &C, const JobAction &JA,
         AddStdLib("libdemangle.bc");
     }
 
-    llvm::Triple::EnvironmentType env = getToolChain().getTriple().getEnvironment();
     if(((CheerpLinearOutput && CheerpLinearOutput->getValue() == StringRef("wasm")) ||
-       (!CheerpLinearOutput && env == llvm::Triple::WebAssembly)) &&
+       (!CheerpLinearOutput && getToolChain().getTriple().isCheerpWasm())) &&
 	hasUnalignedMemory && (!Sanitizers || !Sanitizers->containsValue("address")))
     {
       // We omit libwasm when building with AddressSanitizer, since it defines
@@ -722,8 +721,7 @@ void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
   else
   {
     std::string linearOut("-cheerp-linear-output=");
-    llvm::Triple::EnvironmentType env = getToolChain().getTriple().getEnvironment();
-    if (env == llvm::Triple::WebAssembly)
+    if (getToolChain().getTriple().isCheerpWasm())
     {
       linearOut += "wasm";
     }
@@ -879,7 +877,7 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back(Output.getFilename());
   }
 
-  llvm::Triple::EnvironmentType env = getToolChain().getTriple().getEnvironment();
+  bool isCheerpWasm = getToolChain().getTriple().isCheerpWasm();
   llvm::Triple::OSType os = getToolChain().getTriple().getOS();
   Arg* cheerpLinearOutput = Args.getLastArg(options::OPT_cheerp_linear_output_EQ);
   if (cheerpLinearOutput)
@@ -887,7 +885,7 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
   else
   {
     std::string linearOut("-cheerp-linear-output=");
-    if (env == llvm::Triple::WebAssembly)
+    if (isCheerpWasm)
     {
       linearOut += "wasm";
     }
@@ -920,7 +918,7 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
   if(Arg* cheerpSecondaryOutputFile = Args.getLastArg(options::OPT_cheerp_secondary_output_file_EQ))
     cheerpSecondaryOutputFile->render(Args, CmdArgs);
   else if(
-      ((env == llvm::Triple::WebAssembly && os != llvm::Triple::WASI && !cheerpLinearOutput) ||
+      ((isCheerpWasm && os != llvm::Triple::WASI && !cheerpLinearOutput) ||
         (cheerpLinearOutput && cheerpLinearOutput->getValue() != StringRef("asmjs"))))
   {
     SmallString<64> path(Output.getFilename());

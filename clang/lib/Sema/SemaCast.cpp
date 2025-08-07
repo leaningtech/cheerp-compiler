@@ -894,7 +894,7 @@ void CastOperation::CheckDynamicCast() {
   }
 
   // CHEERP: Forbid dynamic_cast of asmjs structs if the default section is genericjs
-  bool genericjs = Self.getASTContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::GenericJs;
+  bool genericjs = Self.getASTContext().getTargetInfo().getTriple().isCheerpGenericJS();
   if (genericjs) {
     if (DestRecord && DestRecord->getDecl()->hasAttr<AsmJSAttr>()) {
       Self.Diag(OpRange.getBegin(), diag::err_cheerp_wrong_dynamic_cast)

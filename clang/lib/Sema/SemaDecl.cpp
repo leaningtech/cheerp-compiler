@@ -19973,7 +19973,7 @@ void Sema::CheckCheerpAttributesConsistency(NamedDecl* New, NamedDecl* Old, bool
     if (New->hasAttr<AsmJSAttr>() &&
         New->getAttr<AsmJSAttr>()->isInherited() &&
         !newIsDefinition &&
-        Context.getTargetInfo().getTriple().getEnvironment() == llvm::Triple::GenericJs) {
+        Context.getTargetInfo().getTriple().isCheerpGenericJS()) {
       Diag(New->getLocation(), diag::err_attributes_are_not_compatible)
           << "'genericjs'" << Old->getAttr<AsmJSAttr>();
       Diag(Old->getLocation(), diag::note_previous_decl)
@@ -19981,7 +19981,7 @@ void Sema::CheckCheerpAttributesConsistency(NamedDecl* New, NamedDecl* Old, bool
     } else if (New->hasAttr<GenericJSAttr>() &&
         New->getAttr<GenericJSAttr>()->isInherited() &&
         !newIsDefinition &&
-        Context.getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly) {
+        Context.getTargetInfo().getTriple().isCheerpWasm()) {
       Diag(New->getLocation(), diag::err_attributes_are_not_compatible)
           << (LangOpts.getCheerpLinearOutput() == LangOptions::CHEERP_LINEAR_OUTPUT_AsmJs ? "'asmjs'" : "'wasm'") << Old->getAttr<GenericJSAttr>();
       Diag(Old->getLocation(), diag::note_previous_decl)

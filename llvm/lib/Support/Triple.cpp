@@ -292,7 +292,7 @@ StringRef Triple::getEnvironmentTypeName(EnvironmentType Kind) {
   case Callable: return "callable";
   case Mesh: return "mesh";
   case Amplification: return "amplification";
-  case GenericJs: return "genericjs";
+  case GenericJS: return "genericjs";
   case WebAssembly: return "wasm";
   }
 
@@ -646,7 +646,7 @@ static Triple::EnvironmentType parseEnvironment(StringRef EnvironmentName) {
       .StartsWith("callable", Triple::Callable)
       .StartsWith("mesh", Triple::Mesh)
       .StartsWith("amplification", Triple::Amplification)
-      .StartsWith("genericjs", Triple::GenericJs)
+      .StartsWith("genericjs", Triple::GenericJS)
       .Case("wasm", Triple::WebAssembly)
       .Default(Triple::UnknownEnvironment);
 }

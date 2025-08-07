@@ -6441,7 +6441,7 @@ void ItaniumMangleContextImpl::mangleStaticGuardVariable(const VarDecl *D,
 
 void ItaniumMangleContextImpl::mangleDynamicInitializer(const VarDecl *MD,
                                                         raw_ostream &Out) {
-  if (getASTContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly) {
+  if (getASTContext().getTargetInfo().getTriple().isCheerpWasm()) {
     // CHEERP: Use unique mangling for each constructors, so that we can allocated unique guards
     //         and support the shared module case without running constructors multiple times
     CXXNameMangler Mangler(*this, Out);

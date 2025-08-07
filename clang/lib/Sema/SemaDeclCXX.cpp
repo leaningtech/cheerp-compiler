@@ -11544,7 +11544,7 @@ void Sema::ActOnFinishNamespaceDef(Decl *Dcl, SourceLocation RBrace) {
       Diag(Namespc->getBeginLoc(), diag::err_cheerp_client_with_explicit_asmjs)
         << Namespc->getAttr<AsmJSAttr>();
     else if (!Namespc->hasAttr<GenericJSAttr>() &&
-             Context.getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly)
+             Context.getTargetInfo().getTriple().isCheerpWasm())
       Diag(Namespc->getBeginLoc(), diag::err_cheerp_client_with_implicit_asmjs)
 	<< (LangOpts.getCheerpLinearOutput() == LangOptions::CHEERP_LINEAR_OUTPUT_AsmJs ? "'asmjs'" : "'wasm'");
   }

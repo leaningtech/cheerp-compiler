@@ -49,7 +49,7 @@ StructType* coro::getBaseFrameType(LLVMContext& C, bool asmjs) {
 coro::LowererBase::LowererBase(Module &M)
     : TheModule(M), Context(M.getContext()),
       Int8Ptr(Type::getInt8PtrTy(Context)),
-      ResumeFnType(FunctionType::get(Type::getVoidTy(Context), getBaseFrameType(Context, Triple(M.getTargetTriple()).getEnvironment() != Triple::GenericJs)->getPointerTo(),
+      ResumeFnType(FunctionType::get(Type::getVoidTy(Context), getBaseFrameType(Context, Triple(M.getTargetTriple()).isCheerpWasm())->getPointerTo(),
                                      /*isVarArg=*/false)),
       NullPtr(ConstantPointerNull::get(Int8Ptr))
 {
