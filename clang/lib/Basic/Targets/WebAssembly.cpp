@@ -301,7 +301,7 @@ void CheerpTargetInfo::getTargetDefines(const LangOptions &Opts,
   // Target identification.
   Builder.defineMacro("__CHEERP__");
 
-  if (getTriple().getEnvironment() == llvm::Triple::WebAssembly) {
+  if (getTriple().isCheerpWasm()) {
     Builder.defineMacro("__ASMJS__");
     if (Opts.getCheerpLinearOutput() == LangOptions::CHEERP_LINEAR_OUTPUT_Wasm)
     {

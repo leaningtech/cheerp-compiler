@@ -34,7 +34,7 @@ Cheerp::Cheerp(const Driver &D, const llvm::Triple& Triple, const llvm::opt::Arg
   path_list& filePaths = getFilePaths();
 
   // Add default paths
-  if (Triple.getEnvironment() == llvm::Triple::WebAssembly) {
+  if (Triple.isCheerpWasm()) {
     filePaths.push_back(InstalledDir + "/../lib/asmjs");
   } else {
     filePaths.push_back(InstalledDir + "/../lib/genericjs");

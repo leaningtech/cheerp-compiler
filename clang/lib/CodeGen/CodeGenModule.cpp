@@ -5935,7 +5935,7 @@ GenerateStringLiteral(llvm::Constant *C, llvm::GlobalValue::LinkageTypes LT,
   CGM.setDSOLocal(GV);
 
   // In the Wasm environment all the string literals are in the asmjs section
-  if (CGM.getContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly)
+  if (CGM.getContext().getTargetInfo().getTriple().isCheerpWasm())
     GV->setSection("asmjs");
   return GV;
 }

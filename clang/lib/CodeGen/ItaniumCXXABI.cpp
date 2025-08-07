@@ -1656,7 +1656,7 @@ llvm::Value *ItaniumCXXABI::EmitDynamicCastCall(
   assert((SrcDecl->hasAttr<AsmJSAttr>() == SrcDecl->hasAttr<AsmJSAttr>())
       && "Cannot dynamic_cast between genericjs and asmjs types");
   bool asmjs = SrcDecl->hasAttr<AsmJSAttr>();
-  assert(!(CGF.getContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::GenericJs && asmjs)
+  assert(!(CGF.getContext().getTargetInfo().getTriple().isCheerpGenericJS() && asmjs)
       && "Cannot use dynamic_cast on asmjs types in the genericjs target");
   llvm::Value *VTable = CGF.GetVTablePtr(ThisAddr, CGF.getTypes().GetVTableBaseType(asmjs)->getPointerTo(), SrcDecl);
   llvm::Value *DynCastObj = Value;
@@ -3545,7 +3545,7 @@ llvm::GlobalVariable *ItaniumRTTIBuilder::GetAddrOfTypeName(
   GV->setInitializer(Init);
 
   // CHEERP: for the cheerp-wasm target, we put the RTTI in the asmjs section
-  if (CGM.getContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly)
+  if (CGM.getContext().getTargetInfo().getTriple().isCheerpWasm())
   {
     GV->setSection("asmjs");
   }
@@ -4136,7 +4136,7 @@ llvm::Constant *ItaniumRTTIBuilder::BuildTypeInfo(
   Fields.push_back(TypeNameField);
 
   // CHEERP: for the cheerp-wasm target, we put the RTTI in the asmjs section
-  bool asmjs = CGM.getContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly;
+  bool asmjs = CGM.getContext().getTargetInfo().getTriple().isCheerpWasm();
 
   switch (Ty->getTypeClass()) {
 #define TYPE(Class, Base)
@@ -4253,7 +4253,7 @@ llvm::Constant *ItaniumRTTIBuilder::BuildTypeInfo(
   }
 
   // CHEERP: for the cheerp-wasm target, we put the TypeInfo name in the asmjs section
-  if (CGM.getContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly) {
+  if (CGM.getContext().getTargetInfo().getTriple().isCheerpWasm()) {
     GV->setSection("asmjs");
   }
 
@@ -4407,7 +4407,7 @@ static unsigned ComputeVMIClassTypeInfoFlags(const CXXRecordDecl *RD) {
 void ItaniumRTTIBuilder::BuildVMIClassTypeInfo(const CXXRecordDecl *RD) {
   const ASTRecordLayout &Layout = CGM.getContext().getASTRecordLayout(RD);
   const CGRecordLayout &CGLayout = CGM.getTypes().getCGRecordLayout(RD);
-  bool asmjs = CGM.getContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly;
+  bool asmjs = CGM.getContext().getTargetInfo().getTriple().isCheerpWasm();
 
   llvm::Type *UnsignedIntLTy =
     CGM.getTypes().ConvertType(CGM.getContext().UnsignedIntTy);

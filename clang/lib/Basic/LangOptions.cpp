@@ -170,7 +170,7 @@ void LangOptions::setLangDefaults(LangOptions &Opts, Language Lang,
   }
   Opts.Cheerp = T.getArch() == llvm::Triple::cheerp;
   if (Opts.Cheerp) {
-    Opts.CheerpDefaultEnv = T.getEnvironment() == llvm::Triple::GenericJs? GenericJS : Wasm;
+    Opts.CheerpDefaultEnv = T.isCheerpGenericJS() ? GenericJS : Wasm;
   }
 
   Opts.HIP = Lang == Language::HIP;

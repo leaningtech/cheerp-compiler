@@ -21174,7 +21174,7 @@ void Sema::CheckCheerpFFICall(const FunctionDecl* Parent, const FunctionDecl* FD
                  (t->getPointeeType()->isFundamentalType() || t->getPointeeType()->isPointerType())) {
         // string literals are allowed for the Wasm environment,
         // since they are all compiled into the asmjs section
-        if (Context.getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly &&
+        if (Context.getTargetInfo().getTriple().isCheerpWasm() &&
            (isa<StringLiteral>(aNoCast) || isa<PredefinedExpr>(aNoCast)))
             continue;
 

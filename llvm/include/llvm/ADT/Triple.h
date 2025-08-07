@@ -276,7 +276,7 @@ public:
     Mesh,
     Amplification,
 
-    GenericJs,
+    GenericJS,
     WebAssembly,
     LastEnvironmentType = WebAssembly
   };
@@ -784,12 +784,17 @@ public:
     return getArch() == Triple::arm || getArch() == Triple::armeb;
   }
 
+  /// Tests whether the target is cheerp-genericjs
+  bool isCheerpGenericJS() const {
+    return getArch() == Triple::cheerp && getEnvironment() == Triple::GenericJS;
+  }
+
   /// Tests whether the target is cheerp-wasm
   bool isCheerpWasm() const {
     return getArch() == Triple::cheerp && getEnvironment() == Triple::WebAssembly;
   }
 
-  /// Tests whether the target is cheerp (including cheerp-wasm and cheerp-js)
+  /// Tests whether the target is cheerp (including cheerp-wasm and cheerp-genericjs)
   bool isCheerp() const{
     return getArch() == Triple::cheerp;
   }

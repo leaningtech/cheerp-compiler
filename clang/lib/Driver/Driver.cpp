@@ -693,7 +693,7 @@ static llvm::Triple computeTargetTriple(const Driver &D,
     if (Target.getVendor() == llvm::Triple::UnknownVendor)
       Target.setVendor(llvm::Triple::Leaningtech);
     if (Target.getEnvironment() == llvm::Triple::UnknownEnvironment)
-      Target.setEnvironment(llvm::Triple::GenericJs);
+      Target.setEnvironment(llvm::Triple::GenericJS);
   }
 
   return Target;
@@ -4080,7 +4080,7 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
 
   if (!LinkerInputs.empty()) {
     // Cheerp: We need an additional step for to generated JS
-    if (C.getDefaultToolChain().getArch() == llvm::Triple::cheerp)
+    if (C.getDefaultToolChain().getTriple().isCheerp())
     {
       // First link the whole program
       Action* linkJob = C.MakeAction<LinkJobAction>(LinkerInputs, types::TY_LLVM_BC);
@@ -4578,7 +4578,7 @@ Action *Driver::ConstructPhaseAction(
           Args.hasArg(options::OPT_S) ? types::TY_LTO_IR : types::TY_LTO_BC;
       return C.MakeAction<BackendJobAction>(Input, Output);
     }
-    if (Args.hasArg(options::OPT_emit_llvm) || C.getDefaultToolChain().getArch() == llvm::Triple::cheerp ||
+    if (Args.hasArg(options::OPT_emit_llvm) || C.getDefaultToolChain().getTriple().isCheerp() ||
         (TargetDeviceOffloadKind == Action::OFK_HIP &&
          Args.hasFlag(options::OPT_fgpu_rdc, options::OPT_fno_gpu_rdc,
                       false))) {

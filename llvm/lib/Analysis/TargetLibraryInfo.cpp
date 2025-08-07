@@ -205,7 +205,7 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_round);
     TLI.setUnavailable(LibFunc_roundf);
     TLI.setUnavailable(LibFunc_roundl);
-    if (T.getEnvironment() == Triple::GenericJs) {
+    if (T.isCheerpGenericJS()) {
       // These only exist for linear memory
       TLI.setUnavailable(LibFunc_memcmp);
       TLI.setUnavailable(LibFunc_memset);
