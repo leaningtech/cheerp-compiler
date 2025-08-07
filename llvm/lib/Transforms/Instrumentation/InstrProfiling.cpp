@@ -1015,7 +1015,7 @@ InstrProfiling::getOrCreateRegionCounters(InstrProfInstBase *Inc) {
   auto *DataTy = StructType::get(Ctx, makeArrayRef(DataTypes));
 
   Constant *FunctionAddr = shouldRecordFunctionAddr(Fn)
-                               ? ConstantExpr::getBitCast(Fn, Int8PtrTy)
+                               ? ConstantExpr::getPointerBitCastOrAddrSpaceCast(Fn, Int8PtrTy)
                                : ConstantPointerNull::get(Int8PtrTy);
 
   Constant *Int16ArrayVals[IPVK_Last + 1];
