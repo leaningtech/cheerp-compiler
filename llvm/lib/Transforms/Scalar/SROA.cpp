@@ -729,7 +729,6 @@ private:
   void visitAddrSpaceCastInst(AddrSpaceCastInst &ASC) {
     if (ASC.use_empty())
       return markAsDead(ASC);
-    return PI.setAborted(&ASC);
 
     return Base::visitAddrSpaceCastInst(ASC);
   }
