@@ -522,11 +522,19 @@ LangAS TargetCodeGenInfo::getGlobalVarAddressSpace(CodeGenModule &CGM,
 
 llvm::Value *TargetCodeGenInfo::performAddrSpaceCast(
     CodeGen::CodeGenFunction &CGF, llvm::Value *Src, LangAS SrcAddr,
-    LangAS DestAddr, llvm::Type *DestTy, bool isNonNull) const {
+    LangAS DestAddr, llvm::Type *DestTy, bool isNonNull, llvm::Type* ElemTy) const {
   // Since target may map different address spaces in AST to the same address
   // space, an address space conversion may end up as a bitcast.
   if (auto *C = dyn_cast<llvm::Constant>(Src))
     return performAddrSpaceCast(CGF.CGM, C, SrcAddr, DestAddr, DestTy);
+  if (CGF.getLangOpts().Cheerp && ElemTy &&
+      (SrcAddr == LangAS::cheerp_bytelayout || SrcAddr == LangAS::cheerp_wasm) &&
+      DestAddr == LangAS::cheerp_genericjs) {
+    auto* F = CGF.CGM.getIntrinsic(llvm::Intrinsic::cheerp_typed_ptrcast, {DestTy, Src->getType()});
+    llvm::CallBase* CB = CGF.Builder.CreateCall(F, {Src}, Src->hasName()? Src->getName() + ".ascast" : "");
+    CB->addRetAttr(llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, ElemTy));
+    return CB;
+  }
   // Try to preserve the source's name to make IR more readable.
   return CGF.Builder.CreatePointerBitCastOrAddrSpaceCast(
       Src, DestTy, Src->hasName() ? Src->getName() + ".ascast" : "");
