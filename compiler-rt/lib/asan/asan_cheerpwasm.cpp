@@ -39,11 +39,8 @@ void FlushUnneededASanShadowMemory(uptr p, uptr size) {}
 
 static void (*tsd_destructor)(void *tsd) = nullptr;
 
-// Cheerp: for now we've removed the initializer for tsd_key's constructor.
-//   It caused a crash in ASAN because the constructor for the global is run after the asan module constructor has already used and set it.
-//   Originally the global is meant to be a thread_local, but thread_local constructors and destructors are not yet supported.
 struct tsd_key {
-  tsd_key() {}
+  tsd_key() : key(nullptr) {}
   ~tsd_key() {
     CHECK(tsd_destructor);
     if (key)
@@ -52,7 +49,7 @@ struct tsd_key {
   void *key;
 };
 
-static /*thread_local*/ struct tsd_key key;
+static thread_local struct tsd_key key;
 
 void AsanTSDInit(void (*destructor)(void *tsd)) {
   CHECK(!tsd_destructor);
