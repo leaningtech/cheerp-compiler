@@ -2377,6 +2377,16 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
       Builder.CreateIntCast(Src, MiddleTy, InputSigned, "conv");
 
     auto *IntToPtr = Builder.CreateIntToPtr(IntResult, DestLLVMTy);
+    bool asmjs = CGF.CurFn && CGF.CurFn->getSection() == StringRef("asmjs");
+
+    if (CGF.getLangOpts().Cheerp && !asmjs) {
+        QualType PointeeType = DestTy->getAs<PointerType>()->getPointeeType();
+        llvm::Type* ElemTy = CGF.ConvertTypeForMem(PointeeType);
+        auto* F = CGF.CGM.getIntrinsic(llvm::Intrinsic::cheerp_typed_ptrcast, {DestLLVMTy, DestLLVMTy});
+        llvm::CallBase* CB = Builder.CreateCall(F, {IntToPtr}, IntToPtr->hasName() ? IntToPtr->getName() + ".i2p" : "");
+        CB->addRetAttr(llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, ElemTy));
+        IntToPtr = CB;
+    }
 
     if (CGF.CGM.getCodeGenOpts().StrictVTablePointers) {
       // Going from integer to pointer that could be dynamic requires reloading

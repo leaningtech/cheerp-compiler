@@ -372,7 +372,7 @@ private:
 	/**
 	 * Compile the pointer base.
 	 */
-	void compilePointerBase(const llvm::Value*, bool forEscapingPointer=false);
+	void compilePointerBase(const llvm::Value*, bool forEscapingPointer=false, bool useGPET=false);
 	void compilePointerBaseTyped(const llvm::Value*, llvm::Type* elementType, bool forEscapingPointer=false);
 
 	/**

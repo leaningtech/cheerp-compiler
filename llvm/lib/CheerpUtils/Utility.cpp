@@ -84,6 +84,16 @@ bool isValidVoidPtrSource(const Value* val, std::set<const PHINode*>& visitedPhi
 	return false;
 }
 
+const llvm::IntToPtrInst* getAsIntToPtrInst(const llvm::Value* val)
+{
+	if (const llvm::IntrinsicInst* intrinsic = llvm::dyn_cast<llvm::IntrinsicInst>(val))
+		if (intrinsic->getIntrinsicID() == llvm::Intrinsic::cheerp_typed_ptrcast)
+			val = intrinsic->getArgOperand(0);
+	if (const llvm::IntToPtrInst* inttoptr = llvm::dyn_cast<llvm::IntToPtrInst>(val))
+		return inttoptr;
+	return nullptr;
+}
+
 int32_t partialOffset(llvm::Type* & curType, llvm::Type* alternative, const llvm::DataLayout& DL, const int32_t index)
 {
 	int32_t partialOffset = 0;

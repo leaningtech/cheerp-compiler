@@ -102,6 +102,8 @@ const static int V8MaxLiteralProperties = 8;
 bool isNopCast(const llvm::Value* val);
 bool isValidVoidPtrSource(const llvm::Value* val, std::set<const llvm::PHINode*>& visitedPhis);
 
+const llvm::IntToPtrInst* getAsIntToPtrInst(const llvm::Value* val);
+
 inline void assertPointerElementOrOpaque(llvm::Type* pointer, llvm::Type* pointee)
 {
 	assert(llvm::isa<llvm::PointerType>(pointer));

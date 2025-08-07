@@ -1622,9 +1622,9 @@ void CheerpWriter::compileEqualPointersComparison(const llvm::Value* lhs, const 
 				isInlineable(*cast<Instruction>(lhs), PA));
 		assert(rhsKind != COMPLETE_OBJECT || !isa<Instruction>(rhs) ||
 				isInlineable(*cast<Instruction>(rhs), PA));
-		compilePointerBase(lhs);
+		compilePointerBase(lhs, false, true);
 		stream << compareString;
-		compilePointerBase(rhs);
+		compilePointerBase(rhs, false, true);
 		stream << joinString;
 		compilePointerOffset(lhs, COMPARISON);
 		stream << compareString;
@@ -1634,9 +1634,9 @@ void CheerpWriter::compileEqualPointersComparison(const llvm::Value* lhs, const 
 	{
 		assert(lhsKind != COMPLETE_OBJECT);
 		assert(rhsKind != COMPLETE_OBJECT);
-		compilePointerBase(lhs);
+		compilePointerBase(lhs, false, true);
 		stream << compareString;
-		compilePointerBase(rhs);
+		compilePointerBase(rhs, false, true);
 		stream << joinString;
 		compilePointerOffset(lhs, COMPARISON);
 		stream << compareString;
@@ -1731,6 +1731,7 @@ void CheerpWriter::compileCompleteObject(const Value* p, const Value* offset)
 		}
 		return;
 	}
+
 
 	const llvm::Instruction* I = dyn_cast<Instruction>(p);
 	if (I && !isInlineable(*I, PA) &&
@@ -1960,9 +1961,32 @@ void CheerpWriter::compileHeapAccess(const Value* p, Type* t, uint32_t offset)
 		stream << pointerShiftOperator() << shift;
 	stream << ']';
 }
-void CheerpWriter::compilePointerBase(const Value* p, bool forEscapingPointer)
+void CheerpWriter::compilePointerBase(const Value* p, bool forEscapingPointer, bool useGPET)
 {
-	compilePointerBaseTyped(p, p->getType()->getPointerElementType(), forEscapingPointer);
+	if(const IntrinsicInst* II=dyn_cast<IntrinsicInst>(p))
+	{
+		switch(II->getIntrinsicID())
+		{
+			case Intrinsic::cheerp_upcast_collapsed:
+			case Intrinsic::cheerp_typed_ptrcast:
+			case Intrinsic::cheerp_cast_user:
+				return compilePointerBaseTyped(II->getOperand(0), II->getParamElementType(0), forEscapingPointer);
+			default:
+				break;
+		}
+	}
+
+	POINTER_KIND kind = PA.getPointerKind(p);
+
+	if (kind != RAW && (kind != CONSTANT || isa<ConstantPointerNull>(p)))
+	{
+		// point element type is not used in this case, so it can be null
+		compilePointerBaseTyped(p, nullptr, forEscapingPointer);
+	}
+	else if (useGPET || isa<BitCastInst>(p) || isa<UndefValue>(p))
+		compilePointerBaseTyped(p, p->getType()->getPointerElementType(), forEscapingPointer);
+	else
+		llvm::report_fatal_error("Missing typed ptrcast intrinsic and no GPET allowed");
 }
 
 void CheerpWriter::compilePointerBaseTyped(const Value* p, Type* elementType, bool forEscapingPointer)
@@ -2018,6 +2042,7 @@ void CheerpWriter::compilePointerBaseTyped(const Value* p, Type* elementType, bo
 			case Intrinsic::cheerp_upcast_collapsed:
 			case Intrinsic::cheerp_typed_ptrcast:
 			case Intrinsic::cheerp_cast_user:
+				assert(elementType == II->getParamElementType(0));
 				return compilePointerBaseTyped(II->getOperand(0), II->getParamElementType(0));
 			case Intrinsic::cheerp_make_regular:
 				return compileCompleteObject(II->getOperand(0));
@@ -2171,7 +2196,7 @@ void CheerpWriter::compilePointerOffset(const Value* p, PARENT_PRIORITY parentPr
 	// null must be handled first, even if it is bytelayout
 	else if(kind == CONSTANT || isa<UndefValue>(p))
 	{
-		if (const IntToPtrInst* ITP = dyn_cast<IntToPtrInst>(p))
+		if (const IntToPtrInst* ITP = getAsIntToPtrInst(p))
 		{
 			ConstantInt* CI = cast<ConstantInt>(ITP->getOperand(0));
 			stream << CI->getSExtValue();
@@ -3034,10 +3059,10 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 				(argKind == COMPLETE_OBJECT && curKind == BYTE_LAYOUT))
 			{
 				if(F && PA.getConstantOffsetForPointer(&*arg_it))
-					compilePointerBase(*cur, true);
+					compilePointerBase(*cur, true, true);
 				else
 				{
-					compilePointerBase(*cur, true);
+					compilePointerBase(*cur, true, true);
 					stream << ',';
 					compilePointerOffset(*cur, LOWEST, true);
 				}
