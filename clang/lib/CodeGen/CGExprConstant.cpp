@@ -2041,10 +2041,9 @@ private:
               // Apply a bitcast, on unions it is safe
               C = llvm::ConstantExpr::getGetElementPtr(CElementType, C, Indexes);
               unsigned AS = C->getType()->getPointerAddressSpace();
-              C = llvm::ConstantExpr::getBitCast(C, CGM.getTypes().ConvertTypeForMem(CurType)->getPointerTo(AS));
               CElementType = CGM.getTypes().ConvertTypeForMem(CurType);
-
-              Indexes.clear();
+              C = llvm::ConstantExpr::getBitCast(C, CElementType->getPointerTo(AS));
+              Indexes.resize(1);
               continue;
             }
             const CGRecordLayout &cgLayout = CGM.getTypes().getCGRecordLayout(CurClass->getDecl());
@@ -2054,9 +2053,11 @@ private:
             int32_t fieldIndex = cgLayout.getLLVMFieldNo(FD);
             if(fieldIndex == -1) {
               // Collapsed struct
-              CElementType = CGM.getTypes().ConvertTypeForMem(CurType);
+              C = llvm::ConstantExpr::getGetElementPtr(CElementType, C, Indexes);
               unsigned AS = C->getType()->getPointerAddressSpace();
+              CElementType = CGM.getTypes().ConvertTypeForMem(CurType);
               C = llvm::ConstantExpr::getBitCast(C, CElementType->getPointerTo(AS));
+              Indexes.resize(1);
               continue;
             }
             Indexes.push_back(llvm::ConstantInt::get(CGM.Int32Ty, fieldIndex));
