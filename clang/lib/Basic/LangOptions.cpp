@@ -168,7 +168,7 @@ void LangOptions::setLangDefaults(LangOptions &Opts, Language Lang,
       }
     }
   }
-  Opts.Cheerp = T.getArch() == llvm::Triple::cheerp;
+  Opts.Cheerp = T.isCheerp();
   if (Opts.Cheerp) {
     Opts.CheerpDefaultEnv = T.isCheerpGenericJS() ? GenericJS : Wasm;
   }

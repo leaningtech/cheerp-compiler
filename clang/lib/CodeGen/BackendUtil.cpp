@@ -940,7 +940,7 @@ void EmitAssemblyHelper::RunOptimizationPipeline(
           });
     }
 
-    if (TargetTriple.getArch() == llvm::Triple::cheerp) {
+    if (TargetTriple.isCheerp()) {
       PB.registerPipelineStartEPCallback(
           [](ModulePassManager &MPM, OptimizationLevel Level) {
             //Run mem2reg first, to remove load/stores for the this argument

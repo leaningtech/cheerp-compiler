@@ -5415,7 +5415,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
   case Builtin::BIrealloc:
   case Builtin::BIfree: {
     // On cheerp in generic code, we need special handling for malloc and realloc
-    if (getTarget().getTriple().getArch() == llvm::Triple::cheerp) {
+    if (getTarget().getTriple().isCheerp()) {
       Value* ret = EmitCheerpBuiltinExpr(BuiltinID, E, asmjs);
       if (ret)
         return RValue::get(ret);

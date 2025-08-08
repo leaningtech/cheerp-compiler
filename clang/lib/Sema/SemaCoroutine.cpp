@@ -1519,7 +1519,7 @@ bool CoroutineStmtBuilder::makeNewAndDeleteExpr() {
 
   ExprResult NewExpr;
   bool asmjs = FD.hasAttr<AsmJSAttr>();
-  if (!asmjs && S.Context.getTargetInfo().getTriple().getArch() == llvm::Triple::cheerp) {
+  if (!asmjs && S.Context.getTargetInfo().getTriple().isCheerp()) {
     NewExpr = S.BuildBuiltinCallExpr(Loc, (Builtin::ID)Cheerp::BI__builtin_cheerp_coro_alloc, {FrameSize});
     if (NewExpr.isInvalid())
       return false;
@@ -1589,7 +1589,7 @@ bool CoroutineStmtBuilder::makeNewAndDeleteExpr() {
     DeleteArgs.push_back(FrameAlignment);
 
   ExprResult DeleteExpr;
-  if (!asmjs && S.Context.getTargetInfo().getTriple().getArch() == llvm::Triple::cheerp) {
+  if (!asmjs && S.Context.getTargetInfo().getTriple().isCheerp()) {
     DeleteExpr = S.BuildBuiltinCallExpr(Loc, (Builtin::ID)Cheerp::BI__builtin_cheerp_deallocate, {CoroFree});
   } else {
     DeleteExpr =
