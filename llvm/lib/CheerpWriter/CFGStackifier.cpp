@@ -1021,6 +1021,7 @@ void TokenListOptimizer::removeEmptyIfs()
 					const Value* Cond = cast<BranchInst>(Term)->getCondition();
 					if (mayContainSideEffects(Cond, PA))
 					{
+						// TODO: We should really only keep alive the side-effectfull part of the condition
 						Token* CondT = Token::createCondition(EmptyIf->getBB());
 						Tokens.insert(EmptyIf->getIter(), CondT);
 					}
