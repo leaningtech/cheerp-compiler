@@ -32,6 +32,7 @@
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/BinaryFormat/MachO.h"
+#include "llvm/Cheerp/AddressSpaces.h"
 #include "llvm/Demangle/Demangle.h"
 #include "llvm/IR/Argument.h"
 #include "llvm/IR/Attributes.h"
@@ -2017,9 +2018,10 @@ ModuleAddressSanitizer::CreateMetadataGlobal(Module &M, Constant *Initializer,
 }
 
 Instruction *ModuleAddressSanitizer::CreateAsanModuleDtor(Module &M) {
+  unsigned AS = M.getDataLayout().isByteAddressable()? M.getDataLayout().getProgramAddressSpace() : unsigned(cheerp::CheerpAS::Wasm);
   AsanDtorFunction = Function::createWithDefaultAttr(
       FunctionType::get(Type::getVoidTy(*C), false),
-      GlobalValue::InternalLinkage, 0, kAsanModuleDtorName, &M);
+      GlobalValue::InternalLinkage, AS, kAsanModuleDtorName, &M);
 
   if (TargetTriple.isCheerpWasm())
     AsanDtorFunction->setSection("asmjs");
