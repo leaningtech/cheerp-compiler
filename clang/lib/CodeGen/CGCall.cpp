@@ -673,7 +673,7 @@ CodeGenTypes::arrangeBuiltinFunctionCall(QualType resultType,
   return arrangeLLVMFunctionInfo(
       GetReturnType(resultType), /*instanceMethod=*/false,
       /*chainCall=*/false, argTypes, FunctionType::ExtInfo(),
-      /*paramInfos=*/ {}, RequiredArgs::All, /*TODO*/false);
+      /*paramInfos=*/ {}, RequiredArgs::All, getTarget().getTriple().isCheerpWasm());
 }
 
 const CGFunctionInfo &
@@ -683,7 +683,7 @@ CodeGenTypes::arrangeBuiltinFunctionDeclaration(QualType resultType,
 
   return arrangeLLVMFunctionInfo(
       GetReturnType(resultType), /*instanceMethod=*/false, /*chainCall=*/false,
-      argTypes, FunctionType::ExtInfo(), {}, RequiredArgs::All, /*TODO*/false);
+      argTypes, FunctionType::ExtInfo(), {}, RequiredArgs::All, getTarget().getTriple().isCheerpWasm());
 }
 
 const CGFunctionInfo &
@@ -691,7 +691,7 @@ CodeGenTypes::arrangeBuiltinFunctionDeclaration(CanQualType resultType,
                                               ArrayRef<CanQualType> argTypes) {
   return arrangeLLVMFunctionInfo(
       resultType, /*instanceMethod=*/false, /*chainCall=*/false,
-      argTypes, FunctionType::ExtInfo(), {}, RequiredArgs::All, /*TODO*/false);
+      argTypes, FunctionType::ExtInfo(), {}, RequiredArgs::All, getTarget().getTriple().isCheerpWasm());
 }
 
 /// Arrange a call to a C++ method, passing the given arguments.
