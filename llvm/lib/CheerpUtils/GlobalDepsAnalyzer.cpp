@@ -553,6 +553,27 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 						for (Instruction* I: deleteList)
 							I->eraseFromParent();
 					};
+					if(II == Intrinsic::uadd_with_overflow)
+					{
+						if (!llcPass)
+							continue;
+
+						Value* A = ci->getOperand(0);
+						Value* B = ci->getOperand(1);
+
+						assert(A->getType()->isIntegerTy());
+						Value* add = BinaryOperator::CreateAdd(A, B, "uadd_with_overflow_add", ci);
+						// An overflow has happened if the result is smaller that either operands
+						Value* overflow = ICmpInst::Create(Instruction::ICmp, ICmpInst::ICMP_ULT, add, A, "uadd_with_overflow_overflow", ci);
+
+						ReplaceUsesForOverflow(ci, add, overflow);
+
+						//Set up loop variable, so the next loop will check and possibly expand newCall
+						--instructionIterator;
+						advance = false;
+
+						ci->eraseFromParent();
+					}
 					if(II == Intrinsic::umul_with_overflow)
 					{
 						if (!llcPass)
