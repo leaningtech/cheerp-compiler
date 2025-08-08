@@ -308,14 +308,14 @@ private:
     using _HandleFuncPtr =  void* (*)(_Action, any const *, any *, const type_info *,
       const void* __fallback_info);
 
-#ifdef __CHEERP__
+#if defined(__CHEERP__) && !defined(__ASMJS__)
     struct _Storage {
 #else
     union _Storage {
 #endif
         constexpr _Storage() : __ptr(nullptr) {}
         void *  __ptr;
-#ifndef __CHEERP__
+#if !defined(__CHEERP__) || defined(__ASMJS__)
         __any_imp::_Buffer __buf;
 #endif
     };
@@ -355,7 +355,7 @@ private:
 
 namespace __any_imp
 {
-#ifndef __CHEERP__
+#if !defined(__CHEERP__) || defined(__ASMJS__)
   template <class _Tp>
   struct _LIBCPP_TEMPLATE_VIS _SmallHandler
   {
