@@ -12,6 +12,7 @@
 
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 #include "llvm/Analysis/VectorUtils.h"
+#include "llvm/Cheerp/AddressSpaces.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
@@ -123,10 +124,10 @@ llvm::declareSanitizerInitFunction(Module &M, StringRef InitName,
 }
 
 Function *llvm::createSanitizerCtor(Module &M, StringRef CtorName) {
+  unsigned AS = M.getDataLayout().isByteAddressable()? M.getDataLayout().getProgramAddressSpace() : unsigned(cheerp::CheerpAS::Wasm);
   Function *Ctor = Function::createWithDefaultAttr(
       FunctionType::get(Type::getVoidTy(M.getContext()), false),
-      GlobalValue::InternalLinkage, M.getDataLayout().getProgramAddressSpace(),
-      CtorName, &M);
+      GlobalValue::InternalLinkage, AS, CtorName, &M);
   Ctor->addFnAttr(Attribute::NoUnwind);
   BasicBlock *CtorBB = BasicBlock::Create(M.getContext(), "", Ctor);
   ReturnInst::Create(M.getContext(), CtorBB);
