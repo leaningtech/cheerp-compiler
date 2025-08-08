@@ -4389,6 +4389,7 @@ const BasicBlock* CheerpWasmWriter::compileTokens(WasmBuffer& code,
 				const BranchInst* bi=cast<BranchInst>(T.getBB()->getTerminator());
 				assert(bi->isConditional());
 				compileCondition(code, bi->getCondition(), /*booleanInvert*/false);
+				encodeInst(WasmOpcode::DROP, code);
 				break;
 			}
 			case Token::TK_BrIf:
