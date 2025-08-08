@@ -197,7 +197,7 @@ template<class Callable, class ...Args>
 # include <tuple>
 #endif
 #include <version>
-#ifdef __CHEERP__
+#if (defined(__CHEERP__) && !defined(__ASMJS__))
 #include <cheerp/client.h>
 #include <cheerp/clientlib.h>
 #endif

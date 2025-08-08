@@ -15,9 +15,7 @@
 #include <cctype>
 #include <cstdint>
 #include <locale.h>
-#ifndef __CHEERP__
 #include <mutex>
-#endif
 #include <string>
 
 // Some platforms require more includes than others. Keep the includes on all plaforms for now.
