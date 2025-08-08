@@ -23,6 +23,7 @@
 #include "clang/AST/DeclObjC.h"
 #include "clang/CodeGen/ConstantInitBuilder.h"
 #include "llvm/ADT/SmallSet.h"
+#include "llvm/Cheerp/AddressSpaces.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/ScopedPrinter.h"
@@ -242,6 +243,8 @@ static llvm::Constant *buildBlockDescriptor(CodeGenModule &CGM,
   unsigned AddrSpace = 0;
   if (C.getLangOpts().OpenCL)
     AddrSpace = C.getTargetAddressSpace(LangAS::opencl_constant);
+  else if (C.getLangOpts().Cheerp)
+    AddrSpace = unsigned(CGM.getTarget().getTriple().isCheerpWasm()? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
 
   llvm::GlobalValue::LinkageTypes linkage;
   if (descName.empty()) {
@@ -1137,6 +1140,8 @@ llvm::Type *CodeGenModule::getBlockDescriptorType() {
   unsigned AddrSpace = 0;
   if (getLangOpts().OpenCL)
     AddrSpace = getContext().getTargetAddressSpace(LangAS::opencl_constant);
+  else if (getLangOpts().Cheerp)
+    AddrSpace = unsigned(getTarget().getTriple().isCheerpWasm()? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
   BlockDescriptorType = llvm::PointerType::get(BlockDescriptorType, AddrSpace);
   return BlockDescriptorType;
 }
@@ -1211,9 +1216,12 @@ RValue CodeGenFunction::EmitBlockCallExpr(const CallExpr *E,
                                        getPointerAlign());
     }
   } else {
+    unsigned AS = 0;
+    if (getLangOpts().Cheerp)
+      AS = unsigned(getTarget().getTriple().isCheerpWasm()? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
     // Bitcast the block literal to a generic block literal.
     BlockPtr = Builder.CreatePointerCast(
-        BlockPtr, llvm::PointerType::get(GenBlockTy, 0), "block.literal");
+        BlockPtr, llvm::PointerType::get(GenBlockTy, AS), "block.literal");
     // Get pointer to the block invoke function
     llvm::Value *FuncPtr = Builder.CreateStructGEP(GenBlockTy, BlockPtr, 3);
 
@@ -1498,9 +1506,16 @@ llvm::Function *CodeGenFunction::GenerateBlockFunction(
   llvm::FunctionType *fnLLVMType = CGM.getTypes().GetFunctionType(fnInfo);
 
   StringRef name = CGM.getBlockMangledName(GD, blockDecl);
+  unsigned AS = getTarget().getProgramAddressSpace();
+  if (getLangOpts().Cheerp) {
+    AS = unsigned(fnInfo.isAsmJS()? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+  }
   llvm::Function *fn = llvm::Function::Create(
-      fnLLVMType, llvm::GlobalValue::InternalLinkage, name, &CGM.getModule());
+      fnLLVMType, llvm::GlobalValue::InternalLinkage, AS, name, &CGM.getModule());
   CGM.SetInternalFunctionAttributes(blockDecl, fn, fnInfo);
+  if (getTarget().getTriple().isCheerpWasm()) {
+    fn->setSection("asmjs");
+  }
 
   if (BuildGlobalBlock) {
     auto GenVoidPtrTy = getContext().getLangOpts().OpenCL
@@ -1919,9 +1934,17 @@ CodeGenFunction::GenerateCopyHelperFunction(const CGBlockInfo &blockInfo) {
   // identical semantics.
   llvm::FunctionType *LTy = CGM.getTypes().GetFunctionType(FI);
 
+  // NOTE: we only "support" the default AS, to make tests happy
+  unsigned AS = getTarget().getProgramAddressSpace();
+  if (getLangOpts().Cheerp) {
+    AS = unsigned(getTarget().getTriple().isCheerpWasm()? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+  }
   llvm::Function *Fn =
-    llvm::Function::Create(LTy, llvm::GlobalValue::LinkOnceODRLinkage,
+    llvm::Function::Create(LTy, llvm::GlobalValue::LinkOnceODRLinkage, AS,
                            FuncName, &CGM.getModule());
+  if (getTarget().getTriple().isCheerpWasm()) {
+    Fn->setSection("asmjs");
+  }
   if (CGM.supportsCOMDAT())
     Fn->setComdat(CGM.getModule().getOrInsertComdat(FuncName));
 
@@ -2108,9 +2131,16 @@ CodeGenFunction::GenerateDestroyHelperFunction(const CGBlockInfo &blockInfo) {
   // internal linkage.
   llvm::FunctionType *LTy = CGM.getTypes().GetFunctionType(FI);
 
+  unsigned AS = getTarget().getProgramAddressSpace();
+  if (getLangOpts().Cheerp) {
+    AS = unsigned(FI.isAsmJS()? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+  }
   llvm::Function *Fn =
-    llvm::Function::Create(LTy, llvm::GlobalValue::LinkOnceODRLinkage,
+    llvm::Function::Create(LTy, llvm::GlobalValue::LinkOnceODRLinkage, AS,
                            FuncName, &CGM.getModule());
+  if (getTarget().getTriple().isCheerpWasm()) {
+    Fn->setSection("asmjs");
+  }
   if (CGM.supportsCOMDAT())
     Fn->setComdat(CGM.getModule().getOrInsertComdat(FuncName));
 
