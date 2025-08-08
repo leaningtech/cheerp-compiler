@@ -227,7 +227,7 @@ static llvm::Constant *buildBlockDescriptor(CodeGenModule &CGM,
   std::string typeAtEncoding =
     CGM.getContext().getObjCEncodingForBlock(blockInfo.getBlockExpr());
   elements.add(llvm::ConstantExpr::getBitCast(
-    CGM.GetAddrOfConstantCString(typeAtEncoding, /*asmjs*/false).getPointer(), i8p));
+    CGM.GetAddrOfConstantCString(typeAtEncoding, CGM.getTarget().getTriple().isCheerpWasm()).getPointer(), i8p));
 
   // GC layout.
   if (C.getLangOpts().ObjC) {
@@ -2887,8 +2887,12 @@ llvm::Constant *CodeGenModule::getNSConcreteGlobalBlock() {
   if (NSConcreteGlobalBlock)
     return NSConcreteGlobalBlock;
 
+  LangAS AS = LangAS::Default;
+  if (getLangOpts().Cheerp) {
+    AS = getTarget().getTriple().isCheerpWasm()? LangAS::cheerp_wasm : LangAS::cheerp_genericjs;
+  }
   NSConcreteGlobalBlock = GetOrCreateLLVMGlobal(
-      "_NSConcreteGlobalBlock", Int8PtrTy, LangAS::Default, nullptr);
+      "_NSConcreteGlobalBlock", Int8PtrTy, AS, nullptr);
   configureBlocksRuntimeObject(*this, NSConcreteGlobalBlock);
   return NSConcreteGlobalBlock;
 }
@@ -2897,8 +2901,12 @@ llvm::Constant *CodeGenModule::getNSConcreteStackBlock() {
   if (NSConcreteStackBlock)
     return NSConcreteStackBlock;
 
+  LangAS AS = LangAS::Default;
+  if (getLangOpts().Cheerp) {
+    AS = getTarget().getTriple().isCheerpWasm()? LangAS::cheerp_wasm : LangAS::cheerp_genericjs;
+  }
   NSConcreteStackBlock = GetOrCreateLLVMGlobal(
-      "_NSConcreteStackBlock", Int8PtrTy, LangAS::Default, nullptr);
+      "_NSConcreteStackBlock", Int8PtrTy, AS, nullptr);
   configureBlocksRuntimeObject(*this, NSConcreteStackBlock);
   return NSConcreteStackBlock;
 }
