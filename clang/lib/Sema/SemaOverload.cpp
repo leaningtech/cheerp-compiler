@@ -6665,7 +6665,7 @@ void Sema::AddOverloadCandidate(
     return;
   }
 
-  if (Context.getTargetInfo().getTriple().getArch() == llvm::Triple::cheerp)
+  if (Context.getTargetInfo().getTriple().isCheerp())
     if (cheerp::isNamespaceClientDisabledDecl(Function, *this)) {
     Candidate.Viable = false;
     Candidate.FailureKind = ovl_fail_cheerp_forbidden;
