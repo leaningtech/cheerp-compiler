@@ -1023,7 +1023,9 @@ executors:
 workflows:
   build-cheerp-toolchain:
     when:
-      equal: [ << pipeline.trigger_source >>, "api" ]
+      or:
+        - equal: [ << pipeline.git.branch >>, "master" ]
+        - equal: [ << pipeline.trigger_source >>, "api" ]
     jobs:
       - define-version-no
       - build-cheerp-toolchain:
