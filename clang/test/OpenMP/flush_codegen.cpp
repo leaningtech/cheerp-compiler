@@ -32,22 +32,22 @@ int main() {
 #pragma omp flush acquire
 #pragma omp flush release
 #pragma omp flush(a)
-  // CHECK: call {{.*}}void @__kmpc_flush(ptr {{(@|%).+}})
-  // CHECK: call {{.*}}void @__kmpc_flush(ptr {{(@|%).+}})
-  // CHECK: call {{.*}}void @__kmpc_flush(ptr {{(@|%).+}})
-  // CHECK: call {{.*}}void @__kmpc_flush(ptr {{(@|%).+}})
-  // CHECK: call {{.*}}void @__kmpc_flush(ptr {{(@|%).+}})
+  // CHECK: call {{.*}}void @__kmpc_flush(ptr {{(addrspace... )?}}{{(@|%).+}})
+  // CHECK: call {{.*}}void @__kmpc_flush(ptr {{(addrspace... )?}}{{(@|%).+}})
+  // CHECK: call {{.*}}void @__kmpc_flush(ptr {{(addrspace... )?}}{{(@|%).+}})
+  // CHECK: call {{.*}}void @__kmpc_flush(ptr {{(addrspace... )?}}{{(@|%).+}})
+  // CHECK: call {{.*}}void @__kmpc_flush(ptr {{(addrspace... )?}}{{(@|%).+}})
   return tmain(a);
   // CHECK: call {{.*}} [[TMAIN:@.+]](
   // CHECK: ret
 }
 
 // CHECK: [[TMAIN]]
-// CHECK: call {{.*}}void @__kmpc_flush(ptr {{(@|%).+}})
-// CHECK: call {{.*}}void @__kmpc_flush(ptr {{(@|%).+}})
-// CHECK: call {{.*}}void @__kmpc_flush(ptr {{(@|%).+}})
-// CHECK: call {{.*}}void @__kmpc_flush(ptr {{(@|%).+}})
-// CHECK: call {{.*}}void @__kmpc_flush(ptr {{(@|%).+}})
+// CHECK: call {{.*}}void @__kmpc_flush(ptr {{(addrspace... )?}}{{(@|%).+}})
+// CHECK: call {{.*}}void @__kmpc_flush(ptr {{(addrspace... )?}}{{(@|%).+}})
+// CHECK: call {{.*}}void @__kmpc_flush(ptr {{(addrspace... )?}}{{(@|%).+}})
+// CHECK: call {{.*}}void @__kmpc_flush(ptr {{(addrspace... )?}}{{(@|%).+}})
+// CHECK: call {{.*}}void @__kmpc_flush(ptr {{(addrspace... )?}}{{(@|%).+}})
 // CHECK: ret
 
 // CHECK-NOT: line: 0,
