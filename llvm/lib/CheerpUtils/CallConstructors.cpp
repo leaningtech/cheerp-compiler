@@ -29,8 +29,9 @@ namespace cheerp
 
 PreservedAnalyses CallConstructorsPass::run(llvm::Module &M, llvm::ModuleAnalysisManager &MPA)
 {
-	bool Wasi = Triple(M.getTargetTriple()).getOS() == Triple::WASI;
-	bool useUtilityThread = !LowerAtomics && !Wasi;
+	Triple triple = Triple(M.getTargetTriple());
+	bool isWasmStandalone = triple.isCheerpWasmStandalone();
+	bool useUtilityThread = !LowerAtomics && !isWasmStandalone;
 	FunctionType* Ty = FunctionType::get(Type::getVoidTy(M.getContext()), false);
 	Function* StartFunction = cast<Function>(M.getOrInsertFunction("_start", Ty).getCallee());
 	if (!StartFunction->empty())
@@ -76,7 +77,7 @@ PreservedAnalyses CallConstructorsPass::run(llvm::Module &M, llvm::ModuleAnalysi
 	}
 
 	Function* Main = getMainFunction(M);
-	if (Wasi || (Main && Main->getSection() == "asmjs"))
+	if (isWasmStandalone || (Main && Main->getSection() == "asmjs"))
 	{
 		StartFunction->setSection("asmjs");
 		if (useUtilityThread)
@@ -138,9 +139,9 @@ PreservedAnalyses CallConstructorsPass::run(llvm::Module &M, llvm::ModuleAnalysi
 		{
 			ExitCode = Builder.CreateCall(Main->getFunctionType(), Main);
 		}
-		if (!LowerAtomics || Wasi)
+		if (!LowerAtomics || isWasmStandalone)
 		{
-			// In WASI mode, or if -pthread has been passed, we call exit after main, which will run global destructors
+			// In standalone mode, or if -pthread has been passed, we call exit after main, which will run global destructors
 			Function* Exit = M.getFunction("exit");
 			assert(Exit != nullptr);
 			if (ExitCode->getType() != Builder.getInt32Ty())

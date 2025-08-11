@@ -794,6 +794,14 @@ public:
     return getArch() == Triple::cheerp && getEnvironment() == Triple::WebAssembly;
   }
 
+  bool isCheerpWasi() const {
+    return getArch() == Triple::cheerp && getOS() == Triple::WASI;
+  }
+
+  bool isCheerpWasmStandalone() const {
+    return isCheerpWasi();
+  }
+
   /// Tests whether the target is cheerp (including cheerp-wasm and cheerp-genericjs)
   bool isCheerp() const{
     return getArch() == Triple::cheerp;

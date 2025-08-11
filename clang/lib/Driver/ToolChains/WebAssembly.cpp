@@ -591,7 +591,7 @@ void cheerp::Link::ConstructJob(Compilation &C, const JobAction &JA,
       AddStdLib("libc.bc");
       AddStdLib("crt1.bc");
     }
-    if (getToolChain().getTriple().getOS() == llvm::Triple::WASI)
+    if (getToolChain().getTriple().isCheerpWasi())
       AddStdLib("libwasi.bc");
     else
       AddStdLib("libsystem.bc");
@@ -699,7 +699,7 @@ void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
     cheerpFixFuncCasts->render(Args, CmdArgs);
   if(Arg* cheerpUseBigInts = Args.getLastArg(options::OPT_cheerp_use_bigints))
     cheerpUseBigInts->render(Args, CmdArgs);
-  else if (getToolChain().getTriple().getOS() == llvm::Triple::WASI)
+  else if (getToolChain().getTriple().isCheerpWasmStandalone())
     CmdArgs.push_back("-cheerp-use-bigints");
 
   // Malloc/Free are probably intercepted when using sanitizers, don't optimize
@@ -878,7 +878,6 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
   }
 
   bool isCheerpWasm = getToolChain().getTriple().isCheerpWasm();
-  llvm::Triple::OSType os = getToolChain().getTriple().getOS();
   Arg* cheerpLinearOutput = Args.getLastArg(options::OPT_cheerp_linear_output_EQ);
   if (cheerpLinearOutput)
     cheerpLinearOutput->render(Args, CmdArgs);
@@ -918,7 +917,7 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
   if(Arg* cheerpSecondaryOutputFile = Args.getLastArg(options::OPT_cheerp_secondary_output_file_EQ))
     cheerpSecondaryOutputFile->render(Args, CmdArgs);
   else if(
-      ((isCheerpWasm && os != llvm::Triple::WASI && !cheerpLinearOutput) ||
+      ((isCheerpWasm && !getToolChain().getTriple().isCheerpWasmStandalone() && !cheerpLinearOutput) ||
         (cheerpLinearOutput && cheerpLinearOutput->getValue() != StringRef("asmjs"))))
   {
     SmallString<64> path(Output.getFilename());
@@ -1072,7 +1071,7 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
     cheerpFixFuncCasts->render(Args, CmdArgs);
   if(Arg* cheerpUseBigInts = Args.getLastArg(options::OPT_cheerp_use_bigints))
     cheerpUseBigInts->render(Args, CmdArgs);
-  else if (getToolChain().getTriple().getOS() == llvm::Triple::WASI)
+  else if (getToolChain().getTriple().isCheerpWasmStandalone())
     CmdArgs.push_back("-cheerp-use-bigints");
   if(Arg* cheerpMakeDTS = Args.getLastArg(options::OPT_cheerp_make_dts))
     cheerpMakeDTS->render(Args, CmdArgs);
