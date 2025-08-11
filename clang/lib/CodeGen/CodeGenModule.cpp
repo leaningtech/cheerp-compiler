@@ -7004,7 +7004,7 @@ void CodeGenModule::EmitOMPThreadPrivateDecl(const OMPThreadPrivateDecl *D) {
                                                         /*ForRef=*/false);
 
     Address Addr(GetAddrOfGlobalVar(VD),
-                 getTypes().ConvertTypeForMem(VD->getType()),
+                 getTypes().ConvertTypeForMem(VD->getType(), false, VD->hasAttr<AsmJSAttr>()),
                  getContext().getDeclAlign(VD));
     if (auto InitFunction = getOpenMPRuntime().emitThreadPrivateVarDefinition(
             VD, Addr, RefExpr->getBeginLoc(), PerformInit))

@@ -21,6 +21,7 @@
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Cheerp/AddressSpaces.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DebugInfoMetadata.h"
@@ -558,11 +559,15 @@ Constant *OpenMPIRBuilder::getOrCreateIdent(Constant *SrcLocStr,
           Ident = &GV;
 
     if (!Ident) {
+      unsigned AS = M.getDataLayout().getDefaultGlobalsAddressSpace();
+      if (!M.getDataLayout().isByteAddressable()) {
+        llvm::Triple triple(M.getTargetTriple());
+        AS = unsigned(triple.isCheerpWasm()? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+      }
       auto *GV = new GlobalVariable(
           M, OpenMPIRBuilder::Ident,
           /* isConstant = */ true, GlobalValue::PrivateLinkage, Initializer, "",
-          nullptr, GlobalValue::NotThreadLocal,
-          M.getDataLayout().getDefaultGlobalsAddressSpace());
+          nullptr, GlobalValue::NotThreadLocal, AS);
       GV->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
       GV->setAlignment(Align(8));
       Ident = GV;
@@ -4028,6 +4033,10 @@ OpenMPIRBuilder::createPlatformSpecificName(ArrayRef<StringRef> Parts) const {
 GlobalVariable *
 OpenMPIRBuilder::getOrCreateInternalVariable(Type *Ty, const StringRef &Name,
                                              unsigned AddressSpace) {
+  if (!M.getDataLayout().isByteAddressable() && AddressSpace == 0) {
+    llvm::Triple triple(M.getTargetTriple());
+    AddressSpace = unsigned(triple.isCheerpWasm()? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+  }
   auto &Elem = *InternalVars.try_emplace(Name, nullptr).first;
   if (Elem.second) {
     assert(cast<PointerType>(Elem.second->getType())
@@ -4712,19 +4721,26 @@ OpenMPIRBuilder::createOffloadMapnames(SmallVectorImpl<llvm::Constant *> &Names,
 void OpenMPIRBuilder::initializeTypes(Module &M) {
   LLVMContext &Ctx = M.getContext();
   StructType *T;
+  llvm::Triple triple(M.getTargetTriple());
+  unsigned AS = 0;
+  unsigned FAS = 0;
+  if (triple.isCheerp()) {
+    AS = unsigned(triple.isCheerpWasm()? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+    FAS = unsigned(triple.isCheerpWasm()? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::Client);
+  }
 #define OMP_TYPE(VarName, InitValue) VarName = InitValue;
 #define OMP_ARRAY_TYPE(VarName, ElemTy, ArraySize)                             \
   VarName##Ty = ArrayType::get(ElemTy, ArraySize);                             \
   VarName##PtrTy = PointerType::getUnqual(VarName##Ty);
 #define OMP_FUNCTION_TYPE(VarName, IsVarArg, ReturnType, ...)                  \
   VarName = FunctionType::get(ReturnType, {__VA_ARGS__}, IsVarArg);            \
-  VarName##Ptr = PointerType::getUnqual(VarName);
+  VarName##Ptr = PointerType::get(VarName, FAS);
 #define OMP_STRUCT_TYPE(VarName, StructName, ...)                              \
   T = StructType::getTypeByName(Ctx, StructName);                              \
   if (!T)                                                                      \
     T = StructType::create(Ctx, {__VA_ARGS__}, StructName);                    \
   VarName = T;                                                                 \
-  VarName##Ptr = PointerType::getUnqual(T);
+  VarName##Ptr = PointerType::get(T, AS);
 #include "llvm/Frontend/OpenMP/OMPKinds.def"
 }
 

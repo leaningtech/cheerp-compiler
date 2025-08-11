@@ -32,6 +32,7 @@
 #include "llvm/ADT/SmallBitVector.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Bitcode/BitcodeReader.h"
+#include "llvm/Cheerp/AddressSpaces.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/GlobalValue.h"
@@ -1786,10 +1787,14 @@ llvm::Function *CGOpenMPRuntime::emitThreadPrivateVarDefinition(
     if (!Ctor && !Dtor)
       return nullptr;
 
+    unsigned FAS = 0;
+    if (CGM.getLangOpts().Cheerp) {
+      FAS = unsigned(CGM.getTarget().getTriple().isCheerpWasm()? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::Client);
+    }
     llvm::Type *CopyCtorTyArgs[] = {CGM.VoidPtrTy, CGM.VoidPtrTy};
     auto *CopyCtorTy = llvm::FunctionType::get(CGM.VoidPtrTy, CopyCtorTyArgs,
                                                /*isVarArg=*/false)
-                           ->getPointerTo();
+                           ->getPointerTo(FAS);
     // Copying constructor for the threadprivate variable.
     // Must be NULL - reserved by runtime, but currently it requires that this
     // parameter is always NULL. Otherwise it fires assertion.
@@ -1797,13 +1802,13 @@ llvm::Function *CGOpenMPRuntime::emitThreadPrivateVarDefinition(
     if (Ctor == nullptr) {
       auto *CtorTy = llvm::FunctionType::get(CGM.VoidPtrTy, CGM.VoidPtrTy,
                                              /*isVarArg=*/false)
-                         ->getPointerTo();
+                         ->getPointerTo(FAS);
       Ctor = llvm::Constant::getNullValue(CtorTy);
     }
     if (Dtor == nullptr) {
       auto *DtorTy = llvm::FunctionType::get(CGM.VoidTy, CGM.VoidPtrTy,
                                              /*isVarArg=*/false)
-                         ->getPointerTo();
+                         ->getPointerTo(FAS);
       Dtor = llvm::Constant::getNullValue(DtorTy);
     }
     if (!CGF) {

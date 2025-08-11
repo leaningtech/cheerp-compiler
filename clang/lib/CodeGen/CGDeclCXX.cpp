@@ -433,13 +433,17 @@ llvm::Function *CodeGenModule::CreateGlobalInitOrCleanUpFunction(
 
   unsigned AS = 0;
   if (getLangOpts().Cheerp) {
-    if (Context.getTargetInfo().getTriple().isCheerpWasm()) {
+    if (FI.isAsmJS()) {
       AS = (unsigned)cheerp::CheerpAS::Wasm;
     } else {
       AS = (unsigned)cheerp::CheerpAS::Client;
     }
   }
   llvm::Function *Fn = llvm::Function::Create(FTy, Linkage, AS, Name, &getModule());
+
+  if (FI.isAsmJS()) {
+    Fn->setSection("asmjs");
+  }
 
   if (!getLangOpts().AppleKext && !TLS) {
     // Set the section if needed.
