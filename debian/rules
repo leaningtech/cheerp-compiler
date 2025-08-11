@@ -8,3 +8,6 @@ override_dh_auto_build:
 
 override_dh_auto_install:
 	CHEERP_DEST=$$(pwd)/debian/cheerp-core ./debian/build.sh install
+
+override_dh_strip:
+	dh_strip --no-automatic-dbgsym
