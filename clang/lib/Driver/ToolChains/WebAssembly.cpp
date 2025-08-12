@@ -980,6 +980,13 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
   bool noUnalignedMem = true;
   bool sharedMem = false;
   bool importMem = false;
+
+  // pthread implies shared memory
+  if (!Args.hasArg(options::OPT_pthread))
+    CmdArgs.push_back("-cheerp-lower-atomics");
+  else
+    sharedMem = true;
+
   for (CheerpWasmOpt o: features)
   {
     switch(o)
@@ -1026,11 +1033,6 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
         break;
     }
   }
-  // pthread implies shared memory
-  if (!Args.hasArg(options::OPT_pthread))
-    CmdArgs.push_back("-cheerp-lower-atomics");
-  else
-    sharedMem = true;
 
   if (noGrowMem)
     CmdArgs.push_back("-cheerp-wasm-no-grow-memory");
