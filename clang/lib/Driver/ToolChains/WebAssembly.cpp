@@ -980,6 +980,7 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
     {
       case SHAREDMEM:
         sharedMem = true;
+        noGlobalization = true;
         break;
       case GROWMEM:
         noGrowMem = false;
@@ -1006,7 +1007,10 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
         noSIMD = false;
         break;
       case GLOBALIZATION:
-        noGlobalization = false;
+        // It never make sense to use globalized constants with shared memory,
+        // we would get accidentally thread-local global variables
+        if (!sharedMem)
+          noGlobalization = false;
         break;
       case UNALIGNEDMEM:
         noUnalignedMem = false;
