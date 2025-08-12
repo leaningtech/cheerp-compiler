@@ -737,6 +737,8 @@ void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("-cheerp-wasm-exported-table");
   if(std::find(features.begin(), features.end(), EXPORTEDMEMORY) != features.end())
     CmdArgs.push_back("-cheerp-wasm-exported-memory");
+  if(std::find(features.begin(), features.end(), IMPORTEDMEMORY) != features.end())
+    CmdArgs.push_back("-cheerp-wasm-imported-memory");
   if(std::find(features.begin(), features.end(), SIMD) == features.end())
     CmdArgs.push_back("-cheerp-wasm-no-simd");
   if(std::find(features.begin(), features.end(), UNALIGNEDMEM) == features.end())
@@ -802,6 +804,7 @@ static cheerp::CheerpWasmOpt parseWasmOpt(StringRef opt)
     .Case("sharedmem", cheerp::SHAREDMEM)
     .Case("exportedtable", cheerp::EXPORTEDTABLE)
     .Case("exportedmemory", cheerp::EXPORTEDMEMORY)
+    .Case("importedmemory", cheerp::IMPORTEDMEMORY)
     .Case("externref", cheerp::ANYREF)
     .Case("returncalls", cheerp::RETURNCALLS)
     .Case("branchhinting", cheerp::BRANCHHINTS)
@@ -967,6 +970,7 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
   bool noGlobalization = true;
   bool noUnalignedMem = true;
   bool sharedMem = false;
+  bool importMem = false;
   for (CheerpWasmOpt o: features)
   {
     switch(o)
@@ -982,6 +986,9 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
         break;
       case EXPORTEDMEMORY:
         CmdArgs.push_back("-cheerp-wasm-exported-memory");
+        break;
+      case IMPORTEDMEMORY:
+        importMem = true;
         break;
       case ANYREF:
         CmdArgs.push_back("-cheerp-wasm-externref");
@@ -1021,7 +1028,9 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
   if (noUnalignedMem)
     CmdArgs.push_back("-cheerp-wasm-no-unaligned-mem");
   if (sharedMem)
-        CmdArgs.push_back("-cheerp-wasm-shared-memory");
+    CmdArgs.push_back("-cheerp-wasm-shared-memory");
+  if (importMem)
+    CmdArgs.push_back("-cheerp-wasm-imported-memory");
 
   // Add internal options for loadable modules support
   if(Args.hasArg(options::OPT_shared)) {

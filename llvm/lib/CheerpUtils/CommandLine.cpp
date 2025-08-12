@@ -74,6 +74,8 @@ llvm::cl::opt<bool> WasmExportedTable("cheerp-wasm-exported-table", llvm::cl::de
 
 llvm::cl::opt<bool> WasmExportedMemory("cheerp-wasm-exported-memory", llvm::cl::desc("Export the memory from the wasm module as 'memory'"));
 
+llvm::cl::opt<bool> WasmImportedMemory("cheerp-wasm-imported-memory", llvm::cl::desc("Import the memory for the wasm module as 'memory'"));
+
 llvm::cl::opt<bool> WasmBranchHints("cheerp-wasm-branch-hinting", llvm::cl::desc("Enable generating branch hinting"));
 
 llvm::cl::opt<bool> WasmAnyref("cheerp-wasm-externref", llvm::cl::desc("Enable support for the externref value type in wasm"));

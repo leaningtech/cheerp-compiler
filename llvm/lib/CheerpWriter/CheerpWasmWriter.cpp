@@ -4792,12 +4792,14 @@ void CheerpWasmWriter::compileImportSection()
 
 	Section section(0x02, "Import", this);
 
+	bool importMemory = useWasmLoader || WasmImportedMemory;
+
 	// Encode number of entries in the import section.
 	// We import the memory in all cases, except when the target is WASI.
-	encodeULEB128(importedTotal + useWasmLoader, section);
+	encodeULEB128(importedTotal + importMemory, section);
 
-	// Import the memory if target is not WASI.
-	if (useWasmLoader)
+	// Import the memory if target is not standalone Wasm or it was explicitly requested.
+	if (importMemory)
 		compileImportMemory(section);
 
 	for (const Function* F : globalDeps.asmJSImports())
@@ -5239,7 +5241,7 @@ void CheerpWasmWriter::compileExportSection()
 	const auto& exportedAliases = globalDeps.asmJSAliases();
 
 	// We may need to export the table and/or the memory.
-	bool exportMemory = WasmExportedMemory || !useWasmLoader;
+	bool exportMemory = (WasmExportedMemory || !useWasmLoader) && !WasmImportedMemory;
 	uint32_t extraExports = uint32_t(exportedTable) + uint32_t(exportMemory);
 	if(WasmSharedModule)
 	{
@@ -5509,7 +5511,7 @@ void CheerpWasmWriter::compileModule()
 
 	compileTableSection();
 
-	if (!useWasmLoader)
+	if (!useWasmLoader && !WasmImportedMemory)
 		compileMemorySection();
 
 	compileGlobalSection();
