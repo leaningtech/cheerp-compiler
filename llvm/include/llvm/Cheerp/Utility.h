@@ -102,6 +102,8 @@ const static int V8MaxLiteralProperties = 8;
 bool isNopCast(const llvm::Value* val);
 bool isValidVoidPtrSource(const llvm::Value* val, std::set<const llvm::PHINode*>& visitedPhis);
 
+const llvm::IntToPtrInst* getAsIntToPtrInst(const llvm::Value* val);
+
 inline void assertPointerElementOrOpaque(llvm::Type* pointer, llvm::Type* pointee)
 {
 	assert(llvm::isa<llvm::PointerType>(pointer));
@@ -262,6 +264,7 @@ inline bool isBitCast(const llvm::Value* v)
 		{
 			case llvm::Intrinsic::cheerp_cast_user:
 			case llvm::Intrinsic::cheerp_upcast_collapsed:
+			case llvm::Intrinsic::cheerp_typed_ptrcast:
 				return true;
 			default:
 				break;
