@@ -628,6 +628,10 @@ TargetInfo *AllocateTarget(const llvm::Triple &Triple,
     return new SPIRV64TargetInfo(Triple, Opts);
   }
   case llvm::Triple::wasm32:
+    // Use the Cheerp backend for CheerpOS, even if the
+    // externally visible target is upstream wasm32
+    if (Triple.isCheerpOS())
+      return new CheerpTargetInfo(Triple);
     if (Triple.getSubArch() != llvm::Triple::NoSubArch ||
         Triple.getVendor() != llvm::Triple::UnknownVendor ||
         !Triple.isOSBinFormatWasm())

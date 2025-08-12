@@ -220,8 +220,14 @@ class CheerpTargetInfo : public TargetInfo {
 private:
     static const Builtin::Info BuiltinInfo[];
     bool hasSIMD = false;
+    static llvm::Triple filterTriple(const llvm::Triple &triple) {
+      llvm::Triple ret(triple);
+      // Override the internal architecture when dealing with the wasm32-cheerpos-linux target
+      ret.setArch(llvm::Triple::cheerp);
+      return ret;
+    }
 public:
-  CheerpTargetInfo(const llvm::Triple &triple) : TargetInfo(triple) {
+  CheerpTargetInfo(const llvm::Triple &triple) : TargetInfo(filterTriple(triple)) {
     resetDataLayout("b-e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i24:8:8-i32:32:32-"
                         "i64:64:64-f32:32:32-f64:64:64-"
                         "a:0:32-f16:16:16-f32:32:32-f64:64:64-n8:16:32-S64");
@@ -284,6 +290,8 @@ public:
     // Special handling for Cheerp, any name can be clobbered
     return true;
   }
+  bool isValidCPUName(StringRef Name) const final;
+  bool setCPU(const std::string &Name) final { return isValidCPUName(Name); }
 };
 } // namespace targets
 } // namespace clang

@@ -696,6 +696,11 @@ static llvm::Triple computeTargetTriple(const Driver &D,
       Target.setEnvironment(llvm::Triple::GenericJS);
   }
 
+  // Force a full triple when targeting CheerpOS
+  if (Target.getVendor() == llvm::Triple::CheerpOS) {
+    Target.setEnvironment(llvm::Triple::WebAssembly);
+  }
+
   return Target;
 }
 
@@ -5946,6 +5951,10 @@ const ToolChain &Driver::getToolChain(const ArgList &Args,
                                                               Args);
       else if (Target.getArch() == llvm::Triple::ve)
         TC = std::make_unique<toolchains::VEToolChain>(*this, Target, Args);
+      // Take over control of the toolchain when targeting CheerpOS,
+      // we don't want to use system includes and libraries
+      else if ((Target.getVendor() == llvm::Triple::CheerpOS))
+        TC = std::make_unique<toolchains::Cheerp>(*this, Target, Args);
 
       else
         TC = std::make_unique<toolchains::Linux>(*this, Target, Args);

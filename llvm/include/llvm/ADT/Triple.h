@@ -181,7 +181,8 @@ public:
     SUSE,
     OpenEmbedded,
     Leaningtech,
-    LastVendorType = Leaningtech
+    CheerpOS,
+    LastVendorType = CheerpOS
   };
   enum OSType {
     UnknownOS,
@@ -791,20 +792,24 @@ public:
 
   /// Tests whether the target is cheerp-wasm
   bool isCheerpWasm() const {
-    return getArch() == Triple::cheerp && getEnvironment() == Triple::WebAssembly;
+    return (getArch() == Triple::cheerp && getEnvironment() == Triple::WebAssembly) || isCheerpOS();
   }
 
   bool isCheerpWasi() const {
     return getArch() == Triple::cheerp && getOS() == Triple::WASI;
   }
 
+  bool isCheerpOS() const {
+    return getVendor() == Triple::CheerpOS;
+  }
+
   bool isCheerpWasmStandalone() const {
-    return isCheerpWasi();
+    return isCheerpWasi() || isCheerpOS();
   }
 
   /// Tests whether the target is cheerp (including cheerp-wasm and cheerp-genericjs)
   bool isCheerp() const{
-    return getArch() == Triple::cheerp;
+    return getArch() == Triple::cheerp || isCheerpOS();
   }
 
   /// Tests whether the target supports the EHABI exception

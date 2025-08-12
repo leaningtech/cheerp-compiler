@@ -564,7 +564,7 @@ void cheerp::Link::ConstructJob(Compilation &C, const JobAction &JA,
   const Driver &D = getToolChain().getDriver();
   const llvm::Triple& triple = getToolChain().getTriple();
   bool hasUnalignedMemory = true;
-  auto features = getWasmFeatures(D, Args);
+  auto features = getWasmFeatures(D, triple, Args);
   if(std::find(features.begin(), features.end(), UNALIGNEDMEM) == features.end())
     hasUnalignedMemory = false;
 
@@ -734,7 +734,7 @@ void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
     }
     CmdArgs.push_back(Args.MakeArgString(linearOut));
   }
-  auto features = getWasmFeatures(D, Args);
+  auto features = getWasmFeatures(D, triple, Args);
   if(std::find(features.begin(), features.end(), EXPORTEDTABLE) != features.end())
     CmdArgs.push_back("-cheerp-wasm-exported-table");
   if(std::find(features.begin(), features.end(), EXPORTEDMEMORY) != features.end())
@@ -816,14 +816,20 @@ static cheerp::CheerpWasmOpt parseWasmOpt(StringRef opt)
     .Default(cheerp::INVALID);
 }
 
-std::vector<cheerp::CheerpWasmOpt> cheerp::getWasmFeatures(const Driver& D, const ArgList& Args)
+std::vector<cheerp::CheerpWasmOpt> cheerp::getWasmFeatures(const Driver& D, const llvm::Triple& triple, const ArgList& Args)
 {
   // Figure out which Wasm optional feature to enable/disable
   std::vector<CheerpWasmOpt> features;
-  // We enable memory growth/globalization/unaligned memory accesses by default
+  // We enable memory growth and unaligned memory accesses by default
   features.push_back(GROWMEM);
   features.push_back(GLOBALIZATION);
   features.push_back(UNALIGNEDMEM);
+  // For CheerpOS we also force the memory to be imported and shared
+  if(triple.isCheerpOS()) {
+    features.push_back(IMPORTEDMEMORY);
+    features.push_back(SHAREDMEM);
+  }
+
   if(Arg* cheerpWasmEnable = Args.getLastArg(options::OPT_cheerp_wasm_enable_EQ)) {
     for (StringRef opt: cheerpWasmEnable->getValues())
     {
@@ -967,7 +973,7 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
   }
 
   // Figure out which Wasm optional feature to enable/disable
-  auto features = getWasmFeatures(D, Args);
+  auto features = getWasmFeatures(D, triple, Args);
   bool noGrowMem = true;
   bool noSIMD = true;
   bool noGlobalization = true;

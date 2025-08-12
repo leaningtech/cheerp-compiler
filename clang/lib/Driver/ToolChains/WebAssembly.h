@@ -49,7 +49,7 @@ namespace cheerp {
     GLOBALIZATION,
     UNALIGNEDMEM
   };
-  std::vector<CheerpWasmOpt> getWasmFeatures(const Driver& D, const llvm::opt::ArgList& Args);
+  std::vector<CheerpWasmOpt> getWasmFeatures(const Driver& D, const llvm::Triple& triple, const llvm::opt::ArgList& Args);
 
   class LLVM_LIBRARY_VISIBILITY Link : public Tool {
   public:

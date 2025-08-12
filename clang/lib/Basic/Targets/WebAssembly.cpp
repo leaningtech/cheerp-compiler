@@ -343,6 +343,12 @@ bool CheerpTargetInfo::handleTargetFeatures(
   return true;
 }
 
+bool CheerpTargetInfo::isValidCPUName(StringRef Name) const
+{
+  // Be compatible with the default CPU name of the Wasm target
+  return Name == "generic";
+}
+
 const Builtin::Info CheerpTargetInfo::BuiltinInfo[] = {
 #define BUILTIN(ID, TYPE, ATTRS) { #ID, TYPE, ATTRS, 0, ALL_LANGUAGES, nullptr},
 #define LIBBUILTIN(ID, TYPE, ATTRS, HEADER) { #ID, TYPE, ATTRS, HEADER,\
