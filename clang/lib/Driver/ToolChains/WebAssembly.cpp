@@ -562,6 +562,7 @@ void cheerp::Link::ConstructJob(Compilation &C, const JobAction &JA,
   }
 
   const Driver &D = getToolChain().getDriver();
+  const llvm::Triple& triple = getToolChain().getTriple();
   bool hasUnalignedMemory = true;
   auto features = getWasmFeatures(D, Args);
   if(std::find(features.begin(), features.end(), UNALIGNEDMEM) == features.end())
@@ -591,7 +592,7 @@ void cheerp::Link::ConstructJob(Compilation &C, const JobAction &JA,
       AddStdLib("libc.bc");
       AddStdLib("crt1.bc");
     }
-    if (getToolChain().getTriple().isCheerpWasi())
+    if (triple.isCheerpWasi())
       AddStdLib("libwasi.bc");
     else
       AddStdLib("libsystem.bc");
@@ -607,7 +608,7 @@ void cheerp::Link::ConstructJob(Compilation &C, const JobAction &JA,
     }
 
     if(((CheerpLinearOutput && CheerpLinearOutput->getValue() == StringRef("wasm")) ||
-       (!CheerpLinearOutput && getToolChain().getTriple().isCheerpWasm())) &&
+       (!CheerpLinearOutput && triple.isCheerpWasm())) &&
 	hasUnalignedMemory && (!Sanitizers || !Sanitizers->containsValue("address")))
     {
       // We omit libwasm when building with AddressSanitizer, since it defines
@@ -680,6 +681,7 @@ void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
                                           const char *LinkingOutput) const {
   ArgStringList CmdArgs;
   const Driver &D = getToolChain().getDriver();
+  const llvm::Triple& triple = getToolChain().getTriple();
 
   std::string optPasses = "";
   auto addPass = [&optPasses](const std::string& passInvocation)->void{
@@ -699,7 +701,7 @@ void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
     cheerpFixFuncCasts->render(Args, CmdArgs);
   if(Arg* cheerpUseBigInts = Args.getLastArg(options::OPT_cheerp_use_bigints))
     cheerpUseBigInts->render(Args, CmdArgs);
-  else if (getToolChain().getTriple().isCheerpWasmStandalone())
+  else if (triple.isCheerpWasmStandalone())
     CmdArgs.push_back("-cheerp-use-bigints");
 
   // Malloc/Free are probably intercepted when using sanitizers, don't optimize
@@ -721,7 +723,7 @@ void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
   else
   {
     std::string linearOut("-cheerp-linear-output=");
-    if (getToolChain().getTriple().isCheerpWasm())
+    if (triple.isCheerpWasm())
     {
       linearOut += "wasm";
     }
@@ -870,6 +872,7 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
                                           const ArgList &Args,
                                           const char *LinkingOutput) const {
   const Driver &D = getToolChain().getDriver();
+  const llvm::Triple& triple = getToolChain().getTriple();
 
   ArgStringList CmdArgs;
 
@@ -880,7 +883,7 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back(Output.getFilename());
   }
 
-  bool isCheerpWasm = getToolChain().getTriple().isCheerpWasm();
+  bool isCheerpWasm = triple.isCheerpWasm();
   Arg* cheerpLinearOutput = Args.getLastArg(options::OPT_cheerp_linear_output_EQ);
   if (cheerpLinearOutput)
     cheerpLinearOutput->render(Args, CmdArgs);
@@ -920,7 +923,7 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
   if(Arg* cheerpSecondaryOutputFile = Args.getLastArg(options::OPT_cheerp_secondary_output_file_EQ))
     cheerpSecondaryOutputFile->render(Args, CmdArgs);
   else if(
-      ((isCheerpWasm && !getToolChain().getTriple().isCheerpWasmStandalone() && !cheerpLinearOutput) ||
+      ((isCheerpWasm && !triple.isCheerpWasmStandalone() && !cheerpLinearOutput) ||
         (cheerpLinearOutput && cheerpLinearOutput->getValue() != StringRef("asmjs"))))
   {
     SmallString<64> path(Output.getFilename());
@@ -1080,7 +1083,7 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
     cheerpFixFuncCasts->render(Args, CmdArgs);
   if(Arg* cheerpUseBigInts = Args.getLastArg(options::OPT_cheerp_use_bigints))
     cheerpUseBigInts->render(Args, CmdArgs);
-  else if (getToolChain().getTriple().isCheerpWasmStandalone())
+  else if (triple.isCheerpWasmStandalone())
     CmdArgs.push_back("-cheerp-use-bigints");
   if(Arg* cheerpMakeDTS = Args.getLastArg(options::OPT_cheerp_make_dts))
     cheerpMakeDTS->render(Args, CmdArgs);
