@@ -594,6 +594,8 @@ void cheerp::Link::ConstructJob(Compilation &C, const JobAction &JA,
     }
     if (triple.isCheerpWasi())
       AddStdLib("libwasi.bc");
+    else if (triple.isCheerpOS())
+      AddStdLib("libcheerpos.bc");
     else
       AddStdLib("libsystem.bc");
 
