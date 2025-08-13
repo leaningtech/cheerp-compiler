@@ -747,12 +747,21 @@ void LinearMemoryHelper::addMemoryInfo()
 
 	//Align to 8 bytes
 	heapStart = (heapStart + 7) & ~7;
-	setGlobalPtrIfPresent("_heapStart", heapStart);
 
 	uint32_t heapEnd = growMem ? heapStart : memorySize;
 	// Align heapEnd to a wasm page size
 	heapEnd = (heapEnd + 65535) & ~65535;
-	setGlobalPtrIfPresent("_heapEnd", heapEnd);
+
+	if(WasmSharedModule)
+	{
+		setGlobalPtrIfPresent("_heapStart", 0);
+		setGlobalPtrIfPresent("_heapEnd", 0);
+	}
+	else
+	{
+		setGlobalPtrIfPresent("_heapStart", heapStart);
+		setGlobalPtrIfPresent("_heapEnd", heapEnd);
+	}
 
 	// Set the values for the thread local storage.
 	setGlobalUInt32IfPresent("__tlsImage", threadLocalStart);
