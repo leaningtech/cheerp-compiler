@@ -491,6 +491,8 @@ void TargetInfo::adjust(DiagnosticsEngine &Diags, LangOptions &Opts) {
 
   if (Opts.MaxBitIntWidth)
     MaxBitIntWidth = Opts.MaxBitIntWidth;
+
+  Opts.Cheerp = getTriple().isCheerp();
 }
 
 bool TargetInfo::initFeatureMap(
