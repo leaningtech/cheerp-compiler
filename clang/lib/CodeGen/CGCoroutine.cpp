@@ -397,7 +397,7 @@ struct CallCoroEnd final : public EHScopeStack::Cleanup {
   void Emit(CodeGenFunction &CGF, Flags flags) override {
     auto &CGM = CGF.CGM;
     auto *NullPtr = llvm::ConstantPointerNull::get(CGF.Int8PtrTy);
-    llvm::Function *CoroEndFn = CGM.getIntrinsic(llvm::Intrinsic::coro_end);
+    llvm::Function *CoroEndFn = CGM.getIntrinsic(llvm::Intrinsic::coro_end, {CGF.Int8PtrTy});
     // See if we have a funclet bundle to associate coro.end with. (WinEH)
     auto Bundles = getBundlesForCoroEnd(CGF);
     auto *CoroEnd = CGF.Builder.CreateCall(
@@ -722,11 +722,16 @@ RValue CodeGenFunction::EmitCoroutineIntrinsic(const CallExpr *E,
   case llvm::Intrinsic::coro_resume:
   case llvm::Intrinsic::coro_destroy:
   case llvm::Intrinsic::coro_done:
+  case llvm::Intrinsic::coro_end:
     F = CGM.getIntrinsic(IID, {Int8PtrTy});
     break;
+  case llvm::Intrinsic::coro_begin:
   case llvm::Intrinsic::coro_free:
   case llvm::Intrinsic::coro_promise:
     F = CGM.getIntrinsic(IID, {Int8PtrTy, Int8PtrTy});
+    break;
+  case llvm::Intrinsic::coro_id:
+    F = CGM.getIntrinsic(IID, {Int8PtrTy, FnVoidPtrTy, Int8PtrTy});
     break;
   }
   llvm::CallInst *Call = Builder.CreateCall(F, Args);
