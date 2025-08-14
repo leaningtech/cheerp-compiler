@@ -3491,7 +3491,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
   case Builtin::BI__builtin_mempcpy: {
     const Expr *DestE = E->getArg(0);
     const Expr *SrcE = E->getArg(1);
-    if (!getTarget().isByteAddressable())
+    if (getLangOpts().Cheerp)
     {
       const Expr *TypedDestE = EmitCheerpTypedMemIntrinsicArg(DestE);
       const Expr *TypedSrcE = EmitCheerpTypedMemIntrinsicArg(SrcE);
