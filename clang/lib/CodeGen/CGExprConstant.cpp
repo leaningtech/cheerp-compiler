@@ -979,7 +979,9 @@ bool ConstStructBuilder::UpdateStruct(ConstantEmitter &Emitter,
 //===----------------------------------------------------------------------===//
 
 static bool isAsmJSContext(CodeGenModule &CGM, CodeGenFunction *CGF, const Expr *E) {
-  if (CGF && CGF->CurFn) {
+  if (!CGM.getLangOpts().Cheerp) {
+    return false;
+  } else if (CGF && CGF->CurFn) {
     return CGF->CurFn->getSection() == StringRef("asmjs");
   } else if (CGM.getInitializedGlobalDecl()->getDecl()) {
     return CGM.getInitializedGlobalDecl()->getDecl()->hasAttr<AsmJSAttr>();
