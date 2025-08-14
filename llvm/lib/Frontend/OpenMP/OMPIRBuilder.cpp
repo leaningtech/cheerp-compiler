@@ -4731,7 +4731,7 @@ void OpenMPIRBuilder::initializeTypes(Module &M) {
 #define OMP_TYPE(VarName, InitValue) VarName = InitValue;
 #define OMP_ARRAY_TYPE(VarName, ElemTy, ArraySize)                             \
   VarName##Ty = ArrayType::get(ElemTy, ArraySize);                             \
-  VarName##PtrTy = PointerType::getUnqual(VarName##Ty);
+  VarName##PtrTy = PointerType::get(VarName##Ty, AS);
 #define OMP_FUNCTION_TYPE(VarName, IsVarArg, ReturnType, ...)                  \
   VarName = FunctionType::get(ReturnType, {__VA_ARGS__}, IsVarArg);            \
   VarName##Ptr = PointerType::get(VarName, FAS);
