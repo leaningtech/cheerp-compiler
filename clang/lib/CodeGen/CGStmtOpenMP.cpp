@@ -26,6 +26,7 @@
 #include "clang/Basic/PrettyStackTrace.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/BinaryFormat/Dwarf.h"
+#include "llvm/Cheerp/AddressSpaces.h"
 #include "llvm/Frontend/OpenMP/OMPConstants.h"
 #include "llvm/Frontend/OpenMP/OMPIRBuilder.h"
 #include "llvm/IR/Constants.h"
@@ -514,9 +515,13 @@ static llvm::Function *emitOutlinedFunctionPrologue(
       CGM.getTypes().arrangeBuiltinFunctionDeclaration(Ctx.VoidTy, TargetArgs);
   llvm::FunctionType *FuncLLVMTy = CGM.getTypes().GetFunctionType(FuncInfo);
 
+  unsigned AS = CGM.getDataLayout().getProgramAddressSpace();
+  if (CGM.getLangOpts().Cheerp) {
+    AS = unsigned(CGM.getTarget().getTriple().isCheerpWasm()? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+  }
   auto *F =
       llvm::Function::Create(FuncLLVMTy, llvm::GlobalValue::InternalLinkage,
-                             FO.FunctionName, &CGM.getModule());
+                             AS, FO.FunctionName, &CGM.getModule());
   CGM.SetInternalFunctionAttributes(CD, F, FuncInfo);
   if (CD->isNothrow())
     F->setDoesNotThrow();
@@ -528,6 +533,9 @@ static llvm::Function *emitOutlinedFunctionPrologue(
     F->addFnAttr(llvm::Attribute::AlwaysInline);
   }
 
+  if (CGM.getLangOpts().Cheerp && CGM.getTarget().getTriple().isCheerpWasm()) {
+    F->setSection("asmjs");
+  }
   // Generate the function.
   CGF.StartFunction(CD, Ctx.VoidTy, F, FuncInfo, TargetArgs,
                     FO.UIntPtrCastRequired ? FO.Loc : FO.S->getBeginLoc(),

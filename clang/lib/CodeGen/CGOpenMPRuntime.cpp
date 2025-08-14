@@ -1481,13 +1481,19 @@ llvm::Type *CGOpenMPRuntime::getIdentTyPointerTy() {
 }
 
 llvm::Type *CGOpenMPRuntime::getKmpc_MicroPointerTy() {
+  unsigned AS = 0;
+  unsigned FAS = 0;
+  if (CGM.getLangOpts().Cheerp) {
+    AS = unsigned(CGM.getTarget().getTriple().isCheerpWasm()? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+    FAS = unsigned(CGM.getTarget().getTriple().isCheerpWasm()? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::Client);
+  }
   if (!Kmpc_MicroTy) {
     // Build void (*kmpc_micro)(kmp_int32 *global_tid, kmp_int32 *bound_tid,...)
-    llvm::Type *MicroParams[] = {llvm::PointerType::getUnqual(CGM.Int32Ty),
-                                 llvm::PointerType::getUnqual(CGM.Int32Ty)};
+    llvm::Type *MicroParams[] = {llvm::PointerType::get(CGM.Int32Ty, AS),
+                                 llvm::PointerType::get(CGM.Int32Ty, AS)};
     Kmpc_MicroTy = llvm::FunctionType::get(CGM.VoidTy, MicroParams, true);
   }
-  return llvm::PointerType::getUnqual(Kmpc_MicroTy);
+  return llvm::PointerType::get(Kmpc_MicroTy, FAS);
 }
 
 llvm::FunctionCallee
@@ -1573,11 +1579,11 @@ CGOpenMPRuntime::createDispatchNextFunction(unsigned IVSize, bool IVSigned) {
           ? (IVSigned ? "__kmpc_dispatch_next_4" : "__kmpc_dispatch_next_4u")
           : (IVSigned ? "__kmpc_dispatch_next_8" : "__kmpc_dispatch_next_8u");
   llvm::Type *ITy = IVSize == 32 ? CGM.Int32Ty : CGM.Int64Ty;
-  auto *PtrTy = llvm::PointerType::getUnqual(ITy);
+  auto *PtrTy = llvm::PointerType::get(ITy, CGM.DefaultAS);
   llvm::Type *TypeParams[] = {
     getIdentTyPointerTy(),                     // loc
     CGM.Int32Ty,                               // tid
-    llvm::PointerType::getUnqual(CGM.Int32Ty), // p_lastiter
+    llvm::PointerType::get(CGM.Int32Ty, CGM.DefaultAS), // p_lastiter
     PtrTy,                                     // p_lower
     PtrTy,                                     // p_upper
     PtrTy                                      // p_stride
@@ -5005,8 +5011,12 @@ llvm::Function *CGOpenMPRuntime::emitReductionFunction(
   const auto &CGFI =
       CGM.getTypes().arrangeBuiltinFunctionDeclaration(C.VoidTy, Args);
   std::string Name = getName({"omp", "reduction", "reduction_func"});
+  unsigned AS = CGM.getDataLayout().getProgramAddressSpace();
+  if (CGM.getLangOpts().Cheerp) {
+    AS = unsigned(CGM.getTarget().getTriple().isCheerpWasm()? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+  }
   auto *Fn = llvm::Function::Create(CGM.getTypes().GetFunctionType(CGFI),
-                                    llvm::GlobalValue::InternalLinkage, Name,
+                                    llvm::GlobalValue::InternalLinkage, AS, Name,
                                     &CGM.getModule());
   CGM.SetInternalFunctionAttributes(GlobalDecl(), Fn, CGFI);
   Fn->setDoesNotRecurse();
