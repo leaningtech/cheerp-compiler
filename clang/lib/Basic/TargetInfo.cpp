@@ -493,6 +493,8 @@ void TargetInfo::adjust(DiagnosticsEngine &Diags, LangOptions &Opts) {
     MaxBitIntWidth = Opts.MaxBitIntWidth;
 
   Opts.Cheerp = getTriple().isCheerp();
+
+  Opts.Cheerp = getTriple().isCheerp() && !(Opts.ObjC || Opts.CUDA || Opts.OpenCL || Opts.HLSL || Opts.isSYCL());
 }
 
 bool TargetInfo::initFeatureMap(
