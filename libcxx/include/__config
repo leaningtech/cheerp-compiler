@@ -376,7 +376,7 @@
 #  if defined(__APPLE__) || defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__) ||                     \
       defined(__DragonFly__) || defined(__sun__)
 #    define _LIBCPP_USING_ARC4_RANDOM
-#  elif defined(__wasi__) || defined(__EMSCRIPTEN__)
+#  elif defined(__wasi__) || defined(__EMSCRIPTEN__) || defined(__CHEERP__)
 #    define _LIBCPP_USING_GETENTROPY
 #  elif defined(__Fuchsia__)
 #    define _LIBCPP_USING_FUCHSIA_CPRNG

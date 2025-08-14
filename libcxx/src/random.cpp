@@ -25,12 +25,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#if defined(__CHEERP__)
-#include <cheerp/clientlib.h>
-#endif
-
 #if defined(_LIBCPP_USING_GETENTROPY)
 #   include <sys/random.h>
+#   include <unistd.h>
 #elif defined(_LIBCPP_USING_DEV_RANDOM)
 #   include <fcntl.h>
 #   include <unistd.h>
@@ -62,15 +59,19 @@ random_device::~random_device()
 unsigned
 random_device::operator()()
 {
-    unsigned r;
+    union
+    {
+      unsigned r;
+      unsigned char c[sizeof(r)];
+    };
     size_t n = sizeof(r);
-    int err = getentropy(&r, n);
+    int err = getentropy(c, n);
     if (err)
         __throw_system_error(errno, "random_device getentropy failed");
     return r;
 }
 
-#elif defined(_LIBCPP_USING_ARC4_RANDOM) || defined(__CHEERP__)
+#elif defined(_LIBCPP_USING_ARC4_RANDOM)
 
 random_device::random_device(const string&)
 {
@@ -80,17 +81,10 @@ random_device::~random_device()
 {
 }
 
-#ifdef __CHEERP__
-[[cheerp::genericjs]]
-#endif
 unsigned
 random_device::operator()()
 {
-#ifdef __CHEERP__
-    return client::Math.random() * (65536.0 * 65536.0);
-#else
     return arc4random();
-#endif
 }
 
 #elif defined(_LIBCPP_USING_DEV_RANDOM)

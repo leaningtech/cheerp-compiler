@@ -66,9 +66,6 @@ public:
     ~random_device();
 
     // generating functions
-#ifdef __CHEERP__
-    [[cheerp::genericjs]]
-#endif
     result_type operator()();
 
     // property functions
