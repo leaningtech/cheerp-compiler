@@ -168,11 +168,6 @@ void LangOptions::setLangDefaults(LangOptions &Opts, Language Lang,
       }
     }
   }
-  Opts.Cheerp = T.isCheerp();
-  if (Opts.Cheerp) {
-    Opts.CheerpDefaultEnv = T.isCheerpGenericJS() ? GenericJS : Wasm;
-  }
-
   Opts.HIP = Lang == Language::HIP;
   Opts.CUDA = Lang == Language::CUDA || Opts.HIP;
   if (Opts.HIP) {
@@ -201,6 +196,13 @@ void LangOptions::setLangDefaults(LangOptions &Opts, Language Lang,
 
   // OpenCL and HLSL have half keyword
   Opts.Half = Opts.OpenCL || Opts.HLSL;
+
+  Opts.Cheerp = T.isCheerp() && !(Opts.ObjC);
+  Opts.Cheerp = T.isCheerp() && !(Opts.ObjC || Opts.CUDA || Opts.OpenCL || Opts.HLSL || Opts.isSYCL());
+  if (Opts.Cheerp) {
+    Opts.CheerpDefaultEnv = T.isCheerpGenericJS() ? GenericJS : Wasm;
+  }
+
 }
 
 FPOptions FPOptions::defaultWithoutTrailingStorage(const LangOptions &LO) {
