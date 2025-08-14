@@ -1349,7 +1349,7 @@ static RValue EmitNewDeleteCall(CodeGenFunction &CGF,
   CGCallee Callee = CGCallee::forDirect(CalleePtr, GlobalDecl(CalleeDecl));
 
   RValue RV;
-  bool cheerp = !CGF.getTarget().isByteAddressable();
+  bool cheerp = CGF.getLangOpts().Cheerp;
   bool asmjs = CGF.CurFn->getSection() == StringRef("asmjs");
   bool user_defined_new = false;
   // CHEERP: in Wasm, we use cheerp_allocate/deallocate only for:
