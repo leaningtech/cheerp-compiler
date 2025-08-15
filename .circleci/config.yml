@@ -329,7 +329,7 @@ jobs:
             rm -rf cheerp-compiler/
 
             FIRST=yes
-            for DISTRO in mantic jammy
+            for DISTRO in jammy noble
             do
               cd
               cp ~/project/packages/cheerp-core_$VERSION_NO.orig-cheerp-libs.tar.gz .
