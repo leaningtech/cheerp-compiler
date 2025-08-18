@@ -3476,7 +3476,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
   case Builtin::BI__builtin_mempcpy: {
     const Expr *DestE = E->getArg(0);
     const Expr *SrcE = E->getArg(1);
-    if (!getTarget().isByteAddressable())
+    if (getLangOpts().Cheerp)
     {
       // There might be an address space cast. If so, skip it
       const CastExpr *DestCast = dyn_cast<CastExpr>(DestE);
@@ -3488,7 +3488,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
         SrcE = SrcCast->getSubExpr();
       }
     }
-    if (!asmjs && !getTarget().isByteAddressable())
+    if (getLangOpts().Cheerp && !asmjs)
     {
       // There must be a cast from a valid type to void*
       const CastExpr *DestCast = dyn_cast<CastExpr>(DestE);
