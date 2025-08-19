@@ -718,6 +718,11 @@ void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
       << cheerpStrictLinkingEq->getAsString(Args) << cheerpStrictLinkingEq->getValue();
     }
     cheerpStrictLinkingEq->render(Args, CmdArgs);
+  } else if (triple.isCheerpOS() && !Args.hasArg(options::OPT_shared)) {
+    // Force strict-linking mode when generating executables for CheerpOS. Libraries are excluded for now.
+    // Strict-linking is required for feature detection in build systems.
+    // TODO: In the case of libraries, the right approach is to resolve imports from other libraries at compile time
+    CmdArgs.push_back("-cheerp-strict-linking=error");
   }
 
   if(Arg* cheerpLinearOutput = Args.getLastArg(options::OPT_cheerp_linear_output_EQ))
