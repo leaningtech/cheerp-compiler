@@ -193,7 +193,8 @@ bool CheerpWritePass::runOnModule(Module& M)
   PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
 
   ModulePassManager MPM;
-  bool isWasmTarget = Triple(M.getTargetTriple()).isCheerpWasm();
+  Triple triple(M.getTargetTriple());
+  bool isWasmTarget = triple.isCheerpWasm();
   cheerp::GlobalDepsAnalyzer::MATH_MODE mathMode;
   if (NoNativeJavaScriptMath)
     mathMode = cheerp::GlobalDepsAnalyzer::NO_BUILTINS;
@@ -210,7 +211,7 @@ bool CheerpWritePass::runOnModule(Module& M)
                  functionAddressMode == cheerp::LinearMemoryHelperInitializer::FunctionAddressMode::Wasm &&
                  // NOTE: this is not actually required by the spec, but for now chrome
                  // doesn't like growing shared memory
-                 (!WasmSharedMemory || WasmSharedModule);
+                 ((!WasmSharedMemory || triple.isCheerpWasmStandalone()) || WasmSharedModule);
   bool hasAsmjsMem = functionAddressMode == cheerp::LinearMemoryHelperInitializer::FunctionAddressMode::AsmJS &&
                      (!SecondaryOutputFile.empty() || !SecondaryOutputPath.empty());
 
