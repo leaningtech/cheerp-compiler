@@ -1622,6 +1622,7 @@ int GlobalDepsAnalyzer::filterModule( const DenseSet<const Function*>& droppedMa
 	// Determine target mode for this module
 	Triple triple(module.getTargetTriple());
 	bool tripleIsWasi = triple.isCheerpWasi();
+	bool tripleIsCheerpOS = triple.isCheerpOS();
 	
 	// Detach all the global variables, and put the unused ones in the eraseQueue
 	for ( Module::global_iterator it = module.global_begin(); it != module.global_end(); )
@@ -1669,6 +1670,8 @@ int GlobalDepsAnalyzer::filterModule( const DenseSet<const Function*>& droppedMa
 			!TypeSupport::isClientFunc(f) && !TypeSupport::isClientConstructorName(f->getName()) &&
 			// Allow WASI imports if needed
 			!(tripleIsWasi && TypeSupport::isWasiFuncName(f->getName())) &&
+			// Allow CheerpOS imports if needed
+			!(tripleIsCheerpOS && TypeSupport::isCheerpOSFuncName(f->getName())) &&
 			// Special case "free" here, it might be used in genericjs code and lowered by the backend
 			f->getName() != "free" &&
 			// Special case "__memory_init", it will be populated just before the writer.
