@@ -1618,6 +1618,10 @@ void GlobalDepsAnalyzer::removeGlobalDestructors(llvm::Module& M)
 int GlobalDepsAnalyzer::filterModule( const DenseSet<const Function*>& droppedMathBuiltins, Module & module )
 {
 	std::vector< llvm::GlobalValue * > eraseQueue;
+
+	// Determine target mode for this module
+	Triple triple(module.getTargetTriple());
+	bool tripleIsWasi = triple.isCheerpWasi();
 	
 	// Detach all the global variables, and put the unused ones in the eraseQueue
 	for ( Module::global_iterator it = module.global_begin(); it != module.global_end(); )
@@ -1663,7 +1667,8 @@ int GlobalDepsAnalyzer::filterModule( const DenseSet<const Function*>& droppedMa
 		}
 		else if(!droppedMathBuiltins.count(f) && f->getIntrinsicID()==0 &&
 			!TypeSupport::isClientFunc(f) && !TypeSupport::isClientConstructorName(f->getName()) &&
-			!TypeSupport::isWasiFuncName(f->getName()) &&
+			// Allow WASI imports if needed
+			!(tripleIsWasi && TypeSupport::isWasiFuncName(f->getName())) &&
 			// Special case "free" here, it might be used in genericjs code and lowered by the backend
 			f->getName() != "free" &&
 			// Special case "__memory_init", it will be populated just before the writer.
