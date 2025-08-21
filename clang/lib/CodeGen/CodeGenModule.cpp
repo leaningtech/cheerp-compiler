@@ -154,6 +154,7 @@ CodeGenModule::CodeGenModule(ASTContext &C,
   GlobalsInt8PtrTy = Int8Ty->getPointerTo(DL.getDefaultGlobalsAddressSpace());
   ASTAllocaAddressSpace = getTargetCodeGenInfo().getASTAllocaAddressSpace();
 
+  AS0VoidPtrTy = Int8Ty->getPointerTo(0);
   WasmVoidPtrTy = Int8Ty->getPointerTo(unsigned(cheerp::CheerpAS::Wasm));
   GenericJSVoidPtrTy = Int8Ty->getPointerTo(unsigned(cheerp::CheerpAS::GenericJS));
   ClientVoidPtrTy = Int8Ty->getPointerTo(unsigned(cheerp::CheerpAS::Client));
