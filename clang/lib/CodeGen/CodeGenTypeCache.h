@@ -77,6 +77,7 @@ struct CodeGenTypeCache {
   };
 
   // Cheerp-specific pointer types
+  llvm::PointerType* AS0VoidPtrTy;
   llvm::PointerType* WasmVoidPtrTy;
   llvm::PointerType* GenericJSVoidPtrTy;
   llvm::PointerType* ClientVoidPtrTy;
