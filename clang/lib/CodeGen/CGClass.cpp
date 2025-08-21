@@ -3066,7 +3066,7 @@ void CodeGenFunction::EmitTypeMetadataCodeForVCall(const CXXRecordDecl *RD,
     llvm::Value *TypeId =
         llvm::MetadataAsValue::get(CGM.getLLVMContext(), MD);
 
-    llvm::Value *CastedVTable = Builder.CreateBitCast(VTable, Int8PtrTy);
+    llvm::Value *CastedVTable = Builder.CreatePointerBitCastOrAddrSpaceCast(VTable, Int8Ty->getPointerTo());
     // If we already know that the call has hidden LTO visibility, emit
     // @llvm.type.test(). Otherwise emit @llvm.public.type.test(), which WPD
     // will convert to @llvm.type.test() if we assert at link time that we have
@@ -3179,7 +3179,7 @@ void CodeGenFunction::EmitVTablePtrCheck(const CXXRecordDecl *RD,
       CGM.CreateMetadataIdentifierForType(QualType(RD->getTypeForDecl(), 0));
   llvm::Value *TypeId = llvm::MetadataAsValue::get(getLLVMContext(), MD);
 
-  llvm::Value *CastedVTable = Builder.CreateBitCast(VTable, Int8PtrTy);
+  llvm::Value *CastedVTable = Builder.CreatePointerBitCastOrAddrSpaceCast(VTable, Int8Ty->getPointerTo());
   llvm::Value *TypeTest = Builder.CreateCall(
       CGM.getIntrinsic(llvm::Intrinsic::type_test), {CastedVTable, TypeId});
 
