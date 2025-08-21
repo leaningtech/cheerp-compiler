@@ -9,7 +9,7 @@ void f(int n) {
   int promise;
 
   // CHECK: %[[PROM_ADDR:.+]] = bitcast i32* %promise to i8*
-  // CHECK-NEXT: %[[COROID:.+]] = call token @llvm.coro.id(i32 32, i8* %[[PROM_ADDR]], i8* null, i8* null)
+  // CHECK-NEXT: %[[COROID:.+]] = call token @llvm.coro.id.p0i8.p0i8.p0i8(i32 32, i8* %[[PROM_ADDR]], i8* null, i8* null)
   __builtin_coro_id(32, &promise, 0, 0);
 
   // CHECK-NEXT: call i1 @llvm.coro.alloc(token %[[COROID]])
@@ -20,25 +20,25 @@ void f(int n) {
 
   // CHECK-NEXT: %[[SIZE:.+]] = call i64 @llvm.coro.size.i64()
   // CHECK-NEXT: %[[MEM:.+]] = call i8* @myAlloc(i64 noundef %[[SIZE]])
-  // CHECK-NEXT: %[[FRAME:.+]] = call i8* @llvm.coro.begin(token %[[COROID]], i8* %[[MEM]])
+  // CHECK-NEXT: %[[FRAME:.+]] = call i8* @llvm.coro.begin.p0i8.p0i8(token %[[COROID]], i8* %[[MEM]])
   __builtin_coro_begin(myAlloc(__builtin_coro_size()));
 
-  // CHECK-NEXT: call void @llvm.coro.resume(i8* %[[FRAME]])
+  // CHECK-NEXT: call void @llvm.coro.resume.p0i8(i8* %[[FRAME]])
   __builtin_coro_resume(__builtin_coro_frame());
 
-  // CHECK-NEXT: call void @llvm.coro.destroy(i8* %[[FRAME]])
+  // CHECK-NEXT: call void @llvm.coro.destroy.p0i8(i8* %[[FRAME]])
   __builtin_coro_destroy(__builtin_coro_frame());
 
-  // CHECK-NEXT: call i1 @llvm.coro.done(i8* %[[FRAME]])
+  // CHECK-NEXT: call i1 @llvm.coro.done.p0i8(i8* %[[FRAME]])
   __builtin_coro_done(__builtin_coro_frame());
 
-  // CHECK-NEXT: call i8* @llvm.coro.promise(i8* %[[FRAME]], i32 48, i1 false)
+  // CHECK-NEXT: call i8* @llvm.coro.promise.p0i8.p0i8(i8* %[[FRAME]], i32 48, i1 false)
   __builtin_coro_promise(__builtin_coro_frame(), 48, 0);
 
-  // CHECK-NEXT: call i8* @llvm.coro.free(token %[[COROID]], i8* %[[FRAME]])
+  // CHECK-NEXT: call i8* @llvm.coro.free.p0i8.p0i8(token %[[COROID]], i8* %[[FRAME]])
   __builtin_coro_free(__builtin_coro_frame());
 
-  // CHECK-NEXT: call i1 @llvm.coro.end(i8* %[[FRAME]], i1 false)
+  // CHECK-NEXT: call i1 @llvm.coro.end.p0i8(i8* %[[FRAME]], i1 false)
   __builtin_coro_end(__builtin_coro_frame(), 0);
 
   // CHECK-NEXT: call i8 @llvm.coro.suspend(token none, i1 true)

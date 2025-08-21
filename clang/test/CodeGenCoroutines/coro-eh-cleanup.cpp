@@ -60,7 +60,7 @@ coro_t f() {
 
 // CHECK: [[COROENDBB]]:
 // CHECK-NEXT: %[[CLPAD:.+]] = cleanuppad within none
-// CHECK-NEXT: call i1 @llvm.coro.end(i8* null, i1 true) [ "funclet"(token %[[CLPAD]]) ]
+// CHECK-NEXT: call i1 @llvm.coro.end.p0i8(i8* null, i1 true) [ "funclet"(token %[[CLPAD]]) ]
 // CHECK-NEXT: cleanupret from %[[CLPAD]] unwind label
 
 // CHECK-LPAD: @_Z1fv(
@@ -76,7 +76,7 @@ coro_t f() {
 // CHECK-LPAD:             to label %{{.+}} unwind label %[[UNWINDBB:.+]]
 
 // CHECK-LPAD: [[UNWINDBB]]:
-// CHECK-LPAD:   %[[I1RESUME:.+]] = call i1 @llvm.coro.end(i8* null, i1 true)
+// CHECK-LPAD:   %[[I1RESUME:.+]] = call i1 @llvm.coro.end.p0i8(i8* null, i1 true)
 // CHECK-LPAD:   br i1  %[[I1RESUME]], label %[[EHRESUME:.+]], label
 // CHECK-LPAD: [[EHRESUME]]:
 // CHECK-LPAD-NEXT:  %[[exn:.+]] = load i8*, i8** %exn.slot, align 8

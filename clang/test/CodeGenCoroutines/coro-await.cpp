@@ -51,13 +51,13 @@ struct std::coroutine_traits<void> {
 
 // CHECK-LABEL: f0(
 extern "C" void f0() {
-  // CHECK: %[[FRAME:.+]] = call i8* @llvm.coro.begin(
+  // CHECK: %[[FRAME:.+]] = call i8* @llvm.coro.begin.p0i8.p0i8(
 
   // See if initial_suspend was issued:
   // ----------------------------------
   // CHECK: call void @_ZNSt16coroutine_traitsIJvEE12promise_type15initial_suspendEv(
   // CHECK-NEXT: call zeroext i1 @_ZN9init_susp11await_readyEv(%struct.init_susp*
-  // CHECK: %[[INITSP_ID:.+]] = call token @llvm.coro.save(
+  // CHECK: %[[INITSP_ID:.+]] = call token @llvm.coro.save.p0i8(
   // CHECK: call i8 @llvm.coro.suspend(token %[[INITSP_ID]], i1 false)
 
   co_await suspend_always{};
@@ -69,7 +69,7 @@ extern "C" void f0() {
   // If we are suspending:
   // ---------------------
   // CHECK: [[SUSPEND_BB]]:
-  // CHECK: %[[SUSPEND_ID:.+]] = call token @llvm.coro.save(
+  // CHECK: %[[SUSPEND_ID:.+]] = call token @llvm.coro.save.p0i8(
   // ---------------------------
   // Build the coroutine handle and pass it to await_suspend
   // ---------------------------
@@ -99,7 +99,7 @@ extern "C" void f0() {
   // ----------------------------------
   // CHECK: call void @_ZNSt16coroutine_traitsIJvEE12promise_type13final_suspendEv(
   // CHECK-NEXT: call zeroext i1 @_ZN10final_susp11await_readyEv(%struct.final_susp*
-  // CHECK: %[[FINALSP_ID:.+]] = call token @llvm.coro.save(
+  // CHECK: %[[FINALSP_ID:.+]] = call token @llvm.coro.save.p0i8(
   // CHECK: call i8 @llvm.coro.suspend(token %[[FINALSP_ID]], i1 true)
 }
 
@@ -125,7 +125,7 @@ struct std::coroutine_traits<void, int> {
 // CHECK-LABEL: f1(
 extern "C" void f1(int) {
   // CHECK: %[[PROMISE:.+]] = alloca %"struct.std::coroutine_traits<void, int>::promise_type"
-  // CHECK: %[[FRAME:.+]] = call i8* @llvm.coro.begin(
+  // CHECK: %[[FRAME:.+]] = call i8* @llvm.coro.begin.p0i8.p0i8(
   co_yield 42;
   // CHECK: call void @_ZNSt16coroutine_traitsIJviEE12promise_type11yield_valueEi(%struct.suspend_maybe* sret(%struct.suspend_maybe) align 4 %[[AWAITER:.+]], %"struct.std::coroutine_traits<void, int>::promise_type"* {{[^,]*}} %[[PROMISE]], i32 42)
 
@@ -137,7 +137,7 @@ extern "C" void f1(int) {
   // If we are suspending:
   // ---------------------
   // CHECK: [[SUSPEND_BB]]:
-  // CHECK: %[[SUSPEND_ID:.+]] = call token @llvm.coro.save(
+  // CHECK: %[[SUSPEND_ID:.+]] = call token @llvm.coro.save.p0i8(
   // ---------------------------
   // Build the coroutine handle and pass it to await_suspend
   // ---------------------------
@@ -257,7 +257,7 @@ extern "C" void TestOpAwait() {
 
 // CHECK-LABEL: EndlessLoop(
 extern "C" void EndlessLoop() {
-  // CHECK: %[[FRAME:.+]] = call i8* @llvm.coro.begin(
+  // CHECK: %[[FRAME:.+]] = call i8* @llvm.coro.begin.p0i8.p0i8(
 
   // See if initial_suspend was issued:
   // ----------------------------------
@@ -346,5 +346,5 @@ extern "C" void TestTailcall() {
   // CHECK: %[[COERCE:.+]] = getelementptr inbounds %"struct.std::coroutine_handle", %"struct.std::coroutine_handle"* %[[TMP:.+]], i32 0, i32 0
   // CHECK: store i8* %[[RESULT]], i8** %[[COERCE]]
   // CHECK: %[[ADDR:.+]] = call i8* @_ZNSt16coroutine_handleIvE7addressEv(%"struct.std::coroutine_handle"* {{[^,]*}} %[[TMP]])
-  // CHECK: call void @llvm.coro.resume(i8* %[[ADDR]])
+  // CHECK: call void @llvm.coro.resume.p0i8(i8* %[[ADDR]])
 }

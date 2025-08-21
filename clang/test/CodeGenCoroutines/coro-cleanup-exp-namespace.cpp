@@ -80,11 +80,11 @@ void f() {
 
   // CHECK: [[Cleanup]]:
   // CHECK: call void @_ZNSt12experimental16coroutine_traitsIJvEE12promise_typeD1Ev(
-  // CHECK: %[[Mem0:.+]] = call i8* @llvm.coro.free(
+  // CHECK: %[[Mem0:.+]] = call i8* @llvm.coro.free.p0i8.p0i8(
   // CHECK: call void @_ZdlPv(i8* noundef %[[Mem0]]
 
   // CHECK: [[Dealloc]]:
-  // CHECK:   %[[Mem:.+]] = call i8* @llvm.coro.free(
+  // CHECK:   %[[Mem:.+]] = call i8* @llvm.coro.free.p0i8.p0i8(
   // CHECK:   call void @_ZdlPv(i8* noundef %[[Mem]])
 
   co_return;

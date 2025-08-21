@@ -49,7 +49,7 @@ detached_task foo() {
 
 // check that the lifetime of the coroutine handle used to obtain the address is contained within single basic block, and hence does not live across suspension points.
 // CHECK-LABEL: final.suspend:
-// CHECK:         %{{.+}} = call token @llvm.coro.save(i8* null)
+// CHECK:         %{{.+}} = call token @llvm.coro.save.p0i8(i8* null)
 // CHECK:         %[[HDL_CAST1:.+]] = bitcast %"struct.std::coroutine_handle.0"* %[[HDL:.+]] to i8*
 // CHECK:         call void @llvm.lifetime.start.p0i8(i64 8, i8* %[[HDL_CAST1]])
 // CHECK:         %[[CALL:.+]] = call i8* @_ZN13detached_task12promise_type13final_awaiter13await_suspendESt16coroutine_handleIS0_E(
@@ -58,4 +58,4 @@ detached_task foo() {
 // CHECK:         %[[HDL_TRANSFER:.+]] = call noundef i8* @_ZNKSt16coroutine_handleIvE7addressEv(%"struct.std::coroutine_handle.0"* noundef {{.*}}%[[HDL]])
 // CHECK:         %[[HDL_CAST3:.+]] = bitcast %"struct.std::coroutine_handle.0"* %[[HDL]] to i8*
 // CHECK:         call void @llvm.lifetime.end.p0i8(i64 8, i8* %[[HDL_CAST3]])
-// CHECK:         call void @llvm.coro.resume(i8* %[[HDL_TRANSFER]])
+// CHECK:         call void @llvm.coro.resume.p0i8(i8* %[[HDL_TRANSFER]])
