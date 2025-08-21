@@ -23,9 +23,9 @@ void useit() {
 template struct HasStaticInit<int>;
 
 // There should only be one entry, not 3.
-// CHECK: @llvm.global_ctors = appending global [1 x { i32, ptr, ptr }]
+// CHECK: @llvm.global_ctors = appending global [1 x { i32, ptr, ptr{{( addrspace\(.\))?}} }]
 
 // There should only be one update to @the_count.
-// CHECK-NOT: store i32 %{{.*}}, ptr @the_count
-// CHECK: store i32 %{{.*}}, ptr @the_count
-// CHECK-NOT: store i32 %{{.*}}, ptr @the_count
+// CHECK-NOT: store i32 %{{.*}}, ptr{{( addrspace\(.\))?}} @the_count
+// CHECK: store i32 %{{.*}}, ptr{{( addrspace\(.\))?}} @the_count
+// CHECK-NOT: store i32 %{{.*}}, ptr{{( addrspace\(.\))?}} @the_count
