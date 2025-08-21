@@ -87,7 +87,7 @@ namespace test5 {
 // CHECK:      invoke void @__cxa_throw(i8* [[EXNOBJ]], i8* bitcast ({{.*}}* @_ZTIN5test51AE to i8*), i8* bitcast (void ([[A]]*)* @_ZN5test51AD1Ev to i8*)) [[NR]]
 // CHECK-NEXT:   to label {{%.*}} unwind label %[[HANDLER:[^ ]*]]
 //      :    [[HANDLER]]:  (can't check this in Release-Asserts builds)
-// CHECK:      {{%.*}} = call i32 @llvm.eh.typeid.for(i8* bitcast ({{.*}}* @_ZTIN5test51AE to i8*))
+// CHECK:      {{%.*}} = call i32 @llvm.eh.typeid.for.p0i8(i8* bitcast ({{.*}}* @_ZTIN5test51AE to i8*))
 }
 
 namespace test6 {
@@ -126,7 +126,7 @@ namespace test7 {
 // CHECK-NEXT: store i32 [[SELECTOR]], i32* [[SELECTORVAR]]
 // CHECK-NEXT: br label
 // CHECK:      [[SELECTOR:%.*]] = load i32, i32* [[SELECTORVAR]]
-// CHECK-NEXT: [[T0:%.*]] = call i32 @llvm.eh.typeid.for(i8* bitcast (i8** @_ZTIi to i8*))
+// CHECK-NEXT: [[T0:%.*]] = call i32 @llvm.eh.typeid.for.p0i8(i8* bitcast (i8** @_ZTIi to i8*))
 // CHECK-NEXT: icmp eq i32 [[SELECTOR]], [[T0]]
 // CHECK-NEXT: br i1
 // CHECK:      [[T0:%.*]] = load i8*, i8** [[CAUGHTEXNVAR]]
