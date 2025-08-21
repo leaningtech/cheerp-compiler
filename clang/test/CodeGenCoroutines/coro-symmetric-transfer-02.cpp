@@ -88,7 +88,7 @@ Task bar() {
 // CHECK:       [[CASE1]]:
 // CHECK:         br i1 %{{.+}}, label %[[CASE1_AWAIT_READY:.+]], label %[[CASE1_AWAIT_SUSPEND:.+]]
 // CHECK:       [[CASE1_AWAIT_SUSPEND]]:
-// CHECK-NEXT:    %{{.+}} = call token @llvm.coro.save(i8* null)
+// CHECK-NEXT:    %{{.+}} = call token @llvm.coro.save.p0i8(i8* null)
 // CHECK-NEXT:    %[[HANDLE11:.+]] = bitcast %"struct.std::coroutine_handle"* %[[TMP1:.+]] to i8*
 // CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 8, i8* %[[HANDLE11]])
 
@@ -107,7 +107,7 @@ Task bar() {
 // CHECK:       [[CASE2]]:
 // CHECK:         br i1 %{{.+}}, label %[[CASE2_AWAIT_READY:.+]], label %[[CASE2_AWAIT_SUSPEND:.+]]
 // CHECK:       [[CASE2_AWAIT_SUSPEND]]:
-// CHECK-NEXT:    %{{.+}} = call token @llvm.coro.save(i8* null)
+// CHECK-NEXT:    %{{.+}} = call token @llvm.coro.save.p0i8(i8* null)
 // CHECK-NEXT:    %[[HANDLE21:.+]] = bitcast %"struct.std::coroutine_handle"* %[[TMP2:.+]] to i8*
 // CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 8, i8* %[[HANDLE21]])
 
