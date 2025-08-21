@@ -2381,12 +2381,18 @@ generateByrefCopyHelper(CodeGenFunction &CGF, const BlockByrefInfo &byrefInfo,
 
   llvm::FunctionType *LTy = CGF.CGM.getTypes().GetFunctionType(FI);
 
+  unsigned AS = CGF.getTarget().getProgramAddressSpace();
+  if (CGF.getLangOpts().Cheerp) {
+    AS = unsigned(FI.isAsmJS()? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+  }
   // FIXME: We'd like to put these into a mergable by content, with
   // internal linkage.
   llvm::Function *Fn =
-    llvm::Function::Create(LTy, llvm::GlobalValue::InternalLinkage,
+    llvm::Function::Create(LTy, llvm::GlobalValue::InternalLinkage, AS,
                            "__Block_byref_object_copy_", &CGF.CGM.getModule());
 
+  if (FI.isAsmJS())
+    Fn->setSection("asmjs");
   SmallVector<QualType, 2> ArgTys;
   ArgTys.push_back(Context.VoidPtrTy);
   ArgTys.push_back(Context.VoidPtrTy);
@@ -2448,13 +2454,19 @@ generateByrefDisposeHelper(CodeGenFunction &CGF,
 
   llvm::FunctionType *LTy = CGF.CGM.getTypes().GetFunctionType(FI);
 
+  unsigned AS = CGF.getTarget().getProgramAddressSpace();
+  if (CGF.getLangOpts().Cheerp) {
+    AS = unsigned(FI.isAsmJS()? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+  }
   // FIXME: We'd like to put these into a mergable by content, with
   // internal linkage.
   llvm::Function *Fn =
-    llvm::Function::Create(LTy, llvm::GlobalValue::InternalLinkage,
+    llvm::Function::Create(LTy, llvm::GlobalValue::InternalLinkage, AS,
                            "__Block_byref_object_dispose_",
                            &CGF.CGM.getModule());
 
+  if (FI.isAsmJS())
+    Fn->setSection("asmjs");
   SmallVector<QualType, 1> ArgTys;
   ArgTys.push_back(Context.VoidPtrTy);
 
@@ -2645,6 +2657,10 @@ const BlockByrefInfo &CodeGenFunction::getBlockByrefInfo(const VarDecl *D) {
     llvm::StructType::create(getLLVMContext(),
                              "struct.__block_byref_" + D->getNameAsString());
 
+  unsigned AS = 0;
+  if (CGM.getLangOpts().Cheerp) {
+    AS = unsigned(D->hasAttr<AsmJSAttr>()? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+  }
   QualType Ty = D->getType();
 
   CharUnits size;
@@ -2655,7 +2671,7 @@ const BlockByrefInfo &CodeGenFunction::getBlockByrefInfo(const VarDecl *D) {
   size += getPointerSize();
 
   // void *__forwarding;
-  types.push_back(llvm::PointerType::getUnqual(byrefType));
+  types.push_back(llvm::PointerType::get(byrefType, AS));
   size += getPointerSize();
 
   // int32_t __flags;
