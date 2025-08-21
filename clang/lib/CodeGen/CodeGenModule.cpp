@@ -3254,12 +3254,12 @@ ConstantAddress CodeGenModule::GetWeakRefReference(const ValueDecl *VD) {
   assert(AA && "No alias?");
 
   CharUnits Alignment = getContext().getDeclAlign(VD);
-  llvm::Type *DeclTy = getTypes().ConvertTypeForMem(VD->getType());
+  llvm::Type *DeclTy = getTypes().ConvertTypeForMem(VD->getType(), /*ForBitField=*/false, /*asmjs=*/VD->hasAttr<AsmJSAttr>());
 
   // See if there is already something with the target's name in the module.
   llvm::GlobalValue *Entry = GetGlobalValue(AA->getAliasee());
   if (Entry) {
-    unsigned AS = getContext().getTargetAddressSpace(VD->getType());
+    unsigned AS = getContext().getCheerpTypeTargetAddressSpace(VD->getType(), *VD);
     auto Ptr = llvm::ConstantExpr::getBitCast(Entry, DeclTy->getPointerTo(AS));
     return ConstantAddress(Ptr, DeclTy, Alignment);
   }

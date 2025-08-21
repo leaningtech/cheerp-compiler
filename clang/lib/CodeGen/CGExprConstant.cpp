@@ -2328,8 +2328,8 @@ ConstantLValueEmitter::VisitAddrLabelExpr(const AddrLabelExpr *E) {
   assert(Emitter.CGF && "Invalid address of label expression outside function");
   llvm::Constant *Ptr = Emitter.CGF->GetAddrOfLabel(E->getLabel());
   Ptr = llvm::ConstantExpr::getBitCast(Ptr,
-                                   CGM.getTypes().ConvertType(E->getType()));
-  return ConstantLValue(Ptr, CGM.getTypes().ConvertTypeForMem(E->getType()->getPointeeType()));
+                                   CGM.getTypes().ConvertType(E->getType(), isAsmJSContext(CGM, Emitter.CGF, E)));
+  return ConstantLValue(Ptr, CGM.getTypes().ConvertTypeForMem(E->getType()->getPointeeType(), false, isAsmJSContext(CGM, Emitter.CGF, E)));
 }
 
 ConstantLValue
