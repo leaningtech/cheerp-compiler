@@ -20,30 +20,30 @@ void __attribute((annotate("ann_a_0"))) __attribute((annotate("ann_a_1"))) a(cha
 __attribute((address_space(1))) __attribute__((annotate("addrspace1_ann"))) char addrspace1_var;
 
 // FOOS: target triple
-// FOOS: private unnamed_addr constant [7 x i8] c"sfoo_{{.}}\00", section "llvm.metadata"
-// FOOS: private unnamed_addr constant [7 x i8] c"sfoo_{{.}}\00", section "llvm.metadata"
+// FOOS: private unnamed_addr{{( addrspace\(.\))?}} constant [7 x i8] c"sfoo_{{.}}\00", section "llvm.metadata"
+// FOOS: private unnamed_addr{{( addrspace\(.\))?}} constant [7 x i8] c"sfoo_{{.}}\00", section "llvm.metadata"
 // FOOS-NOT: sfoo_
-// FOOS: @llvm.global.annotations = appending global [11 x { ptr, ptr, ptr, i32, ptr }] {{.*}}ptr @sfoo{{.*}}ptr @sfoo{{.*}}, section "llvm.metadata"
+// FOOS: @llvm.global.annotations = appending global [11 x { ptr, ptr{{( addrspace\(.\))?}}, ptr{{( addrspace\(.\))?}}, i32, ptr{{( addrspace\(.\))?}} }] {{.*}}ptr{{( addrspace\(.\))?}} @sfoo{{.*}}ptr{{( addrspace\(.\))?}} @sfoo{{.*}}, section "llvm.metadata"
 
 // FOO: target triple
-// FOO: private unnamed_addr constant [6 x i8] c"foo_{{.}}\00", section "llvm.metadata"
-// FOO: private unnamed_addr constant [6 x i8] c"foo_{{.}}\00", section "llvm.metadata"
+// FOO: private unnamed_addr{{( addrspace\(.\))?}} constant [6 x i8] c"foo_{{.}}\00", section "llvm.metadata"
+// FOO: private unnamed_addr{{( addrspace\(.\))?}} constant [6 x i8] c"foo_{{.}}\00", section "llvm.metadata"
 // FOO-NOT: foo_
-// FOO: @llvm.global.annotations = appending global [11 x { ptr, ptr, ptr, i32, ptr }] {{.*}}ptr @foo{{.*}}ptr @foo{{.*}}, section "llvm.metadata"
+// FOO: @llvm.global.annotations = appending global [11 x { ptr, ptr{{( addrspace\(.\))?}}, ptr{{( addrspace\(.\))?}}, i32, ptr{{( addrspace\(.\))?}} }] {{.*}}ptr{{( addrspace\(.\))?}} @foo{{.*}}ptr{{( addrspace\(.\))?}} @foo{{.*}}, section "llvm.metadata"
 
 // A: target triple
-// A: private unnamed_addr constant [8 x i8] c"ann_a_{{.}}\00", section "llvm.metadata"
-// A: private unnamed_addr constant [8 x i8] c"ann_a_{{.}}\00", section "llvm.metadata"
-// A: private unnamed_addr constant [8 x i8] c"ann_a_{{.}}\00", section "llvm.metadata"
-// A: private unnamed_addr constant [8 x i8] c"ann_a_{{.}}\00", section "llvm.metadata"
+// A: private unnamed_addr{{( addrspace\(.\))?}} constant [8 x i8] c"ann_a_{{.}}\00", section "llvm.metadata"
+// A: private unnamed_addr{{( addrspace\(.\))?}} constant [8 x i8] c"ann_a_{{.}}\00", section "llvm.metadata"
+// A: private unnamed_addr{{( addrspace\(.\))?}} constant [8 x i8] c"ann_a_{{.}}\00", section "llvm.metadata"
+// A: private unnamed_addr{{( addrspace\(.\))?}} constant [8 x i8] c"ann_a_{{.}}\00", section "llvm.metadata"
 // A-NOT: ann_a_
-// A: @llvm.global.annotations = appending global [11 x { ptr, ptr, ptr, i32, ptr }] {{.*}}ptr @a{{.*}}ptr @a{{.*}}ptr @a{{.*}}ptr @a{{.*}}, section "llvm.metadata"
+// A: @llvm.global.annotations = appending global [11 x { ptr, ptr{{( addrspace\(.\))?}}, ptr{{( addrspace\(.\))?}}, i32, ptr{{( addrspace\(.\))?}} }] {{.*}}ptr{{( addrspace\(.\))?}} @a{{.*}}ptr{{( addrspace\(.\))?}} @a{{.*}}ptr{{( addrspace\(.\))?}} @a{{.*}}ptr{{( addrspace\(.\))?}} @a{{.*}}, section "llvm.metadata"
 
 // BAR: target triple
-// BAR: private unnamed_addr constant [6 x i8] c"bar_{{.}}\00", section "llvm.metadata"
-// BAR: private unnamed_addr constant [6 x i8] c"bar_{{.}}\00", section "llvm.metadata"
+// BAR: private unnamed_addr{{( addrspace\(.\))?}} constant [6 x i8] c"bar_{{.}}\00", section "llvm.metadata"
+// BAR: private unnamed_addr{{( addrspace\(.\))?}} constant [6 x i8] c"bar_{{.}}\00", section "llvm.metadata"
 // BAR-NOT: bar_
-// BAR: @llvm.global.annotations = appending global [11 x { ptr, ptr, ptr, i32, ptr }] {{.*}}ptr @a.bar{{.*}}ptr @a.bar{{.*}}, section "llvm.metadata"
+// BAR: @llvm.global.annotations = appending global [11 x { ptr, ptr{{( addrspace\(.\))?}}, ptr{{( addrspace\(.\))?}}, i32, ptr{{( addrspace\(.\))?}} }] {{.*}}ptr{{( addrspace\(.\))?}} @a.bar{{.*}}ptr{{( addrspace\(.\))?}} @a.bar{{.*}}, section "llvm.metadata"
 
 // ADDRSPACE: target triple
 // ADDRSPACE: @llvm.global.annotations = appending global {{.*}} addrspacecast (ptr addrspace(1) @addrspace1_var to ptr), {{.*}}

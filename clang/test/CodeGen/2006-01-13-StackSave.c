@@ -1,6 +1,6 @@
 // PR691
 // RUN: %clang_cc1 %s -emit-llvm -o - | FileCheck %s
-// CHECK: call ptr @llvm.stacksave.p0()
+// CHECK: call ptr{{( addrspace\(.\))?}} @llvm.stacksave.p{{[0-9]+}}()
 
 extern void external(int[*]);
 

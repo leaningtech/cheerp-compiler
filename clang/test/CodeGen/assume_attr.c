@@ -4,9 +4,9 @@
 
 // TODO: for "foo" and "bar", "after" is not added as it appears "after" the first use or definition respectively. There might be a way to allow that.
 
-// CHECK:   define{{.*}} void @bar() #0
-// CHECK:   define{{.*}} void @baz() #1
-// CHECK:   declare{{.*}} void @foo() #2
+// CHECK:   define{{.*}} void @bar(){{( addrspace\(.\))?}} #0
+// CHECK:   define{{.*}} void @baz(){{( addrspace\(.\))?}} #1
+// CHECK:   declare{{.*}} void @foo(){{( addrspace\(.\))?}} #2
 // CHECK:      attributes #0
 // CHECK-SAME:   "llvm.assume"="bar:before1,bar:before2,bar:before3,bar:def1,bar:def2"
 // CHECK:      attributes #1
