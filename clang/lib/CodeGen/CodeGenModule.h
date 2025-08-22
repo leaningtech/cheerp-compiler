@@ -36,6 +36,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/ValueHandle.h"
 #include "llvm/Transforms/Utils/SanitizerStats.h"
+#include <limits>
 
 namespace llvm {
 class Module;
@@ -1154,7 +1155,7 @@ public:
   llvm::FunctionCallee
   CreateRuntimeFunction(llvm::FunctionType *Ty, StringRef Name,
                         llvm::AttributeList ExtraAttrs = llvm::AttributeList(),
-                        bool Local = false, bool AssumeConvergent = false, unsigned AS = 0);
+                        bool Local = false, bool AssumeConvergent = false, unsigned AS = std::numeric_limits<unsigned>::max());
 
   /// Create a new runtime global variable with the specified type and name.
   llvm::Constant *CreateRuntimeVariable(llvm::Type *Ty,
