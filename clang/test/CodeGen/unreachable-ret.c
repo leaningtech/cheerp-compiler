@@ -7,7 +7,7 @@ void f1(void) {
 }
 // CHECK-LABEL: define {{.*}}void @f1()
 // CHECK-NEXT: entry:
-// CHECK-NEXT:   call void @abort()
+// CHECK-NEXT:   call{{( addrspace\(.\))?}} void @abort()
 // CHECK-NEXT:   unreachable
 // CHECK-NEXT: }
 
@@ -15,9 +15,9 @@ void *f2(void) {
   abort();
   return 0;
 }
-// CHECK-LABEL: define {{.*}}ptr @f2()
+// CHECK-LABEL: define {{.*}}ptr{{( addrspace\(.\))?}} @f2()
 // CHECK-NEXT: entry:
-// CHECK-NEXT:   call void @abort()
+// CHECK-NEXT:   call{{( addrspace\(.\))?}} void @abort()
 // CHECK-NEXT:   unreachable
 // CHECK-NEXT: }
 
