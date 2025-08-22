@@ -592,8 +592,13 @@ Constant *OpenMPIRBuilder::getOrCreateSrcLocStr(StringRef LocStr,
           GV.getInitializer() == Initializer)
         return SrcLocStr = ConstantExpr::getPointerCast(&GV, Int8Ptr);
 
+    unsigned AS = 0;
+    llvm::Triple triple(M.getTargetTriple());
+    if (triple.isCheerp()) {
+      AS = unsigned(triple.isCheerpWasm()? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+    }
     SrcLocStr = Builder.CreateGlobalStringPtr(LocStr, /* Name */ "",
-                                              /* AddressSpace */ 0, &M);
+                                              AS, &M);
   }
   return SrcLocStr;
 }

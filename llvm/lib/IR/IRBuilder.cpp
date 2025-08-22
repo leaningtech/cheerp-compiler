@@ -15,6 +15,7 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/None.h"
 #include "llvm/ADT/Triple.h"
+#include "llvm/Cheerp/AddressSpaces.h"
 #include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
@@ -49,16 +50,13 @@ GlobalVariable *IRBuilderBase::CreateGlobalString(StringRef Str,
   Constant *StrConstant = ConstantDataArray::getString(Context, Str);
   if (!M)
     M = BB->getParent()->getParent();
-  bool isCheerpWasm = llvm::Triple(M->getTargetTriple()).isCheerpWasm();
-  if (isCheerpWasm && AddressSpace == 0) {
-    AddressSpace = unsigned(cheerp::CheerpAS::Wasm);
-  }
   auto *GV = new GlobalVariable(
       *M, StrConstant->getType(), true, GlobalValue::PrivateLinkage,
       StrConstant, Name, nullptr, GlobalVariable::NotThreadLocal, AddressSpace);
   GV->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
   GV->setAlignment(Align(1));
-  if (isCheerpWasm)
+  bool isCheerpWasm = llvm::Triple(M->getTargetTriple()).isCheerpWasm();
+  if (AddressSpace == unsigned(cheerp::CheerpAS::Wasm) && isCheerpWasm)
     GV->setSection("asmjs");
   return GV;
 }
