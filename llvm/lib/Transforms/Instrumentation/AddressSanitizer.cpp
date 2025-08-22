@@ -1759,17 +1759,13 @@ bool ModuleAddressSanitizer::shouldInstrumentGlobal(GlobalVariable *G) const {
   Type *Ty = G->getValueType();
   LLVM_DEBUG(dbgs() << "GLOBAL: " << *G << "\n");
 
-  if (TargetTriple.isCheerpWasm()) {
-    if (G->getSection() != StringRef("asmjs"))
-      return false;
-  }
-
   if (G->hasSanitizerMetadata() && G->getSanitizerMetadata().NoAddress)
     return false;
   if (!Ty->isSized()) return false;
   if (!G->hasInitializer()) return false;
   // Globals in address space 1 and 4 are supported for AMDGPU.
   if (G->getAddressSpace() &&
+      !(TargetTriple.isCheerpWasm() && G->getAddressSpace() == unsigned(cheerp::CheerpAS::Wasm)) &&
       !(TargetTriple.isAMDGPU() && !isUnsupportedAMDGPUAddrspace(G)))
     return false;
   if (GlobalWasGeneratedByCompiler(G)) return false; // Our own globals.
