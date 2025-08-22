@@ -5,7 +5,7 @@ void bar(void) {
   foo();
 }
 
-// CHECK: call void @foo(), !srcloc [[SRCLOC:![0-9]+]]
-// CHECK: declare{{.*}} void @foo() [[ATTR:#[0-9]+]]
+// CHECK: call{{( addrspace\(.\))?}} void @foo(), !srcloc [[SRCLOC:![0-9]+]]
+// CHECK: declare{{.*}} void @foo(){{( addrspace\(.\))?}} [[ATTR:#[0-9]+]]
 // CHECK: attributes [[ATTR]] = {{{.*}}"dontcall-error"="oh no"
 // CHECK: [[SRCLOC]] = !{i32 {{[0-9]+}}}

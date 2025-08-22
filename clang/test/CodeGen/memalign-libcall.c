@@ -5,7 +5,7 @@ typedef __SIZE_TYPE__ size_t;
 void *memalign(size_t, size_t);
 
 void *test(size_t alignment, size_t size) {
-  // CHECK: call ptr @memalign{{.*}} #2
+  // CHECK: call{{( addrspace\(.\))?}} ptr{{( addrspace\(.\))?}} @memalign{{.*}} #2
   return memalign(alignment, size);
 }
 
