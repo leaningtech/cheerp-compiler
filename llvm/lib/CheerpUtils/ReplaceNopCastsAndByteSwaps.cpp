@@ -73,7 +73,10 @@ bool ReplaceNopCastsAndByteSwaps::processBasicBlock(BasicBlock& BB)
 				continue;
 			}
 
-			ReplaceInstWithInst( call,  BitCastInst::Create( Instruction::CastOps::BitCast, call->getArgOperand(0), call->getType() ) );
+			auto op = Instruction::CastOps::BitCast;
+			if (call->getType()->getPointerAddressSpace() != call->getOperand(0)->getType()->getPointerAddressSpace())
+				op = Instruction::CastOps::AddrSpaceCast;
+			ReplaceInstWithInst( call,  BitCastInst::Create( op, call->getArgOperand(0), call->getType() ) );
 
 			Changed = true;
 		}
