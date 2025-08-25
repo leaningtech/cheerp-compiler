@@ -760,6 +760,11 @@ static int compileModule(char **argv, LLVMContext &Context) {
 
   // Declare success.
   Out->keep();
+  if(TheTriple.isCheerpOS()) {
+    // Try to make the output executable, some build systems depend on it
+    sys::fs::perms NewPerms = static_cast<sys::fs::perms>(0755);
+    sys::fs::setPermissions(OutputFilename, NewPerms);
+  }
   if (DwoOut)
     DwoOut->keep();
 
