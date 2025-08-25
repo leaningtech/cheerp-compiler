@@ -31,7 +31,7 @@ suspend:
 }
 
 ; %x needs to go to the frame since it's escaped; %y will stay as local since it doesn't escape.
-; CHECK:        %f.Frame = type directbase %coroFrameBase { void (%f.Frame*)*, void (%f.Frame*)*, i64, i1, [39 x i8], i1 }
+; CHECK:        %f.Frame = type directbase %__coroFrameBase.{{.}} { void (%f.Frame*)*, void (%f.Frame*)*, i64, i1, [39 x i8], i1 }
 ; CHECK-LABEL:  define i8* @f()
 ; CHECK:          %[[ALLOC:.+]] = call i8* @aligned_alloc(i32 64, i32 72)
 ; CHECK-NEXT:     call noalias nonnull i8* @llvm.coro.begin.p0i8.p0i8(token %id, i8* %[[ALLOC]])

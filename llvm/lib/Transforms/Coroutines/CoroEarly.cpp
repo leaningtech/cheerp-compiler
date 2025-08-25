@@ -92,6 +92,9 @@ void Lowerer::lowerCoroPromise(CoroPromiseInst *Intrin) {
     bool asmjs = Intrin->getFunction()->getSection() == "asmjs";
     int offset = asmjs? Offset : (Intrin->isFromPromise()? 1 : -1);
     ConstantInt* Adj = ConstantInt::get(Builder.getInt32Ty(), offset);
+    intrinsic->dump();
+    Operand->dump();
+    Adj->dump();
     CallBase* CB = Builder.CreateCall(intrinsic, {Operand, Adj});
     CB->addParamAttr(0, Attribute::get(Context, Attribute::ElementType, Builder.getInt8Ty()));
     CB->addRetAttr(Attribute::get(Context, Attribute::ElementType, Builder.getInt8Ty()));
@@ -197,7 +200,7 @@ static void setCannotDuplicate(CoroIdInst *CoroId) {
 }
 
 void Lowerer::lowerEarlyIntrinsics(Function &F) {
-  setTypes(F.getAddressSpace());
+  setTypes(cheerp::getCheerpDataAS(F.getAddressSpace()));
   CoroIdInst *CoroId = nullptr;
   SmallVector<CoroFreeInst *, 4> CoroFrees;
   bool HasCoroSuspend = false;
