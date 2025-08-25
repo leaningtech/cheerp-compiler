@@ -553,6 +553,72 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 						for (Instruction* I: deleteList)
 							I->eraseFromParent();
 					};
+					if(II == Intrinsic::sadd_with_overflow)
+					{
+						if (!llcPass)
+							continue;
+
+						Value* A = ci->getOperand(0);
+						Value* B = ci->getOperand(1);
+
+						assert(A->getType()->isIntegerTy());
+						// Signed add with overflow: overflow occurs when A and B have the same sign
+						// and the sum has a different sign. A standard bit trick is:
+						// overflow = (((A ^ sum) & (B ^ sum)) < 0)
+						Value* add = BinaryOperator::CreateAdd(A, B, "sadd_with_overflow_add", ci);
+						Value* ax = BinaryOperator::CreateXor(add, A, "sadd_with_overflow_ax", ci);
+						Value* bx = BinaryOperator::CreateXor(add, B, "sadd_with_overflow_bx", ci);
+						Value* andv = BinaryOperator::CreateAnd(ax, bx, "sadd_with_overflow_and", ci);
+						Value* overflow = ICmpInst::Create(
+							Instruction::ICmp,
+							ICmpInst::ICMP_SLT,
+							andv,
+							Constant::getNullValue(A->getType()),
+							"sadd_with_overflow_overflow",
+							ci);
+
+						ReplaceUsesForOverflow(ci, add, overflow);
+
+						//Set up loop variable, so the next loop will check and possibly expand newCall
+						--instructionIterator;
+						advance = false;
+
+						ci->eraseFromParent();
+						continue;
+					}
+					if(II == Intrinsic::ssub_with_overflow)
+					{
+						if (!llcPass)
+							continue;
+
+						Value* A = ci->getOperand(0);
+						Value* B = ci->getOperand(1);
+
+						assert(A->getType()->isIntegerTy());
+						// Signed sub with overflow: overflow occurs when A and B have different signs
+						// and the result has a different sign than A. Bit trick:
+						// overflow = (((A ^ B) & (A ^ diff)) < 0)
+						Value* sub = BinaryOperator::CreateSub(A, B, "ssub_with_overflow_sub", ci);
+						Value* ax = BinaryOperator::CreateXor(A, B, "ssub_with_overflow_ax", ci);
+						Value* bx = BinaryOperator::CreateXor(A, sub, "ssub_with_overflow_bx", ci);
+						Value* andv = BinaryOperator::CreateAnd(ax, bx, "ssub_with_overflow_and", ci);
+						Value* overflow = ICmpInst::Create(
+							Instruction::ICmp,
+							ICmpInst::ICMP_SLT,
+							andv,
+							Constant::getNullValue(A->getType()),
+							"ssub_with_overflow_overflow",
+							ci);
+
+						ReplaceUsesForOverflow(ci, sub, overflow);
+
+						//Set up loop variable, so the next loop will check and possibly expand newCall
+						--instructionIterator;
+						advance = false;
+
+						ci->eraseFromParent();
+						continue;
+					}
 					if(II == Intrinsic::uadd_with_overflow)
 					{
 						if (!llcPass)
@@ -573,6 +639,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 						advance = false;
 
 						ci->eraseFromParent();
+						continue;
 					}
 					if(II == Intrinsic::umul_with_overflow)
 					{
@@ -601,6 +668,58 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 						advance = false;
 
 						ci->eraseFromParent();
+						continue;
+					}
+					if(II == Intrinsic::smul_with_overflow)
+					{
+						if (!llcPass)
+							continue;
+
+						Value* A = ci->getOperand(0);
+						Value* B = ci->getOperand(1);
+
+						assert(A->getType()->isIntegerTy());
+
+						Value* mul = BinaryOperator::CreateMul(A, B, "smul", ci);
+
+						// A == 0
+						Value* aZero = ICmpInst::Create(Instruction::ICmp, ICmpInst::ICMP_EQ, A, Constant::getNullValue(A->getType()), "zero", ci);
+
+						// A == -1
+						Value* aIsMinusOne = ICmpInst::Create(Instruction::ICmp, ICmpInst::ICMP_EQ, A, ConstantInt::get(A->getType(), -1), "minusone", ci);
+
+						// INT_MIN constant for this type
+						unsigned bitWidth = cast<IntegerType>(A->getType())->getBitWidth();
+						Value* intMinC = ConstantInt::get(A->getType(), APInt::getSignedMinValue(bitWidth));
+
+						// Special overflow case: (A == -1) && (B == INT_MIN)
+						Value* bIsIntMin = ICmpInst::Create(Instruction::ICmp, ICmpInst::ICMP_EQ, B, intMinC, "intmin", ci);
+						Value* specialOverflow = BinaryOperator::CreateAnd(aIsMinusOne, bIsIntMin, "special", ci);
+
+						// Use 1 as divisor when (A == 0) or special overflow case; else use A
+						Value* safeRequired = BinaryOperator::CreateOr(aZero, specialOverflow, "saferequired", ci);
+						Value* safeA = SelectInst::Create(safeRequired, ConstantInt::get(A->getType(), 1), A, "safeA", ci);
+
+						// q = mul / safeA (signed division, now safe)
+						Value* q = BinaryOperator::CreateSDiv(mul, safeA, "sdiv", ci);
+
+						// (q != B)
+						Value* qNeB = ICmpInst::Create(Instruction::ICmp, ICmpInst::ICMP_NE, q, B, "qneb", ci);
+
+						// generalOverflow = (A != 0) && (q != B)
+						Value* generalOverflow = SelectInst::Create(aZero, ConstantInt::getFalse(A->getContext()), qNeB, "general", ci);
+
+						// overflow = generalOverflow || specialOverflow
+						Value* overflow = BinaryOperator::CreateOr(generalOverflow, specialOverflow, "overflow", ci);
+
+						ReplaceUsesForOverflow(ci, mul, overflow);
+
+						// Prepare for next iteration
+						--instructionIterator;
+						advance = false;
+
+						ci->eraseFromParent();
+						continue;
 					}
 
 					// Replace math intrinsics with C library calls if necessary
