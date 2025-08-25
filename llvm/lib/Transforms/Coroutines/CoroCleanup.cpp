@@ -34,10 +34,7 @@ static void lowerSubFn(IRBuilder<> &Builder, CoroSubFnInst *SubFn) {
   int Index = SubFn->getIndex();
 
   unsigned FnAS = SubFn->getFunction()->getAddressSpace();
-  unsigned AS = FnAS;
-  if (AS == unsigned(cheerp::CheerpAS::Client)) {
-    AS = unsigned(cheerp::CheerpAS::GenericJS);
-  }
+  unsigned AS = cheerp::getCheerpDataAS(FnAS);
   auto *FrameTy = coro::getBaseFrameType(SubFn->getContext(), AS);
   PointerType *FramePtrTy = FrameTy->getPointerTo(AS);
 
@@ -51,7 +48,7 @@ static void lowerSubFn(IRBuilder<> &Builder, CoroSubFnInst *SubFn) {
 }
 
 bool Lowerer::lower(Function &F) {
-  setTypes(F.getAddressSpace());
+  setTypes(cheerp::getCheerpDataAS(F.getAddressSpace()));
   bool IsPrivateAndUnprocessed = F.isPresplitCoroutine() && F.hasLocalLinkage();
   bool Changed = false;
 

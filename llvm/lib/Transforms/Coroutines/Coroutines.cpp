@@ -37,11 +37,12 @@
 using namespace llvm;
 
 StructType* coro::getBaseFrameType(LLVMContext& C, unsigned AS) {
-  auto* FrameTy = StructType::getTypeByName(C, "coroFrameBase");
+  auto name = std::string("__coroFrameBase.")+std::to_string(AS);
+  auto* FrameTy = StructType::getTypeByName(C, name);
   if (!FrameTy)
   {
     unsigned FnAS = cheerp::getCheerpFunctionAS(AS);
-    FrameTy = StructType::create(C, "coroFrameBase");
+    FrameTy = StructType::create(C, name);
     auto* ResumeFnType = FunctionType::get(Type::getVoidTy(C), FrameTy->getPointerTo(AS), false);
     FrameTy->setBody({ ResumeFnType->getPointerTo(FnAS), ResumeFnType->getPointerTo(FnAS)}, /*isPacked*/false, /*directBase*/nullptr, /*isByteLayout*/false, AS == unsigned(cheerp::CheerpAS::Wasm));
   }
@@ -117,11 +118,9 @@ static const char *const CoroIntrinsics[] = {
     "llvm.coro.suspend.retcon",
 };
 
-#ifndef NDEBUG
 static bool isCoroutineIntrinsicName(StringRef Name) {
   return Intrinsic::lookupLLVMIntrinsicByName(CoroIntrinsics, Name) != -1;
 }
-#endif
 
 bool coro::declaresAnyIntrinsic(const Module &M) {
   for (const auto& F: M.functions()) {

@@ -197,7 +197,7 @@ static void setCannotDuplicate(CoroIdInst *CoroId) {
 }
 
 void Lowerer::lowerEarlyIntrinsics(Function &F) {
-  setTypes(F.getAddressSpace());
+  setTypes(cheerp::getCheerpDataAS(F.getAddressSpace()));
   CoroIdInst *CoroId = nullptr;
   SmallVector<CoroFreeInst *, 4> CoroFrees;
   bool HasCoroSuspend = false;

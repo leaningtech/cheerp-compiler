@@ -12,6 +12,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/InstructionSimplify.h"
+#include "llvm/Cheerp/AddressSpaces.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -275,7 +276,7 @@ bool Lowerer::shouldElide(Function *F, DominatorTree &DT) const {
 }
 
 void Lowerer::collectPostSplitCoroIds(Function *F) {
-  setTypes(F->getAddressSpace());
+  setTypes(cheerp::getCheerpDataAS(F->getAddressSpace()));
   CoroIds.clear();
   CoroSuspendSwitches.clear();
   for (auto &I : instructions(F)) {
