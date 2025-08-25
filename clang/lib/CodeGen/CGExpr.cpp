@@ -31,6 +31,7 @@
 #include "clang/Basic/SourceManager.h"
 #include "llvm/ADT/Hashing.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/Cheerp/AddressSpaces.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/LLVMContext.h"
@@ -700,7 +701,10 @@ void CodeGenFunction::EmitTypeCheck(TypeCheckKind TCK, SourceLocation Loc,
   // isn't correct, the object-size check isn't supported by LLVM, and we can't
   // communicate the addresses to the runtime handler for the vptr check.
   if (Ptr->getType()->getPointerAddressSpace())
+  {
+    if (!getLangOpts().Cheerp || Ptr->getType()->getPointerAddressSpace() != unsigned(cheerp::CheerpAS::Wasm))
     return;
+  }
 
   // Don't check pointers to volatile data. The behavior here is implementation-
   // defined.
