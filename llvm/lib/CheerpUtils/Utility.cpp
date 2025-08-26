@@ -339,13 +339,13 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 		}
 		return false;
 	}
-	else if((I.getOpcode()==Instruction::FCmp || I.getOpcode()==Instruction::ICmp) && hasMoreThan1Use)
-	{
-		return !I.getOperand(0)->getType()->isPointerTy();
-	}
 	else if (I.use_empty())
 	{
 		return false;
+	}
+	else if(I.getOpcode()==Instruction::FCmp || I.getOpcode()==Instruction::ICmp)
+	{
+		return !hasMoreThan1Use || !I.getOperand(0)->getType()->isPointerTy();
 	}
 	else if(!hasMoreThan1Use)
 	{
@@ -491,8 +491,6 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 			case Instruction::FPTrunc:
 			case Instruction::FPExt:
 			case Instruction::FMul:
-			case Instruction::FCmp:
-			case Instruction::ICmp:
 			case Instruction::ZExt:
 			case Instruction::SExt:
 			case Instruction::URem:
