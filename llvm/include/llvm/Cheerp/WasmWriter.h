@@ -399,6 +399,7 @@ private:
 	void compileMethod(WasmBuffer& code, const llvm::Function& F);
 	void compileImport(WasmBuffer& code, llvm::StringRef funcName, llvm::FunctionType* FTy);
 	void compileImportGlobal(WasmBuffer& code, llvm::StringRef globalName, bool mutableGlobal);
+	void compileImportTag(WasmBuffer& code, llvm::StringRef tagName, uint32_t typeIndex);
 	void compileImportMemory(WasmBuffer& code);
 	void compileGlobal(const llvm::GlobalVariable& G);
 	// Returns true if it has handled local assignent internally

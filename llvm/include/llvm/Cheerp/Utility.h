@@ -444,7 +444,7 @@ public:
 	{
 		// NOTE: Currently we use a subset of WASI imports in CheerpOS mode, specifically
 		//       to access arguments and the environment.
-		return isWasiFuncName(ident) || ident.startswith("__dl_") || ident.startswith("__syscall_") || ident.startswith("__win_");
+		return isWasiFuncName(ident) || ident.startswith("__dl_") || ident.startswith("__syscall_") || ident.startswith("__win_") || ident.startswith("__exc_");
 	}
 	static llvm::StringRef getWasiFuncName(llvm::StringRef ident)
 	{

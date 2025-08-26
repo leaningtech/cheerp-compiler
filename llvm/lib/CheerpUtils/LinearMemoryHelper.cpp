@@ -9,6 +9,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/ADT/Triple.h"
 #include "llvm/Cheerp/CommandLine.h"
 #include "llvm/Cheerp/LinearMemoryHelper.h"
 #include "llvm/Support/raw_ostream.h"
@@ -572,10 +573,10 @@ if (!functionTypeIndices.count(fTy)) { \
 		ADD_FUNCTION_TYPE(fTy);
 		functionIds.insert(std::make_pair(F, maxFunctionId++));
 	}
+	Type* f64 = Type::getDoubleTy(module->getContext());
 	if(!NoNativeJavaScriptMath && mode == FunctionAddressMode::Wasm)
 	{
 		// Synthetize the function type for float/double builtins
-		Type* f64 = Type::getDoubleTy(module->getContext());
 		Type* f64_1[] = { f64 };
 		Type* f64_2[] = { f64, f64 };
 		FunctionType* f64_f64_1 = FunctionType::get(f64, f64_1, false);
@@ -604,6 +605,30 @@ if (!functionTypeIndices.count(fTy)) { \
 	ADD_BUILTIN(GROW_MEM, i32_i32_1);
 	if(needs_i32_i32_1)
 		ADD_FUNCTION_TYPE(i32_i32_1);
+
+	bool isCheerpOS = Triple(module->getTargetTriple()).isCheerpOS();
+	if(isCheerpOS)
+	{
+		Type* i64 = Type::getInt64Ty(module->getContext());
+		Type* f32 = Type::getFloatTy(module->getContext());
+		Type* v = Type::getVoidTy(module->getContext());
+		FunctionType* i64_i32_1 = FunctionType::get(i64, i32_1, false);
+		FunctionType* f32_i32_1 = FunctionType::get(f32, i32_1, false);
+		FunctionType* f64_i32_1 = FunctionType::get(f64, i32_1, false);
+		FunctionType* v_i32_1 = FunctionType::get(v, i32_1, false);
+		ADD_FUNCTION_TYPE(i64_i32_1);
+		ADD_FUNCTION_TYPE(f32_i32_1);
+		ADD_FUNCTION_TYPE(f64_i32_1);
+		ADD_FUNCTION_TYPE(v_i32_1);
+		builtinIds[BuiltinInstr::EXCEPTION_PAD_32] = maxFunctionId++;
+		builtinIds[BuiltinInstr::EXCEPTION_PAD_64] = maxFunctionId++;
+		builtinIds[BuiltinInstr::EXCEPTION_PAD_F] = maxFunctionId++;
+		builtinIds[BuiltinInstr::EXCEPTION_PAD_D] = maxFunctionId++;
+		builtinIds[BuiltinInstr::EXCEPTION_PAD_V] = maxFunctionId++;
+		// Add a type for the exception tag
+		FunctionType* void_0 = FunctionType::get(Type::getVoidTy(module->getContext()), {}, false);
+		ADD_FUNCTION_TYPE(void_0);
+	}
 #undef ADD_BUILTIN
 #undef ADD_FUNCTION_TYPE
 

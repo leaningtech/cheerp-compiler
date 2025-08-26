@@ -4581,6 +4581,21 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F)
 
 	compileMethodLocals(code, locals);
 
+	// In CheerpOS we wrap all functions around a try-cath to support re-entering
+	// in the interpreter to support setjmp/longjump, clone, and similar otherwise unsupported constructs
+	bool isCheerpOS = Triple(module.getTargetTriple()).isCheerpOS();
+	// TODO: Optimize away for leaf functions
+	if(isCheerpOS)
+	{
+		// The value of the stack at entry will be used to resolve longjmp targets
+		// TODO: Sink this into the catch handler for functions that don't touch the stack
+		encodeInst(WasmU32Opcode::GET_GLOBAL, STACK_TOP_GLOBAL, code);
+		// Add an extra block to be able to jump to the exception pad after the main body
+		encodeInst(WasmU32Opcode::BLOCK, 0x40, code);
+		encodeInst(WasmU32U32Opcode::TRY_TABLE, F.getReturnType()->isVoidTy() ? 0x40 : getValType(F.getReturnType()), 1, code);
+		encodeInst(WasmU32U32Opcode::CATCH, 0, 0, code);
+	}
+
 	teeLocals.performInitialization(code);
 
 	if (F.size() == 1)
@@ -4625,6 +4640,33 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F)
 		{
 			compileTypedZero(code, F.getReturnType());
 		}
+	}
+
+	if(isCheerpOS)
+	{
+		// Close the main body, and return the value immediately
+		encodeULEB128(0x0b, code);
+		encodeInst(WasmOpcode::RETURN, code);
+		// Catch block begins here
+		encodeULEB128(0x0b, code);
+		// Call the exception pad
+		Type* retType = F.getFunctionType()->getReturnType();
+		uint32_t landingPadId = 0;
+		if(retType->isIntegerTy(64))
+			landingPadId = linearHelper.getBuiltinId(BuiltinInstr::BUILTIN::EXCEPTION_PAD_64);
+		else if(retType->isIntegerTy() || retType->isPointerTy())
+			landingPadId = linearHelper.getBuiltinId(BuiltinInstr::BUILTIN::EXCEPTION_PAD_32);
+		else if(retType->isFloatTy())
+			landingPadId = linearHelper.getBuiltinId(BuiltinInstr::BUILTIN::EXCEPTION_PAD_F);
+		else if(retType->isDoubleTy())
+			landingPadId = linearHelper.getBuiltinId(BuiltinInstr::BUILTIN::EXCEPTION_PAD_D);
+		else if(retType->isVoidTy())
+			landingPadId = linearHelper.getBuiltinId(BuiltinInstr::BUILTIN::EXCEPTION_PAD_V);
+		else
+			report_fatal_error("Unsupported return type for exception pad");
+
+		// Leave the returned value on the stack
+		encodeInst(WasmU32Opcode::CALL, landingPadId, code);
 	}
 
 	// Encode the end of the method.
@@ -4733,6 +4775,25 @@ void CheerpWasmWriter::compileImportGlobal(WasmBuffer& code, StringRef globalNam
 	encodeULEB128(mutableGlobal ? 0x01 : 0x00, code);
 }
 
+void CheerpWasmWriter::compileImportTag(WasmBuffer& code, StringRef tagName, uint32_t typeIndex)
+{
+	// Encode the module name.
+	StringRef moduleName = "i";
+	encodeULEB128(moduleName.size(), code);
+	code.write(moduleName.data(), moduleName.size());
+
+	// Encode the field name.
+	encodeULEB128(tagName.size(), code);
+	code.write(tagName.data(), tagName.size());
+
+	// Encode kind as 'Tag' (= 4).
+	encodeULEB128(0x04, code);
+
+	// Encode attribute (exception) and type index.
+	encodeULEB128(0x00, code);
+	encodeULEB128(typeIndex, code);
+}
+
 void CheerpWasmWriter::compileImportMemory(WasmBuffer& code)
 {
 	// Define the memory for the module in WasmPage units. The heap size is
@@ -4779,7 +4840,25 @@ void CheerpWasmWriter::compileImportSection()
 			importedBuiltins++;
 	}
 
-	uint32_t importedTotal = importedBuiltins + globalDeps.asmJSImports().size();
+	// In CheerpOS we also import an exception tag and landing pads for the possible wasm return types
+	bool isCheerpOS = Triple(module.getTargetTriple()).isCheerpOS();
+	uint32_t importedTags = 0;
+	uint32_t importedLandingPads = 0;
+	uint32_t exceptionTagTypeIndex = 0;
+	if (isCheerpOS)
+	{
+		llvm::FunctionType* fTy = llvm::FunctionType::get(Type::getVoidTy(module.getContext()), { }, false);
+		auto it = linearHelper.getFunctionTypeIndices().find(fTy);
+		assert(it != linearHelper.getFunctionTypeIndices().end());
+		exceptionTagTypeIndex = it->second;
+		importedTags = 1;
+		importedLandingPads = 5;
+	}
+
+	// Total number of function imports (builtins + imports + exception pads)
+	uint32_t importedFunctions = importedBuiltins + globalDeps.asmJSImports().size();
+
+	uint32_t importedTotal = importedFunctions + importedLandingPads;
 
 	numberOfImportedFunctions = importedTotal;
 
@@ -4796,7 +4875,7 @@ void CheerpWasmWriter::compileImportSection()
 
 	// Encode number of entries in the import section.
 	// We import the memory in all cases, except when the target is WASI.
-	encodeULEB128(importedTotal + importMemory, section);
+	encodeULEB128(importedTotal + importMemory + importedTags, section);
 
 	// Import the memory if target is not standalone Wasm or it was explicitly requested.
 	if (importMemory)
@@ -4838,6 +4917,25 @@ void CheerpWasmWriter::compileImportSection()
 		compileImport(section, namegen.getBuiltinName(NameGenerator::TAN), f64_f64_1);
 	if(globalDeps.needsBuiltin(BuiltinInstr::BUILTIN::GROW_MEM))
 		compileImport(section, namegen.getBuiltinName(NameGenerator::GROW_MEM), i32_i32_1);
+
+	if (importedLandingPads)
+	{
+		// Import the five fixed exception pads, one for each possible wasm return type
+		Type* i64 = Type::getInt64Ty(module.getContext());
+		Type* f32 = Type::getFloatTy(module.getContext());
+		Type* v = Type::getVoidTy(module.getContext());
+		FunctionType* i64_i32_1 = FunctionType::get(i64, i32_1, false);
+		FunctionType* f32_i32_1 = FunctionType::get(f32, i32_1, false);
+		FunctionType* f64_i32_1 = FunctionType::get(f64, i32_1, false);
+		FunctionType* v_i32_1 = FunctionType::get(v, i32_1, false);
+		compileImport(section, "__exc_pad_32", i32_i32_1);
+		compileImport(section, "__exc_pad_64", i64_i32_1);
+		compileImport(section, "__exc_pad_f", f32_i32_1);
+		compileImport(section, "__exc_pad_d", f64_i32_1);
+		compileImport(section, "__exc_pad_v", v_i32_1);
+		assert(importedTags == 1);
+		compileImportTag(section, "__cos_exception", exceptionTagTypeIndex);
+	}
 
 	if(WasmSharedModule)
 	{

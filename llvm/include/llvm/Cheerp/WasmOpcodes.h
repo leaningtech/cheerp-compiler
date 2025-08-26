@@ -173,6 +173,7 @@ enum class WasmU32Opcode {
 enum class WasmU32U32Opcode {
 	CALL_INDIRECT = 0x11,
 	RETURN_CALL_INDIRECT = 0x13,
+	TRY_TABLE = 0x1f,
 	I32_LOAD = 0x28,
 	I64_LOAD = 0x29,
 	F32_LOAD = 0x2a,
@@ -187,6 +188,8 @@ enum class WasmU32U32Opcode {
 	F64_STORE = 0x39,
 	I32_STORE8 = 0x3a,
 	I32_STORE16 = 0x3b,
+	// NOTE: This is another space, but they behave like opcodes
+	CATCH = 0x00,
 };
 
 enum class WasmFCU32Opcode {
