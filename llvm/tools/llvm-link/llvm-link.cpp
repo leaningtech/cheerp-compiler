@@ -393,6 +393,12 @@ static bool linkFiles(const char *argv0, LLVMContext &Context, Linker &L,
       return false;
     }
 
+    // Ignore completely empty modules, they might cause spurious warnings due
+    // to missing DL/triple information.
+    if (M->empty() && M->global_empty()) {
+      return true;
+    }
+
     // Note that when ODR merging types cannot verify input files in here When
     // doing that debug metadata in the src module might already be pointing to
     // the destination.
