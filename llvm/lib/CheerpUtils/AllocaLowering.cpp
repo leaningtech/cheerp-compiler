@@ -13,6 +13,7 @@
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
 #include "llvm/Cheerp/InvokeWrapping.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/ADT/Triple.h"
 #include "llvm/Cheerp/Utility.h"
 #include "llvm/Cheerp/Registerize.h"
 #include "llvm/IR/Instructions.h"
@@ -160,13 +161,15 @@ bool AllocaLowering::runOnFunction(Function& F, DominatorTree& DT, cheerp::Globa
 	{
 		PromoteMemToReg(allocasToPromote, DT);
 	}
+	// Do we need stack space to spill locals for CheerpOS support?
+	bool needsLocalsStack = Triple(M->getTargetTriple()).isCheerpOS() && asmjs;
 	// Nothing else to do
-	if (allocas.size() == 0 && dynAllocas.size() == 0 && varargCalls.size() == 0 && vastarts.size() == 0)
+	if (allocas.size() == 0 && dynAllocas.size() == 0 && varargCalls.size() == 0 && vastarts.size() == 0 && !needsLocalsStack)
 		return false;
 	// We need to save the stack pointer if we are going to reference memory
 	// relative to its position at the beginning of the function (e.g. allocas
 	// and varargs)
-	bool needFrame = allocas.size() != 0  || vastarts.size() != 0;
+	bool needFrame = allocas.size() != 0  || vastarts.size() != 0 || needsLocalsStack;
 
 	// Keep aligned at 8 bytes
 	nbytes = (nbytes + 7) & -8;
@@ -190,7 +193,18 @@ bool AllocaLowering::runOnFunction(Function& F, DominatorTree& DT, cheerp::Globa
 	if (needFrame)
 	{
 		savedStack = Builder.CreateCall(getStack, {}, "savedStack");
-		newStack = Builder.CreateGEP(Int8Ty, savedStack, ConstantInt::get(int32Ty, -nbytes, true));
+		newStack = savedStack;
+		if(needsLocalsStack)
+		{
+			// Stack space for spilling locals sits above the normal stack
+			Function* getLocalsStack = Intrinsic::getDeclaration(M, Intrinsic::cheerp_locals_stack);
+			newStack = Builder.CreateCall(getLocalsStack, { savedStack }, "localsstack");
+		}
+		if(nbytes > 0)
+		{
+			Value* stackSize = ConstantInt::get(int32Ty, -nbytes, true);
+			newStack = Builder.CreateGEP(Int8Ty, newStack, stackSize);
+		}
 		Builder.CreateCall(setStack, newStack);
 	}
 
