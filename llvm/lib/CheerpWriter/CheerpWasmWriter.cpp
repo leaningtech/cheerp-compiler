@@ -3044,6 +3044,16 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						encodeInst(WasmOpcode::I32_ADD, code);
 						return false;
 					}
+					case Intrinsic::cheerp_locals_stack:
+					{
+						// TODO: We could significantly reduce how much space we allocate.
+						//       Since locals are grouped by type it is possible to easily
+						//       calculate each local offset even when packing them
+						compileOperand(code, ci.getOperand(0));
+						encodeInst(WasmS32Opcode::I32_CONST, (currentFun->arg_size() + localMap.size()) * 8, code);
+						encodeInst(WasmOpcode::I32_SUB, code);
+						return false;
+					}
 					case Intrinsic::ctlz:
 					case Intrinsic::cttz:
 					case Intrinsic::ctpop:
