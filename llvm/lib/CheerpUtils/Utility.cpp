@@ -249,6 +249,13 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 					toCheck.push_back(userI);
 					continue;
 				}
+				else if(IntrinsicInst* II = dyn_cast<IntrinsicInst>(userI))
+				{
+					// Ignore stack spill instrinsics, we don't want these to
+					// have any effect on inlining decisions.
+					if(II->getIntrinsicID() == Intrinsic::cheerp_local_store)
+						continue;
+				}
 				if (anyNonLoadStoreUse)
 					return false;
 				anyNonLoadStoreUse = true;

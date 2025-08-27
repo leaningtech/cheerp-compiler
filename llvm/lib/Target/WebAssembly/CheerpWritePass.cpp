@@ -263,6 +263,10 @@ bool CheerpWritePass::runOnModule(Module& M)
   MPM.addPass(cheerp::AllocaArraysMergingPass());
 
   MPM.addPass(createModuleToFunctionPassAdaptor(cheerp::RemoveFwdBlocksPass()));
+
+  if(triple.isCheerpOS())
+    MPM.addPass(cheerp::SpillLocalsPass());
+
   // Keep this pass last, it is going to remove stores to memory from the LLVM visible code, so further optimizing afterwards will break
   MPM.addPass(cheerp::AllocaStoresExtractorPass());
 
