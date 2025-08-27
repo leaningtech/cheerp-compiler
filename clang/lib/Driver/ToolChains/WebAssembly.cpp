@@ -831,10 +831,12 @@ std::vector<cheerp::CheerpWasmOpt> cheerp::getWasmFeatures(const Driver& D, cons
   features.push_back(GROWMEM);
   features.push_back(GLOBALIZATION);
   features.push_back(UNALIGNEDMEM);
-  // For CheerpOS we also force the memory to be imported and shared
+  // For CheerpOS we also force the memory to be imported and shared,
+  // export the table as well, used by the interpreter to re-enter execution
   if(triple.isCheerpOS()) {
     features.push_back(IMPORTEDMEMORY);
     features.push_back(SHAREDMEM);
+    features.push_back(EXPORTEDTABLE);
   }
 
   if(Arg* cheerpWasmEnable = Args.getLastArg(options::OPT_cheerp_wasm_enable_EQ)) {

@@ -658,7 +658,7 @@ if (!functionTypeIndices.count(fTy)) { \
 
 		// When building shared modules new functions can be used from outside the module,
 		// so we should assume any called type is a valid
-		if (WasmSharedModule)
+		if (WasmSharedModule || WasmExportedTable)
 		{
 			for (const BasicBlock& bb : *F)
 			{
