@@ -84,6 +84,7 @@ bool AllocaLowering::runOnFunction(Function& F, DominatorTree& DT, cheerp::Globa
 	Type* Int8Ty = IntegerType::getInt8Ty(M->getContext());
 
 	uint32_t nbytes = 0;
+	bool isLeafFunction = true;
 	for ( BasicBlock & BB : F )
 	{
 		for ( BasicBlock::iterator it = BB.begin(); it != BB.end(); it++ )
@@ -139,6 +140,8 @@ bool AllocaLowering::runOnFunction(Function& F, DominatorTree& DT, cheerp::Globa
 			else if (CallInst * ci = dyn_cast<CallInst>(it))
 			{
 				Function* calledFunc = ci->getCalledFunction();
+				if(!calledFunc || !calledFunc->getIntrinsicID())
+					isLeafFunction = false;
 				// Add only `vastart`s used in asmjs functions
 				if (asmjs && calledFunc && calledFunc->getIntrinsicID() == Intrinsic::vastart)
 				{
@@ -162,7 +165,7 @@ bool AllocaLowering::runOnFunction(Function& F, DominatorTree& DT, cheerp::Globa
 		PromoteMemToReg(allocasToPromote, DT);
 	}
 	// Do we need stack space to spill locals for CheerpOS support?
-	bool needsLocalsStack = Triple(M->getTargetTriple()).isCheerpOS() && asmjs;
+	bool needsLocalsStack = Triple(M->getTargetTriple()).isCheerpOS() && !isLeafFunction && asmjs;
 	// Nothing else to do
 	if (allocas.size() == 0 && dynAllocas.size() == 0 && varargCalls.size() == 0 && vastarts.size() == 0 && !needsLocalsStack)
 		return false;
