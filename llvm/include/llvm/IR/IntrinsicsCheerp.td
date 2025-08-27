@@ -145,3 +145,5 @@ def int_cheerp_wasm_splat : Intrinsic<[llvm_anyvector_ty],
 def int_cheerp_locals_stack : Intrinsic<[llvm_ptr_ty],
                               [llvm_ptr_ty],
                               [IntrNoMem]>;
+def int_cheerp_local_store : Intrinsic<[],
+                            [llvm_ptr_ty, llvm_any_ty]>;

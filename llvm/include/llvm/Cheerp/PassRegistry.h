@@ -35,6 +35,7 @@
 #include "llvm/Cheerp/SourceMaps.h"
 #include "llvm/Cheerp/StructMemFuncLowering.h"
 #include "llvm/Cheerp/ConstantExprLowering.h"
+#include "llvm/Cheerp/SpillLocals.h"
 #include "llvm/Cheerp/InvokeWrapping.h"
 #include "llvm/Cheerp/FFIWrapping.h"
 #include "llvm/Cheerp/StoreMerging.h"

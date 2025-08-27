@@ -3054,6 +3054,32 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						encodeInst(WasmOpcode::I32_SUB, code);
 						return false;
 					}
+					case Intrinsic::cheerp_local_store:
+					{
+						// NOTE: We expect only values requiring a local to get here
+						llvm::Value* value = ci.getOperand(1);
+						// Render the base address
+						compileOperand(code, ci.getOperand(0));
+						// Render the value to store
+						compileOperand(code, value);
+						uint32_t localId = 0;
+						if(Argument* arg = dyn_cast<Argument>(value))
+						{
+							localId = arg->getArgNo();
+						}
+						else
+						{
+							Instruction* inst = dyn_cast<Instruction>(value);
+							assert(inst);
+							// Encode a store at the offset corresponding to the local
+							uint32_t regId = registerize.getRegisterId(inst, 0, EdgeContext::emptyContext());
+							localId = localMap.at(regId);
+							// Sanity check
+							assert(localId < (currentFun->arg_size() + localMap.size()));
+						}
+						encodeStore(value->getType(), localId * 8, Align(8), code, false);
+						return false;
+					}
 					case Intrinsic::ctlz:
 					case Intrinsic::cttz:
 					case Intrinsic::ctpop:
