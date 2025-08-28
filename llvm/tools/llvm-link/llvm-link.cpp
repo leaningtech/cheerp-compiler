@@ -393,6 +393,13 @@ static bool linkFiles(const char *argv0, LLVMContext &Context, Linker &L,
       return false;
     }
 
+    // Ignore completely empty modules, they might cause spurious warnings due
+    // to missing DL/triple information.
+    if (M->empty() && M->global_empty() && M->alias_empty() && M->named_metadata_empty() && M->getTargetTriple().empty() && M->getDataLayoutStr().empty()) {
+      // Notoriously a bad practice, but history preserving in this case.
+      goto loopEnd;
+    }
+
     // Note that when ODR merging types cannot verify input files in here When
     // doing that debug metadata in the src module might already be pointing to
     // the destination.
@@ -427,6 +434,7 @@ static bool linkFiles(const char *argv0, LLVMContext &Context, Linker &L,
     if (Verbose)
       errs() << "Linking in '" << File << "'\n";
 
+    {
     bool Err = false;
     if (InternalizeLinkedSymbols) {
       Err = L.linkInModule(
@@ -441,7 +449,9 @@ static bool linkFiles(const char *argv0, LLVMContext &Context, Linker &L,
 
     if (Err)
       return false;
+    }
 
+loopEnd:
     // Internalization applies to linking of subsequent files.
     InternalizeLinkedSymbols = Internalize;
 
