@@ -45,7 +45,7 @@ void LowerGlobalDestructorsPass::filterGenericJSDestructors(Module& M)
 			break;
 
 		elementType = O->getType();
-		Function* destructorFunc = dyn_cast<Function>(destructor);
+		Function* destructorFunc = dyn_cast<Function>(destructor->stripPointerCastsSafe());
 		assert(destructorFunc);
 		if (destructorFunc->getSection() == "asmjs")
 			validDestructors.push_back(cast<Constant>(O));
