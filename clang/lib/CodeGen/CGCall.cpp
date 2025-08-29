@@ -720,10 +720,10 @@ CodeGenTypes::arrangeCXXMethodCall(const CallArgList &args,
       /*chainCall=*/false, argTypes, info, paramInfos, required, asmjs);
 }
 
-const CGFunctionInfo &CodeGenTypes::arrangeNullaryFunction() {
+const CGFunctionInfo &CodeGenTypes::arrangeNullaryFunction(bool asmjs) {
   return arrangeLLVMFunctionInfo(
       getContext().VoidTy, /*instanceMethod=*/false, /*chainCall=*/false,
-      None, FunctionType::ExtInfo(), {}, RequiredArgs::All, false);
+      None, FunctionType::ExtInfo(), {}, RequiredArgs::All, asmjs);
 }
 
 const CGFunctionInfo &

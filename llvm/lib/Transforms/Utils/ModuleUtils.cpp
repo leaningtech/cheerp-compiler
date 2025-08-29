@@ -153,8 +153,8 @@ std::pair<Function *, FunctionCallee> llvm::createSanitizerCtorAndInitFunctions(
   IRBuilder<> IRB(Ctor->getEntryBlock().getTerminator());
   IRB.CreateCall(InitFunction, InitArgs);
   if (!VersionCheckName.empty()) {
-    FunctionCallee VersionCheckFunction = M.getOrInsertFunction(
-        VersionCheckName, FunctionType::get(IRB.getVoidTy(), {}, false),
+    FunctionCallee VersionCheckFunction = M.getOrInsertFunctionImpl(
+        VersionCheckName, Ctor->getAddressSpace(), FunctionType::get(IRB.getVoidTy(), {}, false),
         AttributeList());
     IRB.CreateCall(VersionCheckFunction, {});
   }
