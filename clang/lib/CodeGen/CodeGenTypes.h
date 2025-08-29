@@ -220,7 +220,7 @@ public:
 
   /// A nullary function is a freestanding function of type 'void ()'.
   /// This method works for both calls and declarations.
-  const CGFunctionInfo &arrangeNullaryFunction();
+  const CGFunctionInfo &arrangeNullaryFunction(bool asmjs = false);
 
   /// A builtin function is a freestanding function using the default
   /// C conventions.

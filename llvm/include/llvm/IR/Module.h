@@ -365,6 +365,9 @@ public:
   /// the bitcast to the function.
   ///
   /// Note: For library calls getOrInsertLibFunc() should be used instead.
+  FunctionCallee getOrInsertFunctionImpl(StringRef Name, Optional<unsigned> AS, FunctionType *T,
+                                     AttributeList AttributeList);
+
   FunctionCallee getOrInsertFunction(StringRef Name, FunctionType *T,
                                      AttributeList AttributeList);
 
