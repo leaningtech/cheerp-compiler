@@ -662,9 +662,13 @@ struct AddressSanitizer {
     C = &(M.getContext());
     LongSize = M.getDataLayout().getPointerSizeInBits();
     IntptrTy = Type::getIntNTy(*C, LongSize);
-    Int8PtrTy = Type::getInt8PtrTy(*C);
     Int32Ty = Type::getInt32Ty(*C);
     TargetTriple = Triple(M.getTargetTriple());
+    AS = 0;
+    if(TargetTriple.isCheerpWasm())
+      AS = unsigned(cheerp::CheerpAS::Wasm);
+        TODO
+    Int8PtrTy = Type::getInt8PtrTy(*C, AS);
 
     Mapping = getShadowMapping(TargetTriple, LongSize, this->CompileKernel);
 
@@ -754,6 +758,7 @@ private:
   bool UseAfterScope;
   AsanDetectStackUseAfterReturnMode UseAfterReturn;
   bool AlignedPoisoning;
+  unsigned AS;
   Type *IntptrTy;
   Type *Int8PtrTy;
   Type *Int32Ty;

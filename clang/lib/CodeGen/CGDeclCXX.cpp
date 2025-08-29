@@ -553,7 +553,7 @@ CodeGenModule::EmitCXXGlobalVarDeclInitFunc(const VarDecl *D,
 
   // Create a variable initialization function.
   llvm::Function *Fn = CreateGlobalInitOrCleanUpFunction(
-      FTy, FnName.str(), getTypes().arrangeNullaryFunction(), D->getLocation());
+      FTy, FnName.str(), getTypes().arrangeNullaryFunction(D->hasAttr<AsmJSAttr>()), D->getLocation());
 
   // CHEERP: if the global is in the asmjs section, also put the initializer
   // there
