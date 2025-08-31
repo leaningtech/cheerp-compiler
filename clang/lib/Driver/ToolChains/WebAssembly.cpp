@@ -622,22 +622,37 @@ void cheerp::Link::ConstructJob(Compilation &C, const JobAction &JA,
       AddStdLib("libthreads.bc");
   }
  
+  const char *Exec = Args.MakeArgString((getToolChain().GetProgramPath("llvm-link")));
   for (auto& it: Args.filtered(options::OPT_l)) {
     std::string libName("lib");
     libName += it->getValue();
     std::string bcLibName = libName + ".bc";
     std::string foundLib = getToolChain().GetFilePath(bcLibName.c_str());
     if (foundLib == bcLibName) {
-      // Try again using .a, the internal format is still assumed to be BC
+      // Try again using .a, the internal format might be an AR archive or BC.
+      // The linked library internally supports AR files, but the linking process
+      // is partially broken since it creates intermediate modules on the fly,
+      // which are only later linked into the final module. This two-step process
+      // might not resolve all the recursive type definitions in some cases, since
+      // types conflict in the LLVM context, but not yet in the modules.
       std::string aLibName = libName + ".a";
       foundLib = getToolChain().GetFilePath(aLibName.c_str());
-      if(foundLib == aLibName)
+      if(foundLib == aLibName) {
         foundLib = bcLibName;
+      } else if (!usedLibs.count(foundLib)) {
+        // Force a temporary BC file to correctly resolve all recursive type definitions
+        const char* ArchiveLinkedBc = C.addTempFile(Args.MakeArgString(C.getDriver().GetTemporaryPath("archive", "bc")));
+        ArgStringList ArchiveCmdArgs;
+        ArchiveCmdArgs.push_back("-o");
+        ArchiveCmdArgs.push_back(ArchiveLinkedBc);
+        ArchiveCmdArgs.push_back(Args.MakeArgString(foundLib));
+        C.addCommand(std::make_unique<Command>(JA, *this, ResponseFileSupport::None(), Exec, ArchiveCmdArgs, Inputs));
+        foundLib = ArchiveLinkedBc;
+      }
     }
     usedLibs.insert(foundLib);
   }
 
-  const char *Exec = Args.MakeArgString((getToolChain().GetProgramPath("llvm-link")));
   if(Args.hasArg(options::OPT_shared)) {
     // Link an intermediate BC for all the input file, we will use an llvm-link option to internalize everything linked _into_ the main file
     const char* StaticLinkedBc = C.addTempFile(Args.MakeArgString(C.getDriver().GetTemporaryPath("static", "bc")));
