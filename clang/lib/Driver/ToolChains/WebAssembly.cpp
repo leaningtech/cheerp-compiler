@@ -569,13 +569,13 @@ void cheerp::Link::ConstructJob(Compilation &C, const JobAction &JA,
     hasUnalignedMemory = false;
 
   // Do not add the same library more than once
-  std::set<std::string> usedLibs;
+  std::map<std::string, std::string> usedLibs;
   // Make sure ASAN is added last, the order matter for weak function overriding
   std::set<std::string> lateLibs;
 
   auto AddStdLib = [&](const char* libName) {
     std::string aLibName = getToolChain().GetFilePath(libName);
-    usedLibs.insert(aLibName);
+    usedLibs.emplace(aLibName, aLibName);
   };
 
   auto AddLateLib = [&](const char* libName) {
@@ -647,10 +647,12 @@ void cheerp::Link::ConstructJob(Compilation &C, const JobAction &JA,
         ArchiveCmdArgs.push_back(ArchiveLinkedBc);
         ArchiveCmdArgs.push_back(Args.MakeArgString(foundLib));
         C.addCommand(std::make_unique<Command>(JA, *this, ResponseFileSupport::None(), Exec, ArchiveCmdArgs, Inputs));
-        foundLib = ArchiveLinkedBc;
+        // Apply a remapping, but track the original library as already found
+        usedLibs.emplace(foundLib, ArchiveLinkedBc);
+        continue;
       }
     }
-    usedLibs.insert(foundLib);
+    usedLibs.emplace(foundLib, foundLib);
   }
 
   if(Args.hasArg(options::OPT_shared)) {
@@ -668,7 +670,7 @@ void cheerp::Link::ConstructJob(Compilation &C, const JobAction &JA,
     LibsCmdArgs.push_back("-o");
     LibsCmdArgs.push_back(StaticLibsBc);
     for(const auto& lib: usedLibs) {
-      LibsCmdArgs.push_back(Args.MakeArgString(lib));
+      LibsCmdArgs.push_back(Args.MakeArgString(lib.second));
     }
     for(const auto& lib: lateLibs) {
       LibsCmdArgs.push_back(Args.MakeArgString(lib));
@@ -682,7 +684,7 @@ void cheerp::Link::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back(Args.MakeArgString(input));
     }
     for(const auto& lib: usedLibs) {
-      CmdArgs.push_back(Args.MakeArgString(lib));
+      CmdArgs.push_back(Args.MakeArgString(lib.second));
     }
     for(const auto& lib: lateLibs) {
       CmdArgs.push_back(Args.MakeArgString(lib));
