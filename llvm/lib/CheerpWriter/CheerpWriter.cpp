@@ -1960,9 +1960,48 @@ void CheerpWriter::compileHeapAccess(const Value* p, Type* t, uint32_t offset)
 		stream << pointerShiftOperator() << shift;
 	stream << ']';
 }
+
+// This function is not complete, but it is good enough to pass the tests and build cheerpj
+static Type* getRawType(const Value* p)
+{
+	if (const IntrinsicInst* II = dyn_cast<IntrinsicInst>(p))
+	{
+		switch(II->getIntrinsicID())
+		{
+			case Intrinsic::cheerp_upcast_collapsed:
+			case Intrinsic::cheerp_typed_ptrcast:
+			case Intrinsic::cheerp_cast_user:
+				return II->getParamElementType(0);
+			default:
+				break;
+		}
+	}
+	else if (const SelectInst* SI = dyn_cast<SelectInst>(p))
+	{
+		Type* CommonType = nullptr;
+
+		for (unsigned int i = 1; i < SI->getNumOperands(); i++) {
+			Type* T = getRawType(SI->getOperand(i));
+
+			if (!T || (CommonType && T != CommonType))
+				return nullptr;
+
+			CommonType = T;
+		}
+
+		return CommonType;
+	}
+	else if (const GetElementPtrInst* GEPI = dyn_cast<GetElementPtrInst>(p))
+	{
+		return GEPI->getResultElementType();
+	}
+
+	return nullptr;
+}
+
 void CheerpWriter::compilePointerBase(const Value* p, bool forEscapingPointer, bool useGPET)
 {
-	if(const IntrinsicInst* II=dyn_cast<IntrinsicInst>(p))
+	if (const IntrinsicInst* II = dyn_cast<IntrinsicInst>(p))
 	{
 		switch(II->getIntrinsicID())
 		{
@@ -1990,7 +2029,21 @@ void CheerpWriter::compilePointerBase(const Value* p, bool forEscapingPointer, b
 	else if (useGPET || isa<BitCastInst>(p) || isa<UndefValue>(p))
 		compilePointerBaseTyped(p, p->getType()->getPointerElementType(), forEscapingPointer);
 	else
-		llvm::report_fatal_error("Missing typed ptrcast intrinsic and no GPET allowed");
+	{
+		Type* T = getRawType(p);
+
+		if (T)
+			compilePointerBaseTyped(p, T, forEscapingPointer);
+		else
+		{
+#ifndef NDEBUG
+			p->dump();
+			if (const Instruction* i = dyn_cast<Instruction>(p))
+				i->getParent()->getParent()->dump();
+#endif
+			llvm::report_fatal_error("Missing typed ptrcast intrinsic and no GPET allowed");
+		}
+	}
 }
 
 void CheerpWriter::compilePointerBaseTyped(const Value* p, Type* elementType, bool forEscapingPointer)
