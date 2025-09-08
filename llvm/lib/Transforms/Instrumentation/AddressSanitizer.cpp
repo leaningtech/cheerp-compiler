@@ -664,11 +664,9 @@ struct AddressSanitizer {
     IntptrTy = Type::getIntNTy(*C, LongSize);
     Int32Ty = Type::getInt32Ty(*C);
     TargetTriple = Triple(M.getTargetTriple());
-    AS = 0;
-    if(TargetTriple.isCheerpWasm())
+    if (TargetTriple.isCheerpWasm())
       AS = unsigned(cheerp::CheerpAS::Wasm);
-        TODO
-    Int8PtrTy = Type::getInt8PtrTy(*C, AS);
+    Int8PtrTy = Type::getInt8PtrTy(*C, AS.value_or(0));
 
     Mapping = getShadowMapping(TargetTriple, LongSize, this->CompileKernel);
 
@@ -758,7 +756,7 @@ private:
   bool UseAfterScope;
   AsanDetectStackUseAfterReturnMode UseAfterReturn;
   bool AlignedPoisoning;
-  unsigned AS;
+  Optional<unsigned> AS;
   Type *IntptrTy;
   Type *Int8PtrTy;
   Type *Int32Ty;
@@ -815,6 +813,8 @@ public:
     int LongSize = M.getDataLayout().getPointerSizeInBits();
     IntptrTy = Type::getIntNTy(*C, LongSize);
     TargetTriple = Triple(M.getTargetTriple());
+    if (TargetTriple.isCheerpWasm())
+      AS = unsigned(cheerp::CheerpAS::Wasm);
     Mapping = getShadowMapping(TargetTriple, LongSize, this->CompileKernel);
 
     if (ClOverrideDestructorKind != AsanDtorKind::Invalid)
@@ -872,6 +872,7 @@ private:
   Type *IntptrTy;
   LLVMContext *C;
   Triple TargetTriple;
+  Optional<unsigned> AS;
   ShadowMapping Mapping;
   FunctionCallee AsanPoisonGlobals;
   FunctionCallee AsanUnpoisonGlobals;
@@ -2019,10 +2020,9 @@ ModuleAddressSanitizer::CreateMetadataGlobal(Module &M, Constant *Initializer,
 }
 
 Instruction *ModuleAddressSanitizer::CreateAsanModuleDtor(Module &M) {
-  unsigned AS = M.getDataLayout().isByteAddressable()? M.getDataLayout().getProgramAddressSpace() : unsigned(cheerp::CheerpAS::Wasm);
   AsanDtorFunction = Function::createWithDefaultAttr(
       FunctionType::get(Type::getVoidTy(*C), false),
-      GlobalValue::InternalLinkage, AS, kAsanModuleDtorName, &M);
+      GlobalValue::InternalLinkage, AS.value_or(M.getDataLayout().getProgramAddressSpace()), kAsanModuleDtorName, &M);
 
   if (TargetTriple.isCheerpWasm())
     AsanDtorFunction->setSection("asmjs");
@@ -2208,7 +2208,8 @@ void ModuleAddressSanitizer::InstrumentGlobalsWithMetadataArray(
       ArrayType::get(MetadataInitializers[0]->getType(), N);
   auto AllGlobals = new GlobalVariable(
       M, ArrayOfGlobalStructTy, false, GlobalVariable::InternalLinkage,
-      ConstantArray::get(ArrayOfGlobalStructTy, MetadataInitializers), kAsanAllGlobalsName);
+      ConstantArray::get(ArrayOfGlobalStructTy, MetadataInitializers), kAsanAllGlobalsName,
+      nullptr, llvm::GlobalValue::NotThreadLocal, AS);
 
   if (TargetTriple.isCheerpWasm())
     AllGlobals->setSection("asmjs");
@@ -2286,7 +2287,7 @@ bool ModuleAddressSanitizer::InstrumentGlobals(IRBuilder<> &IRB, Module &M,
   // We shouldn't merge same module names, as this string serves as unique
   // module ID in runtime.
   GlobalVariable *ModuleName = createPrivateGlobalForString(
-      M, M.getModuleIdentifier(), /*AllowMerging*/ false, kAsanGenPrefix);
+      M, M.getModuleIdentifier(), /*AllowMerging*/ false, kAsanGenPrefix, AS);
   if (TargetTriple.isCheerpWasm())
     ModuleName->setSection("asmjs");
 
@@ -2303,7 +2304,7 @@ bool ModuleAddressSanitizer::InstrumentGlobals(IRBuilder<> &IRB, Module &M,
     std::string NameForGlobal = G->getName().str();
     GlobalVariable *Name =
         createPrivateGlobalForString(M, llvm::demangle(NameForGlobal),
-                                     /*AllowMerging*/ true, kAsanGenPrefix);
+                                     /*AllowMerging*/ true, kAsanGenPrefix, AS);
     if (TargetTriple.isCheerpWasm())
       Name->setSection("asmjs");
 
@@ -2379,7 +2380,7 @@ bool ModuleAddressSanitizer::InstrumentGlobals(IRBuilder<> &IRB, Module &M,
           new GlobalVariable(M, IRB.getInt8Ty(), false, Linkage,
                              Constant::getNullValue(IRB.getInt8Ty()),
                              kODRGenPrefix + NameForGlobal, nullptr,
-                             NewGlobal->getThreadLocalMode());
+                             NewGlobal->getThreadLocalMode(), AS);
 
       // Set meaningful attributes for indicator symbol.
       ODRIndicatorSym->setVisibility(NewGlobal->getVisibility());
@@ -3318,7 +3319,7 @@ void FunctionStackPoisoner::processStaticAllocas() {
       IntptrPtrTy);
   GlobalVariable *StackDescriptionGlobal =
       createPrivateGlobalForString(*F.getParent(), DescriptionString,
-                                   /*AllowMerging*/ true, kAsanGenPrefix);
+                                   /*AllowMerging*/ true, kAsanGenPrefix, ASan.AS);
   if (ASan.TargetTriple.isCheerpWasm())
     StackDescriptionGlobal->setSection("asmjs");
   Value *Description = IRB.CreatePointerCast(StackDescriptionGlobal, IntptrTy);
