@@ -13,6 +13,7 @@
 #ifndef LLVM_TRANSFORMS_INSTRUMENTATION_H
 #define LLVM_TRANSFORMS_INSTRUMENTATION_H
 
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/DebugInfoMetadata.h"
@@ -43,7 +44,8 @@ BasicBlock::iterator PrepareToSplitEntryBlock(BasicBlock &BB,
 // Create a constant for Str so that we can pass it to the run-time lib.
 GlobalVariable *createPrivateGlobalForString(Module &M, StringRef Str,
                                              bool AllowMerging,
-                                             const char *NamePrefix = "");
+                                             const char *NamePrefix = "",
+                                             Optional<unsigned> AS = Optional<unsigned>());
 
 // Returns F.getComdat() if it exists.
 // Otherwise creates a new comdat, sets F's comdat, and returns it.

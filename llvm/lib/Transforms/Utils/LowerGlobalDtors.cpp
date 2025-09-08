@@ -142,6 +142,7 @@ static bool runImpl(Module &M) {
       FunctionType::get(Type::getVoidTy(C), AtExitFuncArgs,
                         /*isVarArg=*/false);
 
+  M.dump();
   FunctionCallee AtExit = M.getOrInsertFunction(
       "__cxa_atexit",
       FunctionType::get(Type::getInt32Ty(C),
