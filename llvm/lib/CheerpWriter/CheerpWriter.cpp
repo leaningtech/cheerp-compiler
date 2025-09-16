@@ -2214,15 +2214,7 @@ const Value* CheerpWriter::compileByteLayoutOffset(const Value* p, BYTE_LAYOUT_O
 	{
 		if(const ConstantInt* CI=PA.getConstantOffsetForPointer(p))
 		{
-			if(useMathImul)
-				stream << namegen.getBuiltinName(NameGenerator::Builtin::IMUL);
-			stream << '(';
 			compileConstant(CI);
-			if(useMathImul)
-				stream << ',';
-			else
-				stream << '*';
-			stream << targetData.getTypeAllocSize(p->getType()->getPointerElementType()) << ')';
 		}
 		else
 		{
