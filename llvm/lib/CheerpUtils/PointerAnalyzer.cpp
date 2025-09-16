@@ -1182,15 +1182,16 @@ const PointerKindWrapper& PointerResolverForKindVisitor::resolvePointerKindImpl(
 
 struct PointerConstantOffsetVisitor
 {
-	PointerConstantOffsetVisitor( PointerAnalyzer::PointerAnalyzerCache& cache) :
-				pointerOffsetData(cache.pointerOffsetData), addressTakenCache(cache.addressTakenCache) {}
+	PointerConstantOffsetVisitor(const Module& M, PointerAnalyzer::PointerAnalyzerCache& cache) :
+				pointerOffsetData(cache.pointerOffsetData), addressTakenCache(cache.addressTakenCache), targetData(M.getDataLayout()) {}
 
 	PointerConstantOffsetWrapper& visitValue(PointerConstantOffsetWrapper& ret, const Value* v, bool first);
-	static const llvm::ConstantInt* getPointerOffsetFromGEP( const llvm::Value* v );
+	static const llvm::ConstantInt* getPointerOffsetFromGEP( const DataLayout& targetData, const llvm::Value* v );
 	void visitConstantStruct(const ConstantStruct* CS);
 
 	PointerAnalyzer::PointerOffsetData& pointerOffsetData;
 	PointerAnalyzer::AddressTakenMap& addressTakenCache;
+	const DataLayout& targetData;
 	llvm::DenseSet< const llvm::Value* > closedset;
 };
 
@@ -1201,7 +1202,7 @@ struct PointerResolverForOffsetVisitor: public PointerResolverBaseVisitor<Pointe
 	PointerConstantOffsetWrapper resolvePointerOffset(const PointerConstantOffsetWrapper& o);
 };
 
-const ConstantInt* PointerConstantOffsetVisitor::getPointerOffsetFromGEP(const Value* p)
+const ConstantInt* PointerConstantOffsetVisitor::getPointerOffsetFromGEP(const DataLayout& targetData, const Value* p)
 {
 	if(!isGEP(p))
 		return NULL;
@@ -1211,11 +1212,15 @@ const ConstantInt* PointerConstantOffsetVisitor::getPointerOffsetFromGEP(const V
 	SmallVector<Value*, 4> indexes;
 	for(uint32_t i=1;i<gep->getNumOperands()-1;i++)
 		indexes.push_back(*(gep->op_begin()+i));
-	Type* containerType = GetElementPtrInst::getIndexedType(
-				(cast<GEPOperator>(gep)->getSourceElementType()), indexes);
+	Type* sourceElementType = cast<GEPOperator>(gep)->getSourceElementType();
+	Type* resultElementType = cast<GEPOperator>(gep)->getResultElementType();
+	Type* containerType = GetElementPtrInst::getIndexedType(sourceElementType, indexes);
 	if (containerType->isStructTy() || TypeSupport::hasByteLayout(containerType))
 		return NULL;
-	return dyn_cast<ConstantInt>(*std::prev(gep->op_end()));
+	ConstantInt* CI = dyn_cast<ConstantInt>(*std::prev(gep->op_end()));
+	if (CI && TypeSupport::hasByteLayout(sourceElementType))
+		CI = ConstantInt::get(CI->getType(), CI->getZExtValue() * targetData.getTypeAllocSize(resultElementType));
+	return CI;
 }
 
 void PointerConstantOffsetVisitor::visitConstantStruct(const ConstantStruct* CS)
@@ -1298,7 +1303,7 @@ PointerConstantOffsetWrapper& PointerConstantOffsetVisitor::visitValue(PointerCo
 			if(cheerp::hasNonLoadStoreUses(v))
 				pointerOffsetData.constraintsMap[IndirectPointerKindConstraint(BASE_AND_INDEX_CONSTRAINT, b)] |= PointerConstantOffsetWrapper::INVALID;
 		}
-		return CacheAndReturn(ret |= getPointerOffsetFromGEP(v));
+		return CacheAndReturn(ret |= getPointerOffsetFromGEP(targetData, v));
 	}
 
 	if(const StoreInst* SI=dyn_cast<StoreInst>(v))
@@ -1543,7 +1548,7 @@ const PointerKindWrapper& PointerAnalyzer::getFinalPointerKindWrapper(const Valu
 	return k;
 }
 
-const PointerConstantOffsetWrapper& PointerAnalyzer::getFinalPointerConstantOffsetWrapper(const Value* p) const
+const PointerConstantOffsetWrapper& PointerAnalyzer::getFinalPointerConstantOffsetWrapper(const Module& M, const Value* p) const
 {
 	auto& pointerOffsetData = PACache.pointerOffsetData;
 
@@ -1556,7 +1561,7 @@ const PointerConstantOffsetWrapper& PointerAnalyzer::getFinalPointerConstantOffs
 	}
 
 	PointerConstantOffsetWrapper ret;
-	PointerConstantOffsetWrapper& o = PointerConstantOffsetVisitor(PACache).visitValue(ret, p, /*first*/ true);
+	PointerConstantOffsetWrapper& o = PointerConstantOffsetVisitor(M, PACache).visitValue(ret, p, /*first*/ true);
 #ifndef NDEBUG
 	it = PACache.pointerOffsetData.valueMap.find(p);
 	assert(it!=PACache.pointerOffsetData.valueMap.end());
@@ -1925,7 +1930,7 @@ void PointerAnalyzer::computeConstantOffsets(const Module& M)
 				if(it->getType()->isPointerTy() ||
 					(isa<StoreInst>(*it) && it->getOperand(0)->getType()->isPointerTy()))
 				{
-					getFinalPointerConstantOffsetWrapper(&(*it));
+					getFinalPointerConstantOffsetWrapper(M, &(*it));
 				}
 			}
 		}
@@ -1946,16 +1951,16 @@ void PointerAnalyzer::computeConstantOffsets(const Module& M)
 					continue;
 				globalsUsersQueue.push_back(u);
 			}
-			getFinalPointerConstantOffsetWrapper(GV.getInitializer());
+			getFinalPointerConstantOffsetWrapper(M, GV.getInitializer());
 		}
 		else if(GV.getInitializer()->getType()->isPointerTy())
-			getFinalPointerConstantOffsetWrapper(&GV);
+			getFinalPointerConstantOffsetWrapper(M, &GV);
 	}
 
 	while(!globalsUsersQueue.empty())
 	{
 		const User* u = globalsUsersQueue.pop_back_val();
-		getFinalPointerConstantOffsetWrapper(u);
+		getFinalPointerConstantOffsetWrapper(M, u);
 		for(const User* v: u->users())
 		{
 			if(!v->getType()->isPointerTy())

@@ -374,7 +374,7 @@ public:
 	static REGULAR_POINTER_PREFERENCE getRegularPreference(const IndirectPointerKindConstraint& c, PointerAnalyzerCache& cache);
 	static POINTER_KIND getPointerKindForMemberImpl(const TypeAndIndex& baseAndIndex, PointerAnalyzerCache& cache);
 private:
-	const PointerConstantOffsetWrapper& getFinalPointerConstantOffsetWrapper(const llvm::Value*) const;
+	const PointerConstantOffsetWrapper& getFinalPointerConstantOffsetWrapper(const llvm::Module& M, const llvm::Value*) const;
 };
 
 #ifndef NDEBUG
