@@ -510,6 +510,7 @@ public:
 	void compileSignedInteger(WasmBuffer& code, const llvm::Value* v, bool forComparison);
 	void compileUnsignedInteger(WasmBuffer& code, const llvm::Value* v);
 	void compileTypedZero(WasmBuffer& code, const llvm::Type* t);
+	void compileThreadLocalLoad(WasmBuffer& code, const llvm::GlobalVariable* GV);
 	static void encodeInst(WasmOpcode opcode, WasmBuffer& code);
 	static void encodeInst(WasmS32Opcode opcode, int32_t immediate, WasmBuffer& code);
 	static void encodeInst(WasmS64Opcode opcode, int64_t immediate, WasmBuffer& code);
