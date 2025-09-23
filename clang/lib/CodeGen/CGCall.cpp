@@ -5488,6 +5488,19 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
     CI->setMetadata("srcloc", MDT);
   }
 
+  // CHEERP: add ElementType attribute to calls from genericjs to asmjs
+  if (llvm::Function* Fn = dyn_cast<llvm::Function>(CalleePtr)) {
+    if (const Decl* D = Callee.getAbstractInfo().getCalleeDecl().getDecl()) {
+      bool calleeIsAsmjs = D->hasAttr<AsmJSAttr>();
+      bool callerIsAsmjs = CurFn->getSection() == "asmjs";
+
+      if (calleeIsAsmjs && !callerIsAsmjs && Fn->getReturnType()->isPointerTy()) {
+        llvm::Type* ElemTy = ConvertTypeForMem(D->getAsFunction()->getReturnType()->getPointeeType());
+        CI->addRetAttr(llvm::Attribute::get(getLLVMContext(), llvm::Attribute::ElementType, ElemTy));
+      }
+    }
+  }
+
   // 4. Finish the call.
 
   // If the call doesn't return, finish the basic block and clear the

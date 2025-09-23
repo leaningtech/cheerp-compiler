@@ -259,6 +259,8 @@ static Function* getInvokeWrapper(Module& M, Function* F, Constant* PersonalityF
 	for(auto& arg: make_range(Wrapper->arg_begin()+2, Wrapper->arg_end()))
 		params.push_back(&arg);
 	InvokeInst* ForwardInvoke = Builder.CreateInvoke(F, Cont, Catch, params);
+	if (ForwardInvoke->getType()->isPointerTy())
+		ForwardInvoke->addRetAttr(Attribute::get(M.getContext(), Attribute::ElementType, ForwardInvoke->getType()->getPointerElementType()));
 
 	GlobalVariable* LPHelper = getOrInsertLPHelperGlobal(M);
 	GlobalVariable* CondHelper = getOrInsertCondHelperGlobal(M);

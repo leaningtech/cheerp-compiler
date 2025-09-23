@@ -285,6 +285,11 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 								newOps.push_back(Builder.CreateBitCast(op, expectedTy));
 							}
 							CallBase* NewCall = Builder.CreateCall(OrigFunc, newOps);
+
+							// assume all pointer-returning allocation functions return i8*
+							if (NewCall->getType()->isPointerTy())
+								NewCall->addRetAttr(Attribute::get(module.getContext(), Attribute::ElementType, IntegerType::get(module.getContext(), 8)));
+
 							Value* replacement = Builder.CreateBitCast(NewCall, ci->getType());
 							ci->replaceAllUsesWith(replacement);
 							ci->eraseFromParent();

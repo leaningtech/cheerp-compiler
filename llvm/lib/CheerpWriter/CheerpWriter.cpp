@@ -5031,7 +5031,15 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileCallInstruction(
 	uint32_t addrShift = 0;
 	if (!asmjs && asmjsCallee && kind == Registerize::OBJECT && retTy->isPointerTy() && PA.getPointerKindAssert(&ci) == SPLIT_REGULAR && !ci.use_empty())
 	{
-		addrShift = compileHeapForType(cast<PointerType>(ci.getType())->getPointerElementType());
+#ifndef NDEBUG
+		if (!ci.hasRetAttr(llvm::Attribute::ElementType))
+		{
+			ci.dump();
+			ci.getParent()->getParent()->dump();
+			llvm::report_fatal_error("missing return element type of genericjs -> asmjs call");
+		}
+#endif
+		addrShift = compileHeapForType(ci.getRetElementType());
 		stream << ';' << NewLine;
 		stream << getName(&ci, 1) << '=';
 	}
