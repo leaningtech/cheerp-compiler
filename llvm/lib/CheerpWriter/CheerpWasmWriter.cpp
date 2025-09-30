@@ -2544,6 +2544,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						return false;
 					}
 					case Intrinsic::cheerp_cast_user:
+					case Intrinsic::cheerp_typed_ptrcast:
 					{
 						if(ci.use_empty())
 							return true;

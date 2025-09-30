@@ -196,7 +196,7 @@ void CheerpWriter::compileFloatComparison(const llvm::Value* lhs, const llvm::Va
 
 void CheerpWriter::compilePtrToInt(const llvm::Value* v, bool isInt64)
 {
-	Type* pointedType = v->getType()->getPointerElementType();
+	Type* pointedType = getPointerElementTypeForValueAssert(v, /*useGPET*/ false);
 	if (isInt64)
 	{
 		stream << "BigInt(";
