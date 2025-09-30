@@ -1964,6 +1964,7 @@ void CheerpWriter::compileHeapAccess(const Value* p, Type* t, uint32_t offset)
 // This function is not complete, but it is good enough to pass the tests and build cheerpj
 Type* CheerpWriter::getPointerElementTypeForValue(const Value* p, bool useGPET)
 {
+	// NOTE: All these should naturally disappear with opaque pointers, useGPET=true only occurs in a few rare places that will also naturally disappear
 	if (useGPET || isa<BitCastInst>(p) || isa<UndefValue>(p))
 		return p->getType()->getPointerElementType();
 
@@ -3083,6 +3084,8 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 			// we pass the kind decided by getPointerKind(arg_it).
 			// If it's variadic we use the base kind derived from the type
 			// If it's indirect we use a kind good for any argument of a given type at a given position
+
+			// NOTE: In future, there should always be an address space cast when passing a raw pointer to a wasm function, removing the need for GPET
 			if (!F)
 			{
 				TypeAndIndex typeAndIndex(tp->getPointerElementType(), opCount, TypeAndIndex::ARGUMENT);
@@ -4626,6 +4629,7 @@ void CheerpWriter::compileLoadElem(const LoadInst& li, Type* Ty, StructType* STy
 		}
 		if(PTy && (loadKind == REGULAR || loadKind == SPLIT_REGULAR))
 		{
+			// NOTE: With address spaces, we can keep the return value of raw load instructions as raw and rely on the address space cast any pointer kind conversions
 			switch(loadKind)
 			{
 			case REGULAR:
@@ -5032,6 +5036,8 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileCallInstruction(
 	uint32_t addrShift = 0;
 	if (!asmjs && asmjsCallee && kind == Registerize::OBJECT && retTy->isPointerTy() && PA.getPointerKindAssert(&ci) == SPLIT_REGULAR && !ci.use_empty())
 	{
+		// NOTE: With address spaces, we can keep the return value of wasm functions as raw and rely on the address space cast any pointer kind conversions.
+		// If that doesn't work out, though, there is some other work towards removing this GPET in https://github.com/leaningtech/cheerp-compiler/tree/remove-gpet-js-wasm-call
 		addrShift = compileHeapForType(cast<PointerType>(ci.getType())->getPointerElementType());
 		stream << ';' << NewLine;
 		stream << getName(&ci, 1) << '=';
