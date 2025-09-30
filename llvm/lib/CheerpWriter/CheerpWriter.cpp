@@ -1995,6 +1995,10 @@ static Type* getRawType(const Value* p)
 	{
 		return GEPI->getResultElementType();
 	}
+	else if (const GlobalVariable* G = dyn_cast<GlobalVariable>(p))
+	{
+		return G->getValueType();
+	}
 
 	return nullptr;
 }
