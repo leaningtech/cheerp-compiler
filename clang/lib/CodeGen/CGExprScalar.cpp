@@ -399,6 +399,8 @@ public:
     return Builder.CreateIsNotNull(V, "tobool");
   }
 
+  Value *EmitElementTypeWrapper(Value *V, QualType Ty);
+
   //===--------------------------------------------------------------------===//
   //                            Visitor Methods
   //===--------------------------------------------------------------------===//
@@ -1617,6 +1619,15 @@ void ScalarExprEmitter::EmitBinOpCheck(
   CGF.EmitCheck(Checks, Check, StaticData, DynamicData);
 }
 
+Value *ScalarExprEmitter::EmitElementTypeWrapper(Value *V, QualType Ty) {
+  llvm::Type *LLVMTy = ConvertType(Ty);
+  llvm::Type *LLVMPointeeTy = Ty->isNullPtrType() ? Builder.getInt8Ty() : CGF.ConvertTypeForMem(Ty->getPointeeType());
+  llvm::Function *F = CGF.CGM.getIntrinsic(llvm::Intrinsic::cheerp_typed_ptrcast, {LLVMTy, LLVMTy});
+  llvm::CallBase *Call = Builder.CreateCall(F, {V}, V->hasName() ? V->getName() + ".typed" : "");
+  Call->addRetAttr(llvm::Attribute::get(VMContext, llvm::Attribute::ElementType, LLVMPointeeTy));
+  return Call;
+}
+
 //===----------------------------------------------------------------------===//
 //                            Visitor Methods
 //===----------------------------------------------------------------------===//
@@ -2380,12 +2391,7 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
     bool asmjs = CGF.CurFn && CGF.CurFn->getSection() == StringRef("asmjs");
 
     if (CGF.getLangOpts().Cheerp && !asmjs) {
-        QualType PointeeType = DestTy->getAs<PointerType>()->getPointeeType();
-        llvm::Type* ElemTy = CGF.ConvertTypeForMem(PointeeType);
-        auto* F = CGF.CGM.getIntrinsic(llvm::Intrinsic::cheerp_typed_ptrcast, {DestLLVMTy, DestLLVMTy});
-        llvm::CallBase* CB = Builder.CreateCall(F, {IntToPtr}, IntToPtr->hasName() ? IntToPtr->getName() + ".i2p" : "");
-        CB->addRetAttr(llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, ElemTy));
-        IntToPtr = CB;
+      IntToPtr = EmitElementTypeWrapper(IntToPtr, DestTy);
     }
 
     if (CGF.CGM.getCodeGenOpts().StrictVTablePointers) {
@@ -2407,6 +2413,10 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
       // not carries it.
       if (SrcType.mayBeDynamicClass())
         PtrExpr = Builder.CreateStripInvariantGroup(PtrExpr);
+    }
+
+    if (CGF.getLangOpts().Cheerp) {
+      PtrExpr = EmitElementTypeWrapper(PtrExpr, E->getType());
     }
 
     return Builder.CreatePtrToInt(PtrExpr, ConvertType(DestTy));
@@ -4083,11 +4093,19 @@ Value *ScalarExprEmitter::EmitSub(const BinOpInfo &op) {
 
   // Otherwise, this is a pointer subtraction.
 
+  Value *LHSVal = op.LHS;
+  Value *RHSVal = op.RHS;
+
+  if (CGF.getLangOpts().Cheerp) {
+    LHSVal = EmitElementTypeWrapper(LHSVal, expr->getLHS()->getType());
+    RHSVal = EmitElementTypeWrapper(RHSVal, expr->getRHS()->getType());
+  }
+
   // Do the raw subtraction part.
   llvm::Value *LHS
-    = Builder.CreatePtrToInt(op.LHS, CGF.PtrDiffTy, "sub.ptr.lhs.cast");
+    = Builder.CreatePtrToInt(LHSVal, CGF.PtrDiffTy, "sub.ptr.lhs.cast");
   llvm::Value *RHS
-    = Builder.CreatePtrToInt(op.RHS, CGF.PtrDiffTy, "sub.ptr.rhs.cast");
+    = Builder.CreatePtrToInt(RHSVal, CGF.PtrDiffTy, "sub.ptr.rhs.cast");
   Value *diffInChars = Builder.CreateSub(LHS, RHS, "sub.ptr.sub");
 
   // Okay, figure out the element size.

@@ -1962,7 +1962,7 @@ void CheerpWriter::compileHeapAccess(const Value* p, Type* t, uint32_t offset)
 }
 
 // This function is not complete, but it is good enough to pass the tests and build cheerpj
-static Type* getPointerElementTypeForValue(const Value* p, bool useGPET)
+Type* CheerpWriter::getPointerElementTypeForValue(const Value* p, bool useGPET)
 {
 	if (useGPET || isa<BitCastInst>(p) || isa<UndefValue>(p))
 		return p->getType()->getPointerElementType();
@@ -1994,6 +1994,21 @@ static Type* getPointerElementTypeForValue(const Value* p, bool useGPET)
 
 		return CommonType;
 	}
+	else if (const PHINode* PHI = dyn_cast<PHINode>(p))
+	{
+		Type* CommonType = nullptr;
+
+		for (unsigned int i = 0; i < PHI->getNumIncomingValues(); i++) {
+			Type* T = getPointerElementTypeForValue(PHI->getIncomingValue(i), useGPET);
+
+			if (!T || (CommonType && T != CommonType))
+				return nullptr;
+
+			CommonType = T;
+		}
+
+		return CommonType;
+	}
 	else if (const GetElementPtrInst* GEPI = dyn_cast<GetElementPtrInst>(p))
 	{
 		return GEPI->getResultElementType();
@@ -2006,7 +2021,7 @@ static Type* getPointerElementTypeForValue(const Value* p, bool useGPET)
 	return nullptr;
 }
 
-static Type* getPointerElementTypeForValueAssert(const Value* p, bool useGPET)
+Type* CheerpWriter::getPointerElementTypeForValueAssert(const Value* p, bool useGPET)
 {
 	Type* T = getPointerElementTypeForValue(p, useGPET);
 

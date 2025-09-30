@@ -370,6 +370,12 @@ private:
 	void compileCompleteObject(const llvm::Value*, const llvm::Value* offset = nullptr);
 
 	/**
+	 * Try to find the pointer element type for a value
+	 */
+	static llvm::Type* getPointerElementTypeForValue(const llvm::Value* p, bool useGPET);
+	static llvm::Type* getPointerElementTypeForValueAssert(const llvm::Value* p, bool useGPET);
+
+	/**
 	 * Compile the pointer base.
 	 */
 	void compilePointerBase(const llvm::Value*, bool forEscapingPointer=false, bool useGPET=false);

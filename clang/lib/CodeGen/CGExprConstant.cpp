@@ -2168,6 +2168,11 @@ llvm::Constant *ConstantLValueEmitter::tryEmit() {
   if (isa<llvm::PointerType>(destTy))
     return llvm::ConstantExpr::getPointerCast(value, destTy);
 
+  // CHEERP: Cheerp cannot currently handle constant ptrtoint because we don't
+  // have the pointer element type.
+  if (CGM.getLangOpts().Cheerp)
+    return nullptr;
+
   return llvm::ConstantExpr::getPtrToInt(value, destTy);
 }
 
@@ -2425,6 +2430,11 @@ llvm::Constant *ConstantEmitter::tryEmitPrivate(const APValue &Value,
     return llvm::ConstantVector::get(Inits);
   }
   case APValue::AddrLabelDiff: {
+    // CHEERP: Cheerp cannot currently handle constant ptrtoint because we don't
+    // have the pointer element type.
+    if (CGM.getLangOpts().Cheerp)
+      return nullptr;
+
     const AddrLabelExpr *LHSExpr = Value.getAddrLabelDiffLHS();
     const AddrLabelExpr *RHSExpr = Value.getAddrLabelDiffRHS();
     llvm::Constant *LHS = tryEmitPrivate(LHSExpr, LHSExpr->getType());
