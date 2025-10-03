@@ -257,7 +257,7 @@ case "$1" in
     fi
     ;;
   tar-compiler)
-    tar -cvjf "$2" build_llvm debian
+    tar --zstd -cvf "$2" build_llvm debian
     ;;
   tar-install)
     tar -cvjf "$2" "$BUILD_DIR/."
