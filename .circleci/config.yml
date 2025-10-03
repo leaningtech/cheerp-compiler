@@ -48,7 +48,8 @@ jobs:
           working_directory: ~/project/cheerp-compiler
           command: |
             cat ~/project/packages/version >> $BASH_ENV
-      - clone-toolchain
+      - clone-toolchain:
+          restore-mtime: true
       - run:
           name: Build cheerp
           working_directory: ~/project/cheerp-compiler
@@ -87,6 +88,7 @@ jobs:
           command: |
             cat ~/project/packages/version >> $BASH_ENV
       - clone-toolchain
+          restore-mtime: true
       - run:
           name: Extract build
           working_directory: ~/project/cheerp-compiler
@@ -116,6 +118,7 @@ jobs:
       - attach_workspace:
           at: ~/project/packages
       - clone-toolchain
+          restore-mtime: true
       - run:
           name: Extract build
           working_directory: ~/project/cheerp-compiler
@@ -221,7 +224,8 @@ jobs:
            echo "export REPO_DIR=$REPO_DIR" >> ~/version
       - add-yum-configuration
       - get-rpm-repo
-      - clone-toolchain
+      - clone-toolchain:
+          restore-mtime: false
       - shallow-clone:
           ref: master
           dir: cheerp-internal
@@ -299,7 +303,8 @@ jobs:
             mkdir -p ~/.ssh
             echo $GH_HOST >> ~/.ssh/known_hosts
       - run: sudo apt-get update && sudo apt-get install -y debhelper cmake python3-distutils devscripts ninja-build clang lld python3-github
-      - clone-toolchain
+      - clone-toolchain:
+          restore-mtime: false
       - run:
           name: Set up workspace
           command: |
@@ -391,7 +396,8 @@ jobs:
           name: Clone dependencies
           command: |
             git clone git@github.com:leaningtech/cheerp-libs-addon.git
-      - clone-toolchain
+      - clone-toolchain:
+          restore-mtime: true
       - run:
           name: Build libraries
           working_directory: ~/project/cheerp-compiler
@@ -838,6 +844,8 @@ commands:
         type: string
       remote:
         type: string
+      restore-mtime:
+        type: boolean
     steps:
       - run:
           name: Create directory << parameters.dir >> for repository
@@ -861,8 +869,10 @@ commands:
           working_directory: << parameters.dir >>
           name: Restore file mtimes
           command: |
-            apt-get update && apt-get install git-restore-mtime
-            git restore-mtime
+            if [ << parameters.restore-mtime >> == true ]; then
+              apt-get update && apt-get install git-restore-mtime
+              git restore-mtime
+            fi
   clone-cheerp-repo:
     description: "A helper command that shallowly clones the a cheerp-* repo based on the pipeline parameters"
     parameters:
@@ -872,6 +882,8 @@ commands:
         type: string
       ref:
         type: string
+      restore-mtime:
+        type: boolean
     steps:
       - when:
           condition:
@@ -881,6 +893,7 @@ commands:
                 ref: << parameters.ref >>
                 dir: << parameters.dir >>
                 remote: << parameters.remote >>
+                restore-mtime: << parameters.restore-mtime >>
       - when:
           condition:
             not:
@@ -891,23 +904,30 @@ commands:
                 dir: << parameters.dir >>
                 remote: << parameters.remote >>
   clone-toolchain:
+    parameters:
+      restore-mtime:
+        type: boolean
     steps:
       - clone-cheerp-repo:
           remote: https://github.com/leaningtech/cheerp-compiler
           dir: cheerp-compiler
           ref: << pipeline.parameters.cheerp-compiler-commit >>
+          restore-mtime: << parameters.restore-mtime >>
       - clone-cheerp-repo:
           remote: https://github.com/leaningtech/cheerp-utils
           dir: cheerp-compiler/cheerp-utils
           ref: << pipeline.parameters.cheerp-utils-commit >>
+          restore-mtime: << parameters.restore-mtime >>
       - clone-cheerp-repo:
           remote: https://github.com/leaningtech/cheerp-musl
           dir: cheerp-compiler/cheerp-musl
           ref: << pipeline.parameters.cheerp-musl-commit >>
+          restore-mtime: << parameters.restore-mtime >>
       - clone-cheerp-repo:
           remote: https://github.com/leaningtech/cheerp-libs
           dir: cheerp-compiler/cheerp-libs
           ref: << pipeline.parameters.cheerp-libs-commit >>
+          restore-mtime: << parameters.restore-mtime >>
   install-toolchain:
     steps:
       - attach_workspace:
