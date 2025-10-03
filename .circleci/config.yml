@@ -87,7 +87,7 @@ jobs:
           working_directory: ~/project/cheerp-compiler
           command: |
             cat ~/project/packages/version >> $BASH_ENV
-      - clone-toolchain
+      - clone-toolchain:
           restore-mtime: true
       - run:
           name: Extract build
@@ -117,7 +117,7 @@ jobs:
     steps:
       - attach_workspace:
           at: ~/project/packages
-      - clone-toolchain
+      - clone-toolchain:
           restore-mtime: true
       - run:
           name: Extract build
