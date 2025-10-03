@@ -86,10 +86,11 @@ jobs:
           working_directory: ~/project/cheerp-compiler
           command: |
             cat ~/project/packages/version >> $BASH_ENV
+      - clone-toolchain
       - run:
           name: Extract build
           working_directory: ~/project/cheerp-compiler
-          command: tar -C . -xvf ~/project/packages/cheerp-build.tar.bz2
+          command: tar -C . -xvmf ~/project/packages/cheerp-build.tar.bz2
       - run:
           name: Build clangd
           working_directory: ~/project/cheerp-compiler
@@ -114,10 +115,11 @@ jobs:
     steps:
       - attach_workspace:
           at: ~/project/packages
+      - clone-toolchain
       - run:
           name: Extract build
           working_directory: ~/project/cheerp-compiler
-          command: tar -C . -xvf ~/project/packages/cheerp-build.tar.bz2
+          command: tar -C . -xvmf ~/project/packages/cheerp-build.tar.bz2
       - run:
           name: Run llvm << parameters.rule >>
           working_directory: ~/project/cheerp-compiler
