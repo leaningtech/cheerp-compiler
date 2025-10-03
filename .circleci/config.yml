@@ -90,7 +90,7 @@ jobs:
       - run:
           name: Extract build
           working_directory: ~/project/cheerp-compiler
-          command: tar -C . -xvmf ~/project/packages/cheerp-build.tar.bz2
+          command: tar -C . -xvf ~/project/packages/cheerp-build.tar.bz2
       - run:
           name: Build clangd
           working_directory: ~/project/cheerp-compiler
@@ -119,7 +119,7 @@ jobs:
       - run:
           name: Extract build
           working_directory: ~/project/cheerp-compiler
-          command: tar -C . -xvmf ~/project/packages/cheerp-build.tar.bz2
+          command: tar -C . -xvf ~/project/packages/cheerp-build.tar.bz2
       - run:
           name: Run llvm << parameters.rule >>
           working_directory: ~/project/cheerp-compiler
@@ -857,6 +857,12 @@ commands:
           working_directory: << parameters.dir >>
           name: Checkout << parameters.ref >>
           command: git checkout --progress --force FETCH_HEAD
+      - run:
+          working_directory: << parameters.dir >>
+          name: Restore file mtimes
+          command: |
+            apt-get update && apt-get install git-restore-mtime
+            git restore-mtime
   clone-cheerp-repo:
     description: "A helper command that shallowly clones the a cheerp-* repo based on the pipeline parameters"
     parameters:
