@@ -224,8 +224,7 @@ jobs:
            echo "export REPO_DIR=$REPO_DIR" >> ~/version
       - add-yum-configuration
       - get-rpm-repo
-      - clone-toolchain:
-          restore-mtime: false
+      - clone-toolchain
       - shallow-clone:
           ref: master
           dir: cheerp-internal
@@ -303,8 +302,7 @@ jobs:
             mkdir -p ~/.ssh
             echo $GH_HOST >> ~/.ssh/known_hosts
       - run: sudo apt-get update && sudo apt-get install -y debhelper cmake python3-distutils devscripts ninja-build clang lld python3-github
-      - clone-toolchain:
-          restore-mtime: false
+      - clone-toolchain
       - run:
           name: Set up workspace
           command: |
@@ -846,6 +844,7 @@ commands:
         type: string
       restore-mtime:
         type: boolean
+        default: false
     steps:
       - run:
           name: Create directory << parameters.dir >> for repository
@@ -884,6 +883,7 @@ commands:
         type: string
       restore-mtime:
         type: boolean
+        default: false
     steps:
       - when:
           condition:
@@ -903,10 +903,12 @@ commands:
                 ref: << pipeline.parameters.release-tag >>
                 dir: << parameters.dir >>
                 remote: << parameters.remote >>
+                restore-mtime: << parameters.restore-mtime >>
   clone-toolchain:
     parameters:
       restore-mtime:
         type: boolean
+        default: false
     steps:
       - clone-cheerp-repo:
           remote: https://github.com/leaningtech/cheerp-compiler
