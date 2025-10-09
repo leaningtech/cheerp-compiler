@@ -102,7 +102,7 @@ public:
     }
 private:
     llvm::Constant* findPointerFromGlobal(const llvm::DataLayout* DL,
-            llvm::Type* memType, llvm::GlobalValue* GV, char* GlobalStartAddr,
+            llvm::Type* memType, uintptr_t numZeroIdx, llvm::GlobalValue* GV, char* GlobalStartAddr,
             char* StoredAddr, llvm::Type* Int32Ty);
 
     llvm::GlobalValue* getGlobalForMalloc(const llvm::DataLayout* DL,

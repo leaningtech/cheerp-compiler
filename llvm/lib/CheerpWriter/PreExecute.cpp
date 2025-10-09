@@ -600,7 +600,7 @@ static bool isTypeCompatible(Type* curType, Type* endType)
 }
 
 llvm::Type* getTypeSafeGepForAddress(SmallVector<Constant*, 4>& Indices, Type* Int32Ty, const DataLayout* DL,
-                    Type* ET, Type* endType, uint32_t Offset)
+                    Type* ET, uintptr_t numZeroIdx, uint32_t Offset)
 {
     Type* curType = ET;
     // Keep track of the state while ignoring all trailing zero indices
@@ -612,7 +612,7 @@ llvm::Type* getTypeSafeGepForAddress(SmallVector<Constant*, 4>& Indices, Type* I
     }
     Type* typeAtLastNotZero = curType;
     uint32_t indicesLengthAtLastNotZero = 1;
-    while(Offset!=0 || !isTypeCompatible(curType, endType))
+    while(Offset!=0 || numZeroIdx-- > 0)
     {
         // If the offset is not zero, we must deal with an aggregate
         if(ArrayType* AT=dyn_cast<ArrayType>(curType))
@@ -657,7 +657,7 @@ llvm::Type* getTypeSafeGepForAddress(SmallVector<Constant*, 4>& Indices, Type* I
 }
 
 Constant* PreExecute::findPointerFromGlobal(const DataLayout* DL,
-        Type* memType, GlobalValue* GV, char* GlobalStartAddr,
+        Type* memType, uintptr_t numZeroIdx, GlobalValue* GV, char* GlobalStartAddr,
         char* StoredAddr, Type* Int32Ty)
 {
     // Build a type safe GEP to the right type at the right offset
@@ -665,8 +665,7 @@ Constant* PreExecute::findPointerFromGlobal(const DataLayout* DL,
     llvm::SmallVector<Constant*, 4> Indices;
     // This is needed to dereference global
     llvm::Type* typeFound = getTypeSafeGepForAddress(Indices, Int32Ty, DL,
-            GV->getValueType(),
-            memType->getPointerElementType(), Offset);
+            GV->getValueType(), numZeroIdx, Offset);
     if (!typeFound)
         return NULL;
     Constant* GEP = ConstantExpr::getGetElementPtr(GV->getValueType(), GV, Indices);
@@ -801,13 +800,15 @@ Constant* PreExecute::computeInitializerFromMemory(const DataLayout* DL,
             return cast<Function>(castedVal);
         }
 
+        uintptr_t tag; // number of 0 indices to add to the end of the gep
+        StoredAddr = (char*) currentEE->ValueAddresses->untag(StoredAddr, &tag);
         StoredAddr = (char*) currentEE->ValueAddresses->toReal(StoredAddr);
         Type* Int32Ty = IntegerType::get(currentModule->getContext(), 32);
         const GlobalValue* GV = currentEE->getGlobalValueAtAddress(StoredAddr);
         if (GV)
         {
             char* GlobalStartAddr = (char*)currentEE->getPointerToGlobal(GV);
-            Constant* ret = findPointerFromGlobal(DL, memType,
+            Constant* ret = findPointerFromGlobal(DL, memType, tag,
                     const_cast<GlobalValue*>(GV), GlobalStartAddr,
                     StoredAddr, Int32Ty);
             return ret;
@@ -821,7 +822,7 @@ Constant* PreExecute::computeInitializerFromMemory(const DataLayout* DL,
 #ifdef DEBUG_PRE_EXECUTE
             llvm::errs() << "GV for malloc " << *GV << "\n";
 #endif
-            Constant* ret = findPointerFromGlobal(DL, memType,
+            Constant* ret = findPointerFromGlobal(DL, memType, tag,
                     const_cast<GlobalValue*>(GV), MallocStartAddress,
                     StoredAddr, Int32Ty);
             return ret;
