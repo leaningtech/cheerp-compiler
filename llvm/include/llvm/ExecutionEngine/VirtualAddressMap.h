@@ -15,11 +15,16 @@ public:
 	virtual void* toVirtual(void* real) = 0;
 	virtual void map(void* ptr, size_t size) = 0;
 	virtual void unmap(void* ptr) = 0;
+	virtual void* tag(void* ptr, uintptr_t tag) = 0;
+	virtual void* untag(void* ptr, uintptr_t* tag) = 0;
 
 	virtual ~AddressMapBase(){};
 };
 
 class VirtualAddressMap : public AddressMapBase {
+	constexpr static int ADDR_BITS = 28;
+	constexpr static uintptr_t ADDR_MASK = ((uintptr_t)1 << ADDR_BITS) - 1;
+
 public:
 	struct Page {
 		uintptr_t start;
@@ -55,6 +60,7 @@ public:
 		(void)real_added;
 		assert(real_added);
 		next_virt += size;
+		assert(next_virt < ADDR_MASK);
 	}
 
 	void unmap(void* ptr) override {
@@ -62,6 +68,18 @@ public:
 		assert(it != real_to_virt.end());
 		virt_to_real.erase(it->second.start);
 		real_to_virt.erase(it);
+	}
+
+	void* tag(void* ptr, uintptr_t tag) override {
+		uintptr_t i = reinterpret_cast<uintptr_t>(ptr);
+		return reinterpret_cast<void*>(i | (tag << ADDR_BITS));
+	}
+
+	void* untag(void* ptr, uintptr_t* tag) override {
+		uintptr_t i = reinterpret_cast<uintptr_t>(ptr);
+		if (tag)
+			*tag = i >> ADDR_BITS;
+		return reinterpret_cast<void*>(i & ADDR_MASK);
 	}
 
 	VirtualAddressMap(uintptr_t num_functions) {
@@ -110,6 +128,16 @@ public:
 	void map(void* ptr, size_t size) override {
 	}
 	void unmap(void* ptr) override {
+	}
+
+	void* tag(void* ptr, uintptr_t tag) override {
+		return ptr;
+	}
+
+	void* untag(void* ptr, uintptr_t* tag) override {
+		if (tag)
+			*tag = 0;
+		return ptr;
 	}
 
 };

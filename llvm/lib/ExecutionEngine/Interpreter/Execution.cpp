@@ -1068,27 +1068,32 @@ void Interpreter::visitAllocaInst(AllocaInst &I) {
 
 // getElementOffset - The workhorse for getelementptr.
 //
-GenericValue Interpreter::executeGEPOperation(Value *Ptr, gep_type_iterator I,
+GenericValue Interpreter::executeGEPOperation(Value *Ptr, gep_type_iterator B,
                                               gep_type_iterator E,
                                               ExecutionContext &SF) {
   assert(Ptr->getType()->isPointerTy() &&
          "Cannot getElementOffset of a nonpointer type!");
 
+  uintptr_t Tag = 0;
   uint64_t Total = 0;
 
-  for (; I != E; ++I) {
+  void* P = removeTag(getOperandValue(Ptr, SF).PointerVal, &Tag);
+
+  for (gep_type_iterator I = B; I != E; ++I) {
+    int64_t Idx;
+
     if (StructType *STy = I.getStructTypeOrNull()) {
       const StructLayout *SLO = getDataLayout().getStructLayout(STy);
 
       const ConstantInt *CPU = cast<ConstantInt>(I.getOperand());
       unsigned Index = unsigned(CPU->getZExtValue());
+      Idx = Index;
 
       Total += SLO->getElementOffset(Index);
     } else {
       // Get the index number for the array... which must be long type...
       GenericValue IdxGV = getOperandValue(I.getOperand(), SF);
 
-      int64_t Idx;
       unsigned BitWidth =
         cast<IntegerType>(I.getOperand()->getType())->getBitWidth();
       if (BitWidth == 32)
@@ -1099,10 +1104,15 @@ GenericValue Interpreter::executeGEPOperation(Value *Ptr, gep_type_iterator I,
       }
       Total += getDataLayout().getTypeAllocSize(I.getIndexedType()) * Idx;
     }
+
+    if (Idx != 0)
+      Tag = 0;
+    else if (I != B)
+      Tag += 1;
   }
 
   GenericValue Result;
-  Result.PointerVal = ((char*)getOperandValue(Ptr, SF).PointerVal) + Total;
+  Result.PointerVal = addTag((char*)P + Total, Tag);
   LLVM_DEBUG(dbgs() << "GEP Index " << Total << " bytes.\n");
   return Result;
 }
@@ -1597,7 +1607,7 @@ GenericValue Interpreter::executePtrToIntInst(Value *SrcVal, Type *DstTy,
   GenericValue Dest, Src = getOperandValue(SrcVal, SF);
   assert(SrcVal->getType()->isPointerTy() && "Invalid PtrToInt instruction");
 
-  Dest.IntVal = APInt(DBitWidth, (intptr_t) Src.PointerVal);
+  Dest.IntVal = APInt(DBitWidth, (intptr_t) removeTag(Src.PointerVal));
   return Dest;
 }
 

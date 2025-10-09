@@ -117,11 +117,31 @@ public:
 };
 }  // anonymous namespace
 
-GenericValue ExecutionEngine::RPTOGV(void *P) {
-  return GenericValue(ValueAddresses ? ValueAddresses->toVirtual(P) : P);
+GenericValue ExecutionEngine::RPTOGV(void *P, uintptr_t Tag) {
+  if (ValueAddresses) {
+    P = ValueAddresses->toVirtual(P);
+    return GenericValue(ValueAddresses->tag(P, Tag));
+  }
+  return GenericValue(P);
 }
-void* ExecutionEngine::GVTORP(const GenericValue &GV) {
-  return ValueAddresses ? ValueAddresses->toReal(GV.PointerVal) : GV.PointerVal;
+void* ExecutionEngine::GVTORP(const GenericValue &GV, uintptr_t *Tag) {
+  if (ValueAddresses) {
+    void *P = ValueAddresses->untag(GV.PointerVal, Tag);
+    return ValueAddresses->toReal(P);
+  }
+  if (Tag)
+    *Tag = 0;
+  return GV.PointerVal;
+}
+void* ExecutionEngine::addTag(void *P, uintptr_t Tag) {
+  if (ValueAddresses)
+    return ValueAddresses->tag(P, Tag);
+  return P;
+}
+void* ExecutionEngine::removeTag(void* P, uintptr_t *Tag) {
+  if (ValueAddresses)
+    return ValueAddresses->untag(P, Tag);
+  return P;
 }
 
 char *ExecutionEngine::getMemoryForGV(const GlobalVariable *GV) {
@@ -673,10 +693,18 @@ GenericValue ExecutionEngine::getConstantValue(const Constant *C) {
       // Compute the index
       GenericValue Result = getConstantValue(Op0);
       APInt Offset(DL.getPointerSizeInBits(), 0);
-      cast<GEPOperator>(CE)->accumulateConstantOffset(DL, Offset);
+      const GEPOperator* GEP = cast<GEPOperator>(CE);
+      assert(GEP->hasAllConstantIndices());
+      GEP->accumulateConstantOffset(DL, Offset);
 
-      char* tmp = (char*) GVTORP(Result);
-      Result = RPTOGV(tmp + Offset.getSExtValue());
+      uintptr_t Tag;
+      char* P = (char*) GVTORP(Result, &Tag);
+      for (const auto *I = GEP->idx_begin(); I != GEP->idx_end(); ++I)
+        if (!cast<ConstantInt>(*GEP->idx_begin())->isZero())
+          Tag = 0;
+        else if (I != GEP->idx_begin())
+          Tag += 1;
+      Result = RPTOGV(P + Offset.getSExtValue(), Tag);
       return Result;
     }
     case Instruction::Trunc: {

@@ -148,8 +148,10 @@ public:
 
   // These functions are similar to PTOGV and GVTOP, but also convert the emulated
   // 32 bit address in a real address in memory, and vice versa
-  GenericValue RPTOGV(void *P);
-  void* GVTORP(const GenericValue &GV);
+  GenericValue RPTOGV(void *P, uintptr_t Tag = 0);
+  void* GVTORP(const GenericValue &GV, uintptr_t *Tag = nullptr);
+  void* addTag(void *P, uintptr_t Tag = 0);
+  void* removeTag(void* P, uintptr_t *Tag = nullptr);
 
   // Get the caller of the current function, or nullptr if this is the entry point
   // This function is overridden by the interpreter
