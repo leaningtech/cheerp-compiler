@@ -586,7 +586,9 @@ void cheerp::Link::ConstructJob(Compilation &C, const JobAction &JA,
   // Add standard libraries
   if (!Args.hasArg(options::OPT_nostdlib) &&
       !Args.hasArg(options::OPT_nodefaultlibs)) {
-    if (C.getDriver().CCCIsCXX()) {
+    Arg *Sanitizers = Args.getLastArg(options::OPT_fsanitize_EQ);
+    // Always run ASAN with libstdlibs
+    if (C.getDriver().CCCIsCXX() || (Sanitizers && Sanitizers->containsValue("address"))) {
       AddStdLib("libstdlibs.bc");
     } else {
       AddStdLib("libc.bc");
@@ -602,7 +604,6 @@ void cheerp::Link::ConstructJob(Compilation &C, const JobAction &JA,
     // Add wasm helper if needed
     Arg *CheerpLinearOutput = Args.getLastArg(options::OPT_cheerp_linear_output_EQ);
 
-    Arg *Sanitizers = Args.getLastArg(options::OPT_fsanitize_EQ);
     if (Sanitizers && Sanitizers->containsValue("address")) {
       AddLateLib("asmjs/libclang_rt.asan-Cheerp.bc");
       if (D.CCCIsCXX())
