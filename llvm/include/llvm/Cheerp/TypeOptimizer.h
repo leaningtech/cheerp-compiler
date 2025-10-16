@@ -144,7 +144,7 @@ private:
 	typedef std::pair<llvm::Align, llvm::Align> AlignmentInfo;
 	//Rewrite a Type while filling the needed alignment informations
 	TypeMappingInfo rewriteTypeWithAlignmentInfo(llvm::Type* t, AlignmentInfo& info);
-	TypeMappingInfo rewriteType(llvm::Type* t);
+	TypeMappingInfo rewriteType(llvm::Type* t, llvm::Type* et = nullptr);
 	llvm::FunctionType* rewriteFunctionType(llvm::FunctionType* t, bool keepI64);
 	llvm::Function* rewriteFunctionSignature(llvm::Function* F);
 	void rewriteUses(llvm::Value* V, llvm::Value* NewV);

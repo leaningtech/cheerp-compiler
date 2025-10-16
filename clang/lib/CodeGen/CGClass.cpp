@@ -529,6 +529,7 @@ CodeGenFunction::GenerateUpcastCollapsed(Address Value,
   llvm::CallBase* CB = Builder.CreateCall(intrinsic, Value.getPointer());
   assert(CB->getArgOperand(0)->getType()->isOpaquePointerTy() || CB->getArgOperand(0)->getType()->getNonOpaquePointerElementType() == Value.getElementType());
   CB->addParamAttr(0, llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, Value.getElementType()));
+  CB->addRetAttr(llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, BasePointedTy));
 
   return Address(CB, BasePointedTy, Value.getAlignment());
 }
