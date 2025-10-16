@@ -370,7 +370,7 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteTypeWithAlignmentInfo(llvm:
 	return mappingInfo;
 }
 
-TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
+TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t, Type* et)
 {
 	assert(!newStructTypes.count(t));
 	auto typeMappingIt=typesMapping.find(t);
@@ -725,7 +725,11 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 	}
 	if(PointerType* pt=dyn_cast<PointerType>(t))
 	{
-		Type* elementType = pt->getPointerElementType();
+		// NOTE: The only observable effects of this GPET are:
+		// 1. The element type of another pointer, that will not be needed with opaque pointers.
+		// 2. The element mapping kind of POINTER_FROM_ARRAY, but the cases where this is needed *should* all be passing the correct 'et' parameter.
+		// This GPET will disappear naturally once the switch to opaque pointers is made.
+		Type* elementType = et ? et : pt->getPointerElementType();
 		Type* newType = rewriteType(elementType);
 		if(newType->isArrayTy())
 		{
@@ -1247,7 +1251,7 @@ uint8_t TypeOptimizer::rewriteGEPIndexes(SmallVector<Value*, 4>& newIndexes, Typ
 	Type* Int32Ty = IntegerType::get(curType->getContext(), 32);
 	for(uint32_t i=0;i<idxs.size();i++)
 	{
-		TypeMappingInfo curTypeMappingInfo = rewriteType(curType);
+		TypeMappingInfo curTypeMappingInfo = rewriteType(curType, i == 0 ? srcType : nullptr);
 		switch(curTypeMappingInfo.elementMappingKind)
 		{
 			case TypeMappingInfo::IDENTICAL:
@@ -1349,8 +1353,8 @@ uint8_t TypeOptimizer::rewriteGEPIndexes(SmallVector<Value*, 4>& newIndexes, Typ
 						elementType = rewrittenAsArray->getArrayElementType();
 					else
 					{
-						assertPointerElementOrOpaque(mappedPointedType, rewriteType(getElementType(curType, srcType)));
-						elementType = mappedPointedType->getPointerElementType();
+						elementType = rewriteType(getElementType(curType, srcType));;
+						assertPointerElementOrOpaque(mappedPointedType, elementType);
 					}
 				}
 
@@ -1524,6 +1528,13 @@ static std::pair<Value*, Value*> SplitI64(Value* V, IRBuilder<>& Builder)
 	High = Builder.CreateTrunc(High, Int32Ty, Twine(V->getName(),".high"));
 
 	return std::make_pair(Low, High);
+}
+
+static llvm::Type* tryGetResultElementType(Value* V)
+{
+	if (auto* GEP = dyn_cast<GEPOperator>(V))
+		return GEP->getResultElementType();
+	return nullptr;
 }
 
 void TypeOptimizer::rewriteFunction(Function* F)
@@ -1720,10 +1731,13 @@ void TypeOptimizer::rewriteFunction(Function* F)
 							// If the return type is not a struct anymore while the source type is still a
 							// struct replace the upcast with a GEP
 							Value* ptrOperand = I.getOperand(0);
+							Type* retType = CI->getRetElementType();
 							Type* curType = CI->getParamElementType(0);
+							assert(retType);
 							assert(curType);
+							assertPointerElementOrOpaque(I.getType(), retType);
 							assertPointerElementOrOpaque(localTypeMapping.getOriginalOperandType(ptrOperand), curType);
-							TypeMappingInfo newRetInfo = rewriteType(I.getType()->getPointerElementType());
+							TypeMappingInfo newRetInfo = rewriteType(retType);
 							TypeMappingInfo newOpInfo = rewriteType(curType);
 							if(TypeMappingInfo::isCollapsedStruct(newRetInfo.elementMappingKind) &&
 								!TypeMappingInfo::isCollapsedStruct(newOpInfo.elementMappingKind))
@@ -1996,12 +2010,14 @@ void TypeOptimizer::rewriteFunction(Function* F)
 						break;
 					}
 					llvm::Type* oldType = mappedValue->getType();
-					bool isMergedPointer = mappedOperand.first->getType() != I.getOperand(1)->getType();
+					llvm::Type* resultElementType = tryGetResultElementType(mappedOperand.first);
+					bool isMergedPointer = resultElementType && resultElementType != localTypeMapping.getOriginalOperandType(I.getOperand(0));
 					if(!isMergedPointer)
 						break;
 					I.dropUnknownNonDebugMetadata();
 					// We need to load, mask, insert and store
-					llvm::Instruction* load = new LoadInst(mappedOperand.first->getType()->getPointerElementType(), mappedOperand.first, "mergedload", &I);
+					assertPointerElementOrOpaque(mappedOperand.first->getType(), resultElementType);
+					llvm::Instruction* load = new LoadInst(resultElementType, mappedOperand.first, "mergedload", &I);
 					// Compute a mask to preserve all the not-needed bits
 					uint32_t maskVal = ((1<<(cast<IntegerType>(oldType)->getBitWidth()))-1);
 					maskVal <<= mappedOperand.second;
@@ -2046,10 +2062,13 @@ void TypeOptimizer::rewriteFunction(Function* F)
 						needsDefaultHandling = false;
 						break;
 					}
-					bool isMergedPointer = mappedOperand.first->getType() != I.getOperand(0)->getType();
+					llvm::Type* resultElementType = tryGetResultElementType(mappedOperand.first);
+					bool isMergedPointer = resultElementType && resultElementType != I.getType();
 					if(!isMergedPointer)
 						break;
-					I.mutateType(mappedOperand.first->getType()->getPointerElementType());
+					localTypeMapping.setOriginalOperandType(&I, I.getType());
+					assertPointerElementOrOpaque(mappedOperand.first->getType(), resultElementType);
+					I.mutateType(resultElementType);
 					I.dropUnknownNonDebugMetadata();
 					llvm::Instruction* mergedValue = &I;
 					if(mappedOperand.second)
@@ -2065,7 +2084,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 				case Instruction::Alloca:
 				{
 					AllocaInst* AI = cast<AllocaInst>(&I);
-					TypeMappingInfo newInfo = rewriteType(I.getType());
+					TypeMappingInfo newInfo = rewriteType(I.getType(), AI->getAllocatedType());
 					if(newInfo.mappedType!=I.getType())
 					{
 						Type* newAllocatedType = rewriteType(AI->getAllocatedType());
@@ -2189,7 +2208,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 
 Constant* TypeOptimizer::rewriteGlobal(GlobalVariable* GV)
 {
-	TypeMappingInfo newInfo = rewriteType(GV->getType());
+	TypeMappingInfo newInfo = rewriteType(GV->getType(), GV->getValueType());
 	globalTypeMapping[GV] = GV->getType();
 	if(GV->getType()==newInfo.mappedType)
 	{
