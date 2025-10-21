@@ -975,6 +975,24 @@ bool ConstStructBuilder::UpdateStruct(ConstantEmitter &Emitter,
 //                             ConstExprEmitter
 //===----------------------------------------------------------------------===//
 
+static bool isAsmJSContext(CodeGenModule &CGM, CodeGenFunction *CGF, const Expr *E) {
+  if (!CGM.getLangOpts().Cheerp) {
+    return false;
+  } else if (CGF && CGF->CurFn) {
+    return CGF->CurFn->getSection() == StringRef("asmjs");
+  } else if (CGM.getInitializedGlobalDecl()->getDecl()) {
+    return CGM.getInitializedGlobalDecl()->getDecl()->hasAttr<AsmJSAttr>();
+  } else {
+    if (E) {
+      llvm::errs() << "Could not determine the context of this expression:\n";
+      E->dump();
+    } else {
+      llvm::errs() << "Could not determine the current context\n";
+    }
+    llvm::report_fatal_error("please report a bug");
+  }
+}
+
 static void applyAsmJSAttributeFromContext(CodeGenModule &CGM, CodeGenFunction *CGF, const Expr *E, llvm::GlobalVariable* GV)
 {
   // CHEERP: if the current global declaration has the asmjs attribute,
