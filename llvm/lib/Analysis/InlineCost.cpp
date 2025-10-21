@@ -2990,6 +2990,21 @@ InlineCost llvm::getInlineCost(
              : InlineCost::getNever(ShouldInline.getFailureReason());
 }
 
+static bool isForbiddenConstantExpr(Constant *C) {
+  // Forbid PtrToInt
+  if (ConstantExpr* CE = dyn_cast<ConstantExpr>(C))
+    if (CE->getOpcode() == Instruction::PtrToInt)
+      return true;
+
+  // Recurse on ConstantExpr and ConstantAggregate
+  if (isa<ConstantExpr>(C) || isa<ConstantAggregate>(C))
+    for (Value* Operand : C->operand_values())
+      if (isForbiddenConstantExpr(cast<Constant>(Operand)))
+        return true;
+
+  return false;
+}
+
 bool llvm::isInlineViableCheerp(Function &F, Function &Caller) {
   bool callerIsAsmJS = Caller.getSection() == StringRef("asmjs");
   bool asmJS = F.getSection() == StringRef("asmjs");
@@ -3039,6 +3054,12 @@ bool llvm::isInlineViableCheerp(Function &F, Function &Caller) {
       // No PtrToIntInst
       if (isa<PtrToIntInst>(II))
         return false;
+
+      // No constant PtrToInt
+      for (Value::use_iterator UI = II->use_begin(), UE = II->use_end(); UI != UE; ++UI)
+        if (Constant* C = dyn_cast<Constant>(UI->get()))
+          if (isForbiddenConstantExpr(C))
+            return false;
 
       // Here we forbid any usage of T** - it used to be an explicit tracking on loads, now we move that
       //	to a tracking on the usage of T**

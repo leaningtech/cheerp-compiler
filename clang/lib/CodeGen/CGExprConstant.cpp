@@ -2188,7 +2188,7 @@ llvm::Constant *ConstantLValueEmitter::tryEmit() {
 
   // CHEERP: Cheerp cannot currently handle constant ptrtoint because we don't
   // have the pointer element type.
-  if (CGM.getLangOpts().Cheerp)
+  if (CGM.getLangOpts().Cheerp && !isAsmJSContext(CGM, Emitter.CGF, nullptr))
     return nullptr;
 
   return llvm::ConstantExpr::getPtrToInt(value, destTy);
@@ -2450,7 +2450,7 @@ llvm::Constant *ConstantEmitter::tryEmitPrivate(const APValue &Value,
   case APValue::AddrLabelDiff: {
     // CHEERP: Cheerp cannot currently handle constant ptrtoint because we don't
     // have the pointer element type.
-    if (CGM.getLangOpts().Cheerp)
+    if (CGM.getLangOpts().Cheerp && !isAsmJSContext(CGM, CGF, nullptr))
       return nullptr;
 
     const AddrLabelExpr *LHSExpr = Value.getAddrLabelDiffLHS();
