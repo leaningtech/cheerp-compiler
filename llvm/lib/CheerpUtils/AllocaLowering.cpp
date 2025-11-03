@@ -84,6 +84,7 @@ bool AllocaLowering::runOnFunction(Function& F, DominatorTree& DT, cheerp::Globa
 	Type* Int8Ty = IntegerType::getInt8Ty(M->getContext());
 
 	uint32_t nbytes = 0;
+	uint32_t maxAlignment = 8;
 	bool isLeafFunction = true;
 	for ( BasicBlock & BB : F )
 	{
@@ -132,6 +133,7 @@ bool AllocaLowering::runOnFunction(Function& F, DominatorTree& DT, cheerp::Globa
 				offset = (offset + alignment - 1) & -alignment;
 				allocas.push_back(std::make_pair(ai, -offset));
 				nbytes = offset;
+				maxAlignment = std::max(maxAlignment, alignment);
 			}
 			else if (ReturnInst * ret = dyn_cast<ReturnInst>(it))
 			{
@@ -207,6 +209,11 @@ bool AllocaLowering::runOnFunction(Function& F, DominatorTree& DT, cheerp::Globa
 			// Stack space for spilling locals sits above the normal stack
 			Function* getLocalsStack = Intrinsic::getDeclaration(M, Intrinsic::cheerp_locals_stack);
 			newStack = Builder.CreateCall(getLocalsStack, { savedStack }, "localsstack");
+		}
+		if(maxAlignment > 8)
+		{
+			// Needed for over-aligned types
+			newStack = Builder.CreateIntToPtr(Builder.CreateAnd(Builder.CreatePtrToInt(newStack, int32Ty), ~(maxAlignment - 1)), newStack->getType());
 		}
 		if(nbytes > 0)
 		{
