@@ -286,8 +286,16 @@ Instruction *InstCombinerImpl::commonCastTransforms(CastInst &CI) {
   Value *Src = CI.getOperand(0);
   Type *Ty = CI.getType();
 
+  // CHEERP: look past the typed ptrcast
+  Value *Src2 = Src;
+  if (auto *II = dyn_cast<IntrinsicInst>(Src2)) {
+    if (II->getIntrinsicID() == Intrinsic::cheerp_typed_ptrcast) {
+      Src2 = II->getArgOperand(0);
+    }
+  }
+
   // Try to eliminate a cast of a cast.
-  if (auto *CSrc = dyn_cast<CastInst>(Src)) {   // A->B->C cast
+  if (auto *CSrc = dyn_cast<CastInst>(Src2)) {   // A->B->C cast
     if (Instruction::CastOps NewOpc = isEliminableCastPair(CSrc, &CI)) {
       // The first cast (CSrc) is eliminable so we need to fix up or replace
       // the second cast (CI). CSrc will then have a good chance of being dead.
