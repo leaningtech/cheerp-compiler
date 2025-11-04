@@ -7318,7 +7318,7 @@ void CheerpWriter::compileWorkerMainScript()
 	stream << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) << ".promise.then(" << shortestName << "=>{" << NewLine;
 	stream << "__asm=" << shortestName << ".exports;" << NewLine;
 	compileDefineExports();
-	stream << "__asm._workerEntry(" << threadObject << ".tls, " << threadObject << ".func, ";
+	stream << "workerEntry(" << threadObject << ".tls, " << threadObject << ".func, ";
 	stream << threadObject << ".args, " << threadObject << ".tid, " << threadObject << ".stack, ";
 	stream << threadObject << ".ctid);" << NewLine;
 	stream << "}).catch(e=>{" << NewLine;
