@@ -978,11 +978,11 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(const
 		stream << namegen.getBuiltinName(NameGenerator::Builtin::THREADINGOBJECT);
 		return COMPILE_OK;
 	}
-	else if(intrinsicId==Intrinsic::cheerp_get_threading_blob)
+	else if(intrinsicId==Intrinsic::cheerp_get_threading_script)
 	{
 		StringRef threadingObject = namegen.getBuiltinName(NameGenerator::Builtin::THREADINGOBJECT);
 		StringRef blobText = namegen.getBuiltinName(NameGenerator::Builtin::BLOBNAME);
-		stream << "new Blob([" << threadingObject << "." << blobText << "])";
+		stream << threadingObject << "." << blobText;
 		return COMPILE_OK;
 	}
 	else if(intrinsicId==Intrinsic::cheerp_get_thread_setup_resolve)
