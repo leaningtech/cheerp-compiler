@@ -196,7 +196,6 @@ void CheerpWriter::compileFloatComparison(const llvm::Value* lhs, const llvm::Va
 
 void CheerpWriter::compilePtrToInt(const llvm::Value* v, bool isInt64)
 {
-	Type* pointedType = getPointerElementTypeForValueAssert(v, /*useGPET*/ false);
 	if (isInt64)
 	{
 		stream << "BigInt(";
@@ -205,31 +204,35 @@ void CheerpWriter::compilePtrToInt(const llvm::Value* v, bool isInt64)
 	{
 		stream << '(';
 	}
-	// Multiplying by the size is only required for pointer subtraction, which implies that the type is sized
-	uint64_t typeSize = pointedType->isSized() ? targetData.getTypeAllocSize(pointedType) : 0;
 	if (PA.getPointerKind(v) == RAW)
 	{
 		compileRawPointer(v);
 		stream << "|0";
 	}
-	else if(typeSize>1 && PA.getPointerKind(v) != BYTE_LAYOUT)
+	else
 	{
-		if(useMathImul)
+		Type* pointedType = getPointerElementTypeForValueAssert(v, /*useGPET*/ false);
+		// Multiplying by the size is only required for pointer subtraction, which implies that the type is sized
+		uint64_t typeSize = pointedType->isSized() ? targetData.getTypeAllocSize(pointedType) : 0;
+		if(typeSize > 1 && PA.getPointerKind(v) != BYTE_LAYOUT)
 		{
-			stream << namegen.getBuiltinName(NameGenerator::Builtin::IMUL) << "(";
-			compilePointerOffset(v, LOWEST);
-			stream << ',' << typeSize << ')';
+			if(useMathImul)
+			{
+				stream << namegen.getBuiltinName(NameGenerator::Builtin::IMUL) << "(";
+				compilePointerOffset(v, LOWEST);
+				stream << ',' << typeSize << ')';
+			}
+			else
+			{
+				stream << '(';
+				compilePointerOffset(v, LOWEST);
+				stream << ')';
+				stream << '*' << typeSize;
+			}
 		}
 		else
-		{
-			stream << '(';
 			compilePointerOffset(v, LOWEST);
-			stream << ')';
-			stream << '*' << typeSize;
-		}
 	}
-	else
-		compilePointerOffset(v, LOWEST);
 	stream << ')';
 }
 
