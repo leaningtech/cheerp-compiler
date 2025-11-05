@@ -290,7 +290,18 @@ Instruction *InstCombinerImpl::commonCastTransforms(CastInst &CI) {
   Value *Src2 = Src;
   if (auto *II = dyn_cast<IntrinsicInst>(Src2)) {
     if (II->getIntrinsicID() == Intrinsic::cheerp_typed_ptrcast) {
-      Src2 = II->getArgOperand(0);
+      if (auto *CSrc = dyn_cast<CastInst>(II->getArgOperand(0))) {
+        Type *SrcTy = CSrc->getSrcTy();
+        Type *MidTy = CSrc->getDestTy();
+        Type *DstTy = II->getType();
+
+        // Only proceed if the typed ptrcast is a noop and the new cast
+        // definitely won't need it because its source type is not a pointer.
+        // This condition can probably be relaxed.
+        if (MidTy == DstTy && !SrcTy->isPointerTy()) {
+          Src2 = II->getArgOperand(0);
+        }
+      }
     }
   }
 
