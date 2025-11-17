@@ -64,8 +64,7 @@ void LowerGlobalDestructorsPass::filterGenericJSDestructors(Module& M)
 
 PreservedAnalyses LowerGlobalDestructorsPass::run(Module& M, ModuleAnalysisManager& MAM)
 {
-	ModulePassManager MPM;
-	MPM.addPass(LowerGlobalDtorsPass());
+	LowerGlobalDtorsPass LGDP;
 
 	// Collect all currently existing functions in a set.
 	std::unordered_set<Function*> functionsBeforePass;
@@ -76,7 +75,7 @@ PreservedAnalyses LowerGlobalDestructorsPass::run(Module& M, ModuleAnalysisManag
 	filterGenericJSDestructors(M);
 
 	// Run the LowerGlobalDtorsPass.
-	PreservedAnalyses PA = MPM.run(M, MAM);
+	PreservedAnalyses PA = LGDP.run(M, MAM);
 
 	// The functions that weren't in the list before are the new functions
 	// created by the LowerGlobalDtorsPass. Tag them asmjs.
