@@ -12,8 +12,7 @@ using namespace cheerp;
 PreservedAnalyses CheerpLowerAtomicPass::run(Module& M, ModuleAnalysisManager& MAM)
 {
 	FunctionAnalysisManager& FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
-	FunctionPassManager FPM;
-	FPM.addPass(LowerAtomicPass());
+	LowerAtomicPass LAP;
 
 	// Loop over the functions, and only pass genericjs ones to LowerAtomicPass
 	for (Function& F : M)
@@ -24,7 +23,7 @@ PreservedAnalyses CheerpLowerAtomicPass::run(Module& M, ModuleAnalysisManager& M
 		if (!LowerAtomics && F.getSection() == "asmjs")
 			continue;
 
-		FPM.run(F, FAM);
+		LAP.run(F, FAM);
 	}
 
 	// Replace thread locals with actual globals
