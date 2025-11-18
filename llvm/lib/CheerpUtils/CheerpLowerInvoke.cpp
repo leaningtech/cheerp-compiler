@@ -20,21 +20,27 @@
 #include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Utils/LowerInvoke.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#include "llvm/Analysis/CallGraph.h"
+#include "llvm/Analysis/LazyCallGraph.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Analysis/GlobalsModRef.h"
+#include "llvm/IR/Function.h"
 using namespace llvm;
 
 #define DEBUG_TYPE "cheerplowerinvoke"
 
 PreservedAnalyses CheerpLowerInvokePass::run(Function& F, FunctionAnalysisManager& AM)
 {
-  if (KeepInvokes)
+  if (KeepInvokes || !F.hasPersonalityFn())
     return PreservedAnalyses::all();
   F.setPersonalityFn(nullptr);
   PreservedAnalyses PA = LowerInvokePass().run(F, AM);
+
   llvm::EliminateUnreachableBlocks(F);
+  PA.preserve<LazyCallGraphAnalysis>();
+  PA.preserve<CallGraphAnalysis>();
+  PA.preserve<TargetLibraryAnalysis>();
+  PA.preserve<GlobalsAA>();
 
-  return PreservedAnalyses::none();
+  return PA;
 }
-
-
-
-

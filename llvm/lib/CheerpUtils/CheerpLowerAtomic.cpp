@@ -8,6 +8,7 @@
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/LazyCallGraph.h"
 #include "llvm/IR/PassManager.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
 
 using namespace llvm;
 using namespace cheerp;
@@ -58,6 +59,8 @@ PreservedAnalyses CheerpLowerAtomicPass::run(Module& M, ModuleAnalysisManager& M
 
 	PA.preserve<CallGraphAnalysis>();
 	PA.preserve<LazyCallGraphAnalysis>();
+	PA.preserve<TargetLibraryAnalysis>();
 	PA.preserveSet<CFGAnalyses>();
+
 	return PA;
 }
