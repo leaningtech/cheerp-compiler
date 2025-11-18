@@ -5,6 +5,9 @@
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/Transforms/Scalar/LowerAtomicPass.h"
+#include "llvm/Analysis/CallGraph.h"
+#include "llvm/Analysis/LazyCallGraph.h"
+#include "llvm/IR/PassManager.h"
 
 using namespace llvm;
 using namespace cheerp;
@@ -13,6 +16,7 @@ PreservedAnalyses CheerpLowerAtomicPass::run(Module& M, ModuleAnalysisManager& M
 {
 	FunctionAnalysisManager& FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
 	LowerAtomicPass LAP;
+	PreservedAnalyses PA = PreservedAnalyses::none();
 
 	// Loop over the functions, and only pass genericjs ones to LowerAtomicPass
 	for (Function& F : M)
@@ -52,5 +56,8 @@ PreservedAnalyses CheerpLowerAtomicPass::run(Module& M, ModuleAnalysisManager& M
 		}
 	}
 
-	return PreservedAnalyses::none();
+	PA.preserve<CallGraphAnalysis>();
+	PA.preserve<LazyCallGraphAnalysis>();
+	PA.preserveSet<CFGAnalyses>();
+	return PA;
 }
