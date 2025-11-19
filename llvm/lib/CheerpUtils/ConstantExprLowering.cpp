@@ -115,7 +115,7 @@ bool ConstantExprLowering::runOnFunction(Function& F, bool& hasI64, const Target
 			{
 				// In asmjs, addresses of globals  are just integers
 				// Ask LinearMemoryHelper for the value and cast to the pointer type
-				if (!WasmSharedModule && GV->GlobalValue::getSection() == StringRef("asmjs"))
+				if (!WasmSharedModule && GV->GlobalValue::getSection() == StringRef("asmjs") && !GV->isThreadLocal())
 				{
 					if (mapGVToInst.count(GV) == 0)
 					{
