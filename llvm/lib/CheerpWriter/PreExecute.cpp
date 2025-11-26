@@ -494,6 +494,38 @@ static GenericValue pre_execute_typed_ptrcast(FunctionType* FT, ArrayRef<Generic
     return Args[0];
 }
 
+static GenericValue pre_execute_print_value_handler(FunctionType *FT,
+        ArrayRef<GenericValue> Args, AttributeList Attrs)
+
+{
+    ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
+    const char* msg = reinterpret_cast <char*>(currentEE->GVTORP(Args[0]));
+
+    llvm::errs() << msg;
+
+    for (int i = 1; i < Args.size(); ++i){
+        Type* valueType = FT->getParamType(i);
+
+        if (valueType->isDoubleTy()){
+            llvm::errs() << " " << llvm::format("%.10f", Args[i].DoubleVal);
+        }
+        else if (valueType->isFloatTy()){
+            llvm::errs() << " " << llvm::format("%.10f", Args[i].FloatVal);
+        }
+        else if (valueType->isIntegerTy()){
+            llvm::errs() << " " << Args[i].IntVal.getSExtValue();
+        }
+        else if (valueType->isPointerTy()){
+            llvm::errs() << " " << reinterpret_cast<char *>(currentEE->GVTORP(Args[i]));
+        }
+        else if (valueType)
+            llvm::errs() << " incompatible value type";
+    }
+
+    llvm::errs() << "\n";
+    return GenericValue(0);
+}
+
 static GenericValue assertEqualImpl(FunctionType *FT,
         ArrayRef<GenericValue> Args, AttributeList Attrs)
 {
@@ -561,8 +593,10 @@ static void* LazyFunctionCreator(const std::string& funcName)
         return (void*)(void(*)())pre_execute_smax;
     if (strncmp(funcName.c_str(), "llvm.abs.", strlen("llvm.abs."))==0)
         return (void*)(void(*)())pre_execute_abs;
-    if (strcmp(funcName.c_str(), "assertEqualImpl") == 0)
+    if (strcmp(funcName.c_str(), "assertEqualImpl")==0)
         return (void*)(void(*)())assertEqualImpl;
+    if (funcName.find("__preexecute_print_case") != std::string::npos)
+        return (void*)(void(*)())pre_execute_print_value_handler;
     if (strcmp(funcName.c_str(), "llvm.dbg.value") == 0)
         return (void*)(void(*)())emptyFunction;
 
