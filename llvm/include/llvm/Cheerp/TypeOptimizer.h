@@ -17,6 +17,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/PointerIntPair.h"
 #include <unordered_map>
 #include <unordered_set>
 #include <set>
@@ -122,6 +123,7 @@ private:
 
 	llvm::Module* module;
 	const llvm::DataLayout* DL;
+	llvm::DenseMap<llvm::PointerIntPair<llvm::Constant*, 1, bool>, std::pair<llvm::Constant*, uint8_t>> constantCache;
 	llvm::DenseMap<const llvm::StructType*,std::set<llvm::StructType*>> downcastSourceToDestinationsMapping;
 	llvm::DenseMap<const llvm::StructType*, std::vector<std::pair<uint32_t, uint32_t>>> membersMappingData;
 	llvm::DenseMap<llvm::GlobalValue*, llvm::Constant*> globalsMapping;

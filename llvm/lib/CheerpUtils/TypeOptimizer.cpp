@@ -846,6 +846,15 @@ std::pair<Constant*, uint8_t> TypeOptimizer::rewriteConstant(Constant* C, bool r
 		return std::make_pair(globalsMapping[GV], 0);
 	}
 	TypeMappingInfo newTypeInfo = rewriteType(C->getType());
+	auto const_it = constantCache.find({C, rewriteI64});
+	if (const_it != constantCache.end())
+		return const_it->second;
+	auto CacheAndReturn = [&](Constant* result, uint8_t offset) -> std::pair<Constant*, uint8_t>
+	{
+		auto ret = std::make_pair(result, offset);
+		constantCache[{C, rewriteI64}] = ret;
+		return ret;
+	};
 	if (ConstantExpr* CE=dyn_cast<ConstantExpr>(C))
 	{
 		auto getOriginalGlobalType = [&](Constant* C) -> Type*
@@ -879,25 +888,25 @@ std::pair<Constant*, uint8_t> TypeOptimizer::rewriteConstant(Constant* C, bool r
 				if (isa<ArrayType>(srcType))
 					srcType = cast<ArrayType>(srcType)->getElementType();
 				uint8_t mergedIntegerOffset=rewriteGEPIndexes(newIndexes, ptrType, cast<GEPOperator>(CE)->getSourceElementType(), idxs, targetType, NULL, CE->getType());
-				return std::make_pair(ConstantExpr::getGetElementPtr(srcType, ptrOperand, newIndexes), mergedIntegerOffset);
+				return CacheAndReturn(ConstantExpr::getGetElementPtr(srcType, ptrOperand, newIndexes), mergedIntegerOffset);
 			}
 			case Instruction::BitCast:
 			{
 				auto rewrittenOperand = rewriteConstant(CE->getOperand(0), false);
 				assert(rewrittenOperand.second == 0);
 				Constant* srcOperand = rewrittenOperand.first;
-				return std::make_pair(ConstantExpr::getBitCast(srcOperand, newTypeInfo.mappedType), 0);
+				return CacheAndReturn(ConstantExpr::getBitCast(srcOperand, newTypeInfo.mappedType), 0);
 			}
 			case Instruction::AddrSpaceCast:
 			{
 				auto rewrittenOperand = rewriteConstant(CE->getOperand(0), false);
 				assert(rewrittenOperand.second == 0);
 				Constant* srcOperand = rewrittenOperand.first;
-				return std::make_pair(ConstantExpr::getPointerBitCastOrAddrSpaceCast(srcOperand, newTypeInfo.mappedType), 0);
+				return CacheAndReturn(ConstantExpr::getPointerBitCastOrAddrSpaceCast(srcOperand, newTypeInfo.mappedType), 0);
 			}
 			case Instruction::IntToPtr:
 			{
-				return std::make_pair(ConstantExpr::getIntToPtr(CE->getOperand(0), newTypeInfo.mappedType), 0);
+				return CacheAndReturn(ConstantExpr::getIntToPtr(CE->getOperand(0), newTypeInfo.mappedType), 0);
 			}
 			default:
 			{
@@ -909,7 +918,7 @@ std::pair<Constant*, uint8_t> TypeOptimizer::rewriteConstant(Constant* C, bool r
 					assert(rewrittenOperand.second == 0);
 					newOperands.push_back(rewrittenOperand.first);
 				}
-				return std::make_pair(CE->getWithOperands(newOperands), 0);
+				return CacheAndReturn(CE->getWithOperands(newOperands), 0);
 			}
 		}
 	}
@@ -925,13 +934,15 @@ std::pair<Constant*, uint8_t> TypeOptimizer::rewriteConstant(Constant* C, bool r
 			if(newElements.size() == 1)
 				return std::make_pair(newElements[0], 0);
 			ArrayType* newArrayType = ArrayType::get(baseTypeIt->second, newElements.size());
-			return std::make_pair(ConstantArray::get(newArrayType, newElements), 0);
+			return CacheAndReturn(ConstantArray::get(newArrayType, newElements), 0);
 		}
 		else if(newTypeInfo.elementMappingKind == TypeMappingInfo::COLLAPSED)
 		{
 			assert(cast<StructType>(CS->getType())->getNumElements()==1);
 			Constant* element = CS->getOperand(0);
-			return rewriteConstant(element, rewriteI64);
+			auto result = rewriteConstant(element, rewriteI64);
+			constantCache[{C, rewriteI64}] = result;
+			return result;
 		}
 		auto membersMappingIt = membersMappingData.find(CS->getType());
 		bool hasMergedArrays = newTypeInfo.elementMappingKind == TypeMappingInfo::MERGED_MEMBER_ARRAYS ||
@@ -961,7 +972,7 @@ std::pair<Constant*, uint8_t> TypeOptimizer::rewriteConstant(Constant* C, bool r
 				assert(isa<StructType>(newTypeInfo.mappedType));
 				newElements.push_back(UndefValue::get(dyn_cast<StructType>(newTypeInfo.mappedType)->getElementType((int)newElements.size())));
 			}
-			return std::make_pair(ConstantStruct::get(cast<StructType>(newTypeInfo.mappedType), newElements), 0);
+			return CacheAndReturn(ConstantStruct::get(cast<StructType>(newTypeInfo.mappedType), newElements), 0);
 		}
 
 		// Check if some of the contained constant arrays needs to be merged
@@ -1006,9 +1017,9 @@ std::pair<Constant*, uint8_t> TypeOptimizer::rewriteConstant(Constant* C, bool r
 		if(newTypeInfo.elementMappingKind == TypeMappingInfo::MERGED_MEMBER_ARRAYS_AND_COLLAPSED)
 		{
 			assert(newElements.size() == 1);
-			return std::make_pair(newElements[0], 0);
+			return CacheAndReturn(newElements[0], 0);
 		}
-		return std::make_pair(ConstantStruct::get(cast<StructType>(newTypeInfo.mappedType), newElements), 0);
+		return CacheAndReturn(ConstantStruct::get(cast<StructType>(newTypeInfo.mappedType), newElements), 0);
 	}
 	else if(ConstantArray* CA=dyn_cast<ConstantArray>(C))
 	{
@@ -1028,7 +1039,7 @@ std::pair<Constant*, uint8_t> TypeOptimizer::rewriteConstant(Constant* C, bool r
 			else
 				newElements.push_back(newElement);
 		}
-		return std::make_pair(ConstantArray::get(cast<ArrayType>(newTypeInfo.mappedType), newElements), 0);
+		return CacheAndReturn(ConstantArray::get(cast<ArrayType>(newTypeInfo.mappedType), newElements), 0);
 	}
 	else if (ConstantVector* CV = dyn_cast<ConstantVector>(C))
 	{
@@ -1042,7 +1053,7 @@ std::pair<Constant*, uint8_t> TypeOptimizer::rewriteConstant(Constant* C, bool r
 			Constant* newElement = rewrittenOperand.first;
 			newElements.push_back(newElement);
 		}
-		return std::make_pair(ConstantVector::get(newElements), 0);
+		return CacheAndReturn(ConstantVector::get(newElements), 0);
 	}
 	else if (ConstantDataVector* CDV = dyn_cast<ConstantDataVector>(C))
 		return std::make_pair(C, 0);
@@ -1062,7 +1073,7 @@ std::pair<Constant*, uint8_t> TypeOptimizer::rewriteConstant(Constant* C, bool r
 			newElements[i*2] = elLow;
 			newElements[i*2+1] = elHigh;
 		}
-		return std::make_pair(ConstantDataArray::get(C->getContext(), newElements), 0);
+		return CacheAndReturn(ConstantDataArray::get(C->getContext(), newElements), 0);
 	}
 	else if(isa<ConstantAggregateZero>(C))
 		return std::make_pair(Constant::getNullValue(newTypeInfo.mappedType), 0);
@@ -1071,13 +1082,15 @@ std::pair<Constant*, uint8_t> TypeOptimizer::rewriteConstant(Constant* C, bool r
 	else if(isI64ToRewrite(C->getType()))
 	{
 		if (!rewriteI64)
-			return std::make_pair(C, TypeMappingInfo::IDENTICAL);
+		{
+			return CacheAndReturn(C, TypeMappingInfo::IDENTICAL);
+		}
 		Type* Int32Ty = IntegerType::get(C->getContext(), 32);
 		Constant* Low = ConstantExpr::getTrunc(C, Int32Ty);
 		Constant* High = ConstantExpr::getTrunc(ConstantExpr::getLShr(C, ConstantInt::get(C->getType(), 32)), Int32Ty);
 		Constant* Arr[2] = {Low, High};
 		ArrayType* ArrTy = ArrayType::get(Int32Ty, 2);
-		return std::make_pair(ConstantArray::get(ArrTy, Arr), TypeMappingInfo::IDENTICAL);
+		return CacheAndReturn(ConstantArray::get(ArrTy, Arr), TypeMappingInfo::IDENTICAL);
 	}
 	else if(isa<UndefValue>(C))
 		return std::make_pair(UndefValue::get(newTypeInfo.mappedType), 0);
