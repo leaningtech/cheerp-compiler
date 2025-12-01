@@ -16,7 +16,7 @@ PreservedAnalyses CheerpLowerAtomicPass::run(Module& M, ModuleAnalysisManager& M
 {
 	FunctionAnalysisManager& FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
 	LowerAtomicPass LAP;
-	PreservedAnalyses PA = PreservedAnalyses::none();
+	PreservedAnalyses PA = PreservedAnalyses::all();
 
 	// Loop over the functions, and only pass genericjs ones to LowerAtomicPass
 	for (Function& F : M)
@@ -27,7 +27,7 @@ PreservedAnalyses CheerpLowerAtomicPass::run(Module& M, ModuleAnalysisManager& M
 		if (!LowerAtomics && F.getSection() == "asmjs")
 			continue;
 
-		LAP.run(F, FAM);
+		PA.intersect(LAP.run(F, FAM));
 	}
 
 	// Replace thread locals with actual globals
