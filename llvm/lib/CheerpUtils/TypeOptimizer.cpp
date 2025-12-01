@@ -1971,6 +1971,9 @@ void TypeOptimizer::rewriteFunction(Function* F)
 								Instruction* Term = Builder.CreateBr(Inv->getNormalDest());
 								Inv->setNormalDest(BB);
 								Builder.SetInsertPoint(Term);
+								// Since we are creating a new BB
+								// We need to mark the CFG as invalidated
+								setCFGInvalidated(true);
 							}
 							Value* Low = Ret;
 							Value* High = Builder.CreateLoad(Int32Ty, Sret);
@@ -2322,8 +2325,16 @@ bool TypeOptimizer::runOnModule(Module& M)
 PreservedAnalyses TypeOptimizerPass::run(Module &M, ModuleAnalysisManager&)
 {
 	TypeOptimizer TO;
+	//Tracks whether the CFG was invalidated
+	TO.setCFGInvalidated(false);
 	if (TO.runOnModule(M))
-		return PreservedAnalyses::none();
+	{
+		if (TO.isCFGInvalidated())
+			return PreservedAnalyses::none();
+		PreservedAnalyses PA;
+		PA.preserveSet<CFGAnalyses>();
+		return PA;
+	}
 	return PreservedAnalyses::all();
 }
 
