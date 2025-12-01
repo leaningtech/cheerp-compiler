@@ -16,6 +16,7 @@
 #include "llvm/Cheerp/DeterministicUnorderedMap.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
+#include "llvm/ADT/DenseMap.h"
 #include <unordered_map>
 #include <unordered_set>
 #include <set>
@@ -47,6 +48,7 @@ private:
 			return k == COLLAPSED || k == MERGED_MEMBER_ARRAYS_AND_COLLAPSED;
 		}
 	};
+
 	class LocalTypeMapping {
 	public:
 		llvm::Type* getOriginalOperandType(llvm::Value* v) const
@@ -70,13 +72,13 @@ private:
 			localTypeMapping[v] = t;
 		}
 
-		LocalTypeMapping(std::unordered_map<llvm::GlobalValue*, llvm::Type*>& globalTypeMapping)
+		LocalTypeMapping(llvm::DenseMap<llvm::GlobalValue*, llvm::Type*>& globalTypeMapping)
 			: globalTypeMapping(globalTypeMapping)
 		{
 		}
 	private:
-		std::unordered_map<llvm::Value*, llvm::Type*> localTypeMapping;
-		std::unordered_map<llvm::GlobalValue*, llvm::Type*>& globalTypeMapping;
+		llvm::DenseMap<llvm::Value*, llvm::Type*> localTypeMapping;
+		llvm::DenseMap<llvm::GlobalValue*, llvm::Type*>& globalTypeMapping;
 	};
 
 
@@ -120,12 +122,12 @@ private:
 
 	llvm::Module* module;
 	const llvm::DataLayout* DL;
-	std::unordered_map<const llvm::StructType*,std::set<llvm::StructType*>> downcastSourceToDestinationsMapping;
-	std::unordered_map<const llvm::StructType*, std::vector<std::pair<uint32_t, uint32_t>>> membersMappingData;
-	std::unordered_map<llvm::GlobalValue*, llvm::Constant*> globalsMapping;
-	std::unordered_map<llvm::GlobalValue*, llvm::Type*> globalTypeMapping;
+	llvm::DenseMap<const llvm::StructType*,std::set<llvm::StructType*>> downcastSourceToDestinationsMapping;
+	llvm::DenseMap<const llvm::StructType*, std::vector<std::pair<uint32_t, uint32_t>>> membersMappingData;
+	llvm::DenseMap<llvm::GlobalValue*, llvm::Constant*> globalsMapping;
+	llvm::DenseMap<llvm::GlobalValue*, llvm::Type*> globalTypeMapping;
 	std::unordered_map<const llvm::StructType*, llvm::Type*> baseTypesForByteLayout;
-	std::unordered_map<const llvm::Type*, TypeMappingInfo> typesMapping;
+	llvm::DenseMap<const llvm::Type*, TypeMappingInfo> typesMapping;
 	cheerp::DeterministicUnorderedSet<llvm::Function*> pendingFunctions;
 	std::vector<llvm::Function*> emptiedFunctions;
 	// In this context a field "escapes" if it has any use which is not just a load/store

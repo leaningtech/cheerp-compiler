@@ -375,21 +375,22 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t, Type* et)
 	assert(!newStructTypes.count(t));
 	auto typeMappingIt=typesMapping.find(t);
 	if(typeMappingIt!=typesMapping.end())
-	{
-		if(typeMappingIt->second.elementMappingKind == TypeMappingInfo::COLLAPSING)
+	{	
+		auto mappingInfo = typeMappingIt->second;
+		if(mappingInfo.elementMappingKind == TypeMappingInfo::COLLAPSING)
 		{
 			// When we find a COLLAPSING type, we forward the request if the contained type is a struct
 			// otherwise it will set the COLLAPSING_BUT_USED flag, in which case we need to abort the rewrite
 			// See also below how the COLLAPSING flag is used
-			if(typeMappingIt->second.mappedType->isStructTy())
+			if(mappingInfo.mappedType->isStructTy())
 			{
-				assert(typeMappingIt->second.mappedType != t);
-				return rewriteType(typeMappingIt->second.mappedType);
+				assert(mappingInfo.mappedType != t);
+				return rewriteType(mappingInfo.mappedType);
 			}
 			else
-				typeMappingIt->second.elementMappingKind = TypeMappingInfo::COLLAPSING_BUT_USED;
+				mappingInfo.elementMappingKind = TypeMappingInfo::COLLAPSING_BUT_USED;
 		}
-		return typeMappingIt->second;
+		return mappingInfo;
 	}
 	auto CacheAndReturn = [&](Type* ret, TypeMappingInfo::MAPPING_KIND kind)
 	{
@@ -2248,7 +2249,6 @@ bool TypeOptimizer::runOnModule(Module& M)
 	assert(DL);
 	// Do a preprocessing step to gather data that we can't get online
 	gatherAllTypesInfo(M);
-	std::vector<Function*> originalFuncs;
 	// Queue the functions for updating
 	for(Function& F: M)
 	{
