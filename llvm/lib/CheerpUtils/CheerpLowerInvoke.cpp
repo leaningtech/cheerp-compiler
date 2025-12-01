@@ -30,9 +30,15 @@ PreservedAnalyses CheerpLowerInvokePass::run(Function& F, FunctionAnalysisManage
     return PreservedAnalyses::all();
   F.setPersonalityFn(nullptr);
   PreservedAnalyses PA = LowerInvokePass().run(F, AM);
-  llvm::EliminateUnreachableBlocks(F);
-
-  return PreservedAnalyses::none();
+  // Changed is true if LowerInvokePass does not preserve any analysis
+  bool Changed = !PA.areAllPreserved();
+  // EliminateUnreachableBlocks runs no matter what
+  if (llvm::EliminateUnreachableBlocks(F))
+    Changed = true;
+  if (Changed)
+    return PreservedAnalyses::none();
+  // If there are no unreachable blocks and lower invoke did nothing, we can safely preserve all analyses
+  return PreservedAnalyses::all();
 }
 
 
