@@ -1376,8 +1376,7 @@ class BasicBlockGroupNode
 	llvm::DenseMap<llvm::BasicBlock*, uint32_t> minVisitIndex;
 	// TODO(carlo): an optmization might be having from be a set<BasicBlock>, conserving the phi that are equals
 
-	//Note that here also DenseMap would have worked, but for the fact that it does miss operator .at()
-	typedef std::unordered_map<const llvm::BasicBlock*, BasicBlockGroupNode*> ReverseMapBBToGroup;
+	typedef llvm::DenseMap<const llvm::BasicBlock*, BasicBlockGroupNode*> ReverseMapBBToGroup;
 
 	// reverseMappingBBToGroup will be populated alongside childrenNodes, and for each BasicBlock reverseMappingBBToGroup[BB]
 	//	will be the pointer of the SCC component BB is part of
@@ -1483,8 +1482,9 @@ public:
 		}
 		else
 		{
-			BasicBlockGroupNode* ptr = reverseMappingBBToGroup.at(succ);
-			assert( ptr );
+			auto it = reverseMappingBBToGroup.find(succ);
+			assert(it != reverseMappingBBToGroup.end());
+			BasicBlockGroupNode* ptr = it->second;
 			ptr->addIncomingEdge(from, iter, succ);
 		}
 	}
