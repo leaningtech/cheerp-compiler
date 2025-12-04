@@ -1771,20 +1771,20 @@ static void processFunction(const llvm::Function& F, ModuleData& moduleData)
 		return;
 
 	FunctionData& data = moduleData.getFunctionData(F);
-	bool hasIndirectUseOrExternal = false;
 
 	if (F.getLinkage() != GlobalValue::InternalLinkage)
-		hasIndirectUseOrExternal = true;
+	{
+		data.enqueVisitNoInfo();
+		return;
+	}
 
 	for (const Use &U : F.uses())
 	{
-		if (hasIndirectUseOrExternal)
-			break;
 		const User *FU = U.getUser();
 		if (!isa<CallInst>(FU))
 		{
-			hasIndirectUseOrExternal = true;
-			break;
+			data.enqueVisitNoInfo();
+			return;
 		}
 		//Normally this pattern should handle also InvokeInst, but here support is not yet present
 		const CallBase* CS = cast<CallBase>(FU);
@@ -1794,13 +1794,9 @@ static void processFunction(const llvm::Function& F, ModuleData& moduleData)
 		}
 		else
 		{
-			hasIndirectUseOrExternal = true;
+			data.enqueVisitNoInfo();
+			return;
 		}
-	}
-
-	if (hasIndirectUseOrExternal)
-	{
-		data.enqueVisitNoInfo();
 	}
 }
 
