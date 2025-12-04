@@ -1268,7 +1268,7 @@ class SubGraph {
 public:
 	typedef DeterministicBBSet BlockSet;
 	typedef std::unordered_map<BasicBlock*, GraphNode> NodeMap;
-	explicit SubGraph(llvm::BasicBlock* Entry, BlockSet Blocks):
+	explicit SubGraph(llvm::BasicBlock* Entry, const BlockSet& Blocks):
 		Entry(Entry), Blocks(Blocks)
 	{
 	}
@@ -1290,7 +1290,7 @@ private:
 	friend struct GraphNode;
 
 	BasicBlock* Entry;
-	BlockSet Blocks;
+	const BlockSet& Blocks;
 	NodeMap Nodes;
 };
 
@@ -1590,13 +1590,21 @@ void BasicBlockGroupNode::splitIntoSCCs(std::list<BasicBlockGroupNode>& queueToB
 	// Then iff there are any edges going back to start, we add all nodes again as a single SCC to the end
 	//
 	// During the actual visit we might discover that we eventually will not loop back to start (so the recursion terminate) or we stop since we reached the maximum iteration number
-
-	SubGraph::BlockSet Group;
-	for (llvm::BasicBlock* bb : blocks)
+	
+	//No nodes remaining, no need to splitIntoSCCS when N=1
+	if (blocks.size() == 1)
 	{
-		Group.insert(bb);
+		queueToBePopulated.emplace_back(*this);
+		BasicBlock* bb = *blocks.begin();
+		subsetIndex[bb] = 0;
+		subsets.push_back(blocks);
+		queueToBePopulated.emplace_back(data, this, blocks);
+		blockToGroupMap[bb] = &queueToBePopulated.back();
+		blockToGroupMap[start] = &queueToBePopulated.front();
+		return;
 	}
-	SubGraph SG(start, Group);
+
+	SubGraph SG(start, blocks);
 	queueToBePopulated.emplace_back(*this);
 
 	uint32_t nextId = 0;
@@ -1612,9 +1620,8 @@ void BasicBlockGroupNode::splitIntoSCCs(std::list<BasicBlockGroupNode>& queueToB
 		subsets.push_back(subset);
 		nextId++;
 		queueToBePopulated.emplace_back(data, this, subset);
-		for (auto& GN : SCC)
+		for (BasicBlock* bb : subset)
 		{
-			BasicBlock* bb = GN->BB;
 			blockToGroupMap[bb] = &queueToBePopulated.back();
 		}
 	}
