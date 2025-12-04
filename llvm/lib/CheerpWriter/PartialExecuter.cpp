@@ -1523,12 +1523,6 @@ public:
 	// Visit the tree of BasicBlockGroupNodes, starting from the root and visiting children depth-first
 	void recursiveVisit()
 	{
-		if (!isReachable)
-		{
-			// We are in an unreachable part of the graph
-			//  --> Nothing to do
-			return;
-		}
 		if (isMultiHead)
 		{
 			// There are multiple BasicBlock that are reacheable from outside
@@ -1570,7 +1564,9 @@ public:
 		childrenNodes.pop_back();
 		while (!childrenNodes.empty())
 		{
-			childrenNodes.back().recursiveVisit();
+			auto& child = childrenNodes.back();
+			if (child.isReachable)
+				child.recursiveVisit();
 			childrenNodes.pop_back();
 		}
 	}
