@@ -1438,7 +1438,7 @@ public:
 	// Do the visit of the BB, with 'from' (possibly nullptr if unknown) as predecessor
 	// Loop backs will be directed to another BBgroup
 	// The visit will return the set of reachable BBs, to be added into visitNext
-	void runVisitBasicBlock(FunctionData& data, llvm::BasicBlock& BB, std::vector<llvm::BasicBlock*>& visitNext)
+	void runVisitBasicBlock(FunctionData& data, llvm::BasicBlock& BB, llvm::SmallVectorImpl<llvm::BasicBlock*>& visitNext)
 	{
 		assert(visitNext.empty());
 
@@ -1559,7 +1559,7 @@ public:
 
 		splitIntoSCCs(childrenNodes, reverseMappingBBToGroup);	//These should be partially ordered with the last one possibly being the replica of the current one
 
-		std::vector<llvm::BasicBlock*> visitNext;
+		llvm::SmallVector<llvm::BasicBlock*, 4> visitNext;
 
 		// Do the actual visit for start, while populating visitNext
 		runVisitBasicBlock(data, *start, visitNext);
