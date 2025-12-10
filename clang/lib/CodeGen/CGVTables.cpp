@@ -586,31 +586,33 @@ llvm::Constant *CodeGenVTables::maybeEmitThunk(GlobalDecl GD,
   // CHEERP: If there are virtual bases it is possible that the type of `this` mismatches
   // between the existing and new think, but one is directbase of the other.
   // We keep the thunk with the most basic `this` type
+
   bool NewIsDirectBase = false;
   bool CurrentIsDirectBase = false;
   if (!CGM.getTarget().isByteAddressable()) {
-    // Geth the `this` type. It can be the first or second parameter (if there is a
+    // Get the `this` type. It can be the first or second parameter (if there is a
     // struct return pointer)
     llvm::StructType* CurrentThisStructTy = cast<llvm::StructType>(CurrentThisTy);
     llvm::StructType* NewThisTy = cast<llvm::StructType>(ThunkFn->getParamAttribute(thisIndex, llvm::Attribute::ElementType).getValueAsType());
-
     // Check if one of the types is directbase of the other (check all the directbase hierarchy)
-    for (llvm::StructType* I = NewThisTy; I != nullptr; I = I->getDirectBase()) {
-      if (I == CurrentThisTy) {
-        NewIsDirectBase = true;
-        break;
+    if (NewThisTy && CurrentThisStructTy && NewThisTy != CurrentThisStructTy) {
+      for (llvm::StructType* I = NewThisTy; I != nullptr; I = I->getDirectBase()) {
+        if (I == CurrentThisTy) {
+          NewIsDirectBase = true;
+          break;
+        }
       }
-    }
-    for (llvm::StructType* I = CurrentThisStructTy; I != nullptr; I = I->getDirectBase()) {
-      if (I == NewThisTy) {
-        CurrentIsDirectBase = true;
-        break;
+      for (llvm::StructType* I = CurrentThisStructTy; I != nullptr; I = I->getDirectBase()) {
+        if (I == NewThisTy) {
+          CurrentIsDirectBase = true;
+          break;
+        }
       }
     }
   }
+
   if (ThunkFn->getFunctionType() != ThunkFnTy && !NewIsDirectBase) {
     llvm::GlobalValue *OldThunkFn = ThunkFn;
-
     // If the types mismatch then we have to rewrite the definition.
     assert((OldThunkFn->isDeclaration() || CurrentIsDirectBase) &&
            "Shouldn't replace non-declaration");
@@ -633,6 +635,7 @@ llvm::Constant *CodeGenVTables::maybeEmitThunk(GlobalDecl GD,
     // Remove the old thunk.
     OldThunkFn->eraseFromParent();
   }
+
 
   bool ABIHasKeyFunctions = CGM.getTarget().getCXXABI().hasKeyFunctions();
   bool UseAvailableExternallyLinkage = ForVTable && ABIHasKeyFunctions;
