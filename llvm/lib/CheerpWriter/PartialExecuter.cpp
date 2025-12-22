@@ -98,7 +98,8 @@ class PartialInterpreter : public llvm::Interpreter {
 	NewAlignmentData newAlignmentData;
 	llvm::ValueMap<llvm::Constant*, int> fullyKnownCEs;
 
-	std::map<const llvm::Function*, uint32_t> functionCounters;
+	llvm::DenseMap<const llvm::Function*, uint32_t> functionCounters;
+
 	bool isGlobalVariablePartiallyExecutable(const GlobalVariable& GVar)
 	{
 		if (!GVar.hasInitializer())
