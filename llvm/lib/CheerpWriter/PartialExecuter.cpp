@@ -1614,10 +1614,10 @@ void BasicBlockGroupNode::splitIntoSCCs(std::list<BasicBlockGroupNode>& queueToB
 			subset.insert(bb);
 			subsetIndex[bb] = nextId;
 		}
-		subsets.push_back(subset);
+		subsets.push_back(std::move(subset));
 		nextId++;
-		queueToBePopulated.emplace_back(data, this, subset);
-		for (BasicBlock* bb : subset)
+		queueToBePopulated.emplace_back(data, this, subsets.back());
+		for (BasicBlock* bb : subsets.back())
 		{
 			blockToGroupMap[bb] = &queueToBePopulated.back();
 		}
