@@ -41,7 +41,7 @@ static Value* wrapImportArg(Module& M, IRBuilder<>& Builder, Value* Orig, Type* 
 {
 	if (T != Orig->getType())
 	{
-		return Builder.CreateAddrSpaceCast(Orig, T);
+		return Builder.CreateAddrSpaceCast(Orig, T, ".ascast3");
 	}
 
 	return Orig;

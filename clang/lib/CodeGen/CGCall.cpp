@@ -4858,11 +4858,6 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
       }
     }
     if (IRFunctionArgs.hasSRetArg()) {
-      auto* Ptr = SRetPtr.getPointer();
-      unsigned AS = RetAI.getIndirectAddrSpace();
-      if (getLangOpts().Cheerp && Ptr->getType()->getPointerAddressSpace() != AS) {
-        SRetPtr = Builder.CreateAddrSpaceCast(SRetPtr, ConvertTypeForMem(RetTy)->getPointerTo(AS), "ascast");
-      }
       IRCallArgs[IRFunctionArgs.getSRetArgNo()] = SRetPtr.getPointer();
     } else if (RetAI.isInAlloca()) {
       Address Addr =
@@ -5103,17 +5098,21 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
             V->getType()->isIntegerTy())
           V = Builder.CreateZExt(V, ArgInfo.getCoerceToType());
 
+        // CHEERP: if the argument is a pointer and the address space doesn't
+        // match, cast it with typed_ptrcast
+        if (FirstIRArg < IRFuncTy->getNumParams() && V->getType()->isPointerTy()
+            && V->getType()->getPointerAddressSpace() != IRFuncTy->getParamType(FirstIRArg)->getPointerAddressSpace()) {
+            llvm::Type* ElemTy = ConvertType(I->Ty->getPointeeType());
+            auto* F = CGM.getIntrinsic(llvm::Intrinsic::cheerp_typed_ptrcast, {IRFuncTy->getParamType(FirstIRArg), V->getType()});
+            llvm::CallBase* CB = Builder.CreateCall(F, {V}, V->hasName()? V->getName() + ".ascast" : "ascast");
+            CB->addRetAttr(llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, ElemTy));
+            V = CB;
+        }
         // If the argument doesn't match, perform a bitcast to coerce it.  This
         // can happen due to trivial type mismatches.
         if (FirstIRArg < IRFuncTy->getNumParams() &&
             V->getType() != IRFuncTy->getParamType(FirstIRArg)) {
-          if(V->getType()->isPointerTy() && V->getType()->getPointerAddressSpace() != IRFuncTy->getParamType(FirstIRArg)->getPointerAddressSpace()) {
-            // CHEERP: Allocas are in the default address space, while pointer arguments
-            // are all in a specific address space. Allow the address space cast
-            V = Builder.CreateAddrSpaceCast(V, IRFuncTy->getParamType(FirstIRArg));
-          } else {
-            V = Builder.CreateBitCast(V, IRFuncTy->getParamType(FirstIRArg));
-          }
+          V = Builder.CreateBitCast(V, IRFuncTy->getParamType(FirstIRArg));
         }
 
         if (ArgHasMaybeUndefAttr)
@@ -5641,12 +5640,27 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
 
     case ABIArgInfo::Extend:
     case ABIArgInfo::Direct: {
+      llvm::Value* V = CI;
       llvm::Type *RetIRTy = ConvertType(RetTy);
-      if (RetAI.getCoerceToType() == RetIRTy && RetAI.getDirectOffset() == 0) {
+      llvm::Type *RetAITy = RetAI.getCoerceToType();
+      if (getContext().getLangOpts().Cheerp &&
+          RetAITy->isPointerTy() && RetIRTy->isPointerTy() &&
+          RetAITy->getPointerAddressSpace() != RetIRTy->getPointerAddressSpace()) {
+        llvm::Type* RetAITyCasted = llvm::PointerType::getWithSamePointeeType(
+                                                            cast<llvm::PointerType>(RetAITy),
+                                                            RetIRTy->getPointerAddressSpace());
+        llvm::Type* ElemTy = ConvertType(RetTy->getPointeeType());
+        auto* F = CGM.getIntrinsic(llvm::Intrinsic::cheerp_typed_ptrcast, {RetAITyCasted, RetAITy});
+        llvm::CallBase* CB = Builder.CreateCall(F, {V}, V->hasName()? V->getName() + ".ascast" : "ascast");
+        CB->addRetAttr(llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, ElemTy));
+        V = CB;
+        RetAITy = RetAITyCasted;
+      }
+      if (RetAITy == RetIRTy && RetAI.getDirectOffset() == 0) {
         switch (getEvaluationKind(RetTy)) {
         case TEK_Complex: {
-          llvm::Value *Real = Builder.CreateExtractValue(CI, 0);
-          llvm::Value *Imag = Builder.CreateExtractValue(CI, 1);
+          llvm::Value *Real = Builder.CreateExtractValue(V, 0);
+          llvm::Value *Imag = Builder.CreateExtractValue(V, 1);
           return RValue::getComplex(std::make_pair(Real, Imag));
         }
         case TEK_Aggregate: {
@@ -5657,16 +5671,13 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
             DestPtr = CreateMemTemp(RetTy, "agg.tmp");
             DestIsVolatile = false;
           }
-          EmitAggregateStore(CI, DestPtr, DestIsVolatile);
+          EmitAggregateStore(V, DestPtr, DestIsVolatile);
           return RValue::getAggregate(DestPtr);
         }
         case TEK_Scalar: {
           // If the argument doesn't match, perform a bitcast to coerce it.  This
           // can happen due to trivial type mismatches.
-          llvm::Value *V = CI;
-          if(V->getType()->isPointerTy() && V->getType()->getPointerAddressSpace() != RetIRTy->getPointerAddressSpace()) {
-            V = Builder.CreateAddrSpaceCast(V, RetIRTy);
-          } else if (V->getType() != RetIRTy) {
+          if (V->getType() != RetIRTy) {
             V = Builder.CreateBitCast(V, RetIRTy);
           }
 
@@ -5686,7 +5697,7 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
 
       // If the value is offset in memory, apply the offset now.
       Address StorePtr = emitAddressAtOffset(*this, DestPtr, RetAI);
-      CreateCoercedStore(CI, StorePtr, DestIsVolatile, *this);
+      CreateCoercedStore(V, StorePtr, DestIsVolatile, *this);
 
       return convertTempToRValue(DestPtr, RetTy, SourceLocation());
     }
