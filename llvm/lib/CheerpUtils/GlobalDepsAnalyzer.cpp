@@ -1741,7 +1741,7 @@ int GlobalDepsAnalyzer::filterModule( const DenseSet<const Function*>& droppedMa
 	// Determine target mode for this module
 	Triple triple(module.getTargetTriple());
 	bool tripleIsWasi = triple.isCheerpWasi();
-	bool tripleIsCheerpOS = triple.isCheerpOS();
+	bool tripleIsCheerpOS = triple.isCheerpOSStandalone();
 	
 	// Detach all the global variables, and put the unused ones in the eraseQueue
 	for ( Module::global_iterator it = module.global_begin(); it != module.global_end(); )

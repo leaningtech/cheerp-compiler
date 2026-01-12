@@ -735,7 +735,7 @@ void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
       << cheerpStrictLinkingEq->getAsString(Args) << cheerpStrictLinkingEq->getValue();
     }
     cheerpStrictLinkingEq->render(Args, CmdArgs);
-  } else if (triple.isCheerpOS() && !Args.hasArg(options::OPT_shared)) {
+  } else if (triple.isCheerpOSStandalone() && !Args.hasArg(options::OPT_shared)) {
     // Force strict-linking mode when generating executables for CheerpOS. Libraries are excluded for now.
     // Strict-linking is required for feature detection in build systems.
     // TODO: In the case of libraries, the right approach is to resolve imports from other libraries at compile time
@@ -850,7 +850,7 @@ std::vector<cheerp::CheerpWasmOpt> cheerp::getWasmFeatures(const Driver& D, cons
   features.push_back(UNALIGNEDMEM);
   // For CheerpOS we also force the memory to be imported and shared,
   // export the table as well, used by the interpreter to re-enter execution
-  if(triple.isCheerpOS()) {
+  if(triple.isCheerpOSStandalone()) {
     features.push_back(IMPORTEDMEMORY);
     features.push_back(SHAREDMEM);
     features.push_back(EXPORTEDTABLE);
