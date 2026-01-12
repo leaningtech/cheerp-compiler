@@ -5953,7 +5953,7 @@ const ToolChain &Driver::getToolChain(const ArgList &Args,
         TC = std::make_unique<toolchains::VEToolChain>(*this, Target, Args);
       // Take over control of the toolchain when targeting CheerpOS,
       // we don't want to use system includes and libraries
-      else if ((Target.getVendor() == llvm::Triple::CheerpOS))
+      else if (Target.isCheerpOS())
         TC = std::make_unique<toolchains::Cheerp>(*this, Target, Args);
 
       else

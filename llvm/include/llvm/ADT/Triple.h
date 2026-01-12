@@ -792,24 +792,28 @@ public:
 
   /// Tests whether the target is cheerp-wasm
   bool isCheerpWasm() const {
-    return (getArch() == Triple::cheerp && getEnvironment() == Triple::WebAssembly) || isCheerpOS();
+    return (getArch() == Triple::cheerp && getEnvironment() == Triple::WebAssembly) || isCheerpOSStandalone();
   }
 
   bool isCheerpWasi() const {
     return getArch() == Triple::cheerp && getOS() == Triple::WASI;
   }
 
-  bool isCheerpOS() const {
+  bool isCheerpOSStandalone() const {
     return getVendor() == Triple::CheerpOS;
   }
 
+  bool isCheerpOS() const {
+    return isCheerpOSStandalone();
+  }
+
   bool isCheerpWasmStandalone() const {
-    return isCheerpWasi() || isCheerpOS();
+    return isCheerpWasi() || isCheerpOSStandalone();
   }
 
   /// Tests whether the target is cheerp (including cheerp-wasm and cheerp-genericjs)
   bool isCheerp() const{
-    return getArch() == Triple::cheerp || isCheerpOS();
+    return getArch() == Triple::cheerp || isCheerpOSStandalone();
   }
 
   /// Tests whether the target supports the EHABI exception
