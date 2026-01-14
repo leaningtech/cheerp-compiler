@@ -385,6 +385,7 @@ private:
 	 * Compile the pointer offset.
 	 */
 	void compilePointerOffset(const llvm::Value*, PARENT_PRIORITY parentPrio, bool forEscapingPointer=false, bool useGPET=false);
+	void compilePointerOffsetTyped(const llvm::Value*, llvm::Type* elementType, PARENT_PRIORITY parentPrio, bool forEscapingPointer=false);
 
 	/**
 	 * BYTE_LAYOUT_OFFSET_FULL: Compile the full offset in bytes till the element

@@ -2043,7 +2043,7 @@ void CheerpWriter::compilePointerBase(const Value* p, bool forEscapingPointer, b
 {
 	POINTER_KIND kind = PA.getPointerKind(p);
 
-	// This condition is true if we can safely pass a nullptr element type to compilePointerBaseType.
+	// This condition is true if we can safely pass a nullptr element type to compilePointerBaseTyped.
 	// The logic should work as follows:
 	// 1. if kind == RAW, it is not safe to pass nullptr
 	// 2. if kind == CONSTANT, it is not safe to pass nullptr *unless* it is a null pointer constant
@@ -2234,15 +2234,32 @@ const Value* CheerpWriter::compileByteLayoutOffset(const Value* p, BYTE_LAYOUT_O
 void CheerpWriter::compilePointerOffset(const Value* p, PARENT_PRIORITY parentPrio, bool forEscapingPointer, bool useGPET)
 {
 	POINTER_KIND kind = PA.getPointerKind(p);
+
+	// This condition is true if we can safely pass a nullptr element type to compilePointerOffsetTyped.
+	// The logic should work as follows:
+	// 1. if kind == RAW, it is not safe to pass nullptr
+	// 2. if kind == CONSTANT, it is not safe to pass nullptr *unless* it is a null pointer constant
+	// 3. otherwise, it is safe to pass nullptr
+	if (kind != RAW)
+	{
+		// pointer element type is not used in this case, so it can be null
+		compilePointerOffsetTyped(p, nullptr, parentPrio, forEscapingPointer);
+	}
+	else
+		compilePointerOffsetTyped(p, getPointerElementTypeForValueAssert(p, useGPET), parentPrio, forEscapingPointer);
+}
+
+void CheerpWriter::compilePointerOffsetTyped(const Value* p, llvm::Type* elementType, PARENT_PRIORITY parentPrio, bool forEscapingPointer)
+{
+	POINTER_KIND kind = PA.getPointerKind(p);
 	bool byteLayout = kind == BYTE_LAYOUT;
 	if ( kind == RAW)
 	{
 		assert(isa<PointerType>(p->getType()));
-		Type* ty = getPointerElementTypeForValueAssert(p, useGPET);;
 		if (parentPrio > SHIFT)
 			stream << '(';
 		compileRawPointer(p, SHIFT);
-		stream << pointerShiftOperator() << getHeapShiftForType(ty);
+		stream << pointerShiftOperator() << getHeapShiftForType(elementType);
 		if (parentPrio > SHIFT)
 			stream << ')';
 		return;
@@ -2308,7 +2325,7 @@ void CheerpWriter::compilePointerOffset(const Value* p, PARENT_PRIORITY parentPr
 			case Intrinsic::cheerp_upcast_collapsed:
 			case Intrinsic::cheerp_typed_ptrcast:
 			case Intrinsic::cheerp_cast_user:
-				compilePointerOffset(II->getOperand(0), parentPrio);
+				compilePointerOffsetTyped(II->getOperand(0), II->getRetElementType(), parentPrio);
 				return;
 			case Intrinsic::cheerp_make_regular:
 				compileOperand(II->getOperand(1), parentPrio);
