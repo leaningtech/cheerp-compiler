@@ -195,6 +195,7 @@ bool CheerpWritePass::runOnModule(Module& M)
   ModulePassManager MPM;
   Triple triple(M.getTargetTriple());
   bool isWasmTarget = triple.isCheerpWasm();
+  bool isWasmOnly = triple.isCheerpWasmStandalone();
   cheerp::GlobalDepsAnalyzer::MATH_MODE mathMode;
   if (NoNativeJavaScriptMath)
     mathMode = cheerp::GlobalDepsAnalyzer::NO_BUILTINS;
@@ -211,7 +212,7 @@ bool CheerpWritePass::runOnModule(Module& M)
                  functionAddressMode == cheerp::LinearMemoryHelperInitializer::FunctionAddressMode::Wasm &&
                  // NOTE: this is not actually required by the spec, but for now chrome
                  // doesn't like growing shared memory
-                 ((!WasmSharedMemory || triple.isCheerpWasmStandalone()) || WasmSharedModule);
+                 ((!WasmSharedMemory || isWasmOnly) || WasmSharedModule);
   bool hasAsmjsMem = functionAddressMode == cheerp::LinearMemoryHelperInitializer::FunctionAddressMode::AsmJS &&
                      (!SecondaryOutputFile.empty() || !SecondaryOutputPath.empty());
 
@@ -241,7 +242,7 @@ bool CheerpWritePass::runOnModule(Module& M)
   MPM.addPass(cheerp::GlobalDepsAnalyzerPass(mathMode, /*resolveAliases*/true));
   MPM.addPass(cheerp::InvokeWrappingPass());
   if (isWasmTarget)
-    MPM.addPass(cheerp::AllocaLoweringPass());
+    MPM.addPass(cheerp::AllocaLoweringPass(!isWasmOnly && !LowerAtomics));
   MPM.addPass(cheerp::ThreadLocalLoweringPass());
   MPM.addPass(cheerp::FFIWrappingPass());
   MPM.addPass(createModuleToFunctionPassAdaptor(cheerp::FixIrreducibleControlFlowPass()));
