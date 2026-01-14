@@ -46,8 +46,13 @@ public:
 	static bool isRequired() { return true;}
 };
 class AllocaLoweringPass : public llvm::PassInfoMixin<AllocaLoweringPass> {
+private:
+	bool forceSetStackPtr;
 public:
 	llvm::PreservedAnalyses run(llvm::Module& M, llvm::ModuleAnalysisManager& FAM);
+	AllocaLoweringPass(bool forceSetStackPtr):forceSetStackPtr(forceSetStackPtr)
+	{
+	}
 	static bool isRequired() { return true;}
 };
 

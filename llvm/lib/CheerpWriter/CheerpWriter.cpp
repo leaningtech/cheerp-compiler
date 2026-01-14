@@ -7318,8 +7318,11 @@ void CheerpWriter::compileWorkerMainScript()
 	stream << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) << ".promise.then(" << shortestName << "=>{" << NewLine;
 	stream << "__asm=" << shortestName << ".exports;" << NewLine;
 	compileDefineExports();
+	// This helper is always available when emitting non-standalone Wasm with threading enabled
+	llvm::Function* setStack = module.getFunction("__setStackPtr");
+	stream << namegen.getName(setStack, 0) << "(" << threadObject << ".stack);" << NewLine;
 	stream << "workerEntry(" << threadObject << ".tls, " << threadObject << ".func, ";
-	stream << threadObject << ".args, " << threadObject << ".tid, " << threadObject << ".stack, ";
+	stream << threadObject << ".args, " << threadObject << ".tid, ";
 	stream << threadObject << ".ctid);" << NewLine;
 	stream << "}).catch(e=>{" << NewLine;
 	stream << "if(e!=='LeakUtilityThread'&&e!=='ThreadExit'){" << NewLine;

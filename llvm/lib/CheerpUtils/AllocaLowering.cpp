@@ -352,6 +352,8 @@ PreservedAnalyses cheerp::AllocaLoweringPass::run(Module& M, ModuleAnalysisManag
 
 	MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
 	PreservedAnalyses PA = MPM.run(M, MAM);
+	if (forceSetStackPtr)
+		getOrCreateSetStackWrapper(&M, GDA);
 	return PA;
 }
 
