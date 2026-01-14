@@ -2085,7 +2085,7 @@ void CheerpWriter::compilePointerBaseTyped(const Value* p, Type* elementType, bo
 			case Intrinsic::cheerp_upcast_collapsed:
 			case Intrinsic::cheerp_typed_ptrcast:
 			case Intrinsic::cheerp_cast_user:
-				return compilePointerBaseTyped(II->getOperand(0), II->getParamElementType(0));
+				return compilePointerBaseTyped(II->getOperand(0), II->getRetElementType());
 			case Intrinsic::cheerp_make_regular:
 				return compileCompleteObject(II->getOperand(0));
 			default:
