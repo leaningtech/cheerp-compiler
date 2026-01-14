@@ -4620,7 +4620,6 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F)
 
 	// In CheerpOS we wrap all functions around a try-cath to support re-entering
 	// in the interpreter to support setjmp/longjump, clone, and similar otherwise unsupported constructs
-	bool isCheerpOS = Triple(module.getTargetTriple()).isCheerpOS();
 	// TODO: Optimize away for leaf functions
 	if(isCheerpOS)
 	{
@@ -4878,7 +4877,6 @@ void CheerpWasmWriter::compileImportSection()
 	}
 
 	// In CheerpOS we also import an exception tag and landing pads for the possible wasm return types
-	bool isCheerpOS = Triple(module.getTargetTriple()).isCheerpOS();
 	uint32_t importedTags = 0;
 	uint32_t importedLandingPads = 0;
 	uint32_t exceptionTagTypeIndex = 0;

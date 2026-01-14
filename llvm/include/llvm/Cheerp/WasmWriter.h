@@ -14,6 +14,7 @@
 
 #include <sstream>
 
+#include "llvm/ADT/Triple.h"
 #include "llvm/Cheerp/BaseWriter.h"
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
 #include "llvm/Cheerp/LinearMemoryHelper.h"
@@ -120,6 +121,10 @@ private:
 	// FFI calls to methods outside of the Wasm file. When false, treat functions
 	// without a definition as imports.
 	bool useWasmLoader;
+
+	// If true this WebAssembly payload runs in the context of the CheerpOS kernel,
+	// potentially with a JavaScript loader.
+	bool isCheerpOS;
 
 	// If true, embed a custom section called 'name' in binary wasm that maps
 	// the function ids to C++ mangled function names. If available in LLVM IR,
@@ -490,6 +495,7 @@ public:
 		namegen(namegen),
 		heapSize(heapSize),
 		useWasmLoader(useWasmLoader),
+		isCheerpOS(llvm::Triple(module.getTargetTriple()).isCheerpOS()),
 		prettyCode(prettyCode),
 		sharedMemory(sharedMemory),
 		noGrowMemory(!linearHelper.canGrowMemory()),
