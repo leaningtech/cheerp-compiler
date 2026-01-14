@@ -5098,17 +5098,21 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
             V->getType()->isIntegerTy())
           V = Builder.CreateZExt(V, ArgInfo.getCoerceToType());
 
+        // CHEERP: if the argument is a pointer and the address space doesn't
+        // match, cast it with typed_ptrcast
+        if (FirstIRArg < IRFuncTy->getNumParams() && V->getType()->isPointerTy()
+            && V->getType()->getPointerAddressSpace() != IRFuncTy->getParamType(FirstIRArg)->getPointerAddressSpace()) {
+            llvm::Type* ElemTy = ConvertType(I->Ty->getPointeeType());
+            auto* F = CGM.getIntrinsic(llvm::Intrinsic::cheerp_typed_ptrcast, {IRFuncTy->getParamType(FirstIRArg), V->getType()});
+            llvm::CallBase* CB = Builder.CreateCall(F, {V}, V->hasName()? V->getName() + ".ascast1" : "ascast1");
+            CB->addRetAttr(llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, ElemTy));
+            V = CB;
+        }
         // If the argument doesn't match, perform a bitcast to coerce it.  This
         // can happen due to trivial type mismatches.
         if (FirstIRArg < IRFuncTy->getNumParams() &&
             V->getType() != IRFuncTy->getParamType(FirstIRArg)) {
-          if(V->getType()->isPointerTy() && V->getType()->getPointerAddressSpace() != IRFuncTy->getParamType(FirstIRArg)->getPointerAddressSpace()) {
-            // CHEERP: Allocas are in the default address space, while pointer arguments
-            // are all in a specific address space. Allow the address space cast
-            V = Builder.CreateAddrSpaceCast(V, IRFuncTy->getParamType(FirstIRArg), ".ascast1");
-          } else {
-            V = Builder.CreateBitCast(V, IRFuncTy->getParamType(FirstIRArg));
-          }
+          V = Builder.CreateBitCast(V, IRFuncTy->getParamType(FirstIRArg));
         }
 
         if (ArgHasMaybeUndefAttr)
