@@ -4,13 +4,13 @@
 // RUN: mkdir -p %t
 // RUN: split-file %s %t
 
-// RUN: %clang_cc1 -std=c++20 -emit-module-interface %t/std-10-2-ex5-tu1.cpp \
+// RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++20 -emit-module-interface %t/std-10-2-ex5-tu1.cpp \
 // RUN:  -o  %t/M.pcm
 
-// RUN: %clang_cc1 -std=c++20 -emit-obj %t/std-10-2-ex5-tu2.cpp \
+// RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++20 -emit-obj %t/std-10-2-ex5-tu2.cpp \
 // RUN:  -fmodule-file=%t/M.pcm -o  %t/tu-2.o
 
-// RUN: %clang_cc1 -std=c++20 -emit-obj %t/std-10-2-ex5-tu3.cpp \
+// RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++20 -emit-obj %t/std-10-2-ex5-tu3.cpp \
 // RUN:  -fmodule-file=%t/M.pcm -verify -o %t/main.o
 
 //--- std-10-2-ex5-tu1.cpp
