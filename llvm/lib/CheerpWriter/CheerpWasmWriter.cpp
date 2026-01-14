@@ -943,6 +943,8 @@ void CheerpWasmWriter::encodeStoringShuffle(WasmBuffer& code, const llvm::FixedV
 
 void CheerpWasmWriter::encodeBranchHint(const llvm::BranchInst* BI, const bool IfNot, WasmBuffer& code)
 {
+	if(!WasmBranchHints)
+		return;
 	auto branchHint = shouldBranchBeHinted(BI, IfNot);
 
 	if (branchHint == BranchHint::Likely)
