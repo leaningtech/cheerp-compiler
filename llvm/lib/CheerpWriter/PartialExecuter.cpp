@@ -301,7 +301,7 @@ public:
 		}
 		return nullptr;
 	}
-	llvm::BasicBlock* visitBasicBlock(FunctionData& data, llvm::BasicBlock& BB);
+	llvm::BasicBlock* visitBasicBlock(FunctionData& data, llvm::BasicBlock& BB, bool& BBProgress);
 	explicit PartialInterpreter(std::unique_ptr<llvm::Module> M)
 		: llvm::Interpreter(std::move(M), /*preExecute*/false)
 	{
@@ -634,7 +634,7 @@ public:
 	{
 		return (++functionCounters[F] > 0x1000);
 	}
-	void visitOuter(FunctionData& data, llvm::Instruction& I);
+	void visitOuter(FunctionData& data, llvm::Instruction& I, bool& BBProgress);
 	bool replaceKnownCEs()
 	{
 		if(fullyKnownCEs.empty())
@@ -789,7 +789,7 @@ static void removeEdgeBetweenBlocks(llvm::BasicBlock* from, llvm::BasicBlock* to
 	}
 }
 
-llvm::BasicBlock* PartialInterpreter::visitBasicBlock(FunctionData& data, llvm::BasicBlock& BB)
+llvm::BasicBlock* PartialInterpreter::visitBasicBlock(FunctionData& data, llvm::BasicBlock& BB, bool& BBProgress)
 {
 	ExecutionContext& executionContext = getTopCallFrame();
 	executionContext.CurBB = &BB;
@@ -800,7 +800,7 @@ llvm::BasicBlock* PartialInterpreter::visitBasicBlock(FunctionData& data, llvm::
 		// Note that here we could also execute a Call, and that implies adding a CallFrame
 		// executing there (possibly also in depth)
 		// So getTopCallFrame() has to be called since it will possibly change
-		visitOuter(data, *getTopCallFrame().CurInst++);
+		visitOuter(data, *getTopCallFrame().CurInst++, BBProgress);
 	}
 
 	// Find (if there are enough information) the next BB to be visited
@@ -993,9 +993,10 @@ public:
 		assert(currentEE);
 		return *currentEE;
 	}
-	void registerEdge(const llvm::BasicBlock* from, const llvm::BasicBlock* to)
+	bool registerEdge(const llvm::BasicBlock* from, const llvm::BasicBlock* to)
 	{
-		visitedEdges.insert({from, to});
+		auto [it, is_inserted] = visitedEdges.insert({from, to});
+		return is_inserted;
 	}
 	bool hasNoInfo(const VectorOfArgs& arguments) const
 	{
@@ -1181,29 +1182,36 @@ public:
 	{
 		knownValues[&I].everSkipped = true;
 	}
-	void registerValueForInst(llvm::Instruction& I, const GenericValue& GV, PartialInterpreter::BitMask strongBits)
+	bool registerValueForInst(llvm::Instruction& I, const GenericValue& GV, PartialInterpreter::BitMask strongBits)
 	{
 		// Only support integers for now, to simplify the handling of GVs
 		if(!I.getType()->isIntegerTy())
-			return;
+			return false;
 		// Do not attempt tracking of partially known values
 		if(strongBits != PartialInterpreter::BitMask::ALL)
-			return markInstSkipped(I);
+		{
+			markInstSkipped(I);
+			return false;
+		}
 		auto it = knownValues.find(&I);
 		if(it == knownValues.end())
 		{
 			// Never registered any value before, save the current one
 			knownValues[&I].value = GV;
+			return true;
 		}
 		else if(it->second.everSkipped)
 		{
 			// Nothing we can do anymore
+			return false;
 		}
 		else if(it->second.value.IntVal != GV.IntVal)
 		{
 			// Different value observed, bailout
 			it->second.everSkipped = true;
+			return false;
 		}
+		return false;
 	}
 	void replaceKnownValues() const
 	{
@@ -1374,6 +1382,7 @@ class BasicBlockGroupNode
 	const DeterministicBBSet& blocks;
 	bool isMultiHead;
 	bool isReachable;
+	bool SCCProgress;
 	llvm::BasicBlock* start;
 	llvm::BasicBlock* from;
 	uint32_t currIter;
@@ -1401,7 +1410,7 @@ class BasicBlockGroupNode
 	void splitIntoSCCs(std::list<BasicBlockGroupNode>& queueToBePopulated, ReverseMapBBToGroup& blockToGroupMap);
 public:
 	BasicBlockGroupNode(FunctionData& data, BasicBlockGroupNode* parentBBGNode, const DeterministicBBSet& OWNEDblocks, llvm::BasicBlock* start = nullptr)
-		: parentNode(parentBBGNode), data(data), ownedBlocks(OWNEDblocks), blocks(ownedBlocks), isMultiHead(false), isReachable(parentNode == nullptr), start(start), from(nullptr), visitingAll(false)
+		: parentNode(parentBBGNode), data(data), ownedBlocks(OWNEDblocks), blocks(ownedBlocks), isMultiHead(false), isReachable(parentNode == nullptr), SCCProgress(false), start(start), from(nullptr), visitingAll(false)
 	{
 		if (start)
 			assert(start->getParent() == data.getFunction());
@@ -1411,7 +1420,7 @@ public:
 	{
 	}
 	BasicBlockGroupNode(BasicBlockGroupNode& BBGNode)
-		: parentNode(&BBGNode), data(BBGNode.data), blocks(BBGNode.blocks), isMultiHead(false), isReachable(false), start(nullptr), from(nullptr), visitingAll(false)
+		: parentNode(&BBGNode), data(BBGNode.data), blocks(BBGNode.blocks), isMultiHead(false), isReachable(false), SCCProgress(false), start(nullptr), from(nullptr), visitingAll(false)
 	{
 	}
 	void addIncomingEdge(llvm::BasicBlock* comingFrom, uint32_t currIter, llvm::BasicBlock* target)
@@ -1442,13 +1451,13 @@ public:
 	// Do the visit of the BB, with 'from' (possibly nullptr if unknown) as predecessor
 	// Loop backs will be directed to another BBgroup
 	// The visit will return the set of reachable BBs, to be added into visitNext
-	void runVisitBasicBlock(FunctionData& data, llvm::BasicBlock& BB, llvm::SmallVectorImpl<llvm::BasicBlock*>& visitNext)
+	void runVisitBasicBlock(FunctionData& data, llvm::BasicBlock& BB, llvm::SmallVectorImpl<llvm::BasicBlock*>& visitNext, bool& BBProgress)
 	{
 		assert(visitNext.empty());
 
 		PartialInterpreter& interpreter = data.getInterpreter();
 		interpreter.incomingBB = from;
-		BasicBlock* ret = interpreter.visitBasicBlock(data, BB);
+		BasicBlock* ret = interpreter.visitBasicBlock(data, BB, BBProgress);
 
 		if (ret)
 		{
@@ -1509,10 +1518,11 @@ public:
 				registerEdge(bb, succ);
 		}
 	}
-	void registerEdge(llvm::BasicBlock* from, llvm::BasicBlock* to)
+	bool registerEdge(llvm::BasicBlock* from, llvm::BasicBlock* to)
 	{
-		data.registerEdge(from, to);
+		bool is_inserted = data.registerEdge(from, to);
 		notifySuccessor(from, currIter, to);
+		return is_inserted;
 	}
 	void cleanUp(llvm::BasicBlock* block)
 	{
@@ -1525,14 +1535,14 @@ public:
 		}
 	}
 	// Visit the tree of BasicBlockGroupNodes, starting from the root and visiting children depth-first
-	void recursiveVisit()
+	bool recursiveVisit()
 	{
 		if (isMultiHead)
 		{
 			// There are multiple BasicBlock that are reacheable from outside
 			//  --> Mark everything as reachable
 			visitAll();
-			return;
+			return false;
 		}
 		assert(start);	//isReachable && !isMultiHead implies start being defined
 		currIter = data.getVisitCounter(start);
@@ -1543,7 +1553,7 @@ public:
 			// Since terminability is basically unprovable in general, we give up with the visit
 			//  --> Mark everything as reachable
 			visitAll();
-			return;
+			return false;
 		}
 		if (parentNode)
 		{
@@ -1559,20 +1569,38 @@ public:
 
 		llvm::SmallVector<llvm::BasicBlock*, 4> visitNext;
 
-		// Do the actual visit for start, while populating visitNext
-		runVisitBasicBlock(data, *start, visitNext);
-		for (llvm::BasicBlock* succ : visitNext)
-			registerEdge(start, succ);
+		bool BBProgress = false;
+		runVisitBasicBlock(data, *start, visitNext, BBProgress);
+		for (llvm::BasicBlock* succ : visitNext){
+			if (registerEdge(start, succ)){
+				BBProgress = true;
+			}
+		}
 
-		// First has been already done
+		// The first SCC (start) has already been visited
+		// This updates SCCProgress in case progress was made while visiting the start
+		if (BBProgress)
+			SCCProgress = true;
 		childrenNodes.pop_back();
 		while (!childrenNodes.empty())
 		{
 			auto& child = childrenNodes.back();
 			if (child.isReachable)
-				child.recursiveVisit();
+			{
+				// If childrenNodes size is 1, that means that we are visiting the copy of all basic blocks in the curret set of SCC
+				// Because the copy is reachable, it means that we are in a loop
+				// By this point we have run and visit all the SCC of a parent. If no progress was found there is no point to continue with the loop
+				if (childrenNodes.size() == 1 && !SCCProgress)
+				{
+					visitAll();
+					return false;
+				}
+				if (child.recursiveVisit())
+					SCCProgress = true;
+			}
 			childrenNodes.pop_back();
 		}
+		return BBProgress;
 	}
 };
 
@@ -1636,7 +1664,7 @@ void FunctionData::actualVisit()
 	groupData.recursiveVisit();
 }
 
-void PartialInterpreter::visitOuter(FunctionData& data, llvm::Instruction& I)
+void PartialInterpreter::visitOuter(FunctionData& data, llvm::Instruction& I, bool& BBProgress)
 {
 	if (PHINode* phi = dyn_cast<PHINode>(&I))
 	{
@@ -1650,6 +1678,7 @@ void PartialInterpreter::visitOuter(FunctionData& data, llvm::Instruction& I)
 			if (isValueComputed(incomingVal))
 			{
 				computedPhisValues.push_back({phi, incomingVal});
+				BBProgress = true;
 				return;
 			}
 		}
@@ -1724,7 +1753,7 @@ void PartialInterpreter::visitOuter(FunctionData& data, llvm::Instruction& I)
 				getTopCallFrame().CurBB = next;
 				getTopCallFrame().CurInst = getTopCallFrame().CurBB->begin();
 
-				// Also here we have set the proper state for the execution so we can return
+				BBProgress = true;
 				return;
 			}
 			skip = true;
@@ -1745,7 +1774,7 @@ void PartialInterpreter::visitOuter(FunctionData& data, llvm::Instruction& I)
 	}
 	//If we are here it means we have to actually perform the execution via Interpreter
 
-	//Iff it's a call, set up the next stack frame
+	//If it's a call, set up the next stack frame
 	if (CallInst* CI = dyn_cast<CallInst>(&I))
 	{
 		const Function* calledFunc = dyn_cast_or_null<Function>(cast<CallInst>(I).getCalledFunction());
@@ -1772,7 +1801,10 @@ void PartialInterpreter::visitOuter(FunctionData& data, llvm::Instruction& I)
 	BitMask strongBits = computeStronglyKnownBits(I.getOpcode(), I);
 
 	if(isInitialCallFrame())
-		data.registerValueForInst(I, getOperandValue(&I), strongBits);
+	{
+		if (data.registerValueForInst(I, getOperandValue(&I), strongBits))
+			BBProgress = true;
+	}
 
 	if (!isa<CallInst>(I))
 	{
