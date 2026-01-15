@@ -5104,7 +5104,7 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
             && V->getType()->getPointerAddressSpace() != IRFuncTy->getParamType(FirstIRArg)->getPointerAddressSpace()) {
             llvm::Type* ElemTy = ConvertType(I->Ty->getPointeeType());
             auto* F = CGM.getIntrinsic(llvm::Intrinsic::cheerp_typed_ptrcast, {IRFuncTy->getParamType(FirstIRArg), V->getType()});
-            llvm::CallBase* CB = Builder.CreateCall(F, {V}, V->hasName()? V->getName() + ".ascast1" : "ascast1");
+            llvm::CallBase* CB = Builder.CreateCall(F, {V}, V->hasName()? V->getName() + ".ascast" : "ascast");
             CB->addRetAttr(llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, ElemTy));
             V = CB;
         }
@@ -5646,9 +5646,15 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
       if (getContext().getLangOpts().Cheerp &&
           RetAITy->isPointerTy() && RetIRTy->isPointerTy() &&
           RetAITy->getPointerAddressSpace() != RetIRTy->getPointerAddressSpace()) {
-        RetAITy = llvm::PointerType::getWithSamePointeeType(cast<llvm::PointerType>(RetAITy),
+        llvm::Type* RetAITyCasted = llvm::PointerType::getWithSamePointeeType(
+                                                            cast<llvm::PointerType>(RetAITy),
                                                             RetIRTy->getPointerAddressSpace());
-        V = Builder.CreateAddrSpaceCast(V, RetAITy, "ascast2");
+        llvm::Type* ElemTy = ConvertType(RetTy->getPointeeType());
+        auto* F = CGM.getIntrinsic(llvm::Intrinsic::cheerp_typed_ptrcast, {RetAITyCasted, RetAITy});
+        llvm::CallBase* CB = Builder.CreateCall(F, {V}, V->hasName()? V->getName() + ".ascast" : "ascast");
+        CB->addRetAttr(llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, ElemTy));
+        V = CB;
+        RetAITy = RetAITyCasted;
       }
       if (RetAITy == RetIRTy && RetAI.getDirectOffset() == 0) {
         switch (getEvaluationKind(RetTy)) {

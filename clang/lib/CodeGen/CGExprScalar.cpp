@@ -2225,10 +2225,19 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
     }
     else
     {
-      llvm::Function* intrinsic = CGF.CGM.GetUserCastIntrinsic(CE, E->getType(), DestTy, Src->getType(), asmjs);
-      llvm::CallBase* CB = Builder.CreateCall(intrinsic, Src);
-      llvm::Type* SrcPointeeTy = ConvertType(E->getType()->getPointeeType());
-      CB->addParamAttr(0, llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, SrcPointeeTy));
+      llvm::CallBase* CB;
+      if (DstTy->isPointerTy() && SrcTy->isPointerTy() &&
+          DstTy->getPointerAddressSpace() != SrcTy->getPointerAddressSpace()) {
+        auto* F = CGF.CGM.getIntrinsic(llvm::Intrinsic::cheerp_typed_ptrcast, {DstTy, SrcTy});
+        CB = Builder.CreateCall(F, {Src}, Src->hasName()? Src->getName() + ".ascast" : "ascast");
+        auto* ElemTy = ConvertType(DestTy->getPointeeType());
+        CB->addRetAttr(llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, ElemTy));
+      } else {
+        llvm::Function* intrinsic = CGF.CGM.GetUserCastIntrinsic(CE, E->getType(), DestTy, Src->getType(), asmjs);
+        CB = Builder.CreateCall(intrinsic, Src);
+        llvm::Type* SrcPointeeTy = ConvertType(E->getType()->getPointeeType());
+        CB->addParamAttr(0, llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, SrcPointeeTy));
+      }
       return CB;
     }
     if (CGF.getLangOpts().Cheerp) {
