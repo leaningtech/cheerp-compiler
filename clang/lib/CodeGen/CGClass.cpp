@@ -26,6 +26,7 @@
 #include "clang/Basic/CodeGenOptions.h"
 #include "clang/Basic/TargetBuiltins.h"
 #include "clang/CodeGen/CGFunctionInfo.h"
+#include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/Transforms/Utils/SanitizerStats.h"
@@ -624,7 +625,7 @@ CodeGenFunction::GenerateVirtualcast(Address Value,
     getContext().getCanonicalType(getContext().getTagDeclType(VBase));
   llvm::Type *VBasePtrTy = ConvertType(VBaseTy);
 
-  return Address(GenerateVirtualcast(Value, VBasePtrTy->getPointerTo(), VirtualOffset), VBasePtrTy, Value.getAlignment());
+  return Address(GenerateVirtualcast(Value, VBasePtrTy->getPointerTo(Value.getAddressSpace()), VirtualOffset), VBasePtrTy, Value.getAlignment());
 }
 
 Address
@@ -2848,7 +2849,7 @@ void CodeGenFunction::InitializeVTablePointer(const VPtr &Vptr) {
   // Apply the offsets.
   Address VTableField = LoadCXXThisAddress();
   llvm::Type *VTablePtrTy = nullptr;
-  if (!getTarget().isByteAddressable()) {
+  if (getLangOpts().Cheerp) {
     SmallVector<llvm::Value*, 4> GEPConstantIndexes;
 
     if (VirtualOffset) {
@@ -2860,7 +2861,8 @@ void CodeGenFunction::InitializeVTablePointer(const VPtr &Vptr) {
                                     Vptr.NearestVBase ? Vptr.NearestVBase : Vptr.VTableClass, Vptr.Bases);
     GEPConstantIndexes.push_back(llvm::ConstantInt::get(Int32Ty, 0));
     bool asmjs = cast<CXXMethodDecl>(CurFuncDecl)->getParent()->hasAttr<AsmJSAttr>();
-    VTableField = Address(Builder.CreateGEP(VTableField.getElementType(), VTableField.getPointer(), GEPConstantIndexes), CGM.getTypes().GetVTableBaseType(asmjs)->getPointerTo(), VTableField.getAlignment());
+    unsigned AS = unsigned(asmjs? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+    VTableField = Address(Builder.CreateGEP(VTableField.getElementType(), VTableField.getPointer(), GEPConstantIndexes), CGM.getTypes().GetVTableBaseType(asmjs)->getPointerTo(AS), VTableField.getAlignment());
     VTablePtrTy = VTableField.getElementType();
     VTableAddressPoint = Builder.CreateBitCast(VTableAddressPoint, VTablePtrTy);
   } else {
@@ -3065,7 +3067,7 @@ void CodeGenFunction::EmitTypeMetadataCodeForVCall(const CXXRecordDecl *RD,
     llvm::Value *TypeId =
         llvm::MetadataAsValue::get(CGM.getLLVMContext(), MD);
 
-    llvm::Value *CastedVTable = Builder.CreateBitCast(VTable, Int8PtrTy);
+    llvm::Value *CastedVTable = Builder.CreatePointerBitCastOrAddrSpaceCast(VTable, Int8Ty->getPointerTo());
     // If we already know that the call has hidden LTO visibility, emit
     // @llvm.type.test(). Otherwise emit @llvm.public.type.test(), which WPD
     // will convert to @llvm.type.test() if we assert at link time that we have
@@ -3178,7 +3180,7 @@ void CodeGenFunction::EmitVTablePtrCheck(const CXXRecordDecl *RD,
       CGM.CreateMetadataIdentifierForType(QualType(RD->getTypeForDecl(), 0));
   llvm::Value *TypeId = llvm::MetadataAsValue::get(getLLVMContext(), MD);
 
-  llvm::Value *CastedVTable = Builder.CreateBitCast(VTable, Int8PtrTy);
+  llvm::Value *CastedVTable = Builder.CreatePointerBitCastOrAddrSpaceCast(VTable, Int8Ty->getPointerTo());
   llvm::Value *TypeTest = Builder.CreateCall(
       CGM.getIntrinsic(llvm::Intrinsic::type_test), {CastedVTable, TypeId});
 

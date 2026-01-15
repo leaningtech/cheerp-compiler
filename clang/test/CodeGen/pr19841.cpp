@@ -12,7 +12,7 @@ class A {
   unsigned char _highlightColorTableVGA[];
   static const unsigned char b[];
 };
-// CHECK: [[Common_A_b:@[^ ]+]] = {{(dso_local )?}}constant [1 x i8] zeroinitializer
+// CHECK: [[Common_A_b:@[^ ]+]] = {{(dso_local )?}}{{(addrspace\(.\) )?}}constant [1 x i8] zeroinitializer
 class B {
 public:
   Common::RenderMode _configRenderMode;
@@ -23,7 +23,7 @@ A::A() {
       ? b
       : _highlightColorTableVGA;
 // Make sure the PHI value is casted correctly to the PHI type
-// CHECK: %{{.*}} = phi ptr [ [[Common_A_b]], %{{.*}} ], [ %{{.*}}, %{{.*}} ]
+// CHECK: %{{.*}} = phi ptr{{( addrspace\(.\))?}} [ [[Common_A_b]], %{{.*}} ], [ %{{.*}}, %{{.*}} ]
 }
 const unsigned char A::b[] = { 0 };
 }

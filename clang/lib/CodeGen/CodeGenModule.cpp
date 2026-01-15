@@ -55,6 +55,7 @@
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Cheerp/Utility.h"
 #include "llvm/Frontend/OpenMP/OMPIRBuilder.h"
 #include "llvm/IR/CallingConv.h"
 #include "llvm/IR/DataLayout.h"
@@ -141,12 +142,23 @@ CodeGenModule::CodeGenModule(ASTContext &C,
   IntTy = llvm::IntegerType::get(LLVMContext, C.getTargetInfo().getIntWidth());
   IntPtrTy = llvm::IntegerType::get(LLVMContext,
     C.getTargetInfo().getMaxPointerWidth());
-  Int8PtrTy = Int8Ty->getPointerTo(0);
-  Int8PtrPtrTy = Int8PtrTy->getPointerTo(0);
+  DefaultAS = 0;
+  if (getLangOpts().Cheerp) {
+    DefaultAS = unsigned(getTriple().isCheerpWasm()?
+      cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+  }
+  Int8PtrTy = Int8Ty->getPointerTo(DefaultAS);
+  Int8PtrPtrTy = Int8PtrTy->getPointerTo(DefaultAS);
   const llvm::DataLayout &DL = M.getDataLayout();
   AllocaInt8PtrTy = Int8Ty->getPointerTo(DL.getAllocaAddrSpace());
   GlobalsInt8PtrTy = Int8Ty->getPointerTo(DL.getDefaultGlobalsAddressSpace());
   ASTAllocaAddressSpace = getTargetCodeGenInfo().getASTAllocaAddressSpace();
+
+  AS0VoidPtrTy = Int8Ty->getPointerTo(0);
+  WasmVoidPtrTy = Int8Ty->getPointerTo(unsigned(cheerp::CheerpAS::Wasm));
+  GenericJSVoidPtrTy = Int8Ty->getPointerTo(unsigned(cheerp::CheerpAS::GenericJS));
+  ClientVoidPtrTy = Int8Ty->getPointerTo(unsigned(cheerp::CheerpAS::Client));
+  FnVoidPtrTy = Int8Ty->getPointerTo(cheerp::getCheerpFunctionAS(DefaultAS));
 
   // Build C++20 Module initializers.
   // TODO: Add Microsoft here once we know the mangling required for the
@@ -1624,7 +1636,7 @@ void CodeGenModule::EmitCtorList(CtorList &Fns, const char *GlobalName) {
 
   // Get the type of a ctor entry, { i32, void ()*, i8* }.
   llvm::StructType *CtorStructTy = llvm::StructType::get(
-      Int32Ty, CtorPFTy, VoidPtrTy);
+      Int32Ty, CtorPFTy, AS0VoidPtrTy);
 
   // Construct the constructor and destructor arrays.
   ConstantInitBuilder builder(*this);
@@ -1632,11 +1644,11 @@ void CodeGenModule::EmitCtorList(CtorList &Fns, const char *GlobalName) {
   for (const auto &I : Fns) {
     auto ctor = ctors.beginStruct(CtorStructTy);
     ctor.addInt(Int32Ty, I.Priority);
-    ctor.add(llvm::ConstantExpr::getBitCast(I.Initializer, CtorPFTy));
+    ctor.add(llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(I.Initializer, CtorPFTy));
     if (I.AssociatedData)
-      ctor.add(llvm::ConstantExpr::getBitCast(I.AssociatedData, VoidPtrTy));
+      ctor.add(llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(I.AssociatedData, AS0VoidPtrTy));
     else
-      ctor.addNullPointer(VoidPtrTy);
+      ctor.addNullPointer(AS0VoidPtrTy);
     ctor.finishAndAddTo(ctors);
   }
 
@@ -2543,18 +2555,19 @@ static void emitUsed(CodeGenModule &CGM, StringRef Name,
   if (List.empty())
     return;
 
+  llvm::Type* Int8PtrTy = llvm::PointerType::get(CGM.Int8Ty, 0);
   // Convert List to what ConstantArray needs.
   SmallVector<llvm::Constant*, 8> UsedArray;
   UsedArray.resize(List.size());
   for (unsigned i = 0, e = List.size(); i != e; ++i) {
     UsedArray[i] =
         llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(
-            cast<llvm::Constant>(&*List[i]), CGM.Int8PtrTy);
+            cast<llvm::Constant>(&*List[i]), Int8PtrTy);
   }
 
   if (UsedArray.empty())
     return;
-  llvm::ArrayType *ATy = llvm::ArrayType::get(CGM.Int8PtrTy, UsedArray.size());
+  llvm::ArrayType *ATy = llvm::ArrayType::get(Int8PtrTy, UsedArray.size());
 
   auto *GV = new llvm::GlobalVariable(
       CGM.getModule(), ATy, false, llvm::GlobalValue::AppendingLinkage,
@@ -3241,12 +3254,12 @@ ConstantAddress CodeGenModule::GetWeakRefReference(const ValueDecl *VD) {
   assert(AA && "No alias?");
 
   CharUnits Alignment = getContext().getDeclAlign(VD);
-  llvm::Type *DeclTy = getTypes().ConvertTypeForMem(VD->getType());
+  llvm::Type *DeclTy = getTypes().ConvertTypeForMem(VD->getType(), /*ForBitField=*/false, /*asmjs=*/VD->hasAttr<AsmJSAttr>());
 
   // See if there is already something with the target's name in the module.
   llvm::GlobalValue *Entry = GetGlobalValue(AA->getAliasee());
   if (Entry) {
-    unsigned AS = getContext().getTargetAddressSpace(VD->getType());
+    unsigned AS = getContext().getCheerpTypeTargetAddressSpace(VD->getType(), *VD);
     auto Ptr = llvm::ConstantExpr::getBitCast(Entry, DeclTy->getPointerTo(AS));
     return ConstantAddress(Ptr, DeclTy, Alignment);
   }
@@ -3989,7 +4002,7 @@ llvm::Constant *CodeGenModule::GetOrCreateMultiVersionResolver(GlobalDecl GD) {
 llvm::Constant *CodeGenModule::GetOrCreateLLVMFunction(
     StringRef MangledName, llvm::Type *Ty, GlobalDecl GD, bool ForVTable,
     bool DontDefer, bool IsThunk, llvm::AttributeList ExtraAttrs,
-    ForDefinition_t IsForDefinition) {
+    ForDefinition_t IsForDefinition, unsigned AS) {
   const Decl *D = GD.getDecl();
 
   // Any attempts to use a MultiVersion function should result in retrieving
@@ -4077,8 +4090,17 @@ llvm::Constant *CodeGenModule::GetOrCreateLLVMFunction(
     IsIncompleteFunction = true;
   }
 
+  if (getLangOpts().Cheerp && !getLangOpts().OpenCL) {
+    if (const FunctionDecl *FD = cast_or_null<FunctionDecl>(D)) {
+      bool asmjs = FD->hasAttr<AsmJSAttr>();
+      LangAS DefaultAS = asmjs? LangAS::cheerp_wasm : LangAS::cheerp_client;
+      AS =  Context.getTargetAddressSpace(Context.getCheerpTypeAddressSpace(FD->getType(), DefaultAS));
+    }
+  } else if (AS == std::numeric_limits<unsigned>::max()) {
+    AS = getDataLayout().getProgramAddressSpace();
+  }
   llvm::Function *F =
-      llvm::Function::Create(FTy, llvm::Function::ExternalLinkage,
+      llvm::Function::Create(FTy, llvm::Function::ExternalLinkage, AS,
                              Entry ? StringRef() : MangledName, &getModule());
 
   // If we already created a function with the same mangled name (but different
@@ -4102,7 +4124,7 @@ llvm::Constant *CodeGenModule::GetOrCreateLLVMFunction(
     }
 
     llvm::Constant *BC = llvm::ConstantExpr::getBitCast(
-        F, Entry->getValueType()->getPointerTo());
+        F, Entry->getValueType()->getPointerTo(Entry->getAddressSpace()));
     addGlobalValReplacement(Entry, BC);
   }
 
@@ -4166,7 +4188,7 @@ llvm::Constant *CodeGenModule::GetOrCreateLLVMFunction(
     return F;
   }
 
-  llvm::Type *PTy = llvm::PointerType::getUnqual(Ty);
+  llvm::Type *PTy = llvm::PointerType::get(Ty, AS);
   return llvm::ConstantExpr::getBitCast(F, PTy);
 }
 
@@ -4183,7 +4205,7 @@ llvm::Constant *CodeGenModule::GetAddrOfFunction(GlobalDecl GD,
   // If there was no specific requested type, just convert it now.
   if (!Ty) {
     const auto *FD = cast<FunctionDecl>(GD.getDecl());
-    Ty = getTypes().ConvertType(FD->getType());
+    Ty = getTypes().ConvertType(FD->getType(), FD->hasAttr<AsmJSAttr>());
   }
 
   // Devirtualized destructor calls may come through here instead of via
@@ -4263,7 +4285,7 @@ GetRuntimeFunctionDecl(ASTContext &C, StringRef Name) {
 llvm::FunctionCallee
 CodeGenModule::CreateRuntimeFunction(llvm::FunctionType *FTy, StringRef Name,
                                      llvm::AttributeList ExtraAttrs, bool Local,
-                                     bool AssumeConvergent) {
+                                     bool AssumeConvergent, unsigned AS) {
   if (AssumeConvergent) {
     ExtraAttrs =
         ExtraAttrs.addFnAttribute(VMContext, llvm::Attribute::Convergent);
@@ -4272,7 +4294,7 @@ CodeGenModule::CreateRuntimeFunction(llvm::FunctionType *FTy, StringRef Name,
   llvm::Constant *C =
       GetOrCreateLLVMFunction(Name, FTy, GlobalDecl(), /*ForVTable=*/false,
                               /*DontDefer=*/false, /*IsThunk=*/false,
-                              ExtraAttrs);
+                              ExtraAttrs, NotForDefinition, AS);
 
   if (auto *F = dyn_cast<llvm::Function>(C)) {
     if (F->empty()) {
@@ -4336,6 +4358,10 @@ CodeGenModule::GetOrCreateLLVMGlobal(StringRef MangledName, llvm::Type *Ty,
   // Lookup the entry, lazily creating it if necessary.
   llvm::GlobalValue *Entry = GetGlobalValue(MangledName);
   unsigned TargetAS = getContext().getTargetAddressSpace(AddrSpace);
+  if (getLangOpts().Cheerp && TargetAS == 0) {
+    assert(D);
+    TargetAS = getContext().getCheerpTypeTargetAddressSpace(D->getType(), *D);
+  }
   if (Entry) {
     if (WeakRefReferences.erase(Entry)) {
       if (D && !D->hasAttr<WeakAttr>())
@@ -4517,7 +4543,7 @@ CodeGenModule::GetOrCreateLLVMGlobal(StringRef MangledName, llvm::Type *Ty,
   LangAS ExpectedAS =
       D ? D->getType().getAddressSpace()
         : (LangOpts.OpenCL ? LangAS::opencl_global : LangAS::Default);
-  assert(getContext().getTargetAddressSpace(ExpectedAS) == TargetAS);
+  assert(getContext().getTargetAddressSpace(ExpectedAS) == TargetAS || LangOpts.Cheerp);
   if (DAddrSpace != ExpectedAS) {
     return getTargetCodeGenInfo().performAddrSpaceCast(
         *this, GV, DAddrSpace, ExpectedAS, Ty->getPointerTo(TargetAS));
@@ -4569,9 +4595,15 @@ llvm::GlobalVariable *CodeGenModule::CreateOrReplaceCXXRuntimeVariable(
     OldGV = GV;
   }
 
+  unsigned AS = getDataLayout().getDefaultGlobalsAddressSpace();
+  // In Cheerp, the runtime globals sit in the default AS
+  if (getLangOpts().Cheerp) {
+    AS = unsigned(getTriple().isCheerpWasm()? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+  }
   // Create a new variable.
   GV = new llvm::GlobalVariable(getModule(), Ty, /*isConstant=*/true,
-                                Linkage, nullptr, Name);
+                                Linkage, nullptr, Name,
+                                nullptr, llvm::GlobalVariable::NotThreadLocal, AS);
 
   if (OldGV) {
     // Replace occurrences of the old variable if needed.
@@ -4607,7 +4639,7 @@ llvm::Constant *CodeGenModule::GetAddrOfGlobalVar(const VarDecl *D,
   assert(D->hasGlobalStorage() && "Not a global variable");
   QualType ASTTy = D->getType();
   if (!Ty)
-    Ty = getTypes().ConvertTypeForMem(ASTTy);
+    Ty = getTypes().ConvertTypeForMem(ASTTy, false, D->hasAttr<AsmJSAttr>());
 
   StringRef MangledName = getMangledName(D);
   return GetOrCreateLLVMGlobal(MangledName, Ty, ASTTy.getAddressSpace(), D,
@@ -4621,6 +4653,10 @@ CodeGenModule::CreateRuntimeVariable(llvm::Type *Ty,
                                      StringRef Name) {
   LangAS AddrSpace = getContext().getLangOpts().OpenCL ? LangAS::opencl_global
                                                        : LangAS::Default;
+  if (getContext().getLangOpts().Cheerp) {
+    AddrSpace = getContext().getTargetInfo().getTriple().isCheerpWasm()?
+      LangAS::cheerp_wasm : LangAS::cheerp_genericjs;
+  }
   auto *Ret = GetOrCreateLLVMGlobal(Name, Ty, AddrSpace, nullptr);
   setDSOLocal(cast<llvm::GlobalValue>(Ret->stripPointerCasts()));
   return Ret;
@@ -4692,6 +4728,13 @@ LangAS CodeGenModule::GetGlobalVarAddressSpace(const VarDecl *D) {
     if (OpenMPRuntime->hasAllocateAttributeForGlobalVar(D, AS))
       return AS;
   }
+  if (LangOpts.Cheerp) {
+    if (!D) {
+      return getTriple().isCheerpWasm()? LangAS::cheerp_wasm : LangAS::cheerp_genericjs;
+    }
+    LangAS DefaultAS = D->hasAttr<AsmJSAttr>() ? LangAS::cheerp_wasm : LangAS::cheerp_genericjs;
+    return Context.getCheerpTypeAddressSpace(D->getType(), DefaultAS);
+  }
   return getTargetCodeGenInfo().getGlobalVarAddressSpace(*this, D);
 }
 
@@ -4709,6 +4752,9 @@ LangAS CodeGenModule::GetGlobalConstantAddressSpace() const {
     // UniformConstant storage class is not viable as pointers to it may not be
     // casted to Generic pointers which are used to model HIP's "flat" pointers.
     return LangAS::cuda_device;
+  if (LangOpts.Cheerp) {
+    return getTriple().isCheerpWasm()? LangAS::cheerp_wasm : LangAS::cheerp_genericjs;
+  }
   if (auto AS = getTarget().getConstantAddressSpace())
     return *AS;
   return LangAS::Default;
@@ -4724,9 +4770,20 @@ LangAS CodeGenModule::GetGlobalConstantAddressSpace() const {
 // they should not be casted to default address space.
 static llvm::Constant *
 castStringLiteralToDefaultAddressSpace(CodeGenModule &CGM,
-                                       llvm::GlobalVariable *GV) {
+                                       llvm::GlobalVariable *GV, bool asmjs) {
   llvm::Constant *Cast = GV;
-  if (!CGM.getLangOpts().OpenCL) {
+  if (CGM.getLangOpts().Cheerp) {
+    auto StringAS = CGM.getTarget().getTriple().isCheerpWasm()?
+      LangAS::cheerp_wasm :
+      LangAS::cheerp_genericjs;
+    auto DestAS = asmjs? LangAS::cheerp_wasm : LangAS::cheerp_genericjs;
+    if (StringAS != DestAS) {
+      Cast = CGM.getTargetCodeGenInfo().performAddrSpaceCast(
+          CGM, GV, StringAS, DestAS,
+          GV->getValueType()->getPointerTo(
+              CGM.getContext().getTargetAddressSpace(DestAS)));
+    }
+  } else if (!CGM.getLangOpts().OpenCL) {
     auto AS = CGM.GetGlobalConstantAddressSpace();
     if (AS != LangAS::Default)
       Cast = CGM.getTargetCodeGenInfo().performAddrSpaceCast(
@@ -4860,7 +4917,7 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D,
     // exists. A use may still exists, however, so we still may need
     // to do a RAUW.
     assert(!ASTTy->isIncompleteType() && "Unexpected incomplete type");
-    Init = EmitNullConstant(D->getType());
+    Init = EmitNullConstant(D->getType(), asmjs);
   } else {
     initializedGlobalDecl = GlobalDecl(D);
     emitter.emplace(*this);
@@ -4903,7 +4960,7 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D,
       if (getLangOpts().CPlusPlus) {
         if (InitDecl->hasFlexibleArrayInit(getContext()))
           ErrorUnsupported(D, "flexible array initializer");
-        Init = EmitNullConstant(T);
+        Init = EmitNullConstant(T, asmjs);
 	if (!D->hasAttr<NoInitAttr>())
           NeedsGlobalCtor = true;
       } else {
@@ -5435,7 +5492,7 @@ void CodeGenModule::EmitGlobalFunctionDefinition(GlobalDecl GD,
     AddGlobalAnnotations(D, Fn);
 }
 
-llvm::Function* CodeGenModule::GetUserCastIntrinsic(const CastExpr* CE, QualType SrcTy, QualType DestTy, bool asmjs)
+llvm::Function* CodeGenModule::GetUserCastIntrinsic(const CastExpr* CE, QualType SrcTy, QualType DestTy, llvm::Type* llvmSrcTy, bool asmjs)
 {
   bool isFunctionCast = SrcTy->isFunctionPointerType() || DestTy->isFunctionPointerType();
   bool isVoidPtrCast = DestTy->isVoidPointerType();
@@ -5446,7 +5503,7 @@ llvm::Function* CodeGenModule::GetUserCastIntrinsic(const CastExpr* CE, QualType
   if(!CE->isCheerpSafe() && !isFunctionCast && !isVoidPtrCast && !asmjs && !isByteLayoutCast)
     getDiags().Report(CE->getBeginLoc(), diag::warn_cheerp_unsafe_cast);
 
-  llvm::Type* types[] = { getTypes().ConvertType(DestTy), getTypes().ConvertType(SrcTy) };
+  llvm::Type* types[] = { getTypes().ConvertType(DestTy, asmjs), llvmSrcTy };
 
   return llvm::Intrinsic::getDeclaration(&getModule(),
                                      llvm::Intrinsic::cheerp_cast_user, types);
@@ -5472,7 +5529,7 @@ void CodeGenModule::EmitAliasDefinition(GlobalDecl GD) {
 
   Aliases.push_back(GD);
 
-  llvm::Type *DeclTy = getTypes().ConvertTypeForMem(D->getType());
+  llvm::Type *DeclTy = getTypes().ConvertTypeForMem(D->getType(), false, D->hasAttr<AsmJSAttr>());
 
   // Create a reference to the named value.  This ensures that it is emitted
   // if a deferred decl.
@@ -5483,8 +5540,9 @@ void CodeGenModule::EmitAliasDefinition(GlobalDecl GD) {
                                       /*ForVTable=*/false);
     LT = getFunctionLinkage(GD);
   } else {
-    Aliasee = GetOrCreateLLVMGlobal(AA->getAliasee(), DeclTy, LangAS::Default,
-                                    /*D=*/nullptr);
+    LangAS DefaultAS = D->hasAttr<AsmJSAttr>() ? LangAS::cheerp_wasm : LangAS::cheerp_genericjs;
+    LangAS AS = Context.getCheerpTypeAddressSpace(D->getType(), DefaultAS);
+    Aliasee = GetOrCreateLLVMGlobal(AA->getAliasee(), DeclTy, AS, /*D=*/nullptr);
     if (const auto *VD = dyn_cast<VarDecl>(GD.getDecl()))
       LT = getLLVMLinkageVarDefinition(VD, D->getType().isConstQualified());
     else
@@ -5921,6 +5979,12 @@ GenerateStringLiteral(llvm::Constant *C, llvm::GlobalValue::LinkageTypes LT,
   unsigned AddrSpace = CGM.getContext().getTargetAddressSpace(
       CGM.GetGlobalConstantAddressSpace());
 
+  if (AddrSpace == 0 && CGM.getContext().getLangOpts().Cheerp) {
+      AddrSpace = unsigned(CGM.getTarget().getTriple().isCheerpWasm()?
+                           cheerp::CheerpAS::Wasm :
+                           cheerp::CheerpAS::GenericJS);
+  }
+
   llvm::Module &M = CGM.getModule();
   // Create a global variable for this string
   auto *GV = new llvm::GlobalVariable(
@@ -5943,7 +6007,7 @@ GenerateStringLiteral(llvm::Constant *C, llvm::GlobalValue::LinkageTypes LT,
 /// GetAddrOfConstantStringFromLiteral - Return a pointer to a
 /// constant array for the given string literal.
 ConstantAddress
-CodeGenModule::GetAddrOfConstantStringFromLiteral(const StringLiteral *S,
+CodeGenModule::GetAddrOfConstantStringFromLiteral(const StringLiteral *S, bool asmjs,
                                                   StringRef Name) {
   CharUnits Alignment = getContext().getAlignOfGlobalVarInChars(S->getType());
 
@@ -5954,7 +6018,7 @@ CodeGenModule::GetAddrOfConstantStringFromLiteral(const StringLiteral *S,
     if (auto GV = *Entry) {
       if (uint64_t(Alignment.getQuantity()) > GV->getAlignment())
         GV->setAlignment(Alignment.getAsAlign());
-      return ConstantAddress(castStringLiteralToDefaultAddressSpace(*this, GV),
+      return ConstantAddress(castStringLiteralToDefaultAddressSpace(*this, GV, asmjs),
                              GV->getValueType(), Alignment);
     }
   }
@@ -5988,7 +6052,7 @@ CodeGenModule::GetAddrOfConstantStringFromLiteral(const StringLiteral *S,
 
   SanitizerMD->reportGlobal(GV, S->getStrTokenLoc(0), "<string literal>");
 
-  return ConstantAddress(castStringLiteralToDefaultAddressSpace(*this, GV),
+  return ConstantAddress(castStringLiteralToDefaultAddressSpace(*this, GV, asmjs),
                          GV->getValueType(), Alignment);
 }
 
@@ -5999,14 +6063,14 @@ CodeGenModule::GetAddrOfConstantStringFromObjCEncode(const ObjCEncodeExpr *E) {
   std::string Str;
   getContext().getObjCEncodingForType(E->getEncodedType(), Str);
 
-  return GetAddrOfConstantCString(Str);
+  return GetAddrOfConstantCString(Str, /*asmjs*/false);
 }
 
 /// GetAddrOfConstantCString - Returns a pointer to a character array containing
 /// the literal and a terminating '\0' character.
 /// The result has pointer to array type.
 ConstantAddress CodeGenModule::GetAddrOfConstantCString(
-    const std::string &Str, const char *GlobalName) {
+    const std::string &Str, bool asmjs, const char *GlobalName) {
   StringRef StrWithNull(Str.c_str(), Str.size() + 1);
   CharUnits Alignment =
     getContext().getAlignOfGlobalVarInChars(getContext().CharTy);
@@ -6021,7 +6085,7 @@ ConstantAddress CodeGenModule::GetAddrOfConstantCString(
     if (auto GV = *Entry) {
       if (uint64_t(Alignment.getQuantity()) > GV->getAlignment())
         GV->setAlignment(Alignment.getAsAlign());
-      return ConstantAddress(castStringLiteralToDefaultAddressSpace(*this, GV),
+      return ConstantAddress(castStringLiteralToDefaultAddressSpace(*this, GV, asmjs),
                              GV->getValueType(), Alignment);
     }
   }
@@ -6035,7 +6099,7 @@ ConstantAddress CodeGenModule::GetAddrOfConstantCString(
   if (Entry)
     *Entry = GV;
 
-  return ConstantAddress(castStringLiteralToDefaultAddressSpace(*this, GV),
+  return ConstantAddress(castStringLiteralToDefaultAddressSpace(*this, GV, asmjs),
                          GV->getValueType(), Alignment);
 }
 
@@ -6941,7 +7005,7 @@ void CodeGenModule::EmitOMPThreadPrivateDecl(const OMPThreadPrivateDecl *D) {
                                                         /*ForRef=*/false);
 
     Address Addr(GetAddrOfGlobalVar(VD),
-                 getTypes().ConvertTypeForMem(VD->getType()),
+                 getTypes().ConvertTypeForMem(VD->getType(), false, VD->hasAttr<AsmJSAttr>()),
                  getContext().getDeclAlign(VD));
     if (auto InitFunction = getOpenMPRuntime().emitThreadPrivateVarDefinition(
             VD, Addr, RefExpr->getBeginLoc(), PerformInit))

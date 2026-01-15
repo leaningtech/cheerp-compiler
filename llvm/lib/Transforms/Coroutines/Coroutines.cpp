@@ -16,6 +16,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/Analysis/CallGraph.h"
+#include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
@@ -35,24 +36,32 @@
 
 using namespace llvm;
 
-StructType* coro::getBaseFrameType(LLVMContext& C, bool asmjs) {
-  auto* FrameTy = StructType::getTypeByName(C, "coroFrameBase");
+StructType* coro::getBaseFrameType(LLVMContext& C, unsigned AS) {
+  auto name = std::string("__coroFrameBase.")+std::to_string(AS);
+  auto* FrameTy = StructType::getTypeByName(C, name);
   if (!FrameTy)
   {
-    FrameTy = StructType::create(C, "coroFrameBase");
-    auto* ResumeFnType = FunctionType::get(Type::getVoidTy(C), FrameTy->getPointerTo(), false);
-    FrameTy->setBody({ ResumeFnType->getPointerTo(), ResumeFnType->getPointerTo()}, /*isPacked*/false, /*directBase*/nullptr, /*isByteLayout*/false, asmjs);
+    unsigned FnAS = cheerp::getCheerpFunctionAS(AS);
+    FrameTy = StructType::create(C, name);
+    auto* ResumeFnType = FunctionType::get(Type::getVoidTy(C), FrameTy->getPointerTo(AS), false);
+    FrameTy->setBody({ ResumeFnType->getPointerTo(FnAS), ResumeFnType->getPointerTo(FnAS)}, /*isPacked*/false, /*directBase*/nullptr, /*isByteLayout*/false, AS == unsigned(cheerp::CheerpAS::Wasm));
   }
   return FrameTy;
 }
 // Construct the lowerer base class and initialize its members.
 coro::LowererBase::LowererBase(Module &M)
-    : TheModule(M), Context(M.getContext()),
-      Int8Ptr(Type::getInt8PtrTy(Context)),
-      ResumeFnType(FunctionType::get(Type::getVoidTy(Context), getBaseFrameType(Context, Triple(M.getTargetTriple()).isCheerpWasm())->getPointerTo(),
-                                     /*isVarArg=*/false)),
-      NullPtr(ConstantPointerNull::get(Int8Ptr))
-{
+    : TheModule(M), Context(M.getContext()) {
+  setTypes(0);
+}
+
+void coro::LowererBase::setTypes(unsigned AS) {
+  this->AS = AS;
+  FnAS = cheerp::getCheerpFunctionAS(AS);
+  Int8Ptr = Type::getInt8PtrTy(Context, AS);
+  ResumeFnType = FunctionType::get(Type::getVoidTy(Context),
+                                   getBaseFrameType(Context, AS)->getPointerTo(AS),
+                                   /*isVarArg=*/false);
+  NullPtr = ConstantPointerNull::get(Int8Ptr);
 }
 
 // Creates a sequence of instructions to obtain a resume function address using
@@ -64,7 +73,7 @@ coro::LowererBase::LowererBase(Module &M)
 Value *coro::LowererBase::makeSubFnCall(Value *Arg, int Index,
                                         Instruction *InsertPt) {
   auto *IndexVal = ConstantInt::get(Type::getInt8Ty(Context), Index);
-  auto *Fn = Intrinsic::getDeclaration(&TheModule, Intrinsic::coro_subfn_addr);
+  auto *Fn = Intrinsic::getDeclaration(&TheModule, Intrinsic::coro_subfn_addr, {Type::getInt8PtrTy(Context, FnAS), Int8Ptr});
 
   assert(Index >= CoroSubFnInst::IndexFirst &&
          Index < CoroSubFnInst::IndexLast &&
@@ -72,7 +81,7 @@ Value *coro::LowererBase::makeSubFnCall(Value *Arg, int Index,
   auto *Call = CallInst::Create(Fn, {Arg, IndexVal}, "", InsertPt);
 
   auto *Bitcast =
-      new BitCastInst(Call, ResumeFnType->getPointerTo(), "", InsertPt);
+      new BitCastInst(Call, ResumeFnType->getPointerTo(FnAS), "", InsertPt);
   return Bitcast;
 }
 
@@ -109,38 +118,38 @@ static const char *const CoroIntrinsics[] = {
     "llvm.coro.suspend.retcon",
 };
 
-#ifndef NDEBUG
 static bool isCoroutineIntrinsicName(StringRef Name) {
   return Intrinsic::lookupLLVMIntrinsicByName(CoroIntrinsics, Name) != -1;
 }
-#endif
 
 bool coro::declaresAnyIntrinsic(const Module &M) {
-  for (StringRef Name : CoroIntrinsics) {
-    assert(isCoroutineIntrinsicName(Name) && "not a coroutine intrinsic");
-    if (M.getNamedValue(Name))
+  for (const auto& F: M.functions()) {
+    if (!F.isIntrinsic())
+      continue;
+    if (isCoroutineIntrinsicName(F.getName())) {
       return true;
+    }
   }
-
   return false;
 }
 
 // Verifies if a module has named values listed. Also, in debug mode verifies
 // that names are intrinsic names.
 bool coro::declaresIntrinsics(const Module &M,
-                              const std::initializer_list<StringRef> List) {
-  for (StringRef Name : List) {
-    assert(isCoroutineIntrinsicName(Name) && "not a coroutine intrinsic");
-    if (M.getNamedValue(Name))
+                              ArrayRef<const char*> List) {
+  for (const auto& F: M.functions()) {
+    if (!F.isIntrinsic())
+      continue;
+    if (Intrinsic::lookupLLVMIntrinsicByName(List, F.getName()) != -1) {
       return true;
+    }
   }
-
   return false;
 }
 
 // Replace all coro.frees associated with the provided CoroId either with 'null'
 // if Elide is true and with its frame parameter otherwise.
-void coro::replaceCoroFree(CoroIdInst *CoroId, bool Elide) {
+void coro::replaceCoroFree(CoroIdInst *CoroId, bool Elide, unsigned AS) {
   SmallVector<CoroFreeInst *, 4> CoroFrees;
   for (User *U : CoroId->users())
     if (auto CF = dyn_cast<CoroFreeInst>(U))
@@ -150,7 +159,7 @@ void coro::replaceCoroFree(CoroIdInst *CoroId, bool Elide) {
     return;
 
   Value *Replacement =
-      Elide ? ConstantPointerNull::get(Type::getInt8PtrTy(CoroId->getContext()))
+      Elide ? ConstantPointerNull::get(Type::getInt8PtrTy(CoroId->getContext(), AS))
             : CoroFrees.front()->getFrame();
 
   for (CoroFreeInst *CF : CoroFrees) {
@@ -174,8 +183,9 @@ static void clear(coro::Shape &Shape) {
 
 static CoroSaveInst *createCoroSave(CoroBeginInst *CoroBegin,
                                     CoroSuspendInst *SuspendInst) {
+  Type* MemTy = CoroBegin->getMem()->getType();
   Module *M = SuspendInst->getModule();
-  auto *Fn = Intrinsic::getDeclaration(M, Intrinsic::coro_save);
+  auto *Fn = Intrinsic::getDeclaration(M, Intrinsic::coro_save, {MemTy});
   auto *SaveInst =
       cast<CoroSaveInst>(CallInst::Create(Fn, CoroBegin, "", SuspendInst));
   assert(!SuspendInst->getCoroSave());
@@ -191,6 +201,13 @@ void coro::Shape::buildFrom(Function &F) {
   clear(*this);
   SmallVector<CoroFrameInst *, 8> CoroFrames;
   SmallVector<CoroSaveInst *, 2> UnusedCoroSaves;
+
+  // CHEERP: Get the address space for this coroutine:
+  FnAS = F.getAddressSpace();
+  AS = FnAS;
+  if (AS == unsigned(cheerp::CheerpAS::Client)) {
+    AS = unsigned(cheerp::CheerpAS::GenericJS);
+  }
 
   for (Instruction &I : instructions(F)) {
     if (auto II = dyn_cast<IntrinsicInst>(&I)) {
@@ -285,7 +302,7 @@ void coro::Shape::buildFrom(Function &F) {
   if (!CoroBegin) {
     // Replace coro.frame which are supposed to be lowered to the result of
     // coro.begin with undef.
-    auto *Undef = UndefValue::get(Type::getInt8PtrTy(F.getContext()));
+    auto *Undef = UndefValue::get(Type::getInt8PtrTy(F.getContext(), AS));
     for (CoroFrameInst *CF : CoroFrames) {
       CF->replaceAllUsesWith(Undef);
       CF->eraseFromParent();

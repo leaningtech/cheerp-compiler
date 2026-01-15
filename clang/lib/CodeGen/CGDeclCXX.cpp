@@ -19,6 +19,7 @@
 #include "clang/AST/Attr.h"
 #include "clang/Basic/LangOptions.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/MDBuilder.h"
 #include "llvm/Support/Path.h"
@@ -119,7 +120,7 @@ static void EmitDeclDestroy(CodeGenFunction &CGF, const VarDecl &D,
     CXXDestructorDecl *Dtor = Record->getDestructor();
 
     Func = CGM.getAddrAndTypeOfCXXStructor(GlobalDecl(Dtor, Dtor_Complete));
-    if (CGF.getContext().getLangOpts().OpenCL) {
+    if (CGF.getContext().getLangOpts().OpenCL || CGF.getContext().getLangOpts().Cheerp) {
       auto DestAS =
           CGM.getTargetCodeGenInfo().getAddrSpaceOfCxaAtexitPtrParam();
       auto DestTy = CGF.getTypes().ConvertType(Type)->getPointerTo(
@@ -196,7 +197,7 @@ void CodeGenFunction::EmitCXXGlobalVarDeclInit(const VarDecl &D,
   // For example, in the above CUDA code, the static local variable s has a
   // "shared" address space qualifier, but the constructor of StructWithCtor
   // expects "this" in the "generic" address space.
-  unsigned ExpectedAddrSpace = getContext().getTargetAddressSpace(T);
+  unsigned ExpectedAddrSpace = getContext().getCheerpTypeTargetAddressSpace(T, D.hasAttr<AsmJSAttr>());
   unsigned ActualAddrSpace = GV->getAddressSpace();
   llvm::Constant *DeclPtr = GV;
   if (ActualAddrSpace != ExpectedAddrSpace) {
@@ -278,9 +279,10 @@ llvm::Function *CodeGenFunction::createTLSAtExitStub(
     CGM.getCXXABI().getMangleContext().mangleDynamicAtExitDestructor(&D, Out);
   }
 
+  bool asmjs = getTarget().getTriple().isCheerpWasm();
   const CGFunctionInfo &FI = CGM.getTypes().arrangeLLVMFunctionInfo(
       getContext().IntTy, /*instanceMethod=*/false, /*chainCall=*/false,
-      {getContext().IntTy}, FunctionType::ExtInfo(), {}, RequiredArgs::All);
+      {getContext().IntTy}, FunctionType::ExtInfo(), {}, RequiredArgs::All, asmjs);
 
   // Get the stub function type, int(*)(int,...).
   llvm::FunctionType *StubTy =
@@ -428,7 +430,20 @@ void CodeGenFunction::EmitCXXGuardedInitBranch(llvm::Value *NeedsInit,
 llvm::Function *CodeGenModule::CreateGlobalInitOrCleanUpFunction(
     llvm::FunctionType *FTy, const Twine &Name, const CGFunctionInfo &FI,
     SourceLocation Loc, bool TLS, llvm::GlobalVariable::LinkageTypes Linkage) {
-  llvm::Function *Fn = llvm::Function::Create(FTy, Linkage, Name, &getModule());
+
+  unsigned AS = 0;
+  if (getLangOpts().Cheerp) {
+    if (FI.isAsmJS()) {
+      AS = (unsigned)cheerp::CheerpAS::Wasm;
+    } else {
+      AS = (unsigned)cheerp::CheerpAS::Client;
+    }
+  }
+  llvm::Function *Fn = llvm::Function::Create(FTy, Linkage, AS, Name, &getModule());
+
+  if (FI.isAsmJS()) {
+    Fn->setSection("asmjs");
+  }
 
   if (!getLangOpts().AppleKext && !TLS) {
     // Set the section if needed.
@@ -538,7 +553,7 @@ CodeGenModule::EmitCXXGlobalVarDeclInitFunc(const VarDecl *D,
 
   // Create a variable initialization function.
   llvm::Function *Fn = CreateGlobalInitOrCleanUpFunction(
-      FTy, FnName.str(), getTypes().arrangeNullaryFunction(), D->getLocation());
+      FTy, FnName.str(), getTypes().arrangeNullaryFunction(D->hasAttr<AsmJSAttr>()), D->getLocation());
 
   // CHEERP: if the global is in the asmjs section, also put the initializer
   // there
@@ -1067,7 +1082,10 @@ CodeGenFunction::GenerateCXXGlobalInitFunc(llvm::Function *Fn,
           llvm::GlobalVariable *GuardGV = new llvm::GlobalVariable(CGM.getModule(), Int8Ty, /*isConstant=*/false,
                                      llvm::GlobalVariable::InternalLinkage,
                                      llvm::ConstantInt::get(Int8Ty, 0),
-                                     Decls[i]->getName() + "__in_chrg");
+                                     Decls[i]->getName() + "__in_chrg",
+                                     nullptr,
+                                     llvm::GlobalValue::NotThreadLocal,
+                                     unsigned(cheerp::CheerpAS::Wasm));
           GuardGV->setSection("asmjs");
           CharUnits GuardAlign = CharUnits::One();
           GuardGV->setAlignment(GuardAlign.getAsAlign());

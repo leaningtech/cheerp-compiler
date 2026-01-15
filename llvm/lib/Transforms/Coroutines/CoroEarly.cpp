@@ -8,6 +8,7 @@
 
 #include "llvm/Transforms/Coroutines/CoroEarly.h"
 #include "CoroInternal.h"
+#include "llvm/Cheerp/AddressSpaces.h"
 #include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
@@ -44,9 +45,7 @@ void Lowerer::lowerResumeOrDestroy(CallBase &CB,
                                    CoroSubFnInst::ResumeKind Index) {
   Value *ResumeAddr = makeSubFnCall(CB.getArgOperand(0), Index, &CB);
   CB.setCalledOperand(ResumeAddr);
-  Triple triple = Triple(CB.getCaller()->getParent()->getTargetTriple());
-  bool asmjs = triple.isCheerpWasm();
-  PointerType* Ty = coro::getBaseFrameType(CB.getContext(), asmjs)->getPointerTo();
+  PointerType* Ty = coro::getBaseFrameType(CB.getContext(), AS)->getPointerTo(AS);
   auto* Cast = BitCastInst::CreateBitOrPointerCast(CB.getArgOperand(0), Ty, "cast", &CB);
   CB.setArgOperand(0, Cast);
   CB.setCallingConv(CallingConv::Fast);
@@ -65,7 +64,7 @@ void Lowerer::lowerCoroPromise(CoroPromiseInst *Intrin) {
   Align Alignment = Intrin->getAlignment();
   Type *Int8Ty = Builder.getInt8Ty();
 
-  auto* AnyResumeFnPtrTy = ResumeFnType->getPointerTo();
+  auto* AnyResumeFnPtrTy = ResumeFnType->getPointerTo(FnAS);
   auto *SampleStruct =
       StructType::get(Context, {AnyResumeFnPtrTy, AnyResumeFnPtrTy, Int8Ty});
   const DataLayout &DL = TheModule.getDataLayout();
@@ -86,13 +85,16 @@ void Lowerer::lowerCoroPromise(CoroPromiseInst *Intrin) {
     // Since we don't know the concrete type of the Frame object yet,
     // we use i8* here. In CoroFrame we will do a no-op downcast with the
     // Frame type, to signal to the backend that it needs the downcast array.
-    Type* types[] = { Builder.getInt8PtrTy(), Builder.getInt8PtrTy() };
+    Type* types[] = { Int8Ptr, Int8Ptr };
     Function* intrinsic = Intrinsic::getDeclaration(&TheModule,
                             Intrinsic::cheerp_downcast, types);
 
     bool asmjs = Intrin->getFunction()->getSection() == "asmjs";
     int offset = asmjs? Offset : (Intrin->isFromPromise()? 1 : -1);
     ConstantInt* Adj = ConstantInt::get(Builder.getInt32Ty(), offset);
+    intrinsic->dump();
+    Operand->dump();
+    Adj->dump();
     CallBase* CB = Builder.CreateCall(intrinsic, {Operand, Adj});
     CB->addParamAttr(0, Attribute::get(Context, Attribute::ElementType, Builder.getInt8Ty()));
     CB->addRetAttr(Attribute::get(Context, Attribute::ElementType, Builder.getInt8Ty()));
@@ -113,14 +115,14 @@ void Lowerer::lowerCoroDone(IntrinsicInst *II) {
   // ResumeFnAddr is the first pointer sized element of the coroutine frame.
   static_assert(coro::Shape::SwitchFieldIndex::Resume == 0,
                 "resume function not at offset zero");
-  auto* FrameTy = coro::getBaseFrameType(II->getContext(), II->getFunction()->getSection() == "asmjs");
-  PointerType *FramePtrTy = FrameTy->getPointerTo();
+  auto* FrameTy = coro::getBaseFrameType(II->getContext(), AS);
+  PointerType *FramePtrTy = FrameTy->getPointerTo(AS);
 
   Builder.SetInsertPoint(II);
   auto *BCI = Builder.CreateBitCast(Operand, FramePtrTy);
   auto *Fn = Builder.CreateConstInBoundsGEP2_32(FrameTy, BCI, 0, 0);
-  auto *Load = Builder.CreateLoad(ResumeFnType->getPointerTo(), Fn);
-  auto *Cond = Builder.CreateICmpEQ(Load, ConstantPointerNull::get(ResumeFnType->getPointerTo()));
+  auto *Load = Builder.CreateLoad(ResumeFnType->getPointerTo(FnAS), Fn);
+  auto *Cond = Builder.CreateICmpEQ(Load, ConstantPointerNull::get(ResumeFnType->getPointerTo(FnAS)));
 
   II->replaceAllUsesWith(Cond);
   II->eraseFromParent();
@@ -152,10 +154,10 @@ void Lowerer::lowerCoroNoop(IntrinsicInst *II) {
 
     // Create a noop.frame struct type.
     StructType *FrameTy = StructType::create(C, "NoopCoro.Frame");
-    auto *FramePtrTy = FrameTy->getPointerTo();
+    auto *FramePtrTy = FrameTy->getPointerTo(AS);
     auto *FnTy = FunctionType::get(Type::getVoidTy(C), FramePtrTy,
                                    /*isVarArg=*/false);
-    auto *FnPtrTy = FnTy->getPointerTo();
+    auto *FnPtrTy = FnTy->getPointerTo(FnAS);
     Triple triple = Triple(M.getTargetTriple());
     bool asmjs = triple.isCheerpWasm();
     FrameTy->setBody({FnPtrTy, FnPtrTy}, /*isPacked*/false, /*directBase*/nullptr, /*isByteLayout*/false, asmjs);
@@ -198,6 +200,7 @@ static void setCannotDuplicate(CoroIdInst *CoroId) {
 }
 
 void Lowerer::lowerEarlyIntrinsics(Function &F) {
+  setTypes(cheerp::getCheerpDataAS(F.getAddressSpace()));
   CoroIdInst *CoroId = nullptr;
   SmallVector<CoroFreeInst *, 4> CoroFrees;
   bool HasCoroSuspend = false;
@@ -236,7 +239,7 @@ void Lowerer::lowerEarlyIntrinsics(Function &F) {
                    "The frontend uses Swtich-Resumed ABI should emit "
                    "\"coroutine.presplit\" attribute for the coroutine.");
             setCannotDuplicate(CII);
-            CII->setCoroutineSelf();
+            CII->setCoroutineSelf(FnAS);
             CoroId = cast<CoroIdInst>(&I);
           }
         }
@@ -278,12 +281,12 @@ void Lowerer::lowerEarlyIntrinsics(Function &F) {
 }
 
 static bool declaresCoroEarlyIntrinsics(const Module &M) {
+  // NOTE: the list must be sorted
   return coro::declaresIntrinsics(
-      M, {"llvm.coro.id", "llvm.coro.id.retcon", "llvm.coro.id.retcon.once",
-          "llvm.coro.id.async", "llvm.coro.destroy", "llvm.coro.done",
-          "llvm.coro.end", "llvm.coro.end.async", "llvm.coro.noop",
-          "llvm.coro.free", "llvm.coro.promise", "llvm.coro.resume",
-          "llvm.coro.suspend"});
+      M, {"llvm.coro.destroy", "llvm.coro.done", "llvm.coro.end", "llvm.coro.end.async",
+          "llvm.coro.free", "llvm.coro.id", "llvm.coro.id.async", "llvm.coro.id.retcon",
+          "llvm.coro.id.retcon.once", "llvm.coro.noop", "llvm.coro.promise",
+          "llvm.coro.resume", "llvm.coro.suspend"});
 }
 
 PreservedAnalyses CoroEarlyPass::run(Module &M, ModuleAnalysisManager &) {

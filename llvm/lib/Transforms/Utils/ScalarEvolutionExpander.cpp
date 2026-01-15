@@ -1682,6 +1682,8 @@ Value *SCEVExpander::visitGEPPointer(const SCEVGEPPointer *S) {
     GepIndices.push_back(indexVal);
   }
   Type* gepType = S->getSourceElementType();
+  Value *GEP = Builder.CreateGEP(gepType, ptrVal, GepIndices, "safescevgep");
+  /* TODO: fix this. crashes when building libcxx
   if(StructType* sTy = dyn_cast<StructType>(gepType)) {
     // With a struct a constant index is expected
     ConstantInt* firstIndex = cast<ConstantInt>(GepIndices[1]);
@@ -1695,6 +1697,7 @@ Value *SCEVExpander::visitGEPPointer(const SCEVGEPPointer *S) {
   if (ptrVal->getType() != gepType->getPointerTo())
     ptrVal = Builder.CreateBitCast(ptrVal, gepType->getPointerTo());
   Value *GEP = Builder.CreateGEP(gepType, ptrVal, GepIndices, "safescevgep");
+  */
   rememberInstruction(GEP);
   return GEP;
 }

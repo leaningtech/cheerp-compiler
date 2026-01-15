@@ -2429,6 +2429,17 @@ public:
   llvm::Type *ConvertType(const TypeDecl *T) {
     return ConvertType(getContext().getTypeDeclType(T));
   }
+  bool isAsmJSContext() {
+    bool asmjs = false;
+    if (CurFn) {
+      asmjs = CurFn->getSection() == "asmjs";
+    } else if (auto* CurGlobal = CGM.getInitializedGlobalDecl()->getDecl()) {
+      asmjs = CurGlobal->hasAttr<AsmJSAttr>();
+    } else {
+      asmjs = getContext().getTargetInfo().getTriple().isCheerpWasm();
+    }
+    return asmjs;
+  }
 
   /// LoadObjCSelf - Load the value of self. This function is only valid while
   /// generating code for an Objective-C method.
@@ -2587,16 +2598,16 @@ public:
   /// more efficient if the caller knows that the address will not be exposed.
   llvm::AllocaInst *CreateTempAlloca(llvm::Type *Ty, const Twine &Name = "tmp",
                                      llvm::Value *ArraySize = nullptr,
-                                     uint32_t AS = 0);
+                                     uint32_t AS = std::numeric_limits<uint32_t>::max());
   Address CreateTempAlloca(llvm::Type *Ty, CharUnits align,
                            const Twine &Name = "tmp",
                            llvm::Value *ArraySize = nullptr,
                            Address *Alloca = nullptr,
-                           uint32_t AS = 0);
+                           uint32_t AS = std::numeric_limits<uint32_t>::max());
   Address CreateTempAllocaWithoutCast(llvm::Type *Ty, CharUnits align,
                                       const Twine &Name = "tmp",
                                       llvm::Value *ArraySize = nullptr,
-                                      uint32_t AS = 0);
+                                      uint32_t AS = std::numeric_limits<uint32_t>::max());
 
   /// CreateDefaultAlignedTempAlloca - This creates an alloca with the
   /// default ABI alignment of the given LLVM type.

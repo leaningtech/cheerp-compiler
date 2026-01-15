@@ -27,7 +27,7 @@ void f(void) {
 
 // Check that the function is decorated with optnone
 
-// CHECK-DAG: @f() [[ATTRF:#[0-9]+]]
+// CHECK-DAG: @f(){{.*}} [[ATTRF:#[0-9]+]]
 // CHECK-DAG: attributes [[ATTRF]] = { {{.*}}noinline{{.*}}optnone{{.*}} }
 
 #endif

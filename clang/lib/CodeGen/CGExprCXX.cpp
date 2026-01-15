@@ -89,7 +89,7 @@ RValue CodeGenFunction::EmitCXXMemberOrOperatorCall(
   MemberCallInfo CallInfo = commonEmitCXXMemberOrOperatorCall(
       *this, MD, This, ImplicitParam, ImplicitParamTy, CE, Args, RtlArgs);
   auto &FnInfo = CGM.getTypes().arrangeCXXMethodCall(
-      Args, FPT, CallInfo.ReqArgs, CallInfo.PrefixSize);
+      Args, FPT, CallInfo.ReqArgs, CallInfo.PrefixSize, MD->hasAttr<AsmJSAttr>());
   return EmitCall(FnInfo, Callee, ReturnValue, Args, nullptr,
                   CE && CE == MustTailCall,
                   CE ? CE->getExprLoc() : SourceLocation());
@@ -465,8 +465,12 @@ CodeGenFunction::EmitCXXMemberPointerCallExpr(const CXXMemberCallExpr *E,
 
   CallArgList Args;
 
-  QualType ThisType =
-    getContext().getPointerType(getContext().getTagDeclType(RD));
+  QualType ThisType = getContext().getTagDeclType(RD);
+
+  if (getLangOpts().Cheerp)
+    ThisType = getContext().getAddrSpaceQualType(ThisType, getContext().getCheerpTypeAddressSpace(RD));
+
+  ThisType = getContext().getPointerType(ThisType);
 
   // Push the this ptr.
   Args.add(RValue::get(ThisPtrForCall), ThisType);
@@ -476,7 +480,7 @@ CodeGenFunction::EmitCXXMemberPointerCallExpr(const CXXMemberCallExpr *E,
   // And the rest of the call args
   EmitCallArgs(Args, FPT, E->arguments());
   return EmitCall(CGM.getTypes().arrangeCXXMethodCall(Args, FPT, required,
-                                                      /*PrefixSize=*/0),
+                                                      /*PrefixSize=*/0, RD->hasAttr<AsmJSAttr>()),
                   Callee, ReturnValue, Args, nullptr, E == MustTailCall,
                   E->getExprLoc());
 }
@@ -1345,7 +1349,7 @@ static RValue EmitNewDeleteCall(CodeGenFunction &CGF,
   CGCallee Callee = CGCallee::forDirect(CalleePtr, GlobalDecl(CalleeDecl));
 
   RValue RV;
-  bool cheerp = !CGF.getTarget().isByteAddressable();
+  bool cheerp = CGF.getLangOpts().Cheerp;
   bool asmjs = CGF.CurFn->getSection() == StringRef("asmjs");
   bool user_defined_new = false;
   // CHEERP: in Wasm, we use cheerp_allocate/deallocate only for:
@@ -1356,7 +1360,7 @@ static RValue EmitNewDeleteCall(CodeGenFunction &CGF,
   // NOTE: genericjs will emit an error if this is true, but we have to be careful not to crash
   bool unsafe_new = allocType.isNull();
   if (unsafe_new) {
-    allocType = CGF.getContext().CharTy;
+    allocType = CGF.getContext().getAddrSpaceQualType(CGF.getContext().CharTy, LangAS::cheerp_wasm);
   }
   if (IsArray) {
     if (const CXXRecordDecl* RD = allocType->getAsCXXRecordDecl())
@@ -1385,7 +1389,8 @@ static RValue EmitNewDeleteCall(CodeGenFunction &CGF,
       origFunc = CalleePtr;
     }
     llvm::Type* elementType = CGF.ConvertTypeForMem(retType->getPointeeType());
-    CallOrInvoke = cheerp::createCheerpAllocate(CGF.Builder, origFunc, elementType, Args[0].getKnownRValue().getScalarVal(), 0, use_array);
+    unsigned AS = CGF.getContext().getCheerpTypeTargetAddressSpace(allocType, asmjs);
+    CallOrInvoke = cheerp::createCheerpAllocate(CGF.Builder, origFunc, elementType, Args[0].getKnownRValue().getScalarVal(), AS, use_array);
     RV = RValue::get(CallOrInvoke);
   }
   else if(IsDelete && cheerp && !(asmjs && (user_defined_new || fancy_new)))
@@ -1407,7 +1412,7 @@ static RValue EmitNewDeleteCall(CodeGenFunction &CGF,
   {
     RV =
       CGF.EmitCall(CGF.CGM.getTypes().arrangeFreeFunctionCall(
-                       Args, CalleeType, /*ChainCall=*/false),
+                       Args, CalleeType, /*ChainCall=*/false, asmjs),
                    Callee, ReturnValueSlot(), Args, &CallOrInvoke);
   }
 
@@ -2335,8 +2340,12 @@ static llvm::Value *EmitTypeidFromVTable(CodeGenFunction &CGF, const Expr *E,
 }
 
 llvm::Value *CodeGenFunction::EmitCXXTypeidExpr(const CXXTypeidExpr *E) {
+  unsigned AS = 0;
+  if (getLangOpts().Cheerp) {
+    AS = unsigned(getTarget().getTriple().isCheerpWasm()? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+  }
   llvm::Type *StdTypeInfoPtrTy =
-    ConvertType(E->getType())->getPointerTo();
+    ConvertType(E->getType())->getPointerTo(AS);
 
   if (E->isTypeOperand()) {
     llvm::Constant *TypeInfo =

@@ -2572,7 +2572,7 @@ private:
     assert(NewBeginOffset==NewAllocaBeginOffset);
     while(1)
     {
-      Value *RetPtr = getAdjustedPtr(IRB, DL, BasePtr, Ty, BaseOffset, TargetTy->getPointerTo(), TargetTy,
+      Value *RetPtr = getAdjustedPtr(IRB, DL, BasePtr, Ty, BaseOffset, TargetTy->getPointerTo(BasePtr->getType()->getPointerAddressSpace()), TargetTy,
                                 BasePtr->getName() + ".");
       if (RetPtr)
         return RetPtr;

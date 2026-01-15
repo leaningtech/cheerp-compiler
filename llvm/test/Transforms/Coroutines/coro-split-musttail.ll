@@ -36,13 +36,13 @@ exit:
 
 ; Verify that in the initial function resume is not marked with musttail.
 ; CHECK-LABEL: @f(
-; CHECK: %[[addr1:.+]] = call i8* @llvm.coro.subfn.addr(i8* null, i8 0)
+; CHECK: %[[addr1:.+]] = call i8* @llvm.coro.subfn.addr.p0i8.p0i8(i8* null, i8 0)
 ; CHECK-NEXT: %[[pv1:.+]] = bitcast i8* %[[addr1]] to void (i8*)*
 ; CHECK-NOT: musttail call fastcc void %[[pv1]](i8* null)
 
 ; Verify that in the resume part resume call is marked with musttail.
 ; CHECK-LABEL: @f.resume(
-; CHECK: %[[addr2:.+]] = call i8* @llvm.coro.subfn.addr(i8* null, i8 0)
+; CHECK: %[[addr2:.+]] = call i8* @llvm.coro.subfn.addr.p0i8.p0i8(i8* null, i8 0)
 ; CHECK-NEXT: %[[pv2:.+]] = bitcast i8* %[[addr2]] to void (i8*)*
 ; CHECK-NEXT: musttail call fastcc void %[[pv2]](i8* null)
 ; CHECK-NEXT: ret void

@@ -55,7 +55,7 @@ define ptr @test_chr_with_coro_id(ptr %i) !prof !14 {
 ; CHECK-NEXT:    br i1 [[NEED_DYN_ALLOC]], label %[[BB_CORO_DYN_ALLOC:.*]], label %[[BB_CORO_BEGIN:.*]]
 ; CHECK:       [[BB_CORO_BEGIN]]:
 ; CHECK-NEXT:    [[PHI:%.*]] = phi ptr [ null, %[[BB_CORO_ID]] ], [ %alloc, %[[BB_CORO_DYN_ALLOC]] ]
-; CHECK-NEXT:    [[HDL:%.*]] = call noalias nonnull ptr @llvm.coro.begin(token [[ID]], ptr [[PHI]])
+; CHECK-NEXT:    [[HDL:%.*]] = call noalias nonnull ptr @llvm.coro.begin.p0.p0(token [[ID]], ptr [[PHI]])
 ;
 entry:
   %0 = load i32, ptr %i

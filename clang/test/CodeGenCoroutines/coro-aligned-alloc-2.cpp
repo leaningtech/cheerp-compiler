@@ -45,7 +45,7 @@ struct task2 {
 };
 
 // CHECK: define{{.*}}@_Z2f2v
-// CHECK: %[[FREE_HANDLE:.+]] = call{{.*}}ptr @llvm.coro.free(
+// CHECK: %[[FREE_HANDLE:.+]] = call{{.*}}ptr @llvm.coro.free.p0.p0(
 // CHECK: coro.free:
 // CHECK: call{{.*}}void @_ZN5task212promise_typedlEPv(ptr{{.*}} %[[FREE_HANDLE]])
 
@@ -66,7 +66,7 @@ struct task3 {
 };
 
 // CHECK: define{{.*}}@_Z2f3v
-// CHECK: %[[FREE_HANDLE:.+]] = call{{.*}}ptr @llvm.coro.free(
+// CHECK: %[[FREE_HANDLE:.+]] = call{{.*}}ptr @llvm.coro.free.p0.p0(
 // CHECK: coro.free:
 // CHECK: %[[coro_size:.+]] = call{{.*}}@llvm.coro.size
 // CHECK: call{{.*}}void @_ZN5task312promise_typedlEPvm(ptr{{.*}} %[[FREE_HANDLE]], i64{{.*}}%[[coro_size]]
@@ -89,7 +89,7 @@ struct task4 {
 };
 
 // CHECK: define{{.*}}@_Z2f4v
-// CHECK: %[[FREE_HANDLE:.+]] = call{{.*}}ptr @llvm.coro.free(
+// CHECK: %[[FREE_HANDLE:.+]] = call{{.*}}ptr @llvm.coro.free.p0.p0(
 // CHECK: coro.free:
 // CHECK: %[[coro_align:.+]] = call{{.*}}@llvm.coro.align
 // CHECK: call{{.*}}void @_ZN5task412promise_typedlEPvSt11align_val_t(ptr{{.*}} %[[FREE_HANDLE]], i64{{.*}}%[[coro_align]])
@@ -112,7 +112,7 @@ struct task5 {
 };
 
 // CHECK: define{{.*}}@_Z2f5v
-// CHECK: %[[FREE_HANDLE:.+]] = call{{.*}}ptr @llvm.coro.free(
+// CHECK: %[[FREE_HANDLE:.+]] = call{{.*}}ptr @llvm.coro.free.p0.p0(
 // CHECK: coro.free:
 // CHECK: %[[coro_size:.+]] = call{{.*}}@llvm.coro.size
 // CHECK: %[[coro_align:.+]] = call{{.*}}@llvm.coro.align

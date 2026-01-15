@@ -8,6 +8,7 @@
 
 #include "llvm/Transforms/Coroutines/CoroCleanup.h"
 #include "CoroInternal.h"
+#include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/PassManager.h"
@@ -32,20 +33,24 @@ static void lowerSubFn(IRBuilder<> &Builder, CoroSubFnInst *SubFn) {
   Value *FrameRaw = SubFn->getFrame();
   int Index = SubFn->getIndex();
 
-  bool asmjs = SubFn->getFunction()->getSection() == "asmjs";
-  auto *FrameTy = coro::getBaseFrameType(SubFn->getContext(), asmjs);
-  PointerType *FramePtrTy = FrameTy->getPointerTo();
+  unsigned FnAS = SubFn->getFunction()->getAddressSpace();
+  unsigned AS = cheerp::getCheerpDataAS(FnAS);
+  auto *FrameTy = coro::getBaseFrameType(SubFn->getContext(), AS);
+  PointerType *FramePtrTy = FrameTy->getPointerTo(AS);
+  FrameTy->dump();
+  FramePtrTy->dump();
 
   Builder.SetInsertPoint(SubFn);
   auto *FramePtr = Builder.CreateBitCast(FrameRaw, FramePtrTy);
   auto *Gep = Builder.CreateConstInBoundsGEP2_32(FrameTy, FramePtr, 0, Index);
   auto *Load = Builder.CreateLoad(FrameTy->getElementType(Index), Gep);
-  auto* Cast = Builder.CreateBitCast(Load, Builder.getInt8PtrTy());
+  auto* Cast = Builder.CreateBitCast(Load, Builder.getInt8PtrTy(FnAS));
 
   SubFn->replaceAllUsesWith(Cast);
 }
 
 bool Lowerer::lower(Function &F) {
+  setTypes(cheerp::getCheerpDataAS(F.getAddressSpace()));
   bool IsPrivateAndUnprocessed = F.isPresplitCoroutine() && F.hasLocalLinkage();
   bool Changed = false;
 
@@ -110,11 +115,11 @@ bool Lowerer::lower(Function &F) {
 }
 
 static bool declaresCoroCleanupIntrinsics(const Module &M) {
+  // NOTE: the list must be sorted
   return coro::declaresIntrinsics(
-      M, {"llvm.coro.alloc", "llvm.coro.begin", "llvm.coro.subfn.addr",
-          "llvm.coro.free", "llvm.coro.id", "llvm.coro.id.retcon",
-          "llvm.coro.id.async", "llvm.coro.id.retcon.once",
-          "llvm.coro.async.size.replace", "llvm.coro.async.resume"});
+      M, {"llvm.coro.alloc", "llvm.coro.async.resume", "llvm.coro.async.size.replace",
+          "llvm.coro.begin", "llvm.coro.free", "llvm.coro.id", "llvm.coro.id.async",
+          "llvm.coro.id.retcon", "llvm.coro.id.retcon.once", "llvm.coro.subfn.addr"});
 }
 
 PreservedAnalyses CoroCleanupPass::run(Module &M,

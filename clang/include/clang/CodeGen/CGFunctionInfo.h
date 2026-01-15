@@ -405,12 +405,12 @@ public:
   }
 
   unsigned getIndirectAddrSpace() const {
-    assert(isIndirectAliased() && "Invalid kind!");
+    assert((isIndirectAliased() || isIndirect()) && "Invalid kind!");
     return IndirectAttr.AddrSpace;
   }
 
   void setIndirectAddrSpace(unsigned AddrSpace) {
-    assert(isIndirectAliased() && "Invalid kind!");
+    assert((isIndirectAliased() || isIndirect()) && "Invalid kind!");
     IndirectAttr.AddrSpace = AddrSpace;
   }
 
@@ -589,6 +589,9 @@ class CGFunctionInfo final
   /// Log 2 of the maximum vector width.
   unsigned MaxVectorWidth : 4;
 
+  /// The Cheerp section of the function.
+  unsigned AsmJS : 1;
+
   RequiredArgs Required;
 
   /// The struct representing all arguments passed in memory.  Only used when
@@ -623,7 +626,8 @@ public:
                                 ArrayRef<ExtParameterInfo> paramInfos,
                                 CanQualType resultType,
                                 ArrayRef<CanQualType> argTypes,
-                                RequiredArgs required);
+                                RequiredArgs required,
+                                bool asmjs);
   void operator delete(void *p) { ::operator delete(p); }
 
   // Friending class TrailingObjects is apparently not good enough for MSVC,
@@ -676,6 +680,9 @@ public:
 
   /// Whether this function has nocf_check attribute.
   bool isNoCfCheck() const { return NoCfCheck; }
+
+  // Weather the function is in the Cheerp asmjs section
+  bool isAsmJS() const { return AsmJS; }
 
   /// getASTCallingConvention() - Return the AST-specified calling
   /// convention.
@@ -756,6 +763,7 @@ public:
     ID.AddInteger(RegParm);
     ID.AddBoolean(NoCfCheck);
     ID.AddBoolean(CmseNSCall);
+    ID.AddBoolean(isAsmJS());
     ID.AddInteger(Required.getOpaqueData());
     ID.AddBoolean(HasExtParameterInfos);
     if (HasExtParameterInfos) {
@@ -773,7 +781,8 @@ public:
                       ArrayRef<ExtParameterInfo> paramInfos,
                       RequiredArgs required,
                       CanQualType resultType,
-                      ArrayRef<CanQualType> argTypes) {
+                      ArrayRef<CanQualType> argTypes,
+                      bool asmjs) {
     ID.AddInteger(info.getCC());
     ID.AddBoolean(InstanceMethod);
     ID.AddBoolean(ChainCall);
@@ -784,6 +793,7 @@ public:
     ID.AddInteger(info.getRegParm());
     ID.AddBoolean(info.getNoCfCheck());
     ID.AddBoolean(info.getCmseNSCall());
+    ID.AddBoolean(asmjs);
     ID.AddInteger(required.getOpaqueData());
     ID.AddBoolean(!paramInfos.empty());
     if (!paramInfos.empty()) {

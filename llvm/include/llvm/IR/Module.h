@@ -365,6 +365,9 @@ public:
   /// the bitcast to the function.
   ///
   /// Note: For library calls getOrInsertLibFunc() should be used instead.
+  FunctionCallee getOrInsertFunctionImpl(StringRef Name, Optional<unsigned> AS, FunctionType *T,
+                                     AttributeList AttributeList);
+
   FunctionCallee getOrInsertFunction(StringRef Name, FunctionType *T,
                                      AttributeList AttributeList);
 
@@ -444,7 +447,7 @@ public:
 
   /// Look up the specified global in the module symbol table. If required, this
   /// overload constructs the global variable using its constructor's defaults.
-  Constant *getOrInsertGlobal(StringRef Name, Type *Ty);
+  Constant *getOrInsertGlobal(StringRef Name, Type *Ty, unsigned AS = 0);
 
 /// @}
 /// @name Global Alias Accessors

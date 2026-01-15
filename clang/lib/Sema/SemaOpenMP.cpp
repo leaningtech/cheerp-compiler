@@ -1512,6 +1512,7 @@ static VarDecl *buildVarDecl(Sema &SemaRef, SourceLocation Loc, QualType Type,
     Decl->addAttr(
         OMPReferencedVarAttr::CreateImplicit(SemaRef.Context, OrigRef));
   }
+  SemaRef.MaybeInjectCheerpModeAttr(Decl);
   return Decl;
 }
 

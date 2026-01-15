@@ -17,6 +17,8 @@
 
 #include "llvm/Transforms/Utils/LowerGlobalDtors.h"
 
+#include "llvm/ADT/Triple.h"
+#include "llvm/Cheerp/AddressSpaces.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Intrinsics.h"
@@ -127,17 +129,24 @@ static bool runImpl(Module &M) {
     return false;
 
   // extern "C" int __cxa_atexit(void (*f)(void *), void *p, void *d);
+  unsigned AS = 0;
+  Triple triple(M.getTargetTriple());
+  if (triple.isCheerp()) {
+    AS = unsigned(triple.isCheerpWasm()? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+  }
+  unsigned FAS = cheerp::getCheerpFunctionAS(AS);
   LLVMContext &C = M.getContext();
-  PointerType *VoidStar = Type::getInt8PtrTy(C);
+  PointerType *VoidStar = Type::getInt8PtrTy(C, AS);
   Type *AtExitFuncArgs[] = {VoidStar};
   FunctionType *AtExitFuncTy =
       FunctionType::get(Type::getVoidTy(C), AtExitFuncArgs,
                         /*isVarArg=*/false);
 
+  M.dump();
   FunctionCallee AtExit = M.getOrInsertFunction(
       "__cxa_atexit",
       FunctionType::get(Type::getInt32Ty(C),
-                        {PointerType::get(AtExitFuncTy, 0), VoidStar, VoidStar},
+                        {PointerType::get(AtExitFuncTy, FAS), VoidStar, VoidStar},
                         /*isVarArg=*/false));
 
   // Declare __dso_local.
@@ -145,7 +154,7 @@ static bool runImpl(Module &M) {
   Constant *DsoHandle = M.getOrInsertGlobal("__dso_handle", DsoHandleTy, [&] {
     auto *GV = new GlobalVariable(M, DsoHandleTy, /*isConstant=*/true,
                                   GlobalVariable::ExternalWeakLinkage, nullptr,
-                                  "__dso_handle");
+                                  "__dso_handle", nullptr, GlobalValue::NotThreadLocal, AS);
     GV->setVisibility(GlobalVariable::HiddenVisibility);
     return GV;
   });
@@ -162,7 +171,7 @@ static bool runImpl(Module &M) {
       auto ThisId = Id++;
 
       Function *CallDtors = Function::Create(
-          AtExitFuncTy, Function::PrivateLinkage,
+          AtExitFuncTy, Function::PrivateLinkage, FAS,
           "call_dtors" +
               (Priority != UINT16_MAX ? (Twine(".") + Twine(Priority))
                                       : Twine()) +

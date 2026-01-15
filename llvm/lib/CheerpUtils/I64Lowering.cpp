@@ -201,15 +201,16 @@ struct I64LoweringVisitor: public InstVisitor<I64LoweringVisitor, HighInt>
 
 	HighInt visitBitCastInst(BitCastInst& I)
 	{
+		unsigned AS = unsigned(cheerp::CheerpAS::Wasm);
 		if(I.getType()->isIntegerTy(64))
 		{
 			// Bitcast to 64-bit int
 			IRBuilder<> Builder(&I);
 			Value* BitCastSlot = M.getGlobalVariable("cheerpBitCastSlot");
 			assert(BitCastSlot);
-			Value* CastSrc = Builder.CreateBitCast(BitCastSlot, I.getOperand(0)->getType()->getPointerTo());
+			Value* CastSrc = Builder.CreateBitCast(BitCastSlot, I.getOperand(0)->getType()->getPointerTo(AS));
 			Builder.CreateStore(I.getOperand(0), CastSrc);
-			Value* CastDst = Builder.CreateBitCast(BitCastSlot, Int32Ty->getPointerTo());
+			Value* CastDst = Builder.CreateBitCast(BitCastSlot, Int32Ty->getPointerTo(AS));
 			Value* Low = Builder.CreateLoad(Int32Ty, CastDst);
 			Value* High = Builder.CreateLoad(Int32Ty, Builder.CreateConstGEP1_32(Int32Ty, CastDst, 1));
 			ToDelete.push_back(&I);
@@ -223,10 +224,10 @@ struct I64LoweringVisitor: public InstVisitor<I64LoweringVisitor, HighInt>
 			Value* BitCastSlot = M.getGlobalVariable("cheerpBitCastSlot");
 			assert(BitCastSlot);
 			HighInt V = visitValue(I.getOperand(0));
-			Value* CastSrc = Builder.CreateBitCast(BitCastSlot, Int32Ty->getPointerTo());
+			Value* CastSrc = Builder.CreateBitCast(BitCastSlot, Int32Ty->getPointerTo(AS));
 			Builder.CreateStore(V.low, CastSrc);
 			Builder.CreateStore(V.high, Builder.CreateConstGEP1_32(Int32Ty, CastSrc, 1));
-			Value* CastDst = Builder.CreateBitCast(BitCastSlot, I.getType()->getPointerTo());
+			Value* CastDst = Builder.CreateBitCast(BitCastSlot, I.getType()->getPointerTo(AS));
 			Value* result = Builder.CreateLoad(I.getType(), CastDst);
 			I.replaceAllUsesWith(result);
 			ToDelete.push_back(&I);
@@ -890,7 +891,7 @@ struct I64LoweringVisitor: public InstVisitor<I64LoweringVisitor, HighInt>
 		};
 
 		Value* Low = Builder.CreateCall(Func, Args);
-		GlobalVariable* Sret = cast<GlobalVariable>(M.getOrInsertGlobal("cheerpSretSlot", Int32Ty));
+		GlobalVariable* Sret = cheerp::getOrCreateSretSlot(M);
 		Value* High = Builder.CreateLoad(Int32Ty, Sret);
 
 		ToDelete.push_back(&I);

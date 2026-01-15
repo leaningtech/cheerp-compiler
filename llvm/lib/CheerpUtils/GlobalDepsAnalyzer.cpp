@@ -908,7 +908,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	if (!llcPass)
 	{
 		Type* SlotType = ArrayType::get(IntegerType::get(module.getContext(), 8), 8);
-		GlobalVariable* BitCastSlot = cast<GlobalVariable>(module.getOrInsertGlobal("cheerpBitCastSlot", SlotType));
+		GlobalVariable* BitCastSlot = cast<GlobalVariable>(module.getOrInsertGlobal("cheerpBitCastSlot", SlotType, unsigned(cheerp::CheerpAS::Wasm)));
 		assert(!BitCastSlot->hasInitializer() && "cheerpBitCastSlot already defined");
 		BitCastSlot->setSection("asmjs");
 		BitCastSlot->setInitializer(ConstantAggregateZero::get(BitCastSlot->getValueType()));
@@ -1528,11 +1528,11 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 						asmJSImportedFunctions.insert(calledFunc);
 				}
 				else if (calledFunc->getIntrinsicID() == Intrinsic::memset)
-					extendLifetime(module->getFunction("memset"));
+					extendLifetimeIfPresent(module->getFunction("memset"));
 				else if (calledFunc->getIntrinsicID() == Intrinsic::memcpy)
-					extendLifetime(module->getFunction("memcpy"));
+					extendLifetimeIfPresent(module->getFunction("memcpy"));
 				else if (calledFunc->getIntrinsicID() == Intrinsic::memmove)
-					extendLifetime(module->getFunction("memmove"));
+					extendLifetimeIfPresent(module->getFunction("memmove"));
 			}
 		}
 	

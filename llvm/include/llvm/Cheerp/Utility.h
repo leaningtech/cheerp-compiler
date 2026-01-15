@@ -17,6 +17,7 @@
 #include <string>
 #include <unordered_set>
 #include "llvm/ADT/StringSet.h"
+#include "llvm/ADT/Triple.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/SmallVector.h"
@@ -34,6 +35,7 @@
 #include "llvm/Cheerp/CommandLine.h"
 #include "llvm/Cheerp/DeterministicUnorderedSet.h"
 #include "llvm/Cheerp/ForbiddenIdentifiers.h"
+#include "llvm/Cheerp/AddressSpaces.h"
 
 namespace cheerp
 {
@@ -995,7 +997,13 @@ unsigned getVectorBitwidth(const llvm::FixedVectorType* vecType);
 bool hasSIMDAttribute(const llvm::Function* F);
 void removeSIMDAttribute(llvm::Function* F);
 
-}
+
+llvm::GlobalVariable* getOrCreateSretSlot(llvm::Module& m);
+
+llvm::Function* getOrCreateFunction(llvm::Module& m, llvm::FunctionType* Ty,
+	llvm::StringRef Name, CheerpAS AS, bool isExtern = false);
+
+} // namespace cheerp
 
 namespace std
 {

@@ -68,7 +68,7 @@ void f(int val, MoveOnly moParam, MoveAndCopy mcParam) {
   // CHECK: %[[McCopy:.+]] = alloca %struct.MoveAndCopy
   // CHECK: store i32 %val, i32* %[[ValAddr:.+]]
 
-  // CHECK: call i8* @llvm.coro.begin(
+  // CHECK: call i8* @llvm.coro.begin.p0i8.p0i8(
   // CHECK: call void @_ZN8MoveOnlyC1EOS_(%struct.MoveOnly* {{[^,]*}} %[[MoCopy]], %struct.MoveOnly* noundef nonnull align 4 dereferenceable(4) %[[MoParam]])
   // CHECK-NEXT: bitcast %struct.MoveAndCopy* %[[McCopy]] to i8*
   // CHECK-NEXT: call void @llvm.lifetime.start.p0i8(
@@ -104,7 +104,7 @@ void f(int val, MoveOnly moParam, MoveAndCopy mcParam) {
   // CHECK-NEXT: call void @llvm.lifetime.end.p0i8(
   // CHECK-NEXT: bitcast i32* %{{.+}} to i8*
   // CHECK-NEXT: call void @llvm.lifetime.end.p0i8(
-  // CHECK-NEXT: call i8* @llvm.coro.free(
+  // CHECK-NEXT: call i8* @llvm.coro.free.p0i8.p0i8(
 }
 
 // CHECK-LABEL: void @_Z16dependent_paramsI1A1BEvT_T0_S3_(%struct.A* noundef %x, %struct.B* noundef %0, %struct.B* noundef %y)

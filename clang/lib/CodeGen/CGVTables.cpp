@@ -19,6 +19,7 @@
 #include "clang/Basic/CodeGenOptions.h"
 #include "clang/CodeGen/CGFunctionInfo.h"
 #include "clang/CodeGen/ConstantInitBuilder.h"
+#include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Support/Format.h"
 #include "llvm/Transforms/Utils/Cloning.h"
@@ -372,7 +373,7 @@ void CodeGenFunction::EmitCallAndReturnForThunk(llvm::FunctionCallee Callee,
 
 #ifndef NDEBUG
   const CGFunctionInfo &CallFnInfo = CGM.getTypes().arrangeCXXMethodCall(
-      CallArgs, FPT, RequiredArgs::forPrototypePlus(FPT, 1), PrefixArgs);
+      CallArgs, FPT, RequiredArgs::forPrototypePlus(FPT, 1), PrefixArgs, MD->hasAttr<AsmJSAttr>());
   assert(CallFnInfo.getRegParm() == CurFnInfo->getRegParm() &&
          CallFnInfo.isNoReturn() == CurFnInfo->isNoReturn() &&
          CallFnInfo.getCallingConvention() == CurFnInfo->getCallingConvention());
@@ -620,6 +621,7 @@ llvm::Constant *CodeGenVTables::maybeEmitThunk(GlobalDecl GD,
     // Remove the name from the old thunk function and get a new thunk.
     OldThunkFn->setName(StringRef());
     ThunkFn = llvm::Function::Create(ThunkFnTy, llvm::Function::ExternalLinkage,
+                                     OldThunkFn->getType()->getAddressSpace(),
                                      Name.str(), &CGM.getModule());
     CGM.SetLLVMFunctionAttributes(GD, FnInfo, ThunkFn, /*IsThunk=*/false);
 
@@ -812,8 +814,14 @@ void CodeGenVTables::addVTableComponent(ConstantAggregateBuilderBase &builder,
       useRelativeLayout() ? AddRelativeLayoutOffset : AddPointerLayoutOffset;
 
   bool asmjs = LayoutClass->hasAttr<AsmJSAttr>();
-
-  llvm::PointerType* elemType = CGM.getTarget().isByteAddressable() ? CGM.Int8PtrTy : llvm::FunctionType::get( CGM.Int32Ty, true )->getPointerTo();
+  llvm::PointerType* elemType = CGM.Int8PtrTy;
+  llvm::PointerType* rttiType = CGM.Int8PtrTy;
+  if (CGM.getLangOpts().Cheerp) {
+    unsigned FuncAS = unsigned(asmjs? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::Client);
+    unsigned DataAS = unsigned(asmjs? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+    elemType = llvm::FunctionType::get(CGM.Int32Ty, true)->getPointerTo(FuncAS);
+    rttiType = CGM.getTypes().GetClassTypeInfoType()->getPointerTo(DataAS);
+  }
 
   switch (component.getKind()) {
   case VTableComponent::CK_VCallOffset:
@@ -849,7 +857,7 @@ void CodeGenVTables::addVTableComponent(ConstantAggregateBuilderBase &builder,
                                   vtableHasLocalLinkage,
                                   /*isCompleteDtor=*/false);
     else
-      return builder.add(llvm::ConstantExpr::getBitCast(rtti, CGM.getTarget().isByteAddressable() ? CGM.Int8PtrTy : CGM.getTypes().GetClassTypeInfoType()->getPointerTo()));
+      return builder.add(llvm::ConstantExpr::getBitCast(rtti, rttiType));
 
   case VTableComponent::CK_FunctionPointer:
   case VTableComponent::CK_CompleteDtorPointer:
@@ -872,6 +880,7 @@ void CodeGenVTables::addVTableComponent(ConstantAggregateBuilderBase &builder,
       // Method is acceptable, continue processing as usual.
     }
 
+    bool asmjs = cast<CXXMethodDecl>(GD.getDecl())->getParent()->hasAttr<AsmJSAttr>();
     auto getSpecialVirtualFn = [&](StringRef name) -> llvm::Constant * {
       // FIXME(PR43094): When merging comdat groups, lld can select a local
       // symbol as the signature symbol even though it cannot be accessed
@@ -890,8 +899,12 @@ void CodeGenVTables::addVTableComponent(ConstantAggregateBuilderBase &builder,
         return llvm::ConstantPointerNull::get(CGM.Int8PtrTy);
       llvm::FunctionType *fnTy =
           llvm::FunctionType::get(CGM.VoidTy, /*isVarArg=*/false);
+      unsigned AS = 0;
+      if (CGM.getLangOpts().Cheerp) {
+        AS = unsigned(asmjs? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::Client);
+      }
       llvm::Constant *fn = cast<llvm::Constant>(
-          CGM.CreateRuntimeFunction(fnTy, name).getCallee());
+          CGM.CreateRuntimeFunction(fnTy, name, llvm::AttributeList(), false, false, AS).getCallee());
       if (auto f = dyn_cast<llvm::Function>(fn))
         f->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
       return fn;
@@ -918,7 +931,6 @@ void CodeGenVTables::addVTableComponent(ConstantAggregateBuilderBase &builder,
                layout.vtable_thunks()[nextVTableThunkIndex].first == componentIndex) {
       auto thunkInfo = layout.vtable_thunks()[nextVTableThunkIndex].second;
 
-      bool asmjs = cast<CXXMethodDecl>(GD.getDecl())->getParent()->hasAttr<AsmJSAttr>();
       if (!CGM.getTarget().isByteAddressable() && !asmjs) {
         // Override the non virtual offset in bytes with the topological offset
         // TODO: Really move topological offset logic in AST
@@ -1519,7 +1531,13 @@ llvm::Type* CodeGenTypes::GetVTableSubObjectType(CodeGenModule& CGM,
                                           bool asmjs)
 {
   llvm::Type* OffsetTy = CGM.getTypes().ConvertType(CGM.getContext().getPointerDiffType());
-  llvm::Type* FuncPtrTy = llvm::FunctionType::get( CGM.Int32Ty, true )->getPointerTo();
+  unsigned FuncAS = 0;
+  unsigned DataAS = 0;
+  if (CGM.getLangOpts().Cheerp) {
+    FuncAS = unsigned(asmjs? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::Client);
+    DataAS = unsigned(asmjs? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+  }
+  llvm::Type* FuncPtrTy = llvm::FunctionType::get( CGM.Int32Ty, true )->getPointerTo(FuncAS);
   llvm::SmallVector<llvm::Type*, 16> VTableTypes;
 
   for (auto C = begin; C!= end; C++) {
@@ -1530,7 +1548,7 @@ llvm::Type* CodeGenTypes::GetVTableSubObjectType(CodeGenModule& CGM,
       VTableTypes.push_back(OffsetTy);
       break;
     case VTableComponent::CK_RTTI:
-      VTableTypes.push_back(CGM.getTypes().GetClassTypeInfoType()->getPointerTo());
+      VTableTypes.push_back(CGM.getTypes().GetClassTypeInfoType()->getPointerTo(DataAS));
       break;
     case VTableComponent::CK_FunctionPointer:
     case VTableComponent::CK_CompleteDtorPointer:
@@ -1570,9 +1588,15 @@ llvm::Type* CodeGenTypes::GetSecondaryVTableType(const CXXRecordDecl* RD) {
 
 llvm::Type* CodeGenTypes::GetBasicVTableType(uint32_t virtualMethodsCount, bool asmjs)
 {
+  unsigned FuncAS = 0;
+  unsigned DataAS = 0;
+  if (CGM.getLangOpts().Cheerp) {
+    FuncAS = unsigned(asmjs? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::Client);
+    DataAS = unsigned(asmjs? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+  }
   llvm::SmallVector<llvm::Type*, 16> VTableTypes;
   llvm::Type* OffsetTy = CGM.getTypes().ConvertType(CGM.getContext().getPointerDiffType());
-  llvm::Type* FuncPtrTy = llvm::FunctionType::get( CGM.Int32Ty, true )->getPointerTo();
+  llvm::Type* FuncPtrTy = llvm::FunctionType::get( CGM.Int32Ty, true )->getPointerTo(FuncAS);
 
   if (asmjs)
   {
@@ -1581,7 +1605,7 @@ llvm::Type* CodeGenTypes::GetBasicVTableType(uint32_t virtualMethodsCount, bool 
   }
 
   // RTTI
-  VTableTypes.push_back(GetClassTypeInfoType()->getPointerTo());
+  VTableTypes.push_back(GetClassTypeInfoType()->getPointerTo(DataAS));
 
   // Virtual functions
   for(uint32_t j=0;j<virtualMethodsCount;j++)

@@ -259,7 +259,7 @@ llvm::Constant *CodeGenModule::getOrCreateStaticVarDecl(
   else
     Name = getStaticDeclName(*this, D);
 
-  llvm::Type *LTy = getTypes().ConvertTypeForMem(Ty);
+  llvm::Type *LTy = getTypes().ConvertTypeForMem(Ty, false, D.hasAttr<AsmJSAttr>());
   LangAS AS = GetGlobalVarAddressSpace(&D);
   unsigned TargetAS = getContext().getTargetAddressSpace(AS);
 
@@ -270,7 +270,7 @@ llvm::Constant *CodeGenModule::getOrCreateStaticVarDecl(
       D.hasAttr<CUDASharedAttr>() || D.hasAttr<LoaderUninitializedAttr>())
     Init = llvm::UndefValue::get(LTy);
   else
-    Init = EmitNullConstant(Ty);
+    Init = EmitNullConstant(Ty, D.hasAttr<AsmJSAttr>());
 
   llvm::GlobalVariable *GV = new llvm::GlobalVariable(
       getModule(), LTy, Ty.isConstant(getContext()), Linkage, Init, Name,
@@ -291,7 +291,7 @@ llvm::Constant *CodeGenModule::getOrCreateStaticVarDecl(
   // Make sure the result is of the correct type.
   LangAS ExpectedAS = Ty.getAddressSpace();
   llvm::Constant *Addr = GV;
-  if (AS != ExpectedAS) {
+  if (AS != ExpectedAS && !getContext().getLangOpts().Cheerp) {
     Addr = getTargetCodeGenInfo().performAddrSpaceCast(
         *this, GV, AS, ExpectedAS,
         LTy->getPointerTo(getContext().getTargetAddressSpace(ExpectedAS)));
@@ -577,7 +577,10 @@ namespace {
     bool isRedundantBeforeReturn() override { return true; }
     void Emit(CodeGenFunction &CGF, Flags flags) override {
       llvm::Value *V = CGF.Builder.CreateLoad(Stack);
-      llvm::Function *F = CGF.CGM.getIntrinsic(llvm::Intrinsic::stackrestore);
+      auto intr = V->getType()->getPointerAddressSpace()==0 ?
+        llvm::Intrinsic::stackrestore :
+        llvm::Intrinsic::cheerp_stackrestore;
+      llvm::Function *F = CGF.CGM.getIntrinsic(intr);
       CGF.Builder.CreateCall(F, V);
     }
   };
@@ -1350,8 +1353,8 @@ llvm::Value *CodeGenFunction::EmitLifetimeStart(llvm::TypeSize Size,
   if (!ShouldEmitLifetimeMarkers)
     return nullptr;
 
-  assert(Addr->getType()->getPointerAddressSpace() ==
-             CGM.getDataLayout().getAllocaAddrSpace() &&
+  assert((getLangOpts().Cheerp || Addr->getType()->getPointerAddressSpace() ==
+             CGM.getDataLayout().getAllocaAddrSpace()) &&
          "Pointer should be in alloca address space");
   llvm::Value *SizeV = llvm::ConstantInt::get(
       Int64Ty, Size.isScalable() ? -1 : Size.getFixedValue());
@@ -1364,8 +1367,8 @@ llvm::Value *CodeGenFunction::EmitLifetimeStart(llvm::TypeSize Size,
 }
 
 void CodeGenFunction::EmitLifetimeEnd(llvm::Value *Size, llvm::Value *Addr) {
-  assert(Addr->getType()->getPointerAddressSpace() ==
-             CGM.getDataLayout().getAllocaAddrSpace() &&
+  assert((getLangOpts().Cheerp || Addr->getType()->getPointerAddressSpace() ==
+             CGM.getDataLayout().getAllocaAddrSpace()) &&
          "Pointer should be in alloca address space");
   if (getTarget().isByteAddressable())
     Addr = Builder.CreateBitCast(Addr, AllocaInt8PtrTy);
@@ -1512,6 +1515,12 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
       emission.IsConstantAggregate = true;
     }
 
+    uint32_t AS = CGM.getDataLayout().getAllocaAddrSpace();
+    if (getLangOpts().Cheerp) {
+      bool asmjs = CurFn->getSection() == "asmjs";
+      AS = getContext().getCheerpTypeTargetAddressSpace(Ty, asmjs);
+    }
+
     // A normal fixed sized variable becomes an alloca in the entry block,
     // unless:
     // - it's an NRVO variable.
@@ -1534,7 +1543,7 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
           llvm::Value *Zero = Builder.getFalse();
           Address NRVOFlag =
               CreateTempAlloca(Zero->getType(), CharUnits::One(), "nrvo",
-                               /*ArraySize=*/nullptr, &AllocaAddr);
+                               /*ArraySize=*/nullptr, &AllocaAddr, AS);
           EnsureInsertPoint();
           Builder.CreateStore(Zero, NRVOFlag);
 
@@ -1555,7 +1564,6 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
         allocaAlignment = alignment;
       }
 
-      uint32_t AS = getTarget().isByteAddressable()? 0 : getContext().getTargetAddressSpace(Ty.getAddressSpace());
       // Create the alloca.  Note that we set the name separately from
       // building the instruction so that it's there even in no-asserts
       // builds.
@@ -1604,19 +1612,24 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
     llvm::Type *llvmTy = ConvertTypeForMem(elementType);
     uint64_t size = CGM.getDataLayout().getTypeAllocSize(llvmTy);
     llvm::Constant* typeSize = llvm::ConstantInt::get(elementCount->getType(), size);
-    llvm::Value* sizeInBytes = Builder.CreateMul(elementCount, typeSize);
 
-    llvm::Value* Ret = cheerp::createCheerpAllocate(Builder, nullptr, llvmTy, sizeInBytes);
+    uint32_t AS = getContext().getCheerpTypeTargetAddressSpace(Ty, D);
+    // Compute the size in bytes
+    llvm::Value* sizeInBytes = Builder.CreateMul(elementCount, typeSize);
+    llvm::Value* Ret = cheerp::createCheerpAllocate(Builder, nullptr, llvmTy, sizeInBytes, AS);
     address = Address(Ret, llvmTy, CharUnits::One());
   } else {
     EnsureInsertPoint();
+
+    uint32_t AS = getLangOpts().Cheerp? getContext().getCheerpTypeTargetAddressSpace(Ty, true) : CGM.getDataLayout().getAllocaAddrSpace();
 
     if (!DidCallStackSave) {
       // Save the stack.
       Address Stack =
         CreateTempAlloca(Int8PtrTy, getPointerAlign(), "saved_stack");
 
-      llvm::Function *F = CGM.getIntrinsic(llvm::Intrinsic::stacksave);
+      auto intr = AS==0 ? llvm::Intrinsic::stacksave : llvm::Intrinsic::cheerp_stacksave;
+      llvm::Function *F = CGM.getIntrinsic(intr);
       llvm::Value *V = Builder.CreateCall(F);
       Builder.CreateStore(V, Stack);
 
@@ -1632,7 +1645,7 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
 
     // Allocate memory for the array.
     address = CreateTempAlloca(llvmTy, alignment, "vla", VlaSize.NumElts,
-                               &AllocaAddr);
+                               &AllocaAddr, AS);
 
     // If we have debug info enabled, properly describe the VLA dimensions for
     // this type by registering the vla size expression for each of the
@@ -2591,7 +2604,7 @@ void CodeGenFunction::EmitParmDecl(const VarDecl &D, ParamValue Arg,
             // use objc_storeStrong(&dest, value) for retaining the
             // object. But first, store a null into 'dest' because
             // objc_storeStrong attempts to release its old value.
-            llvm::Value *Null = CGM.EmitNullConstant(D.getType());
+            llvm::Value *Null = CGM.EmitNullConstant(D.getType(), /*asmjs=*/false);
             EmitStoreOfScalar(Null, lv, /* isInitialization */ true);
             EmitARCStoreStrongCall(lv.getAddress(*this), ArgVal, true);
             DoStore = false;

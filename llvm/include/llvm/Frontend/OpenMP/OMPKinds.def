@@ -26,6 +26,7 @@
 #endif
 
 #define __OMP_TYPE(VarName) OMP_TYPE(VarName, Type::get##VarName##Ty(Ctx))
+#define __OMP_PTR_TYPE(NAME, BASE) OMP_TYPE(NAME, BASE->getPointerTo(AS))
 
 __OMP_TYPE(Void)
 __OMP_TYPE(Int1)
@@ -33,15 +34,13 @@ __OMP_TYPE(Int8)
 __OMP_TYPE(Int16)
 __OMP_TYPE(Int32)
 __OMP_TYPE(Int64)
-__OMP_TYPE(Int8Ptr)
-__OMP_TYPE(Int16Ptr)
-__OMP_TYPE(Int32Ptr)
-__OMP_TYPE(Int64Ptr)
+__OMP_PTR_TYPE(Int8Ptr, Int8)
+__OMP_PTR_TYPE(Int16Ptr, Int16)
+__OMP_PTR_TYPE(Int32Ptr, Int32)
+__OMP_PTR_TYPE(Int64Ptr, Int64)
 __OMP_TYPE(Double)
 
-OMP_TYPE(SizeTy, M.getDataLayout().getIntPtrType(Ctx))
-
-#define __OMP_PTR_TYPE(NAME, BASE) OMP_TYPE(NAME, BASE->getPointerTo())
+OMP_TYPE(SizeTy, M.getDataLayout().getIntPtrType(Ctx, AS))
 
 __OMP_PTR_TYPE(VoidPtr, Int8)
 __OMP_PTR_TYPE(VoidPtrPtr, VoidPtr)

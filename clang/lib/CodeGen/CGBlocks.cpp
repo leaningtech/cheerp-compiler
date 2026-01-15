@@ -23,6 +23,7 @@
 #include "clang/AST/DeclObjC.h"
 #include "clang/CodeGen/ConstantInitBuilder.h"
 #include "llvm/ADT/SmallSet.h"
+#include "llvm/Cheerp/AddressSpaces.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/ScopedPrinter.h"
@@ -227,7 +228,7 @@ static llvm::Constant *buildBlockDescriptor(CodeGenModule &CGM,
   std::string typeAtEncoding =
     CGM.getContext().getObjCEncodingForBlock(blockInfo.getBlockExpr());
   elements.add(llvm::ConstantExpr::getBitCast(
-    CGM.GetAddrOfConstantCString(typeAtEncoding).getPointer(), i8p));
+    CGM.GetAddrOfConstantCString(typeAtEncoding, CGM.getTarget().getTriple().isCheerpWasm()).getPointer(), i8p));
 
   // GC layout.
   if (C.getLangOpts().ObjC) {
@@ -242,6 +243,8 @@ static llvm::Constant *buildBlockDescriptor(CodeGenModule &CGM,
   unsigned AddrSpace = 0;
   if (C.getLangOpts().OpenCL)
     AddrSpace = C.getTargetAddressSpace(LangAS::opencl_constant);
+  else if (C.getLangOpts().Cheerp)
+    AddrSpace = unsigned(CGM.getTarget().getTriple().isCheerpWasm()? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
 
   llvm::GlobalValue::LinkageTypes linkage;
   if (descName.empty()) {
@@ -1137,6 +1140,8 @@ llvm::Type *CodeGenModule::getBlockDescriptorType() {
   unsigned AddrSpace = 0;
   if (getLangOpts().OpenCL)
     AddrSpace = getContext().getTargetAddressSpace(LangAS::opencl_constant);
+  else if (getLangOpts().Cheerp)
+    AddrSpace = unsigned(getTarget().getTriple().isCheerpWasm()? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
   BlockDescriptorType = llvm::PointerType::get(BlockDescriptorType, AddrSpace);
   return BlockDescriptorType;
 }
@@ -1211,9 +1216,12 @@ RValue CodeGenFunction::EmitBlockCallExpr(const CallExpr *E,
                                        getPointerAlign());
     }
   } else {
+    unsigned AS = 0;
+    if (getLangOpts().Cheerp)
+      AS = unsigned(getTarget().getTriple().isCheerpWasm()? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
     // Bitcast the block literal to a generic block literal.
     BlockPtr = Builder.CreatePointerCast(
-        BlockPtr, llvm::PointerType::get(GenBlockTy, 0), "block.literal");
+        BlockPtr, llvm::PointerType::get(GenBlockTy, AS), "block.literal");
     // Get pointer to the block invoke function
     llvm::Value *FuncPtr = Builder.CreateStructGEP(GenBlockTy, BlockPtr, 3);
 
@@ -1229,7 +1237,7 @@ RValue CodeGenFunction::EmitBlockCallExpr(const CallExpr *E,
 
   const FunctionType *FuncTy = FnType->castAs<FunctionType>();
   const CGFunctionInfo &FnInfo =
-    CGM.getTypes().arrangeBlockFunctionCall(Args, FuncTy);
+    CGM.getTypes().arrangeBlockFunctionCall(Args, FuncTy, CurFn->getSection() == "asmjs");
 
   // Cast the function pointer to the right type.
   llvm::Type *BlockFTy = CGM.getTypes().GetFunctionType(FnInfo);
@@ -1489,17 +1497,25 @@ llvm::Function *CodeGenFunction::GenerateBlockFunction(
 
   // Create the function declaration.
   const FunctionProtoType *fnType = blockInfo.getBlockExpr()->getFunctionType();
+  bool asmjs = GD.getDecl()? GD.getDecl()->hasAttr<AsmJSAttr>() : CGM.getTarget().getTriple().isCheerpWasm();
   const CGFunctionInfo &fnInfo =
-    CGM.getTypes().arrangeBlockFunctionDeclaration(fnType, args);
+    CGM.getTypes().arrangeBlockFunctionDeclaration(fnType, args, asmjs);
   if (CGM.ReturnSlotInterferesWithArgs(fnInfo))
     blockInfo.UsesStret = true;
 
   llvm::FunctionType *fnLLVMType = CGM.getTypes().GetFunctionType(fnInfo);
 
   StringRef name = CGM.getBlockMangledName(GD, blockDecl);
+  unsigned AS = getTarget().getProgramAddressSpace();
+  if (getLangOpts().Cheerp) {
+    AS = unsigned(fnInfo.isAsmJS()? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+  }
   llvm::Function *fn = llvm::Function::Create(
-      fnLLVMType, llvm::GlobalValue::InternalLinkage, name, &CGM.getModule());
+      fnLLVMType, llvm::GlobalValue::InternalLinkage, AS, name, &CGM.getModule());
   CGM.SetInternalFunctionAttributes(blockDecl, fn, fnInfo);
+  if (getTarget().getTriple().isCheerpWasm()) {
+    fn->setSection("asmjs");
+  }
 
   if (BuildGlobalBlock) {
     auto GenVoidPtrTy = getContext().getLangOpts().OpenCL
@@ -1918,9 +1934,17 @@ CodeGenFunction::GenerateCopyHelperFunction(const CGBlockInfo &blockInfo) {
   // identical semantics.
   llvm::FunctionType *LTy = CGM.getTypes().GetFunctionType(FI);
 
+  // NOTE: we only "support" the default AS, to make tests happy
+  unsigned AS = getTarget().getProgramAddressSpace();
+  if (getLangOpts().Cheerp) {
+    AS = unsigned(getTarget().getTriple().isCheerpWasm()? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+  }
   llvm::Function *Fn =
-    llvm::Function::Create(LTy, llvm::GlobalValue::LinkOnceODRLinkage,
+    llvm::Function::Create(LTy, llvm::GlobalValue::LinkOnceODRLinkage, AS,
                            FuncName, &CGM.getModule());
+  if (getTarget().getTriple().isCheerpWasm()) {
+    Fn->setSection("asmjs");
+  }
   if (CGM.supportsCOMDAT())
     Fn->setComdat(CGM.getModule().getOrInsertComdat(FuncName));
 
@@ -2107,9 +2131,16 @@ CodeGenFunction::GenerateDestroyHelperFunction(const CGBlockInfo &blockInfo) {
   // internal linkage.
   llvm::FunctionType *LTy = CGM.getTypes().GetFunctionType(FI);
 
+  unsigned AS = getTarget().getProgramAddressSpace();
+  if (getLangOpts().Cheerp) {
+    AS = unsigned(FI.isAsmJS()? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+  }
   llvm::Function *Fn =
-    llvm::Function::Create(LTy, llvm::GlobalValue::LinkOnceODRLinkage,
+    llvm::Function::Create(LTy, llvm::GlobalValue::LinkOnceODRLinkage, AS,
                            FuncName, &CGM.getModule());
+  if (getTarget().getTriple().isCheerpWasm()) {
+    Fn->setSection("asmjs");
+  }
   if (CGM.supportsCOMDAT())
     Fn->setComdat(CGM.getModule().getOrInsertComdat(FuncName));
 
@@ -2350,12 +2381,18 @@ generateByrefCopyHelper(CodeGenFunction &CGF, const BlockByrefInfo &byrefInfo,
 
   llvm::FunctionType *LTy = CGF.CGM.getTypes().GetFunctionType(FI);
 
+  unsigned AS = CGF.getTarget().getProgramAddressSpace();
+  if (CGF.getLangOpts().Cheerp) {
+    AS = unsigned(FI.isAsmJS()? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+  }
   // FIXME: We'd like to put these into a mergable by content, with
   // internal linkage.
   llvm::Function *Fn =
-    llvm::Function::Create(LTy, llvm::GlobalValue::InternalLinkage,
+    llvm::Function::Create(LTy, llvm::GlobalValue::InternalLinkage, AS,
                            "__Block_byref_object_copy_", &CGF.CGM.getModule());
 
+  if (FI.isAsmJS())
+    Fn->setSection("asmjs");
   SmallVector<QualType, 2> ArgTys;
   ArgTys.push_back(Context.VoidPtrTy);
   ArgTys.push_back(Context.VoidPtrTy);
@@ -2417,13 +2454,19 @@ generateByrefDisposeHelper(CodeGenFunction &CGF,
 
   llvm::FunctionType *LTy = CGF.CGM.getTypes().GetFunctionType(FI);
 
+  unsigned AS = CGF.getTarget().getProgramAddressSpace();
+  if (CGF.getLangOpts().Cheerp) {
+    AS = unsigned(FI.isAsmJS()? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+  }
   // FIXME: We'd like to put these into a mergable by content, with
   // internal linkage.
   llvm::Function *Fn =
-    llvm::Function::Create(LTy, llvm::GlobalValue::InternalLinkage,
+    llvm::Function::Create(LTy, llvm::GlobalValue::InternalLinkage, AS,
                            "__Block_byref_object_dispose_",
                            &CGF.CGM.getModule());
 
+  if (FI.isAsmJS())
+    Fn->setSection("asmjs");
   SmallVector<QualType, 1> ArgTys;
   ArgTys.push_back(Context.VoidPtrTy);
 
@@ -2614,6 +2657,10 @@ const BlockByrefInfo &CodeGenFunction::getBlockByrefInfo(const VarDecl *D) {
     llvm::StructType::create(getLLVMContext(),
                              "struct.__block_byref_" + D->getNameAsString());
 
+  unsigned AS = 0;
+  if (CGM.getLangOpts().Cheerp) {
+    AS = unsigned(D->hasAttr<AsmJSAttr>()? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+  }
   QualType Ty = D->getType();
 
   CharUnits size;
@@ -2624,7 +2671,7 @@ const BlockByrefInfo &CodeGenFunction::getBlockByrefInfo(const VarDecl *D) {
   size += getPointerSize();
 
   // void *__forwarding;
-  types.push_back(llvm::PointerType::getUnqual(byrefType));
+  types.push_back(llvm::PointerType::get(byrefType, AS));
   size += getPointerSize();
 
   // int32_t __flags;
@@ -2886,8 +2933,12 @@ llvm::Constant *CodeGenModule::getNSConcreteGlobalBlock() {
   if (NSConcreteGlobalBlock)
     return NSConcreteGlobalBlock;
 
+  LangAS AS = LangAS::Default;
+  if (getLangOpts().Cheerp) {
+    AS = getTarget().getTriple().isCheerpWasm()? LangAS::cheerp_wasm : LangAS::cheerp_genericjs;
+  }
   NSConcreteGlobalBlock = GetOrCreateLLVMGlobal(
-      "_NSConcreteGlobalBlock", Int8PtrTy, LangAS::Default, nullptr);
+      "_NSConcreteGlobalBlock", Int8PtrTy, AS, nullptr);
   configureBlocksRuntimeObject(*this, NSConcreteGlobalBlock);
   return NSConcreteGlobalBlock;
 }
@@ -2896,8 +2947,12 @@ llvm::Constant *CodeGenModule::getNSConcreteStackBlock() {
   if (NSConcreteStackBlock)
     return NSConcreteStackBlock;
 
+  LangAS AS = LangAS::Default;
+  if (getLangOpts().Cheerp) {
+    AS = getTarget().getTriple().isCheerpWasm()? LangAS::cheerp_wasm : LangAS::cheerp_genericjs;
+  }
   NSConcreteStackBlock = GetOrCreateLLVMGlobal(
-      "_NSConcreteStackBlock", Int8PtrTy, LangAS::Default, nullptr);
+      "_NSConcreteStackBlock", Int8PtrTy, AS, nullptr);
   configureBlocksRuntimeObject(*this, NSConcreteStackBlock);
   return NSConcreteStackBlock;
 }

@@ -12,6 +12,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/InstructionSimplify.h"
+#include "llvm/Cheerp/AddressSpaces.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -163,7 +164,7 @@ void Lowerer::elideHeapAllocations(Function *F, uint64_t FrameSize,
   auto *Frame = new AllocaInst(FrameTy, DL.getAllocaAddrSpace(), "", InsertPt);
   Frame->setAlignment(FrameAlign);
   auto *FrameVoidPtr =
-      new BitCastInst(Frame, Type::getInt8PtrTy(C), "vFrame", InsertPt);
+      new BitCastInst(Frame, Type::getInt8PtrTy(C, AS), "vFrame", InsertPt);
 
   for (auto *CB : CoroBegins) {
     CB->replaceAllUsesWith(FrameVoidPtr);
@@ -275,6 +276,7 @@ bool Lowerer::shouldElide(Function *F, DominatorTree &DT) const {
 }
 
 void Lowerer::collectPostSplitCoroIds(Function *F) {
+  setTypes(cheerp::getCheerpDataAS(F->getAddressSpace()));
   CoroIds.clear();
   CoroSuspendSwitches.clear();
   for (auto &I : instructions(F)) {
@@ -355,7 +357,7 @@ bool Lowerer::processCoroId(CoroIdInst *CoroId, AAResults &AA,
             getFrameLayout(cast<Function>(ResumeAddrConstant))) {
       elideHeapAllocations(CoroId->getFunction(), FrameSizeAndAlign->first,
                            FrameSizeAndAlign->second, AA);
-      coro::replaceCoroFree(CoroId, /*Elide=*/true);
+      coro::replaceCoroFree(CoroId, /*Elide=*/true, AS);
       NumOfCoroElided++;
 #ifndef NDEBUG
       if (!CoroElideInfoOutputFilename.empty())

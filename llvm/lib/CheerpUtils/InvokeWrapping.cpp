@@ -186,11 +186,15 @@ void LandingPadTable::populate(Module& M, GlobalDepsAnalyzer& GDA)
 	if(elemTy == nullptr)
 		return;
 
+	Triple Triple(M.getTargetTriple());
+	bool asmjs = Triple.isCheerpWasm();
+	unsigned AS = unsigned(asmjs? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+
 	Type* oldElementType = table->getValueType();
 
 	Constant* init = ConstantArray::get(ArrayType::get(elemTy, v.size()), v);
 	table->setValueType(init->getType());
-	table->mutateType(init->getType()->getPointerTo());
+	table->mutateType(init->getType()->getPointerTo(AS));
 	table->setInitializer(init);
 	// Move the table to the end of the globals. Since GDA already ran we can't deal
 	// with the fact that the RTTI globals referenced here may be not yet defined.
@@ -208,9 +212,8 @@ void LandingPadTable::populate(Module& M, GlobalDepsAnalyzer& GDA)
 			if (GEP->getSourceElementType() == oldElementType)
 			{
 				GEP->setSourceElementType(newElementType);
+				GEP->mutateType(PointerType::getWithSamePointeeType(cast<PointerType>(GEP->getType()), AS));
 			}
-
-			assert(oldTy == GEP->getType());
 		}
 		else
 		{
@@ -311,7 +314,8 @@ static InvokeInst* replaceIndirectInvokeWithStub(Module& M, InvokeInst* IV, Indi
 		for(auto& arg: make_range(Stub->arg_begin()+1, Stub->arg_end()))
 			params.push_back(&arg);
 		Value* TableIdx = Stub->getArg(0);
-		Value* Called = Builder.CreateIntToPtr(TableIdx, OldTy->getPointerTo());
+		unsigned AS = unsigned(cheerp::CheerpAS::Wasm);
+		Value* Called = Builder.CreateIntToPtr(TableIdx, OldTy->getPointerTo(AS));
 		Value* Call = Builder.CreateCall(OldTy, Called, params);
 		Value* Ret = Call->getType()->isVoidTy() ? nullptr : Call;
 		Builder.CreateRet(Ret);

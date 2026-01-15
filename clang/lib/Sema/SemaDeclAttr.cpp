@@ -9565,6 +9565,7 @@ NamedDecl *Sema::DeclClonePragmaWeak(NamedDecl *ND, const IdentifierInfo *II,
     if (VD->getQualifier())
       cast<VarDecl>(NewD)->setQualifierInfo(VD->getQualifierLoc());
   }
+  MaybeInjectCheerpModeAttr(NewD, ND);
   return NewD;
 }
 

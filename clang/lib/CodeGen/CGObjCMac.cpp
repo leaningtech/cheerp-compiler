@@ -1777,7 +1777,7 @@ struct NullReturnState {
     if (result.isScalar()) {
       // Derive the null-initialization value.
       llvm::Value *null =
-          CGF.EmitFromMemory(CGF.CGM.EmitNullConstant(resultType), resultType);
+          CGF.EmitFromMemory(CGF.CGM.EmitNullConstant(resultType, /*asmjs=*/false), resultType);
 
       // If no join is necessary, just flow out.
       if (!contBB) return RValue::get(null);
@@ -3000,7 +3000,7 @@ llvm::Value *CGObjCCommonMac::EmitClassRefViaRuntime(
 
   llvm::Value *className = CGF.CGM
                                .GetAddrOfConstantCString(std::string(
-                                   ID->getObjCRuntimeNameAsString()))
+                                   ID->getObjCRuntimeNameAsString()), /*asmjs*/false)
                                .getPointer();
   ASTContext &ctx = CGF.CGM.getContext();
   className =

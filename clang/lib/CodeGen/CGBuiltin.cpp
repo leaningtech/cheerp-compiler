@@ -34,6 +34,7 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Analysis/ValueTracking.h"
+#include "llvm/Cheerp/AddressSpaces.h"
 #include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/InlineAsm.h"
@@ -141,7 +142,7 @@ llvm::Constant *CodeGenModule::getBuiltinLibFunction(const FunctionDecl *FD,
   }
 
   llvm::FunctionType *Ty =
-    cast<llvm::FunctionType>(getTypes().ConvertType(FD->getType()));
+    cast<llvm::FunctionType>(getTypes().ConvertType(FD->getType(), FD->hasAttr<AsmJSAttr>()));
 
   return GetOrCreateLLVMFunction(Name, Ty, D, /*ForVTable=*/false);
 }
@@ -3427,7 +3428,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
         QualType returnType=retCE->getType();
         Tys[0] = ConvertType(returnType);
         elementType = ConvertTypeForMem(returnType->getPointeeType());
-        unsigned AS = getContext().getTargetAddressSpace(returnType->getPointeeType().getAddressSpace());
+        unsigned AS = getContext().getCheerpTypeTargetAddressSpace(returnType->getPointeeType(), asmjs);
         CallBase* CB = cheerp::createCheerpAllocate(Builder, nullptr, elementType, Size, AS);
         return RValue::get(CB);
       }
@@ -3438,7 +3439,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
         CGM.getContext()
             .toCharUnitsFromBits(TI.getSuitableAlign())
             .getAsAlign();
-    AllocaInst *AI = Builder.CreateAlloca(Builder.getInt8Ty(), Size);
+    AllocaInst *AI = Builder.CreateAlloca(Builder.getInt8Ty(), DefaultAS, Size);
     AI->setAlignment(SuitableAlignmentInBytes);
     if (BuiltinID != Builtin::BI__builtin_alloca_uninitialized)
       initializeAlloca(*this, AI, Size, SuitableAlignmentInBytes);
@@ -3453,7 +3454,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
     unsigned AlignmentInBits = AlignmentInBitsCI->getZExtValue();
     const Align AlignmentInBytes =
         CGM.getContext().toCharUnitsFromBits(AlignmentInBits).getAsAlign();
-    AllocaInst *AI = Builder.CreateAlloca(Builder.getInt8Ty(), Size);
+    AllocaInst *AI = Builder.CreateAlloca(Builder.getInt8Ty(), DefaultAS, Size);
     AI->setAlignment(AlignmentInBytes);
     if (BuiltinID != Builtin::BI__builtin_alloca_with_align_uninitialized)
       initializeAlloca(*this, AI, Size, AlignmentInBytes);
@@ -3475,7 +3476,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
   case Builtin::BI__builtin_mempcpy: {
     const Expr *DestE = E->getArg(0);
     const Expr *SrcE = E->getArg(1);
-    if (!getTarget().isByteAddressable())
+    if (getLangOpts().Cheerp)
     {
       // There might be an address space cast. If so, skip it
       const CastExpr *DestCast = dyn_cast<CastExpr>(DestE);
@@ -3487,7 +3488,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
         SrcE = SrcCast->getSubExpr();
       }
     }
-    if (!asmjs && !getTarget().isByteAddressable())
+    if (getLangOpts().Cheerp && !asmjs)
     {
       // There must be a cast from a valid type to void*
       const CastExpr *DestCast = dyn_cast<CastExpr>(DestE);
@@ -5402,7 +5403,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
   case Builtin::BI__builtin_get_device_side_mangled_name: {
     auto Name = CGM.getCUDARuntime().getDeviceSideName(
         cast<DeclRefExpr>(E->getArg(0)->IgnoreImpCasts())->getDecl());
-    auto Str = CGM.GetAddrOfConstantCString(Name, "");
+    auto Str = CGM.GetAddrOfConstantCString(Name, /*asmjs*/false, "");
     llvm::Constant *Zeros[] = {llvm::ConstantInt::get(SizeTy, 0),
                                llvm::ConstantInt::get(SizeTy, 0)};
     auto *Ptr = llvm::ConstantExpr::getGetElementPtr(Str.getElementType(),
@@ -12579,11 +12580,11 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
     return Builder.CreateCall(F, Ops);
   }
   else if (BuiltinID == Cheerp::BI__builtin_cheerp_stack_save) {
-    Function *F = CGM.getIntrinsic(Intrinsic::stacksave);
+    Function *F = CGM.getIntrinsic(Intrinsic::cheerp_stacksave);
     return Builder.CreateCall(F, Ops);
   }
   else if (BuiltinID == Cheerp::BI__builtin_cheerp_stack_restore) {
-    Function *F = CGM.getIntrinsic(Intrinsic::stackrestore);
+    Function *F = CGM.getIntrinsic(Intrinsic::cheerp_stackrestore);
     return Builder.CreateCall(F, Ops);
   }
   else if (BuiltinID == Cheerp::BI__builtin_cheerp_get_thread_pointer) {
@@ -12742,10 +12743,10 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
         CGM.getDiags().Report(E->getBeginLoc(), diag::err_cheerp_alloc_requires_cast);
         return 0;
       }
-      AS = getContext().getTargetAddressSpace(E->getType()->getPointeeType().getAddressSpace());
+      AS = (unsigned)cheerp::CheerpAS::Wasm;
     } else {
       elementType = ConvertTypeForMem(retCE->getType()->getPointeeType());
-      AS = getContext().getTargetAddressSpace(retCE->getType()->getPointeeType().getAddressSpace());
+      AS = getContext().getCheerpTypeTargetAddressSpace(retCE->getType()->getPointeeType(), asmjs);
     }
     llvm::Constant* Malloc = nullptr;
     // in Wasm, we pass the original allocation function as argument 0
@@ -12771,10 +12772,10 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
         CGM.getDiags().Report(E->getBeginLoc(), diag::err_cheerp_alloc_requires_cast);
         return 0;
       }
-      AS = getContext().getTargetAddressSpace(E->getType()->getPointeeType().getAddressSpace());
+      AS = (unsigned)cheerp::CheerpAS::Wasm;
     } else {
       elementType = ConvertTypeForMem(retCE->getType()->getPointeeType());
-      AS = getContext().getTargetAddressSpace(retCE->getType()->getPointeeType().getAddressSpace());
+      AS = getContext().getCheerpTypeTargetAddressSpace(retCE->getType()->getPointeeType(), asmjs);
     }
     llvm::Constant* Malloc = nullptr;
     // in Wasm, we pass the original allocation function as argument 0
@@ -12855,7 +12856,7 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
       Builder.CreateCondBr(opIsNull, mallocBlock, reallocBlock);
       Builder.SetInsertPoint(mallocBlock);
 
-      unsigned AS = getContext().getTargetAddressSpace(reallocType->getPointeeType().getAddressSpace());
+      unsigned AS = getContext().getCheerpTypeTargetAddressSpace(reallocType->getPointeeType(), asmjs);
       CallBase* mallocRet = cheerp::createCheerpAllocate(Builder, nullptr, elementType, Ops[1], AS);
       Builder.CreateBr(endBlock);
       Builder.SetInsertPoint(reallocBlock);
@@ -12887,7 +12888,8 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
     // For free, we always pass this argument unless the element type is a genericjs struct,
     // because the pointer may have come from Wasm originally
     if (asmjs || (elementType && elementType->isStructTy() && !cast<llvm::StructType>(elementType)->hasAsmJS())) {
-      Free = cast<llvm::Constant>(CGM.getModule().getOrInsertFunction("free", VoidTy, Int8PtrTy).getCallee());
+
+      Free = cheerp::getOrCreateFunction(CGM.getModule(), llvm::FunctionType::get(VoidTy, {Int8PtrTy}, false), "free", cheerp::CheerpAS::Wasm, true);
     }
     llvm::CallBase* CB = cheerp::createCheerpDeallocate(Builder, Free, elementType, Ops[0]);
     return CB;

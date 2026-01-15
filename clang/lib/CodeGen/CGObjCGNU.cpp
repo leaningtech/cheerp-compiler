@@ -198,7 +198,7 @@ protected:
   /// where the C code specifies const char*.
   llvm::Constant *MakeConstantString(StringRef Str, const char *Name = "") {
     ConstantAddress Array =
-        CGM.GetAddrOfConstantCString(std::string(Str), Name);
+        CGM.GetAddrOfConstantCString(std::string(Str), /*asmjs*/false, Name);
     return llvm::ConstantExpr::getGetElementPtr(Array.getElementType(),
                                                 Array.getPointer(), Zeros);
   }
@@ -2841,7 +2841,7 @@ CGObjCGNU::GenerateMessageSend(CodeGenFunction &CGF,
       if (llvm::Value *v = msgRet.getScalarVal()) {
         llvm::PHINode *phi = Builder.CreatePHI(v->getType(), 2);
         phi->addIncoming(v, nonNilPathBB);
-        phi->addIncoming(CGM.EmitNullConstant(ResultType), nilPathBB);
+        phi->addIncoming(CGM.EmitNullConstant(ResultType, /*asmjs=*/false), nilPathBB);
         msgRet = RValue::get(phi);
       }
     } else if (msgRet.isAggregate()) {

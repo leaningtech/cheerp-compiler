@@ -3,7 +3,7 @@
 
 __attribute__((returns_nonnull)) void *allocate(void) {}
 
-// CHECK: define {{.*}}nonnull ptr @allocate(){{.*}} !dbg
+// CHECK: define {{.*}}nonnull ptr{{( addrspace\(.\))?}} @allocate(){{.*}} !dbg
 // CHECK: call void @__ubsan_handle_nonnull_return_v1_abort
 // CHECK-SAME:  !dbg ![[LOC:[0-9]+]]
 // CHECK: ret ptr

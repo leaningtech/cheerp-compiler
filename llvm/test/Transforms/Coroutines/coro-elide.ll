@@ -127,12 +127,12 @@ entry:
   %id = call token @llvm.coro.id(i32 0, i8* null, i8* null, i8* null)
   %hdl = call i8* @llvm.coro.begin(token %id, i8* null)
 
-; CHECK: call i8* @llvm.coro.subfn.addr(i8* %hdl, i8 0)
+; CHECK: call i8* @llvm.coro.subfn.addr.p0i8.p0i8(i8* %hdl, i8 0)
   %0 = call i8* @llvm.coro.subfn.addr(i8* %hdl, i8 0)
   %1 = bitcast i8* %0 to void (i8*)*
   call fastcc void %1(i8* %hdl)
 
-; CHECK: call i8* @llvm.coro.subfn.addr(i8* %hdl, i8 1)
+; CHECK: call i8* @llvm.coro.subfn.addr.p0i8.p0i8(i8* %hdl, i8 1)
   %2 = call i8* @llvm.coro.subfn.addr(i8* %hdl, i8 1)
   %3 = bitcast i8* %2 to void (i8*)*
   call fastcc void %3(i8* %hdl)
@@ -146,12 +146,12 @@ entry:
 define void @no_devirt_no_begin(i8* %hdl) {
 entry:
 
-; CHECK: call i8* @llvm.coro.subfn.addr(i8* %hdl, i8 0)
+; CHECK: call i8* @llvm.coro.subfn.addr.p0i8.p0i8(i8* %hdl, i8 0)
   %0 = call i8* @llvm.coro.subfn.addr(i8* %hdl, i8 0)
   %1 = bitcast i8* %0 to void (i8*)*
   call fastcc void %1(i8* %hdl)
 
-; CHECK: call i8* @llvm.coro.subfn.addr(i8* %hdl, i8 1)
+; CHECK: call i8* @llvm.coro.subfn.addr.p0i8.p0i8(i8* %hdl, i8 1)
   %2 = call i8* @llvm.coro.subfn.addr(i8* %hdl, i8 1)
   %3 = bitcast i8* %2 to void (i8*)*
   call fastcc void %3(i8* %hdl)

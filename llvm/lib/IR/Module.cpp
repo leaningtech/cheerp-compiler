@@ -142,14 +142,14 @@ void Module::getOperandBundleTags(SmallVectorImpl<StringRef> &Result) const {
 // it.  This is nice because it allows most passes to get away with not handling
 // the symbol table directly for this common task.
 //
-FunctionCallee Module::getOrInsertFunction(StringRef Name, FunctionType *Ty,
+FunctionCallee Module::getOrInsertFunctionImpl(StringRef Name, Optional<unsigned> AS, FunctionType *Ty,
                                            AttributeList AttributeList) {
   // See if we have a definition for the specified function already.
   GlobalValue *F = getNamedValue(Name);
   if (!F) {
     // Nope, add it
     Function *New = Function::Create(Ty, GlobalVariable::ExternalLinkage,
-                                     DL.getProgramAddressSpace(), Name);
+                                     AS.value_or(DL.getProgramAddressSpace()), Name);
     if (!New->isIntrinsic())       // Intrinsics get attrs set on construction
       New->setAttributes(AttributeList);
     FunctionList.push_back(New);
@@ -164,6 +164,11 @@ FunctionCallee Module::getOrInsertFunction(StringRef Name, FunctionType *Ty,
 
   // Otherwise, we just found the existing function or a prototype.
   return {Ty, F};
+}
+
+FunctionCallee Module::getOrInsertFunction(StringRef Name, FunctionType *Ty,
+                                           AttributeList AttributeList) {
+  return getOrInsertFunctionImpl(Name, Optional<unsigned>(), Ty, AttributeList);
 }
 
 FunctionCallee Module::getOrInsertFunction(StringRef Name, FunctionType *Ty) {
@@ -224,10 +229,10 @@ Constant *Module::getOrInsertGlobal(
 }
 
 // Overload to construct a global variable using its constructor's defaults.
-Constant *Module::getOrInsertGlobal(StringRef Name, Type *Ty) {
+Constant *Module::getOrInsertGlobal(StringRef Name, Type *Ty, unsigned AS) {
   return getOrInsertGlobal(Name, Ty, [&] {
     return new GlobalVariable(*this, Ty, false, GlobalVariable::ExternalLinkage,
-                              nullptr, Name);
+                              nullptr, Name, nullptr, GlobalVariable::NotThreadLocal, AS);
   });
 }
 

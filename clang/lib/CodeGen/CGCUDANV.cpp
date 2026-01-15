@@ -89,7 +89,7 @@ private:
   /// where the C code specifies const char*.
   llvm::Constant *makeConstantString(const std::string &Str,
                                      const std::string &Name = "") {
-    auto ConstStr = CGM.GetAddrOfConstantCString(Str, Name.c_str());
+    auto ConstStr = CGM.GetAddrOfConstantCString(Str, /*asmjs*/false, Name.c_str());
     return llvm::ConstantExpr::getGetElementPtr(ConstStr.getElementType(),
                                                 ConstStr.getPointer(), Zeros);
   }
