@@ -184,11 +184,6 @@ bool AllocaLowering::runOnFunction(Function& F, DominatorTree& DT, cheerp::Globa
 	{
 		getStack = Intrinsic::getDeclaration(M, Intrinsic::stacksave);
 		setStack = Intrinsic::getDeclaration(M, Intrinsic::stackrestore);
-		if(needsLocalsStack)
-		{
-			getOrCreateGetStackWrapper(M, GDA);
-			getOrCreateSetStackWrapper(M, GDA);
-		}
 	}
 	else
 	{
