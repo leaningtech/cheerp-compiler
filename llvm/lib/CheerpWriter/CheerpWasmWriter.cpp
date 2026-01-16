@@ -1368,7 +1368,7 @@ void CheerpWasmWriter::compileGEP(WasmBuffer& code, const llvm::User* gep_inst, 
 	const llvm::Value *p = linearHelper.compileGEP(gep_inst, &gepWriter, &PA);
 	if(const GlobalVariable* GV = dyn_cast<GlobalVariable>(p))
 	{
-		if(WasmSharedModule)
+		if(WasmSharedModule || GV->isThreadLocal())
 			gepWriter.addValue(p, 1);
 		else
 			gepWriter.addConst(linearHelper.getGlobalVariableAddress(GV));
@@ -1463,6 +1463,16 @@ void CheerpWasmWriter::compileTypedZero(WasmBuffer& code, const llvm::Type* t)
 	} else {
 		encodeSLEB128(0, code);
 	}
+}
+
+void CheerpWasmWriter::compileThreadLocalLoad(WasmBuffer& code, const llvm::GlobalVariable* GV)
+{
+	assert(GV->isThreadLocal());
+	int32_t offset = linearHelper.getThreadLocalOffset(GV);
+	encodeInst(WasmU32Opcode::GET_GLOBAL, THREAD_POINTER_GLOBAL, code);
+	encodeInst(WasmS32Opcode::I32_CONST, offset, code);
+	encodeInst(WasmOpcode::I32_ADD, code);
+
 }
 
 void CheerpWasmWriter::compileConstantExpr(WasmBuffer& code, const ConstantExpr* ce)
@@ -1643,6 +1653,10 @@ void CheerpWasmWriter::compileConstant(WasmBuffer& code, const Constant* c, bool
 				assert(it != exportedGlobalsIds.end());
 				encodeInst(WasmU32Opcode::GET_GLOBAL, it->second, code);
 			}
+		}
+		else if (GV->isThreadLocal())
+		{
+			compileThreadLocalLoad(code, GV);
 		}
 		else
 		{
@@ -2079,7 +2093,7 @@ uint32_t CheerpWasmWriter::compileLoadStorePointer(WasmBuffer& code, const Value
 		auto p = linearHelper.compileGEP(ptrOp, &gepWriter, &PA);
 		if(const GlobalVariable* GV = dyn_cast<GlobalVariable>(p))
 		{
-			if(WasmSharedModule)
+			if(WasmSharedModule || GV->isThreadLocal())
 				gepWriter.addValue(p, 1);
 			else
 				gepWriter.addConst(linearHelper.getGlobalVariableAddress(GV));
@@ -3041,10 +3055,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 					{
 						// We encode this as an offset from the thread pointer.
 						const GlobalVariable *GV = dyn_cast<GlobalVariable>(I.getOperand(0));
-						int32_t offset = linearHelper.getThreadLocalOffset(GV);
-						encodeInst(WasmU32Opcode::GET_GLOBAL, THREAD_POINTER_GLOBAL, code);
-						encodeInst(WasmS32Opcode::I32_CONST, offset, code);
-						encodeInst(WasmOpcode::I32_ADD, code);
+						compileThreadLocalLoad(code, GV);
 						return false;
 					}
 					case Intrinsic::cheerp_locals_stack:

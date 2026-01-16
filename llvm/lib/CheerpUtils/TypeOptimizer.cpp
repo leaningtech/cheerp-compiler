@@ -1118,6 +1118,7 @@ Function* TypeOptimizer::rewriteIntrinsic(Function* F, FunctionType* FT)
 	{
 		case Intrinsic::cheerp_allocate:
 		case Intrinsic::cheerp_allocate_array:
+		case Intrinsic::threadlocal_address:
 		{
 			Type* localTys[] = { FT->getReturnType()};
 			newTys.insert(newTys.end(),localTys,localTys+1);

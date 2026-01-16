@@ -39,7 +39,7 @@ endif()
 if(CHEERP)
 # Remove files which are not currently supported
 list(REMOVE_ITEM LIBCXXABI_SOURCES cxa_default_handlers.cpp cxa_exception.cpp cxa_handlers.cpp cxa_exception_storage.cpp cxa_unexpected.cpp cxa_personality.cpp)
-list(APPEND LIBCXXABI_SOURCES cxa_cheerp.cpp)
+list(APPEND LIBCXXABI_SOURCES cxa_cheerp.cpp cxa_thread_atexit.cpp)
 endif()
 
 if (LIBCXXABI_ENABLE_THREADS AND (UNIX OR FUCHSIA) AND NOT (APPLE OR CYGWIN)

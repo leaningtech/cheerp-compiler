@@ -1063,7 +1063,7 @@ CodeGenFunction::GenerateCXXGlobalInitFunc(llvm::Function *Fn,
 
     for (unsigned i = 0, e = Decls.size(); i != e; ++i)
       if (Decls[i]) {
-        if (getContext().getTargetInfo().getTriple().isCheerpWasm()) {
+        if (getContext().getTargetInfo().getTriple().isCheerpWasm() && !Guard.isValid()) {
           llvm::GlobalVariable *GuardGV = new llvm::GlobalVariable(CGM.getModule(), Int8Ty, /*isConstant=*/false,
                                      llvm::GlobalVariable::InternalLinkage,
                                      llvm::ConstantInt::get(Int8Ty, 0),
