@@ -5529,10 +5529,13 @@ void CheerpWasmWriter::compileCodeSection()
 
 		std::vector<std::pair<uint32_t, bool>> branchHintsVec;
 
-		filterNop(method.buf(), [&branchHintsVec](uint32_t location, char byte)->void{
-			const bool dir = (byte == (char)WasmInvalidOpcode::BRANCH_LIKELY);
-			branchHintsVec.push_back({location, dir});
-		});
+		if(!isCheerpOS)
+		{
+			filterNop(method.buf(), [&branchHintsVec](uint32_t location, char byte)->void{
+				const bool dir = (byte == (char)WasmInvalidOpcode::BRANCH_LIKELY);
+				branchHintsVec.push_back({location, dir});
+			});
+		}
 		nopLocations.clear();
 
 		if (!branchHintsVec.empty())

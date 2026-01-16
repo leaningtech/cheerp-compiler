@@ -362,6 +362,12 @@ public:
 	//IFF returns true, it has modified the buffer so to obtain an extra value on the stack
 	bool hasPutTeeLocalOnStack(WasmBuffer& code, const llvm::Value* v)
 	{
+		// Disable tee locals on CheerpOS, we need to be able to predict code
+		// offsets to encode them into the bytecode.
+		// TODO: It could be possible to support teelocals with a sufficiently
+		//       sophisticated strategy.
+		if (isCheerpOS)
+			return false;
 		const uint32_t currOffset = code.tell();
 		uint32_t bufferOffset;
 		uint32_t localId;
