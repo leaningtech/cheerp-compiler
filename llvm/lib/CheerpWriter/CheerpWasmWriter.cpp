@@ -5383,6 +5383,10 @@ void CheerpWasmWriter::compileExportSection()
 		// Add an extra entry for the constant data
 		extraExports += exportedGlobalsIds.size() + 1;
 	}
+	else if(isCheerpOS)
+	{
+		extraExports++;
+	}
 	encodeULEB128(exportedFunctions.size() + exportedAliases.size() + extraExports, section);
 
 	if (exportMemory)
@@ -5432,17 +5436,17 @@ void CheerpWasmWriter::compileExportSection()
 		encodeULEB128(linearHelper.getFunctionIds().find(F)->second, section);
 	}
 
+	auto ExportGlobal = [](Section& section, StringRef name, uint32_t globalIndex)
+	{
+		// Encode the global name.
+		encodeULEB128(name.size(), section);
+		section.write(name.data(), name.size());
+		// Encode the global index
+		encodeULEB128(0x03, section);
+		encodeULEB128(globalIndex, section);
+	};
 	if(WasmSharedModule)
 	{
-		auto ExportGlobal = [](Section& section, StringRef name, uint32_t globalIndex)
-		{
-			// Encode the global name.
-			encodeULEB128(name.size(), section);
-			section.write(name.data(), name.size());
-			// Encode the global index
-			encodeULEB128(0x03, section);
-			encodeULEB128(globalIndex, section);
-		};
 		// Constant block, use "const" as the name since it's a keyword and
 		// can't be otherwise used
 		ExportGlobal(section, "const", CONSTANT_MEMORY_BASE_GLOBAL);
@@ -5454,6 +5458,11 @@ void CheerpWasmWriter::compileExportSection()
 			assert(it != exportedGlobalsIds.end());
 			ExportGlobal(section, GV->getName(), it->second);
 		}
+	}
+	else if(isCheerpOS)
+	{
+		// Make sure the stack is accessible to the CheerpOS kernel
+		ExportGlobal(section, "__stackPtr", 0);
 	}
 
 	section.encode();
