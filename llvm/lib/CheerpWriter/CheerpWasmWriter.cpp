@@ -3221,12 +3221,32 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			//This corrections is needed basically for ctlz / cttz since they have an extra parameters to be ignored
 			const unsigned int endParam = fTy->getNumParams() - TypedBuiltinInstr::numExtraParameters(calledFunc);
 			const unsigned int startParam = skipFirstParam ? 1 : 0;
+			Value* lastParameter = nullptr;
 			for (auto op = ci.op_begin() + startParam;
 					op != ci.op_begin() + endParam; ++op)
 			{
-				compileOperand(code, op->get());
+				lastParameter = op->get();
+				compileOperand(code, lastParameter);
 			}
 
+			// Encode the position in the code to be used by CheerpOS to re-enter execution if needed.
+			// NOTE: If the last paramter is the cheerp_func_offset intrinsic we can optimize the extra
+			//       integer away. This is also expected by CheerpOS internally when skipping the first
+			//       few instructions before the call.
+			auto EncodeReenterPosition = [&]()
+			{
+				if(lastParameter != nullptr &&
+					isa<IntrinsicInst>(lastParameter) &&
+					cast<IntrinsicInst>(lastParameter)->getIntrinsicID() == Intrinsic::cheerp_func_offset)
+				{
+					encodeInst(WasmU32Opcode::TEE_LOCAL, localMap.back(), code);
+				}
+				else
+				{
+					encodeFuncOffset(code);
+					encodeInst(WasmU32Opcode::SET_LOCAL, localMap.back(), code);
+				}
+			};
 			if (calledFunc)
 			{
 				if (ci.getOperand(0)->getType()->isVectorTy())
@@ -3267,6 +3287,8 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 				}
 				else if (linearHelper.getFunctionIds().count(calledFunc))
 				{
+					if(isCheerpOS)
+						EncodeReenterPosition();
 					uint32_t functionId = linearHelper.getFunctionIds().at(calledFunc);
 					if (functionId < COMPILE_METHOD_LIMIT) {
 						if(useTailCall)
@@ -3289,6 +3311,8 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			}
 			else
 			{
+				if(isCheerpOS)
+					EncodeReenterPosition();
 				if (linearHelper.getFunctionTables().count(fTy))
 				{
 					const auto& table = linearHelper.getFunctionTables().at(fTy);
@@ -4602,6 +4626,17 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F)
 		reg++;
 	}
 
+	// Reserve an integer local in CheerpOS mode to encode the re-enter position
+	if(isCheerpOS)
+	{
+		// Append one additional local at the end of the map, it is
+		// used to keep track of the re-enter address when the
+		// exception landing pad is used
+		auto& integerLocals = locals.at((int)Registerize::INTEGER);
+		localMap.push_back(numArgs + integerLocals);
+		integerLocals++;
+	}
+
 	// Add offset of other local groups to local lookup table.  Since INTEGER
 	// is the first group, the local for label does not require an offset.
 	reg = 0;
@@ -4708,6 +4743,10 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F)
 		encodeInst(WasmOpcode::RETURN, code);
 		// Catch block begins here
 		encodeULEB128(0x0b, code);
+		// The first argument is the stack pointer and is already on the value stack,
+		// add the function index the reserved locals that contains the re-enter offset
+		encodeFuncId(code, &F);
+		encodeInst(WasmU32Opcode::GET_LOCAL, localMap.back(), code);
 		// Call the exception pad
 		Type* retType = F.getFunctionType()->getReturnType();
 		uint32_t landingPadId = 0;
@@ -4982,15 +5021,17 @@ void CheerpWasmWriter::compileImportSection()
 		Type* i64 = Type::getInt64Ty(module.getContext());
 		Type* f32 = Type::getFloatTy(module.getContext());
 		Type* v = Type::getVoidTy(module.getContext());
-		FunctionType* i64_i32_1 = FunctionType::get(i64, i32_1, false);
-		FunctionType* f32_i32_1 = FunctionType::get(f32, i32_1, false);
-		FunctionType* f64_i32_1 = FunctionType::get(f64, i32_1, false);
-		FunctionType* v_i32_1 = FunctionType::get(v, i32_1, false);
-		compileImport(section, "__exc_pad_32", i32_i32_1);
-		compileImport(section, "__exc_pad_64", i64_i32_1);
-		compileImport(section, "__exc_pad_f", f32_i32_1);
-		compileImport(section, "__exc_pad_d", f64_i32_1);
-		compileImport(section, "__exc_pad_v", v_i32_1);
+		Type* i32_3[] = { i32, i32, i32 };
+		FunctionType* i32_i32_3 = FunctionType::get(i32, i32_3, false);
+		FunctionType* i64_i32_3 = FunctionType::get(i64, i32_3, false);
+		FunctionType* f32_i32_3 = FunctionType::get(f32, i32_3, false);
+		FunctionType* f64_i32_3 = FunctionType::get(f64, i32_3, false);
+		FunctionType* v_i32_3 = FunctionType::get(v, i32_3, false);
+		compileImport(section, "__exc_pad_32", i32_i32_3);
+		compileImport(section, "__exc_pad_64", i64_i32_3);
+		compileImport(section, "__exc_pad_f", f32_i32_3);
+		compileImport(section, "__exc_pad_d", f64_i32_3);
+		compileImport(section, "__exc_pad_v", v_i32_3);
 		assert(importedTags == 1);
 		compileImportTag(section, "__cos_exception", exceptionTagTypeIndex);
 	}
