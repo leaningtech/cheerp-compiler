@@ -45,6 +45,8 @@ BUILTIN(__builtin_cheerp_get_thread_setup_resolve, "", "B")
 BUILTIN(__builtin_cheerp_get_thread_setup_reject, "", "B")
 BUILTIN(__builtin_cheerp_atomic_wait, "iv*iLLi", "")
 BUILTIN(__builtin_cheerp_atomic_notify, "iv*i", "")
+BUILTIN(__builtin_cheerp_func_id, "Ui", "")
+BUILTIN(__builtin_cheerp_func_offset, "Ui", "")
 
 // SIMD builtins
 TARGET_BUILTIN(__builtin_wasm_swizzle_i8x16, "V16ScV16ScV16Sc", "nc", "simd128")

@@ -351,6 +351,8 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 			case Intrinsic::cheerp_typed_ptrcast:
 			case Intrinsic::cheerp_upcast_collapsed:
 			case Intrinsic::cheerp_make_regular:
+			case Intrinsic::cheerp_func_id:
+			case Intrinsic::cheerp_func_offset:
 				return true;
 			default:
 				break;

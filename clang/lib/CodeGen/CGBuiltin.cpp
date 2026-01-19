@@ -12608,6 +12608,14 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
     Function *F = CGM.getIntrinsic(Intrinsic::cheerp_throw, Tys);
     return EmitCallOrInvoke(F, Ops);
   }
+  else if (BuiltinID == Cheerp::BI__builtin_cheerp_func_id) {
+    Function *F = CGM.getIntrinsic(Intrinsic::cheerp_func_id);
+    return Builder.CreateCall(F, Ops);
+  }
+  else if (BuiltinID == Cheerp::BI__builtin_cheerp_func_offset) {
+    Function *F = CGM.getIntrinsic(Intrinsic::cheerp_func_offset);
+    return Builder.CreateCall(F, Ops);
+  }
   else if (BuiltinID == Cheerp::BI__builtin_wasm_shuffle_i8x16) {
     Value *Ops[18];
     size_t OpIdx = 0;
