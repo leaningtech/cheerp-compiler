@@ -1021,6 +1021,17 @@ void CheerpWasmWriter::encodePredicate(const llvm::Type* ty, const llvm::CmpInst
 	}
 }
 
+void CheerpWasmWriter::encodeFuncId(WasmBuffer& code, const llvm::Function* F)
+{
+	uint32_t thisFunctionId = linearHelper.getFunctionIds().at(F);
+	encodeInst(WasmS32Opcode::I32_CONST, thisFunctionId, code);
+}
+
+void CheerpWasmWriter::encodeFuncOffset(WasmBuffer& code)
+{
+	encodeInst(WasmS32Opcode::I32_CONST, code.tell(), code);
+}
+
 void CheerpWasmWriter::encodeLoad(llvm::Type* ty, uint32_t offset,
 		Align align, WasmBuffer& code, bool signExtend, bool atomic)
 {
@@ -3081,6 +3092,16 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 							assert(localId < (currentFun->arg_size() + localMap.size()));
 						}
 						encodeStore(value->getType(), localId * 8, Align(8), code, false);
+						return false;
+					}
+					case Intrinsic::cheerp_func_id:
+					{
+						encodeFuncId(code, currentFun);
+						return false;
+					}
+					case Intrinsic::cheerp_func_offset:
+					{
+						encodeFuncOffset(code);
 						return false;
 					}
 					case Intrinsic::ctlz:
