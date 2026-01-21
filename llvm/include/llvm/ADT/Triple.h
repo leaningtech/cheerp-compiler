@@ -804,7 +804,7 @@ public:
   }
 
   bool isCheerpOS() const {
-    return isCheerpOSStandalone();
+    return isCheerpOSStandalone() || (getArch() == Triple::cheerp && getOS() == Triple::Linux);
   }
 
   bool isCheerpWasmStandalone() const {
