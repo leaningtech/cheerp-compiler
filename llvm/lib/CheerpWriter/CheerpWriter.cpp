@@ -6321,6 +6321,9 @@ void CheerpWriter::compileAssignHeaps(bool wasm)
 			continue;
 		stream << getHeapName(i) << "=new " << typedArrayNames[i] << "(" << shortestName << ");" << NewLine;
 	}
+	Triple triple(module.getTargetTriple());
+	if(triple.isCheerpOS())
+		stream << "cheerpOSApi.setMemory(" << shortestName << ");" << NewLine;
 	stream << "}" << NewLine;
 }
 
@@ -6644,12 +6647,24 @@ void CheerpWriter::compileHelpers()
 
 void CheerpWriter::compileImports()
 {
+	Triple triple(module.getTargetTriple());
+	StringRef dummy = namegen.getBuiltinName(NameGenerator::Builtin::DUMMY);
 	for (const Function* imported: globalDeps.asmJSImports())
 	{
-		stream << getName(imported, 0) << ':';
+		StringRef name = getName(imported, 0);
+		if(triple.isCheerpOS() && TypeSupport::isCheerpOSFuncName(imported->getName()))
+			stream << imported->getName();
+		else if(triple.isCheerpOS() && TypeSupport::isWasiFuncName(imported->getName()))
+		{
+			// Skip, we'll iterate again in the appropriate module
+			continue;
+		}
+		else
+			stream << name;
+		stream << ":";
 		if (!imported->empty())
 		{
-			stream << getName(imported, 0);
+			stream << name;
 		}
 		else if (TypeSupport::isClientFunc(imported))
 		{
@@ -6663,9 +6678,18 @@ void CheerpWriter::compileImports()
 		}
 		else
 		{
-			stream << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY);
+			stream << dummy;
 		}
 		stream << ',' << NewLine;
+	}
+	if(triple.isCheerpOS())
+	{
+		stream << "__exc_pad_32:" << dummy << ',' << NewLine;
+		stream << "__exc_pad_64:" << dummy << ',' << NewLine;
+		stream << "__exc_pad_f:" << dummy << ',' << NewLine;
+		stream << "__exc_pad_d:" << dummy << ',' << NewLine;
+		stream << "__exc_pad_v:" << dummy << ',' << NewLine;
+		stream << "__cos_exception:" << dummy << ',' << NewLine;
 	}
 }
 
@@ -6918,8 +6942,20 @@ void CheerpWriter::compileWasmLoader()
 
 		stream << dummyName << ".promise=" << dummyName << ".promise.then(" << shortestName << "=>" << NewLine;
 	}
+	Triple triple(module.getTargetTriple());
+	if(triple.isCheerpOS())
+	{
+		// Open a new block, we need more than one statement
+		stream << "{" << NewLine;
+		stream << "cheerpOSApi.setWasmCode(" << shortestName << ");" << NewLine;
+		// Since we need to add a block we also need to add a return statement
+		stream << "return ";
+	}
 	stream << "WebAssembly.instantiate(" << shortestName << "," << NewLine;
-	stream << "{i:{" << NewLine;
+	stream << "{i:";
+	if(triple.isCheerpOS())
+		stream << "cheerpOSApi.filterImports('i',";
+	stream << "{" << NewLine;
 	// Import the memory.
 	StringRef memoryName = namegen.getBuiltinName(NameGenerator::Builtin::MEMORY);
 	if (LowerAtomics)
@@ -6954,7 +6990,25 @@ void CheerpWriter::compileWasmLoader()
 		stream << namegen.getBuiltinName(NameGenerator::Builtin::GROW_MEM);
 		stream << ',' << NewLine;
 	}
-	stream << "}})" << NewLine;
+	stream << "}";
+	if(triple.isCheerpOS())
+	{
+		stream << "),wasi_snapshot_preview1:cheerpOSApi.filterImports('wasi_snapshot_preview1',{";
+		for (const Function* imported: globalDeps.asmJSImports())
+		{
+			StringRef importedName = imported->getName();
+			if(!TypeSupport::isWasiFuncName(importedName))
+			{
+				// Skip, we'll iterate again in the appropriate module
+				continue;
+			}
+			stream << TypeSupport::getWasiFuncName(importedName) << ':' << dummyName << ',' << NewLine;
+		}
+		stream << "})" << NewLine;
+	}
+	stream << "})" << NewLine;
+	if(triple.isCheerpOS())
+		stream << "}" << NewLine;
 	if (LowerAtomics)
 	{
 		stream << ").then(" << shortestName << "=>{" << NewLine;
@@ -6978,6 +7032,8 @@ void CheerpWriter::compileWasmLoader()
 		stream << dummyName << ".promise=" << dummyName << ".promise.then(" << shortestName << "=>{" << NewLine;
 		stream << threadObject << ".module=" << shortestName << ".module;" << NewLine;
 		stream << "__asm=" << shortestName << ".instance.exports;" << NewLine;
+		if(triple.isCheerpOS())
+			stream << "cheerpOSApi.setProgramExports(__asm);" << NewLine;
 	}
 }
 
@@ -7334,6 +7390,9 @@ void CheerpWriter::compileWorkerMainScript()
 		stream << "return ";
 	stream << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) << ".promise.then(" << shortestName << "=>{" << NewLine;
 	stream << "__asm=" << shortestName << ".exports;" << NewLine;
+	Triple triple(module.getTargetTriple());
+	if(triple.isCheerpOS())
+		stream << "cheerpOSApi.setProgramExports(__asm);" << NewLine;
 	compileDefineExports();
 	// This helper is always available when emitting non-standalone Wasm with threading enabled
 	llvm::Function* setStack = module.getFunction("__setStackPtr");

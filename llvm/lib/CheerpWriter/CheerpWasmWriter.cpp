@@ -4980,7 +4980,9 @@ void CheerpWasmWriter::compileImportSection()
 
 	for (const Function* F : globalDeps.asmJSImports())
 	{
-		StringRef name = useWasmLoader ? namegen.getName(F, 0) : F->getName();
+		StringRef name = F->getName();
+		if(useWasmLoader && (!isCheerpOS || !TypeSupport::isCheerpOSFuncName(name)))
+			name = namegen.getName(F, 0);
 		compileImport(section, name, F->getFunctionType());
 	}
 
