@@ -978,6 +978,11 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(const
 		stream << namegen.getBuiltinName(NameGenerator::Builtin::THREADINGOBJECT);
 		return COMPILE_OK;
 	}
+	else if(intrinsicId==Intrinsic::cheerp_get_threading_object_name)
+	{
+		stream << '"' << namegen.getBuiltinName(NameGenerator::Builtin::THREADINGOBJECTWORKER) << '"';
+		return COMPILE_OK;
+	}
 	else if(intrinsicId==Intrinsic::cheerp_get_threading_script)
 	{
 		StringRef threadingObject = namegen.getBuiltinName(NameGenerator::Builtin::THREADINGOBJECT);

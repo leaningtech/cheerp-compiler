@@ -103,6 +103,8 @@ def int_cheerp_data_drop : Intrinsic<[llvm_i32_ty],
 
 def int_cheerp_get_threading_object : Intrinsic<[llvm_anyptr_ty]>;
 
+def int_cheerp_get_threading_object_name : Intrinsic<[llvm_anyptr_ty]>;
+
 def int_cheerp_get_threading_script : Intrinsic<[llvm_anyptr_ty]>;
 
 def int_cheerp_get_thread_pointer : Intrinsic<[llvm_i32_ty]>;
