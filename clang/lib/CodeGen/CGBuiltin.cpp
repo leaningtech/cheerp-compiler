@@ -12563,6 +12563,11 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
     Function *F = CGM.getIntrinsic(Intrinsic::cheerp_get_threading_object, Tys);
     return Builder.CreateCall(F, Ops);
   }
+  else if (BuiltinID == Cheerp::BI__builtin_cheerp_get_threading_object_name) {
+    llvm::Type *Tys[] = { ConvertType(E->getType()) };
+    Function *F = CGM.getIntrinsic(Intrinsic::cheerp_get_threading_object_name, Tys);
+    return Builder.CreateCall(F, Ops);
+  }
   else if (BuiltinID == Cheerp::BI__builtin_cheerp_get_threading_script) {
     llvm::Type *Tys[] = { ConvertType(E->getType()) };
     Function *F = CGM.getIntrinsic(Intrinsic::cheerp_get_threading_script, Tys);
