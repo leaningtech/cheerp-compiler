@@ -7301,8 +7301,9 @@ void CheerpWriter::compileCommonJSExports()
 
 void CheerpWriter::compileEntryPoint()
 {
-	// Compile call to _startPreThread instead if -pthread is linked.
-	StringRef entryName = LowerAtomics ? "_start" : "_startPreThread";
+	// Compile call to _startPreThread instead if -pthread is linked and the utility thread is used.
+	Triple triple(module.getTargetTriple());
+	StringRef entryName = LowerAtomics || triple.isCheerpOS() ? "_start" : "_startPreThread";
 	const Function * entryPoint = module.getFunction(entryName);
 	if (entryPoint)
 	{
@@ -7480,8 +7481,9 @@ void CheerpWriter::makeJS()
 	compileDefineExports();
 	compileEntryPoint();
 
-	// If -pthread is linked in, we want to return the thread setup promise here.
-	if (!LowerAtomics)
+	// If -pthread is linked in and the utilty thread is used, we want to return the thread setup promise here.
+	Triple triple(module.getTargetTriple());
+	if (!LowerAtomics && !triple.isCheerpOS())
 	{
 		stream << "return " << namegen.getBuiltinName(NameGenerator::Builtin::THREADSETUPPROMISE) << ";" << NewLine;
 		// If we are in ES6 or CommonJS module mode, chain the thread setup promise here.

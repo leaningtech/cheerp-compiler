@@ -839,6 +839,9 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 		}
 	}
 
+	Triple triple(module.getTargetTriple());
+	bool isCheerpOS = triple.isCheerpOS();
+
 	llvm::Function* startFunc = module.getFunction("_start");
 	if (startFunc)
 	{
@@ -846,7 +849,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 		extendLifetime(startFunc);
 		if (startFunc->getSection() == "asmjs")
 			asmJSExportedFunctions.insert(startFunc);
-		else if (LinearOutput == LinearOutputTy::Wasm && LowerAtomics)
+		else if (LinearOutput == LinearOutputTy::Wasm && (LowerAtomics || isCheerpOS))
 		{
 			// Because memory_init is empty, it will not be automatically tagged as asmjs
 			// when the _start function is not, but it should. So we do it manually.
@@ -861,10 +864,10 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	}
 	entryPoint = startFunc;
 
-	bool isWasi = Triple(module.getTargetTriple()).getOS() == Triple::WASI;
+	bool isWasi = triple.getOS() == Triple::WASI;
 
 	// If -pthread is linked in, and this is not WASI mode, keep the _startPreThread function alive.
-	if (!LowerAtomics && !isWasi)
+	if (!LowerAtomics && !isWasi && !isCheerpOS)
 	{
 		llvm::Function* startPreThread = module.getFunction("_startPreThread");
 		if (startPreThread)
