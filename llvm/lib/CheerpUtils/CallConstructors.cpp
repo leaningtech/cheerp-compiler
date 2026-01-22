@@ -31,7 +31,8 @@ PreservedAnalyses CallConstructorsPass::run(llvm::Module &M, llvm::ModuleAnalysi
 {
 	Triple triple = Triple(M.getTargetTriple());
 	bool isWasmStandalone = triple.isCheerpWasmStandalone();
-	bool useUtilityThread = !LowerAtomics && !isWasmStandalone;
+	bool isCheerpOS = triple.isCheerpOS();
+	bool useUtilityThread = !LowerAtomics && !isWasmStandalone && !isCheerpOS;
 	FunctionType* Ty = FunctionType::get(Type::getVoidTy(M.getContext()), false);
 	Function* StartFunction = cast<Function>(M.getOrInsertFunction("_start", Ty).getCallee());
 	if (!StartFunction->empty())
