@@ -485,6 +485,9 @@ public:
 				if (!calledFunc)
 					return true;
 
+				if (calledFunc->getIntrinsicID() == Intrinsic::cheerp_typed_ptrcast)
+					return false;
+
 				if (isAlreadyInCallStack(calledFunc))
 					return true;
 
@@ -1744,7 +1747,24 @@ void PartialInterpreter::visitOuter(FunctionData& data, llvm::Instruction& I)
 
 	//Iff it's a call, set up the next stack frame
 	if (CallInst* CI = dyn_cast<CallInst>(&I))
+	{
+		const Function* calledFunc = dyn_cast_or_null<Function>(cast<CallInst>(I).getCalledFunction());
+		if (calledFunc->getIntrinsicID() == Intrinsic::cheerp_typed_ptrcast)
+		{
+			Value* srcPtr = CI->getArgOperand(0);
+			BitMask strongBits = getBitMask(srcPtr);
+			GlobalVariable* ptrBase = getPointerBase(srcPtr);
+			if (isValueComputed(srcPtr))
+			{
+				GenericValue GV = getOperandValue(srcPtr);
+                assignToMaps(&I, strongBits, GV, ptrBase);
+			}
+			else
+				assignToMaps(&I, strongBits, ptrBase);
+			return;
+		}
 		forwardArgumentsToNextFrame(*CI);
+	}
 
 	//Dispatch to the Interpreter's visitor for the given Instructon
 	Interpreter::visit(I);
