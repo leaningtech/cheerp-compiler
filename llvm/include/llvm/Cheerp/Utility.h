@@ -435,7 +435,7 @@ public:
 			return false;
 	}
 
-	static bool isClientPtrType(llvm::PointerType* ptr)
+	static bool isClientPtrType(const llvm::PointerType* ptr)
 	{
 		return isClientType(ptr->getPointerElementType());
 	}
