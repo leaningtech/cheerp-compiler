@@ -3342,7 +3342,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 		{
 			Constant* C = currentFun->getPersonalityFn();
 			assert(C);
-			Value* PersonalityF = C->getOperand(0);
+			Value* PersonalityF = C->stripPointerCasts();
 			compileOperand(PersonalityF);
 			stream <<'(';
 			if(I.use_empty())
