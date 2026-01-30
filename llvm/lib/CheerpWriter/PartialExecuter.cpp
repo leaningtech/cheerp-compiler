@@ -69,6 +69,7 @@ typedef llvm::DenseSet<std::pair<GlobalVariable*, uint32_t> > NewAlignmentData;
 namespace cheerp {
 
 const uint32_t MAX_NUMBER_OF_VISITS_PER_BB = 100u;
+const uint32_t MAX_INSTRUCTIONS_PER_FUNCTION = 3000u;
 
 class FunctionData;
 class ModuleData;
@@ -630,10 +631,6 @@ public:
 		}
 		return nullptr;
 	}
-	bool addToCounter(const llvm::Function* F)
-	{
-		return (++functionCounters[F] > 0x1000);
-	}
 	void visitOuter(FunctionData& data, llvm::Instruction& I, bool& BBProgress);
 	bool replaceKnownCEs()
 	{
@@ -891,12 +888,15 @@ class FunctionData
 	typedef std::vector<Value*> VectorOfArgs;
 
 	llvm::DenseMap<const llvm::BasicBlock*, int> visitCounter;
+	llvm::DenseSet<llvm::BasicBlock*> visitedBasicBlocks;
 	llvm::DenseSet<std::pair<const llvm::BasicBlock*, const llvm::BasicBlock*> > visitedEdges;
 	llvm::DenseMap<llvm::Instruction*, KnownValue> knownValues;
 	ModuleData& moduleData;
 
 	std::vector<VectorOfArgs> callEquivalentQueue;
 	PartialInterpreter* currentEE;
+	uint32_t instructionsCounter;
+	uint32_t totalBasicBlocks;
 
 	VectorOfArgs getArguments(const llvm::CallBase* callBase)
 	{
@@ -972,8 +972,10 @@ class FunctionData
 	}
 public:
 	explicit FunctionData(llvm::Function& F, ModuleData& moduleData)
-		: F(F), moduleData(moduleData), currentEE(nullptr)
+		: F(F), moduleData(moduleData), currentEE(nullptr), instructionsCounter(0), totalBasicBlocks(0)
 	{
+		for (BasicBlock& bb : F)
+			totalBasicBlocks++;
 	}
 	llvm::Function* getFunction()
 	{
@@ -986,6 +988,18 @@ public:
 	void incrementVisitCounter(const llvm::BasicBlock* BB)
 	{
 		visitCounter[BB]++;
+	}
+	uint32_t getInstructionsCounter()
+	{
+		return instructionsCounter;
+	}
+	void incrementInstructionsCounter()
+	{
+		instructionsCounter++;
+	}
+	void insertBasicBlock(llvm::BasicBlock* BB)
+	{
+		visitedBasicBlocks.insert(BB);
 	}
 	PartialInterpreter& getInterpreter()
 	{
@@ -1024,6 +1038,8 @@ public:
 	}
 	void visitCallEquivalent(const VectorOfArgs& arguments)
 	{
+		// Reset per-visit instruction counter
+		instructionsCounter = 0;
 		currentEE = moduleData.setUpPartialInterpreter(F);
 
 		// Insert the arguments in the map
@@ -1120,6 +1136,8 @@ public:
 		{
 			visitCounter.clear();
 			visitCallEquivalent(toBeVisited);
+			if (visitedBasicBlocks.size() == totalBasicBlocks)
+				break;
 		}
 	}
 	void visitCallBase(const llvm::CallBase* callBase)
@@ -1508,6 +1526,7 @@ public:
 		interpreter.incomingBB = nullptr;
 		for (llvm::BasicBlock* bb : blocks)
 		{
+			data.insertBasicBlock(bb);
 			for (llvm::Instruction& I : *bb)
 			{
 				interpreter.removeFromMaps(&I);
@@ -1544,6 +1563,13 @@ public:
 			visitAll();
 			return false;
 		}
+
+		if (data.getInstructionsCounter() >= MAX_INSTRUCTIONS_PER_FUNCTION)
+		{
+			visitAll();
+			return false;
+		}
+
 		assert(start);	//isReachable && !isMultiHead implies start being defined
 		currIter = data.getVisitCounter(start);
 
@@ -1666,6 +1692,8 @@ void FunctionData::actualVisit()
 
 void PartialInterpreter::visitOuter(FunctionData& data, llvm::Instruction& I, bool& BBProgress)
 {
+	data.incrementInstructionsCounter();
+	
 	if (PHINode* phi = dyn_cast<PHINode>(&I))
 	{
 		// PHI have to be execute concurrently (since they may cross-reference themselves)
@@ -1758,9 +1786,6 @@ void PartialInterpreter::visitOuter(FunctionData& data, llvm::Instruction& I, bo
 			}
 			skip = true;
 		}
-
-		if (addToCounter(I.getFunction()))
-			skip = true;
 
 		//We are inside a call, here we assume all failure to execute are non-recoverable (as in no information could be gained)
 		if (skip)
