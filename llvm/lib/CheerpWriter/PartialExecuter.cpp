@@ -888,6 +888,7 @@ class FunctionData
 	typedef std::vector<Value*> VectorOfArgs;
 
 	llvm::DenseMap<const llvm::BasicBlock*, int> visitCounter;
+	llvm::DenseSet<llvm::BasicBlock*> visitedBasicBlocks;
 	llvm::DenseSet<std::pair<const llvm::BasicBlock*, const llvm::BasicBlock*> > visitedEdges;
 	llvm::DenseMap<llvm::Instruction*, KnownValue> knownValues;
 	ModuleData& moduleData;
@@ -895,6 +896,7 @@ class FunctionData
 	std::vector<VectorOfArgs> callEquivalentQueue;
 	PartialInterpreter* currentEE;
 	uint32_t instructionsCounter;
+	uint32_t totalBasicBlocks;
 
 	VectorOfArgs getArguments(const llvm::CallBase* callBase)
 	{
@@ -970,8 +972,10 @@ class FunctionData
 	}
 public:
 	explicit FunctionData(llvm::Function& F, ModuleData& moduleData)
-		: F(F), moduleData(moduleData), currentEE(nullptr)
+		: F(F), moduleData(moduleData), currentEE(nullptr), instructionsCounter(0), totalBasicBlocks(0)
 	{
+		for (BasicBlock& bb : F)
+			totalBasicBlocks++;
 	}
 	llvm::Function* getFunction()
 	{
@@ -992,6 +996,10 @@ public:
 	void incrementInstructionsCounter()
 	{
 		instructionsCounter++;
+	}
+	void insertBasicBlock(llvm::BasicBlock* BB)
+	{
+		visitedBasicBlocks.insert(BB);
 	}
 	PartialInterpreter& getInterpreter()
 	{
@@ -1128,6 +1136,8 @@ public:
 		{
 			visitCounter.clear();
 			visitCallEquivalent(toBeVisited);
+			if (visitedBasicBlocks.size() == totalBasicBlocks)
+				break;
 		}
 	}
 	void visitCallBase(const llvm::CallBase* callBase)
@@ -1516,6 +1526,7 @@ public:
 		interpreter.incomingBB = nullptr;
 		for (llvm::BasicBlock* bb : blocks)
 		{
+			data.insertBasicBlock(bb);
 			for (llvm::Instruction& I : *bb)
 			{
 				interpreter.removeFromMaps(&I);
