@@ -69,6 +69,7 @@ typedef llvm::DenseSet<std::pair<GlobalVariable*, uint32_t> > NewAlignmentData;
 namespace cheerp {
 
 const uint32_t MAX_NUMBER_OF_VISITS_PER_BB = 100u;
+const uint32_t MAX_INSTRUCTIONS_PER_FUNCTION = 3000u;
 
 class FunctionData;
 class ModuleData;
@@ -630,10 +631,6 @@ public:
 		}
 		return nullptr;
 	}
-	bool addToCounter(const llvm::Function* F)
-	{
-		return (++functionCounters[F] > 0x1000);
-	}
 	void visitOuter(FunctionData& data, llvm::Instruction& I, bool& BBProgress);
 	bool replaceKnownCEs()
 	{
@@ -897,6 +894,7 @@ class FunctionData
 
 	std::vector<VectorOfArgs> callEquivalentQueue;
 	PartialInterpreter* currentEE;
+	uint32_t functionInstructionCounter;
 
 	VectorOfArgs getArguments(const llvm::CallBase* callBase)
 	{
@@ -987,6 +985,14 @@ public:
 	{
 		visitCounter[BB]++;
 	}
+	uint32_t getFunctionInstructionCounter()
+	{
+		return functionInstructionCounter;
+	}
+	void incrementFunctionInstructionCounter()
+	{
+		functionInstructionCounter++;
+	}
 	PartialInterpreter& getInterpreter()
 	{
 		// currentEE will be non-null while visiting a Call Equivalent
@@ -1024,6 +1030,8 @@ public:
 	}
 	void visitCallEquivalent(const VectorOfArgs& arguments)
 	{
+		// Reset per-visit instruction counter
+		functionInstructionCounter = 0;
 		currentEE = moduleData.setUpPartialInterpreter(F);
 
 		// Insert the arguments in the map
@@ -1544,6 +1552,13 @@ public:
 			visitAll();
 			return false;
 		}
+
+		if (data.getFunctionInstructionCounter() >= MAX_INSTRUCTIONS_PER_FUNCTION)
+		{
+			visitAll();
+			return false;
+		}
+
 		assert(start);	//isReachable && !isMultiHead implies start being defined
 		currIter = data.getVisitCounter(start);
 
@@ -1666,6 +1681,8 @@ void FunctionData::actualVisit()
 
 void PartialInterpreter::visitOuter(FunctionData& data, llvm::Instruction& I, bool& BBProgress)
 {
+	data.incrementFunctionInstructionCounter();
+	
 	if (PHINode* phi = dyn_cast<PHINode>(&I))
 	{
 		// PHI have to be execute concurrently (since they may cross-reference themselves)
@@ -1758,9 +1775,6 @@ void PartialInterpreter::visitOuter(FunctionData& data, llvm::Instruction& I, bo
 			}
 			skip = true;
 		}
-
-		if (addToCounter(I.getFunction()))
-			skip = true;
 
 		//We are inside a call, here we assume all failure to execute are non-recoverable (as in no information could be gained)
 		if (skip)
