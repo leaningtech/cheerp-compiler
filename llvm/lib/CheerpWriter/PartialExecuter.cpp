@@ -888,6 +888,7 @@ class FunctionData
 	typedef std::vector<Value*> VectorOfArgs;
 
 	llvm::DenseMap<const llvm::BasicBlock*, int> visitCounter;
+	llvm::DenseSet<llvm::BasicBlock*> visitedBasicBlocks;
 	llvm::DenseSet<std::pair<const llvm::BasicBlock*, const llvm::BasicBlock*> > visitedEdges;
 	llvm::DenseMap<llvm::Instruction*, KnownValue> knownValues;
 	ModuleData& moduleData;
@@ -970,7 +971,7 @@ class FunctionData
 	}
 public:
 	explicit FunctionData(llvm::Function& F, ModuleData& moduleData)
-		: F(F), moduleData(moduleData), currentEE(nullptr)
+		: F(F), moduleData(moduleData), currentEE(nullptr), functionInstructionCounter(0)
 	{
 	}
 	llvm::Function* getFunction()
@@ -992,6 +993,10 @@ public:
 	void incrementFunctionInstructionCounter()
 	{
 		functionInstructionCounter++;
+	}
+	void markVisited(llvm::BasicBlock* BB)
+	{
+		visitedBasicBlocks.insert(BB);
 	}
 	PartialInterpreter& getInterpreter()
 	{
@@ -1128,6 +1133,8 @@ public:
 		{
 			visitCounter.clear();
 			visitCallEquivalent(toBeVisited);
+			if (visitedBasicBlocks.size() == F.size())
+				break;
 		}
 	}
 	void visitCallBase(const llvm::CallBase* callBase)
@@ -1516,6 +1523,7 @@ public:
 		interpreter.incomingBB = nullptr;
 		for (llvm::BasicBlock* bb : blocks)
 		{
+			data.markVisited(bb);
 			for (llvm::Instruction& I : *bb)
 			{
 				interpreter.removeFromMaps(&I);
