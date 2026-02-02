@@ -68,12 +68,13 @@ typedef llvm::DenseSet<std::pair<GlobalVariable*, uint32_t> > NewAlignmentData;
 
 namespace cheerp {
 
-const uint32_t MAX_NUMBER_OF_VISITS_PER_BB = 100u;
 const uint32_t MAX_INSTRUCTIONS_PER_FUNCTION = 3000u;
+const uint32_t MAX_INSTRUCTIONS_PER_SCC = 2300u;
 const uint32_t MAX_CALL_SITES = 100u;
 
 class FunctionData;
 class ModuleData;
+class BasicBlockGroupNode;
 
 class PartialInterpreter : public llvm::Interpreter {
 	friend FunctionData;
@@ -303,7 +304,7 @@ public:
 		}
 		return nullptr;
 	}
-	llvm::BasicBlock* visitBasicBlock(FunctionData& data, llvm::BasicBlock& BB, bool& BBProgress);
+	llvm::BasicBlock* visitBasicBlock(FunctionData& data, BasicBlockGroupNode& BBGN, llvm::BasicBlock& BB, bool& BBProgress);
 	explicit PartialInterpreter(std::unique_ptr<llvm::Module> M)
 		: llvm::Interpreter(std::move(M), /*preExecute*/false)
 	{
@@ -632,7 +633,7 @@ public:
 		}
 		return nullptr;
 	}
-	void visitOuter(FunctionData& data, llvm::Instruction& I, bool& BBProgress);
+	void visitOuter(FunctionData& data, BasicBlockGroupNode& BBGN, llvm::Instruction& I, bool& BBProgress);
 	bool replaceKnownCEs()
 	{
 		if(fullyKnownCEs.empty())
@@ -787,7 +788,7 @@ static void removeEdgeBetweenBlocks(llvm::BasicBlock* from, llvm::BasicBlock* to
 	}
 }
 
-llvm::BasicBlock* PartialInterpreter::visitBasicBlock(FunctionData& data, llvm::BasicBlock& BB, bool& BBProgress)
+llvm::BasicBlock* PartialInterpreter::visitBasicBlock(FunctionData& data, BasicBlockGroupNode& BBGN, llvm::BasicBlock& BB, bool& BBProgress)
 {
 	ExecutionContext& executionContext = getTopCallFrame();
 	executionContext.CurBB = &BB;
@@ -798,7 +799,7 @@ llvm::BasicBlock* PartialInterpreter::visitBasicBlock(FunctionData& data, llvm::
 		// Note that here we could also execute a Call, and that implies adding a CallFrame
 		// executing there (possibly also in depth)
 		// So getTopCallFrame() has to be called since it will possibly change
-		visitOuter(data, *getTopCallFrame().CurInst++, BBProgress);
+		visitOuter(data, BBGN, *getTopCallFrame().CurInst++, BBProgress);
 	}
 
 	// Find (if there are enough information) the next BB to be visited
@@ -1402,6 +1403,7 @@ class BasicBlockGroupNode
 	llvm::BasicBlock* start;
 	llvm::BasicBlock* from;
 	uint32_t currIter;
+	uint32_t sccInstructionCounter;
 	llvm::DenseMap<llvm::BasicBlock*, uint32_t> minVisitIndex;
 	// TODO(carlo): an optmization might be having from be a set<BasicBlock>, conserving the phi that are equals
 
@@ -1426,7 +1428,7 @@ class BasicBlockGroupNode
 	void splitIntoSCCs(std::list<BasicBlockGroupNode>& queueToBePopulated, ReverseMapBBToGroup& blockToGroupMap);
 public:
 	BasicBlockGroupNode(FunctionData& data, BasicBlockGroupNode* parentBBGNode, const DeterministicBBSet& OWNEDblocks, llvm::BasicBlock* start = nullptr)
-		: parentNode(parentBBGNode), data(data), ownedBlocks(OWNEDblocks), blocks(ownedBlocks), isMultiHead(false), isReachable(parentNode == nullptr), SCCProgress(false), start(start), from(nullptr), visitingAll(false)
+		: parentNode(parentBBGNode), data(data), ownedBlocks(OWNEDblocks), blocks(ownedBlocks), isMultiHead(false), isReachable(parentNode == nullptr), SCCProgress(false), start(start), from(nullptr), sccInstructionCounter(0), visitingAll(false)
 	{
 		if (start)
 			assert(start->getParent() == data.getFunction());
@@ -1436,7 +1438,7 @@ public:
 	{
 	}
 	BasicBlockGroupNode(BasicBlockGroupNode& BBGNode)
-		: parentNode(&BBGNode), data(BBGNode.data), blocks(BBGNode.blocks), isMultiHead(false), isReachable(false), SCCProgress(false), start(nullptr), from(nullptr), visitingAll(false)
+		: parentNode(&BBGNode), data(BBGNode.data), blocks(BBGNode.blocks), isMultiHead(false), isReachable(false), SCCProgress(false), start(nullptr), from(nullptr), sccInstructionCounter(0), visitingAll(false)
 	{
 	}
 	void addIncomingEdge(llvm::BasicBlock* comingFrom, uint32_t currIter, llvm::BasicBlock* target)
@@ -1473,7 +1475,7 @@ public:
 
 		PartialInterpreter& interpreter = data.getInterpreter();
 		interpreter.incomingBB = from;
-		BasicBlock* ret = interpreter.visitBasicBlock(data, BB, BBProgress);
+		BasicBlock* ret = interpreter.visitBasicBlock(data, *this, BB, BBProgress);
 
 		if (ret)
 		{
@@ -1551,6 +1553,28 @@ public:
 				interpreter.removeFromMaps(&I);
 		}
 	}
+	BasicBlockGroupNode* getParent()
+	{
+		return parentNode;
+	}
+	void incrementSCCInstructionCounter()
+	{
+        sccInstructionCounter++;
+		if (parentNode)
+            parentNode->incrementSCCInstructionCounter();
+	}
+	uint32_t getSCCInstructionCounter()
+	{
+		if (parentNode)
+			return parentNode->getSCCInstructionCounter();
+		return sccInstructionCounter;
+	}
+	void resetSCCInstructionCounter()
+	{
+		sccInstructionCounter = 0;
+		if (parentNode)
+			parentNode->resetSCCInstructionCounter();
+	}
 	// Visit the tree of BasicBlockGroupNodes, starting from the root and visiting children depth-first
 	bool recursiveVisit()
 	{
@@ -1562,23 +1586,22 @@ public:
 			return false;
 		}
 
+		assert(start);	//isReachable && !isMultiHead implies start being defined
+		currIter = data.getVisitCounter(start);
+
 		if (data.getFunctionInstructionCounter() >= MAX_INSTRUCTIONS_PER_FUNCTION)
 		{
 			visitAll();
 			return false;
 		}
 
-		assert(start);	//isReachable && !isMultiHead implies start being defined
-		currIter = data.getVisitCounter(start);
-
-		if (currIter >= MAX_NUMBER_OF_VISITS_PER_BB)
+		if (parentNode && parentNode->getSCCInstructionCounter() >= MAX_INSTRUCTIONS_PER_SCC)
 		{
-			// We are visiting a given BasicBlock many times
-			// Since terminability is basically unprovable in general, we give up with the visit
-			//  --> Mark everything as reachable
 			visitAll();
+			resetSCCInstructionCounter();
 			return false;
 		}
+
 		if (parentNode)
 		{
 			for (auto& p : minVisitIndex)
@@ -1688,9 +1711,10 @@ void FunctionData::actualVisit()
 	groupData.recursiveVisit();
 }
 
-void PartialInterpreter::visitOuter(FunctionData& data, llvm::Instruction& I, bool& BBProgress)
+void PartialInterpreter::visitOuter(FunctionData& data, BasicBlockGroupNode& BBGN, llvm::Instruction& I, bool& BBProgress)
 {
 	data.incrementFunctionInstructionCounter();
+	BBGN.incrementSCCInstructionCounter();
 	
 	if (PHINode* phi = dyn_cast<PHINode>(&I))
 	{
@@ -1770,7 +1794,7 @@ void PartialInterpreter::visitOuter(FunctionData& data, llvm::Instruction& I, bo
 		{
 			BasicBlock* next = findNextBasicBlock(I);
 
-			if (next && data.getVisitCounter(next) < MAX_NUMBER_OF_VISITS_PER_BB)
+			if (next && BBGN.getParent() && BBGN.getParent()->getSCCInstructionCounter() < MAX_INSTRUCTIONS_PER_SCC)
 			{
 				data.incrementVisitCounter(next);
 
