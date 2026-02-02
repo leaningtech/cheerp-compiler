@@ -70,6 +70,7 @@ namespace cheerp {
 
 const uint32_t MAX_NUMBER_OF_VISITS_PER_BB = 100u;
 const uint32_t MAX_INSTRUCTIONS_PER_FUNCTION = 3000u;
+const uint32_t MAX_CALL_SITES = 100u;
 
 class FunctionData;
 class ModuleData;
@@ -1113,7 +1114,7 @@ public:
 			if (hasNoInfo(toBeVisited))
 				needsNoInfoCallSite = true;
 
-		if (callEquivalentQueue.size() >= MAX_NUMBER_OF_VISITS_PER_BB)
+		if (callEquivalentQueue.size() >= MAX_CALL_SITES)
 			needsNoInfoCallSite = true;
 
 		if (needsNoInfoCallSite)
