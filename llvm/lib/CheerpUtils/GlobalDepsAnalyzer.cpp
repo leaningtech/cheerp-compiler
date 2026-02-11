@@ -886,8 +886,6 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 			llvm::errs() << "warning: _startPreThread function point not found, and -pthread is linked\n";
 	}
 
-	processEnqueuedFunctions();
-
 	// Flush out all functions
 	processEnqueuedFunctions();
 
