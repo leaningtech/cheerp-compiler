@@ -835,7 +835,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 			uint32_t firstBase = cast<ConstantInt>(cast<ConstantAsMetadata>(basesMeta->getOperand(0))->getValue())->getZExtValue();
 			StructType * t = StructType::getTypeByName(module.getContext(), name.drop_back(6));
 			if (t)
-				basesInfo.emplace(t, firstBase);
+				basesInfo.try_emplace(t, firstBase);
 		}
 	}
 
@@ -1235,7 +1235,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 		}
 	}
 
-	std::unordered_set<llvm::Function*> modifiedFunctions;
+	llvm::DenseSet<llvm::Function*> modifiedFunctions;
 
 	//Processing has to be done in reverse, so that multiple unreachable callInst in the same BasicBlock are processed from the last to the first
 	//This avoid erasing the latter ones while processing the first

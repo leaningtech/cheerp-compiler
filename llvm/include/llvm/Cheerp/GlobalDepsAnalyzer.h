@@ -73,22 +73,22 @@ public:
 	/**
 	 * Get a list of the classes which require bases info
 	 */
-	const std::unordered_set<llvm::StructType*> & classesWithBaseInfo() const { return classesWithBaseInfoNeeded; }
+	const llvm::DenseSet<llvm::StructType*> & classesWithBaseInfo() const { return classesWithBaseInfoNeeded; }
 	
 	/**
 	 * Get a list of the classes which are allocated in the code
 	 */
-	const std::unordered_set<llvm::StructType*> & classesUsed() const { return classesNeeded; }
+	const llvm::DenseSet<llvm::StructType*> & classesUsed() const { return classesNeeded; }
 
 	/**
 	 * Get a list of the arrays which are dynamically allocated with unknown size
 	 */
-	const std::unordered_set<llvm::Type*> & dynAllocArrays() const { return arraysNeeded; }
+	const llvm::DenseSet<llvm::Type*> & dynAllocArrays() const { return arraysNeeded; }
 
 	/**
 	 * Get a list of the arrays which are dynamically resized
 	 */
-	const std::unordered_set<llvm::Type*> & dynResizeArrays() const { return arrayResizesNeeded; }
+	const llvm::DenseSet<llvm::Type*> & dynResizeArrays() const { return arrayResizesNeeded; }
 	
 	/**
 	 * Get a list of the asm.js functions called from genericjs
@@ -244,13 +244,13 @@ private:
 	//Determine whether an instruction is atomic.
 	bool isAtomicInstruction(const llvm::Instruction& I);
 
-	std::unordered_set< const llvm::GlobalValue * > reachableGlobals; // Set of all the reachable globals
+	llvm::DenseSet< const llvm::GlobalValue * > reachableGlobals; // Set of all the reachable globals
 	
 	FixupMap varsFixups;
-	std::unordered_set<llvm::StructType* > classesWithBaseInfoNeeded;
-	std::unordered_set<llvm::StructType* > classesNeeded;
-	std::unordered_set<llvm::Type* > arraysNeeded;
-	std::unordered_set<llvm::Type* > arrayResizesNeeded;
+	llvm::DenseSet<llvm::StructType* > classesWithBaseInfoNeeded;
+	llvm::DenseSet<llvm::StructType* > classesNeeded;
+	llvm::DenseSet<llvm::Type* > arraysNeeded;
+	llvm::DenseSet<llvm::Type* > arrayResizesNeeded;
 	DeterministicFunctionSet asmJSExportedFunctions;
 	DeterministicAliasSet asmJSExportedAliases;
 	DeterministicFunctionSet asmJSImportedFunctions;
@@ -259,7 +259,7 @@ private:
 	std::vector< llvm::GlobalValue * > externals;
 	std::vector< const llvm::Function* > functionsQueue;
 
-	std::unordered_map<llvm::StructType*, uint32_t> basesInfo;
+	llvm::DenseMap<llvm::StructType*, uint32_t> basesInfo;
 
 	std::array<bool, BuiltinInstr::numGenericBuiltins()> hasBuiltin;
 
