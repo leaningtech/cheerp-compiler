@@ -1062,7 +1062,6 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 
 	//Check agains the previous set what CallInstruction are actually impossible (and remove them)
 	std::vector<llvm::CallBase*> unreachList;
-	std::vector<std::pair<llvm::CallBase*, llvm::Function*> > devirtualizedCalls;
 
 	//Fixing function casts implies that new functions types will be created
 	//Exporting the table implies that functions can be added outside of our control
@@ -1104,7 +1103,6 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 						// Always an asmjs functions, thus it is ok to perform ptr to int conversions
 						replaceCallOfBitCastWithBitCastOfCall(*ci, false, true);
 
-						devirtualizedCalls.push_back({ci, toBeCalledFunc});
 					}
 					else
 					{
