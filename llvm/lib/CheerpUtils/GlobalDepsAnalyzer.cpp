@@ -188,12 +188,15 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 
 	simplifyCalls(module);
 
-	if (!llcPass)
-	{
-		for (Function& F : module.getFunctionList())
+	bool anyWasmFuncAddrTaken = false;
+	// Replace calls like 'printf("Hello!")' with 'puts("Hello!")'.
+	for (Function& F : module.getFunctionList()) {
+		bool asmjs = F.getSection() == StringRef("asmjs");
+		if (asmjs) {
+			anyWasmFuncAddrTaken |= F.hasAddressTaken();
+		}
+		if (!llcPass)
 		{
-			//Those intrinsics may come back as result of other optimizations
-			//And we may need the actual functions to lower the intrinsics
 			const auto builtinID = BuiltinInstr::getMathBuiltin(F);
 			const auto typedBuiltinID = TypedBuiltinInstr::getMathTypedBuiltin(F);
 
@@ -204,19 +207,9 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 				|| F.getName() == "memset"
 				|| F.getName() == "memmove")
 			{
-				if (TypedBuiltinInstr::isAlwaysExactNatively(typedBuiltinID))
-					continue;
-				extendLifetime(&F);
+				if (!TypedBuiltinInstr::isAlwaysExactNatively(typedBuiltinID))
+					extendLifetime(&F);
 			}
-		}
-	}
-
-	bool anyWasmFuncAddrTaken = false;
-	// Replace calls like 'printf("Hello!")' with 'puts("Hello!")'.
-	for (Function& F : module.getFunctionList()) {
-		bool asmjs = F.getSection() == StringRef("asmjs");
-		if (asmjs) {
-			anyWasmFuncAddrTaken |= F.hasAddressTaken();
 		}
 		for (BasicBlock& bb : F)
 		{
