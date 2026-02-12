@@ -66,57 +66,6 @@ static void createNullptrFunction(llvm::Module& module)
 	builder.CreateUnreachable();
 }
 
-void GlobalDepsAnalyzer::simplifyCalls(llvm::Module & module) const
-{
-	std::vector<llvm::CallInst*> deleteList;
-	auto LibCallReplacer = [](Instruction *I, Value *With)
-	{
-		I->replaceAllUsesWith(With);
-		I->eraseFromParent();
-	};
-	OptimizationRemarkEmitter ORE;
-	for (Function& F : module.getFunctionList()) {
-		FunctionAnalysisManager& FAM = MAM->getResult<FunctionAnalysisManagerModuleProxy>(module).getManager();
-		const llvm::TargetLibraryInfo* TLI = &FAM.getResult<TargetLibraryAnalysis>(F);
-		assert(TLI);
-		LibCallSimplifier callSimplifier(*DL, TLI, ORE, nullptr, nullptr, LibCallReplacer);
-
-		for (BasicBlock& bb : F)
-		{
-			for (Instruction& I : bb)
-			{
-				if (isa<CallBase>(I)) {
-					CallBase& cb = cast<CallBase>(I);
-
-					bool isAsmJS = F.getSection() == StringRef("asmjs");
-					//Replace call(bitcast) with bitcast(call)
-					//Might fail and leave the CI calling to a bitcast if the prerequisite are not met (eg. the number of paramethers differ)
-					replaceCallOfBitCastWithBitCastOfCall(cb, /*mayFail*/ true, isAsmJS);
-
-					Function* calledFunc = cb.getCalledFunction();
-
-					// Skip indirect calls
-					if (calledFunc == nullptr)
-						continue;
-
-					if (isa<CallInst>(I)) {
-						CallInst& ci = cast<CallInst>(I);
-						IRBuilder<> Builder(&ci);
-						if (Value* with = callSimplifier.optimizeCall(&ci, Builder)) {
-							ci.replaceAllUsesWith(with);
-							deleteList.push_back(&ci);
-							continue;
-						}
-					}
-				}
-			}
-		}
-	}
-	for (CallInst* ci : deleteList) {
-		ci->eraseFromParent();
-	}
-}
-
 void GlobalDepsAnalyzer::extendLifetime(GlobalValue* G)
 {
 	assert(G);
@@ -186,11 +135,22 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 			a.eraseFromParent();
 	}
 
-	simplifyCalls(module);
-
+	std::vector<llvm::CallInst*> deleteList;
+	auto LibCallReplacer = [](Instruction *I, Value *With)
+	{
+		I->replaceAllUsesWith(With);
+		I->eraseFromParent();
+	};
+	OptimizationRemarkEmitter ORE;
+	FunctionAnalysisManager& FAM = MAM->getResult<FunctionAnalysisManagerModuleProxy>(module).getManager();
 	bool anyWasmFuncAddrTaken = false;
 	// Replace calls like 'printf("Hello!")' with 'puts("Hello!")'.
 	for (Function& F : module.getFunctionList()) {
+
+		const llvm::TargetLibraryInfo* TLI = &FAM.getResult<TargetLibraryAnalysis>(F);
+		assert(TLI);
+		LibCallSimplifier callSimplifier(*DL, TLI, ORE, nullptr, nullptr, LibCallReplacer);
+
 		bool asmjs = F.getSection() == StringRef("asmjs");
 		if (asmjs) {
 			anyWasmFuncAddrTaken |= F.hasAddressTaken();
@@ -230,13 +190,25 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 				if (isAtomicInstruction(I))
 					hasAtomics = true;
 
+				if (isa<CallBase>(I)) {
+					CallBase& cb = cast<CallBase>(I);
+					replaceCallOfBitCastWithBitCastOfCall(cb, /*mayFail*/ true, AsmJs);
+				}
+
 				if (isa<CallInst>(I)) {
 					CallInst* ci = cast<CallInst>(&I);
 					Function* calledFunc = ci->getCalledFunction();
+					IRBuilder<> Builder(ci);
 
 					// Skip indirect calls
 					if (calledFunc == nullptr)
 						continue;
+
+					if (Value* with = callSimplifier.optimizeCall(ci, Builder)) {
+							ci->replaceAllUsesWith(with);
+							deleteList.push_back(ci);
+							continue;
+					}
 
 					if (Function* F = TypedBuiltinInstr::functionToLowerInto(*calledFunc, module))
 					{
@@ -742,6 +714,10 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 				}
 			}
 		}
+	}
+
+	for (CallInst* ci : deleteList) {
+		ci->eraseFromParent();
 	}
 
 	DenseSet<const Function*> droppedMathBuiltins;
