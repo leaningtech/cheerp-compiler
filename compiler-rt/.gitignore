@@ -4,3 +4,4 @@ clang_darwin
 multi_arch
 *.sw?
 *.pyc
+/build
