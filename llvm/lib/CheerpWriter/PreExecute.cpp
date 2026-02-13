@@ -511,7 +511,15 @@ static GenericValue pre_execute_print_value_handler(FunctionType *FT,
         else if (valueType->isFloatTy()){
             llvm::errs() << " " << llvm::format("%.10f", Args[i].FloatVal);
         }
+<<<<<<< HEAD
         else if (valueType->isIntegerTy(1)){
+=======
+        // else if (valueType->isIntegerTy(16)){
+        //     llvm::errs() << " " << Args[i].IntVal.getZExtValue();
+        // }
+        else if (valueType->isIntegerTy(1)){
+            // Boolean i1: print as 0/1 using zero-extension (avoid -1 from sign-extension)
+>>>>>>> db09f8240370 (added bool printing functionality in preexecute mode)
             llvm::errs() << " " << Args[i].IntVal.getZExtValue();
         }
         else if (valueType->isIntegerTy()){
