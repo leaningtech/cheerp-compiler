@@ -496,14 +496,13 @@ static GenericValue pre_execute_typed_ptrcast(FunctionType* FT, ArrayRef<Generic
 
 static GenericValue pre_execute_print_value_handler(FunctionType *FT,
         ArrayRef<GenericValue> Args, AttributeList Attrs)
-
 {
     ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
     const char* msg = reinterpret_cast <char*>(currentEE->GVTORP(Args[0]));
 
     llvm::errs() << msg;
 
-    for (int i = 1; i < Args.size(); ++i){
+    for (size_t i = 1; i < Args.size(); ++i){
         Type* valueType = FT->getParamType(i);
 
         if (valueType->isDoubleTy()){
@@ -512,14 +511,22 @@ static GenericValue pre_execute_print_value_handler(FunctionType *FT,
         else if (valueType->isFloatTy()){
             llvm::errs() << " " << llvm::format("%.10f", Args[i].FloatVal);
         }
+        // else if (valueType->isIntegerTy(16)){
+        //     llvm::errs() << " " << Args[i].IntVal.getZExtValue();
+        // }
+        else if (valueType->isIntegerTy(1)){
+            // Boolean i1: print as 0/1 using zero-extension (avoid -1 from sign-extension)
+            llvm::errs() << " " << Args[i].IntVal.getZExtValue();
+        }
         else if (valueType->isIntegerTy()){
             llvm::errs() << " " << Args[i].IntVal.getSExtValue();
         }
         else if (valueType->isPointerTy()){
             llvm::errs() << " " << reinterpret_cast<char *>(currentEE->GVTORP(Args[i]));
         }
-        else if (valueType)
+        else{
             llvm::errs() << " incompatible value type";
+        }
     }
 
     llvm::errs() << "\n";
@@ -538,7 +545,6 @@ static GenericValue assertEqualImpl(FunctionType *FT,
         llvm::errs() << msg << ": FAILURE\n";
         llvm::report_fatal_error("PreExecute test failed");
     }
-
     return GenericValue(0);
 }
 
