@@ -1,0 +1,11 @@
+/opt/cheerp/lib/libdemangle.bc
+/opt/cheerp/include/sanitizer/allocator_interface.h
+/opt/cheerp/include/sanitizer/asan_interface.h
+/opt/cheerp/include/sanitizer/common_interface_defs.h
+/opt/cheerp/include/sanitizer/lsan_interface.h
+/opt/cheerp/lib/asmjs/libclang_rt.asan-Cheerp.bc
+/opt/cheerp/lib/asmjs/libclang_rt.asan_cxx-Cheerp.bc
+/opt/cheerp/lib/asmjs/libclang_rt.asan_static-Cheerp.bc
+/opt/cheerp/lib/asmjs/libclang_rt.asan-preinit-Cheerp.bc
+/opt/cheerp/lib/asmjs/libclang_rt.asan-Cheerp.bc
+/opt/cheerp/share/asan_ignorelist.txt
