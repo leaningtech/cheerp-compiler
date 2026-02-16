@@ -152,6 +152,24 @@ jobs:
             mv ~/project/cheerp-utils/tests/testReport.test ~/project/<< parameters.target >><< parameters.asan >>testResults
       - store_artifacts:
           path: ~/project/<< parameters.target >><< parameters.asan >>testResults
+  test-new-suite:
+    parameters:
+      target:
+        type: string
+      asan:
+        type: string
+    executor: cheerp-large
+    steps:
+      - install-toolchain
+      - clone-cheerp-repo:
+          remote: https://github.com/leaningtech/cheerp-test
+          dir: cheerp-test
+          ref: << pipeline.parameters.cheerp-tests-commit >>
+      - run:
+          name: Run new tests
+          working_directory: ~/project/cheerp-test/tests
+          command: ./run_lit_tests.py ./tests/test20.cpp
+          timeout: 30m
   run-asan-tests:
     parameters:
       linear-output:
@@ -1055,6 +1073,7 @@ workflows:
     when:
       or:
         - equal: [ << pipeline.git.branch >>, "master" ]
+        - equal: [ << pipeline.git.branch >>, "testing_alex" ]
         - equal: [ << pipeline.trigger_source >>, "api" ]
     jobs:
       - define-version-no
@@ -1085,6 +1104,22 @@ workflows:
                 asan: "--asan"
           requires:
             - build-cheerp-toolchain
+      - test-new-suite:
+          matrix:
+            parameters:
+              target: ["genericjs", "asmjs", "wasm", "preexecute", "preexecute-asmjs"]
+              asan: ["", "--asan"]
+            exclude:
+              - target: "genericjs"
+                asan: "--asan"
+              - target: "preexecute"
+                asan: "--asan"
+          requires:
+            - build-cheerp-toolchain
+          filters:
+            branches:
+              only:
+                - testing_alex
       - run-asan-tests:
           matrix:
             parameters:
