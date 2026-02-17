@@ -164,12 +164,12 @@ jobs:
       - clone-cheerp-repo:
           remote: https://github.com/leaningtech/cheerp-test
           dir: cheerp-test
-          ref: << pipeline.parameters.cheerp-tests-commit >>
+          ref: << pipeline.git.branch >>
       - run:
           name: Run new tests
           working_directory: ~/project/cheerp-test/tests
-          command: ./run_lit_tests.py ./tests/test20.cpp
-          timeout: 30m
+          command: ./run_lit_tests.py --<< parameters.target >> << parameters.asan >> codegen/test20.cpp
+          no_output_timeout: 30m
   run-asan-tests:
     parameters:
       linear-output:
