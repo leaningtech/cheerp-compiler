@@ -164,6 +164,7 @@ jobs:
       - clone-cheerp-repo:
           remote: https://github.com/leaningtech/cheerp-test
           dir: cheerp-test
+          ref: main
       - run:
           name: Run new tests
           working_directory: ~/project/cheerp-test/tests
