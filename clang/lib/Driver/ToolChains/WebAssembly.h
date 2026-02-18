@@ -47,7 +47,8 @@ namespace cheerp {
     BRANCHHINTS,
     SIMD,
     GLOBALIZATION,
-    UNALIGNEDMEM
+    UNALIGNEDMEM,
+    MAPPEDMEMORY
   };
   std::vector<CheerpWasmOpt> getWasmFeatures(const Driver& D, const llvm::Triple& triple, const llvm::opt::ArgList& Args);
 
