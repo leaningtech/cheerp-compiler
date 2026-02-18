@@ -837,6 +837,7 @@ static cheerp::CheerpWasmOpt parseWasmOpt(StringRef opt)
     .Case("simd", cheerp::SIMD)
     .Case("globalization", cheerp::GLOBALIZATION)
     .Case("unalignedmem", cheerp::UNALIGNEDMEM)
+    .Case("mappedmemory", cheerp::MAPPEDMEMORY)
     .Default(cheerp::INVALID);
 }
 
@@ -1053,6 +1054,9 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
         break;
       case UNALIGNEDMEM:
         noUnalignedMem = false;
+        break;
+      case MAPPEDMEMORY:
+        CmdArgs.push_back("-cheerp-wasm-mapped-memory");
         break;
       default:
         llvm_unreachable("invalid wasm option");

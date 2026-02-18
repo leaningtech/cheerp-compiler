@@ -58,6 +58,7 @@ extern llvm::cl::opt<bool> WasmReturnCalls;
 extern llvm::cl::opt<bool> WasmNoSIMD;
 extern llvm::cl::opt<bool> WasmNoGlobalization;
 extern llvm::cl::opt<bool> WasmNoUnalignedMem;
+extern llvm::cl::opt<bool> WasmMappedMemory;
 extern llvm::cl::opt<bool> WasmSharedModule;
 extern llvm::cl::opt<bool> UseBigInts;
 extern llvm::cl::opt<bool> KeepInvokes;

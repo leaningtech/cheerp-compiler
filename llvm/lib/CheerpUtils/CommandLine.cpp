@@ -88,6 +88,8 @@ llvm::cl::opt<bool> WasmNoGlobalization("cheerp-wasm-no-globalization", llvm::cl
 
 llvm::cl::opt<bool> WasmNoUnalignedMem("cheerp-wasm-no-unaligned-mem", llvm::cl::desc("Disable the use of unaligned load/stores in optimizations"));
 
+llvm::cl::opt<bool> WasmMappedMemory("cheerp-wasm-mapped-memory", llvm::cl::desc("Enable checked load/store for mapped memory"));
+
 llvm::cl::opt<bool> WasmSharedModule("cheerp-wasm-shared-module", llvm::cl::desc("Enable generation of a dynamically loaded module"));
 
 llvm::cl::opt<bool> UseBigInts("cheerp-use-bigints", llvm::cl::desc("Use the BigInt type in JS to represent i64 values"));

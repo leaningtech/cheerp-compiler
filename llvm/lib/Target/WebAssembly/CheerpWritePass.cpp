@@ -267,7 +267,8 @@ bool CheerpWritePass::runOnModule(Module& M)
 
   if(triple.isCheerpOS())
   {
-    MPM.addPass(cheerp::CheckLoadStorePass());
+    if(WasmMappedMemory)
+      MPM.addPass(cheerp::CheckLoadStorePass());
     MPM.addPass(cheerp::SpillLocalsPass());
   }
 
