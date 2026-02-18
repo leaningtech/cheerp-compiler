@@ -3072,26 +3072,47 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 					{
 						// NOTE: We expect only values requiring a local to get here
 						llvm::Value* value = ci.getOperand(1);
-						// Render the base address
-						compileOperand(code, ci.getOperand(0));
-						// Render the value to store
-						compileOperand(code, value);
-						uint32_t localId = 0;
-						if(Argument* arg = dyn_cast<Argument>(value))
+						llvm::Type* valueType = value->getType();
+						auto encodeLocalStore = [&](llvm::Type* ty, uint32_t offset) {
+							if(ty->isIntegerTy(64))
+								encodeInst(WasmU32U32Opcode::I64_STORE, 3, offset, code);
+							else if(ty->isIntegerTy() || ty->isPointerTy())
+								encodeInst(WasmU32U32Opcode::I32_STORE, 2, offset, code);
+							else if (ty->isDoubleTy())
+								encodeInst(WasmU32U32Opcode::F64_STORE, 3, offset, code);
+							else if (ty->isFloatTy())
+								encodeInst(WasmU32U32Opcode::F32_STORE, 2, offset, code);
+							else
+								report_fatal_error("Unsupported value type in cheerp_local_store");
+						};
+						if (StructType* STy = dyn_cast<StructType>(valueType))
 						{
-							localId = arg->getArgNo();
+							// Aggregates are expanded to multiple local registers; store each element.
+							Instruction* inst = cast<Instruction>(value);
+							for (const auto& ie : getInstElems(inst, PA))
+							{
+								compileOperand(code, ci.getOperand(0));
+								compileAggregateElem(code, value, ie.structIdx);
+								uint32_t regId = registerize.getRegisterId(inst, ie.totalIdx, EdgeContext::emptyContext());
+								uint32_t localId = localMap.at(regId);
+								encodeLocalStore(STy->getElementType(ie.structIdx), localId * 8);
+							}
 						}
 						else
 						{
-							Instruction* inst = dyn_cast<Instruction>(value);
-							assert(inst);
-							// Encode a store at the offset corresponding to the local
-							uint32_t regId = registerize.getRegisterId(inst, 0, EdgeContext::emptyContext());
-							localId = localMap.at(regId);
-							// Sanity check
-							assert(localId < (currentFun->arg_size() + localMap.size()));
+							compileOperand(code, ci.getOperand(0));
+							compileOperand(code, value);
+							uint32_t localId = 0;
+							if(Argument* arg = dyn_cast<Argument>(value))
+								localId = arg->getArgNo();
+							else
+							{
+								Instruction* inst = cast<Instruction>(value);
+								localId = localMap.at(registerize.getRegisterId(inst, 0, EdgeContext::emptyContext()));
+								assert(localId < (currentFun->arg_size() + localMap.size()));
+							}
+							encodeLocalStore(valueType, localId * 8);
 						}
-						encodeStore(value->getType(), localId * 8, Align(8), code, false);
 						return false;
 					}
 					case Intrinsic::cheerp_func_id:
