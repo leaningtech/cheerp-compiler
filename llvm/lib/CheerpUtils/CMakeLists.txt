@@ -37,6 +37,7 @@ add_llvm_component_library(LLVMCheerpUtils
   JsExport.cpp
   ThreadLocalLowering.cpp
   LowerGlobalDestructors.cpp
+  CheckedLoadStore.cpp
   SpillLocals.cpp
   )
 
