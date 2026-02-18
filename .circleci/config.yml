@@ -161,6 +161,13 @@ jobs:
     executor: cheerp-large
     steps:
       - install-toolchain
+      - run:
+          name: Install lit
+          command: |
+            apt-get update
+            apt-get install -y python3-pip
+            python3 -m pip install --user lit
+            echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$BASH_ENV"
       - clone-cheerp-repo:
           remote: https://github.com/leaningtech/cheerp-test
           dir: cheerp-test
