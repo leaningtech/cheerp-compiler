@@ -3115,6 +3115,76 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						}
 						return false;
 					}
+					case Intrinsic::cheerp_checked_load:
+					{
+						// The pointer address is encoded twice to make a local is available
+						Type* loadType = ci.getType();
+						compileOperand(code, ci.getOperand(0));
+						encodeInst(WasmS32Opcode::I32_CONST, 0, code);
+						encodeInst(WasmOpcode::I32_LT_S, code);
+						encodeInst(WasmU32Opcode::IF, getValType(loadType), code);
+							compileOperand(code, ci.getOperand(1));
+							uint32_t checkedLoadId = 0;
+							if(loadType->isIntegerTy(8))
+								checkedLoadId = linearHelper.getBuiltinId(BuiltinInstr::BUILTIN::CHECKED_LOAD_8);
+							else if(loadType->isIntegerTy(16))
+								checkedLoadId = linearHelper.getBuiltinId(BuiltinInstr::BUILTIN::CHECKED_LOAD_16);
+							else if(loadType->isIntegerTy(32) || loadType->isPointerTy())
+								checkedLoadId = linearHelper.getBuiltinId(BuiltinInstr::BUILTIN::CHECKED_LOAD_32);
+							else if(loadType->isIntegerTy(64))
+								checkedLoadId = linearHelper.getBuiltinId(BuiltinInstr::BUILTIN::CHECKED_LOAD_64);
+							else if(loadType->isFloatTy())
+								checkedLoadId = linearHelper.getBuiltinId(BuiltinInstr::BUILTIN::CHECKED_LOAD_F);
+							else if(loadType->isDoubleTy())
+								checkedLoadId = linearHelper.getBuiltinId(BuiltinInstr::BUILTIN::CHECKED_LOAD_D);
+							else
+								report_fatal_error("Unsupported return type for checked load");
+							// Leave the returned value on the stack
+							encodeInst(WasmU32Opcode::CALL, checkedLoadId, code);
+						encodeInst(WasmOpcode::ELSE, code);
+							compileOperand(code, ci.getOperand(1));
+							encodeLoad(loadType, 0, targetData.getABITypeAlign(loadType), code, false, false);
+						encodeInst(WasmOpcode::END, code);
+						return false;
+					}
+					case Intrinsic::cheerp_checked_store:
+					{
+						// Both pointer and value are encoded twice to make a local is available.
+						// Render the value immediately and drop the result, it's not efficient
+						// but the deffered logic interact poorly with the if/else structure
+						compileOperand(code, ci.getOperand(2));
+						encodeInst(WasmOpcode::DROP, code);
+						Type* storeType = ci.getOperand(2)->getType();
+						compileOperand(code, ci.getOperand(0));
+						encodeInst(WasmS32Opcode::I32_CONST, 0, code);
+						encodeInst(WasmOpcode::I32_LT_S, code);
+						encodeInst(WasmU32Opcode::IF, 0x40, code);
+							compileOperand(code, ci.getOperand(1));
+							uint32_t checkedStoreId = 0;
+							if(storeType->isIntegerTy(8))
+								checkedStoreId = linearHelper.getBuiltinId(BuiltinInstr::BUILTIN::CHECKED_STORE_8);
+							else if(storeType->isIntegerTy(16))
+								checkedStoreId = linearHelper.getBuiltinId(BuiltinInstr::BUILTIN::CHECKED_STORE_16);
+							else if(storeType->isIntegerTy(32) || storeType->isPointerTy())
+								checkedStoreId = linearHelper.getBuiltinId(BuiltinInstr::BUILTIN::CHECKED_STORE_32);
+							else if(storeType->isIntegerTy(64))
+								checkedStoreId = linearHelper.getBuiltinId(BuiltinInstr::BUILTIN::CHECKED_STORE_64);
+							else if(storeType->isFloatTy())
+								checkedStoreId = linearHelper.getBuiltinId(BuiltinInstr::BUILTIN::CHECKED_STORE_F);
+							else if(storeType->isDoubleTy())
+								checkedStoreId = linearHelper.getBuiltinId(BuiltinInstr::BUILTIN::CHECKED_STORE_D);
+							else
+								report_fatal_error("Unsupported return type for checked store");
+							compileOperand(code, ci.getOperand(3));
+							// Leave the returned value on the stack
+							encodeInst(WasmU32Opcode::CALL, checkedStoreId, code);
+						encodeInst(WasmOpcode::ELSE, code);
+							compileOperand(code, ci.getOperand(1));
+							compileOperand(code, ci.getOperand(3));
+							encodeStore(storeType, 0, targetData.getABITypeAlign(storeType), code, false);
+						encodeInst(WasmOpcode::END, code);
+						return false;
+					}
 					case Intrinsic::cheerp_func_id:
 					{
 						encodeFuncId(code, currentFun);
@@ -4961,7 +5031,7 @@ void CheerpWasmWriter::compileImportSection()
 
 	// In CheerpOS we also import an exception tag and landing pads for the possible wasm return types
 	uint32_t importedTags = 0;
-	uint32_t importedLandingPads = 0;
+	uint32_t importedInterpreterHelpers = 0;
 	uint32_t exceptionTagTypeIndex = 0;
 	if (isCheerpOS)
 	{
@@ -4970,13 +5040,13 @@ void CheerpWasmWriter::compileImportSection()
 		assert(it != linearHelper.getFunctionTypeIndices().end());
 		exceptionTagTypeIndex = it->second;
 		importedTags = 1;
-		importedLandingPads = 5;
+		importedInterpreterHelpers = /*landing pads*/5 + /*memory ops*/12;
 	}
 
 	// Total number of function imports (builtins + imports + exception pads)
 	uint32_t importedFunctions = importedBuiltins + globalDeps.asmJSImports().size();
 
-	uint32_t importedTotal = importedFunctions + importedLandingPads;
+	uint32_t importedTotal = importedFunctions + importedInterpreterHelpers;
 
 	numberOfImportedFunctions = importedTotal;
 
@@ -5038,7 +5108,7 @@ void CheerpWasmWriter::compileImportSection()
 	if(globalDeps.needsBuiltin(BuiltinInstr::BUILTIN::GROW_MEM))
 		compileImport(section, namegen.getBuiltinName(NameGenerator::GROW_MEM), i32_i32_1);
 
-	if (importedLandingPads)
+	if (importedInterpreterHelpers)
 	{
 		// Import the five fixed exception pads, one for each possible wasm return type
 		Type* i64 = Type::getInt64Ty(module.getContext());
@@ -5055,6 +5125,29 @@ void CheerpWasmWriter::compileImportSection()
 		compileImport(section, "__exc_pad_f", f32_i32_3);
 		compileImport(section, "__exc_pad_d", f64_i32_3);
 		compileImport(section, "__exc_pad_v", v_i32_3);
+		FunctionType* i64_i32_1 = FunctionType::get(i64, i32_1, false);
+		FunctionType* f32_i32_1 = FunctionType::get(f32, i32_1, false);
+		FunctionType* f64_i32_1 = FunctionType::get(f64, i32_1, false);
+		compileImport(section, "__exc_load_8", i32_i32_1);
+		compileImport(section, "__exc_load_16", i32_i32_1);
+		compileImport(section, "__exc_load_32", i32_i32_1);
+		compileImport(section, "__exc_load_64", i64_i32_1);
+		compileImport(section, "__exc_load_f", f32_i32_1);
+		compileImport(section, "__exc_load_d", f64_i32_1);
+		Type* i32_i32[] = { i32, i32 };
+		Type* i32_i64[] = { i32, i64 };
+		Type* i32_f32[] = { i32, f32 };
+		Type* i32_f64[] = { i32, f64 };
+		FunctionType* v_i32_i32 = FunctionType::get(v, i32_i32, false);
+		FunctionType* v_i32_i64 = FunctionType::get(v, i32_i64, false);
+		FunctionType* v_i32_f32 = FunctionType::get(v, i32_f32, false);
+		FunctionType* v_i32_f64 = FunctionType::get(v, i32_f64, false);
+		compileImport(section, "__exc_store_8", v_i32_i32);
+		compileImport(section, "__exc_store_16", v_i32_i32);
+		compileImport(section, "__exc_store_32", v_i32_i32);
+		compileImport(section, "__exc_store_64", v_i32_i64);
+		compileImport(section, "__exc_store_f", v_i32_f32);
+		compileImport(section, "__exc_store_d", v_i32_f64);
 		assert(importedTags == 1);
 		compileImportTag(section, "__cos_exception", exceptionTagTypeIndex);
 	}
