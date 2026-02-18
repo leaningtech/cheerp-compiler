@@ -168,6 +168,13 @@ jobs:
             apt-get install -y python3-pip
             python3 -m pip install --user lit
             echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$BASH_ENV"
+            if [ -x /usr/lib/llvm-14/bin/FileCheck ]; then
+              ln -sf /usr/lib/llvm-14/bin/FileCheck /usr/bin/FileCheck-20
+            elif command -v FileCheck >/dev/null 2>&1; then
+              ln -sf "$(command -v FileCheck)" /usr/bin/FileCheck-20
+            else
+              echo "FileCheck not found, in this image"
+            fi
       - clone-cheerp-repo:
           remote: https://github.com/leaningtech/cheerp-test
           dir: cheerp-test
