@@ -143,7 +143,7 @@ jobs:
       - run:
           name: Run tests
           working_directory: ~/project/cheerp-utils/tests
-          command: ./run_tests.py --<< parameters.target >> << parameters.asan >> --determinism=3 --determinism-probability=0.2 "/opt/cheerp/bin/clang++" node -j4
+          command: ./run_tests.py --<< parameters.target >> << parameters.asan >> --determinism=3 --determinism-probability=0.2 "/opt/cheerp/bin/clang++" node -j8
           no_output_timeout: 30m
       - run:
           name: Store test results
@@ -182,8 +182,15 @@ jobs:
       - run:
           name: Run new tests
           working_directory: ~/project/cheerp-test/tests
-          command: ./run_lit_tests.py --<< parameters.target >> << parameters.asan >> .
+          command: ./run_lit_tests.py --<< parameters.target >> << parameters.asan >> --determinism=3 --determinism-probability=0.2 -j8 .
           no_output_timeout: 30m
+      - run:
+          name: Store test results
+          command: |
+            mkdir -p ~/project/testResults
+            mv ~/project/cheerp-test/tests/litTestReport.test ~/project/<< parameters.target >><< parameters.asan >>litTestResults
+      - store_artifacts:
+          path: ~/project/<< parameters.target >><< parameters.asan >>litTestResults
   run-asan-tests:
     parameters:
       linear-output:

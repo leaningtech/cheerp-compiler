@@ -1,1 +1,0 @@
-/opt/cheerp/bin/llvm-link CMakeFiles/RTAsan_static.Cheerp.dir/asan_rtl_static.cpp.obj -o ../cheerp/libclang_rt.asan_static-Cheerp.bc
