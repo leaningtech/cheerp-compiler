@@ -855,6 +855,15 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 			llvm::errs() << "warning: _startPreThread function point not found, and -pthread is linked\n";
 	}
 
+	// Keep the __getThreadLocalAddress function alive if it exists.
+	llvm::Function* getThreadLocalAddress = module.getFunction("__getThreadLocalAddress");
+	if (getThreadLocalAddress)
+	{
+		extendLifetime(getThreadLocalAddress);
+		// __getThreadLocalAddress is always tagged asmjs.
+		asmJSExportedFunctions.insert(getThreadLocalAddress);
+	}
+
 	// Flush out all functions
 	processEnqueuedFunctions();
 

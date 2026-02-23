@@ -31,6 +31,8 @@ bool ConstantExprLowering::runOnFunction(Function& F, bool& hasI64, const Target
 	bool Changed = false;
 	hasI64 = false;
 
+	Module* M = F.getParent();
+	Function* getThreadLocalAddress = M->getFunction("__getThreadLocalAddress");
 	DL = &F.getParent()->getDataLayout();
 
 	std::set<ConstantExpr*> visitedCE;
@@ -102,14 +104,21 @@ bool ConstantExprLowering::runOnFunction(Function& F, bool& hasI64, const Target
 
 	std::map<ConstantExpr*, Value*> mapCEToValue;
 	std::map<GlobalValue*, Instruction*> mapGVToInst;
+	// This is the insert point for the instructionized CEs. We update it so that
+	// new ones are inserted before earlier ones.
+	Instruction* ceInsertPt = F.getEntryBlock().getFirstNonPHI();
 
 	// 2. Iterate on the collected ConstantExpr, converting them to Instructions
 	// 	Note that given the specific order of the visit, operands will be processed later (= will end up dominating their users)
 	for (ConstantExpr* CE : toBeInstructionized)
 	{
 		Instruction* Conv = CE->getAsInstruction();
+		Conv->insertBefore(ceInsertPt);
+		ceInsertPt = Conv;
 		for (auto& O: Conv->operands())
 		{
+			// 3. Process non-CE operands if needed. New instructions created
+			// here go before all the CE instructions
 			Value* NewC = O.get();
 			if (auto *GV = dyn_cast<GlobalVariable>(NewC))
 			{
@@ -117,13 +126,33 @@ bool ConstantExprLowering::runOnFunction(Function& F, bool& hasI64, const Target
 				// Ask LinearMemoryHelper for the value and cast to the pointer type
 				if (!WasmSharedModule && GV->GlobalValue::getSection() == StringRef("asmjs") && !GV->isThreadLocal())
 				{
-					if (mapGVToInst.count(GV) == 0)
+					auto it = mapGVToInst.find(GV);
+					if (it == mapGVToInst.end())
 					{
 						auto *CI = ConstantInt::get(IntegerType::get(Conv->getContext(), 32), LH->getGlobalVariableAddress(GV));
-						mapGVToInst[GV] = CastInst::Create(Instruction::IntToPtr, CI, NewC->getType());
+						it = mapGVToInst.emplace(GV, CastInst::Create(Instruction::IntToPtr, CI, NewC->getType())).first;
+						// Insert before all the CEs
+						it->second->insertBefore(F.getEntryBlock().getFirstNonPHI());
 					}
-
-					NewC = mapGVToInst.at(GV);
+					NewC = it->second;
+				}
+				else if (GV->isThreadLocal() && F.getSection() != "asmjs")
+				{
+					auto it = mapGVToInst.find(GV);
+					if (it == mapGVToInst.end())
+					{
+						// Insert before all the CEs
+						Instruction* insertPt = F.getEntryBlock().getFirstNonPHI();
+						// Access thread locals via the __getThreadLocalAddress wrapper
+						Type* argTy = GV->getType();
+						Function* getThreadLocalOffset = Intrinsic::getDeclaration(M, Intrinsic::cheerp_get_threadlocal_offset, argTy);
+						auto* offset = CallInst::Create(getThreadLocalOffset, {GV}, "tl.offset", insertPt);
+						Instruction* addr = CallInst::Create(getThreadLocalAddress, {offset}, "tl.addr", insertPt);
+						if (addr->getType() != GV->getType())
+							addr = CastInst::CreateBitOrPointerCast(addr, argTy, "tl.cast", insertPt);
+						it = mapGVToInst.emplace(GV, addr).first;
+					}
+					NewC = it->second;
 				}
 			}
 			else if (isa<UndefValue>(NewC) && NewC->getType()->isFloatingPointTy())
@@ -134,17 +163,9 @@ bool ConstantExprLowering::runOnFunction(Function& F, bool& hasI64, const Target
 			}
 			O.set(NewC);
 		}
-		Conv->insertBefore(F.getEntryBlock().getFirstNonPHI());
 		Changed = true;
 		mapCEToValue[CE] = Conv;
 	}
-
-	// 3. Insert also PtrToIntInst that has been created while folding GV
-	for (auto& pair : mapGVToInst)
-	{
-		pair.second->insertBefore(F.getEntryBlock().getFirstNonPHI());
-	}
-
 	// 4. Actually substitute any ConstantExpr operand with the mapped Instruction (that will be in the Function entry BB)
 	std::map<ConstantVector*, Value*> mapCVToValue;
 	for (Instruction& I : instructions(F))
