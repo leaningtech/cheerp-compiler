@@ -571,6 +571,12 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 				equivalentOperand(a->getCompareOperand(), b->getCompareOperand()) &&
 				equivalentOperand(a->getNewValOperand(), b->getNewValOperand()));
 		}
+		case Instruction::Fence:
+		{
+			const FenceInst* a = cast<FenceInst>(A);
+			const FenceInst* b = cast<FenceInst>(B);
+			return CacheAndReturn(a->getOrdering() == b->getOrdering() && a->getSyncScopeID() == b->getSyncScopeID());
+		}
 		default:
 		{
 #ifndef NDEBUG
