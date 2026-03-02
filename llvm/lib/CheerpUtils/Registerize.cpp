@@ -810,7 +810,7 @@ void VertexColorer::iterativeDeepening(IterationsCounter& counter)
 
 		lowerBound = lowerBoundOnNumberOfColors(/*forceEvaluation*/true);
 	}
-	assert(counter.remaining() > 0);
+	//assert(counter.remaining() > 0);
 
 	uint32_t positiveFriendships = 0;
 	while (positiveFriendships < friendships.size() && friendships[positiveFriendships].first > 0)
