@@ -42,7 +42,8 @@ bool CheckLoadStore::runOnFunction(Module& M, Function& F)
 				if(isa<Constant>(pointerOperand))
 					continue;
 				Type* loadType = LI->getType();
-				Function* checkedLoad = Intrinsic::getDeclaration(&M, Intrinsic::cheerp_checked_load, loadType);
+				Type* pointerType = pointerOperand->getType();
+				Function* checkedLoad = Intrinsic::getDeclaration(&M, Intrinsic::cheerp_checked_load, { loadType, pointerType, pointerType } );
 				CallInst* CI = CallInst::Create(checkedLoad, { pointerOperand, pointerOperand }, "", LI);
 				LI->replaceAllUsesWith(CI);
 				toDelete.push_back(LI);
@@ -55,9 +56,11 @@ bool CheckLoadStore::runOnFunction(Module& M, Function& F)
 				Value* pointerOperand = SI->getPointerOperand();
 				if(isa<Constant>(pointerOperand))
 					continue;
-				Type* storeType = SI->getValueOperand()->getType();
-				Function* checkedStore = Intrinsic::getDeclaration(&M, Intrinsic::cheerp_checked_store, { storeType, storeType });
-				CallInst::Create(checkedStore, { pointerOperand, pointerOperand, SI->getValueOperand(), SI->getValueOperand() }, "", SI);
+				Value* valueOperand = SI->getValueOperand();
+				Type* storeType = valueOperand->getType();
+				Type* pointerType = pointerOperand->getType();
+				Function* checkedStore = Intrinsic::getDeclaration(&M, Intrinsic::cheerp_checked_store, { pointerType, pointerType, storeType, storeType });
+				CallInst::Create(checkedStore, { pointerOperand, pointerOperand, valueOperand, valueOperand }, "", SI);
 				// No need to replace users, stores are void
 				toDelete.push_back(SI);
 			}

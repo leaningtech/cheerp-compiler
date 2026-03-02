@@ -156,10 +156,10 @@ def int_cheerp_local_store : Intrinsic<[],
                             [llvm_ptr_ty, llvm_any_ty]>;
 
 def int_cheerp_checked_load : Intrinsic<[llvm_any_ty],
-                            [llvm_i32_ty, llvm_i32_ty]>;
+                            [llvm_anyptr_ty, llvm_anyptr_ty]>;
 
 def int_cheerp_checked_store : Intrinsic<[],
-                            [llvm_i32_ty, llvm_i32_ty, llvm_any_ty, llvm_any_ty]>;
+                            [llvm_anyptr_ty, llvm_anyptr_ty, llvm_any_ty, llvm_any_ty]>;
 
 def int_cheerp_func_id : Intrinsic<[llvm_i32_ty],
 				[]>;
