@@ -929,7 +929,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	NumRemovedGlobals = filterModule(droppedMathBuiltins, module);
 
 	if(hasUndefinedSymbolErrors)
-		llvm::report_fatal_error("Strict linking enabled and undefined symbols found");
+		llvm::report_fatal_error("Strict linking enabled and undefined symbols found", false);
 
 	// Detect all used math builtins
 	if (mathMode != NO_BUILTINS && llcPass)
