@@ -2176,6 +2176,10 @@ static bool isIntegerWideningViableForSlice(const Slice &S,
       return false;
     if (!S.isSplittable())
       return false; // Skip any unsplittable intrinsics.
+    uint64_t SliceBits = (RelEnd - RelBegin) * 8;
+    // CHEERP: disallow weird integer sizes like i24 from being created
+    if (!DL.isByteAddressable() && !DL.isLegalInteger(SliceBits))
+      return false;
   } else {
     return false;
   }
