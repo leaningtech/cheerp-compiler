@@ -182,7 +182,7 @@ jobs:
       - run:
           name: Run new tests
           working_directory: ~/project/cheerp-test/tests
-          command: ./run_lit_tests.py --<< parameters.target >> << parameters.asan >> --determinism=3 --determinism-probability=0.2 -j8 .
+          command: ./run_lit_tests.py --<< parameters.target >> << parameters.asan >> -j4 .
           no_output_timeout: 30m
       - run:
           name: Store test results
@@ -191,6 +191,43 @@ jobs:
             mv ~/project/cheerp-test/tests/litTestReport.test ~/project/<< parameters.target >><< parameters.asan >>litTestResults
       - store_artifacts:
           path: ~/project/<< parameters.target >><< parameters.asan >>litTestResults
+  run-determinism-tests:
+    parameters:
+      target:
+        type: string
+    executor: cheerp-large
+    steps:
+      - install-toolchain
+      - run:
+          name: Install lit
+          command: |
+            apt-get update
+            apt-get install -y python3-pip
+            python3 -m pip install --user lit
+            echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$BASH_ENV"
+            if [ -x /usr/lib/llvm-14/bin/FileCheck ]; then
+              ln -sf /usr/lib/llvm-14/bin/FileCheck /usr/bin/FileCheck-20
+            elif command -v FileCheck >/dev/null 2>&1; then
+              ln -sf "$(command -v FileCheck)" /usr/bin/FileCheck-20
+            else
+              echo "FileCheck not found, in this image"
+            fi
+      - clone-cheerp-repo:
+          remote: https://github.com/leaningtech/cheerp-test
+          dir: cheerp-test
+          ref: main
+      - run:
+          name: Run lit determinism tests
+          working_directory: ~/project/cheerp-test/tests
+          command: ./run_lit_tests.py --<< parameters.target >> --determinism=2 --determinism-probability=0.2 -j8 .
+          no_output_timeout: 30m
+      - run:
+          name: Store determinism test results
+          command: |
+            mkdir -p ~/project/testResults
+            mv ~/project/cheerp-test/tests/litTestReport.test ~/project/<< parameters.target >>determinismLitResults
+      - store_artifacts:
+          path: ~/project/<< parameters.target >>determinismLitResults
   run-asan-tests:
     parameters:
       linear-output:
@@ -1130,6 +1167,21 @@ workflows:
             parameters:
               target: ["genericjs", "asmjs", "wasm", "preexecute", "preexecute-asmjs"]
               asan: ["", "--asan"]
+            exclude:
+              - target: "genericjs"
+                asan: "--asan"
+              - target: "preexecute"
+                asan: "--asan"
+          requires:
+            - build-cheerp-toolchain
+          filters:
+            branches:
+              only:
+                - testing_alex
+      - run-determinism-tests:
+          matrix:
+            parameters:
+              target: ["genericjs", "asmjs", "wasm", "preexecute", "preexecute-asmjs"]
             exclude:
               - target: "genericjs"
                 asan: "--asan"
