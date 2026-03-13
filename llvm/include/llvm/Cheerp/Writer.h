@@ -750,11 +750,11 @@ public:
 	/**
 	 * Compile a function to assure a GEP property access is defined
 	 */
-	void compileCheckDefined(const llvm::Value* p, bool needsOffset);
+	void compileCheckMemberExists(const llvm::Value* p, bool needsOffset);
 	/**
 	 * Compile a function for checking if a reference is defined
 	 */
-	void compileCheckDefinedHelper();
+	void compileCheckMemberExistsHelper();
 	/**
 	 * Compile a JS string while escaping special characters
 	 */

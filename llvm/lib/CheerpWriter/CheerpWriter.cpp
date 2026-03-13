@@ -4550,7 +4550,7 @@ void CheerpWriter::compileLoad(const LoadInst& li, PARENT_PRIORITY parentPrio)
 					needsCheckBounds = true;
 					bool needsOffset = !li.use_empty() && Ty->isPointerTy() && PA.getPointerKindAssert(&li) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&li);
 					stream<<"(";
-					compileCheckDefined(ptrOp, needsOffset);
+					compileCheckMemberExists(ptrOp, needsOffset);
 					stream<<",";
 			}
 	}
@@ -4765,7 +4765,7 @@ void CheerpWriter::compileStore(const StoreInst& si)
 		else if(ptrKind == COMPLETE_OBJECT && isGEP(ptrOp))
 		{
 			bool needsOffset = Ty->isPointerTy() && PA.getPointerKindAssert(&si) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&si);
-			compileCheckDefined(ptrOp, needsOffset);
+			compileCheckMemberExists(ptrOp, needsOffset);
 			stream<<",";
 		}
 	}
@@ -6257,20 +6257,46 @@ void CheerpWriter::compileCheckBounds(const Value* p)
 	stream<<")";
 }
 
-void CheerpWriter::compileCheckDefinedHelper()
+void CheerpWriter::compileCheckMemberExistsHelper()
 {
-	stream << "function checkDefined(m){if(m===undefined) throw new Error('UndefinedMemberAccess');}" << NewLine;
+	stream << "function checkMemberExists(obj, member){if(!(member in obj)) throw new Error('MemberDoesNotExist');}" << NewLine;
 }
 
-void CheerpWriter::compileCheckDefined(const Value* p, bool needsOffset)
+void CheerpWriter::compileCheckMemberExists(const Value* p, bool needsOffset)
 {
-	// When compiling a SPIT_REGULAR, if there is an offset, we only check that.
-	// If the offset exists the base is guaranteed to exists in the type.
-	stream<<"checkDefined(";
-	compileGEP(cast<User>(p),COMPLETE_OBJECT, HIGHEST);
-	if(needsOffset)
-		stream << "o";
-	stream<<")";
+	const llvm::User* gep_inst = cast<User>(p);
+	SmallVector< const Value*, 8 > indices(std::next(gep_inst->op_begin()), gep_inst->op_end());
+	Type* basePointedType = cast<GEPOperator>(gep_inst)->getSourceElementType();
+
+	StructType* containerStructType = dyn_cast<StructType>(GetElementPtrInst::getIndexedType(basePointedType,
+			makeArrayRef(const_cast<Value* const*>(indices.begin()),
+				     const_cast<Value* const*>(indices.end() - 1))));
+
+	if(containerStructType && indices.size() > 1)
+		assert(isa<ConstantInt>(indices.back()));
+
+	stream << "checkMemberExists(";
+	compileCompleteObject(gep_inst->getOperand(0), indices.front());
+
+	compileAccessToElement(basePointedType, makeArrayRef(std::next(indices.begin()), std::prev(indices.end())), false);
+	stream << ", ";
+	const Value* lastOperand = gep_inst->getOperand(gep_inst->getNumOperands() - 1);
+
+	if (containerStructType)
+	{
+		const APInt& index = cast<Constant>(lastOperand)->getUniqueInteger();
+		uint64_t idxVal = index.getLimitedValue();
+
+		stream << "'";
+		stream << types.getPrefixCharForMember(PA, containerStructType, idxVal) << idxVal;
+		if (needsOffset)
+			stream << "o";
+		stream << "'";
+	}
+	else if (dyn_cast<ArrayType>(basePointedType))
+		compileOperand(lastOperand, LOWEST);
+
+	stream << ")";
 }
 
 void CheerpWriter::compileCheckBoundsAsmJSHelper()
@@ -6617,7 +6643,7 @@ void CheerpWriter::compileHelpers()
 	if ( checkBounds )
 	{
 		compileCheckBoundsHelper();
-		compileCheckDefinedHelper();
+		compileCheckMemberExistsHelper();
 	}
 
 	compileBuiltins(false);
