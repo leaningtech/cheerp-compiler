@@ -509,11 +509,15 @@ public:
 				GenericValue SRC = getOperandValue(LI.getPointerOperand());
 				GenericValue *Ptr = (GenericValue*)GVTORP(SRC);
 
+				const long long loadPtr = (long long)Ptr;
 				const long long loadSize = getDataLayout().getTypeAllocSize(LI.getType());
 
-				for (const auto& interval : immutableLoadIntervals)
-				{
-					if ((long long)Ptr >= interval.first && ((long long)Ptr+loadSize) <= interval.second)
+				// immutableLoadIntervals sorted by .first; find first interval with .first > loadPtr
+				auto it = std::upper_bound(immutableLoadIntervals.begin(), immutableLoadIntervals.end(), loadPtr,
+					[](long long p, const std::pair<long long, long long>& interval) { return p < interval.first; });
+				if (it != immutableLoadIntervals.begin()) {
+					const auto& interval = *--it;
+					if (loadPtr + loadSize <= interval.second)
 						return false;
 				}
 
@@ -583,6 +587,9 @@ public:
 
 			immutableLoadIntervals.push_back({(long long)Ptr, ((long long)Ptr)+getDataLayout().getTypeAllocSize(GV->getInitializer()->getType())});
 		}
+
+		// Sort by start for O(log n) lookup in hasToBeSkipped Load case
+		std::sort(immutableLoadIntervals.begin(), immutableLoadIntervals.end());
 
 		// detach the 'virtual' call frame
 		popCallFrame();
