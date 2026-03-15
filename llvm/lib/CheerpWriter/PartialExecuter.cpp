@@ -121,7 +121,7 @@ class PartialInterpreter : public llvm::Interpreter {
 		// TODO(carlo): this can easily be memoized since there is no state
 		if (!isa<Constant>(V))
 			return false;
-		if (const GlobalVariable* GVar = dyn_cast_or_null<GlobalVariable>(V))
+		if (const GlobalVariable* GVar = dyn_cast<GlobalVariable>(V))
 		{
 			const bool res = isGlobalVariablePartiallyExecutable(*GVar);
 			if (res)
@@ -135,7 +135,7 @@ class PartialInterpreter : public llvm::Interpreter {
 			}
 			return res;
 		}
-		if (const ConstantExpr* CE = dyn_cast_or_null<ConstantExpr>(V))
+		else if (const ConstantExpr* CE = dyn_cast<ConstantExpr>(V))
 		{
 			for (auto& op : CE->operands())
 			{
