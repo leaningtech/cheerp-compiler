@@ -433,6 +433,7 @@ public:
 	{
 		for (auto& pair : newAlignmentData)
 			moduleAlignmentData.insert(pair);
+		newAlignmentData.clear();
 	}
 	//We are going to interpret a CallInst, we need to add a stack frame and forward the known arguments
 	void forwardArgumentsToNextFrame(CallInst& CI)
