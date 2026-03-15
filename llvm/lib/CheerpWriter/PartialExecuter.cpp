@@ -121,7 +121,7 @@ class PartialInterpreter : public llvm::Interpreter {
 		// TODO(carlo): this can easily be memoized since there is no state
 		if (!isa<Constant>(V))
 			return false;
-		if (const GlobalVariable* GVar = dyn_cast_or_null<GlobalVariable>(V))
+		if (const GlobalVariable* GVar = dyn_cast<GlobalVariable>(V))
 		{
 			const bool res = isGlobalVariablePartiallyExecutable(*GVar);
 			if (res)
@@ -135,7 +135,7 @@ class PartialInterpreter : public llvm::Interpreter {
 			}
 			return res;
 		}
-		if (const ConstantExpr* CE = dyn_cast_or_null<ConstantExpr>(V))
+		else if (const ConstantExpr* CE = dyn_cast<ConstantExpr>(V))
 		{
 			for (auto& op : CE->operands())
 			{
@@ -433,6 +433,7 @@ public:
 	{
 		for (auto& pair : newAlignmentData)
 			moduleAlignmentData.insert(pair);
+		newAlignmentData.clear();
 	}
 	//We are going to interpret a CallInst, we need to add a stack frame and forward the known arguments
 	void forwardArgumentsToNextFrame(CallInst& CI)
@@ -509,11 +510,15 @@ public:
 				GenericValue SRC = getOperandValue(LI.getPointerOperand());
 				GenericValue *Ptr = (GenericValue*)GVTORP(SRC);
 
+				const long long loadPtr = (long long)Ptr;
 				const long long loadSize = getDataLayout().getTypeAllocSize(LI.getType());
 
-				for (const auto& interval : immutableLoadIntervals)
-				{
-					if ((long long)Ptr >= interval.first && ((long long)Ptr+loadSize) <= interval.second)
+				// immutableLoadIntervals sorted by .first; find first interval with .first > loadPtr
+				auto it = std::upper_bound(immutableLoadIntervals.begin(), immutableLoadIntervals.end(), loadPtr,
+					[](long long p, const std::pair<long long, long long>& interval) { return p < interval.first; });
+				if (it != immutableLoadIntervals.begin()) {
+					const auto& interval = *--it;
+					if (loadPtr + loadSize <= interval.second)
 						return false;
 				}
 
@@ -583,6 +588,9 @@ public:
 
 			immutableLoadIntervals.push_back({(long long)Ptr, ((long long)Ptr)+getDataLayout().getTypeAllocSize(GV->getInitializer()->getType())});
 		}
+
+		// Sort by start for O(log n) lookup in hasToBeSkipped Load case
+		std::sort(immutableLoadIntervals.begin(), immutableLoadIntervals.end());
 
 		// detach the 'virtual' call frame
 		popCallFrame();
