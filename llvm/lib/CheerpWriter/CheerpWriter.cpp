@@ -6990,7 +6990,7 @@ void CheerpWriter::compileWasmLoader()
 	{
 		// Open a new block, we need more than one statement
 		stream << "{" << NewLine;
-		stream << "cheerpOSApi.setWasmCode(import.meta.url," << shortestName << ");" << NewLine;
+		stream << "cheerpOSApi.setWasmCode(" << shortestName << ");" << NewLine;
 		// Since we need to add a block we also need to add a return statement
 		stream << "return ";
 	}
