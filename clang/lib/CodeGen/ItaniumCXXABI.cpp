@@ -2112,9 +2112,14 @@ llvm::Value *ItaniumCXXABI::getVTableAddressPointInStructorWithVTT(
 
   /// Load the VTT.
   llvm::Value *VTT = CGF.LoadCXXVTT();
-  if (VirtualPointerIndex)
-    VTT = CGF.Builder.CreateConstInBoundsGEP1_64(
-        CGF.VoidPtrTy, VTT, VirtualPointerIndex);
+  if (VirtualPointerIndex) {
+    if (CGM.getLangOpts().Cheerp) {
+      VTT = CGF.Builder.CreateConstInBoundsGEP1_32(CGF.VoidPtrTy, VTT, VirtualPointerIndex);
+    }
+    else {
+      VTT = CGF.Builder.CreateConstInBoundsGEP1_64(CGF.VoidPtrTy, VTT, VirtualPointerIndex);
+    }
+  }
 
   // And load the address point from the VTT.
   return CGF.Builder.CreateAlignedLoad(CGF.VoidPtrTy, VTT,

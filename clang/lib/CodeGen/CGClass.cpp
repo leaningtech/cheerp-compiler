@@ -741,12 +741,17 @@ llvm::Value *CodeGenFunction::GetVTTParameter(GlobalDecl GD,
   if (CGM.getCXXABI().NeedsVTTParameter(CurGD)) {
     // A VTT parameter was passed to the constructor, use it.
     llvm::Value *VTT = LoadCXXVTT();
+    if (CGM.getLangOpts().Cheerp) {
+      return Builder.CreateConstInBoundsGEP1_32(VoidPtrTy, VTT, SubVTTIndex);
+    }
     return Builder.CreateConstInBoundsGEP1_64(VoidPtrTy, VTT, SubVTTIndex);
   } else {
     // We're the complete constructor, so get the VTT by name.
     llvm::GlobalValue *VTT = CGM.getVTables().GetAddrOfVTT(RD);
-    return Builder.CreateConstInBoundsGEP2_64(
-        VTT->getValueType(), VTT, 0, SubVTTIndex);
+    if (CGM.getLangOpts().Cheerp) {
+      return Builder.CreateConstInBoundsGEP2_32(VTT->getValueType(), VTT, 0, SubVTTIndex);
+    }
+    return Builder.CreateConstInBoundsGEP2_64(VTT->getValueType(), VTT, 0, SubVTTIndex);
   }
 }
 
