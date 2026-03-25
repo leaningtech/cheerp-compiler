@@ -46,6 +46,7 @@
 #include "llvm/Cheerp/DeterministicUnorderedSet.h"
 #include "llvm/Cheerp/PartialExecuter.h"
 #include "llvm/ExecutionEngine/GenericValue.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/ValueMap.h"
@@ -304,6 +305,7 @@ public:
 		}
 		return nullptr;
 	}
+	bool checkDominator(FunctionData& data, llvm::BasicBlock* BB);
 	llvm::BasicBlock* visitBasicBlock(FunctionData& data, BasicBlockGroupNode& BBGN, llvm::BasicBlock& BB, bool& BBProgress);
 	explicit PartialInterpreter(std::unique_ptr<llvm::Module> M)
 		: llvm::Interpreter(std::move(M), /*preExecute*/false)
@@ -392,7 +394,7 @@ public:
 			return stronglyKnownBits.back().count(V);
 		return false;
 	}
-	bool areOperandsComputed(const llvm::Instruction& I)
+	bool areOperandsComputed(const llvm::Instruction& I, bool hasKnownValues)
 	{
 		if (isa<SelectInst>(I))
 		{
@@ -413,6 +415,8 @@ public:
 		}
 		for (auto& op : I.operands())
 		{
+			if (!hasKnownValues && (!isa<llvm::Constant>(op) && !isa<llvm::Argument>(op) && !isa<BasicBlock>(op)))
+				return false;
 			if (!isValueComputed(op))
 				return false;
 		}
@@ -436,10 +440,10 @@ public:
 		newAlignmentData.clear();
 	}
 	//We are going to interpret a CallInst, we need to add a stack frame and forward the known arguments
-	void forwardArgumentsToNextFrame(CallInst& CI)
+	void forwardArgumentsToNextFrame(CallInst& CI, bool hasKnownValues)
 	{
 		//This logic should work similarly for generic CallBase when those are allowed
-		assert(!hasToBeSkipped(CI));
+		assert(!hasToBeSkipped(CI, hasKnownValues));
 
 		const Function& calledFunc = *cast<Function>(CI.getCalledFunction());
 		const uint32_t numFixedParams = calledFunc.getFunctionType()->getNumParams();
@@ -463,9 +467,9 @@ public:
 			assignToMaps(pair.first, pair.second, nullptr);
 	}
 
-	bool hasToBeSkipped(llvm::Instruction& I)
+	bool hasToBeSkipped(llvm::Instruction& I, bool hasKnownValues)
 	{
-		if (!areOperandsComputed(I))
+		if (!areOperandsComputed(I, hasKnownValues))
 			return true;
 
 		switch (I.getOpcode())
@@ -641,7 +645,7 @@ public:
 		}
 		return nullptr;
 	}
-	void visitOuter(FunctionData& data, BasicBlockGroupNode& BBGN, llvm::Instruction& I, bool& BBProgress);
+	void visitOuter(FunctionData& data, BasicBlockGroupNode& BBGN, llvm::Instruction& I, bool& BBProgress, bool& hasKnownValues);
 	bool replaceKnownCEs()
 	{
 		if(fullyKnownCEs.empty())
@@ -796,25 +800,6 @@ static void removeEdgeBetweenBlocks(llvm::BasicBlock* from, llvm::BasicBlock* to
 	}
 }
 
-llvm::BasicBlock* PartialInterpreter::visitBasicBlock(FunctionData& data, BasicBlockGroupNode& BBGN, llvm::BasicBlock& BB, bool& BBProgress)
-{
-	ExecutionContext& executionContext = getTopCallFrame();
-	executionContext.CurBB = &BB;
-	executionContext.CurInst = executionContext.CurBB->begin();
-
-	while (getTopCallFrame().CurInst != BB.end())
-	{
-		// Note that here we could also execute a Call, and that implies adding a CallFrame
-		// executing there (possibly also in depth)
-		// So getTopCallFrame() has to be called since it will possibly change
-		visitOuter(data, BBGN, *getTopCallFrame().CurInst++, BBProgress);
-	}
-
-	// Find (if there are enough information) the next BB to be visited
-	// nullptr otherwise means failure to do so, and will fall back to visit all successors
-	return findNextBasicBlock(*BB.getTerminator());
-}
-
 class FunctionData;
 
 class ModuleData
@@ -901,7 +886,10 @@ class FunctionData
 	llvm::DenseSet<llvm::BasicBlock*> visitedBasicBlocks;
 	llvm::DenseSet<std::pair<const llvm::BasicBlock*, const llvm::BasicBlock*> > visitedEdges;
 	llvm::DenseMap<llvm::Instruction*, KnownValue> knownValues;
+	llvm::DenseSet<llvm::BasicBlock*> blockHasKnownValues;
 	ModuleData& moduleData;
+
+	llvm::DominatorTree DT;
 
 	std::vector<VectorOfArgs> callEquivalentQueue;
 	PartialInterpreter* currentEE;
@@ -983,10 +971,20 @@ public:
 	explicit FunctionData(llvm::Function& F, ModuleData& moduleData)
 		: F(F), moduleData(moduleData), currentEE(nullptr), functionInstructionCounter(0)
 	{
+		if (!F.isDeclaration())
+			DT.recalculate(F);
 	}
 	llvm::Function* getFunction()
 	{
 		return &F;
+	}
+	llvm::DominatorTree& getDT()
+	{
+		return DT;
+	}
+	llvm::DenseSet<llvm::BasicBlock*>& getBlockHasKnownValues()
+	{
+		return blockHasKnownValues;
 	}
 	uint32_t getVisitCounter(const llvm::BasicBlock* BB)
 	{
@@ -1007,6 +1005,10 @@ public:
 	void markVisited(llvm::BasicBlock* BB)
 	{
 		visitedBasicBlocks.insert(BB);
+	}
+	void markBlockHasKnownValues(llvm::BasicBlock* BB)
+	{
+		blockHasKnownValues.insert(BB);
 	}
 	PartialInterpreter& getInterpreter()
 	{
@@ -1142,6 +1144,7 @@ public:
 		for (const FunctionData::VectorOfArgs& toBeVisited : callEquivalentQueue)
 		{
 			visitCounter.clear();
+			blockHasKnownValues.clear();
 			visitCallEquivalent(toBeVisited);
 			if (visitedBasicBlocks.size() == F.size())
 				break;
@@ -1253,6 +1256,39 @@ public:
 		}
 	}
 };
+
+llvm::BasicBlock* PartialInterpreter::visitBasicBlock(FunctionData& data, BasicBlockGroupNode& BBGN, llvm::BasicBlock& BB, bool& BBProgress)
+{
+	ExecutionContext& executionContext = getTopCallFrame();
+	executionContext.CurBB = &BB;
+	executionContext.CurInst = executionContext.CurBB->begin();
+
+	bool hasKnownValues = checkDominator(data, &BB);
+	while (getTopCallFrame().CurInst != BB.end())
+	{
+		// Note that here we could also execute a Call, and that implies adding a CallFrame
+		// executing there (possibly also in depth)
+		// So getTopCallFrame() has to be called since it will possibly change
+		visitOuter(data, BBGN, *getTopCallFrame().CurInst++, BBProgress, hasKnownValues);
+	}
+	if (hasKnownValues)
+		data.markBlockHasKnownValues(&BB);
+	// Find (if there are enough information) the next BB to be visited
+	// nullptr otherwise means failure to do so, and will fall back to visit all successors
+	return findNextBasicBlock(*BB.getTerminator());
+}
+
+bool PartialInterpreter::checkDominator(FunctionData& data, llvm::BasicBlock* BB)
+{
+	if (auto* DomNode =  data.getDT().getNode(BB)) {
+		if (auto* IDom = DomNode->getIDom()) {
+			if (data.getBlockHasKnownValues().count(IDom->getBlock())) {
+				return true;
+			}
+		}
+	}
+	return false;
+}
 
 void ModuleData::initFunctionData()
 {
@@ -1618,6 +1654,7 @@ public:
 					parentNode->cleanUp(p.first);
 			}
 		}
+
 		data.incrementVisitCounter(start);
 
 		splitIntoSCCs(childrenNodes, reverseMappingBBToGroup);	//These should be partially ordered with the last one possibly being the replica of the current one
@@ -1719,7 +1756,7 @@ void FunctionData::actualVisit()
 	groupData.recursiveVisit();
 }
 
-void PartialInterpreter::visitOuter(FunctionData& data, BasicBlockGroupNode& BBGN, llvm::Instruction& I, bool& BBProgress)
+void PartialInterpreter::visitOuter(FunctionData& data, BasicBlockGroupNode& BBGN, llvm::Instruction& I, bool& BBProgress, bool& hasKnownValues)
 {
 	data.incrementFunctionInstructionCounter();
 	BBGN.incrementSCCInstructionCounter();
@@ -1737,6 +1774,7 @@ void PartialInterpreter::visitOuter(FunctionData& data, BasicBlockGroupNode& BBG
 			{
 				computedPhisValues.push_back({phi, incomingVal});
 				BBProgress = true;
+				hasKnownValues = true;
 				return;
 			}
 		}
@@ -1761,7 +1799,7 @@ void PartialInterpreter::visitOuter(FunctionData& data, BasicBlockGroupNode& BBG
 
 	//Here PHI have been properly processed
 
-	bool skip = hasToBeSkipped(I);
+	bool skip = hasToBeSkipped(I, hasKnownValues);
 
 	if (isInitialCallFrame())
 	{
@@ -1847,7 +1885,7 @@ void PartialInterpreter::visitOuter(FunctionData& data, BasicBlockGroupNode& BBG
 				assignToMaps(&I, strongBits, ptrBase);
 			return;
 		}
-		forwardArgumentsToNextFrame(*CI);
+		forwardArgumentsToNextFrame(*CI, hasKnownValues);
 	}
 
 	//Dispatch to the Interpreter's visitor for the given Instructon
@@ -1858,7 +1896,10 @@ void PartialInterpreter::visitOuter(FunctionData& data, BasicBlockGroupNode& BBG
 	if(isInitialCallFrame())
 	{
 		if (data.registerValueForInst(I, getOperandValue(&I), strongBits))
+		{
+			hasKnownValues = true;
 			BBProgress = true;
+		}
 	}
 
 	if (!isa<CallInst>(I))
