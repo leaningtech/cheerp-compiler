@@ -140,7 +140,7 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 	typedef std::vector<useLocalsPair> useLocalsVec;
 	typedef std::pair<unsigned, Type*> useTypesPair;
 
-	typedef std::set<useTypesPair, std::greater<useTypesPair>> useTypesSet;
+  typedef std::vector<useTypesPair> useTypesVec;
         
 	// Class to handle giving names to temporary variables needed for recursively dependent PHIs
 	class CompressedPHIHandler: public PHIHandlerUsingTemp
@@ -176,25 +176,27 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 	 * We use a frequency count of 1, because counting the actual number of uses
 	 * is not trivial, and the benefits in code size would not be significant
 	 */
-	useTypesSet classTypes;
-	useTypesSet constructorTypes;
-	useTypesSet arrayTypes;
-	useTypesSet resizeTypes;
-	for(Type* T: gda.classesWithBaseInfo())
+  
+  useTypesVec classTypes;
+  useTypesVec constructorTypes;
+  useTypesVec arrayTypes;
+  useTypesVec resizeTypes;  
+
+  for(Type* T: gda.classesWithBaseInfo())
 	{
-		classTypes.insert(std::make_pair(1,T));
+		classTypes.emplace_back(1, T);
 	}
 	for(Type* T: gda.classesUsed())
 	{
-		constructorTypes.insert(std::make_pair(1,T));
+		constructorTypes.emplace_back(1, T);
 	}
 	for(Type* T: gda.dynAllocArrays())
 	{
-		arrayTypes.insert(std::make_pair(1,T));
+		arrayTypes.emplace_back(1, T);
 	}
 	for(Type* T: gda.dynResizeArrays())
 	{
-		resizeTypes.insert(std::make_pair(1,T));
+		resizeTypes.emplace_back(1, T);
 	}
 
 	/**
@@ -209,9 +211,10 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 	useLocalsVec allLocalValues;
         
 	/**
-	 * We use a std::set to automatically sort the global values by number of uses
+	 * We use a std::vector to sort the global values without running the risk of defaulting
+   * to indeterminate pointer-based sorting
 	 */
-	std::set< useGlobalPair, std::greater< useGlobalPair > > allGlobalValues;
+	std::vector<useGlobalPair> allGlobalValues;
 
 	const Function* entryPoint = gda.getEntryPoint();
 
@@ -222,7 +225,8 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 		if ( &f == entryPoint)
 			++nUses; // We explicitly invoke the entry point
 
-		allGlobalValues.emplace( nUses, &f );
+		// allGlobalValues.emplace( nUses, &f );
+		allGlobalValues.emplace_back( nUses, &f );
 
 		/**
 		 * TODO, some cheerp-internals functions are actually generated even with an empty IR.
@@ -246,7 +250,7 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 			for (const Instruction & I : bb)
 			{
 				if ( needsName(I, PA) )
-				{
+	 		  {
 					auto registerIds = registerize.getAllRegisterIds(&I, EdgeContext::emptyContext());
 					for(uint32_t registerId: registerIds)
 					{
@@ -308,8 +312,8 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 			continue;
 		}
 
-		allGlobalValues.emplace( GV.getNumUses(), &GV );
-	}
+		allGlobalValues.emplace_back( GV.getNumUses(), &GV );
+	}	
 
 	/*
 	 * Helper class to deal with name iteration logic, we want to apply the prefix (if any)
@@ -391,14 +395,15 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 	// We need to iterate over allGlobalValues and allLocalValues
 	// at the same time incrementing selectively only one of the iterators
 	
-	std::set< useGlobalPair >::const_iterator global_it = allGlobalValues.begin();
-	useLocalsVec::const_iterator local_it = allLocalValues.begin();
-	useTypesSet::const_iterator class_it = classTypes.begin();
-	useTypesSet::const_iterator constructor_it = constructorTypes.begin();
-	useTypesSet::const_iterator array_it = arrayTypes.begin();
-	useTypesSet::const_iterator resize_it = resizeTypes.begin();
+	std::vector<useGlobalPair>::const_iterator global_it = allGlobalValues.begin();
+	useLocalsVec::const_iterator local_it = allLocalValues.begin(); 
+  
+  useTypesVec::const_iterator class_it = classTypes.begin();
+  useTypesVec::const_iterator constructor_it = constructorTypes.begin();
+  useTypesVec::const_iterator array_it = arrayTypes.begin();
+  useTypesVec::const_iterator resize_it = resizeTypes.begin();
 
-	bool globalsFinished = global_it == allGlobalValues.end();
+  bool globalsFinished = global_it == allGlobalValues.end();
 	bool localsFinished = local_it == allLocalValues.end();
 	bool classTypesFinished = class_it == classTypes.end();
 	bool constructorTypesFinished = constructor_it == constructorTypes.end();
@@ -508,7 +513,6 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 	{
 		tableIt.second.name = nameHelper.makeGlobalName();
 	}
-	// Generate the rest of the builtins
 	for(int i=IMUL;i<MEMORY;i++)
 		builtins[i] = nameHelper.makeGlobalName();
 	if(exportedMemory)

@@ -29,6 +29,8 @@ namespace cheerp
 {
 
 // Handy aliases for deterministic sets with no erasures
+using DeterministicArraySet = cheerp::DeterministicUnorderedSet<llvm::Type*, RestrictionsLifted::NoPointerStability>;
+using DeterministicStructSet = cheerp::DeterministicUnorderedSet<llvm::StructType*, RestrictionsLifted::NoPointerStability>;
 using DeterministicFunctionSet = cheerp::DeterministicUnorderedSet<const llvm::Function*, RestrictionsLifted::NoPointerStability>;
 using DeterministicAliasSet = cheerp::DeterministicUnorderedSet<const llvm::GlobalAlias*, RestrictionsLifted::NoPointerStability>;
 
@@ -42,7 +44,7 @@ extern const char* wasmNullptrName;
 class GlobalDepsAnalyzerWrapper;
 
 class GlobalDepsAnalyzer 
-{
+ {
 	llvm::ModuleAnalysisManager* MAM;
 	friend GlobalDepsAnalyzerWrapper;
 public:
@@ -73,22 +75,22 @@ public:
 	/**
 	 * Get a list of the classes which require bases info
 	 */
-	const llvm::DenseSet<llvm::StructType*> & classesWithBaseInfo() const { return classesWithBaseInfoNeeded; }
+	const DeterministicStructSet & classesWithBaseInfo() const { return classesWithBaseInfoNeeded; }
 	
 	/**
 	 * Get a list of the classes which are allocated in the code
 	 */
-	const llvm::DenseSet<llvm::StructType*> & classesUsed() const { return classesNeeded; }
+	const DeterministicStructSet & classesUsed() const { return classesNeeded; }
 
 	/**
 	 * Get a list of the arrays which are dynamically allocated with unknown size
 	 */
-	const llvm::DenseSet<llvm::Type*> & dynAllocArrays() const { return arraysNeeded; }
+	const DeterministicArraySet & dynAllocArrays() const { return arraysNeeded; }
 
 	/**
 	 * Get a list of the arrays which are dynamically resized
 	 */
-	const llvm::DenseSet<llvm::Type*> & dynResizeArrays() const { return arrayResizesNeeded; }
+	const DeterministicArraySet & dynResizeArrays() const { return arrayResizesNeeded; }
 	
 	/**
 	 * Get a list of the asm.js functions called from genericjs
@@ -247,10 +249,10 @@ private:
 	llvm::DenseSet< const llvm::GlobalValue * > reachableGlobals; // Set of all the reachable globals
 	
 	FixupMap varsFixups;
-	llvm::DenseSet<llvm::StructType* > classesWithBaseInfoNeeded;
-	llvm::DenseSet<llvm::StructType* > classesNeeded;
-	llvm::DenseSet<llvm::Type* > arraysNeeded;
-	llvm::DenseSet<llvm::Type* > arrayResizesNeeded;
+	DeterministicStructSet classesWithBaseInfoNeeded;
+	DeterministicStructSet classesNeeded;
+	DeterministicArraySet arraysNeeded;
+	DeterministicArraySet arrayResizesNeeded;
 	DeterministicFunctionSet asmJSExportedFunctions;
 	DeterministicAliasSet asmJSExportedAliases;
 	DeterministicFunctionSet asmJSImportedFunctions;
