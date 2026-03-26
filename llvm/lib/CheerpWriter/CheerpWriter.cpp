@@ -6720,18 +6720,21 @@ void CheerpWriter::compileImports()
 		stream << "__exc_pad_f:" << dummy << ',' << NewLine;
 		stream << "__exc_pad_d:" << dummy << ',' << NewLine;
 		stream << "__exc_pad_v:" << dummy << ',' << NewLine;
-		stream << "__exc_load_8:" << dummy << ',' << NewLine;
-		stream << "__exc_load_16:" << dummy << ',' << NewLine;
-		stream << "__exc_load_32:" << dummy << ',' << NewLine;
-		stream << "__exc_load_64:" << dummy << ',' << NewLine;
-		stream << "__exc_load_f:" << dummy << ',' << NewLine;
-		stream << "__exc_load_d:" << dummy << ',' << NewLine;
-		stream << "__exc_store_8:" << dummy << ',' << NewLine;
-		stream << "__exc_store_16:" << dummy << ',' << NewLine;
-		stream << "__exc_store_32:" << dummy << ',' << NewLine;
-		stream << "__exc_store_64:" << dummy << ',' << NewLine;
-		stream << "__exc_store_f:" << dummy << ',' << NewLine;
-		stream << "__exc_store_d:" << dummy << ',' << NewLine;
+		if (WasmMappedMemory)
+		{
+			stream << "__mem_load_8:" << dummy << ',' << NewLine;
+			stream << "__mem_load_16:" << dummy << ',' << NewLine;
+			stream << "__mem_load_32:" << dummy << ',' << NewLine;
+			stream << "__mem_load_64:" << dummy << ',' << NewLine;
+			stream << "__mem_load_f:" << dummy << ',' << NewLine;
+			stream << "__mem_load_d:" << dummy << ',' << NewLine;
+			stream << "__mem_store_8:" << dummy << ',' << NewLine;
+			stream << "__mem_store_16:" << dummy << ',' << NewLine;
+			stream << "__mem_store_32:" << dummy << ',' << NewLine;
+			stream << "__mem_store_64:" << dummy << ',' << NewLine;
+			stream << "__mem_store_f:" << dummy << ',' << NewLine;
+			stream << "__mem_store_d:" << dummy << ',' << NewLine;
+		}
 		stream << "__cos_exception:" << dummy << ',' << NewLine;
 	}
 }
