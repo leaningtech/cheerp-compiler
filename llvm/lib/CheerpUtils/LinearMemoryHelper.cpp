@@ -634,30 +634,36 @@ if (!functionTypeIndices.count(fTy)) { \
 		ADD_FUNCTION_TYPE(f32_i32_3);
 		ADD_FUNCTION_TYPE(f64_i32_3);
 		ADD_FUNCTION_TYPE(v_i32_3);
-		ADD_FUNCTION_TYPE(i64_i32_1);
-		ADD_FUNCTION_TYPE(f32_i32_1);
-		ADD_FUNCTION_TYPE(f64_i32_1);
-		ADD_FUNCTION_TYPE(v_i32_i32);
-		ADD_FUNCTION_TYPE(v_i32_i64);
-		ADD_FUNCTION_TYPE(v_i32_f32);
-		ADD_FUNCTION_TYPE(v_i32_f64);
+		if (WasmMappedMemory)
+		{
+			ADD_FUNCTION_TYPE(i64_i32_1);
+			ADD_FUNCTION_TYPE(f32_i32_1);
+			ADD_FUNCTION_TYPE(f64_i32_1);
+			ADD_FUNCTION_TYPE(v_i32_i32);
+			ADD_FUNCTION_TYPE(v_i32_i64);
+			ADD_FUNCTION_TYPE(v_i32_f32);
+			ADD_FUNCTION_TYPE(v_i32_f64);
+		}
 		builtinIds[BuiltinInstr::EXCEPTION_PAD_32] = maxFunctionId++;
 		builtinIds[BuiltinInstr::EXCEPTION_PAD_64] = maxFunctionId++;
 		builtinIds[BuiltinInstr::EXCEPTION_PAD_F] = maxFunctionId++;
 		builtinIds[BuiltinInstr::EXCEPTION_PAD_D] = maxFunctionId++;
 		builtinIds[BuiltinInstr::EXCEPTION_PAD_V] = maxFunctionId++;
-		builtinIds[BuiltinInstr::CHECKED_LOAD_8] = maxFunctionId++;
-		builtinIds[BuiltinInstr::CHECKED_LOAD_16] = maxFunctionId++;
-		builtinIds[BuiltinInstr::CHECKED_LOAD_32] = maxFunctionId++;
-		builtinIds[BuiltinInstr::CHECKED_LOAD_64] = maxFunctionId++;
-		builtinIds[BuiltinInstr::CHECKED_LOAD_F] = maxFunctionId++;
-		builtinIds[BuiltinInstr::CHECKED_LOAD_D] = maxFunctionId++;
-		builtinIds[BuiltinInstr::CHECKED_STORE_8] = maxFunctionId++;
-		builtinIds[BuiltinInstr::CHECKED_STORE_16] = maxFunctionId++;
-		builtinIds[BuiltinInstr::CHECKED_STORE_32] = maxFunctionId++;
-		builtinIds[BuiltinInstr::CHECKED_STORE_64] = maxFunctionId++;
-		builtinIds[BuiltinInstr::CHECKED_STORE_F] = maxFunctionId++;
-		builtinIds[BuiltinInstr::CHECKED_STORE_D] = maxFunctionId++;
+		if (WasmMappedMemory)
+		{
+			builtinIds[BuiltinInstr::CHECKED_LOAD_8] = maxFunctionId++;
+			builtinIds[BuiltinInstr::CHECKED_LOAD_16] = maxFunctionId++;
+			builtinIds[BuiltinInstr::CHECKED_LOAD_32] = maxFunctionId++;
+			builtinIds[BuiltinInstr::CHECKED_LOAD_64] = maxFunctionId++;
+			builtinIds[BuiltinInstr::CHECKED_LOAD_F] = maxFunctionId++;
+			builtinIds[BuiltinInstr::CHECKED_LOAD_D] = maxFunctionId++;
+			builtinIds[BuiltinInstr::CHECKED_STORE_8] = maxFunctionId++;
+			builtinIds[BuiltinInstr::CHECKED_STORE_16] = maxFunctionId++;
+			builtinIds[BuiltinInstr::CHECKED_STORE_32] = maxFunctionId++;
+			builtinIds[BuiltinInstr::CHECKED_STORE_64] = maxFunctionId++;
+			builtinIds[BuiltinInstr::CHECKED_STORE_F] = maxFunctionId++;
+			builtinIds[BuiltinInstr::CHECKED_STORE_D] = maxFunctionId++;
+		}
 		// Add a type for the exception tag
 		FunctionType* void_0 = FunctionType::get(Type::getVoidTy(module->getContext()), {}, false);
 		ADD_FUNCTION_TYPE(void_0);
