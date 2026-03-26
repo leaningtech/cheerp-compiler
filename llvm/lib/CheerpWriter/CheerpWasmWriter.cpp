@@ -5051,7 +5051,9 @@ void CheerpWasmWriter::compileImportSection()
 		assert(it != linearHelper.getFunctionTypeIndices().end());
 		exceptionTagTypeIndex = it->second;
 		importedTags = 1;
-		importedInterpreterHelpers = /*landing pads*/5 + /*memory ops*/12;
+		importedInterpreterHelpers = /*landing pads*/5;
+		if (WasmMappedMemory)
+			importedInterpreterHelpers += /*memory ops*/12;
 	}
 
 	// Total number of function imports (builtins + imports + exception pads)
@@ -5136,29 +5138,32 @@ void CheerpWasmWriter::compileImportSection()
 		compileImport(section, "__exc_pad_f", f32_i32_3);
 		compileImport(section, "__exc_pad_d", f64_i32_3);
 		compileImport(section, "__exc_pad_v", v_i32_3);
-		FunctionType* i64_i32_1 = FunctionType::get(i64, i32_1, false);
-		FunctionType* f32_i32_1 = FunctionType::get(f32, i32_1, false);
-		FunctionType* f64_i32_1 = FunctionType::get(f64, i32_1, false);
-		compileImport(section, "__exc_load_8", i32_i32_1);
-		compileImport(section, "__exc_load_16", i32_i32_1);
-		compileImport(section, "__exc_load_32", i32_i32_1);
-		compileImport(section, "__exc_load_64", i64_i32_1);
-		compileImport(section, "__exc_load_f", f32_i32_1);
-		compileImport(section, "__exc_load_d", f64_i32_1);
-		Type* i32_i32[] = { i32, i32 };
-		Type* i32_i64[] = { i32, i64 };
-		Type* i32_f32[] = { i32, f32 };
-		Type* i32_f64[] = { i32, f64 };
-		FunctionType* v_i32_i32 = FunctionType::get(v, i32_i32, false);
-		FunctionType* v_i32_i64 = FunctionType::get(v, i32_i64, false);
-		FunctionType* v_i32_f32 = FunctionType::get(v, i32_f32, false);
-		FunctionType* v_i32_f64 = FunctionType::get(v, i32_f64, false);
-		compileImport(section, "__exc_store_8", v_i32_i32);
-		compileImport(section, "__exc_store_16", v_i32_i32);
-		compileImport(section, "__exc_store_32", v_i32_i32);
-		compileImport(section, "__exc_store_64", v_i32_i64);
-		compileImport(section, "__exc_store_f", v_i32_f32);
-		compileImport(section, "__exc_store_d", v_i32_f64);
+		if (WasmMappedMemory)
+		{
+			FunctionType* i64_i32_1 = FunctionType::get(i64, i32_1, false);
+			FunctionType* f32_i32_1 = FunctionType::get(f32, i32_1, false);
+			FunctionType* f64_i32_1 = FunctionType::get(f64, i32_1, false);
+			compileImport(section, "__mem_load_8", i32_i32_1);
+			compileImport(section, "__mem_load_16", i32_i32_1);
+			compileImport(section, "__mem_load_32", i32_i32_1);
+			compileImport(section, "__mem_load_64", i64_i32_1);
+			compileImport(section, "__mem_load_f", f32_i32_1);
+			compileImport(section, "__mem_load_d", f64_i32_1);
+			Type* i32_i32[] = { i32, i32 };
+			Type* i32_i64[] = { i32, i64 };
+			Type* i32_f32[] = { i32, f32 };
+			Type* i32_f64[] = { i32, f64 };
+			FunctionType* v_i32_i32 = FunctionType::get(v, i32_i32, false);
+			FunctionType* v_i32_i64 = FunctionType::get(v, i32_i64, false);
+			FunctionType* v_i32_f32 = FunctionType::get(v, i32_f32, false);
+			FunctionType* v_i32_f64 = FunctionType::get(v, i32_f64, false);
+			compileImport(section, "__mem_store_8", v_i32_i32);
+			compileImport(section, "__mem_store_16", v_i32_i32);
+			compileImport(section, "__mem_store_32", v_i32_i32);
+			compileImport(section, "__mem_store_64", v_i32_i64);
+			compileImport(section, "__mem_store_f", v_i32_f32);
+			compileImport(section, "__mem_store_d", v_i32_f64);
+		}
 		assert(importedTags == 1);
 		compileImportTag(section, "__cos_exception", exceptionTagTypeIndex);
 	}
