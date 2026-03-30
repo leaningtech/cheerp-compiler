@@ -379,7 +379,13 @@ static bool linkFiles(const char *argv0, LLVMContext &Context, Linker &L,
   unsigned ApplicableFlags = Flags & Linker::Flags::OverrideFromSrc;
   // Similar to some flags, internalization doesn't apply to the first file.
   bool InternalizeLinkedSymbols = false;
+  StringSet<> SeenFiles;
   for (const auto &File : Files) {
+    if (!SeenFiles.insert(File).second) {
+      if (Verbose)
+        errs() << "Skipping duplicate input '" << File << "'\n";
+      continue;
+    }
     std::unique_ptr<MemoryBuffer> Buffer =
         ExitOnErr(errorOrToExpected(MemoryBuffer::getFileOrSTDIN(File)));
 
