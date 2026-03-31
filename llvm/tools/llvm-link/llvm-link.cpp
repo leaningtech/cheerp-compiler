@@ -25,6 +25,7 @@
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Linker/Linker.h"
 #include "llvm/Object/Archive.h"
+#include "llvm/Object/IRObjectFile.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/InitLLVM.h"
@@ -128,6 +129,11 @@ static cl::opt<bool> IgnoreNonBitcode(
     "ignore-non-bitcode",
     cl::desc("Do not report an error for non-bitcode files in archives"),
     cl::Hidden);
+
+static cl::opt<bool> ArchiveOnDemand(
+    "archive-on-demand",
+    cl::desc("Only link archive members that resolve undefined symbols"),
+    cl::cat(LinkCategory));
 
 static ExitOnError ExitOnErr;
 
@@ -233,6 +239,74 @@ static std::unique_ptr<Module> loadArFile(const char *Argv0,
   } // end for each child
   ExitOnErr(std::move(Err));
   return Result;
+}
+
+/// Try to link a single module into the composite, with verification,
+/// ThinLTO promotion, and internalization support. Returns false on error.
+static bool linkModule(const char *argv0, Linker &L, std::unique_ptr<Module> M,
+                       StringRef Name, unsigned ApplicableFlags,
+                       bool InternalizeLinkedSymbols) {
+  if (!M.get()) {
+    errs() << argv0 << ": ";
+    WithColor::error() << " loading file '" << Name << "'\n";
+    return false;
+  }
+
+  // Ignore completely empty modules, they might cause spurious warnings due
+  // to missing DL/triple information.
+  if (M->empty() && M->global_empty() && M->alias_empty() &&
+      M->named_metadata_empty() && M->getTargetTriple().empty() &&
+      M->getDataLayoutStr().empty()) {
+    return true;
+  }
+
+  // Note that when ODR merging types cannot verify input files in here When
+  // doing that debug metadata in the src module might already be pointing to
+  // the destination.
+  if (DisableDITypeMap && !NoVerify && verifyModule(*M, &errs())) {
+    errs() << argv0 << ": " << Name << ": ";
+    WithColor::error() << "input module is broken!\n";
+    return false;
+  }
+
+  // If a module summary index is supplied, load it so linkInModule can treat
+  // local functions/variables as exported and promote if necessary.
+  if (!SummaryIndex.empty()) {
+    std::unique_ptr<ModuleSummaryIndex> Index =
+        ExitOnErr(llvm::getModuleSummaryIndexForFile(SummaryIndex));
+
+    // Conservatively mark all internal values as promoted, since this tool
+    // does not do the ThinLink that would normally determine what values to
+    // promote.
+    for (auto &I : *Index) {
+      for (auto &S : I.second.SummaryList) {
+        if (GlobalValue::isLocalLinkage(S->linkage()))
+          S->setLinkage(GlobalValue::ExternalLinkage);
+      }
+    }
+
+    // Promotion
+    if (renameModuleForThinLTO(*M, *Index,
+                               /*ClearDSOLocalOnDeclarations=*/false))
+      return false;
+  }
+
+  if (Verbose)
+    errs() << "Linking in '" << Name << "'\n";
+
+  bool Err = false;
+  if (InternalizeLinkedSymbols) {
+    Err = L.linkInModule(
+        std::move(M), ApplicableFlags, [](Module &M, const StringSet<> &GVS) {
+          internalizeModule(M, [&GVS](const GlobalValue &GV) {
+            return !GV.hasName() || (GVS.count(GV.getName()) == 0);
+          });
+        });
+  } else {
+    Err = L.linkInModule(std::move(M), ApplicableFlags);
+  }
+
+  return !Err;
 }
 
 namespace {
@@ -387,75 +461,220 @@ static bool linkFiles(const char *argv0, LLVMContext &Context, Linker &L,
         identify_magic(Buffer->getBuffer()) == file_magic::archive
             ? loadArFile(argv0, std::move(Buffer), Context)
             : loadFile(argv0, std::move(Buffer), Context);
+
+    if (!linkModule(argv0, L, std::move(M), File, ApplicableFlags,
+                    InternalizeLinkedSymbols))
+      return false;
+
+    // Internalization applies to linking of subsequent files.
+    InternalizeLinkedSymbols = Internalize;
+
+    // All linker flags apply to linking of subsequent files.
+    ApplicableFlags = Flags;
+  }
+
+  return true;
+}
+
+/// Iterate an archive's children, calling Callback for each bitcode member.
+/// Returns false on error.
+static bool forEachArchiveMember(
+    const char *argv0, MemoryBufferRef ArchiveBuf,
+    llvm::function_ref<bool(std::string Name, MemoryBufferRef MBRef)>
+        Callback) {
+  StringRef ArchiveName = ArchiveBuf.getBufferIdentifier();
+  if (Verbose)
+    errs() << "Reading archive '" << ArchiveName << "'\n";
+  Expected<std::unique_ptr<object::Archive>> ArchiveOrError =
+      object::Archive::create(ArchiveBuf);
+  if (!ArchiveOrError)
+    ExitOnErr(ArchiveOrError.takeError());
+
+  std::unique_ptr<object::Archive> Archive =
+      std::move(ArchiveOrError.get());
+
+  Error Err = Error::success();
+  for (const object::Archive::Child &C : Archive->children(Err)) {
+    Expected<StringRef> Ename = C.getName();
+    if (Error E = Ename.takeError()) {
+      errs() << argv0 << ": ";
+      WithColor::error()
+          << " failed to read name of archive member '" << ArchiveName
+          << "'\n";
+      return false;
+    }
+    std::string ChildName = (ArchiveName + "(" + Ename.get() + ")").str();
+
+    Expected<MemoryBufferRef> MemBuf = C.getMemoryBufferRef();
+    if (Error E = MemBuf.takeError()) {
+      errs() << argv0 << ": ";
+      WithColor::error() << " loading member '" << ChildName << "'\n";
+      return false;
+    }
+
+    if (!isBitcode(reinterpret_cast<const unsigned char *>(
+                        MemBuf.get().getBufferStart()),
+                    reinterpret_cast<const unsigned char *>(
+                        MemBuf.get().getBufferEnd()))) {
+      if (IgnoreNonBitcode)
+        continue;
+      errs() << argv0 << ": ";
+      WithColor::error() << " member of archive is not a bitcode file: '"
+                         << ChildName << "'\n";
+      return false;
+    }
+
+    if (!Callback(std::move(ChildName), MemBuf.get()))
+      return false;
+  }
+  ExitOnErr(std::move(Err));
+  return true;
+}
+
+/// Information about an archive member collected during pre-scan.
+struct ArchiveMemberInfo {
+  std::string Name;
+  MemoryBufferRef MBRef;
+};
+
+/// Collect symbol information from a module in a single pass. Defined symbols
+/// are added to Defined; undefined symbols not already in Defined are appended
+/// to Worklist.
+static void collectSymbols(const Module &M, StringSet<> &Defined,
+                           std::vector<std::string> &Worklist) {
+  auto Process = [&](const GlobalValue &GV) {
+    if (!GV.hasName()) return;
+    // Only non-local definitions actually provide the symbol to other modules.
+    // Internal/private symbols get renamed during linking and don't satisfy
+    // external references.
+    if (!GV.isDeclaration() && !GV.hasLocalLinkage())
+      Defined.insert(GV.getName());
+    else if (GV.isDeclaration() && !Defined.count(GV.getName()))
+      Worklist.push_back(GV.getName().str());
+  };
+  for (const auto &GV : M.globals())
+    Process(GV);
+  for (const auto &F : M)
+    if (!F.isIntrinsic())
+      Process(F);
+  for (const auto &A : M.aliases())
+    Process(A);
+}
+
+/// Link files with proper archive semantics: archive members are only
+/// extracted when they provide a symbol that is currently undefined.
+/// Uses a worklist to avoid redundant scanning.
+static bool linkFilesOnDemand(const char *argv0, LLVMContext &Context,
+                              Linker &L,
+                              const cl::list<std::string> &Files,
+                              unsigned Flags) {
+  unsigned ApplicableFlags = Flags & Linker::Flags::OverrideFromSrc;
+  bool InternalizeLinkedSymbols = false;
+
+  // Phase 1: Pre-scan all archive members using irsymtab to build a map from
+  //          symbol name to the archive member that defines it. This avoids
+  //          creating any Module objects or LLVMContext for the scan.
+  std::vector<ArchiveMemberInfo> AllMembers;
+  std::vector<std::unique_ptr<MemoryBuffer>> ArchiveBuffers;
+  StringMap<unsigned> SymbolProviders;
+
+  for (const auto &File : Files) {
+    std::unique_ptr<MemoryBuffer> Buffer =
+        ExitOnErr(errorOrToExpected(MemoryBuffer::getFileOrSTDIN(File)));
+    if (identify_magic(Buffer->getBuffer()) != file_magic::archive)
+      continue;
+
+    bool Ok = forEachArchiveMember(
+        argv0, Buffer->getMemBufferRef(),
+        [&](std::string ChildName, MemoryBufferRef MBRef) {
+          unsigned Idx = AllMembers.size();
+          AllMembers.push_back({std::move(ChildName), MBRef});
+
+          Expected<object::IRSymtabFile> SymtabOrErr =
+              object::readIRSymtab(MBRef);
+          if (!SymtabOrErr) {
+            errs() << argv0 << ": ";
+            WithColor::error() << " scanning member '"
+                               << AllMembers.back().Name
+                               << "': " << toString(SymtabOrErr.takeError())
+                               << '\n';
+            return false;
+          }
+          for (const auto &Sym : SymtabOrErr->TheReader.symbols())
+            if (!Sym.isUndefined() && Sym.isGlobal() &&
+                !Sym.getName().empty())
+              SymbolProviders.try_emplace(Sym.getName(), Idx);
+          return true;
+        });
+    if (!Ok)
+      return false;
+
+    ArchiveBuffers.push_back(std::move(Buffer));
+  }
+
+  // Phase 2: Link all direct (non-archive) inputs, tracking symbols.
+  StringSet<> Defined;
+  std::vector<std::string> Worklist;
+
+  for (const auto &File : Files) {
+    std::unique_ptr<MemoryBuffer> Buffer =
+        ExitOnErr(errorOrToExpected(MemoryBuffer::getFileOrSTDIN(File)));
+    if (identify_magic(Buffer->getBuffer()) == file_magic::archive)
+      continue;
+
+    std::unique_ptr<Module> M =
+        loadFile(argv0, std::move(Buffer), Context);
     if (!M.get()) {
       errs() << argv0 << ": ";
       WithColor::error() << " loading file '" << File << "'\n";
       return false;
     }
 
-    // Ignore completely empty modules, they might cause spurious warnings due
-    // to missing DL/triple information.
-    if (M->empty() && M->global_empty() && M->alias_empty() && M->named_metadata_empty() && M->getTargetTriple().empty() && M->getDataLayoutStr().empty()) {
-      // Notoriously a bad practice, but history preserving in this case.
-      goto loopEnd;
-    }
+    collectSymbols(*M, Defined, Worklist);
 
-    // Note that when ODR merging types cannot verify input files in here When
-    // doing that debug metadata in the src module might already be pointing to
-    // the destination.
-    if (DisableDITypeMap && !NoVerify && verifyModule(*M, &errs())) {
-      errs() << argv0 << ": " << File << ": ";
-      WithColor::error() << "input module is broken!\n";
+    if (!linkModule(argv0, L, std::move(M), File, ApplicableFlags,
+                    InternalizeLinkedSymbols))
       return false;
-    }
 
-    // If a module summary index is supplied, load it so linkInModule can treat
-    // local functions/variables as exported and promote if necessary.
-    if (!SummaryIndex.empty()) {
-      std::unique_ptr<ModuleSummaryIndex> Index =
-          ExitOnErr(llvm::getModuleSummaryIndexForFile(SummaryIndex));
+    InternalizeLinkedSymbols = Internalize;
+    ApplicableFlags = Flags;
+  }
 
-      // Conservatively mark all internal values as promoted, since this tool
-      // does not do the ThinLink that would normally determine what values to
-      // promote.
-      for (auto &I : *Index) {
-        for (auto &S : I.second.SummaryList) {
-          if (GlobalValue::isLocalLinkage(S->linkage()))
-            S->setLinkage(GlobalValue::ExternalLinkage);
-        }
-      }
+  // Phase 3: Worklist-driven archive member extraction.
+  while (!Worklist.empty()) {
+    std::string Sym = std::move(Worklist.back());
+    Worklist.pop_back();
 
-      // Promotion
-      if (renameModuleForThinLTO(*M, *Index,
-                                 /*ClearDSOLocalOnDeclarations=*/false))
-        return true;
+    if (Defined.count(Sym))
+      continue;
+
+    auto It = SymbolProviders.find(Sym);
+    if (It == SymbolProviders.end())
+      continue;
+
+    unsigned Idx = It->second;
+    std::unique_ptr<Module> M = loadFile(
+        argv0,
+        MemoryBuffer::getMemBuffer(AllMembers[Idx].MBRef, false),
+        Context);
+    if (!M.get()) {
+      errs() << argv0 << ": ";
+      WithColor::error() << " loading member '"
+                         << AllMembers[Idx].Name << "'\n";
+      return false;
     }
 
     if (Verbose)
-      errs() << "Linking in '" << File << "'\n";
+      errs() << "Extracting '" << AllMembers[Idx].Name
+             << "' (provides " << Sym << ")\n";
 
-    {
-    bool Err = false;
-    if (InternalizeLinkedSymbols) {
-      Err = L.linkInModule(
-          std::move(M), ApplicableFlags, [](Module &M, const StringSet<> &GVS) {
-            internalizeModule(M, [&GVS](const GlobalValue &GV) {
-              return !GV.hasName() || (GVS.count(GV.getName()) == 0);
-            });
-          });
-    } else {
-      Err = L.linkInModule(std::move(M), ApplicableFlags);
-    }
+    collectSymbols(*M, Defined, Worklist);
 
-    if (Err)
+    if (!linkModule(argv0, L, std::move(M), AllMembers[Idx].Name,
+                    ApplicableFlags, InternalizeLinkedSymbols))
       return false;
-    }
 
-loopEnd:
-    // Internalization applies to linking of subsequent files.
     InternalizeLinkedSymbols = Internalize;
-
-    // All linker flags apply to linking of subsequent files.
     ApplicableFlags = Flags;
   }
 
@@ -483,13 +702,14 @@ int main(int argc, char **argv) {
   if (OnlyNeeded)
     Flags |= Linker::Flags::LinkOnlyNeeded;
 
-  // First add all the regular input files
-  if (!linkFiles(argv[0], Context, L, InputFilenames, Flags))
+  // First add all the regular input files.
+  auto DoLinkFiles = ArchiveOnDemand ? linkFilesOnDemand : linkFiles;
+  if (!DoLinkFiles(argv[0], Context, L, InputFilenames, Flags))
     return 1;
 
   // Next the -override ones.
-  if (!linkFiles(argv[0], Context, L, OverridingInputs,
-                 Flags | Linker::Flags::OverrideFromSrc))
+  if (!DoLinkFiles(argv[0], Context, L, OverridingInputs,
+                   Flags | Linker::Flags::OverrideFromSrc))
     return 1;
 
   // Import any functions requested via -import
