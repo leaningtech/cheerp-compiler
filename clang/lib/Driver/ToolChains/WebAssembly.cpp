@@ -624,33 +624,19 @@ void cheerp::Link::ConstructJob(Compilation &C, const JobAction &JA,
   }
  
   const char *Exec = Args.MakeArgString((getToolChain().GetProgramPath("llvm-link")));
+  CmdArgs.push_back("-archive-on-demand");
   for (auto& it: Args.filtered(options::OPT_l)) {
     std::string libName("lib");
     libName += it->getValue();
     std::string bcLibName = libName + ".bc";
     std::string foundLib = getToolChain().GetFilePath(bcLibName.c_str());
     if (foundLib == bcLibName) {
-      // Try again using .a, the internal format might be an AR archive or BC.
-      // The linked library internally supports AR files, but the linking process
-      // is partially broken since it creates intermediate modules on the fly,
-      // which are only later linked into the final module. This two-step process
-      // might not resolve all the recursive type definitions in some cases, since
-      // types conflict in the LLVM context, but not yet in the modules.
+      // Try again using .a. llvm-link handles archive files directly with
+      // on-demand member linking.
       std::string aLibName = libName + ".a";
       foundLib = getToolChain().GetFilePath(aLibName.c_str());
       if(foundLib == aLibName) {
         foundLib = bcLibName;
-      } else if (!usedLibs.count(foundLib)) {
-        // Force a temporary BC file to correctly resolve all recursive type definitions
-        const char* ArchiveLinkedBc = C.addTempFile(Args.MakeArgString(C.getDriver().GetTemporaryPath("archive", "bc")));
-        ArgStringList ArchiveCmdArgs;
-        ArchiveCmdArgs.push_back("-o");
-        ArchiveCmdArgs.push_back(ArchiveLinkedBc);
-        ArchiveCmdArgs.push_back(Args.MakeArgString(foundLib));
-        C.addCommand(std::make_unique<Command>(JA, *this, ResponseFileSupport::None(), Exec, ArchiveCmdArgs, Inputs));
-        // Apply a remapping, but track the original library as already found
-        usedLibs.emplace(foundLib, ArchiveLinkedBc);
-        continue;
       }
     }
     usedLibs.emplace(foundLib, foundLib);
