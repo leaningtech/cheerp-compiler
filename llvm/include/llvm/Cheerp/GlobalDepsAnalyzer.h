@@ -29,7 +29,7 @@ namespace cheerp
 {
 
 // Handy aliases for deterministic sets with no erasures
-using DeterministicArraySet = cheerp::DeterministicUnorderedSet<llvm::Type*, RestrictionsLifted::NoPointerStability>;
+using DeterministicTypeSet = cheerp::DeterministicUnorderedSet<llvm::Type*, RestrictionsLifted::NoPointerStability>;
 using DeterministicStructSet = cheerp::DeterministicUnorderedSet<llvm::StructType*, RestrictionsLifted::NoPointerStability>;
 using DeterministicFunctionSet = cheerp::DeterministicUnorderedSet<const llvm::Function*, RestrictionsLifted::NoPointerStability>;
 using DeterministicAliasSet = cheerp::DeterministicUnorderedSet<const llvm::GlobalAlias*, RestrictionsLifted::NoPointerStability>;
@@ -85,12 +85,12 @@ public:
 	/**
 	 * Get a list of the arrays which are dynamically allocated with unknown size
 	 */
-	const DeterministicArraySet & dynAllocArrays() const { return arraysNeeded; }
+	const DeterministicTypeSet & dynAllocArrays() const { return arraysNeeded; }
 
 	/**
 	 * Get a list of the arrays which are dynamically resized
 	 */
-	const DeterministicArraySet & dynResizeArrays() const { return arrayResizesNeeded; }
+	const DeterministicTypeSet & dynResizeArrays() const { return arrayResizesNeeded; }
 	
 	/**
 	 * Get a list of the asm.js functions called from genericjs
@@ -251,8 +251,8 @@ private:
 	FixupMap varsFixups;
 	DeterministicStructSet classesWithBaseInfoNeeded;
 	DeterministicStructSet classesNeeded;
-	DeterministicArraySet arraysNeeded;
-	DeterministicArraySet arrayResizesNeeded;
+	DeterministicTypeSet arraysNeeded;
+	DeterministicTypeSet arrayResizesNeeded;
 	DeterministicFunctionSet asmJSExportedFunctions;
 	DeterministicAliasSet asmJSExportedAliases;
 	DeterministicFunctionSet asmJSImportedFunctions;
