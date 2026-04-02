@@ -135,6 +135,11 @@ static cl::opt<bool> ArchiveOnDemand(
     cl::desc("Only link archive members that resolve undefined symbols"),
     cl::cat(LinkCategory));
 
+static cl::list<std::string> ForceLink(
+    "force-link",
+    cl::desc("Force extraction of archive members defining this symbol"),
+    cl::cat(LinkCategory));
+
 static ExitOnError ExitOnErr;
 
 // Read the specified bitcode file in and return it. This routine searches the
@@ -639,6 +644,12 @@ static bool linkFilesOnDemand(const char *argv0, LLVMContext &Context,
     InternalizeLinkedSymbols = Internalize;
     ApplicableFlags = Flags;
   }
+
+  // Seed the worklist with any symbols that must be force-linked regardless
+  // of whether they are referenced by the direct inputs.
+  for (const auto &Sym : ForceLink)
+    if (!Defined.count(Sym))
+      Worklist.push_back(Sym);
 
   // Phase 3: Worklist-driven archive member extraction.
   while (!Worklist.empty()) {

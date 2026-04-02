@@ -625,6 +625,7 @@ void cheerp::Link::ConstructJob(Compilation &C, const JobAction &JA,
  
   const char *Exec = Args.MakeArgString((getToolChain().GetProgramPath("llvm-link")));
   CmdArgs.push_back("-archive-on-demand");
+  CmdArgs.push_back("-force-link=main");
   for (auto& it: Args.filtered(options::OPT_l)) {
     std::string libName("lib");
     libName += it->getValue();
