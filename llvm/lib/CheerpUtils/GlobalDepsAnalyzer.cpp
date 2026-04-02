@@ -482,41 +482,10 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 					}
 					auto ReplaceUsesForOverflow = [](CallInst* ci, Value* val, Value* overflow)
 					{
-						SmallVector<Instruction*, 16> deleteList;
-						for (User* U: ci->users())
-						{
-							assert(isa<ExtractValueInst>(U) || isa<InsertValueInst>(U));
-							if (ExtractValueInst* EVI = dyn_cast<ExtractValueInst>(U))
-							{
-								ArrayRef<unsigned> indices = EVI->getIndices();
-								if (indices[0] == 0)
-									U->replaceAllUsesWith(val);
-								else
-									U->replaceAllUsesWith(overflow);
-								deleteList.push_back(cast<Instruction>(EVI));
-							}
-							else if (InsertValueInst* IVI = dyn_cast<InsertValueInst>(U))
-							{
-								// Create an aggregate with the original value and the one being inserted.
-								ArrayRef<unsigned> indices = IVI->getIndices();
-								Value *newAggregate = UndefValue::get(IVI->getType());
-								if (indices[0] == 0)
-								{
-									newAggregate = InsertValueInst::Create(newAggregate, IVI->getInsertedValueOperand(), { 0 }, "", ci);
-									newAggregate = InsertValueInst::Create(newAggregate, overflow, { 1 }, "", ci);
-								}
-								else
-								{
-									newAggregate = InsertValueInst::Create(newAggregate, val, { 0 }, "", ci);
-									newAggregate = InsertValueInst::Create(newAggregate, IVI->getInsertedValueOperand(), { 1 }, "", ci);
-								}
-								U->replaceAllUsesWith(newAggregate);
-								deleteList.push_back(cast<Instruction>(EVI));
-							}
-						}
-
-						for (Instruction* I: deleteList)
-							I->eraseFromParent();
+						Value* newAggregate = UndefValue::get(ci->getType());
+						newAggregate = InsertValueInst::Create(newAggregate, val, { 0 }, "", ci);
+						newAggregate = InsertValueInst::Create(newAggregate, overflow, { 1 }, "", ci);
+						ci->replaceAllUsesWith(newAggregate);
 					};
 					if(II == Intrinsic::sadd_with_overflow)
 					{
