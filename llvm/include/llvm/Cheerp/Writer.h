@@ -289,6 +289,8 @@ private:
 	bool symbolicGlobalsAsmJS;
 	// Flag to signal if we should emit readable or compressed output
 	bool readableOutput;
+	// Flag to signal if we should print commented llvm-ir alongside js output.
+	bool printIR;
 	// Flag to keep track of state of already declared stuff
 	bool areDummiesDeclared{false};
 	bool areAsmJSExportsDeclared{false};
@@ -653,7 +655,8 @@ public:
 			bool checkBounds,
 			bool compileGlobalsAddrAsmJS,
 			const std::string& wasmFile,
-			bool forceTypedArrays):
+			bool forceTypedArrays,
+			bool printIR):
 		module(m),
 		MAM(MAM),
 		FAM(MAM.getResult<llvm::FunctionAnalysisManagerModuleProxy>(m).getManager()),
@@ -689,7 +692,8 @@ public:
 		readableOutput(readableOutput),
 		blockDepth(0),
 		lastDepth0Block(nullptr),
-		stream(s, sourceMapGenerator, readableOutput)
+		stream(s, sourceMapGenerator, readableOutput),
+		printIR(printIR)
 	{
 	}
 	void makeJS();

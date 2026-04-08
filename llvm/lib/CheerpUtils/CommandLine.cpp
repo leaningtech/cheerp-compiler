@@ -30,6 +30,8 @@ llvm::cl::opt<bool> SourceMapStandAlone("cheerp-sourcemap-standalone", llvm::cl:
 
 llvm::cl::opt<bool> PrettyCode("cheerp-pretty-code", llvm::cl::desc("Generate human-readable JS") );
 
+llvm::cl::opt<bool> PrintIR("cheerp-print-ir", llvm::cl::desc("Print commented LLVM-IR alongside JS output") );
+
 llvm::cl::opt<bool> SymbolicGlobalsAsmJS("cheerp-asmjs-symbolic-globals", llvm::cl::desc("Compile global variables addresses as js variables in the asm.js module") );
 
 llvm::cl::opt<bool> NoNativeJavaScriptMath("cheerp-no-native-math", llvm::cl::desc("Disable native JavaScript math functions") );

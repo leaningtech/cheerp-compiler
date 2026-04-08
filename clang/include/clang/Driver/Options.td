@@ -4958,6 +4958,8 @@ def cheerp_sourcemap_standalone : Flag<["-"], "cheerp-sourcemap-standalone">, Fl
   HelpText<"Generate a standalone sourcemap by including _all_ sources in the map file">;
 def cheerp_pretty_code : Flag<["-"], "cheerp-pretty-code">, Flags<[NoXarchOption]>,
   HelpText<"Generate human-readable JS">;
+def cheerp_print_ir : Flag<["-"], "cheerp-print-ir">, Flags<[NoXarchOption]>,
+  HelpText<"Print commented LLVM-IR alongside JS output">;
 def cheerp_asmjs_symbolic_globals : Flag<["-"], "cheerp-asmjs-symbolic-globals">, Flags<[NoXarchOption]>,
   HelpText<"Compile global variable addresses as js variables in the asm.js module">;
 def cheerp_make_module : Flag<["-"], "cheerp-make-module">, Flags<[NoXarchOption]>,

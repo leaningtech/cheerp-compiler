@@ -5347,6 +5347,13 @@ void CheerpWriter::compileBB(const BasicBlock& BB)
 	}
 	for(const auto& I: BB)
 	{
+		if (printIR)
+		{
+			stream << "/*";
+			I.print(stream.getRawStream());
+			stream << "*/" << NewLine;
+		}
+
 		if(const PHINode* phi = dyn_cast<PHINode>(&I))
 		{
 			continue;
