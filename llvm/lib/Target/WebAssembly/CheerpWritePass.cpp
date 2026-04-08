@@ -122,7 +122,7 @@ PreservedAnalyses cheerp::CheerpWritePassImpl::run(Module& M, ModuleAnalysisMana
     cheerp::CheerpWriter writer(M, MAM, Out, PA, registerize, GDA, linearHelper, namegen, allocaStoresExtractor, IW.getLandingPadTable(), memOut, asmjsMemFile,
                                 sourceMapGenerator.get(), PrettyCode, makeModule, !NoNativeJavaScriptMath,
                                 !NoJavaScriptMathImul, !NoJavaScriptMathFround, !NoCredits, MeasureTimeToMain, CheerpHeapSize,
-                                BoundsCheck, SymbolicGlobalsAsmJS, wasmFile, ForceTypedArrays);
+                                BoundsCheck, SymbolicGlobalsAsmJS, wasmFile, ForceTypedArrays, PrintIR);
     writer.makeJS();
   }
 

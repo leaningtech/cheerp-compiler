@@ -1080,6 +1080,8 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
     cheerpSourceMapStandAlone->render(Args, CmdArgs);
   if(Arg* cheerpPrettyCode = Args.getLastArg(options::OPT_cheerp_pretty_code))
     cheerpPrettyCode->render(Args, CmdArgs);
+  if(Arg* cheerpPrintIR = Args.getLastArg(options::OPT_cheerp_print_ir))
+    cheerpPrintIR->render(Args, CmdArgs);
   if(Arg* cheerpAsmJSSymbolicGlobals = Args.getLastArg(options::OPT_cheerp_asmjs_symbolic_globals))
     cheerpAsmJSSymbolicGlobals->render(Args, CmdArgs);
   if(Arg* cheerpNoNativeMath = Args.getLastArg(options::OPT_cheerp_no_native_math))

@@ -29,6 +29,7 @@ extern llvm::cl::opt<bool> MakeDTS;
 extern llvm::cl::opt<bool> WasmOnly;
 extern llvm::cl::opt<bool> SourceMapStandAlone;
 extern llvm::cl::opt<bool> PrettyCode;
+extern llvm::cl::opt<bool> PrintIR;
 extern llvm::cl::opt<bool> SymbolicGlobalsAsmJS;
 extern llvm::cl::opt<bool> NoNativeJavaScriptMath;
 extern llvm::cl::opt<bool> NoJavaScriptMathImul;
