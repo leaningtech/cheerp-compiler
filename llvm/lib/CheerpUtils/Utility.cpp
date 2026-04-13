@@ -381,10 +381,11 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 					return false;
 				// We can only inline COMPLETE_OBJECT and RAW pointers, other kinds may actually require multiple accesses while rendering
 				// NOTE: When RAW pointers are converted to REGULAR/SPLIT_REGULAR only one access (the offset part) is used, the base is a constant HEAP*
+				// NOTE: We don't inline COMPLETE_OBJECT when bounds checking is enabled, as it may be rendered twice to compile checkMemberExists.
 				if(I.getType()->isPointerTy())
 				{
 					POINTER_KIND k = PA.getPointerKind(&I);
-					if(k != COMPLETE_OBJECT && k != RAW)
+					if((k != COMPLETE_OBJECT || BoundsCheck) && k != RAW)
 						return false;
 				}
 
