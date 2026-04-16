@@ -4531,29 +4531,9 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 
 void CheerpWriter::compileLoad(const LoadInst& li, PARENT_PRIORITY parentPrio)
 {
-	auto* Ty = li.getType();
 	const Value* ptrOp = li.getPointerOperand();
 	bool asmjs = currentFun->getSection()==StringRef("asmjs");
 	POINTER_KIND ptrKind = PA.getPointerKind(ptrOp);
-	bool needsCheckBounds = false;
-	if (checkBounds)
-	{
-			if(ptrKind == REGULAR || ptrKind == SPLIT_REGULAR)
-			{
-					needsCheckBounds = true;
-					stream<<"(";
-					compileCheckBounds(ptrOp);
-					stream<<",";
-			}
-			else if(ptrKind == COMPLETE_OBJECT && isGEP(ptrOp))
-			{
-					needsCheckBounds = true;
-					bool needsOffset = !li.use_empty() && Ty->isPointerTy() && PA.getPointerKindAssert(&li) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&li);
-					stream<<"(";
-					compileCheckMemberExists(ptrOp, needsOffset);
-					stream<<",";
-			}
-	}
 	for(const auto& ie: getInstElems(&li, PA))
 	{
 		if(ie.totalIdx != 0)
@@ -4581,11 +4561,6 @@ void CheerpWriter::compileLoad(const LoadInst& li, PARENT_PRIORITY parentPrio)
 		}
 		bool isOffset = ie.ptrIdx == 1;
 		compileLoadElem(li, Ty, STy, ptrKind, elemPtrKind, isOffset, elemRegKind, ie.structIdx, asmjs, parentPrio);
-		if(needsCheckBounds)
-		{
-			needsCheckBounds = false;
-			stream << ')';
-		}
 	}
 }
 
@@ -4726,13 +4701,18 @@ void CheerpWriter::compileLoadElem(const LoadInst& li, Type* Ty, StructType* STy
 	}
 	else
 	{
-		compileCompleteObject(ptrOp);
-		if(STy)
+		POINTER_KIND valKind = li.getType()->isPointerTy() ? PA.getPointerKind(&li) : COMPLETE_OBJECT;
+
+		if (valKind == COMPLETE_OBJECT && (loadKind == REGULAR || loadKind == SPLIT_REGULAR))
 		{
-			compileAccessToElement(STy, {ConstantInt::get(IntegerType::get(Ty->getContext(), 32), structElemIdx)}, true);
+			assert(!isOffset);
+			compileElem(ptrOp, Ty, STy, COMPLETE_OBJECT, ptrKind, loadKind, false, structElemIdx);
+			stream << "[";
+			compileElem(ptrOp, Ty, STy, COMPLETE_OBJECT, ptrKind, loadKind, true, structElemIdx);
+			stream << "]";
 		}
-		if(isOffset)
-			stream << 'o';
+		else
+			compileElem(ptrOp, Ty, STy, valKind, ptrKind, loadKind, isOffset, structElemIdx);
 	}
 	if(regKind==Registerize::INTEGER && needsIntCoercion(parentPrio))
 	{
@@ -4755,20 +4735,6 @@ void CheerpWriter::compileStore(const StoreInst& si)
 	assert(ptrKind != CONSTANT);
 
 	auto* Ty = valOp->getType();
-	if (checkBounds)
-	{
-		if(ptrKind == REGULAR || ptrKind == SPLIT_REGULAR)
-		{
-			compileCheckBounds(ptrOp);
-			stream<<",";
-		}
-		else if(ptrKind == COMPLETE_OBJECT && isGEP(ptrOp))
-		{
-			bool needsOffset = Ty->isPointerTy() && PA.getPointerKindAssert(&si) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&si);
-			compileCheckMemberExists(ptrOp, needsOffset);
-			stream<<",";
-		}
-	}
 	StructType* STy = dyn_cast<StructType>(Ty);
 	for(const auto& ie: getInstElems(&si, PA))
 	{
@@ -4876,13 +4842,7 @@ void CheerpWriter::compileStoreElem(const StoreInst& si, Type* Ty, StructType* S
 	}
 	else
 	{
-		compileCompleteObject(ptrOp);
-		if(STy)
-		{
-			compileAccessToElement(STy, {ConstantInt::get(IntegerType::get(Ty->getContext(), 32), structElemIdx)}, true);
-		}
-		if(isOffset)
-			stream << 'o';
+		compileElem(ptrOp, Ty, STy, storedKind, ptrKind, storedKind, isOffset, structElemIdx);
 	}
 
 	stream << '=';
@@ -4929,6 +4889,27 @@ void CheerpWriter::compileStoreElem(const StoreInst& si, Type* Ty, StructType* S
 			}
 			compileOperand(valOp, storePrio);
 		}
+	}
+}
+
+void CheerpWriter::compileElem(const Value* ptrOp, llvm::Type* Ty, llvm::StructType* STy, POINTER_KIND valKind, POINTER_KIND ptrKind, POINTER_KIND memKind, bool isOffset, uint32_t structElemIdx)
+{
+	if(checkBounds && (ptrKind == REGULAR || ptrKind == SPLIT_REGULAR))
+		compileCheckBounds(ptrOp);
+	else if(checkBounds && ptrKind == COMPLETE_OBJECT && isGEP(ptrOp))
+		compileCheckMemberExists(ptrOp, isOffset && memKind != REGULAR);
+	else
+		compileCompleteObject(ptrOp);
+
+	if(STy)
+		compileAccessToElement(STy, {ConstantInt::get(IntegerType::get(Ty->getContext(), 32), structElemIdx)}, true);
+
+	if(valKind != REGULAR && memKind != COMPLETE_OBJECT)
+	{
+		if(isOffset)
+			stream << (memKind == REGULAR ? ".o" : "o");
+		else
+			stream << (memKind == REGULAR ? ".d" : "");
 	}
 }
 
@@ -6252,7 +6233,7 @@ void CheerpWriter::compileBuiltins(bool asmjs)
 
 void CheerpWriter::compileCheckBoundsHelper()
 {
-	stream << "function checkBounds(arr,offs){if(offs>=arr.length || offs<0) throw new Error('OutOfBounds');}" << NewLine;
+	stream << "function checkBounds(arr,offs){if(offs>=arr.length || offs<0) throw new Error('OutOfBounds');return arr;}" << NewLine;
 }
 
 void CheerpWriter::compileCheckBounds(const Value* p)
@@ -6261,12 +6242,14 @@ void CheerpWriter::compileCheckBounds(const Value* p)
 	compilePointerBase(p);
 	stream<<",";
 	compilePointerOffset(p,LOWEST);
-	stream<<")";
+	stream<<")[";
+	compilePointerOffset(p,LOWEST);
+	stream<<"]";
 }
 
 void CheerpWriter::compileCheckMemberExistsHelper()
 {
-	stream << "function checkMemberExists(obj, member){if(!(member in obj)) throw new Error('MemberDoesNotExist');}" << NewLine;
+	stream << "function checkMemberExists(obj, member){if(!(member in obj)) throw new Error('MemberDoesNotExist');return obj;}" << NewLine;
 }
 
 void CheerpWriter::compileCheckMemberExists(const Value* p, bool needsOffset)
@@ -6293,17 +6276,24 @@ void CheerpWriter::compileCheckMemberExists(const Value* p, bool needsOffset)
 	{
 		const APInt& index = cast<Constant>(lastOperand)->getUniqueInteger();
 		uint64_t idxVal = index.getLimitedValue();
+		char prefixChar = types.getPrefixCharForMember(PA, containerStructType, idxVal);
 
 		stream << "'";
-		stream << types.getPrefixCharForMember(PA, containerStructType, idxVal) << idxVal;
+		stream << prefixChar << idxVal;
 		if (needsOffset)
 			stream << "o";
-		stream << "'";
+		stream << "').";
+		stream << prefixChar << idxVal;
+		if(types.useWrapperArrayForMember(PA, containerStructType, idxVal))
+			stream << "[0]";
 	}
 	else if (dyn_cast<ArrayType>(basePointedType))
+	{
 		compileOperand(lastOperand, LOWEST);
-
-	stream << ")";
+		stream << ")[";
+		compileOperand(lastOperand, LOWEST);
+		stream << "]";
+	}
 }
 
 void CheerpWriter::compileCheckBoundsAsmJSHelper()

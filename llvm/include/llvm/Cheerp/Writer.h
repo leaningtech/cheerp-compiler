@@ -493,6 +493,7 @@ private:
 	COMPILE_INSTRUCTION_FEEDBACK compileNotInlineableInstruction(const llvm::Instruction& I, PARENT_PRIORITY parentPrio);
 	COMPILE_INSTRUCTION_FEEDBACK compileInlineableInstruction(const llvm::Instruction& I, PARENT_PRIORITY parentPrio);
 	COMPILE_INSTRUCTION_FEEDBACK compileCallInstruction(const llvm::CallBase& I, PARENT_PRIORITY parentPrio);
+	void compileElem(const llvm::Value* ptrOp, llvm::Type* Ty, llvm::StructType* STy, POINTER_KIND valKind, POINTER_KIND ptrKind, POINTER_KIND memKind, bool isOffset, uint32_t structElemIdx);
 	void compileLoadElem(const llvm::LoadInst& li, llvm::Type* Ty, llvm::StructType* STy, POINTER_KIND ptrKind, POINTER_KIND loadKind, bool isOffset, Registerize::REGISTER_KIND regKind, uint32_t structElemIdx, bool asmjs, PARENT_PRIORITY parentPrio);
 	void compileLoad(const llvm::LoadInst& li, PARENT_PRIORITY parentPrio);
 	void compileStoreElem(const llvm::StoreInst& si, llvm::Type* Ty, llvm::StructType* STy, POINTER_KIND ptrKind, POINTER_KIND storedKind, bool isOffset, Registerize::REGISTER_KIND regKind, uint32_t structElemIdx, uint32_t elemIdx, bool asmjs);
