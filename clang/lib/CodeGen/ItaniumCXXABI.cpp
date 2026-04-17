@@ -3205,9 +3205,18 @@ ItaniumCXXABI::getOrCreateThreadLocalWrapper(const VarDecl *VD,
       getContext().getPointerType(RetQT), FunctionArgList());
 
   llvm::FunctionType *FnTy = CGM.getTypes().GetFunctionType(FI);
+  unsigned WrapperAS = 0;
+  if (CGM.getLangOpts().Cheerp) {
+    assert(Val && Val->getType()->isPointerTy());
+    unsigned DataAS = Val->getType()->getPointerAddressSpace();
+    WrapperAS = cheerp::getCheerpFunctionAS(DataAS);
+  }
   llvm::Function *Wrapper =
       llvm::Function::Create(FnTy, getThreadLocalWrapperLinkage(VD, CGM),
-                             WrapperName.str(), &CGM.getModule());
+                             WrapperAS, WrapperName.str(), &CGM.getModule());
+  if (CGM.getLangOpts().Cheerp &&
+      WrapperAS == unsigned(cheerp::CheerpAS::Wasm))
+    Wrapper->setSection("asmjs");
 
   if (CGM.supportsCOMDAT() && Wrapper->isWeakForLinker())
     Wrapper->setComdat(CGM.getModule().getOrInsertComdat(Wrapper->getName()));
@@ -3258,12 +3267,17 @@ void ItaniumCXXABI::EmitThreadLocalInitFuncs(
     InitFunc = CGM.CreateGlobalInitOrCleanUpFunction(FTy, "__tls_init", FI,
                                                      SourceLocation(),
                                                      /*TLS=*/true);
+    unsigned GuardAS = CGM.getLangOpts().Cheerp
+        ? unsigned(cheerp::CheerpAS::Wasm) : 0;
     llvm::GlobalVariable *Guard = new llvm::GlobalVariable(
         CGM.getModule(), CGM.Int8Ty, /*isConstant=*/false,
         llvm::GlobalVariable::InternalLinkage,
-        llvm::ConstantInt::get(CGM.Int8Ty, 0), "__tls_guard");
+        llvm::ConstantInt::get(CGM.Int8Ty, 0), "__tls_guard",
+        /*InsertBefore=*/nullptr, llvm::GlobalVariable::NotThreadLocal, GuardAS);
     Guard->setThreadLocal(true);
     Guard->setThreadLocalMode(CGM.GetDefaultLLVMTLSModel());
+    if (CGM.getLangOpts().Cheerp)
+      Guard->setSection("asmjs");
 
     CharUnits GuardAlign = CharUnits::One();
     Guard->setAlignment(GuardAlign.getAsAlign());
