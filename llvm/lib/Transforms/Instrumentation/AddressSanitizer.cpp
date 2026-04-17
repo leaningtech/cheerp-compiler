@@ -1235,16 +1235,20 @@ Value *AddressSanitizer::memToShadow(Value *Shadow, IRBuilder<> &IRB) {
 // Instrument memset/memmove/memcpy
 void AddressSanitizer::instrumentMemIntrinsic(MemIntrinsic *MI) {
   IRBuilder<> IRB(MI);
+  unsigned MemIntrinAS = 0;
+  if (TargetTriple.isCheerpWasm())
+    MemIntrinAS = unsigned(cheerp::CheerpAS::Wasm);
+  Type *MemIntrinI8PtrTy = IRB.getInt8PtrTy(MemIntrinAS);
   if (isa<MemTransferInst>(MI)) {
     IRB.CreateCall(
         isa<MemMoveInst>(MI) ? AsanMemmove : AsanMemcpy,
-        {IRB.CreatePointerCast(MI->getOperand(0), IRB.getInt8PtrTy()),
-         IRB.CreatePointerCast(MI->getOperand(1), IRB.getInt8PtrTy()),
+        {IRB.CreatePointerCast(MI->getOperand(0), MemIntrinI8PtrTy),
+         IRB.CreatePointerCast(MI->getOperand(1), MemIntrinI8PtrTy),
          IRB.CreateIntCast(MI->getOperand(2), IntptrTy, false)});
   } else if (isa<MemSetInst>(MI)) {
     IRB.CreateCall(
         AsanMemset,
-        {IRB.CreatePointerCast(MI->getOperand(0), IRB.getInt8PtrTy()),
+        {IRB.CreatePointerCast(MI->getOperand(0), MemIntrinI8PtrTy),
          IRB.CreateIntCast(MI->getOperand(1), IRB.getInt32Ty(), false),
          IRB.CreateIntCast(MI->getOperand(2), IntptrTy, false)});
   }
@@ -2571,14 +2575,18 @@ void AddressSanitizer::initializeCallbacks(Module &M) {
       (CompileKernel && !ClKasanMemIntrinCallbackPrefix)
           ? std::string("")
           : ClMemoryAccessCallbackPrefix;
+  unsigned MemIntrinAS = 0;
+  if (TargetTriple.isCheerpWasm())
+    MemIntrinAS = unsigned(cheerp::CheerpAS::Wasm);
+  Type *MemIntrinI8PtrTy = IRB.getInt8PtrTy(MemIntrinAS);
   AsanMemmove = M.getOrInsertFunction(MemIntrinCallbackPrefix + "memmove",
-                                      IRB.getInt8PtrTy(), IRB.getInt8PtrTy(),
-                                      IRB.getInt8PtrTy(), IntptrTy);
+                                      MemIntrinI8PtrTy, MemIntrinI8PtrTy,
+                                      MemIntrinI8PtrTy, IntptrTy);
   AsanMemcpy = M.getOrInsertFunction(MemIntrinCallbackPrefix + "memcpy",
-                                     IRB.getInt8PtrTy(), IRB.getInt8PtrTy(),
-                                     IRB.getInt8PtrTy(), IntptrTy);
+                                     MemIntrinI8PtrTy, MemIntrinI8PtrTy,
+                                     MemIntrinI8PtrTy, IntptrTy);
   AsanMemset = M.getOrInsertFunction(MemIntrinCallbackPrefix + "memset",
-                                     IRB.getInt8PtrTy(), IRB.getInt8PtrTy(),
+                                     MemIntrinI8PtrTy, MemIntrinI8PtrTy,
                                      IRB.getInt32Ty(), IntptrTy);
 
   AsanHandleNoReturnFunc =
@@ -3025,13 +3033,16 @@ PHINode *FunctionStackPoisoner::createPHI(IRBuilder<> &IRB, Value *Cond,
 Value *FunctionStackPoisoner::createAllocaForLayout(
     IRBuilder<> &IRB, const ASanStackFrameLayout &L, bool Dynamic) {
   AllocaInst *Alloca;
+  unsigned AllocaAS = 0;
+  if (ASan.TargetTriple.isCheerpWasm())
+    AllocaAS = unsigned(cheerp::CheerpAS::Wasm);
   if (Dynamic) {
-    Alloca = IRB.CreateAlloca(IRB.getInt8Ty(),
+    Alloca = IRB.CreateAlloca(IRB.getInt8Ty(), AllocaAS,
                               ConstantInt::get(IRB.getInt64Ty(), L.FrameSize),
                               "MyAlloca");
   } else {
     Alloca = IRB.CreateAlloca(ArrayType::get(IRB.getInt8Ty(), L.FrameSize),
-                              nullptr, "MyAlloca");
+                              AllocaAS, nullptr, "MyAlloca");
     assert(Alloca->isStaticAlloca());
   }
   assert((ClRealignStack & (ClRealignStack - 1)) == 0);
@@ -3043,7 +3054,10 @@ Value *FunctionStackPoisoner::createAllocaForLayout(
 void FunctionStackPoisoner::createDynamicAllocasInitStorage() {
   BasicBlock &FirstBB = *F.begin();
   IRBuilder<> IRB(dyn_cast<Instruction>(FirstBB.begin()));
-  DynamicAllocaLayout = IRB.CreateAlloca(IntptrTy, nullptr);
+  unsigned AllocaAS = 0;
+  if (ASan.TargetTriple.isCheerpWasm())
+    AllocaAS = unsigned(cheerp::CheerpAS::Wasm);
+  DynamicAllocaLayout = IRB.CreateAlloca(IntptrTy, AllocaAS, nullptr);
   IRB.CreateStore(Constant::getNullValue(IntptrTy), DynamicAllocaLayout);
   DynamicAllocaLayout->setAlignment(Align(32));
 }
@@ -3474,7 +3488,9 @@ void FunctionStackPoisoner::handleDynamicAllocaCall(AllocaInst *AI) {
   Value *NewSize = IRB.CreateAdd(OldSize, AdditionalChunkSize);
 
   // Insert new alloca with new NewSize and Alignment params.
-  AllocaInst *NewAlloca = IRB.CreateAlloca(IRB.getInt8Ty(), NewSize);
+  unsigned AllocaAS = AI->getType()->getPointerAddressSpace();
+  AllocaInst *NewAlloca =
+      IRB.CreateAlloca(IRB.getInt8Ty(), AllocaAS, NewSize);
   NewAlloca->setAlignment(Alignment);
 
   // NewAddress = Address + Alignment
