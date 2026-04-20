@@ -160,11 +160,12 @@ def int_cheerp_wasm_splat : Intrinsic<[llvm_anyvector_ty],
                             [IntrNoMem, IntrSpeculatable]>;
 
 // CheerpOS helpers
-def int_cheerp_locals_stack : Intrinsic<[llvm_ptr_ty],
-                              [llvm_ptr_ty],
+// stack, so they are declared with wasm-AS pointers.
+def int_cheerp_locals_stack : Intrinsic<[llvm_wasm_ptr_ty],
+                              [llvm_wasm_ptr_ty],
                               [IntrNoMem]>;
 def int_cheerp_local_store : Intrinsic<[],
-                            [llvm_ptr_ty, llvm_any_ty]>;
+                            [llvm_wasm_ptr_ty, llvm_any_ty]>;
 
 def int_cheerp_checked_load : Intrinsic<[llvm_any_ty],
                             [llvm_anyptr_ty, llvm_anyptr_ty]>;
