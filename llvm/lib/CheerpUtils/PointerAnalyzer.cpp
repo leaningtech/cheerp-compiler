@@ -1723,6 +1723,11 @@ POINTER_KIND PointerAnalyzer::getPointerKindForMember(const TypeAndIndex& baseAn
 	return getPointerKindForMemberImpl(baseAndIndex, PACache);
 }
 
+POINTER_KIND PointerAnalyzer::getPointerKindForLoadStore(const llvm::Value* v) const
+{
+	return getPointerKind(v);
+}
+
 TypeAndIndex PointerAnalyzer::getBaseStructAndIndexFromGEP(const Value* p)
 {
 	if(!isGEP(p))
@@ -1824,6 +1829,11 @@ const llvm::ConstantInt* PointerAnalyzer::getConstantOffsetForMember( const Type
 	assert(ret.isValid());
 	assert(ret.getPointerOffset());
 	return ret.getPointerOffset();
+}
+
+const llvm::ConstantInt* PointerAnalyzer::getConstantOffsetForLoadStore(const llvm::Value* v) const
+{
+	return getConstantOffsetForPointer(v);
 }
 
 void PointerAnalyzer::invalidate(const Value * v)

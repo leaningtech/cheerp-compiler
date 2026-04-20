@@ -4557,7 +4557,7 @@ void CheerpWriter::compileLoad(const LoadInst& li, PARENT_PRIORITY parentPrio)
 		}
 		else if(Ty->isPointerTy())
 		{
-			elemPtrKind = PA.getPointerKind(&li);
+			elemPtrKind = PA.getPointerKindForLoadStore(&li);
 		}
 		bool isOffset = ie.ptrIdx == 1;
 		compileLoadElem(li, Ty, STy, ptrKind, elemPtrKind, isOffset, elemRegKind, ie.structIdx, asmjs, parentPrio);
@@ -4755,7 +4755,7 @@ void CheerpWriter::compileStore(const StoreInst& si)
 		}
 		else if(Ty->isPointerTy())
 		{
-			elemPtrKind = PA.getPointerKind(&si);
+			elemPtrKind = PA.getPointerKindForLoadStore(&si);
 		}
 		bool isOffset = ie.ptrIdx == 1;
 		compileStoreElem(si, Ty, STy, ptrKind, elemPtrKind, isOffset, elemRegKind, ie.totalIdx, ie.structIdx, asmjs);
