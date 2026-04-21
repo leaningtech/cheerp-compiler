@@ -21149,7 +21149,8 @@ void Sema::CheckCheerpFFICall(const FunctionDecl* Parent, const FunctionDecl* FD
   if (FDecl->getBuiltinID() == Builtin::BImemcpy ||
       FDecl->getBuiltinID() == Builtin::BImemmove ||
       FDecl->getBuiltinID() == Builtin::BImemset ||
-      FDecl->getBuiltinID() == Builtin::BIrealloc)
+      FDecl->getBuiltinID() == Builtin::BIrealloc ||
+      FDecl->getBuiltinID() == Builtin::BIfree)
     return;
   if (Parent->hasAttr<GenericJSAttr>() && FDecl->hasAttr<AsmJSAttr>()) {
     auto p = FDecl->parameters().begin();
