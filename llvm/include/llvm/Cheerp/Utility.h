@@ -996,6 +996,9 @@ unsigned getVectorBitwidth(const llvm::FixedVectorType* vecType);
 bool hasSIMDAttribute(const llvm::Function* F);
 void removeSIMDAttribute(llvm::Function* F);
 
+llvm::Function* getOrCreateFunction(llvm::Module& m, llvm::FunctionType* Ty,
+	llvm::StringRef Name, CheerpAS AS, bool isExtern = false);
+
 }
 
 namespace std
