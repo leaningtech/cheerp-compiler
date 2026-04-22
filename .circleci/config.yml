@@ -168,12 +168,8 @@ jobs:
             apt-get install -y python3-pip
             python3 -m pip install --user lit
             echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$BASH_ENV"
-            if [ -x /usr/lib/llvm-14/bin/FileCheck ]; then
-              ln -sf /usr/lib/llvm-14/bin/FileCheck /usr/bin/FileCheck-20
-            elif command -v FileCheck >/dev/null 2>&1; then
-              ln -sf "$(command -v FileCheck)" /usr/bin/FileCheck-20
-            else
-              echo "FileCheck not found, in this image"
+            if ! command -v FileCheck >/dev/null 2>&1; then
+              ln -sf /usr/lib/llvm-14/bin/FileCheck /usr/bin/FileCheck
             fi
       - clone-cheerp-repo:
           remote: https://github.com/leaningtech/cheerp-test
@@ -182,7 +178,7 @@ jobs:
       - run:
           name: Run new tests
           working_directory: ~/project/cheerp-test
-          command: ./run_lit_tests.py --<< parameters.target >> << parameters.asan >> -j4 .
+          command: ./run_lit_tests.py --<< parameters.target >> << parameters.asan >> -j4 tests
           no_output_timeout: 30m
       - run:
           name: Store test results
@@ -205,12 +201,8 @@ jobs:
             apt-get install -y python3-pip
             python3 -m pip install --user lit
             echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$BASH_ENV"
-            if [ -x /usr/lib/llvm-14/bin/FileCheck ]; then
-              ln -sf /usr/lib/llvm-14/bin/FileCheck /usr/bin/FileCheck-20
-            elif command -v FileCheck >/dev/null 2>&1; then
-              ln -sf "$(command -v FileCheck)" /usr/bin/FileCheck-20
-            else
-              echo "FileCheck not found, in this image"
+            if ! command -v FileCheck >/dev/null 2>&1; then
+              ln -sf /usr/lib/llvm-14/bin/FileCheck /usr/bin/FileCheck
             fi
       - clone-cheerp-repo:
           remote: https://github.com/leaningtech/cheerp-test
@@ -219,7 +211,7 @@ jobs:
       - run:
           name: Run lit determinism tests
           working_directory: ~/project/cheerp-test
-          command: ./run_lit_tests.py --<< parameters.target >> --determinism=2 --determinism-probability=0.2 -j8 .
+          command: ./run_lit_tests.py --<< parameters.target >> --determinism --determinism-probability=0.2 -j8 tests
           no_output_timeout: 30m
       - run:
           name: Store determinism test results
