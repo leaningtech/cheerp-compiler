@@ -178,7 +178,10 @@ jobs:
       - run:
           name: Run new tests
           working_directory: ~/project/cheerp-test
-          command: ./run_lit_tests.py --<< parameters.target >> << parameters.asan >> -j4 tests
+          command: |
+            JOBS=4
+            if [ -n "<< parameters.asan >>" ]; then JOBS=2; fi
+            ./run_lit_tests.py --<< parameters.target >> << parameters.asan >> -j$JOBS tests
           no_output_timeout: 30m
       - run:
           name: Store test results
