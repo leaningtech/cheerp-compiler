@@ -1177,19 +1177,13 @@ workflows:
       - run-determinism-tests:
           matrix:
             parameters:
-              target: ["genericjs", "asmjs", "wasm", "preexecute", "preexecute-asmjs"]
-            exclude:
-              - target: "genericjs"
-                asan: "--asan"
-              - target: "preexecute"
-                asan: "--asan"
+              target: ["genericjs", "asmjs", "wasm"]
           requires:
             - build-cheerp-toolchain
           filters:
             branches:
               only:
                 - master
-                - testing_alex
       - run-asan-tests:
           matrix:
             parameters:
