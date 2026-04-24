@@ -3413,12 +3413,12 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			}
 			else
 			{
-				if(isCheerpOS)
-					EncodeReenterPosition();
 				if (linearHelper.getFunctionTables().count(fTy))
 				{
 					const auto& table = linearHelper.getFunctionTables().at(fTy);
 					compileOperand(code, calledValue);
+					if(isCheerpOS)
+						EncodeReenterPosition();
 					if(useTailCall)
 						encodeInst(WasmU32U32Opcode::RETURN_CALL_INDIRECT, table.typeIndex, 0, code);
 					else
