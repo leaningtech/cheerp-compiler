@@ -187,12 +187,12 @@ static void executeFRemInst(GenericValue &Dest, GenericValue Src1,
 // comparisons if they contain garbage.
 #define IMPLEMENT_POINTER_ICMP(OP) \
    case Type::PointerTyID: \
-      Dest.IntVal = APInt(1,(void*)(intptr_t)Src1.PointerVal OP \
-                            (void*)(intptr_t)Src2.PointerVal); \
+      Dest.IntVal = APInt(1,(void*)(intptr_t)I.removeTag(Src1.PointerVal) OP \
+                            (void*)(intptr_t)I.removeTag(Src2.PointerVal)); \
       break;
 
 static GenericValue executeICMP_EQ(GenericValue Src1, GenericValue Src2,
-                                   Type *Ty) {
+                                   Type *Ty, Interpreter& I) {
   GenericValue Dest;
   switch (Ty->getTypeID()) {
     IMPLEMENT_INTEGER_ICMP(eq,Ty);
@@ -206,7 +206,7 @@ static GenericValue executeICMP_EQ(GenericValue Src1, GenericValue Src2,
 }
 
 static GenericValue executeICMP_NE(GenericValue Src1, GenericValue Src2,
-                                   Type *Ty) {
+                                   Type *Ty, Interpreter& I) {
   GenericValue Dest;
   switch (Ty->getTypeID()) {
     IMPLEMENT_INTEGER_ICMP(ne,Ty);
@@ -220,7 +220,7 @@ static GenericValue executeICMP_NE(GenericValue Src1, GenericValue Src2,
 }
 
 static GenericValue executeICMP_ULT(GenericValue Src1, GenericValue Src2,
-                                    Type *Ty) {
+                                    Type *Ty, Interpreter& I) {
   GenericValue Dest;
   switch (Ty->getTypeID()) {
     IMPLEMENT_INTEGER_ICMP(ult,Ty);
@@ -234,7 +234,7 @@ static GenericValue executeICMP_ULT(GenericValue Src1, GenericValue Src2,
 }
 
 static GenericValue executeICMP_SLT(GenericValue Src1, GenericValue Src2,
-                                    Type *Ty) {
+                                    Type *Ty, Interpreter& I) {
   GenericValue Dest;
   switch (Ty->getTypeID()) {
     IMPLEMENT_INTEGER_ICMP(slt,Ty);
@@ -248,7 +248,7 @@ static GenericValue executeICMP_SLT(GenericValue Src1, GenericValue Src2,
 }
 
 static GenericValue executeICMP_UGT(GenericValue Src1, GenericValue Src2,
-                                    Type *Ty) {
+                                    Type *Ty, Interpreter& I) {
   GenericValue Dest;
   switch (Ty->getTypeID()) {
     IMPLEMENT_INTEGER_ICMP(ugt,Ty);
@@ -262,7 +262,7 @@ static GenericValue executeICMP_UGT(GenericValue Src1, GenericValue Src2,
 }
 
 static GenericValue executeICMP_SGT(GenericValue Src1, GenericValue Src2,
-                                    Type *Ty) {
+                                    Type *Ty, Interpreter& I) {
   GenericValue Dest;
   switch (Ty->getTypeID()) {
     IMPLEMENT_INTEGER_ICMP(sgt,Ty);
@@ -276,7 +276,7 @@ static GenericValue executeICMP_SGT(GenericValue Src1, GenericValue Src2,
 }
 
 static GenericValue executeICMP_ULE(GenericValue Src1, GenericValue Src2,
-                                    Type *Ty) {
+                                    Type *Ty, Interpreter& I) {
   GenericValue Dest;
   switch (Ty->getTypeID()) {
     IMPLEMENT_INTEGER_ICMP(ule,Ty);
@@ -290,7 +290,7 @@ static GenericValue executeICMP_ULE(GenericValue Src1, GenericValue Src2,
 }
 
 static GenericValue executeICMP_SLE(GenericValue Src1, GenericValue Src2,
-                                    Type *Ty) {
+                                    Type *Ty, Interpreter& I) {
   GenericValue Dest;
   switch (Ty->getTypeID()) {
     IMPLEMENT_INTEGER_ICMP(sle,Ty);
@@ -304,7 +304,7 @@ static GenericValue executeICMP_SLE(GenericValue Src1, GenericValue Src2,
 }
 
 static GenericValue executeICMP_UGE(GenericValue Src1, GenericValue Src2,
-                                    Type *Ty) {
+                                    Type *Ty, Interpreter& I) {
   GenericValue Dest;
   switch (Ty->getTypeID()) {
     IMPLEMENT_INTEGER_ICMP(uge,Ty);
@@ -318,7 +318,7 @@ static GenericValue executeICMP_UGE(GenericValue Src1, GenericValue Src2,
 }
 
 static GenericValue executeICMP_SGE(GenericValue Src1, GenericValue Src2,
-                                    Type *Ty) {
+                                    Type *Ty, Interpreter& I) {
   GenericValue Dest;
   switch (Ty->getTypeID()) {
     IMPLEMENT_INTEGER_ICMP(sge,Ty);
@@ -349,16 +349,16 @@ void Interpreter::visitICmpInst(ICmpInst &I) {
   GenericValue R;   // Result
 
   switch (I.getPredicate()) {
-  case ICmpInst::ICMP_EQ:  R = executeICMP_EQ(Src1,  Src2, Ty); break;
-  case ICmpInst::ICMP_NE:  R = executeICMP_NE(Src1,  Src2, Ty); break;
-  case ICmpInst::ICMP_ULT: R = executeICMP_ULT(Src1, Src2, Ty); break;
-  case ICmpInst::ICMP_SLT: R = executeICMP_SLT(Src1, Src2, Ty); break;
-  case ICmpInst::ICMP_UGT: R = executeICMP_UGT(Src1, Src2, Ty); break;
-  case ICmpInst::ICMP_SGT: R = executeICMP_SGT(Src1, Src2, Ty); break;
-  case ICmpInst::ICMP_ULE: R = executeICMP_ULE(Src1, Src2, Ty); break;
-  case ICmpInst::ICMP_SLE: R = executeICMP_SLE(Src1, Src2, Ty); break;
-  case ICmpInst::ICMP_UGE: R = executeICMP_UGE(Src1, Src2, Ty); break;
-  case ICmpInst::ICMP_SGE: R = executeICMP_SGE(Src1, Src2, Ty); break;
+  case ICmpInst::ICMP_EQ:  R = executeICMP_EQ(Src1,  Src2, Ty, *this); break;
+  case ICmpInst::ICMP_NE:  R = executeICMP_NE(Src1,  Src2, Ty, *this); break;
+  case ICmpInst::ICMP_ULT: R = executeICMP_ULT(Src1, Src2, Ty, *this); break;
+  case ICmpInst::ICMP_SLT: R = executeICMP_SLT(Src1, Src2, Ty, *this); break;
+  case ICmpInst::ICMP_UGT: R = executeICMP_UGT(Src1, Src2, Ty, *this); break;
+  case ICmpInst::ICMP_SGT: R = executeICMP_SGT(Src1, Src2, Ty, *this); break;
+  case ICmpInst::ICMP_ULE: R = executeICMP_ULE(Src1, Src2, Ty, *this); break;
+  case ICmpInst::ICMP_SLE: R = executeICMP_SLE(Src1, Src2, Ty, *this); break;
+  case ICmpInst::ICMP_UGE: R = executeICMP_UGE(Src1, Src2, Ty, *this); break;
+  case ICmpInst::ICMP_SGE: R = executeICMP_SGE(Src1, Src2, Ty, *this); break;
   default:
     dbgs() << "Don't know how to handle this ICmp predicate!\n-->" << I;
     llvm_unreachable(nullptr);
@@ -710,19 +710,19 @@ void Interpreter::visitFCmpInst(FCmpInst &I) {
 }
 
 static GenericValue executeCmpInst(unsigned predicate, GenericValue Src1,
-                                   GenericValue Src2, Type *Ty) {
+                                   GenericValue Src2, Type *Ty, Interpreter& I) {
   GenericValue Result;
   switch (predicate) {
-  case ICmpInst::ICMP_EQ:    return executeICMP_EQ(Src1, Src2, Ty);
-  case ICmpInst::ICMP_NE:    return executeICMP_NE(Src1, Src2, Ty);
-  case ICmpInst::ICMP_UGT:   return executeICMP_UGT(Src1, Src2, Ty);
-  case ICmpInst::ICMP_SGT:   return executeICMP_SGT(Src1, Src2, Ty);
-  case ICmpInst::ICMP_ULT:   return executeICMP_ULT(Src1, Src2, Ty);
-  case ICmpInst::ICMP_SLT:   return executeICMP_SLT(Src1, Src2, Ty);
-  case ICmpInst::ICMP_UGE:   return executeICMP_UGE(Src1, Src2, Ty);
-  case ICmpInst::ICMP_SGE:   return executeICMP_SGE(Src1, Src2, Ty);
-  case ICmpInst::ICMP_ULE:   return executeICMP_ULE(Src1, Src2, Ty);
-  case ICmpInst::ICMP_SLE:   return executeICMP_SLE(Src1, Src2, Ty);
+  case ICmpInst::ICMP_EQ:    return executeICMP_EQ(Src1, Src2, Ty, I);
+  case ICmpInst::ICMP_NE:    return executeICMP_NE(Src1, Src2, Ty, I);
+  case ICmpInst::ICMP_UGT:   return executeICMP_UGT(Src1, Src2, Ty, I);
+  case ICmpInst::ICMP_SGT:   return executeICMP_SGT(Src1, Src2, Ty, I);
+  case ICmpInst::ICMP_ULT:   return executeICMP_ULT(Src1, Src2, Ty, I);
+  case ICmpInst::ICMP_SLT:   return executeICMP_SLT(Src1, Src2, Ty, I);
+  case ICmpInst::ICMP_UGE:   return executeICMP_UGE(Src1, Src2, Ty, I);
+  case ICmpInst::ICMP_SGE:   return executeICMP_SGE(Src1, Src2, Ty, I);
+  case ICmpInst::ICMP_ULE:   return executeICMP_ULE(Src1, Src2, Ty, I);
+  case ICmpInst::ICMP_SLE:   return executeICMP_SLE(Src1, Src2, Ty, I);
   case FCmpInst::FCMP_ORD:   return executeFCMP_ORD(Src1, Src2, Ty);
   case FCmpInst::FCMP_UNO:   return executeFCMP_UNO(Src1, Src2, Ty);
   case FCmpInst::FCMP_OEQ:   return executeFCMP_OEQ(Src1, Src2, Ty);
@@ -975,7 +975,7 @@ void Interpreter::visitSwitchInst(SwitchInst &I) {
   BasicBlock *Dest = nullptr;
   for (auto Case : I.cases()) {
     GenericValue CaseVal = getOperandValue(Case.getCaseValue(), SF);
-    if (executeICMP_EQ(CondVal, CaseVal, ElTy).IntVal != 0) {
+    if (executeICMP_EQ(CondVal, CaseVal, ElTy, *this).IntVal != 0) {
       Dest = cast<BasicBlock>(Case.getCaseSuccessor());
       break;
     }
@@ -2262,7 +2262,7 @@ GenericValue Interpreter::getConstantExprValue (ConstantExpr *CE,
     return executeCmpInst(CE->getPredicate(),
                           getOperandValue(CE->getOperand(0), SF),
                           getOperandValue(CE->getOperand(1), SF),
-                          CE->getOperand(0)->getType());
+                          CE->getOperand(0)->getType(), *this);
   case Instruction::Select:
     return executeSelectInst(getOperandValue(CE->getOperand(0), SF),
                              getOperandValue(CE->getOperand(1), SF),
