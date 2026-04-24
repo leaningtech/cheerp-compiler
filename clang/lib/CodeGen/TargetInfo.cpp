@@ -10238,8 +10238,18 @@ private:
   void computeInfo(CGFunctionInfo &FI) const override {
     if (!getCXXABI().classifyReturnType(FI))
       FI.getReturnInfo() = classifyReturnType(FI.getReturnType());
-    for (auto &Arg : FI.arguments())
+    // Adjust address space of sret argument
+    if (FI.getReturnInfo().isIndirect()) {
+      unsigned AS = getContext().getCheerpTypeTargetAddressSpace(FI.getReturnType(), FI.isAsmJS());
+      FI.getReturnInfo().setIndirectAddrSpace(AS);
+    }
+    for (auto &Arg : FI.arguments()) {
       Arg.info = classifyArgumentType(Arg.type);
+      if (Arg.info.isIndirect()) {
+        unsigned AS = getContext().getCheerpTypeTargetAddressSpace(Arg.type, FI.isAsmJS());
+        Arg.info.setIndirectAddrSpace(AS);
+      }
+    }
   }
 };
 
@@ -10261,6 +10271,11 @@ public:
     if(Ty->isIntegerTy() || Ty->isFloatingPointTy() || (Ty->isPointerTy() && cheerp::TypeSupport::isClientPtrType(cast<llvm::PointerType>(Ty))))
       return Ty;
     return nullptr;
+  }
+
+  LangAS getAddrSpaceOfCxaAtexitPtrParam() const override {
+    return this->getABIInfo().getTarget().getTriple().isCheerpWasm()?
+      LangAS::cheerp_wasm : LangAS::cheerp_genericjs;
   }
 
 };

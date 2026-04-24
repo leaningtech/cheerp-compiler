@@ -2,20 +2,20 @@
 // RUN: %clang_cc1 -S -debug-info-kind=standalone -emit-llvm -o - %s -finstrument-function-entry-bare -disable-llvm-passes | FileCheck -check-prefix=BARE %s
 
 int test1(int x) {
-// CHECK: @test1(i32 {{.*}}%x) #[[ATTR1:[0-9]+]]
+// CHECK: @test1(i32 {{.*}}%x){{( addrspace\(.\))?}} #[[ATTR1:[0-9]+]]
 // CHECK: ret
 
-// BARE: @test1(i32 {{.*}}%x) #[[ATTR1:[0-9]+]]
+// BARE: @test1(i32 {{.*}}%x){{( addrspace\(.\))?}} #[[ATTR1:[0-9]+]]
 // BARE: ret
   return x;
 }
 
 int test2(int) __attribute__((no_instrument_function));
 int test2(int x) {
-// CHECK: @test2(i32 {{.*}}%x) #[[ATTR2:[0-9]+]]
+// CHECK: @test2(i32 {{.*}}%x){{( addrspace\(.\))?}} #[[ATTR2:[0-9]+]]
 // CHECK: ret
 
-// BARE: @test2(i32 {{.*}}%x) #[[ATTR2:[0-9]+]]
+// BARE: @test2(i32 {{.*}}%x){{( addrspace\(.\))?}} #[[ATTR2:[0-9]+]]
 // BARE: ret
   return x;
 }

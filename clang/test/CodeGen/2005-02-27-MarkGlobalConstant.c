@@ -6,7 +6,7 @@
 
 void bar(char *);
 void foo(void) {
-  // CHECK: private unnamed_addr constant
+  // CHECK: private unnamed_addr{{( addrspace\(.\))?}} constant
   char Blah[] = "asdlfkajsdlfkajsd;lfkajds;lfkjasd;flkajsd;lkfja;sdlkfjasd";
   bar(Blah);
 }

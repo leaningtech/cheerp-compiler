@@ -109,7 +109,7 @@ eh.resume:
 ; CHECK-NEXT: phi { i8*, i32 } [
 ; CHECK-NEXT: extractvalue { i8*, i32 }
 ; CHECK-NEXT: extractvalue { i8*, i32 }
-; CHECK-NEXT: call i32 @llvm.eh.typeid.for(
+; CHECK-NEXT: call i32 @llvm.eh.typeid.for.p0i8(
 
 
 ;; Test 1 - Correctly handle phis in outer landing pads.
@@ -212,7 +212,7 @@ eh.resume:
 ; CHECK-NEXT: [[EXNJ1:%.*]] = phi { i8*, i32 } [ [[EXNJ2]], %[[LPAD_JOIN2]] ], [ [[LPADVAL1]], %[[RESUME1]] ]
 ; CHECK-NEXT: extractvalue { i8*, i32 } [[EXNJ1]], 0
 ; CHECK-NEXT: [[SELJ1:%.*]] = extractvalue { i8*, i32 } [[EXNJ1]], 1
-; CHECK-NEXT: [[T:%.*]] = call i32 @llvm.eh.typeid.for(
+; CHECK-NEXT: [[T:%.*]] = call i32 @llvm.eh.typeid.for.p0i8(
 ; CHECK-NEXT: icmp eq i32 [[SELJ1]], [[T]]
 
 ; CHECK:      call void @use(i32 [[XJ1]])
@@ -343,7 +343,7 @@ terminate:
 ; CHECK-NEXT: call void @_ZSt9terminatev()
 
 ; CHECK: attributes [[NUW]] = { nounwind }
-; CHECK: attributes #1 = { nounwind memory(none) }
-; CHECK: attributes #2 = { ssp uwtable }
+; CHECK: attributes #1 = { ssp uwtable }
+; CHECK: attributes #2 = { nounwind memory(none) }
 ; CHECK: attributes #3 = { nocallback nofree nosync nounwind willreturn memory(argmem: readwrite) }
 ; CHECK: attributes #4 = { noreturn nounwind }

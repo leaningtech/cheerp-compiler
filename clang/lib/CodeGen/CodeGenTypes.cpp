@@ -22,6 +22,7 @@
 #include "clang/AST/Expr.h"
 #include "clang/AST/RecordLayout.h"
 #include "clang/CodeGen/CGFunctionInfo.h"
+#include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Module.h"
@@ -97,15 +98,15 @@ void CodeGenTypes::addRecordTypeName(const RecordDecl *RD,
 /// ConvertType in that it is used to convert to the memory representation for
 /// a type.  For example, the scalar representation for _Bool is i1, but the
 /// memory representation is usually i8 or i32, depending on the target.
-llvm::Type *CodeGenTypes::ConvertTypeForMem(QualType T, bool ForBitField) {
+llvm::Type *CodeGenTypes::ConvertTypeForMem(QualType T, bool ForBitField, bool asmjs) {
   if (T->isConstantMatrixType()) {
     const Type *Ty = Context.getCanonicalType(T).getTypePtr();
     const ConstantMatrixType *MT = cast<ConstantMatrixType>(Ty);
-    return llvm::ArrayType::get(ConvertType(MT->getElementType()),
+    return llvm::ArrayType::get(ConvertType(MT->getElementType(), asmjs),
                                 MT->getNumRows() * MT->getNumColumns());
   }
 
-  llvm::Type *R = ConvertType(T);
+  llvm::Type *R = ConvertType(T, asmjs);
 
   // Check for the boolean vector case.
   if (T->isExtVectorBoolType()) {
@@ -274,11 +275,13 @@ void CodeGenTypes::UpdateCompletedType(const TagDecl *TD) {
   // from the enum to be recomputed.
   if (const EnumDecl *ED = dyn_cast<EnumDecl>(TD)) {
     // Only flush the cache if we've actually already converted this type.
-    if (TypeCache.count(ED->getTypeForDecl())) {
+    if (TypeCache.count(std::make_pair(ED->getTypeForDecl(), /*asmjs*/true)) ||
+        TypeCache.count(std::make_pair(ED->getTypeForDecl(), /*asmjs*/false))) {
       // Okay, we formed some types based on this.  We speculated that the enum
       // would be lowered to i32, so we only need to flush the cache if this
       // didn't happen.
-      if (!ConvertType(ED->getIntegerType())->isIntegerTy(32))
+      if (!ConvertType(ED->getIntegerType(), /*asmjs*/true)->isIntegerTy(32) ||
+          !ConvertType(ED->getIntegerType(), /*asmjs*/false)->isIntegerTy(32))
         TypeCache.clear();
     }
     // If necessary, provide the full definition of a type only used with a
@@ -339,15 +342,15 @@ static llvm::Type *getTypeForFormat(llvm::LLVMContext &VMContext,
   llvm_unreachable("Unknown float format!");
 }
 
-llvm::Type *CodeGenTypes::ConvertFunctionTypeInternal(QualType QFT) {
+llvm::Type *CodeGenTypes::ConvertFunctionTypeInternal(QualType QFT, bool asmjs) {
   assert(QFT.isCanonical());
   const Type *Ty = QFT.getTypePtr();
   const FunctionType *FT = cast<FunctionType>(QFT.getTypePtr());
   // Convert all required parameters types ahead of time
-  ConvertType(FT->getReturnType());
+  ConvertType(FT->getReturnType(), asmjs);
   if (const FunctionProtoType *FPT = dyn_cast<FunctionProtoType>(FT))
     for (unsigned i = 0, e = FPT->getNumParams(); i != e; i++)
-      ConvertType(FPT->getParamType(i));
+      ConvertType(FPT->getParamType(i), asmjs);
   // First, check whether we can build the full function type.  If the
   // function type depends on an incomplete type (e.g. a struct or enum), we
   // cannot lower the function type.
@@ -382,11 +385,11 @@ llvm::Type *CodeGenTypes::ConvertFunctionTypeInternal(QualType QFT) {
   const CGFunctionInfo *FI;
   if (const FunctionProtoType *FPT = dyn_cast<FunctionProtoType>(FT)) {
     FI = &arrangeFreeFunctionType(
-        CanQual<FunctionProtoType>::CreateUnsafe(QualType(FPT, 0)));
+        CanQual<FunctionProtoType>::CreateUnsafe(QualType(FPT, 0)), asmjs);
   } else {
     const FunctionNoProtoType *FNPT = cast<FunctionNoProtoType>(FT);
     FI = &arrangeFreeFunctionType(
-        CanQual<FunctionNoProtoType>::CreateUnsafe(QualType(FNPT, 0)));
+        CanQual<FunctionNoProtoType>::CreateUnsafe(QualType(FNPT, 0)), asmjs);
   }
 
   llvm::Type *ResultType = nullptr;
@@ -411,7 +414,7 @@ llvm::Type *CodeGenTypes::ConvertFunctionTypeInternal(QualType QFT) {
 }
 
 /// ConvertType - Convert the specified type to its LLVM form.
-llvm::Type *CodeGenTypes::ConvertType(QualType T) {
+llvm::Type *CodeGenTypes::ConvertType(QualType T, bool asmjs) {
   T = Context.getCanonicalType(T);
 
   const Type *Ty = T.getTypePtr();
@@ -444,15 +447,16 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
       Ty->isBuiltinType() ||
       (noRecordsBeingLaidOut() && FunctionsBeingProcessed.empty());
   if (ShouldUseCache) {
-    llvm::DenseMap<const Type *, llvm::Type *>::iterator TCI =
-        TypeCache.find(Ty);
+    auto TCI =
+        TypeCache.find({Ty, asmjs});
     if (TCI != TypeCache.end())
       CachedType = TCI->second;
       // With expensive checks, check that the type we compute matches the
       // cached type.
 #ifndef EXPENSIVE_CHECKS
-    if (CachedType)
+    if (CachedType) {
       return CachedType;
+    }
 #endif
   }
 
@@ -553,10 +557,17 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
                                     /* UseNativeHalf = */ false);
       break;
 
-    case BuiltinType::NullPtr:
+    case BuiltinType::NullPtr: {
       // Model std::nullptr_t as i8*
-      ResultType = llvm::Type::getInt8PtrTy(getLLVMContext());
+      unsigned AS = 0;
+      //CHEERP: TODO: revisit this
+      if (Context.getLangOpts().Cheerp) {
+        bool asmjs = Context.getTargetInfo().getTriple().isCheerpWasm();
+        AS = unsigned(asmjs? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+      }
+      ResultType = llvm::Type::getInt8PtrTy(getLLVMContext(), AS);
       break;
+    }
 
     case BuiltinType::UInt128:
     case BuiltinType::Int128:
@@ -683,19 +694,19 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
   case Type::RValueReference: {
     const ReferenceType *RTy = cast<ReferenceType>(Ty);
     QualType ETy = RTy->getPointeeType();
-    llvm::Type *PointeeType = ConvertTypeForMem(ETy);
+    llvm::Type *PointeeType = ConvertTypeForMem(ETy, false, asmjs);
     if (ETy->isFunctionType() && !PointeeType->isFunctionTy()) {
       assert(cast<llvm::StructType>(PointeeType)->isOpaque());
       PointeeType = llvm::FunctionType::get(CGM.VoidTy, false);
     }
-    unsigned AS = Context.getTargetAddressSpace(ETy);
+    unsigned AS = Context.getCheerpTypeTargetAddressSpace(ETy, asmjs);
     ResultType = llvm::PointerType::get(PointeeType, AS);
     break;
   }
   case Type::Pointer: {
     const PointerType *PTy = cast<PointerType>(Ty);
     QualType ETy = PTy->getPointeeType();
-    llvm::Type *PointeeType = ConvertTypeForMem(ETy);
+    llvm::Type *PointeeType = ConvertTypeForMem(ETy, false, asmjs);
     if (PointeeType->isVoidTy())
       PointeeType = llvm::Type::getInt8Ty(getLLVMContext());
     else if (ETy->isFunctionType() && !PointeeType->isFunctionTy()) {
@@ -703,8 +714,7 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
       PointeeType = llvm::FunctionType::get(CGM.VoidTy, false);
     }
 
-    unsigned AS = Context.getTargetAddressSpace(ETy);
-
+    unsigned AS = Context.getCheerpTypeTargetAddressSpace(ETy, asmjs);
     ResultType = llvm::PointerType::get(PointeeType, AS);
     break;
   }
@@ -715,7 +725,7 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
            "FIXME: We only handle trivial array types so far!");
     // VLAs resolve to the innermost element type; this matches
     // the return of alloca, and there isn't any obviously better choice.
-    ResultType = ConvertTypeForMem(A->getElementType());
+    ResultType = ConvertTypeForMem(A->getElementType(), false, asmjs);
     break;
   }
   case Type::IncompleteArray: {
@@ -724,7 +734,7 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
            "FIXME: We only handle trivial array types so far!");
     // int X[] -> [0 x int], unless the element type is not sized.  If it is
     // unsized (e.g. an incomplete struct) just use [0 x i8].
-    ResultType = ConvertTypeForMem(A->getElementType());
+    ResultType = ConvertTypeForMem(A->getElementType(), false, asmjs);
     if (!ResultType->isSized()) {
       SkippedLayout = true;
       ResultType = llvm::Type::getInt8Ty(getLLVMContext());
@@ -734,7 +744,7 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
   }
   case Type::ConstantArray: {
     const ConstantArrayType *A = cast<ConstantArrayType>(Ty);
-    llvm::Type *EltTy = ConvertTypeForMem(A->getElementType());
+    llvm::Type *EltTy = ConvertTypeForMem(A->getElementType(), false, asmjs);
 
     // Lower arrays of undefined struct type to arrays of i8 just to have a
     // concrete type.
@@ -752,23 +762,23 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
     // An ext_vector_type of Bool is really a vector of bits.
     llvm::Type *IRElemTy = VT->isExtVectorBoolType()
                                ? llvm::Type::getInt1Ty(getLLVMContext())
-                               : ConvertType(VT->getElementType());
+                               : ConvertType(VT->getElementType(), asmjs);
     ResultType = llvm::FixedVectorType::get(IRElemTy, VT->getNumElements());
     break;
   }
   case Type::ConstantMatrix: {
     const ConstantMatrixType *MT = cast<ConstantMatrixType>(Ty);
     ResultType =
-        llvm::FixedVectorType::get(ConvertType(MT->getElementType()),
+        llvm::FixedVectorType::get(ConvertType(MT->getElementType(), asmjs),
                                    MT->getNumRows() * MT->getNumColumns());
     break;
   }
   case Type::FunctionNoProto:
   case Type::FunctionProto:
-    ResultType = ConvertFunctionTypeInternal(T);
+    ResultType = ConvertFunctionTypeInternal(T, asmjs);
     break;
   case Type::ObjCObject:
-    ResultType = ConvertType(cast<ObjCObjectType>(Ty)->getBaseType());
+    ResultType = ConvertType(cast<ObjCObjectType>(Ty)->getBaseType(), asmjs);
     break;
 
   case Type::ObjCInterface: {
@@ -787,7 +797,7 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
     // pointer to the underlying interface type. We don't need to worry about
     // recursive conversion.
     llvm::Type *T =
-      ConvertTypeForMem(cast<ObjCObjectPointerType>(Ty)->getPointeeType());
+      ConvertTypeForMem(cast<ObjCObjectPointerType>(Ty)->getPointeeType(), false, asmjs);
     ResultType = T->getPointerTo();
     break;
   }
@@ -795,7 +805,7 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
   case Type::Enum: {
     const EnumDecl *ED = cast<EnumType>(Ty)->getDecl();
     if (ED->isCompleteDefinition() || ED->isFixed())
-      return ConvertType(ED->getIntegerType());
+      return ConvertType(ED->getIntegerType(), asmjs);
     // Return a placeholder 'i32' type.  This can be changed later when the
     // type is defined (see UpdateCompletedType), but is likely to be the
     // "right" answer.
@@ -807,14 +817,16 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
     const QualType FTy = cast<BlockPointerType>(Ty)->getPointeeType();
     llvm::Type *PointeeType = CGM.getLangOpts().OpenCL
                                   ? CGM.getGenericBlockLiteralType()
-                                  : ConvertTypeForMem(FTy);
+                                  : ConvertTypeForMem(FTy, false, asmjs);
     // Block pointers lower to function type. For function type,
     // getTargetAddressSpace() returns default address space for
     // function pointer i.e. program address space. Therefore, for block
     // pointers, it is important to pass the pointee AST address space when
     // calling getTargetAddressSpace(), to ensure that we get the LLVM IR
     // address space for data pointers and not function pointers.
-    unsigned AS = Context.getTargetAddressSpace(FTy.getAddressSpace());
+    unsigned AS = Context.getTargetAddressSpace(FTy.getAddressSpace());;
+    if (CGM.getLangOpts().Cheerp)
+      AS = Context.getCheerpTypeTargetAddressSpace(FTy, asmjs);
     ResultType = llvm::PointerType::get(PointeeType, AS);
     break;
   }
@@ -835,7 +847,7 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
 
   case Type::Atomic: {
     QualType valueType = cast<AtomicType>(Ty)->getValueType();
-    ResultType = ConvertTypeForMem(valueType);
+    ResultType = ConvertTypeForMem(valueType, false, asmjs);
 
     // Pad out to the inflated size if necessary.
     uint64_t valueSize = Context.getTypeSize(valueType);
@@ -867,7 +879,7 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
          "Cached type doesn't match computed type");
 
   if (ShouldUseCache)
-    TypeCache[Ty] = ResultType;
+    TypeCache[std::make_pair(Ty, asmjs)] = ResultType;
   return ResultType;
 }
 

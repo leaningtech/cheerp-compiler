@@ -59,13 +59,15 @@ BasicBlock::iterator llvm::PrepareToSplitEntryBlock(BasicBlock &BB,
 // Create a constant for Str so that we can pass it to the run-time lib.
 GlobalVariable *llvm::createPrivateGlobalForString(Module &M, StringRef Str,
                                                    bool AllowMerging,
-                                                   const char *NamePrefix) {
+                                                   const char *NamePrefix,
+                                                   Optional<unsigned> AS) {
   Constant *StrConst = ConstantDataArray::getString(M.getContext(), Str);
   // We use private linkage for module-local strings. If they can be merged
   // with another one, we set the unnamed_addr attribute.
   GlobalVariable *GV =
       new GlobalVariable(M, StrConst->getType(), true,
-                         GlobalValue::PrivateLinkage, StrConst, NamePrefix);
+                         GlobalValue::PrivateLinkage, StrConst, NamePrefix,
+                         nullptr, GlobalValue::NotThreadLocal, AS);
   if (AllowMerging)
     GV->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
   GV->setAlignment(Align(1)); // Strings may not be merged w/o setting

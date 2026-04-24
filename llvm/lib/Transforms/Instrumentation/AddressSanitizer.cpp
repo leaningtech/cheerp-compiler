@@ -32,6 +32,7 @@
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/BinaryFormat/MachO.h"
+#include "llvm/Cheerp/AddressSpaces.h"
 #include "llvm/Demangle/Demangle.h"
 #include "llvm/IR/Argument.h"
 #include "llvm/IR/Attributes.h"
@@ -661,9 +662,11 @@ struct AddressSanitizer {
     C = &(M.getContext());
     LongSize = M.getDataLayout().getPointerSizeInBits();
     IntptrTy = Type::getIntNTy(*C, LongSize);
-    Int8PtrTy = Type::getInt8PtrTy(*C);
     Int32Ty = Type::getInt32Ty(*C);
     TargetTriple = Triple(M.getTargetTriple());
+    if (TargetTriple.isCheerpWasm())
+      AS = unsigned(cheerp::CheerpAS::Wasm);
+    Int8PtrTy = Type::getInt8PtrTy(*C, AS.value_or(0));
 
     Mapping = getShadowMapping(TargetTriple, LongSize, this->CompileKernel);
 
@@ -753,6 +756,7 @@ private:
   bool UseAfterScope;
   AsanDetectStackUseAfterReturnMode UseAfterReturn;
   bool AlignedPoisoning;
+  Optional<unsigned> AS;
   Type *IntptrTy;
   Type *Int8PtrTy;
   Type *Int32Ty;
@@ -809,6 +813,8 @@ public:
     int LongSize = M.getDataLayout().getPointerSizeInBits();
     IntptrTy = Type::getIntNTy(*C, LongSize);
     TargetTriple = Triple(M.getTargetTriple());
+    if (TargetTriple.isCheerpWasm())
+      AS = unsigned(cheerp::CheerpAS::Wasm);
     Mapping = getShadowMapping(TargetTriple, LongSize, this->CompileKernel);
 
     if (ClOverrideDestructorKind != AsanDtorKind::Invalid)
@@ -866,6 +872,7 @@ private:
   Type *IntptrTy;
   LLVMContext *C;
   Triple TargetTriple;
+  Optional<unsigned> AS;
   ShadowMapping Mapping;
   FunctionCallee AsanPoisonGlobals;
   FunctionCallee AsanUnpoisonGlobals;
@@ -1228,16 +1235,20 @@ Value *AddressSanitizer::memToShadow(Value *Shadow, IRBuilder<> &IRB) {
 // Instrument memset/memmove/memcpy
 void AddressSanitizer::instrumentMemIntrinsic(MemIntrinsic *MI) {
   IRBuilder<> IRB(MI);
+  unsigned MemIntrinAS = 0;
+  if (TargetTriple.isCheerpWasm())
+    MemIntrinAS = unsigned(cheerp::CheerpAS::Wasm);
+  Type *MemIntrinI8PtrTy = IRB.getInt8PtrTy(MemIntrinAS);
   if (isa<MemTransferInst>(MI)) {
     IRB.CreateCall(
         isa<MemMoveInst>(MI) ? AsanMemmove : AsanMemcpy,
-        {IRB.CreatePointerCast(MI->getOperand(0), IRB.getInt8PtrTy()),
-         IRB.CreatePointerCast(MI->getOperand(1), IRB.getInt8PtrTy()),
+        {IRB.CreatePointerCast(MI->getOperand(0), MemIntrinI8PtrTy),
+         IRB.CreatePointerCast(MI->getOperand(1), MemIntrinI8PtrTy),
          IRB.CreateIntCast(MI->getOperand(2), IntptrTy, false)});
   } else if (isa<MemSetInst>(MI)) {
     IRB.CreateCall(
         AsanMemset,
-        {IRB.CreatePointerCast(MI->getOperand(0), IRB.getInt8PtrTy()),
+        {IRB.CreatePointerCast(MI->getOperand(0), MemIntrinI8PtrTy),
          IRB.CreateIntCast(MI->getOperand(1), IRB.getInt32Ty(), false),
          IRB.CreateIntCast(MI->getOperand(2), IntptrTy, false)});
   }
@@ -1758,17 +1769,13 @@ bool ModuleAddressSanitizer::shouldInstrumentGlobal(GlobalVariable *G) const {
   Type *Ty = G->getValueType();
   LLVM_DEBUG(dbgs() << "GLOBAL: " << *G << "\n");
 
-  if (TargetTriple.isCheerpWasm()) {
-    if (G->getSection() != StringRef("asmjs"))
-      return false;
-  }
-
   if (G->hasSanitizerMetadata() && G->getSanitizerMetadata().NoAddress)
     return false;
   if (!Ty->isSized()) return false;
   if (!G->hasInitializer()) return false;
   // Globals in address space 1 and 4 are supported for AMDGPU.
   if (G->getAddressSpace() &&
+      !(TargetTriple.isCheerpWasm() && G->getAddressSpace() == unsigned(cheerp::CheerpAS::Wasm)) &&
       !(TargetTriple.isAMDGPU() && !isUnsupportedAMDGPUAddrspace(G)))
     return false;
   if (GlobalWasGeneratedByCompiler(G)) return false; // Our own globals.
@@ -2019,7 +2026,7 @@ ModuleAddressSanitizer::CreateMetadataGlobal(Module &M, Constant *Initializer,
 Instruction *ModuleAddressSanitizer::CreateAsanModuleDtor(Module &M) {
   AsanDtorFunction = Function::createWithDefaultAttr(
       FunctionType::get(Type::getVoidTy(*C), false),
-      GlobalValue::InternalLinkage, 0, kAsanModuleDtorName, &M);
+      GlobalValue::InternalLinkage, AS.value_or(M.getDataLayout().getProgramAddressSpace()), kAsanModuleDtorName, &M);
 
   if (TargetTriple.isCheerpWasm())
     AsanDtorFunction->setSection("asmjs");
@@ -2205,7 +2212,8 @@ void ModuleAddressSanitizer::InstrumentGlobalsWithMetadataArray(
       ArrayType::get(MetadataInitializers[0]->getType(), N);
   auto AllGlobals = new GlobalVariable(
       M, ArrayOfGlobalStructTy, false, GlobalVariable::InternalLinkage,
-      ConstantArray::get(ArrayOfGlobalStructTy, MetadataInitializers), kAsanAllGlobalsName);
+      ConstantArray::get(ArrayOfGlobalStructTy, MetadataInitializers), kAsanAllGlobalsName,
+      nullptr, llvm::GlobalValue::NotThreadLocal, AS);
 
   if (TargetTriple.isCheerpWasm())
     AllGlobals->setSection("asmjs");
@@ -2283,7 +2291,7 @@ bool ModuleAddressSanitizer::InstrumentGlobals(IRBuilder<> &IRB, Module &M,
   // We shouldn't merge same module names, as this string serves as unique
   // module ID in runtime.
   GlobalVariable *ModuleName = createPrivateGlobalForString(
-      M, M.getModuleIdentifier(), /*AllowMerging*/ false, kAsanGenPrefix);
+      M, M.getModuleIdentifier(), /*AllowMerging*/ false, kAsanGenPrefix, AS);
   if (TargetTriple.isCheerpWasm())
     ModuleName->setSection("asmjs");
 
@@ -2300,7 +2308,7 @@ bool ModuleAddressSanitizer::InstrumentGlobals(IRBuilder<> &IRB, Module &M,
     std::string NameForGlobal = G->getName().str();
     GlobalVariable *Name =
         createPrivateGlobalForString(M, llvm::demangle(NameForGlobal),
-                                     /*AllowMerging*/ true, kAsanGenPrefix);
+                                     /*AllowMerging*/ true, kAsanGenPrefix, AS);
     if (TargetTriple.isCheerpWasm())
       Name->setSection("asmjs");
 
@@ -2376,7 +2384,7 @@ bool ModuleAddressSanitizer::InstrumentGlobals(IRBuilder<> &IRB, Module &M,
           new GlobalVariable(M, IRB.getInt8Ty(), false, Linkage,
                              Constant::getNullValue(IRB.getInt8Ty()),
                              kODRGenPrefix + NameForGlobal, nullptr,
-                             NewGlobal->getThreadLocalMode());
+                             NewGlobal->getThreadLocalMode(), AS);
 
       // Set meaningful attributes for indicator symbol.
       ODRIndicatorSym->setVisibility(NewGlobal->getVisibility());
@@ -2567,14 +2575,18 @@ void AddressSanitizer::initializeCallbacks(Module &M) {
       (CompileKernel && !ClKasanMemIntrinCallbackPrefix)
           ? std::string("")
           : ClMemoryAccessCallbackPrefix;
+  unsigned MemIntrinAS = 0;
+  if (TargetTriple.isCheerpWasm())
+    MemIntrinAS = unsigned(cheerp::CheerpAS::Wasm);
+  Type *MemIntrinI8PtrTy = IRB.getInt8PtrTy(MemIntrinAS);
   AsanMemmove = M.getOrInsertFunction(MemIntrinCallbackPrefix + "memmove",
-                                      IRB.getInt8PtrTy(), IRB.getInt8PtrTy(),
-                                      IRB.getInt8PtrTy(), IntptrTy);
+                                      MemIntrinI8PtrTy, MemIntrinI8PtrTy,
+                                      MemIntrinI8PtrTy, IntptrTy);
   AsanMemcpy = M.getOrInsertFunction(MemIntrinCallbackPrefix + "memcpy",
-                                     IRB.getInt8PtrTy(), IRB.getInt8PtrTy(),
-                                     IRB.getInt8PtrTy(), IntptrTy);
+                                     MemIntrinI8PtrTy, MemIntrinI8PtrTy,
+                                     MemIntrinI8PtrTy, IntptrTy);
   AsanMemset = M.getOrInsertFunction(MemIntrinCallbackPrefix + "memset",
-                                     IRB.getInt8PtrTy(), IRB.getInt8PtrTy(),
+                                     MemIntrinI8PtrTy, MemIntrinI8PtrTy,
                                      IRB.getInt32Ty(), IntptrTy);
 
   AsanHandleNoReturnFunc =
@@ -3021,13 +3033,16 @@ PHINode *FunctionStackPoisoner::createPHI(IRBuilder<> &IRB, Value *Cond,
 Value *FunctionStackPoisoner::createAllocaForLayout(
     IRBuilder<> &IRB, const ASanStackFrameLayout &L, bool Dynamic) {
   AllocaInst *Alloca;
+  unsigned AllocaAS = 0;
+  if (ASan.TargetTriple.isCheerpWasm())
+    AllocaAS = unsigned(cheerp::CheerpAS::Wasm);
   if (Dynamic) {
-    Alloca = IRB.CreateAlloca(IRB.getInt8Ty(),
+    Alloca = IRB.CreateAlloca(IRB.getInt8Ty(), AllocaAS,
                               ConstantInt::get(IRB.getInt64Ty(), L.FrameSize),
                               "MyAlloca");
   } else {
     Alloca = IRB.CreateAlloca(ArrayType::get(IRB.getInt8Ty(), L.FrameSize),
-                              nullptr, "MyAlloca");
+                              AllocaAS, nullptr, "MyAlloca");
     assert(Alloca->isStaticAlloca());
   }
   assert((ClRealignStack & (ClRealignStack - 1)) == 0);
@@ -3039,7 +3054,10 @@ Value *FunctionStackPoisoner::createAllocaForLayout(
 void FunctionStackPoisoner::createDynamicAllocasInitStorage() {
   BasicBlock &FirstBB = *F.begin();
   IRBuilder<> IRB(dyn_cast<Instruction>(FirstBB.begin()));
-  DynamicAllocaLayout = IRB.CreateAlloca(IntptrTy, nullptr);
+  unsigned AllocaAS = 0;
+  if (ASan.TargetTriple.isCheerpWasm())
+    AllocaAS = unsigned(cheerp::CheerpAS::Wasm);
+  DynamicAllocaLayout = IRB.CreateAlloca(IntptrTy, AllocaAS, nullptr);
   IRB.CreateStore(Constant::getNullValue(IntptrTy), DynamicAllocaLayout);
   DynamicAllocaLayout->setAlignment(Align(32));
 }
@@ -3315,7 +3333,7 @@ void FunctionStackPoisoner::processStaticAllocas() {
       IntptrPtrTy);
   GlobalVariable *StackDescriptionGlobal =
       createPrivateGlobalForString(*F.getParent(), DescriptionString,
-                                   /*AllowMerging*/ true, kAsanGenPrefix);
+                                   /*AllowMerging*/ true, kAsanGenPrefix, ASan.AS);
   if (ASan.TargetTriple.isCheerpWasm())
     StackDescriptionGlobal->setSection("asmjs");
   Value *Description = IRB.CreatePointerCast(StackDescriptionGlobal, IntptrTy);
@@ -3470,7 +3488,9 @@ void FunctionStackPoisoner::handleDynamicAllocaCall(AllocaInst *AI) {
   Value *NewSize = IRB.CreateAdd(OldSize, AdditionalChunkSize);
 
   // Insert new alloca with new NewSize and Alignment params.
-  AllocaInst *NewAlloca = IRB.CreateAlloca(IRB.getInt8Ty(), NewSize);
+  unsigned AllocaAS = AI->getType()->getPointerAddressSpace();
+  AllocaInst *NewAlloca =
+      IRB.CreateAlloca(IRB.getInt8Ty(), AllocaAS, NewSize);
   NewAlloca->setAlignment(Alignment);
 
   // NewAddress = Address + Alignment

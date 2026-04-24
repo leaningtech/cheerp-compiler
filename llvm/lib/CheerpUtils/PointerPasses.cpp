@@ -572,17 +572,20 @@ static void deleteInstructionAndUnusedOperands(Instruction* I)
 
 static Function* getOrCreateGenericJSFree(Module& M, Function* Orig)
 {
-	FunctionType* Ty = Orig->getFunctionType();
+	Type* VoidPtrJs = IntegerType::get(M.getContext(), 8)->getPointerTo((unsigned) CheerpAS::GenericJS);
+	Type* VoidPtrWasm = IntegerType::get(M.getContext(), 8)->getPointerTo((unsigned) CheerpAS::Wasm);
+
+	FunctionType* Ty = FunctionType::get(Orig->getReturnType(), {VoidPtrJs}, false);
 	std::string name = Twine("__genericjs__", Orig->getName()).str();
-	Function* New = cast<Function>(M.getOrInsertFunction(name, Ty).getCallee());
+	Function* New = getOrCreateFunction(M, Ty, name, CheerpAS::Client, /*isExternal*/true);
+
 	if (!New->empty())
 		return New;
 	New->addFnAttr(Attribute::NoInline);
 	BasicBlock* Entry = BasicBlock::Create(M.getContext(),"entry", New);
 	IRBuilder<> Builder(Entry);
 
-	Type* VoidPtr = IntegerType::get(M.getContext(), 8)->getPointerTo();
-	Type* Tys[] = { VoidPtr };
+	Type* Tys[] = { VoidPtrJs };
 	Function *GetBase = Intrinsic::getDeclaration(&M, Intrinsic::cheerp_is_linear_heap, Tys);
 	Function *ElemSize = Intrinsic::getDeclaration(&M, Intrinsic::cheerp_pointer_elem_size, Tys);
 
@@ -601,7 +604,7 @@ static Function* getOrCreateGenericJSFree(Module& M, Function* Orig)
 	CallInst* Offset = Builder.CreateCall(PtrOffset, Params);
 	CallInst* Size = Builder.CreateCall(ElemSize, Params);
 	Value* OffsetShifted = Builder.CreateMul(Offset, Size);
-	Value* OffsetP = Builder.CreateIntToPtr(OffsetShifted, VoidPtr);
+	Value* OffsetP = Builder.CreateIntToPtr(OffsetShifted, VoidPtrWasm);
 	Value* Params2[] = { OffsetP };
 	Builder.CreateCall(Orig, Params2);
 
@@ -614,6 +617,7 @@ bool FreeAndDeleteRemoval::runOnModule(Module& M)
 	bool Changed = false;
 
 	isWasmTarget = Triple(M.getTargetTriple()).isCheerpWasm();
+	Type* VoidPtrWasm = IntegerType::get(M.getContext(), 8)->getPointerTo((unsigned) CheerpAS::Wasm);
 	for (Function& f: M)
 	{
 		if (f.getIntrinsicID() == Intrinsic::cheerp_deallocate)
@@ -625,7 +629,7 @@ bool FreeAndDeleteRemoval::runOnModule(Module& M)
 				++UI;
 				if (CallInst* call = dyn_cast<CallInst>(U.getUser()))
 				{
-					bool asmjs = call->getParent()->getParent()->getSection()==StringRef("asmjs");
+					bool asmjs = call->getArgOperand(1)->getType()->getPointerAddressSpace() == unsigned(CheerpAS::Wasm);
 					if (asmjs)
 						continue;
 					Type* elemTy = call->getParamElementType(1);
@@ -637,7 +641,8 @@ bool FreeAndDeleteRemoval::runOnModule(Module& M)
 					else if (!elemTy || !cheerp::TypeSupport::isAsmJSPointed(elemTy))
 					{
 						Function* origF = cast<Function>(call->getArgOperand(0)->stripPointerCastsSafe());
-						call->setArgOperand(0, getOrCreateGenericJSFree(M, origF));
+						Constant* funcArg = ConstantExpr::getPointerBitCastOrAddrSpaceCast(getOrCreateGenericJSFree(M, origF), VoidPtrWasm);
+						call->setArgOperand(0, funcArg);
 					}
 				}
 			}

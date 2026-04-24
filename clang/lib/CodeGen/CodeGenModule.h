@@ -36,6 +36,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/ValueHandle.h"
 #include "llvm/Transforms/Utils/SanitizerStats.h"
+#include <limits>
 
 namespace llvm {
 class Module;
@@ -979,7 +980,7 @@ public:
   unsigned ComputeVirtualBaseIdOffset(const CXXRecordDecl *Derived,
                                const CXXRecordDecl *VBase);
 
-  llvm::Function* GetUserCastIntrinsic(const CastExpr* CE, QualType SrcTy, QualType DestTy, bool asmjs);
+  llvm::Function* GetUserCastIntrinsic(const CastExpr* CE, QualType SrcTy, QualType DestTy, llvm::Type* llvmSrcTy, bool asmjs);
 
   llvm::FoldingSet<BlockByrefHelpers> ByrefHelpersCache;
 
@@ -1018,7 +1019,7 @@ public:
 
   /// Return a pointer to a constant array for the given string literal.
   ConstantAddress
-  GetAddrOfConstantStringFromLiteral(const StringLiteral *S,
+  GetAddrOfConstantStringFromLiteral(const StringLiteral *S, bool asmjs,
                                      StringRef Name = ".str");
 
   /// Return a pointer to a constant array for the given ObjCEncodeExpr node.
@@ -1031,7 +1032,7 @@ public:
   /// \param GlobalName If provided, the name to use for the global (if one is
   /// created).
   ConstantAddress
-  GetAddrOfConstantCString(const std::string &Str,
+  GetAddrOfConstantCString(const std::string &Str, bool asmjs,
                            const char *GlobalName = nullptr);
 
   /// Returns a pointer to a constant global variable for the given file-scope
@@ -1154,7 +1155,7 @@ public:
   llvm::FunctionCallee
   CreateRuntimeFunction(llvm::FunctionType *Ty, StringRef Name,
                         llvm::AttributeList ExtraAttrs = llvm::AttributeList(),
-                        bool Local = false, bool AssumeConvergent = false);
+                        bool Local = false, bool AssumeConvergent = false, unsigned AS = std::numeric_limits<unsigned>::max());
 
   /// Create a new runtime global variable with the specified type and name.
   llvm::Constant *CreateRuntimeVariable(llvm::Type *Ty,
@@ -1186,7 +1187,7 @@ public:
   /// Return the result of value-initializing the given type, i.e. a null
   /// expression of the given type.  This is usually, but not always, an LLVM
   /// null constant.
-  llvm::Constant *EmitNullConstant(QualType T);
+  llvm::Constant *EmitNullConstant(QualType T, bool asmjs);
 
   /// Return a null constant appropriate for zero-initializing a base class with
   /// the given type. This is usually, but not always, an LLVM null constant.
@@ -1548,7 +1549,7 @@ private:
       StringRef MangledName, llvm::Type *Ty, GlobalDecl D, bool ForVTable,
       bool DontDefer = false, bool IsThunk = false,
       llvm::AttributeList ExtraAttrs = llvm::AttributeList(),
-      ForDefinition_t IsForDefinition = NotForDefinition);
+      ForDefinition_t IsForDefinition = NotForDefinition, unsigned AS = std::numeric_limits<unsigned>::max());
 
   // References to multiversion functions are resolved through an implicitly
   // defined resolver function. This function is responsible for creating

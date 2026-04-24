@@ -31,6 +31,7 @@
 #include "clang/Basic/SourceManager.h"
 #include "llvm/ADT/Hashing.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/Cheerp/AddressSpaces.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/LLVMContext.h"
@@ -55,9 +56,7 @@ llvm::Value *CodeGenFunction::EmitCastToVoidPtr(llvm::Value *value) {
   unsigned addressSpace =
       cast<llvm::PointerType>(value->getType())->getAddressSpace();
 
-  llvm::PointerType *destType = Int8PtrTy;
-  if (addressSpace)
-    destType = llvm::Type::getInt8PtrTy(getLLVMContext(), addressSpace);
+  llvm::PointerType *destType = llvm::Type::getInt8PtrTy(getLLVMContext(), addressSpace);
 
   if (value->getType() == destType) return value;
   return Builder.CreateBitCast(value, destType);
@@ -113,10 +112,10 @@ llvm::AllocaInst *CodeGenFunction::CreateTempAlloca(llvm::Type *Ty,
                                                     const Twine &Name,
                                                     llvm::Value *ArraySize,
                                                     uint32_t AS) {
+  AS = AS == std::numeric_limits<uint32_t>::max()? CGM.getDataLayout().getAllocaAddrSpace() : AS;
   if (ArraySize)
-    return Builder.CreateAlloca(Ty, ArraySize, Name);
-  return new llvm::AllocaInst(Ty, AS == 0? CGM.getDataLayout().getAllocaAddrSpace() : AS,
-                              ArraySize, Name, AllocaInsertPt);
+    return Builder.CreateAlloca(Ty, AS, ArraySize, Name);
+  return new llvm::AllocaInst(Ty, AS, ArraySize, Name, AllocaInsertPt);
 }
 
 /// CreateDefaultAlignTempAlloca - This creates an alloca with the
@@ -132,7 +131,10 @@ Address CodeGenFunction::CreateDefaultAlignTempAlloca(llvm::Type *Ty,
 
 Address CodeGenFunction::CreateIRTemp(QualType Ty, const Twine &Name) {
   CharUnits Align = getContext().getTypeAlignInChars(Ty);
-  return CreateTempAlloca(ConvertType(Ty), Align, Name);
+  unsigned AS = CGM.getDataLayout().getAllocaAddrSpace();
+  if (getLangOpts().Cheerp)
+    AS = getContext().getCheerpTypeTargetAddressSpace(Ty, CurFn->getSection() == "asmjs");
+  return CreateTempAlloca(ConvertType(Ty), Align, Name, nullptr, nullptr, AS);
 }
 
 Address CodeGenFunction::CreateMemTemp(QualType Ty, const Twine &Name,
@@ -143,8 +145,11 @@ Address CodeGenFunction::CreateMemTemp(QualType Ty, const Twine &Name,
 
 Address CodeGenFunction::CreateMemTemp(QualType Ty, CharUnits Align,
                                        const Twine &Name, Address *Alloca) {
+  unsigned AS = CGM.getDataLayout().getAllocaAddrSpace();
+  if (getLangOpts().Cheerp)
+    AS = getContext().getCheerpTypeTargetAddressSpace(Ty, CurFn->getSection() == "asmjs");
   Address Result = CreateTempAlloca(ConvertTypeForMem(Ty), Align, Name,
-                                    /*ArraySize=*/nullptr, Alloca);
+                                    /*ArraySize=*/nullptr, Alloca, AS);
 
   if (Ty->isConstantMatrixType()) {
     auto *ArrayTy = cast<llvm::ArrayType>(Result.getElementType());
@@ -152,7 +157,7 @@ Address CodeGenFunction::CreateMemTemp(QualType Ty, CharUnits Align,
                                                 ArrayTy->getNumElements());
 
     Result = Address(
-        Builder.CreateBitCast(Result.getPointer(), VectorTy->getPointerTo()),
+        Builder.CreateBitCast(Result.getPointer(), VectorTy->getPointerTo(AS)),
         VectorTy, Result.getAlignment());
   }
   return Result;
@@ -160,7 +165,10 @@ Address CodeGenFunction::CreateMemTemp(QualType Ty, CharUnits Align,
 
 Address CodeGenFunction::CreateMemTempWithoutCast(QualType Ty, CharUnits Align,
                                                   const Twine &Name) {
-  return CreateTempAllocaWithoutCast(ConvertTypeForMem(Ty), Align, Name);
+  unsigned AS = CGM.getDataLayout().getAllocaAddrSpace();
+  if (getLangOpts().Cheerp)
+    AS = getContext().getCheerpTypeTargetAddressSpace(Ty, CurFn->getSection() == "asmjs");
+  return CreateTempAllocaWithoutCast(ConvertTypeForMem(Ty), Align, Name, nullptr, AS);
 }
 
 Address CodeGenFunction::CreateMemTempWithoutCast(QualType Ty,
@@ -447,6 +455,8 @@ LValue CodeGenFunction::
 EmitMaterializeTemporaryExpr(const MaterializeTemporaryExpr *M) {
   const Expr *E = M->getSubExpr();
 
+  // NOTE: this is just a guess, not sure what feature uses this
+  bool asmjs = CurFn->getSection() == "asmjs";
   assert((!M->getExtendingDecl() || !isa<VarDecl>(M->getExtendingDecl()) ||
           !cast<VarDecl>(M->getExtendingDecl())->isARCPseudoStrong()) &&
          "Reference should never be pseudo-strong!");
@@ -472,7 +482,7 @@ EmitMaterializeTemporaryExpr(const MaterializeTemporaryExpr *M) {
       if (Var->hasInitializer())
         return MakeAddrLValue(Object, M->getType(), AlignmentSource::Decl);
 
-      Var->setInitializer(CGM.EmitNullConstant(E->getType()));
+      Var->setInitializer(CGM.EmitNullConstant(E->getType(), asmjs));
     }
     LValue RefTempDst = MakeAddrLValue(Object, M->getType(),
                                        AlignmentSource::Decl);
@@ -519,14 +529,14 @@ EmitMaterializeTemporaryExpr(const MaterializeTemporaryExpr *M) {
     llvm::Type *TemporaryType = ConvertTypeForMem(E->getType());
     Object = Address(llvm::ConstantExpr::getBitCast(
                          cast<llvm::Constant>(Object.getPointer()),
-                         TemporaryType->getPointerTo()),
+                         TemporaryType->getPointerTo(Object.getAddressSpace())),
                      TemporaryType,
                      Object.getAlignment());
     // If the temporary is a global and has a constant initializer or is a
     // constant temporary that we promoted to a global, we may have already
     // initialized it.
     if (!Var->hasInitializer()) {
-      Var->setInitializer(CGM.EmitNullConstant(E->getType()));
+      Var->setInitializer(CGM.EmitNullConstant(E->getType(), asmjs));
       EmitAnyExprToMem(E, Object, Qualifiers(), /*IsInit*/true);
     }
   } else {
@@ -691,7 +701,10 @@ void CodeGenFunction::EmitTypeCheck(TypeCheckKind TCK, SourceLocation Loc,
   // isn't correct, the object-size check isn't supported by LLVM, and we can't
   // communicate the addresses to the runtime handler for the vptr check.
   if (Ptr->getType()->getPointerAddressSpace())
+  {
+    if (!getLangOpts().Cheerp || Ptr->getType()->getPointerAddressSpace() != unsigned(cheerp::CheerpAS::Wasm))
     return;
+  }
 
   // Don't check pointers to volatile data. The behavior here is implementation-
   // defined.
@@ -1087,6 +1100,7 @@ Address CodeGenFunction::EmitPointerWithAlignment(const Expr *E,
             llvm::Function* intrinsic = CGM.GetUserCastIntrinsic(ECE,
               ECE->getSubExpr()->getType(),
               ECE->getTypeAsWritten(),
+              Addr.getPointer()->getType(),
               asmjs);
             llvm::CallBase* CB = Builder.CreateCall(intrinsic, Addr.getPointer());
             CB->addParamAttr(0, llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, Addr.getElementType()));
@@ -1888,6 +1902,10 @@ void CodeGenFunction::EmitStoreOfScalar(llvm::Value *Value, Address Addr,
 
   Value = EmitToMemory(Value, Ty);
 
+  if (getLangOpts().Cheerp && Value->getType() != Addr.getElementType()) {
+    Value =  Builder.CreateAddrSpaceCast(Value, Addr.getElementType(), Twine(Value->getName(), ".as_decay"));
+  }
+
   LValue AtomicLValue =
       LValue::MakeAddr(Addr, Ty, getContext(), BaseInfo, TBAAInfo);
   if (Ty->isAtomicType() ||
@@ -2597,7 +2615,7 @@ static LValue EmitGlobalVarDeclLValue(CodeGenFunction &CGF,
   if (VD->getTLSKind() != VarDecl::TLS_None)
     V = CGF.Builder.CreateThreadLocalAddress(V);
 
-  llvm::Type *RealVarTy = CGF.getTypes().ConvertTypeForMem(VD->getType());
+  llvm::Type *RealVarTy = CGF.getTypes().ConvertTypeForMem(VD->getType(), false, VD->hasAttr<AsmJSAttr>());
   V = EmitBitCastOfLValueToProperType(CGF, V, RealVarTy);
   CharUnits Alignment = CGF.getContext().getDeclAlign(VD);
   Address Addr(V, RealVarTy, Alignment);
@@ -2635,7 +2653,7 @@ static llvm::Constant *EmitFunctionDeclPointer(CodeGenModule &CGM,
           CGM.getContext().getFunctionNoProtoType(Proto->getReturnType());
       NoProtoType = CGM.getContext().getPointerType(NoProtoType);
       V = llvm::ConstantExpr::getBitCast(V,
-                                      CGM.getTypes().ConvertType(NoProtoType));
+                                      CGM.getTypes().ConvertType(NoProtoType, FD->hasAttr<AsmJSAttr>()));
     }
   }
   return V;
@@ -3016,12 +3034,9 @@ LValue CodeGenFunction::EmitUnaryOpLValue(const UnaryOperator *E) {
 }
 
 LValue CodeGenFunction::EmitStringLiteralLValue(const StringLiteral *E) {
-  auto S = CGM.GetAddrOfConstantStringFromLiteral(E);
+  bool asmjs = CurFn && CurFn->getSection() == StringRef("asmjs");
+  auto S = CGM.GetAddrOfConstantStringFromLiteral(E, asmjs);
 
-  // CHEERP: if the parent function is in the asmjs section, so is the string
-  // literal
-  if (CurFn && CurFn->getSection() == StringRef("asmjs"))
-    cast<llvm::GlobalVariable>(S.getPointer())->setSection("asmjs");
   return MakeAddrLValue(S,
                         E->getType(), AlignmentSource::Decl);
 }
@@ -3047,20 +3062,16 @@ LValue CodeGenFunction::EmitPredefinedLValue(const PredefinedExpr *E) {
           CGM.getCXXABI().getMangleContext().getBlockId(BD, true);
       if (Discriminator)
         Name += "_" + Twine(Discriminator + 1).str();
-      auto C = CGM.GetAddrOfConstantCString(Name, GVName.c_str());
+      auto C = CGM.GetAddrOfConstantCString(Name, isAsmJSContext(), GVName.c_str());
       return MakeAddrLValue(C, E->getType(), AlignmentSource::Decl);
     } else {
       auto C =
-          CGM.GetAddrOfConstantCString(std::string(FnName), GVName.c_str());
+          CGM.GetAddrOfConstantCString(std::string(FnName), isAsmJSContext(), GVName.c_str());
       return MakeAddrLValue(C, E->getType(), AlignmentSource::Decl);
     }
   }
-  auto C = CGM.GetAddrOfConstantStringFromLiteral(SL, GVName);
-  // CHEERP: if the parent function is in the asmjs section, so is the string
-  // literal
-  assert(CurFn);
-  if (CurFn->getSection() == StringRef("asmjs"))
-    cast<llvm::GlobalVariable>(C.getPointer())->setSection("asmjs");
+  bool asmjs = CurFn && CurFn->getSection() == StringRef("asmjs");
+  auto C = CGM.GetAddrOfConstantStringFromLiteral(SL, asmjs, GVName);
   return MakeAddrLValue(C, E->getType(), AlignmentSource::Decl);
 }
 
@@ -3187,7 +3198,7 @@ llvm::Constant *CodeGenFunction::EmitCheckSourceLocation(SourceLocation Loc) {
     }
 
     auto FilenameGV =
-        CGM.GetAddrOfConstantCString(std::string(FilenameString), ".src");
+        CGM.GetAddrOfConstantCString(std::string(FilenameString), isAsmJSContext(), ".src");
     CGM.getSanitizerMetadata()->disableSanitizerForGlobal(
         cast<llvm::GlobalVariable>(
             FilenameGV.getPointer()->stripPointerCasts()));
@@ -4476,6 +4487,8 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
     }
   }
 
+  bool asmjs = field->getParent()->hasAttr<AsmJSAttr>();
+
   unsigned RecordCVR = base.getVRQualifiers();
   if (rec->isUnion()) {
     // For unions, there is no pointer adjustment.
@@ -4498,10 +4511,10 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
 
     if (FieldType->isReferenceType())
       addr = Builder.CreateElementBitCast(
-          addr, CGM.getTypes().ConvertTypeForMem(FieldType), field->getName());
+          addr, CGM.getTypes().ConvertTypeForMem(FieldType, false, asmjs), field->getName());
   } else if (!CGM.getTarget().isByteAddressable() && CGM.getTypes().getCGRecordLayout(rec).getLLVMFieldNo(field) == 0xffffffff) {
     // Cheerp: If the first member is a struct we want to collapse it into the parent, and we use upcast_collapsed to access it
-    addr = GenerateUpcastCollapsed(addr, CGM.getTypes().ConvertTypeForMem(FieldType), addr.getAddressSpace());
+    addr = GenerateUpcastCollapsed(addr, CGM.getTypes().ConvertTypeForMem(FieldType, false, asmjs), addr.getAddressSpace());
   } else {
     if (!IsInPreservedAIRegion &&
         (!getDebugInfo() || !rec->hasAttr<BPFPreserveAccessIndexAttr>()))
@@ -4530,7 +4543,7 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
   // will need a bitcast if the LLVM type laid out doesn't match the desired
   // type.
   addr = Builder.CreateElementBitCast(
-      addr, CGM.getTypes().ConvertTypeForMem(FieldType), field->getName());
+      addr, CGM.getTypes().ConvertTypeForMem(FieldType, false, asmjs), field->getName());
 
   if (field->hasAttr<AnnotateAttr>())
     addr = EmitFieldAnnotations(field, addr);
@@ -4928,9 +4941,10 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
     {
       bool asmjs = CurFn->getSection()==StringRef("asmjs");
       llvm::Function* intrinsic = CGM.GetUserCastIntrinsic(CE,
-		      getContext().getPointerType(E->getSubExpr()->getType()),
-		      CE->getTypeAsWritten(),
-		      asmjs);
+        getContext().getPointerType(E->getSubExpr()->getType()),
+        CE->getTypeAsWritten(),
+        V.getPointer()->getType(),
+        asmjs);
       llvm::CallBase* CB = Builder.CreateCall(intrinsic, V.getPointer());
       CB->addParamAttr(0, llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, V.getElementType()));
       V = Address(CB,
@@ -5445,7 +5459,7 @@ RValue CodeGenFunction::EmitCall(QualType CalleeType, const CGCallee &OrigCallee
     llvm::Value *TypeId = llvm::MetadataAsValue::get(getLLVMContext(), MD);
 
     llvm::Value *CalleePtr = Callee.getFunctionPointer();
-    llvm::Value *CastedCallee = Builder.CreateBitCast(CalleePtr, Int8PtrTy);
+    llvm::Value *CastedCallee = Builder.CreatePointerBitCastOrAddrSpaceCast(CalleePtr, AS0VoidPtrTy);
     llvm::Value *TypeTest = Builder.CreateCall(
         CGM.getIntrinsic(llvm::Intrinsic::type_test), {CastedCallee, TypeId});
 
@@ -5499,8 +5513,20 @@ RValue CodeGenFunction::EmitCall(QualType CalleeType, const CGCallee &OrigCallee
   EmitCallArgs(Args, dyn_cast<FunctionProtoType>(FnType), E->arguments(),
                E->getDirectCallee(), /*ParamsToSkip*/ 0, Order);
 
+  bool asmjs = false;
+  // TODO maybe use the LLVM AS of the callee Value
+  if (getContext().getLangOpts().Cheerp) {
+    LangAS CalleeAS = PointeeType.getAddressSpace();
+    if (CalleeAS != LangAS::Default) {
+      asmjs = CalleeAS == LangAS::cheerp_wasm;
+    } else if (auto *CalleeDecl = dyn_cast_or_null<FunctionDecl>(TargetDecl)) {
+      asmjs = CalleeDecl->hasAttr<AsmJSAttr>();
+    } else {
+      asmjs = CurFn->getSection() == "asmjs";
+    }
+  }
   const CGFunctionInfo &FnInfo = CGM.getTypes().arrangeFreeFunctionCall(
-      Args, FnType, /*ChainCall=*/Chain);
+      Args, FnType, /*ChainCall=*/Chain, asmjs);
 
   // C99 6.5.2.2p6:
   //   If the expression that denotes the called function has a type

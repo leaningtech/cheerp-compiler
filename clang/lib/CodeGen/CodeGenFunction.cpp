@@ -210,11 +210,11 @@ CodeGenFunction::MakeNaturalAlignPointeeAddrLValue(llvm::Value *V, QualType T) {
 
 
 llvm::Type *CodeGenFunction::ConvertTypeForMem(QualType T) {
-  return CGM.getTypes().ConvertTypeForMem(T);
+  return CGM.getTypes().ConvertTypeForMem(T, false, isAsmJSContext());
 }
 
 llvm::Type *CodeGenFunction::ConvertType(QualType T) {
-  return CGM.getTypes().ConvertType(T);
+  return CGM.getTypes().ConvertType(T, isAsmJSContext());
 }
 
 TypeEvaluationKind CodeGenFunction::getEvaluationKind(QualType type) {
@@ -1103,10 +1103,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
     ReturnValue = Address(&*AI, ConvertType(RetTy),
                           CurFnInfo->getReturnInfo().getIndirectAlign());
     if (!CurFnInfo->getReturnInfo().getIndirectByVal()) {
+      llvm::Type* ResultPtrTy = Int8Ty->getPointerTo(ReturnValue.getType()->getPointerAddressSpace());
       ReturnValuePointer =
-          CreateDefaultAlignTempAlloca(Int8PtrTy, "result.ptr");
+          CreateDefaultAlignTempAlloca(ResultPtrTy, "result.ptr");
       Builder.CreateStore(Builder.CreatePointerBitCastOrAddrSpaceCast(
-                              ReturnValue.getPointer(), Int8PtrTy),
+                              ReturnValue.getPointer(), ResultPtrTy),
                           ReturnValuePointer);
     }
   } else if (CurFnInfo->getReturnInfo().getKind() == ABIArgInfo::InAlloca &&
@@ -2014,7 +2015,7 @@ CodeGenFunction::EmitNullInitialization(Address DestPtr, QualType Ty) {
     // For a VLA, emit a single element, then splat that over the VLA.
     if (vla) Ty = getContext().getBaseElementType(vla);
 
-    llvm::Constant *NullConstant = CGM.EmitNullConstant(Ty);
+    llvm::Constant *NullConstant = CGM.EmitNullConstant(Ty, CurFn->getSection()=="asmjs");
 
     llvm::GlobalVariable *NullVariable =
       new llvm::GlobalVariable(CGM.getModule(), NullConstant->getType(),
@@ -2456,8 +2457,8 @@ llvm::Value *CodeGenFunction::EmitAnnotationCall(llvm::Function *AnnotationFn,
                                                  const AnnotateAttr *Attr) {
   SmallVector<llvm::Value *, 5> Args = {
       AnnotatedVal,
-      Builder.CreateBitCast(CGM.EmitAnnotationString(AnnotationStr), Int8PtrTy),
-      Builder.CreateBitCast(CGM.EmitAnnotationUnit(Location), Int8PtrTy),
+      Builder.CreateBitCast(CGM.EmitAnnotationString(AnnotationStr), AS0VoidPtrTy),
+      Builder.CreateBitCast(CGM.EmitAnnotationUnit(Location), AS0VoidPtrTy),
       CGM.EmitAnnotationLineNo(Location),
   };
   if (Attr)
@@ -2471,7 +2472,7 @@ void CodeGenFunction::EmitVarAnnotations(const VarDecl *D, llvm::Value *V) {
   // llvm-gcc was doing.
   for (const auto *I : D->specific_attrs<AnnotateAttr>())
     EmitAnnotationCall(CGM.getIntrinsic(llvm::Intrinsic::var_annotation),
-                       Builder.CreateBitCast(V, CGM.Int8PtrTy, V->getName()),
+                       Builder.CreatePointerBitCastOrAddrSpaceCast(V, CGM.AS0VoidPtrTy, V->getName()),
                        I->getAnnotation(), D->getLocation(), I);
 }
 

@@ -1,13 +1,13 @@
 // RUN: %clang_cc1 -std=c89 -w -fmerge-all-constants -emit-llvm < %s | FileCheck %s
 
-// CHECK: @test1.x = internal constant [12 x i32] [i32 1
-// CHECK: @__const.test2.x = private unnamed_addr constant [13 x i32] [i32 1,
-// CHECK: @test5w = {{(dso_local )?}}global { i32, [4 x i8] } { i32 2, [4 x i8] undef }
-// CHECK: @test5y = {{(dso_local )?}}global { double } { double 7.300000e+0{{[0]*}}1 }
+// CHECK: @test1.x = internal{{( addrspace\(.\))?}} constant [12 x i32] [i32 1
+// CHECK: @__const.test2.x = private unnamed_addr{{( addrspace\(.\))?}} constant [13 x i32] [i32 1,
+// CHECK: @test5w = {{(dso_local )?}}{{(addrspace\(.\) )?}}global { i32, [4 x i8] } { i32 2, [4 x i8] undef }
+// CHECK: @test5y = {{(dso_local )?}}{{(addrspace\(.\) )?}}global { double } { double 7.300000e+0{{[0]*}}1 }
 
-// CHECK: @__const.test6.x = private unnamed_addr constant %struct._Z10SelectDest { i8 1, i8 2, i32 3, i32 0 }
+// CHECK: @__const.test6.x = private unnamed_addr{{( addrspace\(.\))?}} constant %struct._Z10SelectDest { i8 1, i8 2, i32 3, i32 0 }
 
-// CHECK: @test7 = {{(dso_local )?}}global [2 x %struct._Z6test7s] [%struct._Z6test7s { i32 1, i32 2 }, %struct._Z6test7s { i32 4, i32 0 }]
+// CHECK: @test7 = {{(dso_local )?}}{{(addrspace\(.\) )?}}global [2 x %struct._Z6test7s] [%struct._Z6test7s { i32 1, i32 2 }, %struct._Z6test7s { i32 4, i32 0 }]
 
 void test1(void) {
   // This should codegen as a "@test1.x" global.
@@ -28,7 +28,7 @@ void test2(void) {
   // CHECK: @test2()
   // CHECK: %x = alloca [13 x i32]
   // CHECK: call void @llvm.memcpy
-  // CHECK: call{{.*}}@foo{{.*}}ptr noundef %
+  // CHECK: call{{.*}}@foo{{.*}}ptr{{( addrspace\(.\))?}} noundef %
 }
 
 

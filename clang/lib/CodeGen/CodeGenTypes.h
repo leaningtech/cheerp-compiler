@@ -96,13 +96,13 @@ class CodeGenTypes {
 
   /// This map keeps cache of llvm::Types and maps clang::Type to
   /// corresponding llvm::Type.
-  llvm::DenseMap<const Type *, llvm::Type *> TypeCache;
+  llvm::DenseMap<std::pair<const Type *, char>, llvm::Type *> TypeCache;
 
   llvm::DenseMap<const Type *, llvm::Type *> RecordsWithOpaqueMemberPointers;
 
   static constexpr unsigned FunctionInfosLog2InitSize = 9;
   /// Helper for ConvertType.
-  llvm::Type *ConvertFunctionTypeInternal(QualType FT);
+  llvm::Type *ConvertFunctionTypeInternal(QualType FT, bool asmjs);
 
 public:
   CodeGenTypes(CodeGenModule &cgm);
@@ -126,13 +126,13 @@ public:
   CanQualType DeriveThisType(const CXXRecordDecl *RD, const CXXMethodDecl *MD);
 
   /// ConvertType - Convert type T into a llvm::Type.
-  llvm::Type *ConvertType(QualType T);
+  llvm::Type *ConvertType(QualType T, bool asmjs = false);
 
   /// ConvertTypeForMem - Convert type T into a llvm::Type.  This differs from
   /// ConvertType in that it is used to convert to the memory representation for
   /// a type.  For example, the scalar representation for _Bool is i1, but the
   /// memory representation is usually i8 or i32, depending on the target.
-  llvm::Type *ConvertTypeForMem(QualType T, bool ForBitField = false);
+  llvm::Type *ConvertTypeForMem(QualType T, bool ForBitField = false, bool asmjs = false);
 
   /// GetFunctionType - Get the LLVM function type for \arg Info.
   llvm::FunctionType *GetFunctionType(const CGFunctionInfo &Info);
@@ -214,13 +214,13 @@ public:
   const CGFunctionInfo &arrangeFunctionDeclaration(const FunctionDecl *FD);
   const CGFunctionInfo &arrangeFreeFunctionCall(const CallArgList &Args,
                                                 const FunctionType *Ty,
-                                                bool ChainCall);
-  const CGFunctionInfo &arrangeFreeFunctionType(CanQual<FunctionProtoType> Ty);
-  const CGFunctionInfo &arrangeFreeFunctionType(CanQual<FunctionNoProtoType> Ty);
+                                                bool ChainCall, bool asmjs);
+  const CGFunctionInfo &arrangeFreeFunctionType(CanQual<FunctionProtoType> Ty, bool asmjs);
+  const CGFunctionInfo &arrangeFreeFunctionType(CanQual<FunctionNoProtoType> Ty, bool asmjs);
 
   /// A nullary function is a freestanding function of type 'void ()'.
   /// This method works for both calls and declarations.
-  const CGFunctionInfo &arrangeNullaryFunction();
+  const CGFunctionInfo &arrangeNullaryFunction(bool asmjs = false);
 
   /// A builtin function is a freestanding function using the default
   /// C conventions.
@@ -244,9 +244,11 @@ public:
   /// Block invocation functions are C functions with an implicit parameter.
   const CGFunctionInfo &arrangeBlockFunctionDeclaration(
                                                  const FunctionProtoType *type,
-                                                 const FunctionArgList &args);
+                                                 const FunctionArgList &args,
+                                                 bool asmjs);
   const CGFunctionInfo &arrangeBlockFunctionCall(const CallArgList &args,
-                                                 const FunctionType *type);
+                                                 const FunctionType *type,
+                                                 bool asmjs);
 
   /// C++ methods have some special rules and also have implicit parameters.
   const CGFunctionInfo &arrangeCXXMethodDeclaration(const CXXMethodDecl *MD);
@@ -261,7 +263,8 @@ public:
   const CGFunctionInfo &arrangeCXXMethodCall(const CallArgList &args,
                                              const FunctionProtoType *type,
                                              RequiredArgs required,
-                                             unsigned numPrefixArgs);
+                                             unsigned numPrefixArgs,
+                                             bool asmjs);
   const CGFunctionInfo &
   arrangeUnprototypedMustTailThunk(const CXXMethodDecl *MD);
   const CGFunctionInfo &arrangeMSCtorClosure(const CXXConstructorDecl *CD,
@@ -282,7 +285,8 @@ public:
                                                 ArrayRef<CanQualType> argTypes,
                                                 FunctionType::ExtInfo info,
                     ArrayRef<FunctionProtoType::ExtParameterInfo> paramInfos,
-                                                RequiredArgs args);
+                                                RequiredArgs args,
+                                                bool asmjs);
 
   /// Compute a new LLVM record layout object for the given record.
   std::unique_ptr<CGRecordLayout> ComputeRecordLayout(const RecordDecl *D,

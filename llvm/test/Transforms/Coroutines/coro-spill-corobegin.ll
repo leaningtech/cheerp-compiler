@@ -39,12 +39,12 @@ suspend:
 }
 
 ; See if the i8* for coro.begin was added to f.Frame
-; CHECK-LABEL: %f.Frame = type directbase %coroFrameBase { void (%f.Frame*)*, void (%f.Frame*)*, i8*, i1 }
+; CHECK-LABEL: %f.Frame = type directbase %__coroFrameBase.{{.}} { void (%f.Frame*)*, void (%f.Frame*)*, i8*, i1 }
 
 ; See if the g's coro.begin was spilled into the frame
 ; CHECK-LABEL: @f(
-; CHECK: %innerid = call token @llvm.coro.id(i32 0, i8* null, i8* bitcast (i8* ()* @g to i8*), i8* bitcast ([3 x void (%g.Frame*)*]* @g.resumers to i8*))
-; CHECK: %innerhdl = call noalias nonnull i8* @llvm.coro.begin(token %innerid, i8* null)
+; CHECK: %innerid = call token @llvm.coro.id.p0i8.p0i8.p0i8(i32 0, i8* null, i8* bitcast (i8* ()* @g to i8*), i8* bitcast ([3 x void (%g.Frame*)*]* @g.resumers to i8*))
+; CHECK: %innerhdl = call noalias nonnull i8* @llvm.coro.begin.p0i8.p0i8(token %innerid, i8* null)
 ; CHECK: %[[spilladdr:.+]] = getelementptr inbounds %f.Frame, %f.Frame* %FramePtr, i32 0, i32 2
 ; CHECK: store i8* %innerhdl, i8** %[[spilladdr]]
 

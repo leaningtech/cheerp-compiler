@@ -64,10 +64,12 @@ const CGFunctionInfo &arrangeObjCMessageSendSignature(CodeGenModule &CGM,
                                                       QualType receiverType);
 
 const CGFunctionInfo &arrangeFreeFunctionType(CodeGenModule &CGM,
-                                              CanQual<FunctionProtoType> Ty);
+                                              CanQual<FunctionProtoType> Ty,
+                                              bool asmjs);
 
 const CGFunctionInfo &arrangeFreeFunctionType(CodeGenModule &CGM,
-                                              CanQual<FunctionNoProtoType> Ty);
+                                              CanQual<FunctionNoProtoType> Ty,
+                                              bool asmjs);
 
 const CGFunctionInfo &arrangeCXXMethodType(CodeGenModule &CGM,
                                            const CXXRecordDecl *RD,
@@ -78,7 +80,8 @@ const CGFunctionInfo &arrangeFreeFunctionCall(CodeGenModule &CGM,
                                               CanQualType returnType,
                                               ArrayRef<CanQualType> argTypes,
                                               FunctionType::ExtInfo info,
-                                              RequiredArgs args);
+                                              RequiredArgs args,
+                                              bool asmjs);
 
 /// Returns the implicit arguments to add to a complete, non-delegating C++
 /// constructor call.
@@ -95,7 +98,7 @@ getCXXDestructorImplicitParam(CodeGenModule &CGM, llvm::BasicBlock *InsertBlock,
 llvm::FunctionType *convertFreeFunctionType(CodeGenModule &CGM,
                                             const FunctionDecl *FD);
 
-llvm::Type *convertTypeForMemory(CodeGenModule &CGM, QualType T);
+llvm::Type *convertTypeForMemory(CodeGenModule &CGM, QualType T, bool asmjs);
 
 /// Given a non-bitfield struct field, return its index within the elements of
 /// the struct's converted type.  The returned index refers to a field number in

@@ -36,7 +36,7 @@ suspend:
 
 ; CHECK-LABEL: hidden{{.*}}@f(
 ; CHECK: call i8* @malloc
-; CHECK: @llvm.coro.begin(token %id, i8* %phi)
+; CHECK: @llvm.coro.begin.p0i8.p0i8(token %id, i8* %phi)
 ; CHECK: store void (%f.Frame*)* @f.resume, void (%f.Frame*)** %resume.addr
 ; CHECK: %[[SEL:.+]] = select i1 %need.alloc, void (%f.Frame*)* @f.destroy, void (%f.Frame*)* @f.cleanup
 ; CHECK: store void (%f.Frame*)* %[[SEL]], void (%f.Frame*)** %destroy.addr

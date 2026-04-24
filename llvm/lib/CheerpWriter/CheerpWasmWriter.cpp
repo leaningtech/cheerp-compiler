@@ -1524,6 +1524,7 @@ void CheerpWasmWriter::compileConstantExpr(WasmBuffer& code, const ConstantExpr*
 			break;
 		}
 		case Instruction::BitCast:
+		case Instruction::AddrSpaceCast:
 		{
 			assert(ce->getOperand(0)->getType()->isPointerTy());
 			compileOperand(code, ce->getOperand(0));
@@ -2417,6 +2418,11 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			}
 			break;
 		}
+		case Instruction::AddrSpaceCast:
+		{
+			compileOperand(code, I.getOperand(0));
+			break;
+		}
 		case Instruction::Br:
 			break;
 		case Instruction::VAArg:
@@ -2461,7 +2467,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						// NOTE: No point in adding a return even if 'useTailCall' is true
 						return true;
 					}
-					case Intrinsic::stacksave:
+					case Intrinsic::cheerp_stacksave:
 					{
 						encodeInst(WasmU32Opcode::GET_GLOBAL, STACK_TOP_GLOBAL, code);
 						if(useTailCall)
@@ -2471,7 +2477,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						}
 						return false;
 					}
-					case Intrinsic::stackrestore:
+					case Intrinsic::cheerp_stackrestore:
 					{
 						compileOperand(code, ci.getOperand(0));
 						encodeInst(WasmU32Opcode::SET_GLOBAL, STACK_TOP_GLOBAL, code);

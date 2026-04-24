@@ -6,5 +6,5 @@ fptrs_t p __attribute__((noreturn));
 void __attribute__((noreturn)) f(void) {
   p[0]();
 }
-// CHECK: call void
+// CHECK: call{{( addrspace\(.\))?}} void
 // CHECK-NEXT: unreachable

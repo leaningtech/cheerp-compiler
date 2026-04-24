@@ -60,23 +60,23 @@ unreach:
 
 ; Verify that in the initial function resume is not marked with musttail.
 ; CHECK-LABEL: @f(
-; CHECK: %[[addr1:.+]] = call i8* @llvm.coro.subfn.addr(i8* null, i8 0)
+; CHECK: %[[addr1:.+]] = call i8* @llvm.coro.subfn.addr.p0i8.p0i8(i8* null, i8 0)
 ; CHECK-NEXT: %[[pv1:.+]] = bitcast i8* %[[addr1]] to void (i8*)*
 ; CHECK-NOT: musttail call fastcc void %[[pv1]](i8* null)
 
 ; Verify that in the resume part resume call is marked with musttail.
 ; CHECK-LABEL: @f.resume(
 ; CHECK: %[[hdl:.+]] = call i8* @g()
-; CHECK-NEXT: %[[addr2:.+]] = call i8* @llvm.coro.subfn.addr(i8* %[[hdl]], i8 0)
+; CHECK-NEXT: %[[addr2:.+]] = call i8* @llvm.coro.subfn.addr.p0i8.p0i8(i8* %[[hdl]], i8 0)
 ; CHECK-NEXT: %[[pv2:.+]] = bitcast i8* %[[addr2]] to void (i8*)*
 ; CHECK-NEXT: musttail call fastcc void %[[pv2]](i8* %[[hdl]])
 ; CHECK-NEXT: ret void
 ; CHECK: %[[hdl2:.+]] = call i8* @h()
-; CHECK-NEXT: %[[addr3:.+]] = call i8* @llvm.coro.subfn.addr(i8* %[[hdl2]], i8 0)
+; CHECK-NEXT: %[[addr3:.+]] = call i8* @llvm.coro.subfn.addr.p0i8.p0i8(i8* %[[hdl2]], i8 0)
 ; CHECK-NEXT: %[[pv3:.+]] = bitcast i8* %[[addr3]] to void (i8*)*
 ; CHECK-NEXT: musttail call fastcc void %[[pv3]](i8* %[[hdl2]])
 ; CHECK-NEXT: ret void
-; CHECK: %[[addr4:.+]] = call i8* @llvm.coro.subfn.addr(i8* null, i8 0)
+; CHECK: %[[addr4:.+]] = call i8* @llvm.coro.subfn.addr.p0i8.p0i8(i8* null, i8 0)
 ; CHECK-NEXT: %[[pv4:.+]] = bitcast i8* %[[addr4]] to void (i8*)*
 ; CHECK-NEXT: musttail call fastcc void %[[pv4]](i8* null)
 ; CHECK-NEXT: ret void

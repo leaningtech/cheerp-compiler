@@ -264,20 +264,27 @@ const EHPersonality &EHPersonality::get(CodeGenFunction &CGF) {
 
 static llvm::FunctionCallee getPersonalityFn(CodeGenModule &CGM,
                                              const EHPersonality &Personality) {
+  unsigned AS = CGM.getDataLayout().getProgramAddressSpace();
+  if (CGM.getLangOpts().Cheerp) {
+    AS = unsigned(cheerp::CheerpAS::Client);
+  }
   return CGM.CreateRuntimeFunction(llvm::FunctionType::get(CGM.Int32Ty, true),
                                    Personality.PersonalityFn,
-                                   llvm::AttributeList(), /*Local=*/true);
+                                   llvm::AttributeList(), /*Local=*/true, false, AS);
 }
 
 static llvm::Constant *getOpaquePersonalityFn(CodeGenModule &CGM,
                                         const EHPersonality &Personality) {
   llvm::FunctionCallee Fn = getPersonalityFn(CGM, Personality);
+  unsigned AS = 0;
+  if (CGM.getLangOpts().Cheerp) {
+    AS = unsigned(CGM.getTriple().isCheerpWasm()? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::Client);
+  }
   llvm::PointerType* Int8PtrTy = llvm::PointerType::get(
-      llvm::Type::getInt8Ty(CGM.getLLVMContext()),
-      CGM.getDataLayout().getProgramAddressSpace());
+      llvm::Type::getInt8Ty(CGM.getLLVMContext()), AS);
 
-  return llvm::ConstantExpr::getBitCast(cast<llvm::Constant>(Fn.getCallee()),
-                                        Int8PtrTy);
+  return llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(
+      cast<llvm::Constant>(Fn.getCallee()), Int8PtrTy);
 }
 
 /// Check whether a landingpad instruction only uses C++ features.
@@ -423,9 +430,10 @@ void CodeGenFunction::EmitAnyExprToExn(const Expr *e, Address addr) {
   llvm::Type *ty = ConvertTypeForMem(e->getType());
   Address typedAddr = Builder.CreateElementBitCast(addr, ty);
 
-  if(!CGM.getTarget().isByteAddressable() && ty->isStructTy()) {
+  if(CGM.getLangOpts().Cheerp && ty->isStructTy()) {
 	  // CHEERP: We insert a dummy downcast to signal that this type needs the downcast array
-    llvm::Type* Tys[] = { ty->getPointerTo(), ty->getPointerTo() };
+    unsigned AS = unsigned(cast<llvm::StructType>(ty)->hasAsmJS()? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+    llvm::Type* Tys[] = { ty->getPointerTo(AS), ty->getPointerTo(AS) };
     llvm::Function* intrinsic = llvm::Intrinsic::getDeclaration(&CGM.getModule(), llvm::Intrinsic::cheerp_downcast, Tys);
     llvm::CallBase* CB = Builder.CreateCall(intrinsic, {typedAddr.getPointer(), llvm::ConstantInt::get(CGM.Int32Ty, 0)});
     CB->addParamAttr(0, llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, ty));
@@ -1095,7 +1103,7 @@ static void emitWasmCatchPadBlock(CodeGenFunction &CGF,
   CGF.Builder.CreateStore(Exn, CGF.getExceptionSlot());
   llvm::CallInst *Selector = CGF.Builder.CreateCall(GetSelectorFn, CPI);
 
-  llvm::Function *TypeIDFn = CGF.CGM.getIntrinsic(llvm::Intrinsic::eh_typeid_for);
+  llvm::Function *TypeIDFn = CGF.CGM.getIntrinsic(llvm::Intrinsic::eh_typeid_for, {CGF.Int8PtrTy});
 
   // If there's only a single catch-all, branch directly to its handler.
   if (CatchScope.getNumHandlers() == 1 &&
@@ -1178,9 +1186,10 @@ static void emitCatchDispatchBlock(CodeGenFunction &CGF,
   CGBuilderTy::InsertPoint savedIP = CGF.Builder.saveIP();
   CGF.EmitBlockAfterUses(dispatchBlock);
 
+  bool asmjs = CGF.getTarget().getTriple().isCheerpWasm();
   // Select the right handler.
   llvm::Function *llvm_eh_typeid_for =
-    CGF.CGM.getIntrinsic(llvm::Intrinsic::eh_typeid_for);
+    CGF.CGM.getIntrinsic(llvm::Intrinsic::eh_typeid_for, {CGF.getVoidPtrTy(asmjs)});
 
   // Load the selector value.
   llvm::Value *selector = CGF.getSelectorFromSlot();
@@ -1194,7 +1203,7 @@ static void emitCatchDispatchBlock(CodeGenFunction &CGF,
     assert(handler.Type.Flags == 0 &&
            "landingpads do not support catch handler flags");
     assert(typeValue && "fell into catch-all case!");
-    typeValue = CGF.Builder.CreateBitCast(typeValue, CGF.Int8PtrTy);
+    typeValue = CGF.Builder.CreateBitCast(typeValue, CGF.getVoidPtrTy(asmjs));
 
     // Figure out the next block.
     bool nextIsEnd;

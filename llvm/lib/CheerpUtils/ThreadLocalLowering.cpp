@@ -10,10 +10,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Cheerp/ThreadLocalLowering.h"
+#include "llvm/Cheerp/AddressSpaces.h"
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
 #include "llvm/Cheerp/LinearMemoryHelper.h"
 #include "llvm/Cheerp/InvokeWrapping.h"
 #include "llvm/Cheerp/Registerize.h"
+#include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/IRBuilder.h"
@@ -26,11 +28,11 @@ namespace cheerp
 static Function* getOrCreateThreadLocalWrapper(Module* M, GlobalDepsAnalyzer& GDA)
 {
 	Type* i8Ty = IntegerType::getInt8Ty(M->getContext());
-	Type* i8PtrTy = PointerType::get(i8Ty, 0);
+	Type* i8PtrTy = PointerType::get(i8Ty, unsigned(CheerpAS::Wasm));
 	Type* i32Ty = IntegerType::getInt32Ty(M->getContext());
 	Type* argTy[] = {i32Ty};
 	FunctionType* fTy = FunctionType::get(i8PtrTy,ArrayRef<Type*>(argTy, 1), false);
-	Function* wrapper = cast<Function>(M->getOrInsertFunction("__getThreadLocalAddress", fTy).getCallee());
+	Function* wrapper = getOrCreateFunction(*M, fTy, "__getThreadLocalAddress", CheerpAS::Wasm, /*isExtern=*/true);
 	if (!wrapper->empty())
 		return wrapper;
 
@@ -78,6 +80,9 @@ bool replaceThreadLocalIntrinsicWithFunction(Function& F, GlobalDepsAnalyzer& GD
 					Value* newCall = Builder.CreateCall(newFunc, offset);
 					// 3. Bitcast return code from this function to required type.
 					Type* origType = II.getType();
+					assert(cast<PointerType>(origType)->getAddressSpace() ==
+						cast<PointerType>(newCall->getType())->getAddressSpace() &&
+						"thread locals must live in the Wasm address space");
 					if (origType != newCall->getType())
 						newCall = Builder.CreateBitCast(newCall, origType);
 					I.replaceAllUsesWith(newCall);

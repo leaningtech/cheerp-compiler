@@ -1565,7 +1565,7 @@ Value *ScalarExprEmitter::EmitComplexToScalarConversion(
 }
 
 Value *ScalarExprEmitter::EmitNullValue(QualType Ty) {
-  return CGF.EmitFromMemory(CGF.CGM.EmitNullConstant(Ty), Ty);
+  return CGF.EmitFromMemory(CGF.CGM.EmitNullConstant(Ty, CGF.CurFn->getSection()=="asmjs"), Ty);
 }
 
 /// Emit a sanitization check for the given "binary" operation (which
@@ -2061,9 +2061,10 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
     {
 	
       llvm::Function* intrinsic = CGF.CGM.GetUserCastIntrinsic(CE,
-		      CGF.getContext().getPointerType(E->getType()),
-		      CGF.getContext().getPointerType(DestTy),
-		      asmjs);
+        CGF.getContext().getPointerType(E->getType()),
+        CGF.getContext().getPointerType(DestTy),
+        Addr.getPointer()->getType(),
+        asmjs);
       llvm::CallBase* CB = Builder.CreateCall(intrinsic, Addr.getPointer());
       CB->addParamAttr(0, llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, Addr.getElementType()));
       Addr = Address(CB, CGF.ConvertTypeForMem(DestTy), Addr.getAlignment());
@@ -2088,7 +2089,8 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
     Value *Src = Visit(const_cast<Expr*>(E));
     llvm::Type *SrcTy = Src->getType();
     llvm::Type *DstTy = ConvertType(DestTy);
-    if (SrcTy->isPtrOrPtrVectorTy() && DstTy->isPtrOrPtrVectorTy() &&
+    if (!CGF.getContext().getLangOpts().Cheerp &&
+        SrcTy->isPtrOrPtrVectorTy() && DstTy->isPtrOrPtrVectorTy() &&
         SrcTy->getPointerAddressSpace() != DstTy->getPointerAddressSpace()) {
       llvm_unreachable("wrong cast for pointers in different address spaces"
                        "(must be an address space cast)!");
@@ -2204,7 +2206,7 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
       return EmitLoadOfLValue(DestLV, CE->getExprLoc());
     }
 
-    bool asmjs = CGF.CurFn && CGF.CurFn->getSection() == StringRef("asmjs");
+    bool asmjs = CGF.isAsmJSContext();
     bool srcIsFunc = E->getType()->isFunctionPointerType();
     bool dstIsFunc = DestTy->isFunctionPointerType();
     //We don't care about casts to functions types
@@ -2223,13 +2225,26 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
     }
     else
     {
-      llvm::Function* intrinsic = CGF.CGM.GetUserCastIntrinsic(CE, E->getType(), DestTy, asmjs);
-      llvm::CallBase* CB = Builder.CreateCall(intrinsic, Src);
-      llvm::Type* SrcPointeeTy = ConvertType(E->getType()->getPointeeType());
-      CB->addParamAttr(0, llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, SrcPointeeTy));
+      llvm::CallBase* CB;
+      if (DstTy->isPointerTy() && SrcTy->isPointerTy() &&
+          DstTy->getPointerAddressSpace() != SrcTy->getPointerAddressSpace()) {
+        auto* F = CGF.CGM.getIntrinsic(llvm::Intrinsic::cheerp_typed_ptrcast, {DstTy, SrcTy});
+        CB = Builder.CreateCall(F, {Src}, Src->hasName()? Src->getName() + ".ascast" : "ascast");
+        auto* ElemTy = ConvertType(DestTy->getPointeeType());
+        CB->addRetAttr(llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, ElemTy));
+      } else {
+        llvm::Function* intrinsic = CGF.CGM.GetUserCastIntrinsic(CE, E->getType(), DestTy, Src->getType(), asmjs);
+        CB = Builder.CreateCall(intrinsic, Src);
+        llvm::Type* SrcPointeeTy = ConvertType(E->getType()->getPointeeType());
+        CB->addParamAttr(0, llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, SrcPointeeTy));
+      }
       return CB;
     }
-    return Builder.CreateBitCast(Src, DstTy);
+    if (CGF.getLangOpts().Cheerp) {
+      return Builder.CreatePointerBitCastOrAddrSpaceCast(Src, DstTy);
+    } else {
+      return Builder.CreateBitCast(Src, DstTy);
+    }
   }
   case CK_AddressSpaceConversion: {
     Expr::EvalResult Result;

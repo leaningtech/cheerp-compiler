@@ -3,14 +3,14 @@
 ; RUN: opt < %s -passes='cgscc(coro-split),simplifycfg,early-cse,simplifycfg' -S | FileCheck %s
 
 ; Verifies that the both phis are stored correctly in the coroutine frame
-; CHECK: %f.Frame = type directbase %coroFrameBase { void (%f.Frame*)*, void (%f.Frame*)*, i32, i32, i1 }
+; CHECK: %f.Frame = type directbase %__coroFrameBase.{{.}} { void (%f.Frame*)*, void (%f.Frame*)*, i32, i32, i1 }
 
 define i8* @f(i1 %n) presplitcoroutine {
 ; CHECK-LABEL: @f(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[ID:%.*]] = call token @llvm.coro.id(i32 0, i8* null, i8* null, i8* bitcast ([3 x void (%f.Frame*)*]* @f.resumers to i8*))
+; CHECK-NEXT:    [[ID:%.*]] = call token @llvm.coro.id.p0i8.p0i8.p0i8(i32 0, i8* null, i8* null, i8* bitcast ([3 x void (%f.Frame*)*]* @f.resumers to i8*))
 ; CHECK-NEXT:    [[ALLOC:%.*]] = call i8* @malloc(i32 32)
-; CHECK-NEXT:    [[HDL:%.*]] = call noalias nonnull i8* @llvm.coro.begin(token [[ID]], i8* [[ALLOC]])
+; CHECK-NEXT:    [[HDL:%.*]] = call noalias nonnull i8* @llvm.coro.begin.p0i8.p0i8(token [[ID]], i8* [[ALLOC]])
 ; CHECK-NEXT:    [[FRAMEPTR:%.*]] = bitcast i8* [[HDL]] to %f.Frame*
 ; CHECK-NEXT:    [[RESUME_ADDR:%.*]] = getelementptr inbounds [[F_FRAME:%.*]], %f.Frame* [[FRAMEPTR]], i32 0, i32 0
 ; CHECK-NEXT:    store void (%f.Frame*)* @f.resume, void (%f.Frame*)** [[RESUME_ADDR]], align 8

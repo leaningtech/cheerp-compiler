@@ -32,6 +32,7 @@
 #include "llvm/ADT/SmallBitVector.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Bitcode/BitcodeReader.h"
+#include "llvm/Cheerp/AddressSpaces.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/GlobalValue.h"
@@ -641,7 +642,7 @@ static void emitInitWithReductionInitializer(CodeGenFunction &CGF,
     CodeGenFunction::OpaqueValueMapping Map(CGF, OVE, Func);
     CGF.EmitIgnoredExpr(InitOp);
   } else {
-    llvm::Constant *Init = CGF.CGM.EmitNullConstant(Ty);
+    llvm::Constant *Init = CGF.CGM.EmitNullConstant(Ty, CGF.CurFn->getSection() == "asmjs");
     std::string Name = CGF.CGM.getOpenMPRuntime().getName({"init"});
     auto *GV = new llvm::GlobalVariable(
         CGF.CGM.getModule(), Init->getType(), /*isConstant=*/true,
@@ -1480,13 +1481,19 @@ llvm::Type *CGOpenMPRuntime::getIdentTyPointerTy() {
 }
 
 llvm::Type *CGOpenMPRuntime::getKmpc_MicroPointerTy() {
+  unsigned AS = 0;
+  unsigned FAS = 0;
+  if (CGM.getLangOpts().Cheerp) {
+    AS = unsigned(CGM.getTarget().getTriple().isCheerpWasm()? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+    FAS = unsigned(CGM.getTarget().getTriple().isCheerpWasm()? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::Client);
+  }
   if (!Kmpc_MicroTy) {
     // Build void (*kmpc_micro)(kmp_int32 *global_tid, kmp_int32 *bound_tid,...)
-    llvm::Type *MicroParams[] = {llvm::PointerType::getUnqual(CGM.Int32Ty),
-                                 llvm::PointerType::getUnqual(CGM.Int32Ty)};
+    llvm::Type *MicroParams[] = {llvm::PointerType::get(CGM.Int32Ty, AS),
+                                 llvm::PointerType::get(CGM.Int32Ty, AS)};
     Kmpc_MicroTy = llvm::FunctionType::get(CGM.VoidTy, MicroParams, true);
   }
-  return llvm::PointerType::getUnqual(Kmpc_MicroTy);
+  return llvm::PointerType::get(Kmpc_MicroTy, FAS);
 }
 
 llvm::FunctionCallee
@@ -1572,11 +1579,11 @@ CGOpenMPRuntime::createDispatchNextFunction(unsigned IVSize, bool IVSigned) {
           ? (IVSigned ? "__kmpc_dispatch_next_4" : "__kmpc_dispatch_next_4u")
           : (IVSigned ? "__kmpc_dispatch_next_8" : "__kmpc_dispatch_next_8u");
   llvm::Type *ITy = IVSize == 32 ? CGM.Int32Ty : CGM.Int64Ty;
-  auto *PtrTy = llvm::PointerType::getUnqual(ITy);
+  auto *PtrTy = llvm::PointerType::get(ITy, CGM.DefaultAS);
   llvm::Type *TypeParams[] = {
     getIdentTyPointerTy(),                     // loc
     CGM.Int32Ty,                               // tid
-    llvm::PointerType::getUnqual(CGM.Int32Ty), // p_lastiter
+    llvm::PointerType::get(CGM.Int32Ty, CGM.DefaultAS), // p_lastiter
     PtrTy,                                     // p_lower
     PtrTy,                                     // p_upper
     PtrTy                                      // p_stride
@@ -1786,10 +1793,14 @@ llvm::Function *CGOpenMPRuntime::emitThreadPrivateVarDefinition(
     if (!Ctor && !Dtor)
       return nullptr;
 
+    unsigned FAS = 0;
+    if (CGM.getLangOpts().Cheerp) {
+      FAS = unsigned(CGM.getTarget().getTriple().isCheerpWasm()? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::Client);
+    }
     llvm::Type *CopyCtorTyArgs[] = {CGM.VoidPtrTy, CGM.VoidPtrTy};
     auto *CopyCtorTy = llvm::FunctionType::get(CGM.VoidPtrTy, CopyCtorTyArgs,
                                                /*isVarArg=*/false)
-                           ->getPointerTo();
+                           ->getPointerTo(FAS);
     // Copying constructor for the threadprivate variable.
     // Must be NULL - reserved by runtime, but currently it requires that this
     // parameter is always NULL. Otherwise it fires assertion.
@@ -1797,13 +1808,13 @@ llvm::Function *CGOpenMPRuntime::emitThreadPrivateVarDefinition(
     if (Ctor == nullptr) {
       auto *CtorTy = llvm::FunctionType::get(CGM.VoidPtrTy, CGM.VoidPtrTy,
                                              /*isVarArg=*/false)
-                         ->getPointerTo();
+                         ->getPointerTo(FAS);
       Ctor = llvm::Constant::getNullValue(CtorTy);
     }
     if (Dtor == nullptr) {
       auto *DtorTy = llvm::FunctionType::get(CGM.VoidTy, CGM.VoidPtrTy,
                                              /*isVarArg=*/false)
-                         ->getPointerTo();
+                         ->getPointerTo(FAS);
       Dtor = llvm::Constant::getNullValue(DtorTy);
     }
     if (!CGF) {
@@ -5000,8 +5011,12 @@ llvm::Function *CGOpenMPRuntime::emitReductionFunction(
   const auto &CGFI =
       CGM.getTypes().arrangeBuiltinFunctionDeclaration(C.VoidTy, Args);
   std::string Name = getName({"omp", "reduction", "reduction_func"});
+  unsigned AS = CGM.getDataLayout().getProgramAddressSpace();
+  if (CGM.getLangOpts().Cheerp) {
+    AS = unsigned(CGM.getTarget().getTriple().isCheerpWasm()? cheerp::CheerpAS::Wasm : cheerp::CheerpAS::GenericJS);
+  }
   auto *Fn = llvm::Function::Create(CGM.getTypes().GetFunctionType(CGFI),
-                                    llvm::GlobalValue::InternalLinkage, Name,
+                                    llvm::GlobalValue::InternalLinkage, AS, Name,
                                     &CGM.getModule());
   CGM.SetInternalFunctionAttributes(GlobalDecl(), Fn, CGFI);
   Fn->setDoesNotRecurse();

@@ -15,7 +15,7 @@ int* f(void) {
 }
 
 int g(void) {
-  // CHECK: load i32, ptr @x
+  // CHECK: load i32, ptr{{( addrspace\(.\))?}} @x
   // CHECK-NOT: ret i32 123
   return *f();
 }
@@ -25,7 +25,7 @@ int *k(void) {
 }
 
 int l(void) {
-  // CHECK-NOT: load i32, ptr @y
+  // CHECK-NOT: load i32, ptr{{( addrspace\(.\))?}} @y
   // CHECK: ret i32 234
   return *k();
 }
