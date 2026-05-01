@@ -4557,7 +4557,7 @@ void CheerpWriter::compileLoad(const LoadInst& li, PARENT_PRIORITY parentPrio)
 		}
 		else if(Ty->isPointerTy())
 		{
-			elemPtrKind = PA.getPointerKindForLoadStore(&li);
+			elemPtrKind = PA.getPointerKindForLoad(&li);
 		}
 		bool isOffset = ie.ptrIdx == 1;
 		compileLoadElem(li, Ty, STy, ptrKind, elemPtrKind, isOffset, elemRegKind, ie.structIdx, asmjs, parentPrio);
@@ -4755,7 +4755,7 @@ void CheerpWriter::compileStore(const StoreInst& si)
 		}
 		else if(Ty->isPointerTy())
 		{
-			elemPtrKind = PA.getPointerKindForLoadStore(&si);
+			elemPtrKind = PA.getPointerKindForStore(&si);
 		}
 		bool isOffset = ie.ptrIdx == 1;
 		compileStoreElem(si, Ty, STy, ptrKind, elemPtrKind, isOffset, elemRegKind, ie.totalIdx, ie.structIdx, asmjs);
@@ -4855,7 +4855,7 @@ void CheerpWriter::compileStoreElem(const StoreInst& si, Type* Ty, StructType* S
 		if(Ty->isPointerTy())
 		{
 			assert(storedKind != CONSTANT);
-			bool hasConstantOffset = PA.getConstantOffsetForPointer(&si);
+			bool hasConstantOffset = PA.getConstantOffsetForStore(&si);
 			if(storedKind==SPLIT_REGULAR || ((storedKind == REGULAR || storedKind == BYTE_LAYOUT) && hasConstantOffset))
 			{
 				if(isOffset)

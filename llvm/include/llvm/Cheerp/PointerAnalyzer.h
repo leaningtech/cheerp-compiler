@@ -14,6 +14,7 @@
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/IR/Value.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Constants.h"
@@ -281,7 +282,8 @@ public:
 	POINTER_KIND getPointerKindForStoredType( llvm::Type * pointerType ) const;
 	POINTER_KIND getPointerKindForMemberPointer( const TypeAndIndex& baseAndIndex ) const;
 	POINTER_KIND getPointerKindForMember( const TypeAndIndex& baseAndIndex ) const;
-	POINTER_KIND getPointerKindForLoadStore(const llvm::Value* v) const;
+	POINTER_KIND getPointerKindForLoad(const llvm::LoadInst* v) const;
+	POINTER_KIND getPointerKindForStore(const llvm::StoreInst* v) const;
 	POINTER_KIND getPointerKindForArgumentTypeAndIndex( const TypeAndIndex& argTypeAndIndex ) const;
 	POINTER_KIND getPointerKindForArgument( const llvm::Argument* A ) const;
 	POINTER_KIND getPointerKindForJSExportedType (llvm::Type* pointerType) const;
@@ -289,7 +291,8 @@ public:
 	static TypeAndIndex getBaseStructAndIndexFromGEP( const llvm::Value* v );
 	const llvm::ConstantInt* getConstantOffsetForPointer( const llvm::Value* ) const;
 	const llvm::ConstantInt* getConstantOffsetForMember( const TypeAndIndex& baseAndIndex ) const;
-	const llvm::ConstantInt* getConstantOffsetForLoadStore(const llvm::Value* v) const;
+	const llvm::ConstantInt* getConstantOffsetForLoad(const llvm::LoadInst* v) const;
+	const llvm::ConstantInt* getConstantOffsetForStore(const llvm::StoreInst* v) const;
 
 	/**
 	 * Functions to manually invalidate the cache

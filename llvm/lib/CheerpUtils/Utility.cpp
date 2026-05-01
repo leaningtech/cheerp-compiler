@@ -1479,8 +1479,8 @@ bool InstElemIterator::isTwoElems(const llvm::Instruction* I, llvm::Type* Ty, in
 	if(!Ty->isStructTy())
 	{
 		// avoid calling getPointerKind for store instruction
-		if (isa<StoreInst>(I))
-			return Ty->isPointerTy() && PA.getPointerKindForLoadStore(I) == SPLIT_REGULAR && !PA.getConstantOffsetForLoadStore(I);
+		if (const StoreInst* SI = dyn_cast<StoreInst>(I))
+			return Ty->isPointerTy() && PA.getPointerKindForStore(SI) == SPLIT_REGULAR && !PA.getConstantOffsetForStore(SI);
 
 		return Ty->isPointerTy() && PA.getPointerKind(I) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(I);
 	}

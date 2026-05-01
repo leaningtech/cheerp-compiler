@@ -1723,7 +1723,12 @@ POINTER_KIND PointerAnalyzer::getPointerKindForMember(const TypeAndIndex& baseAn
 	return getPointerKindForMemberImpl(baseAndIndex, PACache);
 }
 
-POINTER_KIND PointerAnalyzer::getPointerKindForLoadStore(const llvm::Value* v) const
+POINTER_KIND PointerAnalyzer::getPointerKindForLoad(const llvm::LoadInst* v) const
+{
+	return getPointerKind(v);
+}
+
+POINTER_KIND PointerAnalyzer::getPointerKindForStore(const llvm::StoreInst* v) const
 {
 	return getPointerKind(v);
 }
@@ -1831,7 +1836,12 @@ const llvm::ConstantInt* PointerAnalyzer::getConstantOffsetForMember( const Type
 	return ret.getPointerOffset();
 }
 
-const llvm::ConstantInt* PointerAnalyzer::getConstantOffsetForLoadStore(const llvm::Value* v) const
+const llvm::ConstantInt* PointerAnalyzer::getConstantOffsetForLoad(const llvm::LoadInst* v) const
+{
+	return getConstantOffsetForPointer(v);
+}
+
+const llvm::ConstantInt* PointerAnalyzer::getConstantOffsetForStore(const llvm::StoreInst* v) const
 {
 	return getConstantOffsetForPointer(v);
 }
