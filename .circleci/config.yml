@@ -1148,6 +1148,8 @@ workflows:
                 asan: "--asan"
               - target: "preexecute"
                 asan: "--asan"
+              - target: "preexecute-asmjs"
+                asan: "--asan"
           requires:
             - build-cheerp-toolchain
       - test-new-suite:
@@ -1159,6 +1161,8 @@ workflows:
               - target: "genericjs"
                 asan: "--asan"
               - target: "preexecute-genericjs"
+                asan: "--asan"
+              - target: "preexecute-asmjs"
                 asan: "--asan"
           requires:
             - build-cheerp-toolchain
