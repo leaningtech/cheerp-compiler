@@ -559,6 +559,7 @@ static Triple::VendorType parseVendor(StringRef VendorName) {
     .Case("oe", Triple::OpenEmbedded)
     .Case("leaningtech", Triple::Leaningtech)
     .Case("cheerpos", Triple::CheerpOS)
+    .Case("browserpod", Triple::CheerpOS)
     .Default(Triple::UnknownVendor);
 }
 
