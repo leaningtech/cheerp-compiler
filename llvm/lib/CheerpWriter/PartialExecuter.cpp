@@ -1417,6 +1417,23 @@ namespace cheerp
 
 using ReverseMapBBToGroup = llvm::DenseMap<const llvm::BasicBlock*, BasicBlockNode*>;
 
+enum class BasicBlockFramePhase
+{
+	Visit,
+	Cleanup,
+};
+
+struct BasicBlockFrame
+{
+	BasicBlockNode* node;
+	BasicBlockFramePhase phase;
+
+	BasicBlockFrame(BasicBlockNode* node, BasicBlockFramePhase phase)
+		: node(node), phase(phase)
+	{
+	}
+};
+
 struct BasicBlockNode
 {
 	// Implicit tree structure
@@ -1433,7 +1450,6 @@ struct BasicBlockNode
 	bool isLoopCopy;
 	bool BBProgress;
 	bool visitingAll;
-	bool clearAllStorage;
 	llvm::BasicBlock* start;
 	llvm::BasicBlock* from;
 	uint32_t currIter;
@@ -1451,7 +1467,7 @@ struct BasicBlockNode
 	}
 
 	BasicBlockNode(BasicBlockNode* parentBBNode, const DeterministicBBSet& OWNEDblocks, llvm::BasicBlock* start = nullptr)
-		: parentNode(parentBBNode), ownedBlocks(OWNEDblocks), blocks(ownedBlocks), isMultiHead(false), isReachable(parentNode == nullptr), SCCProgress(false), isLoopCopy(false), BBProgress(false), visitingAll(false), clearAllStorage(false), start(start), from(nullptr), currIter(0), sccInstructionCounter(0)
+		: parentNode(parentBBNode), ownedBlocks(OWNEDblocks), blocks(ownedBlocks), isMultiHead(false), isReachable(parentNode == nullptr), SCCProgress(false), isLoopCopy(false), BBProgress(false), visitingAll(false), start(start), from(nullptr), currIter(0), sccInstructionCounter(0)
 	{
 	}
 	BasicBlockNode(FunctionData& data)
@@ -1459,10 +1475,10 @@ struct BasicBlockNode
 	{
 	}
 	BasicBlockNode(BasicBlockNode& BBNode)
-	: parentNode(&BBNode), blocks(BBNode.blocks), isMultiHead(false), isReachable(false), SCCProgress(false), isLoopCopy(true), BBProgress(false), visitingAll(false), clearAllStorage(false), start(nullptr), from(nullptr), currIter(0), sccInstructionCounter(0)
+	: parentNode(&BBNode), blocks(BBNode.blocks), isMultiHead(false), isReachable(false), SCCProgress(false), isLoopCopy(true), BBProgress(false), visitingAll(false), start(nullptr), from(nullptr), currIter(0), sccInstructionCounter(0)
 	{
 	}
-	void splitIntoSCCs(std::list<BasicBlockNode*>& stack);
+	void splitIntoSCCs(std::vector<BasicBlockFrame>& stack);
 	void addIncomingEdge(llvm::BasicBlock* comingFrom, uint32_t currIter, llvm::BasicBlock* target)
 	{
 		isReachable = true;
@@ -1578,7 +1594,7 @@ struct BasicBlockNode
 class BasicBlockGroupNode
 {
 	FunctionData& data;
-	std::list<BasicBlockNode*> stack;
+	std::vector<BasicBlockFrame> stack;
 
 public:
 	BasicBlockGroupNode(FunctionData& data): data(data)
@@ -1613,26 +1629,25 @@ public:
 	void iterativeVisit()
 	{
 		BasicBlockNode rootNode(data);
-		stack.emplace_back(&rootNode);
+		stack.emplace_back(&rootNode, BasicBlockFramePhase::Visit);
 		while(!stack.empty())
 		{
-			BasicBlockNode* currNode = stack.back();
+			BasicBlockFrame currFrame = stack.back();
+			stack.pop_back();
+			BasicBlockNode* currNode = currFrame.node;
 
-			if (currNode->clearAllStorage)
+			if (currFrame.phase == BasicBlockFramePhase::Cleanup)
 			{
 				currNode->clearAllStorages();
-				stack.pop_back();
 				continue;
 			}
 			if (!currNode->isReachable)
 			{
-				stack.pop_back();
 				continue;
 			}
 			if (currNode->isMultiHead)
 			{
 				currNode->visitAll(data);
-				stack.pop_back();
 				continue;
 			}
 
@@ -1641,20 +1656,17 @@ public:
 			if (data.getFunctionInstructionCounter() >= MAX_INSTRUCTIONS_PER_FUNCTION)
 			{
 				currNode->visitAll(data);
-				stack.pop_back();
 				continue;
 			}
 			if (currNode->parentNode && currNode->parentNode->getSCCInstructionCounter() >= MAX_INSTRUCTIONS_PER_SCC)
 			{
 				currNode->visitAll(data);
 				currNode->resetSCCInstructionCounter();
-				stack.pop_back();
 				continue;
 			}
 			if (currNode->isLoopCopy && !currNode->parentNode->SCCProgress)
 			{
 				currNode->visitAll(data);
-				stack.pop_back();
 				continue;
 			}
 			if (currNode->parentNode)
@@ -1668,9 +1680,8 @@ public:
 
 			data.incrementVisitCounter(currNode->start);
 
+			stack.emplace_back(currNode, BasicBlockFramePhase::Cleanup);
 			currNode->splitIntoSCCs(stack);
-
-			currNode->clearAllStorage = true;
 
 			llvm::SmallVector<llvm::BasicBlock*, 4> visitNext;
 
@@ -1691,7 +1702,7 @@ public:
 	}
 };
 
-void BasicBlockNode::splitIntoSCCs(std::list<BasicBlockNode*>& stack)
+void BasicBlockNode::splitIntoSCCs(std::vector<BasicBlockFrame>& stack)
 {
 	assert(blocksStorage.empty());
 	assert(blockToGroupMap.empty());
@@ -1708,7 +1719,7 @@ void BasicBlockNode::splitIntoSCCs(std::list<BasicBlockNode*>& stack)
 	{
 		blocksStorage.emplace_back(*this);
 		BasicBlockNode* loopCopyPtr = &blocksStorage.back();
-		stack.push_back(loopCopyPtr);
+		stack.emplace_back(loopCopyPtr, BasicBlockFramePhase::Visit);
 		blockToGroupMap[start] = loopCopyPtr;
 		return;
 	}
@@ -1716,7 +1727,7 @@ void BasicBlockNode::splitIntoSCCs(std::list<BasicBlockNode*>& stack)
 	SubGraph SG(start, blocks);
 	blocksStorage.emplace_back(*this);
 	BasicBlockNode* loopCopyPtr = &blocksStorage.back();
-	stack.push_back(loopCopyPtr);
+	stack.emplace_back(loopCopyPtr, BasicBlockFramePhase::Visit);
 
 	// We delay pushing to the stack by one iteration to intentionally drop the final SCC.
 	// The last SCC iterated always corresponds to the 'start' basic block of this group.
@@ -1731,7 +1742,7 @@ void BasicBlockNode::splitIntoSCCs(std::list<BasicBlockNode*>& stack)
 		{
 			blocksStorage.emplace_back(this, pendingSubset);
 			BasicBlockNode* childPtr = &blocksStorage.back();
-			stack.push_back(childPtr);
+			stack.emplace_back(childPtr, BasicBlockFramePhase::Visit);
 			for (BasicBlock* bb : childPtr->blocks)
 			{
 				blockToGroupMap[bb] = childPtr;
