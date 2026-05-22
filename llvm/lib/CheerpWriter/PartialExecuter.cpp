@@ -1373,38 +1373,38 @@ namespace cheerp
 //  isMultiHead -> True if there is more than one entry block into this component.
 //                 (If true, we cannot safely interpret, so we mark it as visitAll).
 //  isLoopCopy -> True if this node is a replica of all blocks in a SCC.
-//  BBProgress -> True if interpreting the single `start` BasicBlock of this node yielded 
+//  BBProgress -> True if interpreting the single `start` BasicBlock of this node yielded
 //                a newly discovered information like outgoing edge (`registerEdge` returned true) or
 //                computed a new value. This bubbles up to set `SCCProgress`.
 //  SCCProgress -> True if during the execution of SCC, BBprogress was marked as true.
-//  visitingAll -> True when we stop partially interpreting this node dynamically (e.g., if 
-//                 limits are hit, it has multiple heads, or loops reach a fixed point). 
-//                 All instructions are statically marked skipped, and all CFG successors 
+//  visitingAll -> True when we stop partially interpreting this node dynamically (e.g., if
+//                 limits are hit, it has multiple heads, or loops reach a fixed point).
+//                 All instructions are statically marked skipped, and all CFG successors
 //                 are eagerly registered.
 //  start -> The unique entry BasicBlock (valid IFF isReachable && !isMultiHead).
 //           Entries from inside of this set ('back-edges') are valid.
-//  from -> The BasicBlock we are coming from (used to resolve PHINodes). Valid only 
+//  from -> The BasicBlock we are coming from (used to resolve PHINodes). Valid only
 //          if there is exactly one external predecessor.
 //
 // For a given node, its blocks always represent the same set of blocks as the union
 // of the blocks of all the SCC subcomponents it gets split into.
 //
 // Execution structure is iterative and uses a stack (`BasicBlockGroupNode::stack`).
-// The starting state is a single root node containing all of a Function's BBs, 
+// The starting state is a single root node containing all of a Function's BBs,
 // where `start` = Function's entry point, `isReachable` = true, `from` = nullptr.
 //
 // When popping and evaluating a reachable, single-head node from the stack:
 //  1. We process it by splitting it into Strongly Connected Components (SCCs).
-//  2. First, we implicitly create a "loop copy" of the node (containing the same 
-//     blocks). Any edges looping back to `start` from inner blocks will point 
+//  2. First, we implicitly create a "loop copy" of the node (containing the same
+//     blocks). Any edges looping back to `start` from inner blocks will point
 //     to this loop copy's start.
 //  3. We push this "loop copy" to the stack first (meaning it is visited last) to
 //     catch any repeated iterations of this graph component.
-//  4. Then, we find the SCCs of the remaining blocks (excluding `start`) and push them 
+//  4. Then, we find the SCCs of the remaining blocks (excluding `start`) and push them
 //     to the stack in post-order, ensuring dependencies are visited in the correct flow.
 //  5. The `start` block (which is separated into its own SCC component effectively) is
 //     finally visited. We interpret the block and note outgoing edges.
-//      (These edges can point to inner blocks, the "loop copy", or to a sibling/parent 
+//      (These edges can point to inner blocks, the "loop copy", or to a sibling/parent
 //       SCC. Edges to outer scopes are propagated upwards using `notifySuccessor`).
 //
 // Terminating conditions is that a given node will never be visited more than a fixed number of times, which
@@ -1440,7 +1440,7 @@ struct BasicBlockNode
 	uint32_t sccInstructionCounter;
 	llvm::DenseMap<llvm::BasicBlock*, uint32_t> minVisitIndex;
 
-	static const DeterministicBBSet getAllBasicBlocks(llvm::Function& F)
+	static DeterministicBBSet getAllBasicBlocks(llvm::Function& F)
 	{
 		DeterministicBBSet set;
 		for (llvm::BasicBlock& bb : F)
@@ -1451,7 +1451,7 @@ struct BasicBlockNode
 	}
 
 	BasicBlockNode(BasicBlockNode* parentBBNode, const DeterministicBBSet& OWNEDblocks, llvm::BasicBlock* start = nullptr)
-		: parentNode(parentBBNode), ownedBlocks(OWNEDblocks), blocks(ownedBlocks), isMultiHead(false), isReachable(parentNode == nullptr), SCCProgress(false), isLoopCopy(false), BBProgress(false), visitingAll(false), clearAllStorage(false), start(start), from(nullptr), sccInstructionCounter(0)
+		: parentNode(parentBBNode), ownedBlocks(OWNEDblocks), blocks(ownedBlocks), isMultiHead(false), isReachable(parentNode == nullptr), SCCProgress(false), isLoopCopy(false), BBProgress(false), visitingAll(false), clearAllStorage(false), start(start), from(nullptr), currIter(0), sccInstructionCounter(0)
 	{
 	}
 	BasicBlockNode(FunctionData& data)
@@ -1459,7 +1459,7 @@ struct BasicBlockNode
 	{
 	}
 	BasicBlockNode(BasicBlockNode& BBNode)
-	: parentNode(&BBNode), blocks(BBNode.blocks), isMultiHead(false), isReachable(false), SCCProgress(false), isLoopCopy(true), BBProgress(false), visitingAll(false), clearAllStorage(false), start(nullptr), from (nullptr), sccInstructionCounter(0)
+	: parentNode(&BBNode), blocks(BBNode.blocks), isMultiHead(false), isReachable(false), SCCProgress(false), isLoopCopy(true), BBProgress(false), visitingAll(false), clearAllStorage(false), start(nullptr), from(nullptr), currIter(0), sccInstructionCounter(0)
 	{
 	}
 	void splitIntoSCCs(std::list<BasicBlockNode*>& stack);
@@ -1533,13 +1533,15 @@ struct BasicBlockNode
 	}
 	bool registerEdge(FunctionData& data, llvm::BasicBlock* from, llvm::BasicBlock* to)
 	{
-		bool is_inserted = data.registerEdge(from, to);
+		bool isInserted = data.registerEdge(from, to);
 		notifySuccessor(from, currIter, to);
-		return is_inserted;
+		return isInserted;
 	}
 	void cleanUp(FunctionData& data, llvm::BasicBlock* block)
 	{
-		BasicBlockNode* childNode = blockToGroupMap[block];
+		auto it = blockToGroupMap.find(block);
+		assert(it != blockToGroupMap.end());
+		BasicBlockNode* childNode = it->second;
 		const DeterministicBBSet& subset = childNode->blocks;
 		PartialInterpreter& interpreter = data.getInterpreter();
 		for (llvm::BasicBlock* bb : subset)
@@ -1550,9 +1552,9 @@ struct BasicBlockNode
 	}
 	void incrementSCCInstructionCounter()
 	{
-        sccInstructionCounter++;
+		sccInstructionCounter++;
 		if (parentNode)
-            parentNode->incrementSCCInstructionCounter();
+			parentNode->incrementSCCInstructionCounter();
 	}
 	uint32_t getSCCInstructionCounter()
 	{
@@ -1700,20 +1702,21 @@ void BasicBlockNode::splitIntoSCCs(std::list<BasicBlockNode*>& stack)
 
 	// If there is exactly 1 block, there are no intermediate blocks to isolate into SCCs.
 	// Furthermore, self-loops (edges from 'start' back to 'start') are evaluated naturally
-	// while processing the single block itself. Creating a separate 'loop copy' for only one block
-	// is redundant, so we skip the split entirely in this case.
+	// while processing the single block itself. We still create the loop-copy node used by
+	// the normal scheduling logic, but there are no child SCC nodes to push.
 	if (blocks.size() == 1)
 	{
 		blocksStorage.emplace_back(*this);
-		stack.push_back(&blocksStorage.back());
-		blockToGroupMap[start] = &blocksStorage.back();
+		BasicBlockNode* loopCopyPtr = &blocksStorage.back();
+		stack.push_back(loopCopyPtr);
+		blockToGroupMap[start] = loopCopyPtr;
 		return;
 	}
 
 	SubGraph SG(start, blocks);
 	blocksStorage.emplace_back(*this);
 	BasicBlockNode* loopCopyPtr = &blocksStorage.back();
-	stack.push_back(&blocksStorage.back());
+	stack.push_back(loopCopyPtr);
 
 	// We delay pushing to the stack by one iteration to intentionally drop the final SCC.
 	// The last SCC iterated always corresponds to the 'start' basic block of this group.
@@ -1743,6 +1746,8 @@ void BasicBlockNode::splitIntoSCCs(std::list<BasicBlockNode*>& stack)
 		}
 		hasPending = true;
 	}
+	assert(hasPending);
+	assert(pendingSubset.size() == 1 && pendingSubset.count(start));
 	blockToGroupMap[start] = loopCopyPtr;
 }
 
@@ -1756,7 +1761,7 @@ void PartialInterpreter::visitOuter(FunctionData& data, BasicBlockNode& BBNode, 
 {
 	data.incrementFunctionInstructionCounter();
 	BBNode.incrementSCCInstructionCounter();
-	
+
 	if (PHINode* phi = dyn_cast<PHINode>(&I))
 	{
 		// PHI have to be execute concurrently (since they may cross-reference themselves)
@@ -1934,7 +1939,7 @@ static void processFunction(const llvm::Function& F, ModuleData& moduleData)
 		const CallBase* CS = cast<CallBase>(FU);
 		if (CS->isCallee(&U))
 		{
-			data.visitCallBase(CS);	
+			data.visitCallBase(CS);
 		}
 		else
 		{
