@@ -5926,7 +5926,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
     // Pass cheerp-wasm-externref if anyref feature enabled
     auto wasmFeatures = cheerp::getWasmFeatures(D, getToolChain().getTriple(), Args);
-    if (std::binary_search(wasmFeatures.begin(), wasmFeatures.end(), cheerp::ANYREF)) {
+    if (std::binary_search(wasmFeatures.begin(), wasmFeatures.end(), cheerp::EXTERNREF)) {
       CmdArgs.push_back("-cheerp-wasm-externref");
     }
     if (std::binary_search(wasmFeatures.begin(), wasmFeatures.end(), cheerp::SIMD)) {

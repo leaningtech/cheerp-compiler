@@ -757,6 +757,8 @@ void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("-cheerp-wasm-no-simd");
   if(std::find(features.begin(), features.end(), UNALIGNEDMEM) == features.end())
     CmdArgs.push_back("-cheerp-wasm-no-unaligned-mem");
+  if(std::find(features.begin(), features.end(), EXTERNREF) != features.end())
+    CmdArgs.push_back("-cheerp-wasm-externref");
 
   // Add internal options for loadable modules support
   if(Args.hasArg(options::OPT_shared)) {
@@ -819,7 +821,7 @@ static cheerp::CheerpWasmOpt parseWasmOpt(StringRef opt)
     .Case("exportedtable", cheerp::EXPORTEDTABLE)
     .Case("exportedmemory", cheerp::EXPORTEDMEMORY)
     .Case("importedmemory", cheerp::IMPORTEDMEMORY)
-    .Case("externref", cheerp::ANYREF)
+    .Case("externref", cheerp::EXTERNREF)
     .Case("returncalls", cheerp::RETURNCALLS)
     .Case("branchhinting", cheerp::BRANCHHINTS)
     .Case("simd", cheerp::SIMD)
@@ -1022,7 +1024,7 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
       case IMPORTEDMEMORY:
         importMem = true;
         break;
-      case ANYREF:
+      case EXTERNREF:
         CmdArgs.push_back("-cheerp-wasm-externref");
         break;
       case RETURNCALLS:
