@@ -169,6 +169,12 @@ public:
                                      bool asmjs);
 
   llvm::StructType* GetTypeInfoType();
+  llvm::StructType* GetClassTypeInfoType();
+  llvm::StructType* GetBaseClassTypeInfoType();
+  llvm::StructType* GetSIClassTypeInfoType();
+  llvm::StructType* GetVMIClassTypeInfoType();
+  llvm::StructType* GetPointerTypeInfoType();
+  llvm::StructType* GetPointerToMemberTypeInfoType();
 
   const CGRecordLayout &getCGRecordLayout(const RecordDecl*);
 

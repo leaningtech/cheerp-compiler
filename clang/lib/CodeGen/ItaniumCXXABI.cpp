@@ -4142,6 +4142,7 @@ llvm::Constant *ItaniumRTTIBuilder::BuildTypeInfo(
 
   // CHEERP: for the cheerp-wasm target, we put the RTTI in the asmjs section
   bool asmjs = CGM.getContext().getTargetInfo().getTriple().isCheerpWasm();
+  llvm::StructType *TypeInfoType = CGM.getTypes().GetTypeInfoType();
 
   switch (Ty->getTypeClass()) {
 #define TYPE(Class, Base)
@@ -4203,10 +4204,13 @@ llvm::Constant *ItaniumRTTIBuilder::BuildTypeInfo(
       break;
     }
 
-    if (CanUseSingleInheritance(RD))
+    if (CanUseSingleInheritance(RD)) {
       BuildSIClassTypeInfo(RD);
-    else
+      TypeInfoType = CGM.getTypes().GetSIClassTypeInfoType();
+    } else {
       BuildVMIClassTypeInfo(RD);
+      TypeInfoType = CGM.getTypes().GetVMIClassTypeInfoType();
+    }
 
     break;
   }
@@ -4218,14 +4222,17 @@ llvm::Constant *ItaniumRTTIBuilder::BuildTypeInfo(
 
   case Type::ObjCObjectPointer:
     BuildPointerTypeInfo(cast<ObjCObjectPointerType>(Ty)->getPointeeType());
+    TypeInfoType = CGM.getTypes().GetPointerTypeInfoType();
     break;
 
   case Type::Pointer:
     BuildPointerTypeInfo(cast<PointerType>(Ty)->getPointeeType());
+    TypeInfoType = CGM.getTypes().GetPointerTypeInfoType();
     break;
 
   case Type::MemberPointer:
     BuildPointerToMemberTypeInfo(cast<MemberPointerType>(Ty));
+    TypeInfoType = CGM.getTypes().GetPointerToMemberTypeInfoType();
     break;
 
   case Type::Atomic:
@@ -4233,7 +4240,7 @@ llvm::Constant *ItaniumRTTIBuilder::BuildTypeInfo(
     break;
   }
 
-  llvm::StructType* directBase = CGM.getTarget().isByteAddressable() ? NULL : CGM.getTypes().GetTypeInfoType();
+  llvm::StructType* directBase = CGM.getTarget().isByteAddressable() ? NULL : TypeInfoType;
   llvm::Constant *Init = llvm::ConstantStruct::getAnon(Fields, false, directBase ? directBase : NULL, asmjs);
 
   SmallString<256> Name;
@@ -4475,7 +4482,7 @@ void ItaniumRTTIBuilder::BuildVMIClassTypeInfo(const CXXRecordDecl *RD) {
   for (const auto &Base : RD->bases()) {
     llvm::SmallVector<llvm::Constant*, 8> baseFields;
     // The __base_type member points to the RTTI for the base type.
-    baseFields.push_back(ItaniumRTTIBuilder(CXXABI).BuildTypeInfo(Base.getType()));
+    baseFields.push_back(llvm::ConstantExpr::getBitCast(ItaniumRTTIBuilder(CXXABI).BuildTypeInfo(Base.getType()), CGM.getTypes().GetClassTypeInfoType()->getPointerTo()));
 
     auto *BaseDecl =
         cast<CXXRecordDecl>(Base.getType()->castAs<RecordType>()->getDecl());
@@ -4508,7 +4515,7 @@ void ItaniumRTTIBuilder::BuildVMIClassTypeInfo(const CXXRecordDecl *RD) {
       OffsetFlags |= BCTI_Public;
 
     baseFields.push_back(llvm::ConstantInt::get(OffsetFlagsLTy, OffsetFlags));
-    basesFields.push_back(llvm::ConstantStruct::getAnon(baseFields, false, NULL, asmjs));
+    basesFields.push_back(llvm::ConstantStruct::get(CGM.getTypes().GetBaseClassTypeInfoType(), baseFields));
   }
   if(!CGM.getTarget().isByteAddressable()) {
     typedef std::pair<const CXXRecordDecl*, unsigned> RdUnsignedPair;
@@ -4528,7 +4535,7 @@ void ItaniumRTTIBuilder::BuildVMIClassTypeInfo(const CXXRecordDecl *RD) {
       llvm::SmallVector<llvm::Constant*, 8> baseFields;
       // The __base_type member points to the RTTI for the base type.
       QualType VBaseTy = CGM.getContext().getCanonicalType(CGM.getContext().getTagDeclType(pair.first));
-      baseFields.push_back(ItaniumRTTIBuilder(CXXABI).BuildTypeInfo(VBaseTy));
+      baseFields.push_back(llvm::ConstantExpr::getBitCast(ItaniumRTTIBuilder(CXXABI).BuildTypeInfo(VBaseTy), CGM.getTypes().GetClassTypeInfoType()->getPointerTo()));
       unsigned Offset = 0;
       if (asmjs)
         Offset = Layout.getVBaseClassOffset(pair.first).getQuantity();
@@ -4536,7 +4543,7 @@ void ItaniumRTTIBuilder::BuildVMIClassTypeInfo(const CXXRecordDecl *RD) {
         Offset = CGLayout.getTotalOffsetToBase(pair.second);
       baseFields.push_back(llvm::ConstantInt::get(OffsetFlagsLTy, Offset));
 
-      basesFields.push_back(llvm::ConstantStruct::getAnon(baseFields, false, NULL, asmjs));
+      basesFields.push_back(llvm::ConstantStruct::get(CGM.getTypes().GetBaseClassTypeInfoType(), baseFields));
     }
   }
   llvm::ArrayType* basesArrayType = llvm::ArrayType::get(basesFields[0]->getType(), basesFields.size());
