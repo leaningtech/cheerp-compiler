@@ -1590,10 +1590,44 @@ llvm::Type* CodeGenTypes::GetBasicVTableType(uint32_t virtualMethodsCount, bool 
   return llvm::StructType::get(getLLVMContext(), VTableTypes, false, cast<llvm::StructType>(GetVTableBaseType(asmjs)), /*isByteLayout*/false, asmjs);
 }
 
+static llvm::StructType* GetOrCreateStructType(llvm::LLVMContext& Context, StringRef Name)
+{
+  if (llvm::StructType* Result = llvm::StructType::getTypeByName(Context, Name))
+    return Result;
+  return llvm::StructType::create(Context, Name);
+}
+
 llvm::StructType* CodeGenTypes::GetTypeInfoType()
 {
-  llvm::StructType* ResultType = llvm::StructType::getTypeByName(CGM.getLLVMContext(), "class._ZSt9type_info");
-  if(!ResultType)
-    ResultType = llvm::StructType::create(CGM.getLLVMContext(),"class._ZSt9type_info");
-  return ResultType;
+  return GetOrCreateStructType(CGM.getLLVMContext(), "class._ZSt9type_info");
+}
+
+llvm::StructType* CodeGenTypes::GetClassTypeInfoType()
+{
+  return GetOrCreateStructType(CGM.getLLVMContext(), "class._ZN10__cxxabiv117__class_type_infoE");
+}
+
+llvm::StructType* CodeGenTypes::GetBaseClassTypeInfoType()
+{
+  return GetOrCreateStructType(CGM.getLLVMContext(), "struct._ZN10__cxxabiv122__base_class_type_infoE");
+}
+
+llvm::StructType* CodeGenTypes::GetSIClassTypeInfoType()
+{
+  return GetOrCreateStructType(CGM.getLLVMContext(), "class._ZN10__cxxabiv120__si_class_type_infoE");
+}
+
+llvm::StructType* CodeGenTypes::GetVMIClassTypeInfoType()
+{
+  return GetOrCreateStructType(CGM.getLLVMContext(), "class._ZN10__cxxabiv121__vmi_class_type_infoE");
+}
+
+llvm::StructType* CodeGenTypes::GetPointerTypeInfoType()
+{
+  return GetOrCreateStructType(CGM.getLLVMContext(), "class._ZN10__cxxabiv119__pointer_type_infoE");
+}
+
+llvm::StructType* CodeGenTypes::GetPointerToMemberTypeInfoType()
+{
+  return GetOrCreateStructType(CGM.getLLVMContext(), "class._ZN10__cxxabiv129__pointer_to_member_type_infoE");
 }
