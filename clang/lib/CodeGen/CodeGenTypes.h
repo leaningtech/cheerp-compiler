@@ -168,7 +168,7 @@ public:
                                      uint32_t extraOffsets,
                                      bool asmjs);
 
-  llvm::Type* GetTypeInfoType();
+  llvm::StructType* GetTypeInfoType();
 
   const CGRecordLayout &getCGRecordLayout(const RecordDecl*);
 

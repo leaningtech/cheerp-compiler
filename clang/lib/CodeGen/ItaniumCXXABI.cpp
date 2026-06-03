@@ -4233,8 +4233,8 @@ llvm::Constant *ItaniumRTTIBuilder::BuildTypeInfo(
     break;
   }
 
-  llvm::Type* directBase = CGM.getTarget().isByteAddressable() ? NULL : CGM.getTypes().GetTypeInfoType();
-  llvm::Constant *Init = llvm::ConstantStruct::getAnon(Fields, false, directBase ? cast<llvm::StructType>(directBase) : NULL, asmjs);
+  llvm::StructType* directBase = CGM.getTarget().isByteAddressable() ? NULL : CGM.getTypes().GetTypeInfoType();
+  llvm::Constant *Init = llvm::ConstantStruct::getAnon(Fields, false, directBase ? directBase : NULL, asmjs);
 
   SmallString<256> Name;
   llvm::raw_svector_ostream Out(Name);

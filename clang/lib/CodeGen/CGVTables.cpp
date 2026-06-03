@@ -1590,9 +1590,9 @@ llvm::Type* CodeGenTypes::GetBasicVTableType(uint32_t virtualMethodsCount, bool 
   return llvm::StructType::get(getLLVMContext(), VTableTypes, false, cast<llvm::StructType>(GetVTableBaseType(asmjs)), /*isByteLayout*/false, asmjs);
 }
 
-llvm::Type* CodeGenTypes::GetTypeInfoType()
+llvm::StructType* CodeGenTypes::GetTypeInfoType()
 {
-  llvm::Type* ResultType = llvm::StructType::getTypeByName(CGM.getLLVMContext(), "class._ZSt9type_info");
+  llvm::StructType* ResultType = llvm::StructType::getTypeByName(CGM.getLLVMContext(), "class._ZSt9type_info");
   if(!ResultType)
     ResultType = llvm::StructType::create(CGM.getLLVMContext(),"class._ZSt9type_info");
   return ResultType;
