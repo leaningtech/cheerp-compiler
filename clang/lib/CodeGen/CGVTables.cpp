@@ -849,7 +849,7 @@ void CodeGenVTables::addVTableComponent(ConstantAggregateBuilderBase &builder,
                                   vtableHasLocalLinkage,
                                   /*isCompleteDtor=*/false);
     else
-      return builder.add(llvm::ConstantExpr::getBitCast(rtti, CGM.getTarget().isByteAddressable() ? CGM.Int8PtrTy : CGM.getTypes().GetClassTypeInfoType()->getPointerTo()));
+      return builder.add(llvm::ConstantExpr::getBitCast(rtti, CGM.getTarget().isByteAddressable() ? CGM.Int8PtrTy : CGM.getTypes().GetTypeInfoType()->getPointerTo()));
 
   case VTableComponent::CK_FunctionPointer:
   case VTableComponent::CK_CompleteDtorPointer:
@@ -1530,7 +1530,7 @@ llvm::Type* CodeGenTypes::GetVTableSubObjectType(CodeGenModule& CGM,
       VTableTypes.push_back(OffsetTy);
       break;
     case VTableComponent::CK_RTTI:
-      VTableTypes.push_back(CGM.getTypes().GetClassTypeInfoType()->getPointerTo());
+      VTableTypes.push_back(CGM.getTypes().GetTypeInfoType()->getPointerTo());
       break;
     case VTableComponent::CK_FunctionPointer:
     case VTableComponent::CK_CompleteDtorPointer:
@@ -1581,7 +1581,7 @@ llvm::Type* CodeGenTypes::GetBasicVTableType(uint32_t virtualMethodsCount, bool 
   }
 
   // RTTI
-  VTableTypes.push_back(GetClassTypeInfoType()->getPointerTo());
+  VTableTypes.push_back(GetTypeInfoType()->getPointerTo());
 
   // Virtual functions
   for(uint32_t j=0;j<virtualMethodsCount;j++)
@@ -1590,7 +1590,7 @@ llvm::Type* CodeGenTypes::GetBasicVTableType(uint32_t virtualMethodsCount, bool 
   return llvm::StructType::get(getLLVMContext(), VTableTypes, false, cast<llvm::StructType>(GetVTableBaseType(asmjs)), /*isByteLayout*/false, asmjs);
 }
 
-llvm::Type* CodeGenTypes::GetClassTypeInfoType()
+llvm::Type* CodeGenTypes::GetTypeInfoType()
 {
   llvm::Type* ResultType = llvm::StructType::getTypeByName(CGM.getLLVMContext(), "class._ZSt9type_info");
   if(!ResultType)
