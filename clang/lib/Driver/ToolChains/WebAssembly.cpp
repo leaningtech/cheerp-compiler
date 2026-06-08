@@ -618,8 +618,8 @@ void cheerp::Link::ConstructJob(Compilation &C, const JobAction &JA,
       // it's own implementation of functions like memcpy and memset.
       AddStdLib("libwasm.bc");
     }
-    // Link thread library if -pthread was passed
-    if (Args.hasArg(options::OPT_pthread))
+    // Link thread library if -pthread was passed and target is not cheerpos
+    if (Args.hasArg(options::OPT_pthread) && !triple.isCheerpOS())
       AddStdLib("libthreads.bc");
   }
  
