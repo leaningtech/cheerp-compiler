@@ -4515,7 +4515,7 @@ void ItaniumRTTIBuilder::BuildVMIClassTypeInfo(const CXXRecordDecl *RD) {
       OffsetFlags |= BCTI_Public;
 
     baseFields.push_back(llvm::ConstantInt::get(OffsetFlagsLTy, OffsetFlags));
-    basesFields.push_back(llvm::ConstantStruct::get(CGM.getTypes().GetBaseClassTypeInfoType(), baseFields));
+    basesFields.push_back(llvm::ConstantStruct::getAnon(baseFields, false, CGM.getTypes().GetBaseClassTypeInfoType(), asmjs));
   }
   if(!CGM.getTarget().isByteAddressable()) {
     typedef std::pair<const CXXRecordDecl*, unsigned> RdUnsignedPair;
@@ -4543,7 +4543,7 @@ void ItaniumRTTIBuilder::BuildVMIClassTypeInfo(const CXXRecordDecl *RD) {
         Offset = CGLayout.getTotalOffsetToBase(pair.second);
       baseFields.push_back(llvm::ConstantInt::get(OffsetFlagsLTy, Offset));
 
-      basesFields.push_back(llvm::ConstantStruct::get(CGM.getTypes().GetBaseClassTypeInfoType(), baseFields));
+      basesFields.push_back(llvm::ConstantStruct::getAnon(baseFields, false, CGM.getTypes().GetBaseClassTypeInfoType(), asmjs));
     }
   }
   llvm::ArrayType* basesArrayType = llvm::ArrayType::get(basesFields[0]->getType(), basesFields.size());
