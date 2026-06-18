@@ -1973,17 +1973,23 @@ void ItaniumCXXABI::emitVTableDefinitions(CodeGenVTables &CGVT,
   if (VTable->hasInitializer())
     return;
 
+  SmallString<256> Name;
+  llvm::raw_svector_ostream Out(Name);
+  cast<ItaniumMangleContext>(CGM.getCXXABI().getMangleContext())
+      .mangleCXXVTable(RD, Out);
+
   ItaniumVTableContext &VTContext = CGM.getItaniumVTableContext();
   const VTableLayout &VTLayout = VTContext.getVTableLayout(RD);
+  llvm::StructType *VTType = cast<llvm::StructType>(CGM.getVTables().getVTableType(VTLayout, RD, Name));
   llvm::GlobalVariable::LinkageTypes Linkage = CGM.getVTableLinkage(RD);
   llvm::Constant *RTTI =
       CGM.GetAddrOfRTTIDescriptor(CGM.getContext().getTagDeclType(RD));
 
   // Create and set the initializer.
   ConstantInitBuilder builder(CGM);
-  auto components = builder.beginStruct();
+  auto components = builder.beginStruct(VTType);
   CGVT.createVTableInitializer(components, RD, VTLayout, RTTI,
-                               llvm::GlobalValue::isLocalLinkage(Linkage));
+                               llvm::GlobalValue::isLocalLinkage(Linkage), Name);
   components.finishAndSetAsInitializer(VTable, nullptr, RD->hasAttr<AsmJSAttr>());
 
   // Set the correct linkage.
@@ -2148,7 +2154,7 @@ llvm::GlobalVariable *ItaniumCXXABI::getAddrOfVTable(const CXXRecordDecl *RD,
 
   const VTableLayout &VTLayout =
       CGM.getItaniumVTableContext().getVTableLayout(RD);
-  llvm::Type *VTableType = CGM.getVTables().getVTableType(VTLayout, RD);
+  llvm::Type *VTableType = CGM.getVTables().getVTableType(VTLayout, RD, Name);
 
   // Use pointer alignment for the vtable. Otherwise we would align them based
   // on the size of the initializer which doesn't make sense as only single

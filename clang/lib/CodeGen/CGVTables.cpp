@@ -955,7 +955,13 @@ void CodeGenVTables::addVTableComponent(ConstantAggregateBuilderBase &builder,
   llvm_unreachable("Unexpected vtable component kind");
 }
 
-llvm::Type *CodeGenVTables::getVTableType(const VTableLayout &layout, const CXXRecordDecl* LayoutClass) {
+llvm::Type *CodeGenVTables::getVTableType(const VTableLayout &layout, const CXXRecordDecl* LayoutClass, StringRef name) {
+  std::string typeName = ("vttype." + name).str();
+
+  if (llvm::StructType* Result = llvm::StructType::getTypeByName(CGM.getLLVMContext(), typeName)) {
+    return Result;
+  }
+
   bool asmjs = LayoutClass->hasAttr<AsmJSAttr>();
   SmallVector<llvm::Type *, 4> tys;
   llvm::Type *componentType = getVTableComponentType();
@@ -965,18 +971,20 @@ llvm::Type *CodeGenVTables::getVTableType(const VTableLayout &layout, const CXXR
     } else {
       auto firstComp = layout.vtable_components().begin() + layout.getVTableOffset(i);
       auto lastComp = firstComp + layout.getVTableSize(i);
-      tys.push_back(CGM.getTypes().GetVTableSubObjectType(CGM, firstComp, lastComp, 0, asmjs));
+      std::string typeName = ("vttype." + name + "." + Twine(i)).str();
+      tys.push_back(CGM.getTypes().GetVTableSubObjectType(CGM, firstComp, lastComp, 0, asmjs, typeName));
     }
   }
 
-  return llvm::StructType::get(CGM.getLLVMContext(), tys, false, NULL, /*isByteLayout*/false, asmjs);
+  return llvm::StructType::create(CGM.getLLVMContext(), tys, typeName, false, NULL, /*isByteLayout*/false, asmjs);
 }
 
 void CodeGenVTables::createVTableInitializer(ConstantStructBuilder &builder,
                                              const CXXRecordDecl *LayoutClass,
                                              const VTableLayout &layout,
                                              llvm::Constant *rtti,
-                                             bool vtableHasLocalLinkage) {
+                                             bool vtableHasLocalLinkage,
+                                             StringRef name) {
   llvm::Type *componentType = getVTableComponentType();
 
   const auto &addressPoints = layout.getAddressPointIndices();
@@ -1000,13 +1008,16 @@ void CodeGenVTables::createVTableInitializer(ConstantStructBuilder &builder,
     // This is very ugly, we need to duplicate the whole code since we need to pass a StructBuilder and not an ArrayBuilder
     bool asmjs = LayoutClass->hasAttr<AsmJSAttr>();
     for (unsigned i = 0, e = layout.getNumVTables(); i != e; ++i) {
-      auto vtableElem = builder.beginStruct();
       size_t thisIndex = layout.getVTableOffset(i);
       size_t nextIndex = thisIndex + layout.getVTableSize(i);
+      auto thisComp = layout.vtable_components().begin() + thisIndex;
+      auto lastComp = layout.vtable_components().begin() + nextIndex;
+      std::string typeName = ("vttype." + name + "." + Twine(i)).str();
+      auto vtableElem = builder.beginStruct(cast<llvm::StructType>(CGM.getTypes().GetVTableSubObjectType(CGM, thisComp, lastComp, 0, asmjs, typeName)));
       for (unsigned i = thisIndex; i != nextIndex; ++i) {
         addVTableComponent(vtableElem, LayoutClass, layout, i, rtti, nextVTableThunkIndex, -1, vtableHasLocalLinkage);
       }
-      vtableElem.finishAndAddTo(builder, cast<llvm::StructType>(CGM.getTypes().GetVTableBaseType(asmjs)), asmjs);
+      vtableElem.finishAndAddTo(builder, nullptr, asmjs);
     }
   }
 }
@@ -1042,7 +1053,7 @@ llvm::GlobalVariable *CodeGenVTables::GenerateConstructionVTable(
     Name.append(".local");
   }
 
-  llvm::Type *VTType = getVTableType(*VTLayout, RD);
+  llvm::StructType *VTType = cast<llvm::StructType>(getVTableType(*VTLayout, RD, OutName));
 
   // Construction vtable symbols are not part of the Itanium ABI, so we cannot
   // guarantee that they actually will be available externally. Instead, when
@@ -1066,9 +1077,9 @@ llvm::GlobalVariable *CodeGenVTables::GenerateConstructionVTable(
 
   // Create and set the initializer.
   ConstantInitBuilder builder(CGM);
-  auto components = builder.beginStruct();
+  auto components = builder.beginStruct(VTType);
   createVTableInitializer(components, RD, *VTLayout, RTTI,
-                          VTable->hasLocalLinkage());
+                          VTable->hasLocalLinkage(), OutName);
   components.finishAndSetAsInitializer(VTable, nullptr, asmjs);
   if (asmjs)
     VTable->setSection("asmjs");
@@ -1516,8 +1527,13 @@ llvm::Type* CodeGenTypes::GetVTableSubObjectType(CodeGenModule& CGM,
                                           const VTableComponent* begin,
                                           const VTableComponent* end,
                                           uint32_t extraOffsets,
-                                          bool asmjs)
+                                          bool asmjs,
+                                          StringRef name)
 {
+  if (llvm::StructType* Result = llvm::StructType::getTypeByName(getLLVMContext(), name)) {
+    return Result;
+  }
+
   llvm::Type* OffsetTy = CGM.getTypes().ConvertType(CGM.getContext().getPointerDiffType());
   llvm::Type* FuncPtrTy = llvm::FunctionType::get( CGM.Int32Ty, true )->getPointerTo();
   llvm::SmallVector<llvm::Type*, 16> VTableTypes;
@@ -1543,7 +1559,7 @@ llvm::Type* CodeGenTypes::GetVTableSubObjectType(CodeGenModule& CGM,
   for (uint32_t i = 0; i < extraOffsets; i++) {
     VTableTypes.push_back(OffsetTy);
   }
-  llvm::StructType* ret = llvm::StructType::get(CGM.getLLVMContext(), VTableTypes,
+  llvm::StructType* ret = llvm::StructType::create(CGM.getLLVMContext(), VTableTypes, name,
                             false, cast<llvm::StructType>(CGM.getTypes().GetVTableBaseType(asmjs)), /*isByteLayout*/false, asmjs);
   return ret;
 }
@@ -1555,7 +1571,12 @@ llvm::Type* CodeGenTypes::GetPrimaryVTableType(const CXXRecordDecl* RD) {
 
   auto firstComp = VTLayout.vtable_components().begin() + VTLayout.getVTableOffset(0);
   auto lastComp = firstComp + VTLayout.getVTableSize(0);
-  return GetVTableSubObjectType(CGM, firstComp, lastComp, 0, asmjs);
+  SmallString<256> name;
+  llvm::raw_svector_ostream Out(name);
+  cast<ItaniumMangleContext>(CGM.getCXXABI().getMangleContext())
+      .mangleCXXVTable(RD, Out);
+  std::string typeName = ("vttype." + name + ".0").str();
+  return GetVTableSubObjectType(CGM, firstComp, lastComp, 0, asmjs, typeName);
 }
 
 llvm::Type* CodeGenTypes::GetSecondaryVTableType(const CXXRecordDecl* RD) {
@@ -1565,7 +1586,12 @@ llvm::Type* CodeGenTypes::GetSecondaryVTableType(const CXXRecordDecl* RD) {
 
   auto firstComp = VTLayout.vtable_components().begin() + VTLayout.getVTableOffset(0);
   auto lastComp = firstComp + VTLayout.getVTableSize(0);
-  return GetVTableSubObjectType(CGM, firstComp, lastComp, VTLayout.getPrimaryVirtualMethodsCount(), asmjs);
+  SmallString<256> name;
+  llvm::raw_svector_ostream Out(name);
+  cast<ItaniumMangleContext>(CGM.getCXXABI().getMangleContext())
+      .mangleCXXVTable(RD, Out);
+  std::string typeName = ("vttype." + name + ".0.secondary").str();
+  return GetVTableSubObjectType(CGM, firstComp, lastComp, VTLayout.getPrimaryVirtualMethodsCount(), asmjs, typeName);
 }
 
 llvm::Type* CodeGenTypes::GetBasicVTableType(uint32_t virtualMethodsCount, bool asmjs)

@@ -1707,6 +1707,13 @@ void MicrosoftCXXABI::emitVTableTypeMetadata(const VPtrInfo &Info,
     CGM.AddVTableTypeMetadata(VTable, AddressPoint, RD);
 }
 
+static void mangleVFTableName(MicrosoftMangleContext &MangleContext,
+                              const CXXRecordDecl *RD, const VPtrInfo &VFPtr,
+                              SmallString<256> &Name) {
+  llvm::raw_svector_ostream Out(Name);
+  MangleContext.mangleCXXVFTable(RD, VFPtr.MangledPath, Out);
+}
+
 void MicrosoftCXXABI::emitVTableDefinitions(CodeGenVTables &CGVT,
                                             const CXXRecordDecl *RD) {
   MicrosoftVTableContext &VFTContext = CGM.getMicrosoftVTableContext();
@@ -1725,10 +1732,13 @@ void MicrosoftCXXABI::emitVTableDefinitions(CodeGenVTables &CGVT,
                [](const VTableComponent &VTC) { return VTC.isRTTIKind(); }))
       RTTI = getMSCompleteObjectLocator(RD, *Info);
 
+    SmallString<256> VFTableName;
+    mangleVFTableName(getMangleContext(), RD, *Info, VFTableName);
+
     ConstantInitBuilder builder(CGM);
-    auto components = builder.beginStruct();
+    auto components = builder.beginStruct(cast<llvm::StructType>(CGM.getVTables().getVTableType(VTLayout, RD, VFTableName)));
     CGVT.createVTableInitializer(components, RD, VTLayout, RTTI,
-                                 VTable->hasLocalLinkage());
+                                 VTable->hasLocalLinkage(), VFTableName);
     components.finishAndSetAsInitializer(VTable);
 
     emitVTableTypeMetadata(*Info, RD, VTable);
@@ -1749,13 +1759,6 @@ llvm::Value *MicrosoftCXXABI::getVTableAddressPointInStructor(
            !getContext().getASTRecordLayout(Base.getBase()).hasOwnVFPtr());
   }
   return VTableAddressPoint;
-}
-
-static void mangleVFTableName(MicrosoftMangleContext &MangleContext,
-                              const CXXRecordDecl *RD, const VPtrInfo &VFPtr,
-                              SmallString<256> &Name) {
-  llvm::raw_svector_ostream Out(Name);
-  MangleContext.mangleCXXVFTable(RD, VFPtr.MangledPath, Out);
 }
 
 llvm::Constant *
@@ -1855,7 +1858,7 @@ llvm::GlobalVariable *MicrosoftCXXABI::getAddrOfVTable(const CXXRecordDecl *RD,
 
   StringRef VTableName = VTableAliasIsRequred ? StringRef() : VFTableName.str();
 
-  llvm::Type *VTableType = CGM.getVTables().getVTableType(VTLayout, RD);
+  llvm::Type *VTableType = CGM.getVTables().getVTableType(VTLayout, RD, VFTableName);
 
   // Create a backing variable for the contents of VTable.  The VTable may
   // or may not include space for a pointer to RTTI data.

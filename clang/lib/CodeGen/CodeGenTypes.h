@@ -166,7 +166,8 @@ public:
                                      const VTableComponent* begin,
                                      const VTableComponent* end,
                                      uint32_t extraOffsets,
-                                     bool asmjs);
+                                     bool asmjs,
+                                     StringRef name);
 
   llvm::StructType* GetTypeInfoType();
   llvm::StructType* GetClassTypeInfoType();
