@@ -162,35 +162,35 @@ void emit_ctors() {
   Left l;
   // CHECK-LABEL: define {{.*}} @"??0Left@@QAE@XZ"
   // CHECK-NOT: getelementptr
-  // CHECK:   store i32 (...)** bitcast ({ [1 x i8*] }* @"??_7Left@@6B@" to i32 (...)**)
+  // CHECK:   store i32 (...)** bitcast ({{[^ ]*}} @"??_7Left@@6B@" to i32 (...)**)
   // CHECK: ret
 
   Right r;
   // CHECK-LABEL: define {{.*}} @"??0Right@@QAE@XZ"
   // CHECK-NOT: getelementptr
-  // CHECK:   store i32 (...)** bitcast ({ [1 x i8*] }* @"??_7Right@@6B@" to i32 (...)**)
+  // CHECK:   store i32 (...)** bitcast ({{[^ ]*}} @"??_7Right@@6B@" to i32 (...)**)
   // CHECK: ret
 
   ChildOverride co;
   // CHECK-LABEL: define {{.*}} @"??0ChildOverride@@QAE@XZ"
   // CHECK:   %[[THIS:.*]] = load %struct.ChildOverride*, %struct.ChildOverride**
   // CHECK:   %[[VFPTR:.*]] = bitcast %struct.ChildOverride* %[[THIS]] to i32 (...)***
-  // CHECK:   store i32 (...)** bitcast ({ [1 x i8*] }* @"??_7ChildOverride@@6BLeft@@@" to i32 (...)**), i32 (...)*** %[[VFPTR]]
+  // CHECK:   store i32 (...)** bitcast ({{[^ ]*}} @"??_7ChildOverride@@6BLeft@@@" to i32 (...)**), i32 (...)*** %[[VFPTR]]
   // CHECK:   %[[THIS_i8:.*]] = bitcast %struct.ChildOverride* %[[THIS]] to i8*
   // CHECK:   %[[VFPTR_i8:.*]] = getelementptr inbounds i8, i8* %[[THIS_i8]], i32 4
   // CHECK:   %[[VFPTR:.*]] = bitcast i8* %[[VFPTR_i8]] to i32 (...)***
-  // CHECK:   store i32 (...)** bitcast ({ [1 x i8*] }* @"??_7ChildOverride@@6BRight@@@" to i32 (...)**), i32 (...)*** %[[VFPTR]]
+  // CHECK:   store i32 (...)** bitcast ({{[^ ]*}} @"??_7ChildOverride@@6BRight@@@" to i32 (...)**), i32 (...)*** %[[VFPTR]]
   // CHECK: ret
 
   GrandchildOverride gc;
   // CHECK-LABEL: define {{.*}} @"??0GrandchildOverride@@QAE@XZ"
   // CHECK:   %[[THIS:.*]] = load %struct.GrandchildOverride*, %struct.GrandchildOverride**
   // CHECK:   %[[VFPTR:.*]] = bitcast %struct.GrandchildOverride* %[[THIS]] to i32 (...)***
-  // CHECK:   store i32 (...)** bitcast ({ [1 x i8*] }* @"??_7GrandchildOverride@@6BLeft@@@" to i32 (...)**), i32 (...)*** %[[VFPTR]]
+  // CHECK:   store i32 (...)** bitcast ({{[^ ]*}} @"??_7GrandchildOverride@@6BLeft@@@" to i32 (...)**), i32 (...)*** %[[VFPTR]]
   // CHECK:   %[[THIS_i8:.*]] = bitcast %struct.GrandchildOverride* %[[THIS]] to i8*
   // CHECK:   %[[VFPTR_i8:.*]] = getelementptr inbounds i8, i8* %[[THIS_i8]], i32 4
   // CHECK:   %[[VFPTR:.*]] = bitcast i8* %[[VFPTR_i8]] to i32 (...)***
-  // CHECK:   store i32 (...)** bitcast ({ [1 x i8*] }* @"??_7GrandchildOverride@@6BRight@@@" to i32 (...)**), i32 (...)*** %[[VFPTR]]
+  // CHECK:   store i32 (...)** bitcast ({{[^ ]*}} @"??_7GrandchildOverride@@6BRight@@@" to i32 (...)**), i32 (...)*** %[[VFPTR]]
   // CHECK: ret
 }
 

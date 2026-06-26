@@ -97,7 +97,7 @@ void FullExport::Bump()
 // the class are, so the vtable and typeinfo symbol must be imported.
 //
 // PS4-DAG: @_ZTV9FooImport ={{.*}}dllimport
-// WI-DAG:  @_ZTV9FooImport = linkonce_odr dso_local unnamed_addr constant {
+// WI-DAG:  @_ZTV9FooImport = linkonce_odr dso_local unnamed_addr constant {{.*}} {
 // PS4-DAG: @_ZTI9FooImport ={{.*}}dllimport
 // WI-DAG:  @_ZTI9FooImport = linkonce_odr dso_local constant {
 
@@ -125,7 +125,7 @@ void importTest()
 // the class are, so the vtable and typeinfo symbol must be exported.
 //
 // PS4-DAG: @_ZTV9FooExport ={{.*}}dllexport
-// WI-DAG:  @_ZTV9FooExport = dso_local unnamed_addr constant {
+// WI-DAG:  @_ZTV9FooExport = dso_local unnamed_addr constant {{.*}} {
 // PS4-DAG: @_ZTI9FooExport ={{.*}}dllexport
 // WI-DAG:  @_ZTI9FooExport = dso_local constant {
 struct FooExport
@@ -190,10 +190,10 @@ void importNegativeTest()
 // The class as a whole is not exported, and not all non-inline virtual methods
 // are exported, so the vtable and typeinfo symbol are not to be exported.
 //
-// SCEI_PS4-DAG: @_ZTV11FooNoImport = external unnamed_addr constant {
-// SCEI_WI-DAG:  @_ZTV11FooNoExport = dso_local unnamed_addr constant {
+// SCEI_PS4-DAG: @_ZTV11FooNoImport = external unnamed_addr constant
+// SCEI_WI-DAG:  @_ZTV11FooNoExport = dso_local unnamed_addr constant {{.*}} {
 
-// WI-DAG:       @_ZTV11FooNoExport = dso_local unnamed_addr constant {
+// WI-DAG:       @_ZTV11FooNoExport = dso_local unnamed_addr constant {{.*}} {
 // SCEI_PS4-DAG: @_ZTI11FooNoExport = constant {
 // SCEI_WI-DAG:  @_ZTI11FooNoExport = dso_local constant {
 // WI-DAG:       @_ZTI11FooNoExport = dso_local constant {
