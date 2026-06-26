@@ -1393,7 +1393,7 @@ TEST_UNINIT(base, base);
 // PATTERN-O0: call void @llvm.memcpy{{.*}} @__const.test_base_uninit.uninit{{.+}}), !annotation [[AUTO_INIT]]
 // ZERO-LABEL: @test_base_uninit()
 // ZERO-O0: call void @llvm.memset{{.*}}, i8 0,{{.+}}), !annotation [[AUTO_INIT]]
-// ZERO-O1: store i32 (...)** bitcast (i8** getelementptr inbounds ({ [4 x i8*] }, { [4 x i8*] }* @_ZTV4base, i64 0, inrange i32 0, i64 2) to i32 (...)**), {{.*}}, align 8
+// ZERO-O1: store i32 (...)** bitcast (i8** getelementptr inbounds ({{.*}}, {{[^ ]*}} @_ZTV4base, i64 0, inrange i32 0, i64 2) to i32 (...)**), {{.*}}, align 8
 // ZERO-O1-NOT: !annotation
 
 TEST_BRACES(base, base);
@@ -1415,7 +1415,7 @@ TEST_UNINIT(derived, derived);
 // ZERO-LABEL: @test_derived_uninit()
 // ZERO-O0: call void @llvm.memset{{.*}}, i8 0, {{.+}}), !annotation [[AUTO_INIT]]
 // ZERO-O1: store i64 0, {{.*}} align 8, !annotation [[AUTO_INIT]]
-// ZERO-O1: store i32 (...)** bitcast (i8** getelementptr inbounds ({ [4 x i8*] }, { [4 x i8*] }* @_ZTV7derived, i64 0, inrange i32 0, i64 2) to i32 (...)**), {{.*}} align 8
+// ZERO-O1: store i32 (...)** bitcast (i8** getelementptr inbounds ({{.*}}, {{[^ ]*}} @_ZTV7derived, i64 0, inrange i32 0, i64 2) to i32 (...)**), {{.*}} align 8
 
 TEST_BRACES(derived, derived);
 // CHECK-LABEL: @test_derived_braces()

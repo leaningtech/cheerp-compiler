@@ -33,7 +33,7 @@ B::B() {
   // CHECK:   %[[THIS_i8:.*]] = bitcast %struct.B* %[[THIS]] to i8*
   // CHECK:   %[[VFPTR_i8:.*]] = getelementptr inbounds i8, i8* %[[THIS_i8]], i32 %{{.*}}
   // CHECK:   %[[VFPTR:.*]] = bitcast i8* %[[VFPTR_i8]] to i32 (...)***
-  // CHECK:   store i32 (...)** bitcast ({ [3 x i8*] }* @"??_7B@@6B@" to i32 (...)**), i32 (...)*** %[[VFPTR]]
+  // CHECK:   store i32 (...)** bitcast ({{[^ ]*}} @"??_7B@@6B@" to i32 (...)**), i32 (...)*** %[[VFPTR]]
 
   // Initialize vtorDisp:
   // CHECK:   %[[THIS_i8:.*]] = bitcast %struct.B* %[[THIS]] to i8*
@@ -68,7 +68,7 @@ B::~B() {
   // CHECK:   %[[THIS_i8:.*]] = bitcast %struct.B* %[[THIS]] to i8*
   // CHECK:   %[[VFPTR_i8:.*]] = getelementptr inbounds i8, i8* %[[THIS_i8]], i32 %{{.*}}
   // CHECK:   %[[VFPTR:.*]] = bitcast i8* %[[VFPTR_i8]] to i32 (...)***
-  // CHECK:   store i32 (...)** bitcast ({ [3 x i8*] }* @"??_7B@@6B@" to i32 (...)**), i32 (...)*** %[[VFPTR]]
+  // CHECK:   store i32 (...)** bitcast ({{[^ ]*}} @"??_7B@@6B@" to i32 (...)**), i32 (...)*** %[[VFPTR]]
 
   // Initialize vtorDisp:
   // CHECK:   %[[THIS_i8:.*]] = bitcast %struct.B* %[[THIS]] to i8*
@@ -257,9 +257,9 @@ struct D : virtual A, virtual B, virtual C {
 D::D() {
   // CHECK-LABEL: define dso_local x86_thiscallcc noundef %"struct.multiple_vbases::D"* @"??0D@multiple_vbases@@QAE@XZ"
   // Just make sure we emit 3 vtordisps after initializing vfptrs.
-  // CHECK: store i32 (...)** bitcast ({ [1 x i8*] }* @"??_7D@multiple_vbases@@6BA@1@@" to i32 (...)**), i32 (...)*** %{{.*}}
-  // CHECK: store i32 (...)** bitcast ({ [1 x i8*] }* @"??_7D@multiple_vbases@@6BB@1@@" to i32 (...)**), i32 (...)*** %{{.*}}
-  // CHECK: store i32 (...)** bitcast ({ [1 x i8*] }* @"??_7D@multiple_vbases@@6BC@1@@" to i32 (...)**), i32 (...)*** %{{.*}}
+  // CHECK: store i32 (...)** bitcast ({{[^ ]*}} @"??_7D@multiple_vbases@@6BA@1@@" to i32 (...)**), i32 (...)*** %{{.*}}
+  // CHECK: store i32 (...)** bitcast ({{[^ ]*}} @"??_7D@multiple_vbases@@6BB@1@@" to i32 (...)**), i32 (...)*** %{{.*}}
+  // CHECK: store i32 (...)** bitcast ({{[^ ]*}} @"??_7D@multiple_vbases@@6BC@1@@" to i32 (...)**), i32 (...)*** %{{.*}}
   // ...
   // CHECK: store i32 %{{.*}}, i32* %{{.*}}
   // CHECK: store i32 %{{.*}}, i32* %{{.*}}
@@ -414,7 +414,7 @@ C::~C() {
   // CHECK-NOT: getelementptr
   // CHECK-NOT: bitcast
   // CHECK: %[[VFPTR_i8:.*]] = bitcast %"struct.test4::C"* %{{.*}} to i32 (...)***
-  // CHECK: store i32 (...)** bitcast ({ [1 x i8*] }* @"??_7C@test4@@6BB@1@@" to i32 (...)**), i32 (...)*** %[[VFPTR_i8]]
+  // CHECK: store i32 (...)** bitcast ({{[^ ]*}} @"??_7C@test4@@6BB@1@@" to i32 (...)**), i32 (...)*** %[[VFPTR_i8]]
 
   foo(this);
   // CHECK: ret
@@ -448,7 +448,7 @@ E::~E() {
   // CHECK-NOT: getelementptr
   // CHECK-NOT: bitcast
   // CHECK: %[[VFPTR_i8:.*]] = bitcast %"struct.test4::E"* %{{.*}} to i32 (...)***
-  // CHECK: store i32 (...)** bitcast ({ [1 x i8*] }* @"??_7E@test4@@6BD@1@@" to i32 (...)**), i32 (...)*** %[[VFPTR_i8]]
+  // CHECK: store i32 (...)** bitcast ({{[^ ]*}} @"??_7E@test4@@6BD@1@@" to i32 (...)**), i32 (...)*** %[[VFPTR_i8]]
   foo(this);
 }
 

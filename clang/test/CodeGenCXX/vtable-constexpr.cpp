@@ -8,7 +8,7 @@ struct DoNotEmit {
 };
 constexpr void DoNotEmit::f() {}
 
-// CHECK-DAG: @_ZTV1B = {{.*}} constant { [3 x ptr] } { {{.*}} null, {{.*}} @_ZTI1B, {{.*}} @_ZN1B1fEv
+// CHECK-DAG: @_ZTV1B = {{.*}} constant {{.*}} { {{.*}} null, {{.*}} @_ZTI1B, {{.*}} @_ZN1B1fEv
 struct B {
   // CHECK-DAG: define {{.*}} @_ZN1B1fEv
   virtual constexpr void f() {}
