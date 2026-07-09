@@ -2024,6 +2024,8 @@ void PointerAnalyzer::dumpPointer(const Value* v, bool dumpOwnerFunc) const
 				assert(false && "Unexpected pointer kind");
 		}
 		fmt.PadToColumn(112) << (TypeSupport::isImmutableType( v->getType()->getPointerElementType() ) ? "true" : "false" );
+		if (const ConstantInt* constantOffset = getConstantOffsetForPointer(v))
+			fmt.PadToColumn(120) << "constant offset: " << *constantOffset << "\n";
 	}
 	else
 		fmt << " is not a pointer";
