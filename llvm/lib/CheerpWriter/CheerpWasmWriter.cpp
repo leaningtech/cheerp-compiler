@@ -2593,7 +2593,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 					case Intrinsic::cheerp_grow_memory:
 					{
 						compileOperand(code, ci.getOperand(0));
-						if(useWasmLoader)
+						if(useWasmLoader && !WasmResizableMemory)
 						{
 							uint32_t importedId = linearHelper.getBuiltinId(BuiltinInstr::BUILTIN::GROW_MEM);
 							if(useTailCall)

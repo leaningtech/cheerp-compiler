@@ -922,7 +922,10 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	// Detect all used non-math builtins
 	for(const Function& F: module)
 	{
-		if(F.getIntrinsicID() == Intrinsic::cheerp_grow_memory && !isWasi)
+		// With resizable memory the heap views track growth automatically, so
+		// wasm code can use memory.grow directly instead of a JS helper
+		if(F.getIntrinsicID() == Intrinsic::cheerp_grow_memory && !isWasi &&
+			!(WasmResizableMemory && LinearOutput == Wasm))
 		{
 			hasBuiltin[BuiltinInstr::GROW_MEM] = true;
 		}

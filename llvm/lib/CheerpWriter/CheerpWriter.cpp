@@ -7052,16 +7052,19 @@ void CheerpWriter::compileWasmLoader()
 	stream << "})" << NewLine;
 	if(triple.isCheerpOS())
 		stream << "}" << NewLine;
+	// A resizable buffer makes the heap views length-tracking, so they survive
+	// memory growth without being reassigned
+	const char* bufferGetter = (WasmResizableMemory && !noGrowMemory) ? ".toResizableBuffer();" : ".buffer;";
 	if (LowerAtomics)
 	{
 		stream << ").then(" << shortestName << "=>{" << NewLine;
 		stream << "__asm=" << shortestName << ".instance.exports;" << NewLine;
-		stream << "__heap=" << memoryName << ".buffer;" << NewLine;
+		stream << "__heap=" << memoryName << bufferGetter << NewLine;
 	}
 	else
 	{
 		stream << ");"<< NewLine;
-		stream << "__heap=" << threadObject << "." << memoryName << ".buffer;" << NewLine;
+		stream << "__heap=" << threadObject << "." << memoryName << bufferGetter << NewLine;
 	}
 	stream << namegen.getBuiltinName(NameGenerator::Builtin::ASSIGN_HEAPS) << "(__heap);" << NewLine;
 	if (!LowerAtomics)
