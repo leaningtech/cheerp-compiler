@@ -5002,13 +5002,9 @@ void CheerpWasmWriter::compileImportTag(WasmBuffer& code, StringRef tagName, uin
 
 void CheerpWasmWriter::compileImportMemory(WasmBuffer& code)
 {
-	// Define the memory for the module in WasmPage units. The heap size is
-	// defined in MiB and the wasm page size is 64 KiB. Thus, the wasm heap
-	// max size parameter is defined as: heapSize << 20 >> 16 = heapSize << 4.
-	uint32_t maxMemory = heapSize << 4;
-	uint32_t minMemory = (linearHelper.getHeapStart() + 65535) >> 16;
-	if (noGrowMemory)
-		minMemory = maxMemory;
+	// Define the memory for the module in WasmPage units
+	uint32_t maxMemory = linearHelper.getMaxMemoryPages();
+	uint32_t minMemory = linearHelper.getInitialMemoryPages();
 
 	// Encode the module name.
 	std::string moduleName = "i";
@@ -5297,17 +5293,11 @@ CheerpWasmWriter::GLOBAL_CONSTANT_ENCODING CheerpWasmWriter::shouldEncodeConstan
 
 void CheerpWasmWriter::compileMemorySection()
 {
-	// Define the memory for the module in WasmPage units. The heap size is
-	// defined in MiB and the wasm page size is 64 KiB. Thus, the wasm heap
-	// max size parameter is defined as: heapSize << 20 >> 16 = heapSize << 4.
-	uint32_t maxMemory = heapSize << 4;
-	uint32_t minMemory = (linearHelper.getHeapStart() + 65535) >> 16;
+	// Define the memory for the module in WasmPage units
+	uint32_t maxMemory = linearHelper.getMaxMemoryPages();
+	uint32_t minMemory = linearHelper.getInitialMemoryPages();
 
-	// TODO use WasmPage variable instead of hardcoded '1>>16'.
 	assert(WasmPage == 64 * 1024);
-
-	if (noGrowMemory)
-		minMemory = maxMemory;
 
 	{
 		Section section(0x05, "Memory", this);

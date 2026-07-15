@@ -203,7 +203,8 @@ public:
 			module(nullptr), globalDeps(nullptr),
 		mode(data.mode), functionTables(3, FunctionSignatureHash(/*isStrict*/false), FunctionSignatureCmp(/*isStrict*/false)),
 		functionTypeIndices(3, FunctionSignatureHash(/*isStrict*/false), FunctionSignatureCmp(/*isStrict*/false)),
-		maxFunctionId(0), memorySize(data.memorySize*1024*1024),
+		maxFunctionId(0),
+		memorySize(computeMemorySize(data.memorySize)),
 		stackSize(data.stackSize*1024*1024), stackOffset((data.stackOffset+7) & ~7), growMem(data.growMem),
 		hasAsmjsMem(data.hasAsmjsMem)
 	{
@@ -269,6 +270,18 @@ public:
 	}
 	uint32_t getHeapStart() const {
 		return heapStart;
+	}
+	// The maximum memory size in wasm pages, a full 4GB memory is 65536 pages
+	uint32_t getMaxMemoryPages() const {
+		return memorySize >> 16;
+	}
+	static uint32_t computeMemorySize(uint32_t sizeMB);
+	// The initial memory size in wasm pages; without memory growth the whole
+	// memory is allocated upfront
+	uint32_t getInitialMemoryPages() const {
+		if (!growMem)
+			return getMaxMemoryPages();
+		return (heapStart + 65535) >> 16;
 	}
 	uint32_t getAmountChunks() const {
 		return globalDataChunks.size();

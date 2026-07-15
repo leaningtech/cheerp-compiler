@@ -7144,10 +7144,8 @@ void CheerpWriter::compileDeclareExports()
 
 void CheerpWriter::compileWasmMemory()
 {
-	uint32_t maxMemory = heapSize << 4;
-	uint32_t minMemory = (linearHelper.getHeapStart() + 65535) >> 16;
-	if (noGrowMemory)
-		minMemory = maxMemory;
+	uint32_t maxMemory = linearHelper.getMaxMemoryPages();
+	uint32_t minMemory = linearHelper.getInitialMemoryPages();
 	if (LowerAtomics)
 		stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::MEMORY);
 	else
