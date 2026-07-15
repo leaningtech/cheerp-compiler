@@ -6349,9 +6349,6 @@ void CheerpWriter::compileAssignHeaps(bool wasm)
 			continue;
 		stream << getHeapName(i) << "=new " << typedArrayNames[i] << "(" << shortestName << ");" << NewLine;
 	}
-	Triple triple(module.getTargetTriple());
-	if(triple.isCheerpOS())
-		stream << "cheerpOSApi.setMemory(" << shortestName << ");" << NewLine;
 	stream << "}" << NewLine;
 }
 
@@ -7067,7 +7064,13 @@ void CheerpWriter::compileWasmLoader()
 		stream << "__heap=" << threadObject << "." << memoryName << bufferGetter << NewLine;
 	}
 	stream << namegen.getBuiltinName(NameGenerator::Builtin::ASSIGN_HEAPS) << "(__heap);" << NewLine;
-	if (!LowerAtomics)
+	if (LowerAtomics)
+	{
+		// CheerpOS initializes the process address space exactly once
+		if(triple.isCheerpOS())
+			stream << "cheerpOSApi.setMemory(" << memoryName << ");" << NewLine;
+	}
+	else
 	{
 		stream << "if(!" << threadObject << ".inWorker)" << NewLine;
 		stream << "{" << NewLine;
@@ -7079,7 +7082,13 @@ void CheerpWriter::compileWasmLoader()
 		stream << threadObject << ".module=" << shortestName << ".module;" << NewLine;
 		stream << "__asm=" << shortestName << ".instance.exports;" << NewLine;
 		if(triple.isCheerpOS())
+		{
 			stream << "cheerpOSApi.setProgramExports(__asm);" << NewLine;
+			// CheerpOS initializes the process address space exactly once,
+			// from the main instance. Thread workers get their views from
+			// the runtime.
+			stream << "cheerpOSApi.setMemory(" << threadObject << "." << memoryName << ");" << NewLine;
+		}
 	}
 }
 
