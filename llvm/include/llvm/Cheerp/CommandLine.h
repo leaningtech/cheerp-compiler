@@ -50,6 +50,7 @@ extern llvm::cl::opt<bool> FixWrongFuncCasts;
 extern llvm::cl::opt<std::string> StrictLinking;
 extern llvm::cl::opt<bool> WasmSharedMemory;
 extern llvm::cl::opt<bool> WasmNoGrowMemory;
+extern llvm::cl::opt<bool> WasmResizableMemory;
 extern llvm::cl::opt<bool> WasmExportedTable;
 extern llvm::cl::opt<bool> WasmExportedMemory;
 extern llvm::cl::opt<bool> WasmImportedMemory;

@@ -828,6 +828,7 @@ static cheerp::CheerpWasmOpt parseWasmOpt(StringRef opt)
     .Case("globalization", cheerp::GLOBALIZATION)
     .Case("unalignedmem", cheerp::UNALIGNEDMEM)
     .Case("mappedmemory", cheerp::MAPPEDMEMORY)
+    .Case("resizablemem", cheerp::RESIZABLEMEM)
     .Default(cheerp::INVALID);
 }
 
@@ -839,12 +840,14 @@ std::vector<cheerp::CheerpWasmOpt> cheerp::getWasmFeatures(const Driver& D, cons
   features.push_back(GROWMEM);
   features.push_back(GLOBALIZATION);
   features.push_back(UNALIGNEDMEM);
-  // For CheerpOS we also force the memory to be imported and shared,
-  // export the table as well, used by the interpreter to re-enter execution
+  // For CheerpOS we also force the memory to be imported, shared and
+  // resizable, and export the table as well, used by the interpreter to
+  // re-enter execution
   if(triple.isCheerpOSStandalone()) {
     features.push_back(IMPORTEDMEMORY);
     features.push_back(SHAREDMEM);
     features.push_back(EXPORTEDTABLE);
+    features.push_back(RESIZABLEMEM);
   }
 
   if(Arg* cheerpWasmEnable = Args.getLastArg(options::OPT_cheerp_wasm_enable_EQ)) {
@@ -997,6 +1000,7 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
   bool noUnalignedMem = true;
   bool sharedMem = false;
   bool importMem = false;
+  bool resizableMem = false;
 
   // pthread implies shared memory
   if (!Args.hasArg(options::OPT_pthread))
@@ -1048,10 +1052,27 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
       case MAPPEDMEMORY:
         CmdArgs.push_back("-cheerp-wasm-mapped-memory");
         break;
+      case RESIZABLEMEM:
+        CmdArgs.push_back("-cheerp-wasm-resizable-memory");
+        resizableMem = true;
+        break;
       default:
         llvm_unreachable("invalid wasm option");
         break;
     }
+  }
+
+  if (resizableMem)
+  {
+    bool linearOutputIsWasm = cheerpLinearOutput
+      ? cheerpLinearOutput->getValue() == StringRef("wasm")
+      : isCheerpWasm;
+    if (noGrowMem)
+      D.Diag(diag::err_drv_argument_not_allowed_with)
+        << "-cheerp-wasm-enable=resizablemem" << "-cheerp-wasm-disable=growmem";
+    if (!linearOutputIsWasm)
+      D.Diag(diag::err_drv_argument_not_allowed_with)
+        << "-cheerp-wasm-enable=resizablemem" << "-cheerp-linear-output=asmjs";
   }
 
   if (noGrowMem)
@@ -1102,6 +1123,8 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
     cheerpGlobalPrefix->render(Args, CmdArgs);
   if(Arg *cheerpHeapSize = Args.getLastArg(options::OPT_cheerp_linear_heap_size))
     cheerpHeapSize->render(Args, CmdArgs);
+  else if (resizableMem)
+    CmdArgs.push_back("-cheerp-linear-heap-size=4096"); // Resizable memory grows on demand, default to the wasm32 maximum
   else if (Args.hasArg(options::OPT_fsanitize_EQ) &&
            Args.getLastArg(options::OPT_fsanitize_EQ)->containsValue("address"))
     CmdArgs.push_back("-cheerp-linear-heap-size=2000"); // ASan requires quite a bit of memory to be effective
