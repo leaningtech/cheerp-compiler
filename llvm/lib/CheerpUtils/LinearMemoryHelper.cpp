@@ -772,6 +772,21 @@ void LinearMemoryHelper::addStack()
 	stackStart = heapStart - 8;
 }
 
+uint32_t LinearMemoryHelper::computeMemorySize(uint32_t sizeMB)
+{
+	// Programs using mapped memory discriminate buffer accesses by the
+	// pointer sign: linear memory must stay in the positive range
+	if (WasmMappedMemory)
+		return std::min(uint64_t(sizeMB)*1024*1024, uint64_t(0x80000000));
+	// A heap size of 4096MB (the wasm32 maximum) does not fit in 32 bits,
+	// clamp to the highest page-aligned address.
+	// NOTE: this clamp is load bearing: memorySize and everything derived
+	//       from it (the emitted memory limits, _heapEnd, the brk and
+	//       morecore bookkeeping in the libraries) assume that sizes and
+	//       one-past-the-end addresses fit in 32 bits
+	return std::min(uint64_t(sizeMB)*1024*1024, uint64_t(0xFFFF0000));
+}
+
 void LinearMemoryHelper::checkMemorySize()
 {
 	if (mode == FunctionAddressMode::AsmJS && memorySize > 2147483648U)
@@ -811,6 +826,9 @@ void LinearMemoryHelper::addMemoryInfo()
 
 	//Align to 8 bytes
 	heapStart = (heapStart + 7) & ~7;
+
+	// Sanity check that there is at least a page left in the address space
+	assert(heapStart <= 0xffff0000);
 
 	uint32_t heapEnd = growMem ? heapStart : memorySize;
 	// Align heapEnd to a wasm page size
