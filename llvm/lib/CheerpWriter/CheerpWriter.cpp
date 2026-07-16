@@ -5330,9 +5330,9 @@ void CheerpWriter::compileBB(const BasicBlock& BB)
 	{
 		if (printIR)
 		{
-			stream << "/*";
+			readableOutput ? stream << "//" : stream << "/*";
 			I.print(stream.getRawStream());
-			stream << "*/" << NewLine;
+			readableOutput ? stream << NewLine : stream << "*/";
 		}
 
 		if(const PHINode* phi = dyn_cast<PHINode>(&I))
