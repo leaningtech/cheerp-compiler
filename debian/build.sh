@@ -34,6 +34,15 @@ BUILD_DIR="$PWD/build"
 BUILD_CLANGD=1
 mkdir -p "$BUILD_DIR"
 
+# Number of parallel jobs for the (non-ninja) library build steps. Honour
+# THREADS if set (as the ninja steps do), otherwise fall back to the number of
+# available CPUs.
+if [ -n "$THREADS" ]; then
+  JOBS="$THREADS"
+else
+  JOBS="$(nproc 2>/dev/null || echo 1)"
+fi
+
 if [ -n "$CIRCLECI" ]; then
   USE_CCACHE=On
   unset BUILD_CLANGD # circleci would timeout if we tried
@@ -105,7 +114,7 @@ build_clangd() {
 prepare() {
   #This is temporary and will be overwritten after install
   cmake -B cheerp-utils/build -DCMAKE_INSTALL_PREFIX="$TMP_INSTALL" -DCHEERP_PREFIX="$CHEERP_DIR" cheerp-utils
-  make -C cheerp-utils/build install
+  make -C cheerp-utils/build install -j"$JOBS"
 }
 
 build_musl() {
@@ -168,18 +177,18 @@ build_libraries() {
 
   cmake -B "$SYS_GENERICJS_DIR" -DCMAKE_INSTALL_PREFIX="$TMP_INSTALL" \
     -DCMAKE_TOOLCHAIN_FILE="$CHEERP_DIR/share/cmake/Modules/CheerpToolchain.cmake" cheerp-libs/system
-  cmake --build "$SYS_GENERICJS_DIR"
+  cmake --build "$SYS_GENERICJS_DIR" --parallel "$JOBS"
   cmake --install "$SYS_GENERICJS_DIR"
 
   cmake -B "$SYS_ASMJS_DIR" -DCMAKE_INSTALL_PREFIX="$TMP_INSTALL" \
     -DCMAKE_TOOLCHAIN_FILE="$CHEERP_DIR/share/cmake/Modules/CheerpWasmToolchain.cmake" cheerp-libs/system
-  cmake --build "$SYS_ASMJS_DIR"
+  cmake --build "$SYS_ASMJS_DIR" --parallel "$JOBS"
   cmake --install "$SYS_ASMJS_DIR"
 
   # MEMPROF
   cmake -B cheerp-libs/memprof/build -DCMAKE_INSTALL_PREFIX="$TMP_INSTALL" \
     -DCMAKE_TOOLCHAIN_FILE="$CHEERP_DIR/share/cmake/Modules/CheerpWasmToolchain.cmake" cheerp-libs/memprof
-  cmake --build cheerp-libs/memprof/build
+  cmake --build cheerp-libs/memprof/build --parallel "$JOBS"
   cmake --install cheerp-libs/memprof/build
 }
 
@@ -197,7 +206,7 @@ build_compiler_rt() {
     -DCMAKE_INSTALL_PREFIX="$TMP_INSTALL" \
     -DCMAKE_TOOLCHAIN_FILE="$CHEERP_DIR/share/cmake/Modules/CheerpWasmToolchain.cmake"
 
-  make -C build_compiler_rt install
+  make -C build_compiler_rt install -j"$JOBS"
 }
 
 copy_install() {
@@ -208,7 +217,7 @@ install_all() {
   # cheerp-utils will install stuff with absolute paths. To fix this, during compilation we'll use a temporary cheerp-utils,
   # with the directories pointing to the build dirs, and just before installing, we'll change the paths to the actual install dir
   cmake -B cheerp-utils/build -DCMAKE_INSTALL_PREFIX="$TMP_INSTALL" -DCHEERP_PREFIX="$CHEERP_PREFIX" cheerp-utils
-  make -C cheerp-utils/build install
+  make -C cheerp-utils/build install -j"$JOBS"
 
   mkdir -p "$CHEERP_DEST"
   copy_install
