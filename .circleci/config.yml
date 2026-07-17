@@ -58,11 +58,16 @@ jobs:
             dpkg-buildpackage -d -b
             mkdir -p ~/project/packages
             mv -v ../cheerp-core_*.deb ~/project/packages
-      - save_cache:
-          name: Save ccache
-          key: cheerp-compiler-<< pipeline.git.branch >>-{{ epoch }}
-          paths:
-            - /ccache
+      - when:
+          condition:
+            not:
+              equal: [ master, << pipeline.git.branch >> ]
+          steps:
+            - save_cache:
+                name: Save ccache
+                key: cheerp-compiler-<< pipeline.git.branch >>-{{ epoch }}
+                paths:
+                  - /ccache
       - run:
           name: Save build
           working_directory: ~/project/cheerp-compiler
