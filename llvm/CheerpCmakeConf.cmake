@@ -9,8 +9,14 @@ SET(CLANG_ENABLE_ARCMT OFF CACHE BOOL "")
 
 # setup toolchain
 set(LLVM_INSTALL_TOOLCHAIN_ONLY ON CACHE BOOL "")
+# llvm-dis is only a debugging aid; builds that are tight on space (e.g. the
+# macOS DMG) can drop it by passing -DCHEERP_INSTALL_LLVM_DIS=OFF *before* the
+# -C for this file (a -D after -C is applied too late to affect the lists below).
+if(NOT DEFINED CHEERP_INSTALL_LLVM_DIS OR CHEERP_INSTALL_LLVM_DIS)
+  set(CHEERP_LLVM_DIS llvm-dis)
+endif()
 set(LLVM_TOOLCHAIN_TOOLS
-  llvm-dis
+  ${CHEERP_LLVM_DIS}
   llvm-ar
   llvm-link
   opt

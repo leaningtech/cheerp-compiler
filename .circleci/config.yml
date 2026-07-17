@@ -555,7 +555,8 @@ jobs:
           command: |
             mkdir build
             cd build
-            cmake -C ../llvm/CheerpCmakeConf.cmake \
+            cmake -DCHEERP_INSTALL_LLVM_DIS=OFF \
+              -C ../llvm/CheerpCmakeConf.cmake \
               -DCMAKE_BUILD_TYPE=Release \
               -DCMAKE_TOOLCHAIN_FILE=../../cheerp-internal/tools/circleci/macos/MacCrossToolchain.cmake \
               -DLLVM_HOST_TRIPLE=x86_64-apple-darwin \
