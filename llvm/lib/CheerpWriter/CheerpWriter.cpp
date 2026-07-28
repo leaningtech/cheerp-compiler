@@ -227,7 +227,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinNamespace(
 		return COMPILE_OK;
 	POINTER_KIND retKind = PA.getPointerKindAssert(&callV);
 	POINTER_KIND wrapperKind = PA.getPointerKindForJSExportedType(ty);
-	if (wrapperKind == COMPLETE_OBJECT || wrapperKind == RAW)
+	if (wrapperKind == COMPLETE_OBJECT || wrapperKind == RAW || (wrapperKind == REGULAR && retKind == REGULAR))
 	{
 		assert(retKind != SPLIT_REGULAR);
 		stream << ".this";
@@ -1972,6 +1972,9 @@ Type* CheerpWriter::getPointerElementTypeForValue(const Value* p, bool useGPET)
 	// NOTE: All these should naturally disappear with opaque pointers, useGPET=true only occurs in a few rare places that will also naturally disappear
 	if (useGPET || isa<BitCastInst>(p) || isa<UndefValue>(p))
 		return p->getType()->getPointerElementType();
+
+	if (Type* t = findElementType(p))
+		return t;
 
 	if (const IntrinsicInst* II = dyn_cast<IntrinsicInst>(p))
 	{
@@ -5361,7 +5364,8 @@ void CheerpWriter::compileBB(const BasicBlock& BB)
 				II->getIntrinsicID()==Intrinsic::dbg_value ||
 				II->getIntrinsicID()==Intrinsic::dbg_label ||
 				II->getIntrinsicID()==Intrinsic::assume ||
-				II->getIntrinsicID()==Intrinsic::experimental_noalias_scope_decl)
+				II->getIntrinsicID()==Intrinsic::experimental_noalias_scope_decl ||
+				II->getIntrinsicID()==Intrinsic::cheerp_pointer_element_type)
 			{
 				continue;
 			}

@@ -105,6 +105,8 @@ bool isValidVoidPtrSource(const llvm::Value* val, std::set<const llvm::PHINode*>
 
 const llvm::IntToPtrInst* getAsIntToPtrInst(const llvm::Value* val);
 
+llvm::Type* findElementType(const llvm::Value* p);
+
 inline void assertPointerElementOrOpaque(llvm::Type* pointer, llvm::Type* pointee)
 {
 	assert(llvm::isa<llvm::PointerType>(pointer));

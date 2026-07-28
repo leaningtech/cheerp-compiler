@@ -3215,6 +3215,8 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						encodeFuncOffset(code);
 						return false;
 					}
+					case Intrinsic::cheerp_pointer_element_type:
+						return false;
 					case Intrinsic::ctlz:
 					case Intrinsic::cttz:
 					case Intrinsic::ctpop:

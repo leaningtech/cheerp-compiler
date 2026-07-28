@@ -598,7 +598,8 @@ static void* LazyFunctionCreator(const std::string& funcName)
         return (void*)(void(*)())assertEqualImpl;
     if (funcName.find("__preexecute_print_case") != std::string::npos)
         return (void*)(void(*)())pre_execute_print_value_handler;
-    if (strcmp(funcName.c_str(), "llvm.dbg.value") == 0)
+    if (strcmp(funcName.c_str(), "llvm.dbg.value") == 0 ||
+        strncmp(funcName.c_str(), "llvm.cheerp.pointer.element.type.", strlen("llvm.cheerp.pointer.element.type.")) == 0)
         return (void*)(void(*)())emptyFunction;
 
     return NULL;
