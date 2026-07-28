@@ -1147,6 +1147,7 @@ Function* TypeOptimizer::rewriteIntrinsic(Function* F, FunctionType* FT)
 		case Intrinsic::cheerp_pointer_kind:
 		case Intrinsic::cheerp_throw:
 		case Intrinsic::cheerp_pointer_offset:
+		case Intrinsic::cheerp_pointer_element_type:
 		{
 			Type* localTys[] = { FT->getParamType(0) };
 			newTys.insert(newTys.end(),localTys,localTys+1);

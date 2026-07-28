@@ -41,6 +41,7 @@ def int_cheerp_typed_ptrcast : Intrinsic<[llvm_anyptr_ty],
                                       [llvm_anyptr_ty],
                                       [IntrNoMem]>;
 
+def int_cheerp_pointer_element_type : Intrinsic<[], [llvm_anyptr_ty], []>;
 
 // Type safe memory allocation
 def int_cheerp_allocate  : Intrinsic<[llvm_anyptr_ty],

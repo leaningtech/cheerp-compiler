@@ -400,6 +400,7 @@ public:
   }
 
   Value *EmitElementTypeWrapper(Value *V, QualType Ty);
+  void EmitElementTypeIntrinsic(Value *V, QualType Ty);
 
   //===--------------------------------------------------------------------===//
   //                            Visitor Methods
@@ -1628,6 +1629,19 @@ Value *ScalarExprEmitter::EmitElementTypeWrapper(Value *V, QualType Ty) {
   return Call;
 }
 
+void ScalarExprEmitter::EmitElementTypeIntrinsic(Value *V, QualType Ty) {
+  llvm::Type *LLVMTy = ConvertType(Ty);
+  llvm::Type *LLVMPointeeTy = Ty->isNullPtrType()
+                                  ? Builder.getInt8Ty()
+                                  : CGF.ConvertTypeForMem(Ty->getPointeeType());
+  llvm::Function *F = CGF.CGM.getIntrinsic(
+      llvm::Intrinsic::cheerp_pointer_element_type, {LLVMTy});
+  llvm::CallBase *Call = Builder.CreateCall(F, {V});
+  Call->addParamAttr(0, llvm::Attribute::get(VMContext,
+                                             llvm::Attribute::ElementType,
+                                             LLVMPointeeTy));
+}
+
 //===----------------------------------------------------------------------===//
 //                            Visitor Methods
 //===----------------------------------------------------------------------===//
@@ -2391,7 +2405,7 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
     bool asmjs = CGF.CurFn && CGF.CurFn->getSection() == StringRef("asmjs");
 
     if (CGF.getLangOpts().Cheerp && !asmjs) {
-      IntToPtr = EmitElementTypeWrapper(IntToPtr, DestTy);
+      EmitElementTypeIntrinsic(IntToPtr, DestTy);
     }
 
     if (CGF.CGM.getCodeGenOpts().StrictVTablePointers) {
@@ -2415,8 +2429,10 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
         PtrExpr = Builder.CreateStripInvariantGroup(PtrExpr);
     }
 
-    if (CGF.getLangOpts().Cheerp) {
-      PtrExpr = EmitElementTypeWrapper(PtrExpr, E->getType());
+    bool asmjs = CGF.CurFn && CGF.CurFn->getSection() == StringRef("asmjs");
+
+    if (CGF.getLangOpts().Cheerp && !asmjs) {
+      EmitElementTypeIntrinsic(PtrExpr, E->getType());
     }
 
     return Builder.CreatePtrToInt(PtrExpr, ConvertType(DestTy));
@@ -4096,9 +4112,11 @@ Value *ScalarExprEmitter::EmitSub(const BinOpInfo &op) {
   Value *LHSVal = op.LHS;
   Value *RHSVal = op.RHS;
 
-  if (CGF.getLangOpts().Cheerp) {
-    LHSVal = EmitElementTypeWrapper(LHSVal, expr->getLHS()->getType());
-    RHSVal = EmitElementTypeWrapper(RHSVal, expr->getRHS()->getType());
+  bool asmjs = CGF.CurFn && CGF.CurFn->getSection() == StringRef("asmjs");
+
+  if (CGF.getLangOpts().Cheerp && !asmjs) {
+    EmitElementTypeIntrinsic(LHSVal, expr->getLHS()->getType());
+    EmitElementTypeIntrinsic(RHSVal, expr->getRHS()->getType());
   }
 
   // Do the raw subtraction part.
@@ -4452,6 +4470,15 @@ Value *ScalarExprEmitter::EmitCompare(const BinaryOperator *E,
           LHS = Builder.CreateStripInvariantGroup(LHS);
         if (RHSTy.mayBeDynamicClass())
           RHS = Builder.CreateStripInvariantGroup(RHS);
+      }
+
+      bool asmjs = CGF.CurFn && CGF.CurFn->getSection() == StringRef("asmjs");
+
+      if (CGF.getLangOpts().Cheerp && !asmjs) {
+        if (LHSTy->isPointerType())
+          EmitElementTypeIntrinsic(LHS, LHSTy);
+        if (RHSTy->isPointerType())
+          EmitElementTypeIntrinsic(RHS, RHSTy);
       }
 
       Result = Builder.CreateICmp(UICmpOpc, LHS, RHS, "cmp");
