@@ -253,6 +253,18 @@ Value *InstCombinerImpl::EvaluateInDifferentType(Value *V, Type *Ty,
   return InsertNewInstWith(Res, *I);
 }
 
+static bool hasElementTypeIntrinsic(const Instruction *I) {
+  for (const User *U : I->users()) {
+    if (const IntrinsicInst *II = dyn_cast<IntrinsicInst>(U)) {
+      if (II->getIntrinsicID() == Intrinsic::cheerp_pointer_element_type) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
 Instruction::CastOps
 InstCombinerImpl::isEliminableCastPair(const CastInst *CI1,
                                        const CastInst *CI2) {
@@ -262,6 +274,11 @@ InstCombinerImpl::isEliminableCastPair(const CastInst *CI1,
 
   Instruction::CastOps firstOp = CI1->getOpcode();
   Instruction::CastOps secondOp = CI2->getOpcode();
+
+  // CHEERP: ptrtoint requires the correct element type, so we cannot combine ptrtoint of bitcast
+  if (firstOp == Instruction::BitCast && secondOp == Instruction::PtrToInt && hasElementTypeIntrinsic(CI1))
+    return Instruction::CastOps(0);
+
   Type *SrcIntPtrTy =
       SrcTy->isPtrOrPtrVectorTy() ? DL.getIntPtrType(SrcTy) : nullptr;
   Type *MidIntPtrTy =
