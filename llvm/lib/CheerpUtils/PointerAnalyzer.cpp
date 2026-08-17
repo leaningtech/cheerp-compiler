@@ -425,7 +425,7 @@ bool PointerUsageVisitor::visitRawChain( const Value * p)
 			if (getStackPtrCall)
 				return true;
 		}
-		else if (isa<IntToPtrInst>(p))
+		else if (isa<IntToPtrInst>(p) && getKindForType(p->getType()->getPointerElementType()) != COMPLETE_OBJECT)
 		{
 			return true;
 		}
@@ -528,7 +528,7 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 			return pointerKindData.valueMap.insert( std::make_pair(p, BYTE_LAYOUT ) ).first->second;
 
 		bool isIntToPtrOfConst = isa<IntToPtrInst>(p) && isa<ConstantInt>(cast<IntToPtrInst>(p)->getOperand(0));
-		if (isIntToPtrOfConst)
+		if (isIntToPtrOfConst && getKindForType(p->getType()->getPointerElementType()) != COMPLETE_OBJECT)
 		{
 			return pointerKindData.valueMap.insert( std::make_pair(p, CONSTANT ) ).first->second;
 		}
