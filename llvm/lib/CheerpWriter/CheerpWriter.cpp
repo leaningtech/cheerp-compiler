@@ -6987,6 +6987,7 @@ void CheerpWriter::compileWasmLoader()
 	{
 		// Open a new block, we need more than one statement
 		stream << "{" << NewLine;
+		stream << "if(!" << threadObject << ".inWorker)" << NewLine;
 		stream << "cheerpOSApi.setWasmCode(" << shortestName << ");" << NewLine;
 		// Since we need to add a block we also need to add a return statement
 		stream << "return ";
