@@ -1973,7 +1973,7 @@ Type* CheerpWriter::getPointerElementTypeForValue(const Value* p, bool useGPET)
 	if (useGPET || isa<BitCastInst>(p) || isa<UndefValue>(p))
 		return p->getType()->getPointerElementType();
 
-	if (Type* t = findElementType(p))
+	if (Type* t = PA.getPointerElementType(p))
 		return t;
 
 	if (const IntrinsicInst* II = dyn_cast<IntrinsicInst>(p))
@@ -2993,7 +2993,7 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 						if (incomingKind == RAW)
 						{
 							writer.compileRawPointer(incoming, SHIFT);
-							writer.stream << writer.pointerShiftOperator() << writer.getHeapShiftForType(getPointerElementTypeForValueAssert(incoming, false));
+							writer.stream << writer.pointerShiftOperator() << writer.getHeapShiftForType(writer.getPointerElementTypeForValueAssert(incoming, false));
 						}
 						else
 						{

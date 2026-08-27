@@ -293,6 +293,7 @@ public:
 	const llvm::ConstantInt* getConstantOffsetForMember( const TypeAndIndex& baseAndIndex ) const;
 	const llvm::ConstantInt* getConstantOffsetForLoad(const llvm::LoadInst* v) const;
 	const llvm::ConstantInt* getConstantOffsetForStore(const llvm::StoreInst* v) const;
+	llvm::Type* getPointerElementType(const llvm::Value* v) const;
 
 	/**
 	 * Functions to manually invalidate the cache
@@ -371,6 +372,7 @@ public:
 		PointerKindData pointerKindData;
 		PointerOffsetData pointerOffsetData;
 		AddressTakenMap addressTakenCache;
+		llvm::DenseMap<const llvm::Value*, llvm::Type*> elementTypeMap;
 	private:
 		PAstatus& status;
 	};

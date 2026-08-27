@@ -94,33 +94,6 @@ const llvm::IntToPtrInst* getAsIntToPtrInst(const llvm::Value* val)
 	return nullptr;
 }
 
-// Handles the case where a pass may insert a PHI in between the intrinsic and its intended target.
-static const IntrinsicInst* findElementTypeIntrinsic(const Value* p, DenseSet<const Value*>& visited)
-{
-	if (!visited.insert(p).second)
-		return nullptr;
-
-	for (const Value* u : p->users()) {
-		if (const IntrinsicInst* ii = dyn_cast<IntrinsicInst>(u)) {
-			if (ii->getIntrinsicID() == Intrinsic::cheerp_pointer_element_type)
-				return ii;
-		} else if (isa<PHINode>(u)) {
-			if (const IntrinsicInst* ii = findElementTypeIntrinsic(u, visited))
-				return ii;
-		}
-	}
-
-	return nullptr;
-}
-
-Type* findElementType(const Value* p)
-{
-	DenseSet<const Value*> visited;
-	if (const IntrinsicInst* ii = findElementTypeIntrinsic(p, visited))
-		return ii->getParamElementType(0);
-	return nullptr;
-}
-
 int32_t partialOffset(llvm::Type* & curType, llvm::Type* alternative, const llvm::DataLayout& DL, const int32_t index)
 {
 	int32_t partialOffset = 0;
