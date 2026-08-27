@@ -9,6 +9,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Cheerp/InvokeWrapping.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
 #include "llvm/Cheerp/PointerAnalyzer.h"
@@ -323,7 +324,31 @@ bool PointerAnalyzer::runOnModule(Module& M)
 		}
 	}
 
-	return false;
+	std::vector<Instruction*> instsToRemove;
+
+	for (Function& F : M)
+	{
+		for (BasicBlock& BB : F)
+		{
+			for (Instruction& I : BB)
+			{
+				IntrinsicInst* II = dyn_cast<IntrinsicInst>(&I);
+
+				if (II && II->getIntrinsicID() == Intrinsic::cheerp_pointer_element_type)
+				{
+					PACache.elementTypeMap[II->getOperand(0)] = II->getParamElementType(0);
+					instsToRemove.push_back(II);
+				}
+			}
+		}
+	}
+
+	for (Instruction* I : instsToRemove)
+	{
+		I->eraseFromParent();
+	}
+
+	return !instsToRemove.empty();
 }
 
 struct PointerUsageVisitor
@@ -1847,6 +1872,31 @@ const llvm::ConstantInt* PointerAnalyzer::getConstantOffsetForStore(const llvm::
 	return getConstantOffsetForPointer(v);
 }
 
+// Handles the case where a pass may insert a PHI in between the intrinsic and its intended target.
+static llvm::Type* findElementType(const PointerAnalyzer::PointerAnalyzerCache& PACache, const Value* v, DenseSet<const Value*>& visited)
+{
+	if (!visited.insert(v).second)
+		return nullptr;
+
+	auto it = PACache.elementTypeMap.find(v);
+
+	if (it != PACache.elementTypeMap.end())
+		return it->second;
+
+	for (const Value* u : v->users())
+		if (isa<PHINode>(u))
+			if (llvm::Type* t = findElementType(PACache, u, visited))
+				return t;
+
+	return nullptr;
+}
+
+llvm::Type* PointerAnalyzer::getPointerElementType(const llvm::Value* v) const
+{
+	DenseSet<const Value*> visited;
+	return findElementType(PACache, v, visited);
+}
+
 void PointerAnalyzer::invalidate(const Value * v)
 {
 	assert(status == MODIFIABLE);
@@ -2084,10 +2134,16 @@ void writePointerDumpHeader()
 PreservedAnalyses PointerAnalyzerPass::run(Module& M, ModuleAnalysisManager& MAM)
 {
 	PointerAnalyzer& inner = MAM.getResult<PointerAnalysis>(M).getInner();
-	bool res = inner.runOnModule(M);
-	(void)res;
-	assert(!res);
-	return PreservedAnalyses::all();
+	if (!inner.runOnModule(M))
+		return PreservedAnalyses::all();
+
+	PreservedAnalyses PA;
+	PA.preserve<cheerp::PointerAnalysis>();
+	PA.preserve<cheerp::RegisterizeAnalysis>();
+	PA.preserve<cheerp::GlobalDepsAnalysis>();
+	PA.preserve<cheerp::InvokeWrappingAnalysis>();
+	PA.preserve<cheerp::LinearMemoryAnalysis>();
+	return PA;
 }
 
 AnalysisKey PointerAnalysis::Key;
