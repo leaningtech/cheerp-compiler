@@ -963,6 +963,32 @@ llvm::Type *CodeGenVTables::getVTableType(const VTableLayout &layout, const CXXR
   }
 
   bool asmjs = LayoutClass->hasAttr<AsmJSAttr>();
+
+  llvm::DenseMap<unsigned, const CXXRecordDecl*> VTableIndexToBase;
+
+  if (!CGM.getTarget().isByteAddressable()) {
+    const ASTRecordLayout& VTableClassLayout = CGM.getContext().getASTRecordLayout(LayoutClass);
+
+    auto addVTableBase = [&](const CXXRecordDecl* base, CharUnits offset) {
+      auto it = layout.getAddressPoints().find(BaseSubobject(base, offset));
+
+      if (it != layout.getAddressPoints().end())
+        VTableIndexToBase[it->second.VTableIndex] = base;
+    };
+
+    for (const auto& B : LayoutClass->bases()) {
+      if (!B.isVirtual()) {
+        const CXXRecordDecl* base = B.getType()->getAsCXXRecordDecl();
+        addVTableBase(base, VTableClassLayout.getBaseClassOffset(base));
+      }
+    }
+
+    for (const auto& B : LayoutClass->vbases()) {
+      const CXXRecordDecl* base = B.getType()->getAsCXXRecordDecl();
+      addVTableBase(base, VTableClassLayout.getVBaseClassOffset(base));
+    }
+  }
+
   SmallVector<llvm::Type *, 4> tys;
   llvm::Type *componentType = getVTableComponentType();
   for (unsigned i = 0, e = layout.getNumVTables(); i != e; ++i) {
@@ -972,7 +998,11 @@ llvm::Type *CodeGenVTables::getVTableType(const VTableLayout &layout, const CXXR
       auto firstComp = layout.vtable_components().begin() + layout.getVTableOffset(i);
       auto lastComp = firstComp + layout.getVTableSize(i);
       std::string typeName = ("vttype." + name + "." + Twine(i)).str();
-      tys.push_back(CGM.getTypes().GetVTableSubObjectType(CGM, firstComp, lastComp, 0, asmjs, typeName));
+
+      const CXXRecordDecl* base = VTableIndexToBase.lookup(i);
+
+      tys.push_back(CGM.getTypes().GetVTableSubObjectType(CGM, firstComp, lastComp, 0, asmjs, typeName,
+                    base ? cast<llvm::StructType>(CGM.getTypes().GetPrimaryVTableType(base)) : nullptr));
     }
   }
 
@@ -1528,7 +1558,8 @@ llvm::Type* CodeGenTypes::GetVTableSubObjectType(CodeGenModule& CGM,
                                           const VTableComponent* end,
                                           uint32_t extraOffsets,
                                           bool asmjs,
-                                          StringRef name)
+                                          StringRef name,
+                                          llvm::StructType* directBase)
 {
   if (llvm::StructType* Result = llvm::StructType::getTypeByName(getLLVMContext(), name)) {
     return Result;
@@ -1560,7 +1591,7 @@ llvm::Type* CodeGenTypes::GetVTableSubObjectType(CodeGenModule& CGM,
     VTableTypes.push_back(OffsetTy);
   }
   llvm::StructType* ret = llvm::StructType::create(CGM.getLLVMContext(), VTableTypes, name,
-                            false, cast<llvm::StructType>(CGM.getTypes().GetVTableBaseType(asmjs)), /*isByteLayout*/false, asmjs);
+                            false, directBase ? directBase : cast<llvm::StructType>(CGM.getTypes().GetVTableBaseType(asmjs)), /*isByteLayout*/false, asmjs);
   return ret;
 }
 
@@ -1576,7 +1607,12 @@ llvm::Type* CodeGenTypes::GetPrimaryVTableType(const CXXRecordDecl* RD) {
   cast<ItaniumMangleContext>(CGM.getCXXABI().getMangleContext())
       .mangleCXXVTable(RD, Out);
   std::string typeName = ("vttype." + name + ".0").str();
-  return GetVTableSubObjectType(CGM, firstComp, lastComp, 0, asmjs, typeName);
+
+  llvm::StructType* directBase = nullptr;
+  if (const CXXRecordDecl* primaryBase = CGM.getContext().getASTRecordLayout(RD).getPrimaryBase())
+    directBase = cast<llvm::StructType>(GetPrimaryVTableType(primaryBase));
+
+  return GetVTableSubObjectType(CGM, firstComp, lastComp, 0, asmjs, typeName, directBase);
 }
 
 llvm::Type* CodeGenTypes::GetSecondaryVTableType(const CXXRecordDecl* RD) {
