@@ -7456,8 +7456,13 @@ void CheerpWriter::compileWorkerMainScript()
 	// This helper is always available when emitting non-standalone Wasm with threading enabled
 	llvm::Function* setStack = module.getFunction("__setStackPtr");
 	stream << namegen.getName(setStack, 0) << "(" << threadObject << ".stack);" << NewLine;
-	stream << "__startThread(" << threadObject << ".func, ";
-	stream << threadObject << ".args, " << threadObject << ".tls);" << NewLine;
+	if(triple.isCheerpOS())
+		stream << "return WebAssembly.promising(__startThread)";
+	else
+		stream << "__startThread";
+	stream <<"(" << threadObject << ".func, ";
+	stream << threadObject << ".args, " << threadObject << ".tls)";
+	stream << ";" << NewLine;
 	stream << "}).catch(e=>{" << NewLine;
 	stream << "if(e!=='LeakUtilityThread'&&e!=='ThreadExit'){" << NewLine;
 	stream << "throw(e);" << NewLine;
