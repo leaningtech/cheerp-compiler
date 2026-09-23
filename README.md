@@ -26,7 +26,7 @@ Cheerp compiler build instructions
 
 We advise doing an out of tree build, but it's not necessary
 
-This is only one of the components of Cheerp. Please see https://docs.leaningtech.com/cheerp/Linux-build-instructions for instructions on how to build the whole suite.
+This is only one of the components of Cheerp. Please see https://cheerp.io/docs/building-from-source/linux for instructions on how to build the whole suite.
 
 
 ### Build LLVM
