@@ -839,7 +839,10 @@ std::vector<cheerp::CheerpWasmOpt> cheerp::getWasmFeatures(const Driver& D, cons
   // We enable memory growth and unaligned memory accesses by default
   features.push_back(GROWMEM);
   features.push_back(GLOBALIZATION);
-  features.push_back(UNALIGNEDMEM);
+  // CheerpOS runs forked processes in its wasm interpreter, which only
+  // supports naturally aligned accesses (unaligned ones can still be enabled)
+  if(!triple.isCheerpOSStandalone())
+    features.push_back(UNALIGNEDMEM);
   // For CheerpOS we also force the memory to be imported, shared and
   // resizable, and export the table as well, used by the interpreter to
   // re-enter execution
