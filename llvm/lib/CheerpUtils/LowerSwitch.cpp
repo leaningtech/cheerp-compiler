@@ -154,9 +154,12 @@ private:
 	}
 	void populateRanges()
 	{
-		//TODO: Check overflow undetermined??
-		int64_t minimum = (((uint64_t)1)<<63);
-		const int64_t maximum = (((uint64_t)1)<<63) - 1;
+		//The ranges must cover only the values of the condition type, use the signed limits of the type.
+		//If the limits were larger, the lowering could make a test for a range that is out of the type.
+		//Example: an i8 switch with a case for -128. The int64 limits would give the default range [INT64_MIN, -129],
+		//but the test for this range would be truncated to x <= 127, which is always true.
+		int64_t minimum = bitWidth >= 64 ? std::numeric_limits<int64_t>::min() : -(((int64_t)1)<<(bitWidth-1));
+		const int64_t maximum = bitWidth >= 64 ? std::numeric_limits<int64_t>::max() : (((int64_t)1)<<(bitWidth-1)) - 1;
 		for (const auto& p : orderedCases)
 		{
 			if (!orderedRanges.empty() && orderedRanges.back().getDest() == p.second)
@@ -175,7 +178,9 @@ private:
 			minimum = p.first + 1;
 			orderedRanges.push_back(RangeDest(p.first, p.second));
 		}
-		if (hasDefault() && minimum < maximum)
+		//Add the default range after the last case, if the last case is below maximum.
+		//This includes a range of only maximum (last case is maximum - 1), and avoids minimum, which overflows for an i64 if the last case is maximum.
+		if (hasDefault() && (orderedCases.empty() || orderedCases.back().first < maximum))
 		{
 			orderedRanges.push_back(RangeDest(minimum, maximum, SI->getDefaultDest()));
 		}
