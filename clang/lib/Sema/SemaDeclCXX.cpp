@@ -14893,6 +14893,11 @@ void Sema::DefineImplicitJsExportHelper(CXXRecordDecl *ClassDecl, CXXMethodDecl*
     FunctionDecl *OperatorDelete =
       FindDeallocationFunctionForDestructor(Loc, ClassDecl);
     assert(OperatorDelete);
+    // As ActOnCXXDelete does: the lookup declares an implicit destructor, and referencing it gets it defined,
+    // along with the destructors of the bases and members it calls
+    if (CXXDestructorDecl *Dtor = LookupDestructor(ClassDecl))
+      MarkFunctionReferenced(Loc, Dtor);
+    MarkFunctionReferenced(Loc, OperatorDelete);
     CXXDeleteExpr *Result = new (Context) CXXDeleteExpr(
          Context.VoidTy, true, false, false,
          false, OperatorDelete, This.build(*this, Loc), Loc);
