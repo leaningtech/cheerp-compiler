@@ -404,7 +404,11 @@ void CheerpNativeRewriterPass::rewriteConstructorImplementation(Module& M, Funct
 		for(i=usersQueue.size()-1,it=cur->use_begin();it!=cur->use_end();++it,i--)
 			usersQueue[i]=it->getUser();
 	}
-	cast<Instruction>(valueMap[oldLowerConstructor])->eraseFromParent();
+	// The base constructor call as copied into newFunc, which lowerConstructor replaces at the same location
+	Instruction* replacedLowerConstructor = cast<Instruction>(valueMap[oldLowerConstructor]);
+	if(lowerConstructor)
+		lowerConstructor->setDebugLoc(replacedLowerConstructor->getDebugLoc());
+	replacedLowerConstructor->eraseFromParent();
 }
 
 bool CheerpNativeRewriterPass::rewriteNativeObjectsConstructors(Module& M, Function& F, DominatorTree& DT)
