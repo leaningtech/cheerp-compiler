@@ -668,6 +668,9 @@ void FrameTypeBuilder::addFieldForAllocas(const Function &F,
   sort(FrameData.Allocas, [&](const auto &Iter1, const auto &Iter2) {
     return GetAllocaSize(Iter1) > GetAllocaSize(Iter2);
   });
+  // CHEERP: genericjs memory is typed, so an alloca there can only share a
+  // slot with allocas of its own type
+  bool TypedMemory = !DL.isByteAddressable() && F.getSection() != "asmjs";
   for (const auto &A : FrameData.Allocas) {
     AllocaInst *Alloca = A.Alloca;
     bool Merged = false;
@@ -690,7 +693,12 @@ void FrameTypeBuilder::addFieldForAllocas(const Function &F,
         return LargestAlloca->getAlign().value() % Alloca->getAlign().value() ==
                0;
       }();
-      bool CouldMerge = NoInference && Alignable;
+      auto *LargestAlloca = *AllocaSet.begin();
+      // CHEERP: see TypedMemory
+      bool Typable = !TypedMemory ||
+                     (LargestAlloca->getAllocatedType() == Alloca->getAllocatedType() &&
+                      LargestAlloca->getArraySize() == Alloca->getArraySize());
+      bool CouldMerge = NoInference && Alignable && Typable;
       if (!CouldMerge)
         continue;
       AllocaSet.push_back(Alloca);
