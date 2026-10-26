@@ -114,20 +114,16 @@ bool AllocaLowering::runOnFunction(Function& F, DominatorTree& DT, cheerp::Globa
 				uint32_t asmjsAlignment = cheerp::TypeSupport::getAlignmentAsmJS(targetData, allocTy);
 				uint32_t alignment = std::max(static_cast<uint32_t>(alignment64), asmjsAlignment);
 
+				// NOTE: Only constant-size allocas in the entry block get a frame slot; any other runs
+				//       once per execution and needs fresh memory each time, like an alloca in a loop
+				if (!ai->isStaticAlloca())
+				{
+					dynAllocas.push_back(std::make_pair(ai, ai->getArraySize()));
+					continue;
+				}
 				size_t num  = 1;
 				if (ai->isArrayAllocation())
-				{
-					Value* n = ai->getArraySize();
-					if (ConstantInt* constN = dyn_cast<ConstantInt>(n))
-					{
-						num = constN->getZExtValue();
-					}
-					else
-					{
-						dynAllocas.push_back(std::make_pair(ai, n));
-						continue;
-					}
-				}
+					num = cast<ConstantInt>(ai->getArraySize())->getZExtValue();
 				assert((alignment & (alignment-1)) == 0 && "alignment must be power of 2");
 				size_t offset = nbytes + size*num;
 				offset = (offset + alignment - 1) & -alignment;
@@ -173,8 +169,8 @@ bool AllocaLowering::runOnFunction(Function& F, DominatorTree& DT, cheerp::Globa
 		return false;
 	// We need to save the stack pointer if we are going to reference memory
 	// relative to its position at the beginning of the function (e.g. allocas
-	// and varargs)
-	bool needFrame = allocas.size() != 0  || vastarts.size() != 0 || needsLocalsStack;
+	// and varargs), or to release dynamically sized allocas on return
+	bool needFrame = allocas.size() != 0  || dynAllocas.size() != 0 || vastarts.size() != 0 || needsLocalsStack;
 
 	// Keep aligned at 8 bytes
 	nbytes = (nbytes + 7) & -8;
