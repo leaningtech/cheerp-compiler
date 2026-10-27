@@ -6,6 +6,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+// NOTE: Cheerp's musl makes syscalls as typed calls of their entry functions, the only form
+//       genericjs supports; it also skips the generic syscall() dispatcher on wasm
+#ifdef __CHEERP__
+#define _CHEERP_DIRECT_SYSCALLS
+#endif
 #include <__config>
 #ifndef _LIBCPP_HAS_NO_THREADS
 
@@ -36,10 +41,6 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 
 #ifdef __linux__
 
-#ifdef __CHEERP__
-#define syscall(n,...) n(__VA_ARGS__)
-long __syscall_futex(int* n, ...);
-#endif
 static void __libcpp_platform_wait_on_address(__cxx_atomic_contention_t const volatile* __ptr,
                                               __cxx_contention_t __val)
 {
