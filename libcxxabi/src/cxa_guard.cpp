@@ -25,6 +25,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+// NOTE: Cheerp's musl makes syscalls as typed calls of their entry functions, the only form
+//       genericjs supports; it also skips the generic syscall() dispatcher on wasm
+#ifdef __CHEERP__
+#define _CHEERP_DIRECT_SYSCALLS
+#endif
 #include "__cxxabi_config.h"
 #include "cxxabi.h"
 
