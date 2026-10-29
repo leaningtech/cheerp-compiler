@@ -588,7 +588,7 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 		}
 		compileArraySize(info, /* shouldPrint */true);
 		stream << ',';
-		if(PA.getPointerKindForStoredType(info.getCastedType())==COMPLETE_OBJECT)
+		if(PA.getPointerKindForStoredPointer(info.getInstruction(), t)==COMPLETE_OBJECT)
 			stream << "null";
 		else
 			stream << "nullObj";
@@ -633,7 +633,7 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 
 		for(uint32_t i = 0; i < numElem;i++)
 		{
-			compileType(t, LITERAL_OBJ, isInlineable(*info.getInstruction(), PA) || info.getInstruction()->use_empty() ? StringRef() : getName(info.getInstruction(), 0));
+			compileType(t, LITERAL_OBJ, info.getInstruction(), t, 0, isInlineable(*info.getInstruction(), PA) || info.getInstruction()->use_empty() ? StringRef() : getName(info.getInstruction(), 0));
 			if((i+1) < numElem)
 				stream << ',';
 		}
@@ -2228,7 +2228,7 @@ const Value* CheerpWriter::compileByteLayoutOffset(const Value* p, BYTE_LAYOUT_O
 	{
 		if(const ConstantInt* CI=PA.getConstantOffsetForPointer(p))
 		{
-			compileConstant(CI);
+			compileConstantInt(CI);
 		}
 		else
 		{
@@ -2306,7 +2306,7 @@ void CheerpWriter::compilePointerOffsetTyped(const Value* p, llvm::Type* element
 	else if (const ConstantInt* CI = PA.getConstantOffsetForPointer(p))
 	{
 		// Check if the offset has been constantized for this pointer
-		compileConstant(CI);
+		compileConstantInt(CI);
 	}
 	else if((isa<SelectInst> (p) && isInlineable(*cast<Instruction>(p), PA)) || (isa<ConstantExpr>(p) && cast<ConstantExpr>(p)->getOpcode() == Instruction::Select))
 	{
@@ -2438,17 +2438,21 @@ void CheerpWriter::compileConstantExpr(const ConstantExpr* ce, PARENT_PRIORITY p
 	}
 }
 
-void CheerpWriter::compileConstantArrayMembers(const Constant* C)
+void CheerpWriter::compileConstantArrayMembers(const Constant* C, const Value* base, Type* rootType, uint32_t offset)
 {
 	if(const ConstantArray* CA = dyn_cast<ConstantArray>(C))
 	{
 		Type* elementType = CA->getType()->getElementType();
+		uint32_t elementSize = targetData.getTypeAllocSize(elementType);
 		for(uint32_t i=0;i<CA->getNumOperands();i++)
 		{
 			if(i!=0)
 				stream << ',';
 			if(elementType->isPointerTy())
-				compilePointerAs(CA->getOperand(i), PA.getPointerKindForStoredType(elementType));
+			{
+				POINTER_KIND k = PA.getPointerKindForStoredPointer(base, rootType, offset + i*elementSize);
+				compilePointerAs(CA->getOperand(i), k);
+			}
 			else
 				compileOperand(CA->getOperand(i), LOWEST);
 		}
@@ -2457,11 +2461,12 @@ void CheerpWriter::compileConstantArrayMembers(const Constant* C)
 	{
 		const ConstantDataSequential* CD = dyn_cast<ConstantDataSequential>(C);
 		assert(CD);
+		uint32_t elementSize = targetData.getTypeAllocSize(CD->getElementType());
 		for(uint32_t i=0;i<CD->getNumElements();i++)
 		{
 			if(i!=0)
 				stream << ',';
-			compileConstant(CD->getElementAsConstant(i));
+			compileConstant(CD->getElementAsConstant(i), base, rootType, offset + i*elementSize);
 		}
 	}
 }
@@ -2476,7 +2481,7 @@ bool CheerpWriter::doesConstantDependOnUndefined(const Constant* C) const
 		return false;
 }
 
-void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio)
+void CheerpWriter::compileConstant(const Constant* c, const Value* base, Type* rootType, uint32_t offset, PARENT_PRIORITY parentPrio)
 {
 	//TODO: what to do when currentFun == nullptr? for now asmjs=false
 	bool asmjs = false;
@@ -2501,7 +2506,7 @@ void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio
 		stream << "new ";
 		compileTypedArrayType(t);
 		stream << "([";
-		compileConstantArrayMembers(d);
+		compileConstantArrayMembers(d, base, rootType, offset);
 		stream << "])";
 	}
 	else if(isa<ConstantArray>(c))
@@ -2509,7 +2514,7 @@ void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio
 		const ConstantArray* d=cast<ConstantArray>(c);
 		stream << '[';
 		assert(d->getType()->getNumElements() == d->getNumOperands());
-		compileConstantArrayMembers(d);
+		compileConstantArrayMembers(d, base, rootType, offset);
 		stream << ']';
 	}
 	else if(isa<ConstantStruct>(c))
@@ -2697,19 +2702,7 @@ void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio
 	}
 	else if(isa<ConstantInt>(c))
 	{
-		const ConstantInt* i=cast<ConstantInt>(c);
-		if(i->getBitWidth()>=32)
-		{
-			if(parentPrio > LOWEST && i->isNegative())
-				stream << ' ';
-			stream << i->getSExtValue();
-		}
-		else
-			stream << i->getZExtValue();
-		if(i->getBitWidth()==64)
-		{
-			stream << 'n';
-		}
+		compileConstantInt(cast<ConstantInt>(c), parentPrio);
 	}
 	else if(isa<ConstantPointerNull>(c))
 	{
@@ -2727,7 +2720,7 @@ void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio
 	else if(isa<GlobalAlias>(c))
 	{
 		const GlobalAlias* a=cast<GlobalAlias>(c);
-		compileConstant(a->getAliasee());
+		compileConstant(a->getAliasee(), base, rootType, offset);
 	}
 	else if(isa<GlobalValue>(c))
 	{
@@ -2761,7 +2754,7 @@ void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio
 		if (asmjs && c->getType()->isPointerTy())
 			stream << '0';
 		else
-			compileType(c->getType(), LITERAL_OBJ);
+			compileType(c->getType(), LITERAL_OBJ, base, rootType, offset);
 	}
 	else
 	{
@@ -2770,10 +2763,28 @@ void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio
 	}
 }
 
+void CheerpWriter::compileConstantInt(const ConstantInt* i, PARENT_PRIORITY parentPrio)
+{
+	if(i->getBitWidth()>=32)
+	{
+		if(parentPrio > LOWEST && i->isNegative())
+			stream << ' ';
+		stream << i->getSExtValue();
+	}
+	else
+		stream << i->getZExtValue();
+	if(i->getBitWidth()==64)
+	{
+		stream << 'n';
+	}
+}
+
 void CheerpWriter::compileOperand(const Value* v, PARENT_PRIORITY parentPrio, bool allowBooleanObjects)
 {
 	if(const Constant* c=dyn_cast<Constant>(v))
-		compileConstant(c, parentPrio);
+	{
+		compileConstant(c, nullptr, c->getType(), 0, parentPrio);
+	}
 	else if(const Instruction* it=dyn_cast<Instruction>(v))
 	{
 		if(isInlineable(*it, PA))
@@ -2846,7 +2857,13 @@ void CheerpWriter::compileAggregateElem(const llvm::Value* v, uint32_t structIdx
 	}
 	else if(auto* C = dyn_cast<Constant>(v))
 	{
-		compileConstant(C->getAggregateElement(structIdx), parentPrio);
+		Type* aggType = C->getType();
+		uint32_t offset;
+		if(StructType* ST = dyn_cast<StructType>(aggType))
+			offset = targetData.getStructLayout(ST)->getElementOffset(structIdx);
+		else
+			offset = structIdx * targetData.getTypeAllocSize(cast<ArrayType>(aggType)->getElementType());
+		compileConstant(C->getAggregateElement(structIdx), nullptr, aggType, offset, parentPrio);
 	}
 	else
 	{
@@ -3133,7 +3150,7 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 						st = st->getDirectBase();
 					tp = st->getPointerTo();
 				}
-				compilePointerAs(*cur, PA.getPointerKindForStoredType(tp));
+				compilePointerAs(*cur, PA.getPointerKindForVariadicArgument(callV.getCalledOperand(), tp));
 			}
 
 			assert(argKind != REGULAR);
@@ -3320,24 +3337,24 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			if(k == REGULAR)
 			{
 				stream << "{d:[";
-				compileType(ai->getAllocatedType(), LITERAL_OBJ, varName, allocaStores);
+				compileType(ai->getAllocatedType(), LITERAL_OBJ, &I, ai->getAllocatedType(), 0, varName, allocaStores);
 				stream << "],o:0}";
 			}
 			else if(k == SPLIT_REGULAR)
 			{
 				stream << '[';
-				compileType(ai->getAllocatedType(), LITERAL_OBJ, varName, allocaStores);
+				compileType(ai->getAllocatedType(), LITERAL_OBJ, &I, ai->getAllocatedType(), 0, varName, allocaStores);
 				stream << ']';
 			}
 			else if(k == BYTE_LAYOUT)
 			{
 				assert(!allocaStores);
 				stream << "{d:";
-				compileType(ai->getAllocatedType(), LITERAL_OBJ, varName);
+				compileType(ai->getAllocatedType(), LITERAL_OBJ, &I, ai->getAllocatedType(), 0, varName);
 				stream << ",o:0}";
 			}
 			else 
-				compileType(ai->getAllocatedType(), LITERAL_OBJ, varName, allocaStores);
+				compileType(ai->getAllocatedType(), LITERAL_OBJ, &I, ai->getAllocatedType(), 0, varName, allocaStores);
 
 			return COMPILE_OK;
 		}
@@ -3908,7 +3925,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			{
 				// Special case negative constants, print them directly without adding an operator
 				// NOTE: i8/i16 constants are always zero extended
-				compileConstant(cast<ConstantInt>(rhs), LOWEST);
+				compileConstantInt(cast<ConstantInt>(rhs), LOWEST);
 			}
 			else
 			{
@@ -4470,7 +4487,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 					stream << ';' << NewLine;
 					stream << name << "=";
 					stream << name << "===0?";
-					POINTER_KIND k = PA.getPointerKindForStoredType(vi.getType());
+					POINTER_KIND k = PA.getPointerKindForVariadicArgument(currentFun, vi.getType());
 					if (k == COMPLETE_OBJECT)
 						stream << "null";
 					else
@@ -5125,7 +5142,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileCallInstruction(
 			if (const Constant* c = dyn_cast<Constant>(calledValue))
 			{
 				stream << "(0!=0?0:";
-				compileConstant(c);
+				compileConstant(c, nullptr);
 				stream << ')';
 			}
 			else
@@ -5944,21 +5961,25 @@ void CheerpWriter::compileMethod(const Function& F)
 
 CheerpWriter::GlobalSubExprInfo CheerpWriter::compileGlobalSubExpr(const GlobalDepsAnalyzer::SubExprVec& subExpr)
 {
+	const GlobalVariable* gv = cast<GlobalVariable>(subExpr.front()->getUser());
+	uint32_t offset = 0;
 	for ( auto it = std::next(subExpr.begin()); it != subExpr.end(); ++it )
 	{
 		const Use * u = *it;
 
-		if ( isa<ConstantArray>( u->getUser() ) )
+		if ( ConstantArray* ca = dyn_cast<ConstantArray>( u->getUser() ) )
 		{
+			offset += u->getOperandNo() * targetData.getTypeAllocSize(ca->getType()->getElementType());
 			stream << '[' << u->getOperandNo() << ']';
 			if (it == (subExpr.end()-1) && (*it)->get()->getType()->isPointerTy())
 			{
-				POINTER_KIND elementPointerKind = PA.getPointerKindForStoredType((*it)->get()->getType());
+				POINTER_KIND elementPointerKind = PA.getPointerKindForStoredPointer(gv, gv->getValueType(), offset);
 				return GlobalSubExprInfo(elementPointerKind, false);
 			}
 		}
 		else if ( ConstantStruct* cs=dyn_cast<ConstantStruct>( u->getUser() ) )
 		{
+			offset += targetData.getStructLayout(cs->getType())->getElementOffset(u->getOperandNo());
 			stream << ".a" << u->getOperandNo();
 			bool useWrapperArray = types.useWrapperArrayForMember(PA, cs->getType(), u->getOperandNo());
 			if (useWrapperArray)
@@ -5999,27 +6020,27 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 		{
 			stream << "{d:[";
 			if(C->getType()->isPointerTy())
-				compilePointerAs(C, PA.getPointerKindForStoredType(C->getType()));
+				compilePointerAs(C, PA.getPointerKindForStoredPointer(&G, C->getType()));
 			else
-				compileOperand(C, LOWEST);
+				compileConstant(C, &G, C->getType(), 0, LOWEST);
 			stream << "],o:0}";
 		}
 		else if(k == BYTE_LAYOUT)
 		{
 			stream << "{d:";
 			if(C->getType()->isPointerTy())
-				compilePointerAs(C, PA.getPointerKindForStoredType(C->getType()));
+				compilePointerAs(C, PA.getPointerKindForStoredPointer(&G, C->getType()));
 			else
-				compileOperand(C, LOWEST);
+				compileConstant(C, &G, C->getType(), 0, LOWEST);
 			stream << ",o:0}";
 		}
 		else if(k == SPLIT_REGULAR)
 		{
 			stream << '[';
 			if(C->getType()->isPointerTy())
-				compilePointerAs(C, PA.getPointerKindForStoredType(C->getType()));
+				compilePointerAs(C, PA.getPointerKindForStoredPointer(&G, C->getType()));
 			else
-				compileOperand(C, LOWEST);
+				compileConstant(C, &G, C->getType(), 0, LOWEST);
 			stream << ']';
 			stream << ';' << NewLine;
 			stream << "var " << getName(&G, 1);
@@ -6029,14 +6050,14 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 		{
 			if(C->getType()->isPointerTy())
 			{
-				POINTER_KIND storedKind = PA.getPointerKindForStoredType(C->getType());
+				POINTER_KIND storedKind = PA.getPointerKindForStoredPointer(&G, C->getType());
 				if(storedKind == REGULAR && PA.getConstantOffsetForPointer(&G))
 					compilePointerBase(C);
 				else
 					compilePointerAs(C, storedKind);
 			}
 			else
-				compileOperand(C);
+				compileConstant(C, &G, C->getType());
 		}
 	}
 	stream << ';' << NewLine;

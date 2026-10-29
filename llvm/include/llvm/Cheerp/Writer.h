@@ -550,19 +550,19 @@ private:
 	/**
 	 * This method supports both ConstantArray and ConstantDataSequential
 	 */
-	void compileConstantArrayMembers(const llvm::Constant* C);
+	void compileConstantArrayMembers(const llvm::Constant* C, const llvm::Value* base, llvm::Type* rootType, uint32_t offset);
 
 	/**
 	 * Methods implemented in Types.cpp
 	 */
 	enum COMPILE_TYPE_STYLE { LITERAL_OBJ=0, THIS_OBJ };
 	void compileTypedArrayType(llvm::Type* t);
-	void compileSimpleType(llvm::Type* t, llvm::Value* init);
+	void compileSimpleType(llvm::Type* t, llvm::Value* init, const llvm::Value* base, llvm::Type* rootType, uint32_t offset);
 	// varName is used for a fake assignment to break literals into smaller units.
 	// This is useful to avoid a huge penalty on V8 when creating large literals
-	uint32_t compileComplexType(llvm::Type* t, COMPILE_TYPE_STYLE style, llvm::StringRef varName, uint32_t maxDepth, uint32_t totalLiteralProperties,
+	uint32_t compileComplexType(llvm::Type* t, COMPILE_TYPE_STYLE style, const llvm::Value* base, llvm::Type* rootType, llvm::StringRef varName, uint32_t maxDepth, uint32_t totalLiteralProperties,
 					const AllocaStoresExtractor::OffsetToValueMap* offsetToValueMap, uint32_t offset, uint32_t& usedValuesFromMap);
-	void compileType(llvm::Type* t, COMPILE_TYPE_STYLE style, llvm::StringRef varName = llvm::StringRef(), const AllocaStoresExtractor::OffsetToValueMap* offsetToValueMap = nullptr);
+	void compileType(llvm::Type* t, COMPILE_TYPE_STYLE style, const llvm::Value* base, llvm::Type* rootType, uint32_t offset, llvm::StringRef varName = llvm::StringRef(), const AllocaStoresExtractor::OffsetToValueMap* offsetToValueMap = nullptr);
 	uint32_t compileClassTypeRecursive(const std::string& baseName, llvm::StructType* currentType, uint32_t baseCount);
 	void compileClassType(llvm::StructType* T);
 	void compileClassConstructor(llvm::StructType* T);
@@ -699,7 +699,8 @@ public:
 	}
 	void makeJS();
 	void compileBB(const llvm::BasicBlock& BB);
-	void compileConstant(const llvm::Constant* c, PARENT_PRIORITY parentPrio = HIGHEST);
+	void compileConstant(const llvm::Constant* c, const llvm::Value* base = nullptr, llvm::Type* rootType = nullptr, uint32_t offset = 0, PARENT_PRIORITY parentPrio = HIGHEST);
+	void compileConstantInt(const llvm::ConstantInt* i, PARENT_PRIORITY parentPrio = HIGHEST);
 	void compileOperand(const llvm::Value* v, PARENT_PRIORITY parentPrio = HIGHEST, bool allowBooleanObjects = false);
 	void compileAggregateElem(const llvm::Value* v, uint32_t structIdx, uint32_t totalIdx,  PARENT_PRIORITY parentPrio);
 	void compilePHIOfBlockFromOtherBlock(const llvm::BasicBlock* to, const llvm::BasicBlock* from);
