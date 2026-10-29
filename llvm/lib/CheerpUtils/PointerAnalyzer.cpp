@@ -281,6 +281,8 @@ void PointerConstantOffsetWrapper::dump() const
 
 bool PointerAnalyzer::runOnModule(Module& M)
 {
+	targetData = &M.getDataLayout();
+
 	for(const Function & F : M)
 		prefetchFunc(F);
 
@@ -1641,13 +1643,27 @@ POINTER_KIND PointerAnalyzer::getPointerKindForReturn(const Function* F) const
 	return PointerResolverForKindVisitor(PACache).resolvePointerKind(k).getPointerKind(regularPreference);
 }
 
-POINTER_KIND PointerAnalyzer::getPointerKindForStoredType(Type* pointerType) const
+POINTER_KIND PointerAnalyzer::getPointerKindForStoredPointer(const Value* base, Type* rootType, uint32_t offset) const
 {
-	IndirectPointerKindConstraint c(STORED_TYPE_CONSTRAINT, pointerType->getPointerElementType());
+	// not used (yet)
+	(void)base;
+
+	assert(!base || base->getType()->getPointerElementType() == rootType);
+	assert(base || rootType->isStructTy() || rootType->isArrayTy());
+
+	Type* storedType = rootType;
+	APInt apOffset(64, offset);
+
+	while (targetData->getGEPIndexForOffset(storedType, apOffset))
+		;
+
+	assert(storedType->isPointerTy());
+
+	IndirectPointerKindConstraint c(STORED_TYPE_CONSTRAINT, storedType->getPointerElementType());
 	auto it=PACache.pointerKindData.constraintsMap.find(c);
 	if(it==PACache.pointerKindData.constraintsMap.end())
 	{
-		if (TypeSupport::isRawPointer(pointerType, false))
+		if (TypeSupport::isRawPointer(storedType, false))
 			return RAW;
 		else
 			return COMPLETE_OBJECT;
@@ -1701,6 +1717,27 @@ POINTER_KIND PointerAnalyzer::getPointerKindForArgument( const llvm::Argument* A
 	assert(k.isKnown());
 	REGULAR_POINTER_PREFERENCE regularPreference = getRegularPreference(c, PACache);
 
+	if (k!=INDIRECT)
+		return k.getPointerKind(regularPreference);
+
+	return PointerResolverForKindVisitor(PACache).resolvePointerKind(k).getPointerKind(regularPreference);
+}
+
+POINTER_KIND PointerAnalyzer::getPointerKindForVariadicArgument( const llvm::Value* F, const llvm::Type* pointerType ) const
+{
+	IndirectPointerKindConstraint c(STORED_TYPE_CONSTRAINT, pointerType->getPointerElementType());
+	auto it=PACache.pointerKindData.constraintsMap.find(c);
+	if(it==PACache.pointerKindData.constraintsMap.end())
+	{
+		if (TypeSupport::isRawPointer(pointerType, false))
+			return RAW;
+		else
+			return COMPLETE_OBJECT;
+	}
+	REGULAR_POINTER_PREFERENCE regularPreference = getRegularPreference(c, PACache);
+
+	const PointerKindWrapper& k = it->second;
+	assert(k.isKnown());
 	if (k!=INDIRECT)
 		return k.getPointerKind(regularPreference);
 
