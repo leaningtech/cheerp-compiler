@@ -7004,9 +7004,9 @@ void CheerpWriter::compileWasmLoader()
 	// Import the memory.
 	StringRef memoryName = namegen.getBuiltinName(NameGenerator::Builtin::MEMORY);
 	if (LowerAtomics)
-		stream << memoryName << ':' << memoryName << ',' << NewLine;
+		stream << "memory:" << memoryName << ',' << NewLine;
 	else
-		stream << memoryName << ':' << threadObject << '.' << memoryName << ',' << NewLine;
+		stream << "memory:" << threadObject << '.' << memoryName << ',' << NewLine;
 	compileImports();
 	if(globalDeps.needsBuiltin(BuiltinInstr::BUILTIN::ACOS_F))
 		stream << namegen.getBuiltinName(NameGenerator::ACOS) << ":Math.acos," << NewLine;

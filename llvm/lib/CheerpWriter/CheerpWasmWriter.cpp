@@ -5020,7 +5020,7 @@ void CheerpWasmWriter::compileImportMemory(WasmBuffer& code)
 	code.write(moduleName.data(), moduleName.size());
 
 	// Encode the field name.
-	StringRef fieldName = namegen.getBuiltinName(NameGenerator::MEMORY);
+	StringRef fieldName = "memory";
 	encodeULEB128(fieldName.size(), code);
 	code.write(fieldName.data(), fieldName.size());
 
@@ -5600,7 +5600,7 @@ void CheerpWasmWriter::compileExportSection()
 	if(exportedTable)
 	{
 		// Encode the table
-		StringRef name = "tbl";
+		StringRef name = "__indirect_function_table";
 		encodeULEB128(name.size(), section);
 		section.write(name.data(), name.size());
 		encodeULEB128(0x01, section);
@@ -5660,7 +5660,7 @@ void CheerpWasmWriter::compileExportSection()
 	else if(isCheerpOS)
 	{
 		// Make sure the stack is accessible to the CheerpOS kernel
-		ExportGlobal(section, "__stackPtr", 0);
+		ExportGlobal(section, "__stack_pointer", 0);
 	}
 
 	section.encode();

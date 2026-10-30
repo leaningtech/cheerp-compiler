@@ -74,7 +74,7 @@ llvm::cl::opt<bool> WasmNoGrowMemory("cheerp-wasm-no-grow-memory", llvm::cl::des
 
 llvm::cl::opt<bool> WasmResizableMemory("cheerp-wasm-resizable-memory", llvm::cl::desc("Use WebAssembly.Memory.toResizableBuffer and length-tracking heap views. Allows memory growth with shared memory"));
 
-llvm::cl::opt<bool> WasmExportedTable("cheerp-wasm-exported-table", llvm::cl::desc("Export the function table from the wasm module as 'tbl'"));
+llvm::cl::opt<bool> WasmExportedTable("cheerp-wasm-exported-table", llvm::cl::desc("Export the function table from the wasm module as '__indirect_function_table'"));
 
 llvm::cl::opt<bool> WasmExportedMemory("cheerp-wasm-exported-memory", llvm::cl::desc("Export the memory from the wasm module as 'memory'"));
 
