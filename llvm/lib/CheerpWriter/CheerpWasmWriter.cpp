@@ -2785,6 +2785,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 					}
 					case Intrinsic::memmove:
 					{
+						assert(ci.getArgOperand(2)->getType()->isIntegerTy(32));
 						compileOperand(code, ci.op_begin()->get());
 						compileOperand(code, (ci.op_begin() + 1)->get());
 						compileOperand(code, (ci.op_begin() + 2)->get());
@@ -2799,6 +2800,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 					}
 					case Intrinsic::memcpy:
 					{
+						assert(ci.getArgOperand(2)->getType()->isIntegerTy(32));
 						compileOperand(code, ci.op_begin()->get());
 						compileOperand(code, (ci.op_begin() + 1)->get());
 						compileOperand(code, (ci.op_begin() + 2)->get());
@@ -2813,6 +2815,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 					}
 					case Intrinsic::memset:
 					{
+						assert(ci.getArgOperand(2)->getType()->isIntegerTy(32));
 						compileOperand(code, ci.op_begin()->get());
 						compileOperand(code, (ci.op_begin() + 1)->get());
 						compileOperand(code, (ci.op_begin() + 2)->get());
