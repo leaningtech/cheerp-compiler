@@ -1310,12 +1310,16 @@ bool replaceCallOfBitCastWithBitCastOfCall(CallBase& callInst, bool mayFail, boo
 
 	const bool returnTypeChanged = (oldReturnType != newReturnType);
 	if (returnTypeChanged)
+	{
+		if (newReturnType->isVoidTy())
+			callInst.setName("");
 		callInst.mutateType(newReturnType);
-	if (returnTypeChanged && !oldReturnType->isVoidTy() && !newReturnType->isVoidTy())
+	}
+	if (returnTypeChanged && !oldReturnType->isVoidTy())
 	{
 		//getOrCreateNextInsertPoint might possibly create a forwarding BB for InvokeInst
 		Value* n = addCast(&callInst, newReturnType, oldReturnType, getOrCreateNextInsertPoint(callInst));
-		if ((oldReturnType->isPointerTy() && newReturnType->isIntegerTy()) || (oldReturnType->isIntegerTy() && newReturnType->isPointerTy())) {
+		if (newReturnType->isVoidTy() || (oldReturnType->isPointerTy() && newReturnType->isIntegerTy()) || (oldReturnType->isIntegerTy() && newReturnType->isPointerTy())) {
 			NewAttrs = NewAttrs.removeAttributesAtIndex(callInst.getContext(), AttributeList::ReturnIndex);
 		}
 		if (n != &callInst)
