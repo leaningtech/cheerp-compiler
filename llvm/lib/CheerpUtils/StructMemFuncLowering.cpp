@@ -24,6 +24,24 @@ using namespace llvm;
 
 const unsigned INLINE_WRITE_LOOP_MAX = 128;
 
+// NOTE: In linear memory the mem intrinsics that are not expanded become calls to the libc functions,
+//       whose length is a 32-bit size_t. Optimizations may still create them with an i64 length.
+static void truncateLengthToI32(CallInst* CI)
+{
+	Value* size = CI->getArgOperand(2);
+	if(size->getType()->isIntegerTy(32))
+		return;
+	IRBuilder<> IRB(CI);
+	CI->setArgOperand(2, IRB.CreateTrunc(size, IRB.getInt32Ty()));
+	SmallVector<Type*, 3> overloadTypes;
+	overloadTypes.push_back(CI->getArgOperand(0)->getType());
+	if(isa<MemTransferInst>(CI))
+		overloadTypes.push_back(CI->getArgOperand(1)->getType());
+	overloadTypes.push_back(IRB.getInt32Ty());
+	Function* F = CI->getCalledFunction();
+	CI->setCalledFunction(Intrinsic::getDeclaration(F->getParent(), F->getIntrinsicID(), overloadTypes));
+}
+
 uint32_t StructMemFuncLowering::computeElemAlign(uint32_t baseAlign, uint32_t baseOffset)
 {
 	uint32_t ret = baseAlign;
@@ -417,6 +435,8 @@ bool StructMemFuncLowering::runOnBlock(BasicBlock& BB, bool asmjs)
 			mode = MEMSET;
 		if(mode==NONE)
 			continue;
+		if(asmjs)
+			truncateLengthToI32(CI);
 		Type* pointedType = CI->getParamElementType(0);
 		assert(pointedType);
 		uint32_t alignInt = 0;
