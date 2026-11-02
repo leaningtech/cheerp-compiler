@@ -3417,11 +3417,11 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
       assert(FD);
       ParentMap PM(FD->getBody());
       const Stmt* parent=PM.getParent(E);
-      // We need an explicit cast after the call, void* can't be used
+      // We need an explicit cast to a typed pointer after the call, void* and integers can't be used
       llvm::Type *Tys[] = { VoidPtrTy, VoidPtrTy };
       const CastExpr* retCE=dyn_cast_or_null<CastExpr>(parent);
       llvm::Type *elementType = nullptr;
-      if (!retCE || retCE->getType()->isVoidPointerType()) {
+      if (!retCE || !retCE->getType()->isPointerType() || retCE->getType()->isVoidPointerType()) {
         CGM.getDiags().Report(E->getBeginLoc(), diag::err_cheerp_alloc_requires_cast);
       } else {
         QualType returnType=retCE->getType();
@@ -12746,11 +12746,11 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
     // look at ParentMap, it doesn't seem to ever modify what's passed to it
     ParentMap PM(FD ? FD->getBody() : const_cast<Expr*>(VD->getInit()));
     const Stmt* parent=PM.getParent(E);
-    // We need an explicit cast after the call, void* can't be used
+    // We need an explicit cast to a typed pointer after the call, void* and integers can't be used
     const CastExpr* retCE=dyn_cast_or_null<CastExpr>(parent);
     llvm::Type* elementType = nullptr;
     unsigned AS = 0;
-    if (!retCE || retCE->getType()->isVoidPointerType()) {
+    if (!retCE || !retCE->getType()->isPointerType() || retCE->getType()->isVoidPointerType()) {
       if (!asmjs) {
         CGM.getDiags().Report(E->getBeginLoc(), diag::err_cheerp_alloc_requires_cast);
         return 0;
@@ -12775,11 +12775,11 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
     // See malloc for note on const_cast
     ParentMap PM(FD ? FD->getBody() : const_cast<Expr*>(VD->getInit()));
     const Stmt* parent=PM.getParent(E);
-    // We need an explicit cast after the call, void* can't be used
+    // We need an explicit cast to a typed pointer after the call, void* and integers can't be used
     const CastExpr* retCE=dyn_cast_or_null<CastExpr>(parent);
     llvm::Type* elementType = nullptr;
     unsigned AS = 0;
-    if (!retCE || retCE->getType()->isVoidPointerType()) {
+    if (!retCE || !retCE->getType()->isPointerType() || retCE->getType()->isVoidPointerType()) {
       if (!asmjs) {
         CGM.getDiags().Report(E->getBeginLoc(), diag::err_cheerp_alloc_requires_cast);
         return 0;
