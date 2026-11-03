@@ -37,7 +37,7 @@ void CheerpWriter::compileTypedArrayType(Type* t)
 	}
 }
 
-void CheerpWriter::compileSimpleType(Type* t, llvm::Value* init)
+void CheerpWriter::compileSimpleType(Type* t, llvm::Value* init, const Value* base, Type* rootType, uint32_t offset)
 {
 	assert(TypeSupport::isSimpleType(t, forceTypedArrays));
 	switch(t->getTypeID())
@@ -82,13 +82,13 @@ void CheerpWriter::compileSimpleType(Type* t, llvm::Value* init)
 		}
 		case Type::PointerTyID:
 		{
+			POINTER_KIND k = PA.getPointerKindForStoredPointer(base, rootType, offset);
 			if(init)
 			{
-				compilePointerAs(init, PA.getPointerKindForStoredType(t));
+				compilePointerAs(init, k);
 			}
 			else
 			{
-				POINTER_KIND k = PA.getPointerKindForStoredType(t);
 				if(k==COMPLETE_OBJECT)
 					stream << "null";
 				else if(k==RAW)
@@ -136,7 +136,7 @@ void CheerpWriter::compileSimpleType(Type* t, llvm::Value* init)
 	}
 }
 
-uint32_t CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style, StringRef varName, uint32_t maxDepth, uint32_t totalLiteralProperties,
+uint32_t CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style, const Value* base, Type* rootType, StringRef varName, uint32_t maxDepth, uint32_t totalLiteralProperties,
 						const AllocaStoresExtractor::OffsetToValueMap* offsetToValueMap, uint32_t offset, uint32_t& usedValuesFromMap)
 {
 	assert(!TypeSupport::isSimpleType(t, forceTypedArrays));
@@ -291,12 +291,12 @@ uint32_t CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style, Str
 			{
 				if(init)
 					usedValuesFromMap++;
-				compileSimpleType(element, init);
+				compileSimpleType(element, init, base, rootType, totalOffset);
 			}
 			else if(style == THIS_OBJ)
-				compileComplexType(element, LITERAL_OBJ, varName, nextMaxDepth, 0, offsetToValueMap, totalOffset, usedValuesFromMap);
+				compileComplexType(element, LITERAL_OBJ, base, rootType, varName, nextMaxDepth, 0, offsetToValueMap, totalOffset, usedValuesFromMap);
 			else
-				numElements += compileComplexType(element, LITERAL_OBJ, varName, nextMaxDepth, totalLiteralProperties + numElements, offsetToValueMap, totalOffset, usedValuesFromMap);
+				numElements += compileComplexType(element, LITERAL_OBJ, base, rootType, varName, nextMaxDepth, totalLiteralProperties + numElements, offsetToValueMap, totalOffset, usedValuesFromMap);
 			if(useWrapperArray)
 			{
 				if(restoreMaxDepth)
@@ -333,7 +333,9 @@ uint32_t CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style, Str
 				assert( globalDeps.needCreatePointerArray() );
 				stream << namegen.getBuiltinName(NameGenerator::Builtin::CREATE_POINTER_ARRAY) << "([],0," << at->getNumElements();
 				stream << ',';
-				if(PA.getPointerKindForStoredType(element)==COMPLETE_OBJECT)
+				// All elements share one classification, so the array's own start (index 0) is representative.
+				POINTER_KIND elementKind = PA.getPointerKindForStoredPointer(base, rootType, offset);
+				if(elementKind==COMPLETE_OBJECT)
 					stream << "null";
 				else
 					stream << "nullObj";
@@ -365,10 +367,10 @@ uint32_t CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style, Str
 					}
 					if(init)
 						usedValuesFromMap++;
-					compileSimpleType(element, init);
+					compileSimpleType(element, init, base, rootType, totalOffset);
 				}
 				else
-					numElements += compileComplexType(element, LITERAL_OBJ, varName, nextMaxDepth, totalLiteralProperties + numElements, offsetToValueMap, totalOffset, usedValuesFromMap);
+					numElements += compileComplexType(element, LITERAL_OBJ, base, rootType, varName, nextMaxDepth, totalLiteralProperties + numElements, offsetToValueMap, totalOffset, usedValuesFromMap);
 			}
 			stream << ']';
 		}
@@ -376,7 +378,7 @@ uint32_t CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style, Str
 	return shouldReturnElementsCount ? numElements : 0;
 }
 
-void CheerpWriter::compileType(Type* t, COMPILE_TYPE_STYLE style, StringRef varName, const AllocaStoresExtractor::OffsetToValueMap* offsetToValueMap)
+void CheerpWriter::compileType(Type* t, COMPILE_TYPE_STYLE style, const Value* base, Type* rootType, uint32_t offset, StringRef varName, const AllocaStoresExtractor::OffsetToValueMap* offsetToValueMap)
 {
 	if(TypeSupport::isSimpleType(t, forceTypedArrays))
 	{
@@ -388,12 +390,12 @@ void CheerpWriter::compileType(Type* t, COMPILE_TYPE_STYLE style, StringRef varN
 			if(it != offsetToValueMap->end())
 				init = it->second;
 		}
-		compileSimpleType(t, init);
+		compileSimpleType(t, init, base, rootType, offset);
 	}
 	else
 	{
 		uint32_t usedValuesFromMap = 0;
-		compileComplexType(t, style, varName, V8MaxLiteralDepth, 0, offsetToValueMap, 0, usedValuesFromMap);
+		compileComplexType(t, style, base, rootType, varName, V8MaxLiteralDepth, 0, offsetToValueMap, offset, usedValuesFromMap);
 		if(offsetToValueMap)
 			assert(offsetToValueMap->size() == usedValuesFromMap);
 	}
@@ -444,7 +446,7 @@ void CheerpWriter::compileClassConstructor(StructType* T)
 	stream << "function ";
 	stream << namegen.getConstructorName(T) << "(){" << NewLine;
 	uint32_t usedValuesFromMap;
-	compileComplexType(T, THIS_OBJ, "", V8MaxLiteralDepth, 0, nullptr, 0, usedValuesFromMap);
+	compileComplexType(T, THIS_OBJ, nullptr, T, "", V8MaxLiteralDepth, 0, nullptr, 0, usedValuesFromMap);
 	stream << '}' << NewLine;
 }
 
@@ -471,7 +473,7 @@ void CheerpWriter::compileArrayClassType(Type* T)
 	stream << "var r=[];" << NewLine;
 	stream << "for(var i=0;i<e;i++)" << NewLine;
 	stream << "r[i]=";
-	compileType(T, LITERAL_OBJ, "r[i]");
+	compileType(T, LITERAL_OBJ, nullptr, T, 0, "r[i]");
 	stream << ';' << NewLine << "return r;" << NewLine << '}' << NewLine;
 }
 
@@ -482,7 +484,7 @@ void CheerpWriter::compileResizeArrayClassType(Type* T)
 	stream << "(r,s,e){" << NewLine;
 	stream << "for(var i=s;i<e;i++)" << NewLine;
 	stream << "r[i]=";
-	compileType(T, LITERAL_OBJ, "r[i]");
+	compileType(T, LITERAL_OBJ, nullptr, T, 0, "r[i]");
 	stream << ';' << NewLine << "return r;" << NewLine << '}' << NewLine;
 }
 

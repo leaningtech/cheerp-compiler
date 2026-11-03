@@ -14,6 +14,7 @@
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
+#include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Value.h"
 #include "llvm/IR/Function.h"
@@ -264,13 +265,14 @@ class PointerAnalyzer
 {
 public:
 	PointerAnalyzer() :
-		status(MODIFIABLE), PACache(status)
+		status(MODIFIABLE), PACache(status), targetData(nullptr)
 	{
 	}
 	PointerAnalyzer(const PointerAnalyzer& other) : PointerAnalyzer()
 	{
 		PACache = other.PACache;
 		status = other.status;
+		targetData = other.targetData;
 	}
 
 	void prefetchFunc( const llvm::Function & ) const;
@@ -279,13 +281,14 @@ public:
 	POINTER_KIND getPointerKindAssert(const llvm::Value* v) const;
 	POINTER_KIND getPointerKind(const llvm::Value* v) const;
 	POINTER_KIND getPointerKindForReturn(const llvm::Function* F) const;
-	POINTER_KIND getPointerKindForStoredType( llvm::Type * pointerType ) const;
+	POINTER_KIND getPointerKindForStoredPointer( const llvm::Value* base, llvm::Type* rootType, uint32_t offset = 0 ) const;
 	POINTER_KIND getPointerKindForMemberPointer( const TypeAndIndex& baseAndIndex ) const;
 	POINTER_KIND getPointerKindForMember( const TypeAndIndex& baseAndIndex ) const;
 	POINTER_KIND getPointerKindForLoad(const llvm::LoadInst* v) const;
 	POINTER_KIND getPointerKindForStore(const llvm::StoreInst* v) const;
 	POINTER_KIND getPointerKindForArgumentTypeAndIndex( const TypeAndIndex& argTypeAndIndex ) const;
 	POINTER_KIND getPointerKindForArgument( const llvm::Argument* A ) const;
+	POINTER_KIND getPointerKindForVariadicArgument( const llvm::Value* F, const llvm::Type* pointerType ) const;
 	POINTER_KIND getPointerKindForJSExportedType (llvm::Type* pointerType) const;
 	const PointerKindWrapper& getFinalPointerKindWrapper(const llvm::Value* v ) const;
 	static TypeAndIndex getBaseStructAndIndexFromGEP( const llvm::Value* v );
@@ -382,6 +385,8 @@ public:
 	static POINTER_KIND getPointerKindForMemberImpl(const TypeAndIndex& baseAndIndex, PointerAnalyzerCache& cache);
 private:
 	const PointerConstantOffsetWrapper& getFinalPointerConstantOffsetWrapper(const llvm::Module& M, const llvm::Value*) const;
+
+	const llvm::DataLayout* targetData;
 };
 
 #ifndef NDEBUG
