@@ -700,6 +700,7 @@ public:
 	void makeJS();
 	void compileBB(const llvm::BasicBlock& BB);
 	void compileConstant(const llvm::Constant* c, PARENT_PRIORITY parentPrio = HIGHEST);
+	void compileConstantInt(const llvm::ConstantInt* i, PARENT_PRIORITY parentPrio = HIGHEST);
 	void compileOperand(const llvm::Value* v, PARENT_PRIORITY parentPrio = HIGHEST, bool allowBooleanObjects = false);
 	void compileAggregateElem(const llvm::Value* v, uint32_t structIdx, uint32_t totalIdx,  PARENT_PRIORITY parentPrio);
 	void compilePHIOfBlockFromOtherBlock(const llvm::BasicBlock* to, const llvm::BasicBlock* from);
