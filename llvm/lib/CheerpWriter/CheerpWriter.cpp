@@ -2228,7 +2228,7 @@ const Value* CheerpWriter::compileByteLayoutOffset(const Value* p, BYTE_LAYOUT_O
 	{
 		if(const ConstantInt* CI=PA.getConstantOffsetForPointer(p))
 		{
-			compileConstant(CI);
+			compileConstantInt(CI);
 		}
 		else
 		{
@@ -2306,7 +2306,7 @@ void CheerpWriter::compilePointerOffsetTyped(const Value* p, llvm::Type* element
 	else if (const ConstantInt* CI = PA.getConstantOffsetForPointer(p))
 	{
 		// Check if the offset has been constantized for this pointer
-		compileConstant(CI);
+		compileConstantInt(CI);
 	}
 	else if((isa<SelectInst> (p) && isInlineable(*cast<Instruction>(p), PA)) || (isa<ConstantExpr>(p) && cast<ConstantExpr>(p)->getOpcode() == Instruction::Select))
 	{
@@ -2697,19 +2697,7 @@ void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio
 	}
 	else if(isa<ConstantInt>(c))
 	{
-		const ConstantInt* i=cast<ConstantInt>(c);
-		if(i->getBitWidth()>=32)
-		{
-			if(parentPrio > LOWEST && i->isNegative())
-				stream << ' ';
-			stream << i->getSExtValue();
-		}
-		else
-			stream << i->getZExtValue();
-		if(i->getBitWidth()==64)
-		{
-			stream << 'n';
-		}
+		compileConstantInt(cast<ConstantInt>(c), parentPrio);
 	}
 	else if(isa<ConstantPointerNull>(c))
 	{
@@ -2767,6 +2755,22 @@ void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio
 	{
 		llvm::errs() << "Unsupported constant type " << *c << "\n";
 		stream << "null";
+	}
+}
+
+void CheerpWriter::compileConstantInt(const ConstantInt* i, PARENT_PRIORITY parentPrio)
+{
+	if(i->getBitWidth()>=32)
+	{
+		if(parentPrio > LOWEST && i->isNegative())
+			stream << ' ';
+		stream << i->getSExtValue();
+	}
+	else
+		stream << i->getZExtValue();
+	if(i->getBitWidth()==64)
+	{
+		stream << 'n';
 	}
 }
 
@@ -3908,7 +3912,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			{
 				// Special case negative constants, print them directly without adding an operator
 				// NOTE: i8/i16 constants are always zero extended
-				compileConstant(cast<ConstantInt>(rhs), LOWEST);
+				compileConstantInt(cast<ConstantInt>(rhs), LOWEST);
 			}
 			else
 			{
