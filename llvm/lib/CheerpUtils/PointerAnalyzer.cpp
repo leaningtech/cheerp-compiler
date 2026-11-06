@@ -1649,7 +1649,7 @@ POINTER_KIND PointerAnalyzer::getPointerKindForStoredPointer(const Value* base, 
 	(void)base;
 
 	assert(!base || base->getType()->getPointerElementType() == rootType);
-	assert(base || rootType->isStructTy() || rootType->isArrayTy());
+	assert(base || rootType->isPointerTy() || rootType->isStructTy() || rootType->isArrayTy());
 
 	Type* storedType = rootType;
 	APInt apOffset(64, offset);
