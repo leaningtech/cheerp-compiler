@@ -513,41 +513,41 @@ bool StructMemFuncLowering::runOnBlock(BasicBlock& BB, bool asmjs)
 			} else if (effectiveAlignInt % 2 == 0 && sizeInt >= 2) {
 				pointedType = IntegerType::get(BB.getContext(), 16);
 				elemSize = 2;
+			} else {
+				pointedType = IntegerType::get(BB.getContext(), 8);
 			}
-			if (elemSize > 1) {
-				// Unroll small loops
-				// NOTE: Moving more than 1 element per iteration is only safe if there is no overlapping
-				if(mode != MEMMOVE && (sizeInt / elemSize <= 3)) {
-					// Unrolling works by forging a virtual [N x pointedType] array for the memory
-					pointedType = ArrayType::get(pointedType, sizeInt / elemSize);
-					// The elem size is the whole array size, there may be an extra tail
-					elemSize = sizeInt - (sizeInt % elemSize);
-				}
-				IRBuilder<> IRB(CI);
-				dst = IRB.CreateBitCast(dst, pointedType->getPointerTo(AS));
-				// In MEMSET mode src is the i8 value to write
+			// Unroll small loops
+			// NOTE: Moving more than 1 element per iteration is only safe if there is no overlapping
+			if(elemSize > 1 && mode != MEMMOVE && (sizeInt / elemSize <= 3)) {
+				// Unrolling works by forging a virtual [N x pointedType] array for the memory
+				pointedType = ArrayType::get(pointedType, sizeInt / elemSize);
+				// The elem size is the whole array size, there may be an extra tail
+				elemSize = sizeInt - (sizeInt % elemSize);
+			}
+			IRBuilder<> IRB(CI);
+			dst = IRB.CreateBitCast(dst, pointedType->getPointerTo(AS));
+			// In MEMSET mode src is the i8 value to write
+			if(mode != MEMSET)
+				src = IRB.CreateBitCast(src, pointedType->getPointerTo(AS));
+			// We have found a good alignment above, check if we need to split the intrinsic to deal with an unaligned tail
+			if(uint32_t tailSize = sizeInt % elemSize) {
+				IRBuilder<> IRB(CI->getNextNode());
+				uint32_t skipCount = sizeInt / elemSize;
+				llvm::Value* tailDst = IRB.CreateGEP(pointedType, dst, ConstantInt::get(int32Type, skipCount));
+				llvm::Value* tailSrc = src;
 				if(mode != MEMSET)
-					src = IRB.CreateBitCast(src, pointedType->getPointerTo(AS));
-				// We have found a good alignment above, check if we need to split the intrinsic to deal with an unaligned tail
-				if(uint32_t tailSize = sizeInt % elemSize) {
-					IRBuilder<> IRB(CI->getNextNode());
-					uint32_t skipCount = sizeInt / elemSize;
-					llvm::Value* tailDst = IRB.CreateGEP(pointedType, dst, ConstantInt::get(int32Type, skipCount));
-					llvm::Value* tailSrc = src;
-					if(mode != MEMSET)
-						tailSrc = IRB.CreateGEP(pointedType, src, ConstantInt::get(int32Type, skipCount));
-					uint32_t newAlign = alignInt;
-					// The tail operation starts at a multiple of elemSize
-					while(elemSize % newAlign != 0)
-						newAlign /= 2;
-					if(mode == MEMCPY)
-						IRB.CreateMemCpy(tailDst, MaybeAlign(newAlign), tailSrc, MaybeAlign(newAlign), tailSize);
-					else if(mode == MEMMOVE)
-						IRB.CreateMemMove(tailDst, MaybeAlign(newAlign), tailSrc, MaybeAlign(newAlign), tailSize);
-					else //if(mode == MEMSET)
-						IRB.CreateMemSet(tailDst, tailSrc, tailSize, MaybeAlign(newAlign));
-					size = ConstantInt::get(int32Type, sizeInt - tailSize);
-				}
+					tailSrc = IRB.CreateGEP(pointedType, src, ConstantInt::get(int32Type, skipCount));
+				uint32_t newAlign = alignInt;
+				// The tail operation starts at a multiple of elemSize
+				while(elemSize % newAlign != 0)
+					newAlign /= 2;
+				if(mode == MEMCPY)
+					IRB.CreateMemCpy(tailDst, MaybeAlign(newAlign), tailSrc, MaybeAlign(newAlign), tailSize);
+				else if(mode == MEMMOVE)
+					IRB.CreateMemMove(tailDst, MaybeAlign(newAlign), tailSrc, MaybeAlign(newAlign), tailSize);
+				else //if(mode == MEMSET)
+					IRB.CreateMemSet(tailDst, tailSrc, tailSize, MaybeAlign(newAlign));
+				size = ConstantInt::get(int32Type, sizeInt - tailSize);
 			}
 		}
 		//First of all split the original block
