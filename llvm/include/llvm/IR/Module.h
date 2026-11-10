@@ -444,7 +444,7 @@ public:
 
   /// Look up the specified global in the module symbol table. If required, this
   /// overload constructs the global variable using its constructor's defaults.
-  Constant *getOrInsertGlobal(StringRef Name, Type *Ty);
+  Constant *getOrInsertGlobal(StringRef Name, Type *Ty, unsigned AS = 0);
 
 /// @}
 /// @name Global Alias Accessors
