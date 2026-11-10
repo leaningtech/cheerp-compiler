@@ -517,7 +517,7 @@ EmitMaterializeTemporaryExpr(const MaterializeTemporaryExpr *M) {
     llvm::Type *TemporaryType = ConvertTypeForMem(E->getType());
     Object = Address(llvm::ConstantExpr::getBitCast(
                          cast<llvm::Constant>(Object.getPointer()),
-                         TemporaryType->getPointerTo()),
+                         TemporaryType->getPointerTo(Object.getAddressSpace())),
                      TemporaryType,
                      Object.getAlignment());
     // If the temporary is a global and has a constant initializer or is a
