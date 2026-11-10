@@ -2574,8 +2574,10 @@ bool LLParser::parseType(Type *&Result, const Twine &Msg, bool AllowVoid) {
     }
     break;
   case lltok::lbrace:
+  case lltok::kw_bytelayout:
+  case lltok::kw_asmjs:
   case lltok::kw_directbase:
-    // Type ::= StructType
+    // Type ::= StructPrefix StructType
     if (parseAnonStructType(Result, false))
       return true;
     break;
@@ -2927,12 +2929,45 @@ bool LLParser::parseFunctionType(Type *&Result) {
 /// parseAnonStructType - parse an anonymous struct type, which is inlined into
 /// other structs.
 bool LLParser::parseAnonStructType(Type *&Result, bool Packed) {
+  bool ByteLayout = false, AsmJS = false;
+  StructType *DirectBase = nullptr;
+  // NOTE: The '<' of a packed struct follows the prefix, so the caller has
+  // consumed it only when there is no prefix.
+  bool PackedAfterPrefix = false;
+  if (!Packed) {
+    if (parseStructPrefix(ByteLayout, AsmJS, DirectBase))
+      return true;
+    PackedAfterPrefix = EatIfPresent(lltok::less);
+  }
+
   SmallVector<Type*, 8> Elts;
-  Type* DirectBaseTy = nullptr;
-  if (parseStructBody(Elts, DirectBaseTy))
+  if (parseStructBody(Elts) ||
+      (PackedAfterPrefix &&
+       parseToken(lltok::greater, "expected '>' at end of packed struct")))
     return true;
 
-  Result = StructType::get(Context, Elts, Packed, DirectBaseTy? cast<StructType>(DirectBaseTy):nullptr);
+  Result = StructType::get(Context, Elts, Packed || PackedAfterPrefix,
+                           DirectBase, ByteLayout, AsmJS);
+  return false;
+}
+
+/// parseStructPrefix - parse the Cheerp attributes that precede a struct body.
+///   StructPrefix ::= 'bytelayout'? 'asmjs'? ('directbase' Type)?
+bool LLParser::parseStructPrefix(bool &ByteLayout, bool &AsmJS,
+                                 StructType *&DirectBase) {
+  ByteLayout = EatIfPresent(lltok::kw_bytelayout);
+  AsmJS = EatIfPresent(lltok::kw_asmjs);
+  DirectBase = nullptr;
+  if (!EatIfPresent(lltok::kw_directbase))
+    return false;
+
+  LocTy BaseLoc = Lex.getLoc();
+  Type *BaseTy = nullptr;
+  if (parseType(BaseTy, "expected directbase type"))
+    return true;
+  DirectBase = dyn_cast<StructType>(BaseTy);
+  if (!DirectBase)
+    return error(BaseLoc, "directbase must be a struct type");
   return false;
 }
 
@@ -2957,11 +2992,10 @@ bool LLParser::parseStructDefinition(SMLoc TypeLoc, StringRef Name,
     return false;
   }
 
-  // Read if the type has byte layout
-  bool hasByteLayout = EatIfPresent(lltok::kw_bytelayout);
-
-  // Read if the type is asmjs
-  bool hasAsmJS = EatIfPresent(lltok::kw_asmjs);
+  bool hasByteLayout, hasAsmJS;
+  StructType *DirectBase;
+  if (parseStructPrefix(hasByteLayout, hasAsmJS, DirectBase))
+    return true;
 
   // If the type starts with '<', then it is either a packed struct or a vector.
   bool isPacked = EatIfPresent(lltok::less);
@@ -2969,7 +3003,7 @@ bool LLParser::parseStructDefinition(SMLoc TypeLoc, StringRef Name,
   // If we don't have a struct, then we have a random type alias, which we
   // accept for compatibility with old files.  These types are not allowed to be
   // forward referenced and not allowed to be recursive.
-  if (Lex.getKind() != lltok::lbrace && Lex.getKind() != lltok::kw_directbase) {
+  if (Lex.getKind() != lltok::lbrace) {
     if (Entry.first)
       return error(TypeLoc, "forward references to non-struct type");
 
@@ -2989,14 +3023,11 @@ bool LLParser::parseStructDefinition(SMLoc TypeLoc, StringRef Name,
   StructType *STy = cast<StructType>(Entry.first);
 
   SmallVector<Type*, 8> Body;
-  Type* DirectBaseTy = nullptr;
-  if (parseStructBody(Body, DirectBaseTy) ||
+  if (parseStructBody(Body) ||
       (isPacked && parseToken(lltok::greater, "expected '>' in packed struct")))
     return true;
 
-  STy->setBody(Body, isPacked,
-    DirectBaseTy ? cast<StructType>(DirectBaseTy) : NULL,
-    hasByteLayout, hasAsmJS);
+  STy->setBody(Body, isPacked, DirectBase, hasByteLayout, hasAsmJS);
   ResultTy = STy;
   return false;
 }
@@ -3007,14 +3038,9 @@ bool LLParser::parseStructDefinition(SMLoc TypeLoc, StringRef Name,
 ///     ::= '{' Type (',' Type)* '}'
 ///     ::= '<' '{' '}' '>'
 ///     ::= '<' '{' Type (',' Type)* '}' '>'
-bool LLParser::parseStructBody(SmallVectorImpl<Type *> &Body, Type* &DirectBaseTy) {
-  bool isDirectBase = EatIfPresent(lltok::kw_directbase);
-  DirectBaseTy = nullptr;
-  if (isDirectBase && parseType(DirectBaseTy, Twine("expected directbase type")))
+bool LLParser::parseStructBody(SmallVectorImpl<Type *> &Body) {
+  if (parseToken(lltok::lbrace, "expected '{' in struct"))
     return true;
-
-  assert(Lex.getKind() == lltok::lbrace);
-  Lex.Lex(); // Consume the '{'
 
   // Handle the empty struct.
   if (EatIfPresent(lltok::rbrace))

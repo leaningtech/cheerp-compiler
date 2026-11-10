@@ -640,8 +640,11 @@ void TypePrinting::printStructBody(StructType *STy, raw_ostream &OS) {
     return;
   }
 
-  if(STy->hasDirectBase())
-    OS << "directbase %" << STy->getDirectBase()->getName() << " ";
+  if(STy->hasDirectBase()) {
+    OS << "directbase ";
+    print(STy->getDirectBase(), OS);
+    OS << " ";
+  }
 
   if (STy->isPacked())
     OS << '<';
