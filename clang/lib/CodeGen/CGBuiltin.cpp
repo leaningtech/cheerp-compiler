@@ -2185,6 +2185,23 @@ static unsigned mutateLongDoubleBuiltin(unsigned BuiltinID) {
   }
 }
 
+const Expr *CodeGenFunction::EmitCheerpTypedMemIntrinsicArg(const Expr *E,
+                                                           bool asmjs) const {
+  const CastExpr *Cast = dyn_cast<CastExpr>(E);
+  if (Cast && Cast->getCastKind() == CastKind::CK_AddressSpaceConversion)
+    E = Cast->getSubExpr();
+  if (!asmjs) {
+    Cast = dyn_cast<CastExpr>(E);
+    if (!Cast || Cast->getSubExpr()->getType()->isVoidPointerType()) {
+      CGM.getDiags().Report(E->getBeginLoc(),
+                            diag::err_cheerp_memintrinsic_type_unknown);
+      return nullptr;
+    }
+    E = Cast->getSubExpr();
+  }
+  return E;
+}
+
 RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
                                         const CallExpr *E,
                                         ReturnValueSlot ReturnValue) {
@@ -3477,38 +3494,22 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
     const Expr *SrcE = E->getArg(1);
     if (!getTarget().isByteAddressable())
     {
-      // There might be an address space cast. If so, skip it
-      const CastExpr *DestCast = dyn_cast<CastExpr>(DestE);
-      const CastExpr *SrcCast = dyn_cast<CastExpr>(SrcE);
-      if (DestCast && DestCast->getCastKind() == CastKind::CK_AddressSpaceConversion) {
-        DestE = DestCast->getSubExpr();
-      }
-      if (SrcCast && SrcCast->getCastKind() == CastKind::CK_AddressSpaceConversion) {
-        SrcE = SrcCast->getSubExpr();
-      }
-    }
-    if (!asmjs && !getTarget().isByteAddressable())
-    {
-      // There must be a cast from a valid type to void*
-      const CastExpr *DestCast = dyn_cast<CastExpr>(DestE);
-      const CastExpr *SrcCast = dyn_cast<CastExpr>(SrcE);
-      if (!DestCast || DestCast->getSubExpr()->getType()->isVoidPointerType())
-        CGM.getDiags().Report(DestE->getBeginLoc(), diag::err_cheerp_memintrinsic_type_unknown);
-      else if (!SrcCast || SrcCast->getSubExpr()->getType()->isVoidPointerType())
-        CGM.getDiags().Report(SrcE->getBeginLoc(), diag::err_cheerp_memintrinsic_type_unknown);
-      else
+      const Expr *TypedDestE = EmitCheerpTypedMemIntrinsicArg(DestE, asmjs);
+      const Expr *TypedSrcE = EmitCheerpTypedMemIntrinsicArg(SrcE, asmjs);
+      if (TypedDestE)
+        DestE = TypedDestE;
+      if (TypedSrcE)
+        SrcE = TypedSrcE;
+      if (TypedDestE && TypedSrcE)
       {
-        // Discard the casts to void*
-        DestE = DestCast->getSubExpr();
-        SrcE = SrcCast->getSubExpr();
         QualType DestType = DestE->getType()->getPointeeType().getCanonicalType().getUnqualifiedType();
         QualType SrcType = SrcE->getType()->getPointeeType().getCanonicalType().getUnqualifiedType();
         if (DestType != SrcType &&
             (!SrcType->isIntegerType() || !DestType->isIntegerType() ||
              cast<llvm::IntegerType>(ConvertType(SrcType))->getBitWidth()
              != cast<llvm::IntegerType>(ConvertType(DestType))->getBitWidth()))
-          CGM.getDiags().Report(SrcE->getBeginLoc(), diag::err_cheerp_memintrinsic_same_type)
-            << SrcE->getType() << DestE->getType();
+           CGM.getDiags().Report(SrcE->getBeginLoc(), diag::err_cheerp_memintrinsic_same_type)
+             << SrcE->getType() << DestE->getType();
       }
     }
     Address Dest = EmitPointerWithAlignment(DestE);
@@ -3593,33 +3594,22 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
     const Expr *SrcE = E->getArg(1);
     if (!asmjs && !getTarget().isByteAddressable())
     {
-      // There must be a cast from a valid type to void*
-      const CastExpr *DestCast = dyn_cast<CastExpr>(DestE);
-      const CastExpr *SrcCast = dyn_cast<CastExpr>(SrcE);
-      // First, ignore any address space cast
-      if (DestCast && DestCast->getCastKind() == CK_AddressSpaceConversion) {
-        DestCast = dyn_cast<CastExpr>(DestCast->getSubExpr());
-      }
-      if (SrcCast && SrcCast->getCastKind() == CK_AddressSpaceConversion) {
-        SrcCast = dyn_cast<CastExpr>(SrcCast->getSubExpr());
-      }
-      if (!DestCast || DestCast->getSubExpr()->getType()->isVoidPointerType())
-        CGM.getDiags().Report(DestE->getBeginLoc(), diag::err_cheerp_memintrinsic_type_unknown);
-      else if (!SrcCast || SrcCast->getSubExpr()->getType()->isVoidPointerType())
-        CGM.getDiags().Report(SrcE->getBeginLoc(), diag::err_cheerp_memintrinsic_type_unknown);
-      else
+      const Expr *TypedDestE = EmitCheerpTypedMemIntrinsicArg(DestE, asmjs);
+      const Expr *TypedSrcE = EmitCheerpTypedMemIntrinsicArg(SrcE, asmjs);
+      if (TypedDestE)
+        DestE = TypedDestE;
+      if (TypedSrcE)
+        SrcE = TypedSrcE;
+      if (TypedDestE && TypedSrcE)
       {
-        // Discard the casts to void*
-        DestE = DestCast->getSubExpr();
-        SrcE = SrcCast->getSubExpr();
         QualType DestType = DestE->getType()->getPointeeType().getCanonicalType().getUnqualifiedType();
         QualType SrcType = SrcE->getType()->getPointeeType().getCanonicalType().getUnqualifiedType();
         if (DestType != SrcType &&
             (!SrcType->isIntegerType() || !DestType->isIntegerType() ||
              cast<llvm::IntegerType>(ConvertType(SrcType))->getBitWidth()
              != cast<llvm::IntegerType>(ConvertType(DestType))->getBitWidth()))
-          CGM.getDiags().Report(SrcE->getBeginLoc(), diag::err_cheerp_memintrinsic_same_type)
-            << SrcE->getType() << DestE->getType();
+           CGM.getDiags().Report(SrcE->getBeginLoc(), diag::err_cheerp_memintrinsic_same_type)
+             << SrcE->getType() << DestE->getType();
       }
     }
     Address Dest = EmitPointerWithAlignment(DestE);
@@ -3635,25 +3625,9 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
   case Builtin::BImemset:
   case Builtin::BI__builtin_memset: {
     const Expr *DestE = E->getArg(0);
-    if (!getTarget().isByteAddressable())
-    {
-      // There might be an address space cast. If so, skip it
-      const CastExpr *DestCast = dyn_cast<CastExpr>(DestE);
-      if (DestCast && DestCast->getCastKind() == CastKind::CK_AddressSpaceConversion) {
-        DestE = DestCast->getSubExpr();
-      }
-    }
-    if (!asmjs && !getTarget().isByteAddressable())
-    {
-      // There must be a cast from a valid type to void*
-      const CastExpr *DestCast = dyn_cast<CastExpr>(DestE);
-      if (!DestCast || DestCast->getSubExpr()->getType()->isVoidPointerType())
-        CGM.getDiags().Report(DestE->getBeginLoc(), diag::err_cheerp_memintrinsic_type_unknown);
-      else
-      {
-        // Discard the cast to void*
-        DestE = DestCast->getSubExpr();
-      }
+    if (!getTarget().isByteAddressable()) {
+      if (const Expr *TypedE = EmitCheerpTypedMemIntrinsicArg(DestE, asmjs))
+        DestE = TypedE;
     }
     Address Dest = EmitPointerWithAlignment(DestE);
     Value *ByteVal = Builder.CreateTrunc(EmitScalarExpr(E->getArg(1)),
