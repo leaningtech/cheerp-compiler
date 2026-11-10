@@ -426,7 +426,9 @@ namespace llvm {
       return parseType(Result, AllowVoid);
     }
     bool parseAnonStructType(Type *&Result, bool Packed);
-    bool parseStructBody(SmallVectorImpl<Type *> &Body, Type* &DirectBaseTy);
+    bool parseStructPrefix(bool &ByteLayout, bool &AsmJS,
+                           StructType *&DirectBase);
+    bool parseStructBody(SmallVectorImpl<Type *> &Body);
     bool parseStructDefinition(SMLoc TypeLoc, StringRef Name,
                                std::pair<Type *, LocTy> &Entry,
                                Type *&ResultTy);
