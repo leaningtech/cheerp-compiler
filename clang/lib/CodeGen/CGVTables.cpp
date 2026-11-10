@@ -620,6 +620,7 @@ llvm::Constant *CodeGenVTables::maybeEmitThunk(GlobalDecl GD,
     // Remove the name from the old thunk function and get a new thunk.
     OldThunkFn->setName(StringRef());
     ThunkFn = llvm::Function::Create(ThunkFnTy, llvm::Function::ExternalLinkage,
+                                     OldThunkFn->getType()->getAddressSpace(),
                                      Name.str(), &CGM.getModule());
     CGM.SetLLVMFunctionAttributes(GD, FnInfo, ThunkFn, /*IsThunk=*/false);
 

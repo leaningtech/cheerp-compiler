@@ -624,7 +624,7 @@ CodeGenFunction::GenerateVirtualcast(Address Value,
     getContext().getCanonicalType(getContext().getTagDeclType(VBase));
   llvm::Type *VBasePtrTy = ConvertType(VBaseTy);
 
-  return Address(GenerateVirtualcast(Value, VBasePtrTy->getPointerTo(), VirtualOffset), VBasePtrTy, Value.getAlignment());
+  return Address(GenerateVirtualcast(Value, VBasePtrTy->getPointerTo(Value.getAddressSpace()), VirtualOffset), VBasePtrTy, Value.getAlignment());
 }
 
 Address
