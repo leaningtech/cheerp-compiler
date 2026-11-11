@@ -286,7 +286,7 @@ public:
   unsigned getAllocaAddrSpace() const { return AllocaAddrSpace; }
 
   PointerType *getAllocaPtrType(LLVMContext &Ctx) const {
-    return PointerType::get(Ctx, AllocaAddrSpace);
+    return Type::getInt8PtrTy(Ctx, AllocaAddrSpace);
   }
 
   /// Returns the alignment of function pointers, which may or may not be
