@@ -3529,8 +3529,29 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
   }
 
   case Builtin::BI__builtin_memcpy_inline: {
-    Address Dest = EmitPointerWithAlignment(E->getArg(0));
-    Address Src = EmitPointerWithAlignment(E->getArg(1));
+    const Expr *DestE = E->getArg(0);
+    const Expr *SrcE = E->getArg(1);
+    if (!getTarget().isByteAddressable()) {
+      const Expr *TypedDestE = EmitCheerpTypedMemIntrinsicArg(DestE, asmjs);
+      const Expr *TypedSrcE = EmitCheerpTypedMemIntrinsicArg(SrcE, asmjs);
+      if (TypedDestE)
+        DestE = TypedDestE;
+      if (TypedSrcE)
+        SrcE = TypedSrcE;
+      if (TypedDestE && TypedSrcE)
+      {
+        QualType DestType = DestE->getType()->getPointeeType().getCanonicalType().getUnqualifiedType();
+        QualType SrcType = SrcE->getType()->getPointeeType().getCanonicalType().getUnqualifiedType();
+        if (DestType != SrcType &&
+            (!SrcType->isIntegerType() || !DestType->isIntegerType() ||
+             cast<llvm::IntegerType>(ConvertType(SrcType))->getBitWidth()
+             != cast<llvm::IntegerType>(ConvertType(DestType))->getBitWidth()))
+           CGM.getDiags().Report(SrcE->getBeginLoc(), diag::err_cheerp_memintrinsic_same_type)
+             << SrcE->getType() << DestE->getType();
+      }
+    }
+    Address Dest = EmitPointerWithAlignment(DestE);
+    Address Src = EmitPointerWithAlignment(SrcE);
     uint64_t Size =
         E->getArg(2)->EvaluateKnownConstInt(getContext()).getZExtValue();
     EmitNonNullArgCheck(RValue::get(Dest.getPointer()), E->getArg(0)->getType(),
