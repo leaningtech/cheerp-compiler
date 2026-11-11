@@ -304,8 +304,9 @@ StmtResult Sema::ActOnGCCAsmStmt(SourceLocation AsmLoc, bool IsSimple,
       return StmtError();
     
     // CHEERP: int64 is not really a scalar, so don't allow it in inline asm
+    // unless BigInts are used to represent it
     QualType OutTy = OutputExpr->getType().getDesugaredType(Context);
-    if(!Context.getTargetInfo().isByteAddressable() && (OutTy->isSpecificBuiltinType(BuiltinType::ULongLong) ||
+    if(!Context.getTargetInfo().isByteAddressable() && !Context.getLangOpts().isCheerpBigIntEnabled() && (OutTy->isSpecificBuiltinType(BuiltinType::ULongLong) ||
        OutTy->isSpecificBuiltinType(BuiltinType::LongLong))) {
       return StmtError(Diag(Literal->getBeginLoc(),
                             diag::err_asm_invalid_type_in_input)
@@ -452,8 +453,9 @@ StmtResult Sema::ActOnGCCAsmStmt(SourceLocation AsmLoc, bool IsSimple,
           << InputExpr->getSourceRange());
 
     // CHEERP: int64 is not really a scalar, so don't allow it in inline asm
+    // unless BigInts are used to represent it
     QualType InTy = InputExpr->getType().getDesugaredType(Context);
-    if(!Context.getTargetInfo().isByteAddressable() && (InTy->isSpecificBuiltinType(BuiltinType::ULongLong) ||
+    if(!Context.getTargetInfo().isByteAddressable() && !Context.getLangOpts().isCheerpBigIntEnabled() && (InTy->isSpecificBuiltinType(BuiltinType::ULongLong) ||
        InTy->isSpecificBuiltinType(BuiltinType::LongLong))) {
       return StmtError(Diag(Literal->getBeginLoc(),
                             diag::err_asm_invalid_type_in_input)

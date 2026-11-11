@@ -383,6 +383,14 @@ public:
     CHEERP_LINEAR_OUTPUT_AsmJs,
     CHEERP_LINEAR_OUTPUT_Invalid
   };
+
+  /// Whether i64 values are represented as JS BigInts in the generated code.
+  /// This is only relevant for Cheerp targets, and only when the linear output
+  /// is not asm.js (in asm.js output i64 values are always lowered to pairs of
+  /// i32).
+  bool isCheerpBigIntEnabled() const {
+    return CheerpUseBigInts && getCheerpLinearOutput() != CHEERP_LINEAR_OUTPUT_AsmJs;
+  }
 public:
   /// The used language standard.
   LangStandard::Kind LangStd;

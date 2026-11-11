@@ -5918,6 +5918,19 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
           CheerpLinearOutput->containsValue("asmjs"))
           CmdArgs.push_back("-fsanitize-address-aligned-poisoning");
     }
+    // Forward cheerp-use-bigints argument, but only when the backend will
+    // actually represent i64 values as BigInts (i.e. bigints are enabled and
+    // the linear output is not asm.js, where i64 is lowered to pairs of i32).
+    // This mirrors the defaulting done for the Cheerp backend jobs.
+    if (Args.hasArg(options::OPT_cheerp_use_bigints) ||
+        getToolChain().getTriple().isCheerpWasmStandalone()) {
+      bool linearOutputAsmJs =
+          CheerpLinearOutput
+              ? CheerpLinearOutput->getValue() == StringRef("asmjs")
+              : !getToolChain().getTriple().isCheerpWasm();
+      if (!linearOutputAsmJs)
+        CmdArgs.push_back("-cheerp-use-bigints");
+    }
     // Forward cheerp-no-pointer-scev argument
     if (Arg *CheerpNoPointerSCEV = Args.getLastArg(options::OPT_cheerp_no_pointer_scev)) {
       CmdArgs.push_back("-mllvm");

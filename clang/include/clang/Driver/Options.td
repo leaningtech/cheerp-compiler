@@ -5010,7 +5010,7 @@ def cheerp_wasm_disable_EQ : CommaJoined<["-"], "cheerp-wasm-disable=">, Flags<[
   HelpText<"Comma separated list of WebAssembly features to disable [sharedmem/growmem/exportedtable/exportedmemory/externref/returncalls/branchhinting/simd/globalization/unalignedmem]">;
 def cheerp_wasm_anyref : Flag<["-"], "cheerp-wasm-externref">, Flags<[CC1Option]>,
   HelpText<"Enable wasm externref and relax some ffi checks">;
-def cheerp_use_bigints : Flag<["-"], "cheerp-use-bigints">, Flags<[NoXarchOption]>,
+def cheerp_use_bigints : Flag<["-"], "cheerp-use-bigints">, Flags<[NoXarchOption, CC1Option]>,
   HelpText<"Use the BigInt type in JS to represent i64 values">;
 
 //===----------------------------------------------------------------------===//
