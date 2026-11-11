@@ -1175,6 +1175,7 @@ Function* TypeOptimizer::rewriteIntrinsic(Function* F, FunctionType* FT)
 			break;
 		}
 		case Intrinsic::memcpy:
+		case Intrinsic::memcpy_inline:
 		case Intrinsic::memmove:
 		{
 			Type* localTys[] = { FT->getParamType(0), FT->getParamType(1), FT->getParamType(2) };
@@ -1182,6 +1183,7 @@ Function* TypeOptimizer::rewriteIntrinsic(Function* F, FunctionType* FT)
 			break;
 		}
 		case Intrinsic::memset:
+		case Intrinsic::memset_inline:
 		{
 			Type* localTys[] = { FT->getParamType(0), FT->getParamType(2) };
 			newTys.insert(newTys.end(),localTys,localTys+2);
