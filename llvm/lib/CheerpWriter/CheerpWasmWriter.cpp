@@ -21,6 +21,7 @@
 #include "llvm/Cheerp/NameGenerator.h"
 #include "llvm/Cheerp/WasmWriter.h"
 #include "llvm/Cheerp/Writer.h"
+#include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/IntrinsicsWebAssembly.h"
 #include "llvm/IR/ProfDataUtils.h"
 #include "llvm/IR/Type.h"
@@ -2453,7 +2454,27 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			const Function * calledFunc = ci.getCalledFunction();
 			const Value * calledValue = ci.getCalledOperand();
 			const FunctionType* fTy = ci.getFunctionType();
-			if (ci.isInlineAsm()) return true;
+			if (ci.isInlineAsm())
+			{
+				const InlineAsm* ia = cast<InlineAsm>(calledValue);
+				if (!ia->getAsmString().empty())
+					llvm::report_fatal_error("Cheerp: Only empty inline asm statements are supported in wasm output");
+				// Empty inline asm statements are only used as compiler barriers, keep
+				// their arguments alive and render the statement itself as a nop.
+				for (auto op = ci.op_begin(); op != ci.op_begin() + fTy->getNumParams(); ++op)
+				{
+					compileOperand(code, op->get());
+					if (!op->get()->getType()->isVoidTy())
+						encodeInst(WasmOpcode::DROP, code);
+				}
+				if (!ci.getType()->isVoidTy())
+				{
+					// The result of an empty asm statement is undefined, leave a placeholder
+					compileTypedZero(code, ci.getType());
+					return false;
+				}
+				return true;
+			}
 
 			// NOTE: If 'useTailCall' the code _must_ use return_call or insert a return
 			//       Returns are not otherwise added in such cases
