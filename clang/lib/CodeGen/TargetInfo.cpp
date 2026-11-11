@@ -10255,7 +10255,8 @@ public:
       return nullptr;
     if(Constraint[0] != 'r')
       return nullptr;
-    if(Ty->isIntegerTy(64))
+    // i64 is only a scalar when BigInts are used to represent it
+    if(Ty->isIntegerTy(64) && !CGF.getLangOpts().isCheerpBigIntEnabled())
       return nullptr;
     // Only allow basic types and pointers to client objects
     if(Ty->isIntegerTy() || Ty->isFloatingPointTy() || (Ty->isPointerTy() && cheerp::TypeSupport::isClientPtrType(cast<llvm::PointerType>(Ty))))

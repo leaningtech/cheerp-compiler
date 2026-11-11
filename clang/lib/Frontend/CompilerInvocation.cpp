@@ -3304,6 +3304,8 @@ static void GenerateCheerpArgs(const LangOptions &Opts, SmallVectorImpl<const ch
     GenerateArg(Args, OPT_cheerp_linear_output_EQ, "asmjs", SA);
   if (Opts.CheerpAnyref)
     GenerateArg(Args, OPT_cheerp_wasm_anyref, SA);
+  if (Opts.CheerpUseBigInts)
+    GenerateArg(Args, OPT_cheerp_use_bigints, SA);
 }
 
 static void ParseCheerpArgs(LangOptions &Opts, ArgList &Args,
@@ -3325,6 +3327,9 @@ static void ParseCheerpArgs(LangOptions &Opts, ArgList &Args,
   }
   if (const Arg *A = Args.getLastArg(OPT_cheerp_wasm_anyref)) {
     Opts.CheerpAnyref = 1;
+  }
+  if (const Arg *A = Args.getLastArg(OPT_cheerp_use_bigints)) {
+    Opts.CheerpUseBigInts = 1;
   }
 }
 
