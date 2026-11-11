@@ -427,12 +427,23 @@ bool StructMemFuncLowering::runOnBlock(BasicBlock& BB, bool asmjs)
 			continue;
 		Function* F=CI->getCalledFunction();
 		MODE mode = NONE;
+		bool isInline = false;
 		if(F->getIntrinsicID()==Intrinsic::memcpy)
 			mode = MEMCPY;
+		else if(F->getIntrinsicID()==Intrinsic::memcpy_inline)
+		{
+			mode = MEMCPY;
+			isInline = true;
+		}
 		else if(F->getIntrinsicID()==Intrinsic::memmove)
 			mode = MEMMOVE;
 		else if(F->getIntrinsicID()==Intrinsic::memset)
 			mode = MEMSET;
+		else if(F->getIntrinsicID()==Intrinsic::memset_inline)
+		{
+			mode = MEMSET;
+			isInline = true;
+		}
 		if(mode==NONE)
 			continue;
 		Type* pointedType = CI->getParamElementType(0);
@@ -442,7 +453,7 @@ bool StructMemFuncLowering::runOnBlock(BasicBlock& BB, bool asmjs)
 		if(mode != MEMSET)
 		{
 			bool isByteLayout = isa<StructType>(pointedType) && cast<StructType>(pointedType)->hasByteLayout();
-			if(isByteLayout)
+			if(isByteLayout && !isInline)
 			{
 				if(asmjs)
 					truncateLengthToI32(CI);
@@ -479,7 +490,8 @@ bool StructMemFuncLowering::runOnBlock(BasicBlock& BB, bool asmjs)
 				useUntypedLoop = true;
 		}
 		if (asmjs && useUntypedLoop) {
-			if (!sizeConst || sizeConst->getZExtValue() > INLINE_WRITE_LOOP_MAX)
+			// The inline variants always have a constant size and must always be expanded to a loop
+			if (!sizeConst || (!isInline && sizeConst->getZExtValue() > INLINE_WRITE_LOOP_MAX))
 			{
 				truncateLengthToI32(CI);
 				continue;
