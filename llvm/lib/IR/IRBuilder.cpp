@@ -180,8 +180,11 @@ CallInst *IRBuilderBase::CreateMemSetInline(Value *Dst, MaybeAlign DstAlign,
                                             Value *Val, Value *Size,
                                             bool IsVolatile, MDNode *TBAATag,
                                             MDNode *ScopeTag,
-                                            MDNode *NoAliasTag) {
-  Dst = getCastedInt8PtrValue(Dst);
+                                            MDNode *NoAliasTag,
+                                            CheerpTypeInfo cheerpInfo) {
+  checkTypeInfo(cheerpInfo);
+  if (cheerpInfo.needsInt8PtrCast)
+    Dst = getCastedInt8PtrValue(Dst);
   Value *Ops[] = {Dst, Val, Size, getInt1(IsVolatile)};
   Type *Tys[] = {Dst->getType(), Size->getType()};
   Module *M = BB->getParent()->getParent();
@@ -201,6 +204,14 @@ CallInst *IRBuilderBase::CreateMemSetInline(Value *Dst, MaybeAlign DstAlign,
 
   if (NoAliasTag)
     CI->setMetadata(LLVMContext::MD_noalias, NoAliasTag);
+
+  if (cheerpInfo.isCheerp) {
+    Type* elementType = cheerpInfo.needsInt8PtrCast ? getInt8Ty() : cheerpInfo.elementType;
+    CI->addParamAttr(0, llvm::Attribute::get(CI->getContext(), llvm::Attribute::ElementType, elementType));
+
+    if (!Ops[0]->getType()->isOpaquePointerTy())
+      assert(elementType == Ops[0]->getType()->getNonOpaquePointerElementType());
+  }
 
   return CI;
 }
