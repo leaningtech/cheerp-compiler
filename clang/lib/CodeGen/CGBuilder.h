@@ -346,10 +346,11 @@ public:
 
   using CGBuilderBaseTy::CreateMemSetInline;
   llvm::CallInst *CreateMemSetInline(Address Dest, llvm::Value *Value,
-                                     uint64_t Size) {
+                                     uint64_t Size, bool byteLayout = true) {
     return CreateMemSetInline(Dest.getPointer(),
                               Dest.getAlignment().getAsAlign(), Value,
-                              getInt64(Size));
+                              getInt64(Size), false, NULL, NULL, NULL,
+                              CheerpTypeInfo::get(byteLayout, Dest.getElementType()));
   }
 
   using CGBuilderBaseTy::CreatePreserveStructAccessIndex;

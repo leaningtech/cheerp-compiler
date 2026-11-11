@@ -623,7 +623,8 @@ public:
                                Value *Size, bool IsVolatile = false,
                                MDNode *TBAATag = nullptr,
                                MDNode *ScopeTag = nullptr,
-                               MDNode *NoAliasTag = nullptr);
+                               MDNode *NoAliasTag = nullptr,
+                               CheerpTypeInfo cheerpInfo = CheerpTypeInfo());
 
   /// Create and insert an element unordered-atomic memset of the region of
   /// memory starting at the given pointer to the given value.
