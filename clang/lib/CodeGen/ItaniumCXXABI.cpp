@@ -1472,7 +1472,7 @@ void ItaniumCXXABI::emitThrow(CodeGenFunction &CGF, const CXXThrowExpr *E) {
 
   llvm::Value* ExPtr = CGF.Builder.CreateBitCast(ExceptionPtr, CGM.Int8PtrTy);
   llvm::Value *args[] = { ExPtr, TypeInfo, Dtor };
-  bool asmjs = CGF.CurFn->getSection() == "asmjs";
+  bool asmjs = CGF.isAsmJSContext();
   CGF.EmitNoreturnRuntimeCallOrInvoke(getThrowFn(CGM, asmjs), args);
 }
 
@@ -4933,7 +4933,7 @@ namespace {
 static llvm::Value *CallBeginCatch(CodeGenFunction &CGF,
                                    llvm::Value *Exn,
                                    bool EndMightThrow) {
-  bool asmjs = CGF.CurFn->getSection() == "asmjs";
+  bool asmjs = CGF.isAsmJSContext();
   llvm::CallInst *call =
     CGF.EmitNounwindRuntimeCall(getBeginCatchFn(CGF.CGM, asmjs), Exn);
 
@@ -5086,7 +5086,7 @@ static void InitCatchParam(CodeGenFunction &CGF,
     return;
   }
 
-  bool asmjs = CGF.CurFn->getSection() == "asmjs";
+  bool asmjs = CGF.isAsmJSContext();
   // We have to call __cxa_get_exception_ptr to get the adjusted
   // pointer before copying.
   llvm::CallInst *rawAdjustedExn =

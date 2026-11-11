@@ -250,7 +250,7 @@ CodeGenFunction::GetAddressOfDirectBaseInCompleteClass(Address This,
   // 'this' must be a pointer (in some address space) to Derived.
   assert(This.getElementType() == ConvertType(Derived));
 
-  bool asmjs = CurFn->getSection() == StringRef("asmjs");
+  bool asmjs = isAsmJSContext();
 
   // Compute the offset of the virtual base.
   CharUnits Offset;
@@ -422,7 +422,7 @@ Address CodeGenFunction::GetAddressOfBaseClass(
       CGM.getCXXABI().GetVirtualBaseClassOffset(*this, Value, Derived, VBase);
   }
 
-  bool asmjs = CurFn->getSection() == StringRef("asmjs");
+  bool asmjs = isAsmJSContext();
   // First handle the non-byte addressable case (Cheerp normal)
   if (!getTarget().isByteAddressable() && !asmjs)
   {
@@ -644,7 +644,7 @@ CodeGenFunction::GetAddressOfDerivedClass(Address BaseAddr,
   llvm::Value *NonVirtualOffset =
     CGM.GetNonVirtualBaseClassOffset(Derived, PathBegin, PathEnd);
 
-  bool asmjs = CurFn->getSection() == StringRef("asmjs");
+  bool asmjs = isAsmJSContext();
   if (!NonVirtualOffset) {
     // No offset, we can just cast back.
     if(getTarget().isByteAddressable() || asmjs) {

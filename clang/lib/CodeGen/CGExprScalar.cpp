@@ -2066,7 +2066,7 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
   case CK_ObjCObjectLValueCast: {
     Address Addr = EmitLValue(E).getAddress(CGF);
     llvm::Type* DestType = ConvertType(CGF.getContext().getPointerType(DestTy));
-    bool asmjs = CGF.CurFn && CGF.CurFn->getSection()==StringRef("asmjs");
+    bool asmjs = CGF.isAsmJSContext();
     if (CGF.getTarget().isByteAddressable() || DestType==Addr.getType() || asmjs)
     {
       Addr = Builder.CreateElementBitCast(Addr, CGF.ConvertTypeForMem(DestTy));
@@ -2076,8 +2076,7 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
 	
       llvm::Function* intrinsic = CGF.CGM.GetUserCastIntrinsic(CE,
 		      CGF.getContext().getPointerType(E->getType()),
-		      CGF.getContext().getPointerType(DestTy),
-		      asmjs);
+		      CGF.getContext().getPointerType(DestTy));
       llvm::CallBase* CB = Builder.CreateCall(intrinsic, Addr.getPointer());
       CB->addParamAttr(0, llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, Addr.getElementType()));
       Addr = Address(CB, CGF.ConvertTypeForMem(DestTy), Addr.getAlignment());
@@ -2218,7 +2217,7 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
       return EmitLoadOfLValue(DestLV, CE->getExprLoc());
     }
 
-    bool asmjs = CGF.CurFn && CGF.CurFn->getSection() == StringRef("asmjs");
+    bool asmjs = CGF.isAsmJSContext();
     bool srcIsFunc = E->getType()->isFunctionPointerType();
     bool dstIsFunc = DestTy->isFunctionPointerType();
     //We don't care about casts to functions types
@@ -2237,7 +2236,7 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
     }
     else
     {
-      llvm::Function* intrinsic = CGF.CGM.GetUserCastIntrinsic(CE, E->getType(), DestTy, asmjs);
+      llvm::Function* intrinsic = CGF.CGM.GetUserCastIntrinsic(CE, E->getType(), DestTy);
       llvm::CallBase* CB = Builder.CreateCall(intrinsic, Src);
       llvm::Type* SrcPointeeTy = ConvertType(E->getType()->getPointeeType());
       CB->addParamAttr(0, llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, SrcPointeeTy));
@@ -2258,7 +2257,7 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
           ConvertType(DestTy)), DestTy);
     }
 
-    bool asmjs = CGF.CurFn && CGF.CurFn->getSection() == StringRef("asmjs");
+    bool asmjs = CGF.isAsmJSContext();
     bool srcIsFunc = E->getType()->isFunctionPointerType();
     bool dstIsFunc = DestTy->isFunctionPointerType();
     if (srcIsFunc && !dstIsFunc && !asmjs)
@@ -2402,7 +2401,7 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
       Builder.CreateIntCast(Src, MiddleTy, InputSigned, "conv");
 
     auto *IntToPtr = Builder.CreateIntToPtr(IntResult, DestLLVMTy);
-    bool asmjs = CGF.CurFn && CGF.CurFn->getSection() == StringRef("asmjs");
+    bool asmjs = CGF.isAsmJSContext();
 
     if (CGF.getLangOpts().Cheerp && !asmjs) {
       EmitElementTypeIntrinsic(IntToPtr, DestTy);
@@ -2429,7 +2428,7 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
         PtrExpr = Builder.CreateStripInvariantGroup(PtrExpr);
     }
 
-    bool asmjs = CGF.CurFn && CGF.CurFn->getSection() == StringRef("asmjs");
+    bool asmjs = CGF.isAsmJSContext();
 
     if (CGF.getLangOpts().Cheerp && !asmjs) {
       EmitElementTypeIntrinsic(PtrExpr, E->getType());
@@ -4112,7 +4111,7 @@ Value *ScalarExprEmitter::EmitSub(const BinOpInfo &op) {
   Value *LHSVal = op.LHS;
   Value *RHSVal = op.RHS;
 
-  bool asmjs = CGF.CurFn && CGF.CurFn->getSection() == StringRef("asmjs");
+  bool asmjs = CGF.isAsmJSContext();
 
   if (CGF.getLangOpts().Cheerp && !asmjs) {
     EmitElementTypeIntrinsic(LHSVal, expr->getLHS()->getType());
@@ -4472,7 +4471,7 @@ Value *ScalarExprEmitter::EmitCompare(const BinaryOperator *E,
           RHS = Builder.CreateStripInvariantGroup(RHS);
       }
 
-      bool asmjs = CGF.CurFn && CGF.CurFn->getSection() == StringRef("asmjs");
+      bool asmjs = CGF.isAsmJSContext();
 
       if (CGF.getLangOpts().Cheerp && !asmjs) {
         if (LHSTy->isPointerType())

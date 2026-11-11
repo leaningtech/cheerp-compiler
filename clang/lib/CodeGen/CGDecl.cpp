@@ -1160,7 +1160,7 @@ Address CodeGenModule::createUnnamedGlobalFrom(const VarDecl &D,
     GV->setAlignment(Align.getAsAlign());
     GV->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
     //CHEERP: if function is in asmjs section, also the temporary global should
-    if (CurFn && CurFn->getSection()==StringRef("asmjs"))
+    if (getTypes().isAsmJS())
       GV->setSection("asmjs");
 
     CacheEntry = GV;
@@ -1593,7 +1593,7 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
         assert(!emission.useLifetimeMarkers());
       }
     }
-  } else if (!getTarget().isByteAddressable() && CurFn && CurFn->getSection()!=StringRef("asmjs")) {
+  } else if (!getTarget().isByteAddressable() && !isAsmJSContext()) {
     EnsureInsertPoint();
 
     auto vlaData = getVLASize(Ty);
