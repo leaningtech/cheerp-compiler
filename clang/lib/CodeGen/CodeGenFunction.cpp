@@ -327,6 +327,8 @@ static void EmitIfUsed(CodeGenFunction &CGF, llvm::BasicBlock *BB) {
 }
 
 void CodeGenFunction::FinishFunction(SourceLocation EndLoc) {
+  assert((CurFn->getSection() == "asmjs") == isAsmJSContext() &&
+         "the section of a function changed while emitting it");
   assert(BreakContinueStack.empty() &&
          "mismatched push/pop in break/continue stack!");
 
@@ -707,6 +709,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
   CurFuncDecl = (D ? D->getNonClosureContext() : nullptr);
   FnRetTy = RetTy;
   CurFn = Fn;
+  CheerpSection.emplace(CGM.getTypes(), CurFn->getSection() == "asmjs");
   CurFnInfo = &FnInfo;
   assert(CurFn->isDeclaration() && "Function already has body?");
 
