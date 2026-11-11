@@ -480,6 +480,40 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 						ci->eraseFromParent();
 						continue;
 					}
+					if(II == Intrinsic::fshl)
+					{
+						if (!llcPass)
+							continue;
+
+						Type* t = ci->getType();
+						assert(t->isIntegerTy());
+						const unsigned bitWidth = t->getIntegerBitWidth();
+						assert((bitWidth & (bitWidth - 1)) == 0);
+
+						Value* A = ci->getOperand(0);
+						Value* B = ci->getOperand(1);
+						Value* C = ci->getOperand(2);
+
+						// The shift amount is taken modulo the bit width
+						Value* shift = BinaryOperator::CreateAnd(C, ConstantInt::get(t, bitWidth - 1), "fshl_shift", ci);
+						Value* sub = BinaryOperator::CreateSub(ConstantInt::get(t, bitWidth), shift, "fshl_sub", ci);
+						Instruction* shl = BinaryOperator::CreateShl(A, shift, "fshl_shl", ci);
+						Instruction* lshr = BinaryOperator::CreateLShr(B, sub, "fshl_lshr", ci);
+						Instruction* orr = BinaryOperator::CreateOr(shl, lshr, "fshl_or", ci);
+						// When shift == 0 the lshr amount is the full bit width (poison), the result is just A
+						Instruction* isZero = ICmpInst::Create(Instruction::ICmp, ICmpInst::ICMP_EQ, shift, ConstantInt::get(t, 0), "fshl_iszero", ci);
+						Instruction* res = SelectInst::Create(isZero, A, orr, "fshl_select", ci);
+
+						ci->replaceAllUsesWith(res);
+
+						//Set up loop variable, so the next loop will check and possibly expand newCall
+						--instructionIterator;
+						advance = false;
+						assert(&*instructionIterator == res);
+
+						ci->eraseFromParent();
+						continue;
+					}
 					auto ReplaceUsesForOverflow = [](CallInst* ci, Value* val, Value* overflow)
 					{
 						Value* newAggregate = UndefValue::get(ci->getType());
