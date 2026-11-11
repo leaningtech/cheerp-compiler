@@ -513,7 +513,7 @@ void AggExprEmitter::EmitArrayInit(Address DestPtr, llvm::ArrayType *AType,
       Emitter.finalize(GV);
       CharUnits Align = CGM.getContext().getTypeAlignInChars(ArrayQTy);
       GV->setAlignment(Align.getAsAlign());
-      if(CGF.CurFn->getSection() == StringRef("asmjs"))
+      if(CGF.isAsmJSContext())
         GV->setSection("asmjs");
       Address GVAddr(GV, GV->getValueType(), Align);
       EmitFinalDestCopy(ArrayQTy, CGF.MakeAddrLValue(GVAddr, ArrayQTy));

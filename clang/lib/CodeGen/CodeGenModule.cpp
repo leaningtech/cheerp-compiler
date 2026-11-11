@@ -4828,6 +4828,7 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D,
   bool NeedsGlobalDtor = !D->hasAttr<NoInitAttr>() &&
       D->needsDestruction(getContext()) == QualType::DK_cxx_destructor;
   bool asmjs = D->hasAttr<AsmJSAttr>();
+  CodeGenTypes::CheerpSectionScope SectionScope(getTypes(), asmjs);
 
   const VarDecl *InitDecl;
   const Expr *InitExpr = D->getAnyInitializer(InitDecl);
@@ -5441,8 +5442,9 @@ void CodeGenModule::EmitGlobalFunctionDefinition(GlobalDecl GD,
     AddGlobalAnnotations(D, Fn);
 }
 
-llvm::Function* CodeGenModule::GetUserCastIntrinsic(const CastExpr* CE, QualType SrcTy, QualType DestTy, bool asmjs)
+llvm::Function* CodeGenModule::GetUserCastIntrinsic(const CastExpr* CE, QualType SrcTy, QualType DestTy)
 {
+  bool asmjs = getTypes().isAsmJS();
   bool isFunctionCast = SrcTy->isFunctionPointerType() || DestTy->isFunctionPointerType();
   bool isVoidPtrCast = DestTy->isVoidPointerType();
   bool isByteLayoutCast = false;

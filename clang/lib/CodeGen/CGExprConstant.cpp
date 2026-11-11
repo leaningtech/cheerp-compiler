@@ -990,7 +990,7 @@ static bool isAsmJSContext(CodeGenModule &CGM, CodeGenFunction *CGF, const Expr 
   if (!CGM.getLangOpts().Cheerp) {
     return false;
   } else if (CGF && CGF->CurFn) {
-    return CGF->CurFn->getSection() == StringRef("asmjs");
+    return CGF->isAsmJSContext();
   } else if (CGM.getInitializedGlobalDecl()->getDecl()) {
     return CGM.getInitializedGlobalDecl()->getDecl()->hasAttr<AsmJSAttr>();
   } else {
@@ -1009,7 +1009,7 @@ static void applyAsmJSAttributeFromContext(CodeGenModule &CGM, CodeGenFunction *
   // CHEERP: if the current global declaration has the asmjs attribute,
   // all the additional globals produced should be in the asmjs section too
   if (CGF && CGF->CurFn) {
-    if (CGF->CurFn->getSection() == StringRef("asmjs"))
+    if (CGF->isAsmJSContext())
       GV->setSection("asmjs");
   } else if (CGM.getInitializedGlobalDecl()->getDecl()) {
     if (CGM.getInitializedGlobalDecl()->getDecl()->hasAttr<AsmJSAttr>())

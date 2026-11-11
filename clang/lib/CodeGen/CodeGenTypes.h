@@ -94,6 +94,10 @@ class CodeGenTypes {
 
   SmallVector<const RecordDecl *, 8> DeferredRecords;
 
+  /// CHEERP: Whether the declaration that code is being generated for is in
+  /// the asmjs section.
+  bool AsmJS;
+
   /// This map keeps cache of llvm::Types and maps clang::Type to
   /// corresponding llvm::Type.
   llvm::DenseMap<const Type *, llvm::Type *> TypeCache;
@@ -106,6 +110,22 @@ class CodeGenTypes {
 
 public:
   CodeGenTypes(CodeGenModule &cgm);
+
+  bool isAsmJS() const { return AsmJS; }
+
+  /// CHEERP: Generates code for another declaration for its lifetime.
+  class CheerpSectionScope {
+    CodeGenTypes &CGT;
+    bool Saved;
+
+  public:
+    CheerpSectionScope(CodeGenTypes &CGT, bool AsmJS)
+        : CGT(CGT), Saved(CGT.AsmJS) {
+      CGT.AsmJS = AsmJS;
+    }
+    CheerpSectionScope(const CheerpSectionScope &) = delete;
+    ~CheerpSectionScope() { CGT.AsmJS = Saved; }
+  };
   ~CodeGenTypes();
 
   const llvm::DataLayout &getDataLayout() const {

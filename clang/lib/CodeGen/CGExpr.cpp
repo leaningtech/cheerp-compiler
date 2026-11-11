@@ -413,7 +413,7 @@ static Address createReferenceTemporary(CodeGenFunction &CGF,
             CGF.getContext().getTargetAddressSpace(AS));
         CharUnits alignment = CGF.getContext().getTypeAlignInChars(Ty);
         GV->setAlignment(alignment.getAsAlign());
-        if(CGF.CurFn->getSection() == StringRef("asmjs"))
+        if(CGF.isAsmJSContext())
           GV->setSection("asmjs");
         llvm::Constant *C = GV;
         if (AS != LangAS::Default)
@@ -1081,11 +1081,9 @@ Address CodeGenFunction::EmitPointerWithAlignment(const Expr *E,
                                                  TargetTypeTBAAInfo);
 	  const ExplicitCastExpr *ECE = cast<ExplicitCastExpr>(CE);
 	  if ((CGM.getTarget().isByteAddressable()==false) && !getContext().hasSameType(ECE->getSubExpr()->getType(), ECE->getType())) {
-            bool asmjs = CurFn->getSection()==StringRef("asmjs");
             llvm::Function* intrinsic = CGM.GetUserCastIntrinsic(ECE,
               ECE->getSubExpr()->getType(),
-              ECE->getTypeAsWritten(),
-              asmjs);
+              ECE->getTypeAsWritten());
             llvm::CallBase* CB = Builder.CreateCall(intrinsic, Addr.getPointer());
             CB->addParamAttr(0, llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, Addr.getElementType()));
             Addr = Address(CB,
@@ -3018,7 +3016,7 @@ LValue CodeGenFunction::EmitStringLiteralLValue(const StringLiteral *E) {
 
   // CHEERP: if the parent function is in the asmjs section, so is the string
   // literal
-  if (CurFn && CurFn->getSection() == StringRef("asmjs"))
+  if (isAsmJSContext())
     cast<llvm::GlobalVariable>(S.getPointer())->setSection("asmjs");
   return MakeAddrLValue(S,
                         E->getType(), AlignmentSource::Decl);
@@ -3057,7 +3055,7 @@ LValue CodeGenFunction::EmitPredefinedLValue(const PredefinedExpr *E) {
   // CHEERP: if the parent function is in the asmjs section, so is the string
   // literal
   assert(CurFn);
-  if (CurFn->getSection() == StringRef("asmjs"))
+  if (isAsmJSContext())
     cast<llvm::GlobalVariable>(C.getPointer())->setSection("asmjs");
   return MakeAddrLValue(C, E->getType(), AlignmentSource::Decl);
 }
@@ -4928,11 +4926,9 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
     }
     else
     {
-      bool asmjs = CurFn->getSection()==StringRef("asmjs");
       llvm::Function* intrinsic = CGM.GetUserCastIntrinsic(CE,
 		      getContext().getPointerType(E->getSubExpr()->getType()),
-		      CE->getTypeAsWritten(),
-		      asmjs);
+		      CE->getTypeAsWritten());
       llvm::CallBase* CB = Builder.CreateCall(intrinsic, V.getPointer());
       CB->addParamAttr(0, llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, V.getElementType()));
       V = Address(CB,
