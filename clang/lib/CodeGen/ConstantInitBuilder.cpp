@@ -277,7 +277,7 @@ llvm::Constant *ConstantAggregateBuilderBase::finishArray(llvm::Type *eltTy) {
 }
 
 llvm::Constant *
-ConstantAggregateBuilderBase::finishStruct(llvm::StructType *ty, llvm::StructType* directBase, bool asmjs) {
+ConstantAggregateBuilderBase::finishStruct(llvm::StructType *ty) {
   markFinished();
 
   auto &buffer = getBuffer();
@@ -289,10 +289,9 @@ ConstantAggregateBuilderBase::finishStruct(llvm::StructType *ty, llvm::StructTyp
   llvm::Constant *constant;
   if (ty) {
     assert(ty->isPacked() == Packed);
-    assert(directBase == nullptr);
     constant = llvm::ConstantStruct::get(ty, elts);
   } else {
-    constant = llvm::ConstantStruct::getAnon(elts, Packed, directBase, asmjs);
+    constant = llvm::ConstantStruct::getAnon(elts, Packed);
   }
 
   buffer.erase(buffer.begin() + Begin, buffer.end());
