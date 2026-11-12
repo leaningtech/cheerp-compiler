@@ -841,7 +841,7 @@ void TokenListOptimizer::runAll()
 	removeRedundantBranches(/*removeAlsoBlockAndEnd*/false);
 }
 
-static bool isNaturalFlow(TokenList::iterator From, TokenList::iterator To, const bool allowBranches)
+static bool isNaturalFlow(TokenList::iterator From, TokenList::iterator To, const bool allowBranches, const bool isWasm)
 {
 	if (From == To)
 		return true;
@@ -866,7 +866,14 @@ static bool isNaturalFlow(TokenList::iterator From, TokenList::iterator To, cons
 				if (it == To)
 					return true;
 				break;
-			case Token::TK_End:
+			case Token::TK_End: {
+				// Wasm switch statements are implemented as branch tables,
+				// thus every case must point to a branch, and
+				// we can't fall through the end as in js.
+				if (isWasm && it->getMatch()->getKind() == Token::TK_Switch)
+					return false;
+				[[clang::fallthrough]];
+			}
 			case Token::TK_Loop:
 			case Token::TK_Block:
 			case Token::TK_Try:
@@ -911,7 +918,7 @@ void TokenListOptimizer::removeRedundantBranches(const bool removeAlsoBlockAndEn
 		assert(Block->getKind() & BlockLikeTokens);
 
 		assert(Branch->getNextNode() != nullptr);
-		if (isNaturalFlow(Branch->getIter(), End->getIter(), /*allowBranches*/true))
+		if (isNaturalFlow(Branch->getIter(), End->getIter(), /*allowBranches*/ true, Mode == CFGStackifier::Wasm))
 		{
 			erase(Branch);
 
