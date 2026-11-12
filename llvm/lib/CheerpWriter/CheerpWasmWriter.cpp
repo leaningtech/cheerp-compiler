@@ -1833,7 +1833,10 @@ bool CheerpWasmWriter::isSignedLoad(const Value* V) const
 		if(it != globalizedGlobalsIDs.end())
 			return false;
 	}
-	// There is no point in sign-extending a load without users (can happen for atomic loads)
+	// Wasm has no sign-extending atomic loads, the sign extension must be done explicitly
+	if(LI->isAtomic())
+		return false;
+	// There is no point in sign-extending a load without users
 	if(LI->use_empty())
 		return false;
 	for(const User* U: LI->users())
