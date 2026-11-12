@@ -1189,6 +1189,9 @@ Function* TypeOptimizer::rewriteIntrinsic(Function* F, FunctionType* FT)
 			newTys.insert(newTys.end(),localTys,localTys+2);
 			break;
 		}
+		case Intrinsic::sadd_with_overflow:
+		case Intrinsic::ssub_with_overflow:
+		case Intrinsic::smul_with_overflow:
 		case Intrinsic::umul_with_overflow:
 		{
 			Type* localTys[] = { FT->getParamType(0) };
