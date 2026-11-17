@@ -170,8 +170,7 @@ void CodeGenFunction::EmitInvariantStart(llvm::Constant *Addr, CharUnits Size) {
 
   // Emit a call with the size in bytes of the object.
   uint64_t Width = Size.getQuantity();
-  llvm::Value *Args[2] = { llvm::ConstantInt::getSigned(Int64Ty, Width),
-                           llvm::ConstantExpr::getBitCast(Addr, Int8PtrTy)};
+  llvm::Value *Args[2] = {llvm::ConstantInt::getSigned(Int64Ty, Width), Addr};
   Builder.CreateCall(InvariantStart, Args);
 }
 
