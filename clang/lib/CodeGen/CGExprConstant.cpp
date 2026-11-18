@@ -927,6 +927,14 @@ bool ConstStructBuilder::Build(const APValue &Val, const RecordDecl *RD,
     for (unsigned I = 1, N = Bases.size(); I < N; ++I) {
       BaseInfo &Base = Bases[I];
 
+      // Cheerp: a base without storage is not a member of the LLVM type
+      // (CGRecordLowering::accumulateBases) and has nothing to initialize.
+      // An empty base can share its offset with a field (std::optional has
+      // several), which its constant would overwrite.
+      if (Base.Decl->isEmpty() ||
+          CGM.getContext().getASTRecordLayout(Base.Decl).getNonVirtualSize().isZero())
+        continue;
+
       llvm::Constant* BaseConstant = ConstStructBuilder::BuildStruct(Emitter, Val.getStructBase(Base.Index), Base.Decl);
       if (!BaseConstant)
         return false;
