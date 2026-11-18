@@ -3169,6 +3169,11 @@ ItaniumCXXABI::getOrCreateThreadLocalWrapper(const VarDecl *VD,
 
   CGM.SetLLVMFunctionAttributes(GlobalDecl(), FI, Wrapper, /*IsThunk=*/false);
 
+  // Cheerp: the wrapper has no declaration of its own, it goes where the
+  // variable goes
+  if (VD->hasAttr<AsmJSAttr>())
+    Wrapper->setSection("asmjs");
+
   // Always resolve references to the wrapper at link time.
   if (!Wrapper->hasLocalLinkage())
     if (!isThreadWrapperReplaceable(VD, CGM) ||
@@ -3222,6 +3227,13 @@ void ItaniumCXXABI::EmitThreadLocalInitFuncs(
 
     CharUnits GuardAlign = CharUnits::One();
     Guard->setAlignment(GuardAlign.getAsAlign());
+
+    // Cheerp: like the other initialization functions of the module
+    // (CodeGenFunction::GenerateCXXGlobalInitFunc), before its body is made
+    if (CGM.getContext().getTargetInfo().getTriple().isCheerpWasm()) {
+      InitFunc->setSection("asmjs");
+      Guard->setSection("asmjs");
+    }
 
     CodeGenFunction(CGM).GenerateCXXGlobalInitFunc(
         InitFunc, OrderedInits, ConstantAddress(Guard, CGM.Int8Ty, GuardAlign));

@@ -6150,6 +6150,10 @@ ConstantAddress CodeGenModule::GetAddrOfGlobalTemporary(
     GV->setComdat(TheModule.getOrInsertComdat(GV->getName()));
   if (VD->getTLSKind())
     setTLSMode(GV, *VD);
+  // Cheerp: the temporary (e.g. the backing array of a std::initializer_list)
+  // lives where the variable that extends its lifetime lives
+  if (VD->hasAttr<AsmJSAttr>())
+    GV->setSection("asmjs");
   llvm::Constant *CV = GV;
   if (AddrSpace != LangAS::Default)
     CV = getTargetCodeGenInfo().performAddrSpaceCast(
