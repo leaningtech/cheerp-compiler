@@ -122,7 +122,7 @@ WebAssemblyTargetMachine::WebAssemblyTargetMachine(
         TT.isCheerp()
             ?"b-e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i24:8:8-i32:32:32-"
               "i64:64:64-f32:32:32-f64:64:64-"
-              "a:0:32-f16:16:16-f32:32:32-f64:64:64-n8:16:32-S64"
+              "a:0:32-f16:16:16-f32:32:32-f64:64:64-n8:16:32:64-S64"
             :(TT.isArch64Bit()
                 ? (TT.isOSEmscripten() ? "e-m:e-p:64:64-p10:8:8-p20:8:8-i64:64-"
                                          "f128:64-n32:64-S128-ni:1:10:20"
