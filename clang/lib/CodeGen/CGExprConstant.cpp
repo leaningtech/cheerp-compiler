@@ -729,7 +729,10 @@ bool ConstStructBuilder::Build(InitListExpr *ILE, const RecordDecl *RD, bool All
     if (Field->isUnnamedBitfield())
       continue;
 
-    if (cgLayout.getLLVMFieldNo(Field) == 0xffffffff) {
+    // Cheerp: a zero-sized field ([[no_unique_address]] of an empty type) has
+    // no LLVM field, it is skipped below
+    if (!Field->isZeroSize(CGM.getContext()) &&
+        cgLayout.getLLVMFieldNo(Field) == 0xffffffff) {
       const RecordDecl* subRD = Field->getType()->castAs<RecordType>()->getDecl();
       if (ILE != nullptr && ElementNo < ILE->getNumInits()) {
         Expr* curExpr = ILE->getInit(ElementNo++);
@@ -757,7 +760,7 @@ bool ConstStructBuilder::Build(InitListExpr *ILE, const RecordDecl *RD, bool All
     // Zero-sized fields are not emitted, but their initializers may still
     // prevent emission of this struct as a constant.
     if (Field->isZeroSize(CGM.getContext())) {
-      if (Init->HasSideEffects(CGM.getContext()))
+      if (Init && Init->HasSideEffects(CGM.getContext()))
         return false;
       continue;
     }
@@ -1443,6 +1446,11 @@ public:
         return 0;
 
       if(isa<llvm::ConstantAggregateZero>(init))
+        continue;
+
+      // Cheerp: a zero-sized field ([[no_unique_address]] of an empty type)
+      // has no LLVM field and nothing to initialize
+      if(field->isZeroSize(CGM.getContext()))
         continue;
 
       unsigned idx=rl.getLLVMFieldNo(field);

@@ -8227,6 +8227,19 @@ static void handleDestroyAttr(Sema &S, Decl *D, const ParsedAttr &A) {
     handleSimpleAttribute<NoDestroyAttr>(S, D, A);
 }
 
+static void handleNoUniqueAddressAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
+  // Cheerp: a genericjs class is a JavaScript object, whose members cannot
+  // share an address. Ignore the attribute there (the standard allows it): an
+  // empty member is laid out as an ordinary one, an empty object of its own.
+  // The class has its asmjs or genericjs attribute before its members are
+  // parsed, and an instantiated member takes it from its pattern.
+  const auto *RD = dyn_cast<RecordDecl>(D->getDeclContext());
+  if (!S.Context.getTargetInfo().isByteAddressable() && RD &&
+      !RD->hasAttr<AsmJSAttr>())
+    return;
+  D->addAttr(::new (S.Context) NoUniqueAddressAttr(S.Context, AL));
+}
+
 static void handleUninitializedAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   assert(cast<VarDecl>(D)->getStorageDuration() == SD_Automatic &&
          "uninitialized is only valid on automatic duration variables");
@@ -9306,6 +9319,10 @@ ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D, const ParsedAttr &AL,
 
   case ParsedAttr::AT_Uninitialized:
     handleUninitializedAttr(S, D, AL);
+    break;
+
+  case ParsedAttr::AT_NoUniqueAddress:
+    handleNoUniqueAddressAttr(S, D, AL);
     break;
 
   case ParsedAttr::AT_ObjCExternallyRetained:
