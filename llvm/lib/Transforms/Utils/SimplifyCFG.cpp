@@ -6123,7 +6123,14 @@ SwitchLookupTable::SwitchLookupTable(
   // If the type is integer and the table fits in a register, build a bitmap.
   if (WouldFitInRegister(DL, TableSize, ValueType)) {
     IntegerType *IT = cast<IntegerType>(ValueType);
-    APInt TableInt(TableSize * IT->getBitWidth(), 0);
+    unsigned MapWidth = TableSize * IT->getBitWidth();
+    // Cheerp: The backends compile an integer wider than 32 bits as an i64
+    // only if it is exactly 64 bits. Use a legal integer for the bitmap,
+    // e.g. i64 instead of i56.
+    if (!DL.isByteAddressable())
+      MapWidth = DL.getSmallestLegalIntType(M.getContext(), MapWidth)
+                     ->getIntegerBitWidth();
+    APInt TableInt(MapWidth, 0);
     for (uint64_t I = TableSize; I > 0; --I) {
       TableInt <<= IT->getBitWidth();
       // Insert values into the bitmap. Undef values are set to zero.
