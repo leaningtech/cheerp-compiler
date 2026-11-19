@@ -598,9 +598,13 @@ void TailRecursionEliminator::copyByValueOperandIntoLocalTemp(CallInst *CI,
   Value *Size = Builder.getInt64(DL.getTypeAllocSize(AggTy));
 
   // Copy data from byvalue operand into the temporarily variable.
+  // Cheerp: A typed copy, a genericjs object cannot be copied by bytes
   Builder.CreateMemCpy(NewAlloca, /*DstAlign*/ Alignment,
                        CI->getArgOperand(OpndIdx),
-                       /*SrcAlign*/ Alignment, Size);
+                       /*SrcAlign*/ Alignment, Size, /*isVolatile=*/false,
+                       nullptr, nullptr, nullptr, nullptr,
+                       IRBuilderBase::CheerpTypeInfo::get(
+                           DL.isByteAddressable(), AggTy));
   CI->setArgOperand(OpndIdx, NewAlloca);
 }
 
@@ -620,9 +624,13 @@ void TailRecursionEliminator::copyLocalTempOfByValueOperandIntoArguments(
 
   // Copy data from the temporarily variable into corresponding
   // function argument location.
+  // Cheerp: A typed copy, as in copyByValueOperandIntoLocalTemp
   Builder.CreateMemCpy(F.getArg(OpndIdx), /*DstAlign*/ Alignment,
                        CI->getArgOperand(OpndIdx),
-                       /*SrcAlign*/ Alignment, Size);
+                       /*SrcAlign*/ Alignment, Size, /*isVolatile=*/false,
+                       nullptr, nullptr, nullptr, nullptr,
+                       IRBuilderBase::CheerpTypeInfo::get(
+                           DL.isByteAddressable(), AggTy));
 }
 
 bool TailRecursionEliminator::eliminateCall(CallInst *CI) {
