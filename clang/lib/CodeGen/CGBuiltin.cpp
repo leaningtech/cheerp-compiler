@@ -2185,12 +2185,11 @@ static unsigned mutateLongDoubleBuiltin(unsigned BuiltinID) {
   }
 }
 
-const Expr *CodeGenFunction::EmitCheerpTypedMemIntrinsicArg(const Expr *E,
-                                                           bool asmjs) const {
+const Expr *CodeGenFunction::EmitCheerpTypedMemIntrinsicArg(const Expr *E) const {
   const CastExpr *Cast = dyn_cast<CastExpr>(E);
   if (Cast && Cast->getCastKind() == CastKind::CK_AddressSpaceConversion)
     E = Cast->getSubExpr();
-  if (!asmjs) {
+  if (!isAsmJSContext()) {
     Cast = dyn_cast<CastExpr>(E);
     if (!Cast || Cast->getSubExpr()->getType()->isVoidPointerType()) {
       CGM.getDiags().Report(E->getBeginLoc(),
@@ -2206,7 +2205,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
                                         const CallExpr *E,
                                         ReturnValueSlot ReturnValue) {
   // CHEERP: we don't need special handling in the asmjs section
-  bool asmjs = CurFn->getSection() == StringRef("asmjs");
+  bool asmjs = isAsmJSContext();
   const FunctionDecl *FD = GD.getDecl()->getAsFunction();
   // See if we can constant fold this builtin.  If so, don't emit it at all.
   // TODO: Extend this handling to all builtin calls that we can constant-fold.
@@ -3492,10 +3491,10 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
   case Builtin::BI__builtin_mempcpy: {
     const Expr *DestE = E->getArg(0);
     const Expr *SrcE = E->getArg(1);
-    if (!getTarget().isByteAddressable())
+    if (getLangOpts().Cheerp)
     {
-      const Expr *TypedDestE = EmitCheerpTypedMemIntrinsicArg(DestE, asmjs);
-      const Expr *TypedSrcE = EmitCheerpTypedMemIntrinsicArg(SrcE, asmjs);
+      const Expr *TypedDestE = EmitCheerpTypedMemIntrinsicArg(DestE);
+      const Expr *TypedSrcE = EmitCheerpTypedMemIntrinsicArg(SrcE);
       if (TypedDestE)
         DestE = TypedDestE;
       if (TypedSrcE)
@@ -3532,8 +3531,8 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
     const Expr *DestE = E->getArg(0);
     const Expr *SrcE = E->getArg(1);
     if (!getTarget().isByteAddressable()) {
-      const Expr *TypedDestE = EmitCheerpTypedMemIntrinsicArg(DestE, asmjs);
-      const Expr *TypedSrcE = EmitCheerpTypedMemIntrinsicArg(SrcE, asmjs);
+      const Expr *TypedDestE = EmitCheerpTypedMemIntrinsicArg(DestE);
+      const Expr *TypedSrcE = EmitCheerpTypedMemIntrinsicArg(SrcE);
       if (TypedDestE)
         DestE = TypedDestE;
       if (TypedSrcE)
@@ -3615,8 +3614,8 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
     const Expr *SrcE = E->getArg(1);
     if (!asmjs && !getTarget().isByteAddressable())
     {
-      const Expr *TypedDestE = EmitCheerpTypedMemIntrinsicArg(DestE, asmjs);
-      const Expr *TypedSrcE = EmitCheerpTypedMemIntrinsicArg(SrcE, asmjs);
+      const Expr *TypedDestE = EmitCheerpTypedMemIntrinsicArg(DestE);
+      const Expr *TypedSrcE = EmitCheerpTypedMemIntrinsicArg(SrcE);
       if (TypedDestE)
         DestE = TypedDestE;
       if (TypedSrcE)
@@ -3647,7 +3646,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
   case Builtin::BI__builtin_memset: {
     const Expr *DestE = E->getArg(0);
     if (!getTarget().isByteAddressable()) {
-      if (const Expr *TypedE = EmitCheerpTypedMemIntrinsicArg(DestE, asmjs))
+      if (const Expr *TypedE = EmitCheerpTypedMemIntrinsicArg(DestE))
         DestE = TypedE;
     }
     Address Dest = EmitPointerWithAlignment(DestE);
@@ -3662,7 +3661,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
   case Builtin::BI__builtin_memset_inline: {
     const Expr *DestE = E->getArg(0);
     if (!getTarget().isByteAddressable()) {
-      if (const Expr *TypedE = EmitCheerpTypedMemIntrinsicArg(DestE, asmjs))
+      if (const Expr *TypedE = EmitCheerpTypedMemIntrinsicArg(DestE))
         DestE = TypedE;
     }
     Address Dest = EmitPointerWithAlignment(DestE);
@@ -3911,8 +3910,9 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
     Builder.CreateStore(FrameAddr, Buf);
 
     // Store the stack pointer to the setjmp buffer.
-    Value *StackAddr =
-        Builder.CreateCall(CGM.getIntrinsic(Intrinsic::stacksave));
+    Value *StackAddr = Builder.CreateStackSave();
+    assert(Buf.getPointer()->getType() == StackAddr->getType());
+
     Address StackSaveSlot = Builder.CreateConstInBoundsGEP(Buf, 2);
     Builder.CreateStore(StackAddr, StackSaveSlot);
 
@@ -4382,8 +4382,9 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
   }
   case Builtin::BI__builtin_annotation: {
     llvm::Value *AnnVal = EmitScalarExpr(E->getArg(0));
-    llvm::Function *F = CGM.getIntrinsic(llvm::Intrinsic::annotation,
-                                      AnnVal->getType());
+    llvm::Function *F =
+        CGM.getIntrinsic(llvm::Intrinsic::annotation,
+                         {AnnVal->getType(), CGM.ConstGlobalsPtrTy});
 
     // Get the annotation string, go through casts. Sema requires this to be a
     // non-wide string literal, potentially casted, so the cast<> is safe.
@@ -5416,7 +5417,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
   case Builtin::BIfree: {
     // On cheerp in generic code, we need special handling for malloc and realloc
     if (getTarget().getTriple().isCheerp()) {
-      Value* ret = EmitCheerpBuiltinExpr(BuiltinID, E, asmjs);
+      Value* ret = EmitCheerpBuiltinExpr(BuiltinID, E);
       if (ret)
         return RValue::get(ret);
     }
@@ -5597,7 +5598,7 @@ static Value *EmitTargetArchBuiltinExpr(CodeGenFunction *CGF,
   case llvm::Triple::bpfel:
     return CGF->EmitBPFBuiltinExpr(BuiltinID, E);
   case llvm::Triple::cheerp:
-    return CGF->EmitCheerpBuiltinExpr(BuiltinID, E, false);
+    return CGF->EmitCheerpBuiltinExpr(BuiltinID, E);
   case llvm::Triple::x86:
   case llvm::Triple::x86_64:
     return CGF->EmitX86BuiltinExpr(BuiltinID, E);
@@ -12491,7 +12492,8 @@ Value *CodeGenFunction::EmitBPFBuiltinExpr(unsigned BuiltinID,
 }
 
 Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
-                                              const CallExpr *E, bool asmjs) {
+                                              const CallExpr *E) {
+  bool asmjs = isAsmJSContext();
   //Emit the operands
   SmallVector<Value*, 4> Ops;
   for (unsigned i = 0, e = E->getNumArgs(); i != e; i++) {
@@ -12584,11 +12586,11 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
     return Builder.CreateCall(F, Ops);
   }
   else if (BuiltinID == Cheerp::BI__builtin_cheerp_stack_save) {
-    Function *F = CGM.getIntrinsic(Intrinsic::stacksave);
+    Function *F = CGM.getIntrinsic(Intrinsic::stacksave, {ConvertType(E->getType())});
     return Builder.CreateCall(F, Ops);
   }
   else if (BuiltinID == Cheerp::BI__builtin_cheerp_stack_restore) {
-    Function *F = CGM.getIntrinsic(Intrinsic::stackrestore);
+    Function *F = CGM.getIntrinsic(Intrinsic::stackrestore, {Ops[0]->getType()});
     return Builder.CreateCall(F, Ops);
   }
   else if (BuiltinID == Cheerp::BI__builtin_cheerp_get_thread_pointer) {

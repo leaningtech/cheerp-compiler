@@ -1362,7 +1362,7 @@ int main (int argc, char **argv) {
 // CHECK9-NEXT:    store i32 100, ptr [[N]], align 4
 // CHECK9-NEXT:    [[TMP0:%.*]] = load i32, ptr [[N]], align 4
 // CHECK9-NEXT:    [[TMP1:%.*]] = zext i32 [[TMP0]] to i64
-// CHECK9-NEXT:    [[TMP2:%.*]] = call ptr @llvm.stacksave()
+// CHECK9-NEXT:    [[TMP2:%.*]] = call ptr @llvm.stacksave.p0()
 // CHECK9-NEXT:    store ptr [[TMP2]], ptr [[SAVED_STACK]], align 8
 // CHECK9-NEXT:    [[VLA:%.*]] = alloca i32, i64 [[TMP1]], align 4
 // CHECK9-NEXT:    store i64 [[TMP1]], ptr [[__VLA_EXPR0]], align 8
@@ -1433,7 +1433,7 @@ int main (int argc, char **argv) {
 // CHECK9-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds i32, ptr [[VLA]], i64 0
 // CHECK9-NEXT:    [[TMP34:%.*]] = load i32, ptr [[ARRAYIDX]], align 4
 // CHECK9-NEXT:    [[TMP35:%.*]] = load ptr, ptr [[SAVED_STACK]], align 8
-// CHECK9-NEXT:    call void @llvm.stackrestore(ptr [[TMP35]])
+// CHECK9-NEXT:    call void @llvm.stackrestore.p0(ptr [[TMP35]])
 // CHECK9-NEXT:    ret i32 [[TMP34]]
 //
 //
@@ -1671,7 +1671,7 @@ int main (int argc, char **argv) {
 // CHECK11-NEXT:    [[DOTCAPTURE_EXPR_1:%.*]] = alloca i32, align 4
 // CHECK11-NEXT:    store i32 100, ptr [[N]], align 4
 // CHECK11-NEXT:    [[TMP0:%.*]] = load i32, ptr [[N]], align 4
-// CHECK11-NEXT:    [[TMP1:%.*]] = call ptr @llvm.stacksave()
+// CHECK11-NEXT:    [[TMP1:%.*]] = call ptr @llvm.stacksave.p0()
 // CHECK11-NEXT:    store ptr [[TMP1]], ptr [[SAVED_STACK]], align 4
 // CHECK11-NEXT:    [[VLA:%.*]] = alloca i32, i32 [[TMP0]], align 4
 // CHECK11-NEXT:    store i32 [[TMP0]], ptr [[__VLA_EXPR0]], align 4
@@ -1743,7 +1743,7 @@ int main (int argc, char **argv) {
 // CHECK11-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds i32, ptr [[VLA]], i32 0
 // CHECK11-NEXT:    [[TMP34:%.*]] = load i32, ptr [[ARRAYIDX]], align 4
 // CHECK11-NEXT:    [[TMP35:%.*]] = load ptr, ptr [[SAVED_STACK]], align 4
-// CHECK11-NEXT:    call void @llvm.stackrestore(ptr [[TMP35]])
+// CHECK11-NEXT:    call void @llvm.stackrestore.p0(ptr [[TMP35]])
 // CHECK11-NEXT:    ret i32 [[TMP34]]
 //
 //
@@ -2412,7 +2412,7 @@ int main (int argc, char **argv) {
 // CHECK25-NEXT:    store i32 100, ptr [[N]], align 4
 // CHECK25-NEXT:    [[TMP0:%.*]] = load i32, ptr [[N]], align 4
 // CHECK25-NEXT:    [[TMP1:%.*]] = zext i32 [[TMP0]] to i64
-// CHECK25-NEXT:    [[TMP2:%.*]] = call ptr @llvm.stacksave()
+// CHECK25-NEXT:    [[TMP2:%.*]] = call ptr @llvm.stacksave.p0()
 // CHECK25-NEXT:    store ptr [[TMP2]], ptr [[SAVED_STACK]], align 8
 // CHECK25-NEXT:    [[VLA:%.*]] = alloca i32, i64 [[TMP1]], align 4
 // CHECK25-NEXT:    store i64 [[TMP1]], ptr [[__VLA_EXPR0]], align 8
@@ -2484,7 +2484,7 @@ int main (int argc, char **argv) {
 // CHECK25-NEXT:    [[CALL:%.*]] = call noundef signext i32 @_Z5tmainIiLi10EEiT_(i32 noundef signext [[TMP34]])
 // CHECK25-NEXT:    store i32 [[CALL]], ptr [[RETVAL]], align 4
 // CHECK25-NEXT:    [[TMP35:%.*]] = load ptr, ptr [[SAVED_STACK]], align 8
-// CHECK25-NEXT:    call void @llvm.stackrestore(ptr [[TMP35]])
+// CHECK25-NEXT:    call void @llvm.stackrestore.p0(ptr [[TMP35]])
 // CHECK25-NEXT:    [[TMP36:%.*]] = load i32, ptr [[RETVAL]], align 4
 // CHECK25-NEXT:    ret i32 [[TMP36]]
 //
@@ -2959,7 +2959,7 @@ int main (int argc, char **argv) {
 // CHECK27-NEXT:    store ptr [[ARGV]], ptr [[ARGV_ADDR]], align 4
 // CHECK27-NEXT:    store i32 100, ptr [[N]], align 4
 // CHECK27-NEXT:    [[TMP0:%.*]] = load i32, ptr [[N]], align 4
-// CHECK27-NEXT:    [[TMP1:%.*]] = call ptr @llvm.stacksave()
+// CHECK27-NEXT:    [[TMP1:%.*]] = call ptr @llvm.stacksave.p0()
 // CHECK27-NEXT:    store ptr [[TMP1]], ptr [[SAVED_STACK]], align 4
 // CHECK27-NEXT:    [[VLA:%.*]] = alloca i32, i32 [[TMP0]], align 4
 // CHECK27-NEXT:    store i32 [[TMP0]], ptr [[__VLA_EXPR0]], align 4
@@ -3032,7 +3032,7 @@ int main (int argc, char **argv) {
 // CHECK27-NEXT:    [[CALL:%.*]] = call noundef i32 @_Z5tmainIiLi10EEiT_(i32 noundef [[TMP34]])
 // CHECK27-NEXT:    store i32 [[CALL]], ptr [[RETVAL]], align 4
 // CHECK27-NEXT:    [[TMP35:%.*]] = load ptr, ptr [[SAVED_STACK]], align 4
-// CHECK27-NEXT:    call void @llvm.stackrestore(ptr [[TMP35]])
+// CHECK27-NEXT:    call void @llvm.stackrestore.p0(ptr [[TMP35]])
 // CHECK27-NEXT:    [[TMP36:%.*]] = load i32, ptr [[RETVAL]], align 4
 // CHECK27-NEXT:    ret i32 [[TMP36]]
 //

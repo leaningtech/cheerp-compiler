@@ -552,9 +552,9 @@ def int_seh_scope_end : Intrinsic<[], [], [IntrNoMem]>;
 
 // Note: we treat stacksave/stackrestore as writemem because we don't otherwise
 // model their dependencies on allocas.
-def int_stacksave     : DefaultAttrsIntrinsic<[llvm_ptr_ty]>,
+def int_stacksave     : DefaultAttrsIntrinsic<[llvm_anyptr_ty]>,
                         ClangBuiltin<"__builtin_stack_save">;
-def int_stackrestore  : DefaultAttrsIntrinsic<[], [llvm_ptr_ty]>,
+def int_stackrestore  : DefaultAttrsIntrinsic<[], [llvm_anyptr_ty]>,
                         ClangBuiltin<"__builtin_stack_restore">;
 
 def int_get_dynamic_area_offset : DefaultAttrsIntrinsic<[llvm_anyint_ty]>;
@@ -1046,17 +1046,17 @@ def int_eh_sjlj_setup_dispatch  : Intrinsic<[], []>;
 //===---------------- Generic Variable Attribute Intrinsics----------------===//
 //
 def int_var_annotation : DefaultAttrsIntrinsic<
-    [], [llvm_ptr_ty, llvm_ptr_ty, llvm_ptr_ty, llvm_i32_ty, llvm_ptr_ty],
+    [], [llvm_anyptr_ty, llvm_anyptr_ty, LLVMMatchType<1>, llvm_i32_ty, LLVMMatchType<1>],
     [IntrInaccessibleMemOnly], "llvm.var.annotation">;
 
 def int_ptr_annotation : DefaultAttrsIntrinsic<
     [LLVMAnyPointerType<llvm_anyint_ty>],
-    [LLVMMatchType<0>, llvm_ptr_ty, llvm_ptr_ty, llvm_i32_ty, llvm_ptr_ty],
+    [LLVMMatchType<0>, llvm_anyptr_ty, LLVMMatchType<1>, llvm_i32_ty, LLVMMatchType<1>],
     [IntrInaccessibleMemOnly], "llvm.ptr.annotation">;
 
 def int_annotation : DefaultAttrsIntrinsic<
     [llvm_anyint_ty],
-    [LLVMMatchType<0>, llvm_ptr_ty, llvm_ptr_ty, llvm_i32_ty],
+    [LLVMMatchType<0>, llvm_anyptr_ty, LLVMMatchType<1>, llvm_i32_ty],
     [IntrInaccessibleMemOnly], "llvm.annotation">;
 
 // Annotates the current program point with metadata strings which are emitted

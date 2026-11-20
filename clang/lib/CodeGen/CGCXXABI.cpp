@@ -259,7 +259,7 @@ void CGCXXABI::ReadArrayCookie(CodeGenFunction &CGF, Address ptr,
     return;
   }
 
-  bool asmjs = CGF.CurFn->getSection() == StringRef("asmjs") ||
+  bool asmjs = CGF.isAsmJSContext() ||
                cheerp::TypeSupport::isAsmJSPointed(ptr.getElementType());
   if (!CGF.getTarget().isByteAddressable() && !asmjs) {
     allocPtr = ptr.getPointer();

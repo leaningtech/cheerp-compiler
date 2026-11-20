@@ -34,6 +34,7 @@ CodeGenTypes::CodeGenTypes(CodeGenModule &cgm)
     Target(cgm.getTarget()), TheCXXABI(cgm.getCXXABI()),
     TheABIInfo(cgm.getTargetCodeGenInfo().getABIInfo()) {
   SkippedLayout = false;
+  AsmJS = Target.getTriple().isCheerpWasm();
 }
 
 CodeGenTypes::~CodeGenTypes() {

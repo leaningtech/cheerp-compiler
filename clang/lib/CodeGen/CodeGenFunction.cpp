@@ -327,6 +327,8 @@ static void EmitIfUsed(CodeGenFunction &CGF, llvm::BasicBlock *BB) {
 }
 
 void CodeGenFunction::FinishFunction(SourceLocation EndLoc) {
+  assert((CurFn->getSection() == "asmjs") == isAsmJSContext() &&
+         "the section of a function changed while emitting it");
   assert(BreakContinueStack.empty() &&
          "mismatched push/pop in break/continue stack!");
 
@@ -707,6 +709,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
   CurFuncDecl = (D ? D->getNonClosureContext() : nullptr);
   FnRetTy = RetTy;
   CurFn = Fn;
+  CheerpSection.emplace(CGM.getTypes(), CurFn->getSection() == "asmjs");
   CurFnInfo = &FnInfo;
   assert(CurFn->isDeclaration() && "Function already has body?");
 
@@ -1103,10 +1106,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
     ReturnValue = Address(&*AI, ConvertType(RetTy),
                           CurFnInfo->getReturnInfo().getIndirectAlign());
     if (!CurFnInfo->getReturnInfo().getIndirectByVal()) {
+      llvm::Type* ResultPtrTy = Int8Ty->getPointerTo(ReturnValue.getType()->getPointerAddressSpace());
       ReturnValuePointer =
-          CreateDefaultAlignTempAlloca(Int8PtrTy, "result.ptr");
+          CreateDefaultAlignTempAlloca(ResultPtrTy, "result.ptr");
       Builder.CreateStore(Builder.CreatePointerBitCastOrAddrSpaceCast(
-                              ReturnValue.getPointer(), Int8PtrTy),
+                              ReturnValue.getPointer(), ResultPtrTy),
                           ReturnValuePointer);
     }
   } else if (CurFnInfo->getReturnInfo().getKind() == ABIArgInfo::InAlloca &&
@@ -2456,8 +2460,10 @@ llvm::Value *CodeGenFunction::EmitAnnotationCall(llvm::Function *AnnotationFn,
                                                  const AnnotateAttr *Attr) {
   SmallVector<llvm::Value *, 5> Args = {
       AnnotatedVal,
-      Builder.CreateBitCast(CGM.EmitAnnotationString(AnnotationStr), Int8PtrTy),
-      Builder.CreateBitCast(CGM.EmitAnnotationUnit(Location), Int8PtrTy),
+      Builder.CreateBitCast(CGM.EmitAnnotationString(AnnotationStr),
+                            ConstGlobalsPtrTy),
+      Builder.CreateBitCast(CGM.EmitAnnotationUnit(Location),
+                            ConstGlobalsPtrTy),
       CGM.EmitAnnotationLineNo(Location),
   };
   if (Attr)
@@ -2469,9 +2475,12 @@ void CodeGenFunction::EmitVarAnnotations(const VarDecl *D, llvm::Value *V) {
   assert(D->hasAttr<AnnotateAttr>() && "no annotate attribute");
   // FIXME We create a new bitcast for every annotation because that's what
   // llvm-gcc was doing.
+  unsigned AS = V->getType()->getPointerAddressSpace();
+  llvm::Type *I8PtrTy = Builder.getInt8PtrTy(AS);
   for (const auto *I : D->specific_attrs<AnnotateAttr>())
-    EmitAnnotationCall(CGM.getIntrinsic(llvm::Intrinsic::var_annotation),
-                       Builder.CreateBitCast(V, CGM.Int8PtrTy, V->getName()),
+    EmitAnnotationCall(CGM.getIntrinsic(llvm::Intrinsic::var_annotation,
+                                        {I8PtrTy, CGM.ConstGlobalsPtrTy}),
+                       Builder.CreateBitCast(V, I8PtrTy, V->getName()),
                        I->getAnnotation(), D->getLocation(), I);
 }
 
@@ -2484,8 +2493,8 @@ Address CodeGenFunction::EmitFieldAnnotations(const FieldDecl *D,
   unsigned AS = PTy ? PTy->getAddressSpace() : 0;
   llvm::PointerType *IntrinTy =
       llvm::PointerType::getWithSamePointeeType(CGM.Int8PtrTy, AS);
-  llvm::Function *F =
-      CGM.getIntrinsic(llvm::Intrinsic::ptr_annotation, IntrinTy);
+  llvm::Function *F = CGM.getIntrinsic(llvm::Intrinsic::ptr_annotation,
+                                       {IntrinTy, CGM.ConstGlobalsPtrTy});
 
   for (const auto *I : D->specific_attrs<AnnotateAttr>()) {
     // FIXME Always emit the cast inst so we can differentiate between

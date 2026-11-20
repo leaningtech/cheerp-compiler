@@ -620,6 +620,7 @@ llvm::Constant *CodeGenVTables::maybeEmitThunk(GlobalDecl GD,
     // Remove the name from the old thunk function and get a new thunk.
     OldThunkFn->setName(StringRef());
     ThunkFn = llvm::Function::Create(ThunkFnTy, llvm::Function::ExternalLinkage,
+                                     OldThunkFn->getType()->getAddressSpace(),
                                      Name.str(), &CGM.getModule());
     CGM.SetLLVMFunctionAttributes(GD, FnInfo, ThunkFn, /*IsThunk=*/false);
 
@@ -1047,7 +1048,7 @@ void CodeGenVTables::createVTableInitializer(ConstantStructBuilder &builder,
       for (unsigned i = thisIndex; i != nextIndex; ++i) {
         addVTableComponent(vtableElem, LayoutClass, layout, i, rtti, nextVTableThunkIndex, -1, vtableHasLocalLinkage);
       }
-      vtableElem.finishAndAddTo(builder, nullptr, asmjs);
+      vtableElem.finishAndAddTo(builder);
     }
   }
 }
@@ -1110,7 +1111,7 @@ llvm::GlobalVariable *CodeGenVTables::GenerateConstructionVTable(
   auto components = builder.beginStruct(VTType);
   createVTableInitializer(components, RD, *VTLayout, RTTI,
                           VTable->hasLocalLinkage(), OutName);
-  components.finishAndSetAsInitializer(VTable, nullptr, asmjs);
+  components.finishAndSetAsInitializer(VTable);
   if (asmjs)
     VTable->setSection("asmjs");
 

@@ -697,7 +697,7 @@ static CharUnits CalculateCookiePadding(CodeGenFunction &CGF,
     return CharUnits::Zero();
 
   llvm::Type* allocElementType = CGF.ConvertType(E->getAllocatedType());
-  bool asmjs = CGF.CurFn->getSection() == StringRef("asmjs") || cheerp::TypeSupport::isAsmJSPointed(allocElementType);
+  bool asmjs = CGF.isAsmJSContext() || cheerp::TypeSupport::isAsmJSPointed(allocElementType);
   if (!CGF.getTarget().isByteAddressable() && !asmjs)
     return CharUnits::Zero();
 
@@ -1345,8 +1345,8 @@ static RValue EmitNewDeleteCall(CodeGenFunction &CGF,
   CGCallee Callee = CGCallee::forDirect(CalleePtr, GlobalDecl(CalleeDecl));
 
   RValue RV;
-  bool cheerp = !CGF.getTarget().isByteAddressable();
-  bool asmjs = CGF.CurFn->getSection() == StringRef("asmjs");
+  bool cheerp = CGF.getLangOpts().Cheerp;
+  bool asmjs = CGF.isAsmJSContext();
   bool user_defined_new = false;
   // CHEERP: in Wasm, we use cheerp_allocate/deallocate only for:
   // new(size_t), new[](size_t), new(size_t, const std::nothrow_t&), new[](size_t, const std::nothrow_t&),
@@ -1442,7 +1442,7 @@ RValue CodeGenFunction::EmitBuiltinNewDeleteCall(const FunctionProtoType *Type,
         // CHEERP: For new, try to get the type of the allocation from a
         // surrounding cast. This is required for genericjs
         if (getLangOpts().Cheerp && !IsDelete) {
-          bool asmjs = CurFn->getSection() == StringRef("asmjs");
+          bool asmjs = isAsmJSContext();
           const FunctionDecl* CFD=dyn_cast_if_present<FunctionDecl>(CurFuncDecl);
           const VarDecl* VD=dyn_cast_if_present<VarDecl>(CurCodeDecl);
           // Malloc might be used as a global initializer, thus CurFuncDecl being null
@@ -1712,7 +1712,7 @@ llvm::Value *CodeGenFunction::EmitCXXNewExpr(const CXXNewExpr *E) {
     const Expr *arg = *E->placement_arguments().begin();
 
     // On NBA targets we only accept placement new if the source memory is of the right type
-    bool asmjs = CurFn->getSection() == StringRef("asmjs");
+    bool asmjs = isAsmJSContext();
     if (!getTarget().isByteAddressable() && !asmjs)
     {
       const CastExpr* castExpr = dyn_cast<CastExpr>(arg);

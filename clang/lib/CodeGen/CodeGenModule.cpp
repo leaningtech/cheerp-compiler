@@ -146,7 +146,10 @@ CodeGenModule::CodeGenModule(ASTContext &C,
   const llvm::DataLayout &DL = M.getDataLayout();
   AllocaInt8PtrTy = Int8Ty->getPointerTo(DL.getAllocaAddrSpace());
   GlobalsInt8PtrTy = Int8Ty->getPointerTo(DL.getDefaultGlobalsAddressSpace());
+  ConstGlobalsPtrTy = Int8Ty->getPointerTo(
+      C.getTargetAddressSpace(GetGlobalConstantAddressSpace()));
   ASTAllocaAddressSpace = getTargetCodeGenInfo().getASTAllocaAddressSpace();
+  AS0VoidPtrTy = Int8Ty->getPointerTo(0);
 
   // Build C++20 Module initializers.
   // TODO: Add Microsoft here once we know the mangling required for the
@@ -1624,7 +1627,7 @@ void CodeGenModule::EmitCtorList(CtorList &Fns, const char *GlobalName) {
 
   // Get the type of a ctor entry, { i32, void ()*, i8* }.
   llvm::StructType *CtorStructTy = llvm::StructType::get(
-      Int32Ty, CtorPFTy, VoidPtrTy);
+      Int32Ty, CtorPFTy, AS0VoidPtrTy);
 
   // Construct the constructor and destructor arrays.
   ConstantInitBuilder builder(*this);
@@ -1632,11 +1635,11 @@ void CodeGenModule::EmitCtorList(CtorList &Fns, const char *GlobalName) {
   for (const auto &I : Fns) {
     auto ctor = ctors.beginStruct(CtorStructTy);
     ctor.addInt(Int32Ty, I.Priority);
-    ctor.add(llvm::ConstantExpr::getBitCast(I.Initializer, CtorPFTy));
+    ctor.add(llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(I.Initializer, CtorPFTy));
     if (I.AssociatedData)
-      ctor.add(llvm::ConstantExpr::getBitCast(I.AssociatedData, VoidPtrTy));
+      ctor.add(llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(I.AssociatedData, AS0VoidPtrTy));
     else
-      ctor.addNullPointer(VoidPtrTy);
+      ctor.addNullPointer(AS0VoidPtrTy);
     ctor.finishAndAddTo(ctors);
   }
 
@@ -2543,18 +2546,19 @@ static void emitUsed(CodeGenModule &CGM, StringRef Name,
   if (List.empty())
     return;
 
+  llvm::Type* Int8PtrTy = llvm::PointerType::get(CGM.Int8Ty, 0);
   // Convert List to what ConstantArray needs.
   SmallVector<llvm::Constant*, 8> UsedArray;
   UsedArray.resize(List.size());
   for (unsigned i = 0, e = List.size(); i != e; ++i) {
     UsedArray[i] =
         llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(
-            cast<llvm::Constant>(&*List[i]), CGM.Int8PtrTy);
+            cast<llvm::Constant>(&*List[i]), Int8PtrTy);
   }
 
   if (UsedArray.empty())
     return;
-  llvm::ArrayType *ATy = llvm::ArrayType::get(CGM.Int8PtrTy, UsedArray.size());
+  llvm::ArrayType *ATy = llvm::ArrayType::get(Int8PtrTy, UsedArray.size());
 
   auto *GV = new llvm::GlobalVariable(
       CGM.getModule(), ATy, false, llvm::GlobalValue::AppendingLinkage,
@@ -2854,9 +2858,10 @@ llvm::Constant *CodeGenModule::EmitAnnotationString(StringRef Str) {
 
   // Not found yet, create a new global.
   llvm::Constant *s = llvm::ConstantDataArray::getString(getLLVMContext(), Str);
-  auto *gv =
-      new llvm::GlobalVariable(getModule(), s->getType(), true,
-                               llvm::GlobalValue::PrivateLinkage, s, ".str");
+  auto *gv = new llvm::GlobalVariable(
+      getModule(), s->getType(), true, llvm::GlobalValue::PrivateLinkage, s,
+      ".str", nullptr, llvm::GlobalValue::NotThreadLocal,
+      ConstGlobalsPtrTy->getAddressSpace());
   gv->setSection(AnnotationSection);
   gv->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
   AStr = gv;
@@ -2882,7 +2887,7 @@ llvm::Constant *CodeGenModule::EmitAnnotationLineNo(SourceLocation L) {
 llvm::Constant *CodeGenModule::EmitAnnotationArgs(const AnnotateAttr *Attr) {
   ArrayRef<Expr *> Exprs = {Attr->args_begin(), Attr->args_size()};
   if (Exprs.empty())
-    return llvm::ConstantPointerNull::get(GlobalsInt8PtrTy);
+    return llvm::ConstantPointerNull::get(ConstGlobalsPtrTy);
 
   llvm::FoldingSetNodeID ID;
   for (Expr *E : Exprs) {
@@ -2932,8 +2937,8 @@ llvm::Constant *CodeGenModule::EmitAnnotateAttr(llvm::GlobalValue *GV,
   // Create the ConstantStruct for the global annotation.
   llvm::Constant *Fields[] = {
       llvm::ConstantExpr::getBitCast(GVInGlobalsAS, GlobalsInt8PtrTy),
-      llvm::ConstantExpr::getBitCast(AnnoGV, GlobalsInt8PtrTy),
-      llvm::ConstantExpr::getBitCast(UnitGV, GlobalsInt8PtrTy),
+      llvm::ConstantExpr::getBitCast(AnnoGV, ConstGlobalsPtrTy),
+      llvm::ConstantExpr::getBitCast(UnitGV, ConstGlobalsPtrTy),
       LineNoCst,
       Args,
   };
@@ -4102,7 +4107,7 @@ llvm::Constant *CodeGenModule::GetOrCreateLLVMFunction(
     }
 
     llvm::Constant *BC = llvm::ConstantExpr::getBitCast(
-        F, Entry->getValueType()->getPointerTo());
+        F, Entry->getValueType()->getPointerTo(Entry->getAddressSpace()));
     addGlobalValReplacement(Entry, BC);
   }
 
@@ -4166,8 +4171,8 @@ llvm::Constant *CodeGenModule::GetOrCreateLLVMFunction(
     return F;
   }
 
-  llvm::Type *PTy = llvm::PointerType::getUnqual(Ty);
-  return llvm::ConstantExpr::getBitCast(F, PTy);
+  return llvm::ConstantExpr::getBitCast(F,
+                                        Ty->getPointerTo(F->getAddressSpace()));
 }
 
 /// GetAddrOfFunction - Return the address of the given function.  If Ty is
@@ -4216,8 +4221,9 @@ llvm::Constant *CodeGenModule::GetFunctionStart(const ValueDecl *Decl) {
   llvm::GlobalValue *F =
       cast<llvm::GlobalValue>(GetAddrOfFunction(Decl)->stripPointerCasts());
 
-  return llvm::ConstantExpr::getBitCast(llvm::NoCFIValue::get(F),
-                                        llvm::Type::getInt8PtrTy(VMContext));
+  return llvm::ConstantExpr::getBitCast(
+      llvm::NoCFIValue::get(F),
+      llvm::Type::getInt8PtrTy(VMContext, F->getAddressSpace()));
 }
 
 static const FunctionDecl *
@@ -4822,6 +4828,7 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D,
   bool NeedsGlobalDtor = !D->hasAttr<NoInitAttr>() &&
       D->needsDestruction(getContext()) == QualType::DK_cxx_destructor;
   bool asmjs = D->hasAttr<AsmJSAttr>();
+  CodeGenTypes::CheerpSectionScope SectionScope(getTypes(), asmjs);
 
   const VarDecl *InitDecl;
   const Expr *InitExpr = D->getAnyInitializer(InitDecl);
@@ -5435,8 +5442,9 @@ void CodeGenModule::EmitGlobalFunctionDefinition(GlobalDecl GD,
     AddGlobalAnnotations(D, Fn);
 }
 
-llvm::Function* CodeGenModule::GetUserCastIntrinsic(const CastExpr* CE, QualType SrcTy, QualType DestTy, bool asmjs)
+llvm::Function* CodeGenModule::GetUserCastIntrinsic(const CastExpr* CE, QualType SrcTy, QualType DestTy)
 {
+  bool asmjs = getTypes().isAsmJS();
   bool isFunctionCast = SrcTy->isFunctionPointerType() || DestTy->isFunctionPointerType();
   bool isVoidPtrCast = DestTy->isVoidPointerType();
   bool isByteLayoutCast = false;

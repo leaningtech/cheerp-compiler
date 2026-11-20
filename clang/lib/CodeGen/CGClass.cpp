@@ -250,7 +250,7 @@ CodeGenFunction::GetAddressOfDirectBaseInCompleteClass(Address This,
   // 'this' must be a pointer (in some address space) to Derived.
   assert(This.getElementType() == ConvertType(Derived));
 
-  bool asmjs = CurFn->getSection() == StringRef("asmjs");
+  bool asmjs = isAsmJSContext();
 
   // Compute the offset of the virtual base.
   CharUnits Offset;
@@ -422,7 +422,7 @@ Address CodeGenFunction::GetAddressOfBaseClass(
       CGM.getCXXABI().GetVirtualBaseClassOffset(*this, Value, Derived, VBase);
   }
 
-  bool asmjs = CurFn->getSection() == StringRef("asmjs");
+  bool asmjs = isAsmJSContext();
   // First handle the non-byte addressable case (Cheerp normal)
   if (!getTarget().isByteAddressable() && !asmjs)
   {
@@ -624,7 +624,7 @@ CodeGenFunction::GenerateVirtualcast(Address Value,
     getContext().getCanonicalType(getContext().getTagDeclType(VBase));
   llvm::Type *VBasePtrTy = ConvertType(VBaseTy);
 
-  return Address(GenerateVirtualcast(Value, VBasePtrTy->getPointerTo(), VirtualOffset), VBasePtrTy, Value.getAlignment());
+  return Address(GenerateVirtualcast(Value, VBasePtrTy->getPointerTo(Value.getAddressSpace()), VirtualOffset), VBasePtrTy, Value.getAlignment());
 }
 
 Address
@@ -644,7 +644,7 @@ CodeGenFunction::GetAddressOfDerivedClass(Address BaseAddr,
   llvm::Value *NonVirtualOffset =
     CGM.GetNonVirtualBaseClassOffset(Derived, PathBegin, PathEnd);
 
-  bool asmjs = CurFn->getSection() == StringRef("asmjs");
+  bool asmjs = isAsmJSContext();
   if (!NonVirtualOffset) {
     // No offset, we can just cast back.
     if(getTarget().isByteAddressable() || asmjs) {
@@ -3070,7 +3070,7 @@ void CodeGenFunction::EmitTypeMetadataCodeForVCall(const CXXRecordDecl *RD,
     llvm::Value *TypeId =
         llvm::MetadataAsValue::get(CGM.getLLVMContext(), MD);
 
-    llvm::Value *CastedVTable = Builder.CreateBitCast(VTable, Int8PtrTy);
+    llvm::Value *CastedVTable = Builder.CreatePointerBitCastOrAddrSpaceCast(VTable, Int8Ty->getPointerTo());
     // If we already know that the call has hidden LTO visibility, emit
     // @llvm.type.test(). Otherwise emit @llvm.public.type.test(), which WPD
     // will convert to @llvm.type.test() if we assert at link time that we have
@@ -3183,7 +3183,7 @@ void CodeGenFunction::EmitVTablePtrCheck(const CXXRecordDecl *RD,
       CGM.CreateMetadataIdentifierForType(QualType(RD->getTypeForDecl(), 0));
   llvm::Value *TypeId = llvm::MetadataAsValue::get(getLLVMContext(), MD);
 
-  llvm::Value *CastedVTable = Builder.CreateBitCast(VTable, Int8PtrTy);
+  llvm::Value *CastedVTable = Builder.CreatePointerBitCastOrAddrSpaceCast(VTable, Int8Ty->getPointerTo());
   llvm::Value *TypeTest = Builder.CreateCall(
       CGM.getIntrinsic(llvm::Intrinsic::type_test), {CastedVTable, TypeId});
 

@@ -3470,7 +3470,9 @@ void FunctionStackPoisoner::handleDynamicAllocaCall(AllocaInst *AI) {
   Value *NewSize = IRB.CreateAdd(OldSize, AdditionalChunkSize);
 
   // Insert new alloca with new NewSize and Alignment params.
-  AllocaInst *NewAlloca = IRB.CreateAlloca(IRB.getInt8Ty(), NewSize);
+  unsigned AllocaAS = AI->getType()->getPointerAddressSpace();
+  AllocaInst *NewAlloca =
+      IRB.CreateAlloca(IRB.getInt8Ty(), AllocaAS, NewSize);
   NewAlloca->setAlignment(Alignment);
 
   // NewAddress = Address + Alignment

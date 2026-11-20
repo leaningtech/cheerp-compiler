@@ -1,6 +1,6 @@
 // RUN: %clang_cc1 -emit-llvm %s -o - | FileCheck %s
 
-// CHECK: @test2_i = internal global i32 99
+// CHECK: @test2_i = internal{{( addrspace\(.\))?}} global i32 99
 static int test2_i = 99;
 int test2_f(void) {
   extern int test2_i;

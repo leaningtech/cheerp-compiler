@@ -632,14 +632,14 @@ CGCallee ItaniumCXXABI::EmitLoadOfMemberFunctionPointer(
     // Not zero adjustment, use the downcast instrinsic
     CGF.EmitBlock(FnVirtual);
     // Downcast from the type to i8*. GDA will ignore these when deciding if the downcast array is required.
-    llvm::Type* types[] = { CGF.Int8PtrTy, This->getType() };
+    llvm::Type* types[] = { Builder.getInt8PtrTy(This->getType()->getPointerAddressSpace()), This->getType() };
     llvm::Function* intrinsic = llvm::Intrinsic::getDeclaration(&CGM.getModule(),
                                   llvm::Intrinsic::cheerp_downcast, types);
 
     llvm::CallBase* CB = Builder.CreateCall(intrinsic, {This, Adj});
     CB->addParamAttr(0, llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, ThisAddr.getElementType()));
     CB->addRetAttr(llvm::Attribute::get(CB->getContext(), llvm::Attribute::ElementType, CGF.Int8Ty));
-    llvm::Value* ThisNotZero = Builder.CreateBitCast(CB, This->getType());
+    llvm::Value* ThisNotZero = Builder.CreatePointerBitCastOrAddrSpaceCast(CB, This->getType());
     Builder.CreateBr(FnNonVirtual);
     CGF.EmitBlock(FnNonVirtual);
     llvm::PHINode* NewThis = Builder.CreatePHI(This->getType(), 2);
@@ -1472,7 +1472,7 @@ void ItaniumCXXABI::emitThrow(CodeGenFunction &CGF, const CXXThrowExpr *E) {
 
   llvm::Value* ExPtr = CGF.Builder.CreateBitCast(ExceptionPtr, CGM.Int8PtrTy);
   llvm::Value *args[] = { ExPtr, TypeInfo, Dtor };
-  bool asmjs = CGF.CurFn->getSection() == "asmjs";
+  bool asmjs = CGF.isAsmJSContext();
   CGF.EmitNoreturnRuntimeCallOrInvoke(getThrowFn(CGM, asmjs), args);
 }
 
@@ -1990,7 +1990,7 @@ void ItaniumCXXABI::emitVTableDefinitions(CodeGenVTables &CGVT,
   auto components = builder.beginStruct(VTType);
   CGVT.createVTableInitializer(components, RD, VTLayout, RTTI,
                                llvm::GlobalValue::isLocalLinkage(Linkage), Name);
-  components.finishAndSetAsInitializer(VTable, nullptr, RD->hasAttr<AsmJSAttr>());
+  components.finishAndSetAsInitializer(VTable);
 
   // Set the correct linkage.
   VTable->setLinkage(Linkage);
@@ -4500,7 +4500,8 @@ void ItaniumRTTIBuilder::BuildVMIClassTypeInfo(const CXXRecordDecl *RD) {
   for (const auto &Base : RD->bases()) {
     llvm::SmallVector<llvm::Constant*, 8> baseFields;
     // The __base_type member points to the RTTI for the base type.
-    baseFields.push_back(llvm::ConstantExpr::getBitCast(ItaniumRTTIBuilder(CXXABI).BuildTypeInfo(Base.getType()), CGM.getTypes().GetClassTypeInfoType()->getPointerTo()));
+    llvm::Constant* BaseTypeInfo = ItaniumRTTIBuilder(CXXABI).BuildTypeInfo(Base.getType());
+    baseFields.push_back(llvm::ConstantExpr::getBitCast(BaseTypeInfo, CGM.getTypes().GetClassTypeInfoType()->getPointerTo(BaseTypeInfo->getType()->getPointerAddressSpace())));
 
     auto *BaseDecl =
         cast<CXXRecordDecl>(Base.getType()->castAs<RecordType>()->getDecl());
@@ -4553,7 +4554,8 @@ void ItaniumRTTIBuilder::BuildVMIClassTypeInfo(const CXXRecordDecl *RD) {
       llvm::SmallVector<llvm::Constant*, 8> baseFields;
       // The __base_type member points to the RTTI for the base type.
       QualType VBaseTy = CGM.getContext().getCanonicalType(CGM.getContext().getTagDeclType(pair.first));
-      baseFields.push_back(llvm::ConstantExpr::getBitCast(ItaniumRTTIBuilder(CXXABI).BuildTypeInfo(VBaseTy), CGM.getTypes().GetClassTypeInfoType()->getPointerTo()));
+      llvm::Constant* VBaseTypeInfo = ItaniumRTTIBuilder(CXXABI).BuildTypeInfo(VBaseTy);
+      baseFields.push_back(llvm::ConstantExpr::getBitCast(VBaseTypeInfo, CGM.getTypes().GetClassTypeInfoType()->getPointerTo(VBaseTypeInfo->getType()->getPointerAddressSpace())));
       unsigned Offset = 0;
       if (asmjs)
         Offset = Layout.getVBaseClassOffset(pair.first).getQuantity();
@@ -4931,7 +4933,7 @@ namespace {
 static llvm::Value *CallBeginCatch(CodeGenFunction &CGF,
                                    llvm::Value *Exn,
                                    bool EndMightThrow) {
-  bool asmjs = CGF.CurFn->getSection() == "asmjs";
+  bool asmjs = CGF.isAsmJSContext();
   llvm::CallInst *call =
     CGF.EmitNounwindRuntimeCall(getBeginCatchFn(CGF.CGM, asmjs), Exn);
 
@@ -5045,7 +5047,7 @@ static void InitCatchParam(CodeGenFunction &CGF,
 
     // Otherwise, it returns a pointer into the exception object.
 
-    llvm::Type *PtrTy = LLVMCatchTy->getPointerTo(0); // addrspace 0 ok
+    llvm::Type *PtrTy = LLVMCatchTy->getPointerTo(AdjustedExn->getType()->getPointerAddressSpace());
     llvm::Value *Cast = CGF.Builder.CreateBitCast(AdjustedExn, PtrTy);
 
     LValue srcLV = CGF.MakeNaturalAlignAddrLValue(Cast, CatchType);
@@ -5070,13 +5072,12 @@ static void InitCatchParam(CodeGenFunction &CGF,
   auto catchRD = CatchType->getAsCXXRecordDecl();
   CharUnits caughtExnAlignment = CGF.CGM.getClassPointerAlignment(catchRD);
 
-  llvm::Type *PtrTy = LLVMCatchTy->getPointerTo(0); // addrspace 0 ok
-
   // Check for a copy expression.  If we don't have a copy expression,
   // that means a trivial copy is okay.
   const Expr *copyExpr = CatchParam.getInit();
   if (!copyExpr) {
     llvm::Value *rawAdjustedExn = CallBeginCatch(CGF, Exn, true);
+    llvm::Type *PtrTy = LLVMCatchTy->getPointerTo(rawAdjustedExn->getType()->getPointerAddressSpace());
     Address adjustedExn(CGF.Builder.CreateBitCast(rawAdjustedExn, PtrTy),
                         LLVMCatchTy, caughtExnAlignment);
     LValue Dest = CGF.MakeAddrLValue(ParamAddr, CatchType);
@@ -5085,11 +5086,13 @@ static void InitCatchParam(CodeGenFunction &CGF,
     return;
   }
 
-  bool asmjs = CGF.CurFn->getSection() == "asmjs";
+  bool asmjs = CGF.isAsmJSContext();
   // We have to call __cxa_get_exception_ptr to get the adjusted
   // pointer before copying.
   llvm::CallInst *rawAdjustedExn =
     CGF.EmitNounwindRuntimeCall(getGetExceptionPtrFn(CGF.CGM, asmjs), Exn);
+
+  llvm::Type *PtrTy = LLVMCatchTy->getPointerTo(rawAdjustedExn->getType()->getPointerAddressSpace());
 
   // Cast that to the appropriate type.
   Address adjustedExn(CGF.Builder.CreateBitCast(rawAdjustedExn, PtrTy),

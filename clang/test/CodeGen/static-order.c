@@ -1,7 +1,7 @@
 // RUN: %clang_cc1 -emit-llvm -o - %s | FileCheck %s
 // CHECK: ModuleID
 // CHECK-NOT: zeroinitializer
-// CHECK-LABEL: define {{.*}}ptr @f
+// CHECK-LABEL: define {{.*}}ptr{{( addrspace\(.\))?}} @f
 
 struct s {
     int a;

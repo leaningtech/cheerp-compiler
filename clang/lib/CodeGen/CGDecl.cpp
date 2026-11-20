@@ -577,8 +577,7 @@ namespace {
     bool isRedundantBeforeReturn() override { return true; }
     void Emit(CodeGenFunction &CGF, Flags flags) override {
       llvm::Value *V = CGF.Builder.CreateLoad(Stack);
-      llvm::Function *F = CGF.CGM.getIntrinsic(llvm::Intrinsic::stackrestore);
-      CGF.Builder.CreateCall(F, V);
+      CGF.Builder.CreateStackRestore(V);
     }
   };
 
@@ -1161,7 +1160,7 @@ Address CodeGenModule::createUnnamedGlobalFrom(const VarDecl &D,
     GV->setAlignment(Align.getAsAlign());
     GV->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
     //CHEERP: if function is in asmjs section, also the temporary global should
-    if (CurFn && CurFn->getSection()==StringRef("asmjs"))
+    if (getTypes().isAsmJS())
       GV->setSection("asmjs");
 
     CacheEntry = GV;
@@ -1594,7 +1593,7 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
         assert(!emission.useLifetimeMarkers());
       }
     }
-  } else if (!getTarget().isByteAddressable() && CurFn && CurFn->getSection()!=StringRef("asmjs")) {
+  } else if (!getTarget().isByteAddressable() && !isAsmJSContext()) {
     EnsureInsertPoint();
 
     auto vlaData = getVLASize(Ty);
@@ -1614,10 +1613,10 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
     if (!DidCallStackSave) {
       // Save the stack.
       Address Stack =
-        CreateTempAlloca(Int8PtrTy, getPointerAlign(), "saved_stack");
+          CreateDefaultAlignTempAlloca(AllocaInt8PtrTy, "saved_stack");
 
-      llvm::Function *F = CGM.getIntrinsic(llvm::Intrinsic::stacksave);
-      llvm::Value *V = Builder.CreateCall(F);
+      llvm::Value *V = Builder.CreateStackSave();
+      assert(V->getType() == AllocaInt8PtrTy);
       Builder.CreateStore(V, Stack);
 
       DidCallStackSave = true;
