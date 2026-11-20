@@ -1836,6 +1836,9 @@ bool CheerpWasmWriter::isSignedLoad(const Value* V) const
 	// Wasm has no sign-extending atomic loads, the sign extension must be done explicitly
 	if(LI->isAtomic())
 		return false;
+	// NOTE: load8_s/load16_s sign-extend from the access width, so narrower integers (e.g. i2) need explicit sign extension
+	if(!LI->getType()->isIntegerTy(8) && !LI->getType()->isIntegerTy(16))
+		return false;
 	// There is no point in sign-extending a load without users
 	if(LI->use_empty())
 		return false;
