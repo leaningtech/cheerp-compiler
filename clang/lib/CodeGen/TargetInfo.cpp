@@ -10219,13 +10219,18 @@ public:
       : DefaultABIInfo(CGT) {}
 
 private:
-  ABIArgInfo classifyReturnType(QualType RetTy) const {
+  static bool isReturnedDirectly(QualType RetTy) {
     if(auto* RT = RetTy->getAsStructureType()) {
       if(auto* RD = RT->getAsCXXRecordDecl()) {
         if(RD->getName() == "__cheerp_landingpad")
-          return ABIArgInfo::getDirect();
+          return true;
       }
     }
+    return false;
+  }
+  ABIArgInfo classifyReturnType(QualType RetTy) const {
+    if (isReturnedDirectly(RetTy))
+      return ABIArgInfo::getDirect();
     return DefaultABIInfo::classifyReturnType(RetTy);
   };
   ABIArgInfo classifyArgumentType(QualType Ty) const {
