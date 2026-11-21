@@ -400,6 +400,15 @@ llvm::Type *CodeGenTypes::ConvertFunctionTypeInternal(QualType QFT) {
 
     // Otherwise, we're good to go, go ahead and convert it.
     ResultType = GetFunctionType(*FI);
+    // Cheerp: The type without the arrangement must be the same.
+    assert([&] {
+      const auto *FPT = dyn_cast<FunctionProtoType>(FT);
+      llvm::FunctionType *T =
+          FPT ? GetFunctionTypeWithoutArrangement(
+                    CanQual<FunctionProtoType>::CreateUnsafe(QualType(FPT, 0)))
+              : nullptr;
+      return !T || T == ResultType;
+    }());
   }
 
   RecordsBeingLaidOut.erase(Ty);
