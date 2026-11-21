@@ -103,6 +103,7 @@ class CodeGenTypes {
   static constexpr unsigned FunctionInfosLog2InitSize = 9;
   /// Helper for ConvertType.
   llvm::Type *ConvertFunctionTypeInternal(QualType FT);
+  llvm::Type *ConvertPointeeFunctionType(QualType FT);
   llvm::FunctionType *
   GetFunctionTypeWithoutArrangement(CanQual<FunctionProtoType> FTP);
 
