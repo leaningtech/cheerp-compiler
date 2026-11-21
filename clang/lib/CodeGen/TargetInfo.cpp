@@ -10218,6 +10218,21 @@ public:
   explicit CheerpABIInfo(CodeGen::CodeGenTypes &CGT)
       : DefaultABIInfo(CGT) {}
 
+  bool classifyForFunctionType(QualType Ty, bool IsReturn,
+                               ABIArgInfo &AI) const override {
+    if (Ty->isVoidType() || !Ty->isIncompleteType()) {
+      // The C++ ABI only makes more classes indirect (computeInfo).
+      AI = IsReturn ? classifyReturnType(Ty) : classifyArgumentType(Ty);
+      return true;
+    }
+    // Any other aggregate is indirect, whatever its layout: the layout only
+    // chooses byval and the alignment, not the LLVM type.
+    if (!Ty->isRecordType() || (IsReturn && isReturnedDirectly(Ty)))
+      return false;
+    AI = ABIArgInfo::getIndirect(CharUnits::One());
+    return true;
+  }
+
 private:
   static bool isReturnedDirectly(QualType RetTy) {
     if(auto* RT = RetTy->getAsStructureType()) {

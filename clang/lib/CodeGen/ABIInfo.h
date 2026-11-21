@@ -69,6 +69,15 @@ namespace CodeGen {
 
     virtual void computeInfo(CodeGen::CGFunctionInfo &FI) const = 0;
 
+    /// Cheerp: Classify a parameter or return type for the LLVM type of a
+    /// function only, also when the type is incomplete, in \p AI. Only what
+    /// GetFunctionType reads must be right, not what gives attributes, such
+    /// as the alignment. Returns false if the target cannot tell.
+    virtual bool classifyForFunctionType(QualType Ty, bool IsReturn,
+                                         CodeGen::ABIArgInfo &AI) const {
+      return false;
+    }
+
     /// EmitVAArg - Emit the target dependent code to load a value of
     /// \arg Ty from the va_list pointed to by \arg VAListAddr.
 
