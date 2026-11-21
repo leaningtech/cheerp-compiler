@@ -598,9 +598,13 @@ void TailRecursionEliminator::copyByValueOperandIntoLocalTemp(CallInst *CI,
   Value *Size = Builder.getInt64(DL.getTypeAllocSize(AggTy));
 
   // Copy data from byvalue operand into the temporarily variable.
+  // Cheerp: A typed copy, a genericjs object cannot be copied by bytes
   Builder.CreateMemCpy(NewAlloca, /*DstAlign*/ Alignment,
                        CI->getArgOperand(OpndIdx),
-                       /*SrcAlign*/ Alignment, Size);
+                       /*SrcAlign*/ Alignment, Size, /*isVolatile=*/false,
+                       nullptr, nullptr, nullptr, nullptr,
+                       IRBuilderBase::CheerpTypeInfo::get(
+                           DL.isByteAddressable(), AggTy));
   CI->setArgOperand(OpndIdx, NewAlloca);
 }
 
@@ -620,9 +624,13 @@ void TailRecursionEliminator::copyLocalTempOfByValueOperandIntoArguments(
 
   // Copy data from the temporarily variable into corresponding
   // function argument location.
+  // Cheerp: A typed copy, as in copyByValueOperandIntoLocalTemp
   Builder.CreateMemCpy(F.getArg(OpndIdx), /*DstAlign*/ Alignment,
                        CI->getArgOperand(OpndIdx),
-                       /*SrcAlign*/ Alignment, Size);
+                       /*SrcAlign*/ Alignment, Size, /*isVolatile=*/false,
+                       nullptr, nullptr, nullptr, nullptr,
+                       IRBuilderBase::CheerpTypeInfo::get(
+                           DL.isByteAddressable(), AggTy));
 }
 
 bool TailRecursionEliminator::eliminateCall(CallInst *CI) {
@@ -675,6 +683,12 @@ bool TailRecursionEliminator::eliminateCall(CallInst *CI) {
   for (unsigned I = 0, E = CI->arg_size(); I != E; ++I) {
     if (CI->isByValArgument(I)) {
       copyLocalTempOfByValueOperandIntoArguments(CI, I);
+      // When eliminating a tail call, we modify the values of the arguments.
+      // Therefore, if the byval parameter has a readonly attribute, we have to
+      // remove it. It is safe because, from the perspective of a caller, the
+      // byval parameter is always treated as "readonly," even if the readonly
+      // attribute is removed.
+      F.removeParamAttr(I, Attribute::ReadOnly);
       ArgumentPHIs[I]->addIncoming(F.getArg(I), BB);
     } else
       ArgumentPHIs[I]->addIncoming(CI->getArgOperand(I), BB);

@@ -10218,14 +10218,34 @@ public:
   explicit CheerpABIInfo(CodeGen::CodeGenTypes &CGT)
       : DefaultABIInfo(CGT) {}
 
+  bool classifyForFunctionType(QualType Ty, bool IsReturn,
+                               ABIArgInfo &AI) const override {
+    if (Ty->isVoidType() || !Ty->isIncompleteType()) {
+      // The C++ ABI only makes more classes indirect (computeInfo).
+      AI = IsReturn ? classifyReturnType(Ty) : classifyArgumentType(Ty);
+      return true;
+    }
+    // Any other aggregate is indirect, whatever its layout: the layout only
+    // chooses byval and the alignment, not the LLVM type.
+    if (!Ty->isRecordType() || (IsReturn && isReturnedDirectly(Ty)))
+      return false;
+    AI = ABIArgInfo::getIndirect(CharUnits::One());
+    return true;
+  }
+
 private:
-  ABIArgInfo classifyReturnType(QualType RetTy) const {
+  static bool isReturnedDirectly(QualType RetTy) {
     if(auto* RT = RetTy->getAsStructureType()) {
       if(auto* RD = RT->getAsCXXRecordDecl()) {
         if(RD->getName() == "__cheerp_landingpad")
-          return ABIArgInfo::getDirect();
+          return true;
       }
     }
+    return false;
+  }
+  ABIArgInfo classifyReturnType(QualType RetTy) const {
+    if (isReturnedDirectly(RetTy))
+      return ABIArgInfo::getDirect();
     return DefaultABIInfo::classifyReturnType(RetTy);
   };
   ABIArgInfo classifyArgumentType(QualType Ty) const {

@@ -339,6 +339,20 @@ static llvm::Type *getTypeForFormat(llvm::LLVMContext &VMContext,
   llvm_unreachable("Unknown float format!");
 }
 
+/// The pointee type of a pointer or reference to a function type that cannot
+/// be converted yet.
+llvm::Type *CodeGenTypes::ConvertPointeeFunctionType(QualType FT) {
+  // Cheerp: The LLVM type may not need the arrangement. With void () instead,
+  // a struct with a member of this type would get an LLVM type that depends
+  // on the translation unit.
+  if (const auto *FPT = dyn_cast<FunctionProtoType>(
+          Context.getCanonicalType(FT).getTypePtr()))
+    if (llvm::FunctionType *T = GetFunctionTypeWithoutArrangement(
+            CanQual<FunctionProtoType>::CreateUnsafe(QualType(FPT, 0))))
+      return T;
+  return llvm::FunctionType::get(CGM.VoidTy, false);
+}
+
 llvm::Type *CodeGenTypes::ConvertFunctionTypeInternal(QualType QFT) {
   assert(QFT.isCanonical());
   const Type *Ty = QFT.getTypePtr();
@@ -400,6 +414,15 @@ llvm::Type *CodeGenTypes::ConvertFunctionTypeInternal(QualType QFT) {
 
     // Otherwise, we're good to go, go ahead and convert it.
     ResultType = GetFunctionType(*FI);
+    // Cheerp: The type without the arrangement must be the same.
+    assert([&] {
+      const auto *FPT = dyn_cast<FunctionProtoType>(FT);
+      llvm::FunctionType *T =
+          FPT ? GetFunctionTypeWithoutArrangement(
+                    CanQual<FunctionProtoType>::CreateUnsafe(QualType(FPT, 0)))
+              : nullptr;
+      return !T || T == ResultType;
+    }());
   }
 
   RecordsBeingLaidOut.erase(Ty);
@@ -686,7 +709,7 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
     llvm::Type *PointeeType = ConvertTypeForMem(ETy);
     if (ETy->isFunctionType() && !PointeeType->isFunctionTy()) {
       assert(cast<llvm::StructType>(PointeeType)->isOpaque());
-      PointeeType = llvm::FunctionType::get(CGM.VoidTy, false);
+      PointeeType = ConvertPointeeFunctionType(ETy);
     }
     unsigned AS = Context.getTargetAddressSpace(ETy);
     ResultType = llvm::PointerType::get(PointeeType, AS);
@@ -700,7 +723,7 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
       PointeeType = llvm::Type::getInt8Ty(getLLVMContext());
     else if (ETy->isFunctionType() && !PointeeType->isFunctionTy()) {
       assert(cast<llvm::StructType>(PointeeType)->isOpaque());
-      PointeeType = llvm::FunctionType::get(CGM.VoidTy, false);
+      PointeeType = ConvertPointeeFunctionType(ETy);
     }
 
     unsigned AS = Context.getTargetAddressSpace(ETy);

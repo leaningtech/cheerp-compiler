@@ -203,6 +203,47 @@ CodeGenTypes::arrangeFreeFunctionType(CanQual<FunctionProtoType> FTP) {
                                    FTP);
 }
 
+/// Cheerp: The LLVM type that GetFunctionType makes from the arrangement of
+/// arrangeFreeFunctionType, without the arrangement, which needs the classes
+/// passed or returned by value to be complete. Possible if the ABI can
+/// classify every type for the LLVM type alone
+/// (ABIInfo::classifyForFunctionType). Returns nullptr otherwise. The
+/// CGFunctionInfo is a temporary one, never in FunctionInfos.
+llvm::FunctionType *
+CodeGenTypes::GetFunctionTypeWithoutArrangement(CanQual<FunctionProtoType> FTP) {
+  unsigned CC = ClangCallConvToLLVMCallConv(FTP->getExtInfo().getCC());
+  if (CC == llvm::CallingConv::SPIR_KERNEL ||
+      FTP->getExtInfo().getCC() == CC_Swift ||
+      FTP->getExtInfo().getCC() == CC_SwiftAsync)
+    return nullptr;
+  SmallVector<CanQualType, 16> argTypes;
+  SmallVector<FunctionProtoType::ExtParameterInfo, 16> paramInfos;
+  RequiredArgs Required = RequiredArgs::forPrototypePlus(FTP, 0);
+  appendParameterTypes(*this, argTypes, paramInfos, FTP);
+  std::unique_ptr<CGFunctionInfo> FI(CGFunctionInfo::create(
+      CC, /*instanceMethod=*/false, /*chainCall=*/false, FTP->getExtInfo(),
+      paramInfos, FTP->getReturnType().getUnqualifiedType(), argTypes,
+      Required));
+
+  // As computeInfo and arrangeLLVMFunctionInfo would.
+  auto Classify = [&](QualType T, bool IsReturn, ABIArgInfo &AI) {
+    if (!getABIInfo().classifyForFunctionType(T, IsReturn, AI))
+      return false;
+    if (AI.canHaveCoerceToType() && !AI.getCoerceToType()) {
+      if (!isFuncParamTypeConvertible(T))
+        return false;
+      AI.setCoerceToType(ConvertType(T));
+    }
+    return true;
+  };
+  if (!Classify(FI->getReturnType(), /*IsReturn=*/true, FI->getReturnInfo()))
+    return nullptr;
+  for (auto &I : FI->arguments())
+    if (!Classify(I.type, /*IsReturn=*/false, I.info))
+      return nullptr;
+  return GetFunctionType(*FI);
+}
+
 static CallingConv getCallingConventionForDecl(const ObjCMethodDecl *D,
                                                bool IsWindows) {
   // Set the appropriate calling convention for the Function.
