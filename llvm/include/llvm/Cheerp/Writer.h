@@ -377,6 +377,8 @@ private:
 	llvm::Type* getPointerElementTypeForValue(const llvm::Value* p, bool useGPET);
 	llvm::Type* getPointerElementTypeForValueAssert(const llvm::Value* p, bool useGPET);
 
+	bool needsPointerElementType(const llvm::Value* p);
+
 	/**
 	 * Compile the pointer base.
 	 */
