@@ -27,9 +27,11 @@ namespace llvm
 
 static BasicBlock* immediateDominator(BasicBlock* BB, const DominatorTree* DT)
 {
-	auto X = DT->getNode(BB)->getIDom();
+	assert(DT && "DT must exist");
+	assert(DT->getNode(BB) && "BB must be part of Dominator tree");
+	DomTreeNodeBase<BasicBlock> *X = DT->getNode(BB)->getIDom();
 	if (!X)
-		return NULL;
+		return nullptr;
 	else
 		return X->getBlock();
 }
