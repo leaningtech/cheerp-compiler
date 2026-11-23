@@ -3834,7 +3834,11 @@ ScalarEvolution::getGEPExpr(GEPOperator *GEP,
   const DataLayout &DL = F.getParent()->getDataLayout();
   bool byteAddressable = DL.isByteAddressable();
   const SCEV *FirstOffset = nullptr;
+  // NOTE: The last array index stays out of the GEP pointer and is added as a
+  //       byte offset, so SCEV can reason about pointer arithmetic on the
+  //       innermost array. It joins the GEP pointer when another index follows.
   const SCEV *LastOffset = nullptr;
+  const SCEV *LastIdx = nullptr;
   Type *CurTy = GEP->getType();
   bool FirstIter = true;
   SmallVector<const SCEV *, 4> Offsets;
@@ -3847,17 +3851,19 @@ ScalarEvolution::getGEPExpr(GEPOperator *GEP,
       unsigned FieldNo = Index->getZExtValue();
       const SCEV *FieldOffset = getOffsetOfExpr(IntIdxTy, STy, FieldNo);
 
-      if(!byteAddressable && (STy->hasByteLayout() || STy->hasAsmJS())) {
-        byteAddressable = true;
-	LastOffset = nullptr;
-      }
-
-      if(byteAddressable) {
-        Offsets.push_back(FieldOffset);
-      } else {
-        nonByteAddressableIdxs.push_back(IndexExpr);
+      if(LastIdx) {
+        nonByteAddressableIdxs.push_back(LastIdx);
+        LastIdx = nullptr;
         LastOffset = nullptr;
       }
+
+      if(!byteAddressable && (STy->hasByteLayout() || STy->hasAsmJS()))
+        byteAddressable = true;
+
+      if(byteAddressable)
+        Offsets.push_back(FieldOffset);
+      else
+        nonByteAddressableIdxs.push_back(IndexExpr);
 
       // Update CurTy to the type of the field at Index.
       CurTy = STy->getTypeAtIndex(Index);
@@ -3884,8 +3890,10 @@ ScalarEvolution::getGEPExpr(GEPOperator *GEP,
       } else if (FirstOffset == nullptr) {
         FirstOffset = LocalOffset;
       } else {
+        if(LastIdx)
+          nonByteAddressableIdxs.push_back(LastIdx);
         LastOffset = LocalOffset;
-        nonByteAddressableIdxs.push_back(IndexExpr);
+        LastIdx = IndexExpr;
       }
     }
   }
