@@ -1993,12 +1993,12 @@ Type* CheerpWriter::getPointerElementTypeForValue(const Value* p, bool useGPET)
 		Type* CommonType = nullptr;
 
 		for (unsigned int i = 1; i < SI->getNumOperands(); i++) {
-			Type* T = getPointerElementTypeForValue(SI->getOperand(i), useGPET);
+			if (Type* T = getPointerElementTypeForValue(SI->getOperand(i), useGPET)) {
+				if (CommonType && T != CommonType)
+					return nullptr;
 
-			if (!T || (CommonType && T != CommonType))
-				return nullptr;
-
-			CommonType = T;
+				CommonType = T;
+			}
 		}
 
 		return CommonType;
@@ -2008,12 +2008,12 @@ Type* CheerpWriter::getPointerElementTypeForValue(const Value* p, bool useGPET)
 		Type* CommonType = nullptr;
 
 		for (unsigned int i = 0; i < PHI->getNumIncomingValues(); i++) {
-			Type* T = getPointerElementTypeForValue(PHI->getIncomingValue(i), useGPET);
+			if (Type* T = getPointerElementTypeForValue(PHI->getIncomingValue(i), useGPET)) {
+				if (CommonType && T != CommonType)
+					return nullptr;
 
-			if (!T || (CommonType && T != CommonType))
-				return nullptr;
-
-			CommonType = T;
+				CommonType = T;
+			}
 		}
 
 		return CommonType;
@@ -2047,16 +2047,27 @@ Type* CheerpWriter::getPointerElementTypeForValueAssert(const Value* p, bool use
 	return T;
 }
 
-void CheerpWriter::compilePointerBase(const Value* p, bool forEscapingPointer, bool useGPET)
+// Returns true if we cannot safely pass a nullptr element type to compilePointer*Typed.
+// The logic should work as follows:
+// - if this is a select instruction, check both operands
+// - if kind == RAW, it is not safe to pass nullptr
+// - if kind == CONSTANT, it is not safe to pass nullptr *unless* it is a null pointer constant
+// - otherwise, it is safe to pass nullptr
+bool CheerpWriter::needsPointerElementType(const Value* p)
 {
 	POINTER_KIND kind = PA.getPointerKind(p);
 
-	// This condition is true if we can safely pass a nullptr element type to compilePointerBaseTyped.
-	// The logic should work as follows:
-	// 1. if kind == RAW, it is not safe to pass nullptr
-	// 2. if kind == CONSTANT, it is not safe to pass nullptr *unless* it is a null pointer constant
-	// 3. otherwise, it is safe to pass nullptr
-	if (kind != RAW && (kind != CONSTANT || isa<ConstantPointerNull>(p)))
+	if (const SelectInst* SI = dyn_cast<SelectInst>(p))
+		for (unsigned int i = 1; i < SI->getNumOperands(); i++)
+			if (needsPointerElementType(SI->getOperand(i)))
+				return true;
+
+	return kind == RAW || (kind == CONSTANT && !isa<ConstantPointerNull>(p));
+}
+
+void CheerpWriter::compilePointerBase(const Value* p, bool forEscapingPointer, bool useGPET)
+{
+	if (!needsPointerElementType(p))
 	{
 		// pointer element type is not used in this case, so it can be null
 		compilePointerBaseTyped(p, nullptr, forEscapingPointer);
@@ -2241,14 +2252,7 @@ const Value* CheerpWriter::compileByteLayoutOffset(const Value* p, BYTE_LAYOUT_O
 
 void CheerpWriter::compilePointerOffset(const Value* p, PARENT_PRIORITY parentPrio, bool forEscapingPointer, bool useGPET)
 {
-	POINTER_KIND kind = PA.getPointerKind(p);
-
-	// This condition is true if we can safely pass a nullptr element type to compilePointerOffsetTyped.
-	// The logic should work as follows:
-	// 1. if kind == RAW, it is not safe to pass nullptr
-	// 2. if kind == CONSTANT, it is not safe to pass nullptr *unless* it is a null pointer constant
-	// 3. otherwise, it is safe to pass nullptr
-	if (kind != RAW)
+	if (!needsPointerElementType(p))
 	{
 		// pointer element type is not used in this case, so it can be null
 		compilePointerOffsetTyped(p, nullptr, parentPrio, forEscapingPointer);
