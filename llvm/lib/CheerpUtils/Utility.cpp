@@ -11,6 +11,7 @@
 
 #include <cxxabi.h>
 #include <sstream>
+#include "llvm/ADT/Triple.h"
 #include "llvm/Cheerp/JsExport.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/InitializePasses.h"
@@ -18,6 +19,7 @@
 #include "llvm/Cheerp/EdgeContext.h"
 #include "llvm/Cheerp/Registerize.h"
 #include "llvm/Cheerp/Utility.h"
+#include "llvm/Cheerp/BuiltinInstructions.h"
 #include "llvm/Cheerp/GEPOptimizer.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
@@ -110,6 +112,29 @@ int32_t partialOffset(llvm::Type* & curType, llvm::Type* alternative, const llvm
 		curType = getElementType(curType, alternative);
 	}
 	return partialOffset;
+}
+
+// NOTE: CheerpOS can unwind wasm code at any call and resume the function in its interpreter with only the stack
+//       pointer and the call's result on the operand stack, so nothing else may be on the stack under such a call
+static bool mayUnwindIntoCheerpOSInterpreter(const CallInst& CI)
+{
+	const Function* F = CI.getFunction();
+	if(F->getSection() != "asmjs" || !Triple(F->getParent()->getTargetTriple()).isCheerpOS())
+		return false;
+	const Function* callee = CI.getCalledFunction();
+	return !callee || !TypedBuiltinInstr::isWasmIntrinsic(callee);
+}
+
+// NOTE: Mirrors the order in which the wasm writer emits the operands of 'user'
+static bool isRenderedFirstInWasm(const Instruction& user, const Instruction& operand)
+{
+	if(const CallInst* ci = dyn_cast<CallInst>(&user))
+		return !isa<IntrinsicInst>(ci) && ci->arg_size() > 0 && ci->getArgOperand(0) == &operand;
+	// NOTE: A store renders its address before its value, a select its condition last, a GEP its values sorted by
+	//       multiplier, and the writer may swap the operands of commutative operations
+	if(isa<StoreInst>(user) || isa<SelectInst>(user) || isa<GetElementPtrInst>(user) || user.isCommutative())
+		return false;
+	return user.getOperand(0) == &operand;
 }
 
 bool isInlineable(const Instruction& I, const PointerAnalyzer& PA)
@@ -389,6 +414,7 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 				}
 
 				const bool hasSideEffects = I.mayHaveSideEffects();
+				const bool mustRenderFirst = isa<CallInst>(I) && mayUnwindIntoCheerpOSInterpreter(cast<CallInst>(I));
 				// Skip up to N instructions, looking for the final not-inlineable user of this load/call
 				// If we find no interfering instructions along the way it is safe to inline
 				// TODO: Currently we assume that crossing an instruction implies reordering, but in reality this actually depends on rendering
@@ -407,6 +433,8 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 					if(curUser == nextInst)
 					{
 						// Reached the direct user
+						if(mustRenderFirst && !isRenderedFirstInWasm(*curUser, *curInst))
+							break;
 						if(!nextInst->hasOneUse() &&
 							(nextInst->getOpcode() == Instruction::BitCast ||
 							nextInst->getOpcode() == Instruction::AddrSpaceCast ||
