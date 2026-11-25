@@ -393,8 +393,10 @@ bool StoreMerging::processBlockOfStores(const std::unordered_map<const llvm::Val
 		{
 			assert(strategy == LOAD);
 			LoadInst* lowLoad = cast<LoadInst>(lowValue);
-			Value* loadBitcast = builder.CreateBitOrPointerCast(lowLoad->getPointerOperand(), bigType->getPointerTo(lowLoad->getPointerOperand()->getType()->getPointerAddressSpace()));
-			LoadInst* newLoad = builder.CreateLoad(bigType, loadBitcast);
+			// NOTE: The loads are only known to be reorderable up to the low load, memory may change between there and the stores
+			IRBuilder<> loadBuilder(lowLoad);
+			Value* loadBitcast = loadBuilder.CreateBitOrPointerCast(lowLoad->getPointerOperand(), bigType->getPointerTo(lowLoad->getPointerOperand()->getType()->getPointerAddressSpace()));
+			LoadInst* newLoad = loadBuilder.CreateLoad(bigType, loadBitcast);
 			newLoad->setAlignment(llvm::Align(alignment));
 			sum = newLoad;
 		}
