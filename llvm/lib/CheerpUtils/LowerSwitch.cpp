@@ -13,10 +13,12 @@
 #include "llvm/Analysis/LazyValueInfo.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Utils/LowerSwitch.h"
+#include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Cheerp/CFGPasses.h"
 #include "llvm/IR/Constants.h"
 #include <unordered_map>
 #include <unordered_set>
+#include <vector>
 
 using namespace llvm;
 
@@ -30,7 +32,7 @@ public:
 	bool runOnFunction(Function &F, AssumptionCache* AC);
 private:
 	const bool onlyLowerI64;
-        bool processSwitchInst(SwitchInst *SI);
+	bool processSwitchInst(SwitchInst *SI, std::vector<BasicBlock*>& DeleteList);
 	bool keepSwitch(const SwitchInst* si);
 };
 
@@ -715,10 +717,15 @@ private:
 
 bool CheerpLowerSwitch::runOnFunction(Function& F, AssumptionCache* AC)
 {
-	return LowerSwitch(F, nullptr, AC, [this](SwitchInst* SI) { return processSwitchInst(SI); });
+	std::vector<BasicBlock*> DeleteList;
+	bool changed = LowerSwitch(F, nullptr, AC, [this, &DeleteList](SwitchInst* SI) { return processSwitchInst(SI, DeleteList); });
+	// We can't remove these before _after_ LowerSwitch() is done, or it will
+	// blow up trying to dyn_cast a block that doesn't exist.
+	for (BasicBlock *dead : DeleteList) DeleteDeadBlock(dead);
+	return changed;
 }
 
-bool CheerpLowerSwitch::processSwitchInst(SwitchInst *SI)
+bool CheerpLowerSwitch::processSwitchInst(SwitchInst *SI, std::vector<BasicBlock*>& DeleteList)
 {
 	DataOnSwitch data(SI);
 
@@ -737,7 +744,9 @@ bool CheerpLowerSwitch::processSwitchInst(SwitchInst *SI)
 
 	if (lowering.isValid())
 	{
+		BasicBlock *Default = SI->getDefaultDest();
 		lowering.lowerGreedily(data);
+		if (Default->hasNPredecessors(0)) DeleteList.push_back(Default);
 		return true;
 	}
 	else
