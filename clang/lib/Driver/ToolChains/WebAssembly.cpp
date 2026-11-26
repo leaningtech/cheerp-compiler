@@ -681,6 +681,13 @@ void cheerp::Link::ConstructJob(Compilation &C, const JobAction &JA,
   C.addCommand(std::make_unique<Command>(JA, *this, ResponseFileSupport::None(), Exec, CmdArgs, Inputs));
 }
 
+// NOTE: A CheerpOS program always runs on shared memory and its libc always provides threads,
+//       so build systems that probe for pthreads never add -pthread
+static bool usesThreads(const llvm::Triple& triple, const ArgList& Args)
+{
+  return Args.hasArg(options::OPT_pthread) || triple.isCheerpOSStandalone();
+}
+
 void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
                                           const InputInfo &Output,
                                           const InputInfoList &Inputs,
@@ -770,7 +777,7 @@ void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
   if (Args.hasArg(options::OPT_cheerp_no_icf))
     CmdArgs.push_back("-cheerp-no-icf");
 
-  if (!Args.hasArg(options::OPT_pthread))
+  if (!usesThreads(triple, Args))
     CmdArgs.push_back("-cheerp-lower-atomics");
 
   addPass("function(CheerpLowerInvoke)");
@@ -1006,7 +1013,7 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
   bool resizableMem = false;
 
   // pthread implies shared memory
-  if (!Args.hasArg(options::OPT_pthread))
+  if (!usesThreads(triple, Args))
     CmdArgs.push_back("-cheerp-lower-atomics");
   else
     sharedMem = true;
